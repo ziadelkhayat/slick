@@ -7,7 +7,7 @@
   const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: true, autoRefreshToken: true } });
 
   // app collection -> table, and which columns each table accepts
-  const TABLE = { inv_items: "inventory_items", zones: "delivery_zones" };
+  const TABLE = { inv_items: "inventory_items", zones: "delivery_zones", inv_categories: "inventory_categories", inv_docs: "inventory_docs" };
   const COLS = {
     brands: "id name name_ar active deleted created_at",
     branches: "id brand_id name code address city phone open_time close_time active call_center production created_at",
@@ -17,6 +17,10 @@
     delivery_zones: "id name branch_id fee min_order eta polygon active deleted created_at",
     devices: "id name type branch_id code activated_at last_seen deleted created_at",
     shifts: "id device_id branch_id cashier opening_cash opened_at closed_at orders sales expected_cash counted_cash difference",
+    order_sources: "id name name_ar reference sort active deleted created_at",
+    inventory_categories: "id name name_ar reference deleted created_at",
+    warehouses: "id name reference address deleted created_at",
+    inventory_docs: "id kind ref name location_id reason direction status business_date items notes created_by submitted_by submitted_at deleted created_at",
     orders: "id brand_id no channel source type status branch_id device_id shift_id zone_id customer_name phone address lat lng table_no notes items subtotal discount_pct discount delivery_fee total payment agent handled_by accepted_at done_at void_reason voided_at voided_by created_at",
   };
   Object.keys(COLS).forEach(k => COLS[k] = new Set(COLS[k].split(" ")));

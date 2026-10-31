@@ -175,7 +175,7 @@ tr.click{cursor:pointer}tr.click:hover td{background:#faf9fd}
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="wokdb.js?v=8"></script>
+<script src="wokdb.js?v=9"></script>
 </head>
 <body>
 <div class="app">
@@ -257,10 +257,10 @@ const NAV = [
   {id:"call-center",t:"Call Center",i:"phone"},
   {id:"customers",t:"Customers",i:"users"},
   {t:"Reports",i:"chart",kids:[["sales-reports","Sales Reports"],["inventory-reports","Inventory Reports"],["business-reports","Business Reports"],["analysis-reports","Analysis Reports"]]},
-  {t:"Inventory",i:"box",kids:[["inv-items","Items"],["suppliers","Suppliers"],["purchase-orders","Purchase Orders"],["transfer-orders","Transfer Orders"],["inventory-count","Inventory Count"],["warehouses","Warehouses"],["adjustments","Quantity & Cost Adjustments"],["spot-check","Spot Check"]]},
+  {t:"Inventory",i:"box",kids:[["inv-items","Items"],["suppliers","Suppliers"],["purchase-orders","Purchase Orders"],["transfer-orders","Transfer Orders"],["inventory-count","Inventory Count"],["@More"],["quantity-adjustments","Quantity Adjustment"],["cost-adjustments","Cost Adjustment"],["order-transactions","Order Transactions"],["inv-categories","Inventory Categories"],["warehouses","Warehouses"],["spot-check","Inventory Spot Check"],["count-sheets","Count Sheet"]]},
   {t:"Recipes & Production",i:"chef",kids:[["recipes","Recipes"],["prep-items","Prep Items (Sub-recipes)"],["production","Production Batches"],["food-cost","Food Cost Analysis"]]},
   {t:"Menu",i:"book",kids:[["@Menu Builder"],["categories","Categories"],["products","Products"],["modifiers","Modifiers"],["combos","Combos"],["groups","Groups"],["@Menu Settings"],["price-tags","Price Tags"],["allergens","Allergens"]]},
-  {t:"Manage",i:"gear",kids:[["users","Users"],["roles","Roles"],["brands","Brands"],["branches","Branches"],["devices","Devices"],["taxes","Taxes & Groups"],["payment-methods","Payment Methods"],["charges","Charges"],["delivery-zones","Delivery Zones"],["online-ordering","Online Ordering"],["kitchen-flows","Kitchen Flows"],["reasons","Reasons"],["settings","Settings"]]},
+  {t:"Manage",i:"gear",kids:[["users","Users"],["roles","Roles"],["brands","Brands"],["branches","Branches"],["devices","Devices"],["taxes","Taxes & Groups"],["payment-methods","Payment Methods"],["order-sources","Order Sources"],["charges","Charges"],["delivery-zones","Delivery Zones"],["online-ordering","Online Ordering"],["kitchen-flows","Kitchen Flows"],["reasons","Reasons"],["settings","Settings"]]},
   {t:"Marketing",i:"tag",kids:[["loyalty","Loyalty"],["gift-cards","Gift Cards"],["discounts","Discounts"],["promotions","Promotions"],["coupons","Coupons"]]}
 ];
 const TITLES = {};
@@ -674,7 +674,7 @@ $("#cYes").addEventListener("click", async () => {
 let tt; function toast(m){ const t = $("#toast"); t.textContent = m; t.classList.add("show"); clearTimeout(tt); tt = setTimeout(()=>t.classList.remove("show"), 2200); }
 
 /* ---------- generic collections (menu, inventory, devices, call center, online ordering) ---------- */
-const COLS = ["brands","categories","products","inv_items","devices","orders","zones","settings"];
+const COLS = ["brands","categories","products","inv_items","devices","orders","zones","settings","order_sources","inv_categories","warehouses","inv_docs"];
 const S = {}; COLS.forEach(c => S[c] = []);
 function subscribeAll(){
   COLS.forEach(c => db.collection(c).onSnapshot(snap => {
@@ -682,9 +682,14 @@ function subscribeAll(){
     if(c==="orders" && DASH.key) dashSoon();
     if(c==="orders" && ORD.key) ordSoon();
     if(c==="orders" && CUS.key && location.hash.slice(1)==="customers"){ clearTimeout(CUS.t); CUS.t = setTimeout(()=>loadCustomers(true), 2000); }
-    render();
+    softRender();
   }, err => console.error("load " + c, err)));
 }
+// don't redraw the page under someone who is typing; redraw when they leave the field
+let pendingRender = false;
+const typingInView = () => { const a = document.activeElement; return a && $("#view")?.contains(a) && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName); };
+function softRender(){ if(typingInView()){ pendingRender = true; return; } render(); }
+document.addEventListener("focusout", () => setTimeout(() => { if(pendingRender && !typingInView()){ pendingRender = false; render(); } }, 0));
 const uid = p => p + "_" + Date.now().toString(36) + Math.random().toString(36).slice(2,6);
 async function put(col, id, data){
   const now = new Date().toISOString();
@@ -756,11 +761,48 @@ const CRUD = {
       ["Type",r=>r.kind==="produced"?'<span class="tag cc">Produced</span>':'<span class="tag off">Purchased</span>'],
       ["Storage unit",r=>esc(r.storageUnit||"—")],["Cost",r=>r.cost?usd(r.cost):"—","num"]],
     fields:[{k:"name",l:"Name",req:1},{k:"sku",l:"SKU",auto:()=>nextSku("inv_items")},
-      {k:"category",l:"Category",t:"list",opts:()=>[...new Set(S.inv_items.map(i=>i.category).filter(Boolean))].sort()},
+      {k:"category",l:"Category",t:"select",opts:()=>invCatNames().map(n=>[n,n])},
       {k:"kind",l:"Type",t:"select",opts:()=>[["purchased","Purchased"],["produced","Produced (made in-house)"]],def:"purchased"},
       {k:"storageUnit",l:"Storage unit",ph:"e.g. kg, box, gallon"},{k:"ingredientUnit",l:"Ingredient unit",ph:"e.g. g, ml, piece"},
       {k:"factor",l:"Storage → ingredient factor",t:"number",ph:"e.g. 1000"},{k:"cost",l:"Cost per storage unit (USD)",t:"number"},
       {k:"minLevel",l:"Minimum level",t:"number"},{k:"parLevel",l:"Par level",t:"number"},{k:"barcode",l:"Barcode"}]
+  },
+  "inv-categories": {
+    col:"inv_categories", title:"Inventory Categories", one:"Category",
+    tabs:[["all","All",live],["deleted","Deleted",r=>r.deleted]],
+    sort:(a,b)=>a.name.localeCompare(b.name),
+    search:r=>r.name+" "+(r.reference||""),
+    cols:[["Name",r=>`<b>${esc(r.name)}</b>${r.nameAr?` <span class="note">${esc(r.nameAr)}</span>`:""}`],["Reference",r=>esc(r.reference||"—")],
+      ["Items",r=>S.inv_items.filter(i=>live(i)&&i.category===r.name).length,"num"],["Created",r=>fmtDate(r.createdAt)]],
+    fields:[{k:"name",l:"Name",req:1},{k:"nameAr",l:"Name (Arabic)"},{k:"reference",l:"Reference"}],
+    unique:"name",
+    async after(old, data){   // keep items attached when a category is renamed
+      if(!old || !old.name || old.name===data.name) return;
+      const its = S.inv_items.filter(i=>i.category===old.name);
+      for(const i of its) await put("inv_items", i.id, { category: data.name });
+      if(its.length) toast(`Moved ${its.length} item${its.length===1?"":"s"} to "${data.name}"`);
+    }
+  },
+  warehouses: {
+    col:"warehouses", title:"Warehouses", one:"Warehouse",
+    tabs:[["all","All",live],["deleted","Deleted",r=>r.deleted]],
+    sort:(a,b)=>(a.reference||"").localeCompare(b.reference||"",undefined,{numeric:true}) || a.name.localeCompare(b.name),
+    search:r=>r.name+" "+(r.reference||""),
+    cols:[["Name",r=>`<b>${esc(r.name)}</b>`],["Reference",r=>`<span class="code">${esc(r.reference||"")}</span>`],["Address",r=>esc(r.address||"—")],["Created",r=>fmtDate(r.createdAt)]],
+    fields:[{k:"name",l:"Name",req:1},{k:"reference",l:"Reference",auto:()=>"W"+String(S.warehouses.length+1).padStart(2,"0")},{k:"address",l:"Address",full:1}],
+    unique:"name"
+  },
+  "order-sources": {
+    col:"order_sources", title:"Order Sources", one:"Order Source",
+    tabs:[["all","All",live],["active","Active",r=>live(r)&&r.active!==false],["inactive","Inactive",r=>live(r)&&r.active===false],["deleted","Deleted",r=>r.deleted]],
+    sort:(a,b)=>(a.sort??999)-(b.sort??999) || a.name.localeCompare(b.name),
+    search:r=>r.name+" "+(r.reference||""),
+    cols:[["Name",r=>`<b>${esc(r.name)}</b>${r.nameAr?` <span class="note">${esc(r.nameAr)}</span>`:""}`],["Reference",r=>esc(r.reference||"—")],
+      ["Sort",r=>r.sort??"—","num"],["Status",r=>r.active===false?'<span class="tag off">Inactive</span>':'<span class="tag on">Active</span>']],
+    fields:[{k:"name",l:"Name",req:1},{k:"nameAr",l:"Name (Arabic)"},{k:"reference",l:"Reference"},{k:"sort",l:"Sort order",t:"number",auto:()=>S.order_sources.filter(live).length+1},
+      {k:"active",l:"Show in the call center",t:"chk",def:true}],
+    unique:"name",
+    note:"These are the choices in the call center's Source list (where the order came from). Inactive sources are hidden from new orders but kept on old ones."
   },
   "delivery-zones": {
     col:"zones", title:"Delivery Zones", one:"Delivery Zone",
@@ -786,6 +828,7 @@ function crudView(key){
   const shown = list.slice((pg-1)*per, pg*per);
   let h = `<div class="phead"><h1>${cfg.title}</h1><div class="sp"></div><button class="btn pri" data-create="${key}">Create ${cfg.one}</button></div>`;
   if(storeMode==="local") h += `<div class="banner">Preview mode: changes won't be saved.</div>`;
+  if(cfg.note) h += `<p class="subt" style="margin-top:-6px">${esc(cfg.note)}</p>`;
   if(key==="delivery-zones") h += `<div class="card" style="padding:0;overflow:hidden;margin-bottom:16px"><div id="zonesMap" style="height:380px"></div><div id="zonesLegend" class="legend"></div></div>`;
   h += `<div class="card tbl"><div class="ttop"><div class="ttabs">${cfg.tabs.map(t=>`<a href="#${key}" data-tab="${key}:${t[0]}" class="${tab===t[0]?"on":""}">${t[1]}</a>`).join("")}</div>
     ${key==="products"&&state.catFilter?`<span class="chip">Category: ${esc(catName(state.catFilter))} <button data-clearcat aria-label="Clear">×</button></span>`:""}
@@ -836,7 +879,9 @@ async function submitCrud(e){
     if(f.req && (data[f.k]===""||data[f.k]===null)){ $("#cErr").textContent = f.l + " is required."; el.focus(); return; }
   }
   if(cfg.fields.some(f=>f.k==="sku") && data.sku && S[cfg.col].some(r=>r.id!==crudEdit.id && live(r) && r.sku===data.sku)){ $("#cErr").textContent = "That SKU is already used."; return; }
-  try{ await put(cfg.col, crudEdit.id, data); toast(cfg.one + " saved"); closeCrud(); }
+  if(cfg.unique && S[cfg.col].some(r=>r.id!==crudEdit.id && live(r) && String(r[cfg.unique]||"").toLowerCase()===String(data[cfg.unique]||"").toLowerCase())){ $("#cErr").textContent = `That ${cfg.unique} is already used by another ${cfg.one.toLowerCase()}.`; return; }
+  const old = crudEdit.id ? { ...S[cfg.col].find(r=>r.id===crudEdit.id) } : null;
+  try{ await put(cfg.col, crudEdit.id, data); if(cfg.after) await cfg.after(old, data); toast(cfg.one + " saved"); closeCrud(); }
   catch(err){ console.error(err); $("#cErr").textContent = "Couldn't save. You may not have edit access."; }
 }
 async function softDelete(flag){
@@ -896,7 +941,8 @@ const CC_COLS = [["draft","Draft","Orders that are not yet sent to the branch"],
   ["active","Active","Orders that are currently being prepared in the branch"],["declined","Declined","Orders that have been declined from the branch or the call center"],
   ["closed","Closed","Orders that are completed, voided, joined or returned"]];
 const CC_SUB = { draft:"Draft", pending:"Sent to branch", active:"Sent To Kitchen", declined:"Declined", closed:"Done" };
-const SOURCES = ["Phone","Toters","NokNok","Talabat","WhatsApp","Website","Walk-in"];
+const SOURCES_DEF = ["Phone","Toters","NokNok","Talabat","WhatsApp","Website","Walk-in"];
+function sourceList(cur){ const l = S.order_sources.filter(r=>live(r)&&r.active!==false).sort(CRUD["order-sources"].sort).map(r=>r.name); const out = l.length ? l : SOURCES_DEF; return cur && !out.includes(cur) ? [cur, ...out] : out; }
 state.ccBranch = "all"; state.ccAgent = "all"; state.ccTab = "today";
 function viewCallCenter(){
   const today = new Date().toDateString();
@@ -930,7 +976,7 @@ function openOrder(id){
   <div class="ccgrid"><div class="ccleft">
     <div class="f"><label for="oPhone">Customer phone *</label><input id="oPhone" value="${esc(o?.phone||"")}" ${ro?"disabled":""} placeholder="+961 …"></div>
     <div class="f"><label for="oName">Customer name</label><input id="oName" value="${esc(o?.customerName||"")}" ${ro?"disabled":""}></div>
-    <div class="f"><label for="oSource">Source</label><select id="oSource" ${ro?"disabled":""}>${SOURCES.map(s=>`<option ${(o?.source||"Phone")===s?"selected":""}>${s}</option>`).join("")}</select></div>
+    <div class="f"><label for="oSource">Source</label><select id="oSource" ${ro?"disabled":""}>${sourceList(o?.source).map((s,i)=>`<option ${(o?.source ? o.source===s : i===0)?"selected":""}>${esc(s)}</option>`).join("")}</select></div>
     <div class="f"><label>Order type</label><div class="seg" id="oType">${[["delivery","Delivery"],["pickup","Pickup"]].map(([k,t])=>`<button type="button" data-ot="${k}" class="${(o?.type||"delivery")===k?"on":""}" ${ro?"disabled":""}>${t}</button>`).join("")}</div></div>
     <div class="f" id="oAddrF"><label for="oAddr">Delivery address</label><textarea id="oAddr" rows="2" ${ro?"disabled":""}>${esc(o?.address||"")}</textarea></div>
     <div class="f"><label for="oBrand">Brand *</label><select id="oBrand" ${ro?"disabled":""}><option value="">Choose brand…</option>${brandList().filter(b=>b.active!==false).map(b=>`<option value="${esc(b.id)}" ${(o?.brandId||defaultBrand())===b.id?"selected":""}>${esc(b.name)}</option>`).join("")}</select></div>
@@ -1065,6 +1111,8 @@ function moduleRoute(route){
   if(route==="inventory-count") return viewInventoryCount();
   if(route==="orders") return viewOrders();
   if(route==="customers") return viewCustomers();
+  if(DOC_KINDS[route]) return viewDocs(route);
+  if(route==="order-transactions") return `<h1>Order Transactions</h1><p class="subt">Consumption, returns and waste created automatically from sales.</p>` + placeholder("Starts with recipes", "Each sold product will deduct its recipe ingredients from the branch stock and show up here (Consumption, Return, Waste). It turns on once recipes are set up under Recipes & Production.");
   return null;
 }
 
@@ -1364,8 +1412,241 @@ document.addEventListener("click", e => {
   const co = e.target.closest("tr[data-coid]"); if(co) return openOrderDetail(co.dataset.coid);
 });
 
+/* ---------- Inventory documents: quantity & cost adjustments, spot checks, count sheets (Foodics "More") ---------- */
+const DOC_KINDS = {
+  "quantity-adjustments": { kind:"quantity", title:"Quantity Adjustment", plural:"Quantity Adjustment", loc:1, intro:"Deduct waste, expired or damaged stock, or add stock found. Submitting updates the stock level of each item at the chosen branch or warehouse." },
+  "cost-adjustments":     { kind:"cost", title:"Cost Adjustment", plural:"Cost Adjustment", intro:"Adjust your inventory value here by creating a cost adjustment transaction with the new cost of your inventory items." },
+  "spot-check":           { kind:"spot", title:"Inventory Spot Check", plural:"Inventory Spot Check", loc:1, intro:"The spot check captures the count of items made by the audit team. It does not change the stock levels and is only used as a reference." },
+  "count-sheets":         { kind:"sheet", title:"Inventory Count Sheet", plural:"Count Sheet", intro:"A count sheet is a saved list of items. Pick it in Inventory Count, adjustments or spot checks to load just those items." }
+};
+const QA_REASONS = ["Waste","Expired","Damaged","Theft","Staff meal","Sample","Found stock","Other"];
+const DOC = { tab:{}, q:{}, open:null, edit:null, stock:null, stockAt:0, busy:false, err:"" };
+const invCatNames = () => { const m = S.inv_categories.filter(live).map(c=>c.name); S.inv_items.forEach(i=>{ if(i.category && !m.includes(i.category)) m.push(i.category); }); return m.sort((a,b)=>a.localeCompare(b)); };
+const locList = () => [...activeBranches().map(b=>[b.id,b.name]), ...S.warehouses.filter(live).map(w=>[w.id, w.name + (w.reference?` (${w.reference})`:"") ])];
+const locName = id => branches.find(b=>b.id===id)?.name || S.warehouses.find(w=>w.id===id)?.name || "—";
+const itemOf = id => S.inv_items.find(i=>i.id===id);
+const n2 = v => (+v||0).toLocaleString("en-US",{maximumFractionDigits:3});
+async function loadStock(force){
+  if(storeMode!=="db" || DOC.stock==="loading" || (!force && DOC.stock && Date.now()-DOC.stockAt < 60000)) return;
+  DOC.stock = "loading";
+  const { data, error } = await WOK.sb.rpc("slick_stock_all");
+  if(error){ console.error(error); DOC.stock = {}; toast("Couldn't load stock levels"); }
+  else { DOC.stock = {}; (data||[]).forEach(r => (DOC.stock[r.location_id] ||= {})[r.item_id] = +r.qty); }
+  DOC.stockAt = Date.now(); render();
+}
+const stockOf = (loc, item) => (DOC.stock && DOC.stock!=="loading" && DOC.stock[loc]) ? DOC.stock[loc][item] : undefined;
+
+function viewDocs(route){
+  const K = DOC_KINDS[route];
+  if(DOC.open && DOC.open.route===route) return viewDoc(route);
+  const tab = DOC.tab[route] || "all", q = (DOC.q[route]||"").toLowerCase();
+  const all = S.inv_docs.filter(d => d.kind===K.kind && live(d));
+  const list = all.filter(d => tab==="all" || d.status===tab).filter(d => !q || ((d.ref||"")+" "+(d.name||"")+" "+locName(d.locationId)+" "+(d.reason||"")).toLowerCase().includes(q))
+    .sort((a,b)=>String(b.createdAt).localeCompare(String(a.createdAt)));
+  const tabs = K.kind==="sheet" ? [] : [["all","All"],["draft","Draft"],["closed","Closed"]];
+  const cols = K.kind==="sheet" ? [["Reference",d=>`<span class="code">${esc(d.ref||"…")}</span>`],["Name",d=>`<b>${esc(d.name||"—")}</b>`],["Items",d=>(d.items||[]).length,"num"],["Created At",d=>fmtDate(d.createdAt)]]
+    : [["Reference",d=>`<span class="code">${esc(d.ref||"…")}</span>`], ...(K.loc?[["Branch",d=>esc(locName(d.locationId))]]:[]), ...(K.kind==="quantity"?[["Reason",d=>esc(d.reason||"—")+(d.direction==="add"?' <span class="tag on">Add</span>':"")]]:[]),
+       ["Items",d=>(d.items||[]).length,"num"],["Status",d=>d.status==="closed"?'<span class="tag on">Closed</span>':'<span class="tag off">Draft</span>'],["Business Date",d=>esc(d.businessDate||"—")],["Created",d=>fmtDate(d.createdAt)]];
+  let h = `<div class="phead"><h1>${K.plural}</h1><div class="sp"></div>${all.length?`<button class="btn" data-docexport="${route}">Export</button>`:""}<button class="btn pri" data-docnew="${route}">New ${K.title}</button></div>
+    <p class="subt" style="margin-top:-6px">${esc(K.intro)}</p>
+    <div class="card tbl"><div class="ttop"><div class="ttabs">${tabs.map(t=>`<a href="#${route}" data-doctab="${route}:${t[0]}" class="${tab===t[0]?"on":""}">${t[1]}</a>`).join("")}</div><div class="sp"></div>
+    <input class="sel search" data-docq="${route}" placeholder="Search" value="${esc(DOC.q[route]||"")}" aria-label="Search"></div>`;
+  h += list.length ? `<table><thead><tr>${cols.map(c=>`<th class="${c[2]||""}">${c[0]}</th>`).join("")}</tr></thead><tbody>${list.map(d=>`<tr class="click" data-docopen="${route}:${esc(d.id)}">${cols.map(c=>`<td class="${c[2]||""}">${c[1](d)}</td>`).join("")}</tr>`).join("")}</tbody></table>`
+    : `<div class="empty">${all.length ? "Nothing matches." : `No ${K.plural.toLowerCase()} yet.`}</div>`;
+  return h + `</div>`;
+}
+
+function newDoc(route){
+  const K = DOC_KINDS[route];
+  DOC.edit = { id:null, kind:K.kind, status:"draft", items:[], businessDate:daysAgo(0), direction:"deduct", reason:K.kind==="quantity"?"Waste":"", locationId: K.loc ? (state.branch!=="all" ? state.branch : (locList()[0]||[])[0] || "") : "", name:"", notes:"" };
+  DOC.open = { route, id:null }; DOC.err = ""; if(K.loc || K.kind==="cost") loadStock(); render(); window.scrollTo(0,0);
+}
+function openDoc(route, id){
+  const d = S.inv_docs.find(x=>x.id===id); if(!d) return;
+  DOC.edit = JSON.parse(JSON.stringify(d)); DOC.edit.items = Array.isArray(DOC.edit.items) ? DOC.edit.items : [];
+  DOC.open = { route, id }; DOC.err = ""; if(DOC_KINDS[route].loc) loadStock(); render(); window.scrollTo(0,0);
+}
+
+function viewDoc(route){
+  const K = DOC_KINDS[route], d = DOC.edit, ro = d.status==="closed", saved = d.id && S.inv_docs.find(x=>x.id===d.id);
+  if(d.id && saved && !DOC.busy && saved.ref && !d.ref) d.ref = saved.ref;
+  const loc = d.locationId, stockLoading = DOC.stock==="loading";
+  const usedIds = new Set(d.items.map(l=>l.itemId));
+  const avail = S.inv_items.filter(i=>live(i) && !usedIds.has(i.id)).sort((a,b)=>a.name.localeCompare(b.name));
+  const sheets = S.inv_docs.filter(x=>x.kind==="sheet" && live(x) && x.id!==d.id);
+  const info = (l, v) => `<div><div class="note">${l}</div><div>${v}</div></div>`;
+  let h = `<div class="phead"><a href="#${route}" class="btn" data-docback style="text-decoration:none">← Back</a><h1 style="margin-left:10px">${K.title}${d.ref?` (${esc(d.ref)})`:""}</h1>
+    ${K.kind!=="sheet" ? (ro?'<span class="tag on" style="margin-left:8px">Closed</span>':'<span class="tag off" style="margin-left:8px">Draft</span>') : ""}<div class="sp"></div>
+    ${d.id ? `<button class="btn" data-docprint>Print</button>` : ""}
+    ${d.id && !ro ? `<button class="btn danger" data-docdel>Delete</button>` : ""}
+    ${!ro ? `<button class="btn" data-docsave ${DOC.busy?"disabled":""}>${K.kind==="sheet"?"Save":"Save draft"}</button>` : ""}
+    ${!ro && K.kind!=="sheet" ? `<button class="btn pri" data-docsubmit ${DOC.busy||!d.items.length?"disabled":""}>${DOC.busy?"Working…":"Submit"}</button>` : ""}</div>`;
+  if(DOC.err) h += `<div class="banner" style="background:#fdecef;color:#9e0c24">${esc(DOC.err)}</div>`;
+  // header fields
+  if(ro){
+    h += `<div class="card" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:14px;margin-bottom:16px">
+      ${K.loc?info("Branch", esc(locName(loc))):""}${K.kind==="quantity"?info("Reason", esc(d.reason||"—")+(d.direction==="add"?" (added)":" (deducted)")):""}
+      ${info("Business Date", esc(d.businessDate||"—"))}${info("Creator", esc(d.createdBy||"—"))}${info("Submitter", esc(d.submittedBy||"—"))}
+      ${info("Submitted At", fmtDate(d.submittedAt))}${info("Created At", fmtDate(d.createdAt))}${info("Number of Items", d.items.length)}${d.notes?info("Notes", esc(d.notes)):""}</div>`;
+  } else {
+    h += `<div class="card" style="margin-bottom:16px"><div class="grid2" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px">
+      ${K.kind==="sheet" ? `<div class="f"><label for="dName">Name *</label><input id="dName" class="sel" value="${esc(d.name||"")}" placeholder="e.g. Branch Count Sheet"></div>` : ""}
+      ${K.loc ? `<div class="f"><label for="dLoc">Branch / warehouse *</label><select id="dLoc" class="sel"><option value="">Choose…</option>${locList().map(([k,t])=>`<option value="${esc(k)}" ${k===loc?"selected":""}>${esc(t)}</option>`).join("")}</select></div>` : ""}
+      ${K.kind==="quantity" ? `<div class="f"><label for="dReason">Reason</label><input id="dReason" class="sel" list="dReasonL" value="${esc(d.reason||"")}"><datalist id="dReasonL">${QA_REASONS.map(r=>`<option value="${esc(r)}">`).join("")}</datalist></div>
+        <div class="f"><label for="dDir">Type</label><select id="dDir" class="sel"><option value="deduct" ${d.direction!=="add"?"selected":""}>Deduct from stock</option><option value="add" ${d.direction==="add"?"selected":""}>Add to stock</option></select></div>` : ""}
+      ${K.kind!=="sheet" ? `<div class="f"><label for="dDate">Business date</label><input id="dDate" type="date" class="sel" value="${esc(d.businessDate||"")}"></div>` : ""}
+      <div class="f" style="grid-column:1/-1"><label for="dNotes">Notes</label><input id="dNotes" class="sel" value="${esc(d.notes||"")}"></div></div></div>`;
+  }
+  // add items bar
+  if(!ro){
+    h += `<div class="row fbar">
+      <input class="sel" id="dAdd" list="dAddL" placeholder="Add item: type a name or SKU" style="min-width:280px"><datalist id="dAddL">${avail.map(i=>`<option value="${esc(i.name)} · ${esc(i.sku||"")}">`).join("")}</datalist>
+      <select class="sel" id="dAddCat" aria-label="Add a whole category"><option value="">Add all items of a category…</option>${invCatNames().map(c=>`<option>${esc(c)}</option>`).join("")}</select>
+      ${sheets.length?`<select class="sel" id="dAddSheet" aria-label="Load a count sheet"><option value="">Load count sheet…</option>${sheets.map(s=>`<option value="${esc(s.id)}">${esc(s.name||s.ref)}</option>`).join("")}</select>`:""}
+      <span class="sp"></span>${d.items.length?`<button class="btn sm" data-docclear>Remove all</button>`:""}</div>`;
+  }
+  // items table
+  const rows = d.items.map((l, ix) => {
+    const it = itemOf(l.itemId) || { name:"(deleted item)", sku:"" }, cur = K.loc ? stockOf(loc, l.itemId) : undefined;
+    const del = ro ? "" : `<td><button class="btn sm" data-docrm="${ix}" aria-label="Remove ${esc(it.name)}">×</button></td>`;
+    const qIn = (f, v, lbl) => ro ? n2(v) : `<input type="number" min="0" step="any" inputmode="decimal" class="sel" data-docl="${ix}:${f}" value="${esc(v ?? "")}" style="width:110px;text-align:right" aria-label="${lbl} of ${esc(it.name)}">`;
+    const base = `<td><b>${esc(it.name)}</b></td><td><span class="code">${esc(it.sku||"")}</span></td>`;
+    if(K.kind==="quantity"){
+      const cost = ro && l.cost!=null ? +l.cost : +it.cost||0, q = +l.qty||0, now = Math.max(0, (cur||0) + (d.direction==="add"?q:-q));
+      return `<tr>${base}<td>${esc(it.storageUnit||"—")}</td>${ro?"":`<td class="num">${stockLoading?"…":cur===undefined?'<span class="note">Not counted</span>':n2(cur)}</td>`}
+        <td class="num">${qIn("qty", l.qty, "Quantity")}</td>${ro?"":`<td class="num" data-docnq="${ix}">${stockLoading?"…":n2(now)}</td>`}<td class="num">${cost?usd(cost):"—"}</td><td class="num" data-doctc="${ix}">${cost?usd(cost*q):"—"}</td>${del}</tr>`;
+    }
+    if(K.kind==="cost") return `<tr>${base}<td>${esc(it.storageUnit||"—")}</td><td class="num">${ro ? (l.old!=null?usd(l.old):"—") : (+it.cost?usd(it.cost):"—")}</td><td class="num">${ro?usd(l.cost):qIn("cost", l.cost, "New cost")}</td>${del}</tr>`;
+    if(K.kind==="spot"){ const sys = ro ? l.sys : cur, c = l.qty, v = (c===""||c==null||sys==null) ? null : +c - +sys;
+      return `<tr>${base}<td>${esc(it.storageUnit||"—")}</td><td class="num">${stockLoading&&!ro?"…":sys==null?'<span class="note">Not counted</span>':n2(sys)}</td><td class="num">${qIn("qty", l.qty, "Counted quantity")}</td>
+        <td class="num" data-docvar="${ix}" style="${v<0?"color:var(--accent-ink);font-weight:600":""}">${v==null?"—":(v>0?"+":"")+n2(v)}</td>${del}</tr>`; }
+    return `<tr>${base}<td>${esc(it.storageUnit||"—")}</td><td>${esc(it.ingredientUnit||"—")}</td>${del}</tr>`;
+  });
+  const head = K.kind==="quantity" ? ["Name","SKU","Storage unit",...(ro?[]:["Current qty"]),d.direction==="add"?"Added qty":"Deducted qty",...(ro?[]:["New qty"]),"Unit cost","Total cost"]
+    : K.kind==="cost" ? ["Name","SKU","Storage unit",ro?"Old cost":"Current cost","New cost"]
+    : K.kind==="spot" ? ["Name","SKU","Storage unit","System qty","Counted qty","Variance"] : ["Name","SKU","Storage UOM","Ingredients UOM"];
+  const numCols = new Set(["Current qty","Deducted qty","Added qty","New qty","Unit cost","Total cost","Current cost","Old cost","New cost","System qty","Counted qty","Variance"]);
+  h += `<div class="card tbl"><div class="ttop"><b>Items</b><span class="note" style="margin-left:8px">${d.items.length}</span></div>`;
+  h += d.items.length ? `<table><thead><tr>${head.map(c=>`<th class="${numCols.has(c)?"num":""}">${c}</th>`).join("")}${ro?"":"<th></th>"}</tr></thead><tbody>${rows.join("")}</tbody>
+    ${K.kind==="quantity" ? (()=>{ const t = d.items.reduce((s,l)=>{ const it = itemOf(l.itemId)||{}; return s + (+l.qty||0) * (ro && l.cost!=null ? +l.cost : +it.cost||0); }, 0); return `<tfoot><tr><td colspan="${head.length-1}"><b>Total</b></td><td class="num"><b id="docTotal">${usd(t)}</b></td>${ro?"":"<td></td>"}</tr></tfoot>`; })() : ""}</table>`
+    : `<div class="empty">No items yet. Add items above${K.kind==="sheet"?"":" or load a count sheet"}.</div>`;
+  return h + `</div>`;
+}
+
+function docRowLive(ix){   // update the computed cells of one row while typing
+  const d = DOC.edit, l = d.items[ix], it = itemOf(l.itemId) || {}, cur = stockOf(d.locationId, l.itemId), q = +l.qty || 0;
+  if(d.kind==="quantity"){
+    const nq = $(`[data-docnq="${ix}"]`); if(nq && DOC.stock!=="loading") nq.textContent = n2(Math.max(0, (cur||0) + (d.direction==="add"?q:-q)));
+    const tc = $(`[data-doctc="${ix}"]`); if(tc) tc.textContent = +it.cost ? usd(+it.cost * q) : "—";
+    const tt = $("#docTotal"); if(tt) tt.textContent = usd(d.items.reduce((s,x)=>s + (+x.qty||0) * (+(itemOf(x.itemId)||{}).cost||0), 0));
+  }
+  if(d.kind==="spot"){ const el = $(`[data-docvar="${ix}"]`); if(el){ const v = (l.qty===""||cur===undefined) ? null : +l.qty - cur; el.textContent = v==null ? "—" : (v>0?"+":"") + n2(v); el.style.cssText = v<0 ? "color:var(--accent-ink);font-weight:600" : ""; } }
+}
+function readDocHeader(){
+  const d = DOC.edit; if(!d || d.status==="closed") return;
+  const v = id => $(id)?.value;
+  if($("#dName")) d.name = v("#dName").trim();
+  if($("#dLoc")) d.locationId = v("#dLoc");
+  if($("#dReason")) d.reason = v("#dReason").trim();
+  if($("#dDir")) d.direction = v("#dDir");
+  if($("#dDate")) d.businessDate = v("#dDate") || null;
+  if($("#dNotes")) d.notes = v("#dNotes").trim();
+}
+function docAddItems(ids){
+  const d = DOC.edit, have = new Set(d.items.map(l=>l.itemId)); let n = 0;
+  ids.forEach(id => { if(!have.has(id) && itemOf(id)){ d.items.push({ itemId:id, qty:"", cost: d.kind==="cost" ? (itemOf(id).cost ?? "") : undefined }); have.add(id); n++; } });
+  return n;
+}
+async function saveDoc(silent){
+  readDocHeader();
+  const d = DOC.edit, K = DOC_KINDS[DOC.open.route];
+  if(K.kind==="sheet" && !d.name){ DOC.err = "Give the count sheet a name."; render(); return false; }
+  const items = d.items.map(l => {
+    const it = itemOf(l.itemId) || {}, o = { itemId: l.itemId };
+    if(K.kind==="quantity"){ o.qty = l.qty===""||l.qty==null ? null : +l.qty; o.cost = +it.cost || 0; }
+    if(K.kind==="cost"){ o.cost = l.cost===""||l.cost==null ? null : +l.cost; o.old = it.cost ?? null; }
+    if(K.kind==="spot"){ o.qty = l.qty===""||l.qty==null ? null : +l.qty; const s = stockOf(d.locationId, l.itemId); o.sys = s===undefined ? null : s; }
+    return o;
+  });
+  const data = { kind:d.kind, name:d.name||null, locationId:d.locationId||null, reason:d.reason||null, direction:d.direction||"deduct", businessDate:d.businessDate||null, items, notes:d.notes||null };
+  const id = d.id || uid("idoc");
+  if(!d.id){ data.status = "draft"; data.createdBy = state.fullName || state.userName || null; }
+  DOC.busy = true; DOC.err = "";
+  try{ await put("inv_docs", id, data); d.id = id; DOC.open.id = id; Object.assign(d, data, { items }); if(!silent) toast(K.kind==="sheet" ? "Count sheet saved" : "Draft saved"); return true; }
+  catch(e){ console.error(e); DOC.err = "Couldn't save: " + (e.message || e); return false; }
+  finally{ DOC.busy = false; render(); }
+}
+async function submitDoc(){
+  const d = DOC.edit, K = DOC_KINDS[DOC.open.route]; readDocHeader();
+  if(K.loc && !d.locationId){ DOC.err = "Choose a branch or warehouse."; return render(); }
+  const bad = d.items.filter(l => K.kind==="cost" ? (l.cost===""||l.cost==null) : (l.qty===""||l.qty==null));
+  if(bad.length){ DOC.err = `Enter a ${K.kind==="cost"?"new cost":"quantity"} for every item (${bad.length} missing), or remove those rows.`; return render(); }
+  const msg = K.kind==="quantity" ? `Submit ${d.items.length} item${d.items.length===1?"":"s"}? This ${d.direction==="add"?"adds to":"deducts from"} the stock at ${locName(d.locationId)} and can't be edited afterwards.`
+    : K.kind==="cost" ? `Submit? The cost of ${d.items.length} item${d.items.length===1?"":"s"} will be updated and this can't be edited afterwards.` : "Submit this spot check? It can't be edited afterwards.";
+  if(!confirm(msg)) return;
+  if(!(await saveDoc(true))) return;
+  DOC.busy = true; render();
+  const { data, error } = await WOK.sb.rpc("slick_close_inv_doc", { p_id: d.id, p_by: state.fullName || state.userName || null });
+  DOC.busy = false;
+  if(error){ console.error(error); DOC.err = "Couldn't submit: " + error.message + (/permission|policy/i.test(error.message) ? " (only owners and admins can change item costs)" : ""); return render(); }
+  toast(`${data?.ref || "Document"} submitted`); DASH.key = ""; IC.loaded = {}; DOC.stockAt = 0;
+  d.status = "closed"; d.submittedAt = new Date().toISOString(); d.submittedBy = state.fullName || null; if(data?.ref) d.ref = data.ref;
+  loadStock(true); render();
+}
+async function deleteDoc(){
+  const d = DOC.edit; if(!d.id || !confirm(`Delete ${d.ref || "this draft"}?`)) return;
+  try{ await put("inv_docs", d.id, { deleted:true }); toast("Deleted"); DOC.open = null; DOC.edit = null; render(); }
+  catch(e){ console.error(e); toast("Couldn't delete"); }
+}
+function printDoc(){
+  const d = DOC.edit, K = DOC_KINDS[DOC.open.route]; if(!d) return;
+  const w = window.open("", "_blank", "width=820,height=900"); if(!w) return toast("Allow pop-ups to print");
+  const rows = d.items.map(l => { const it = itemOf(l.itemId) || {}; return `<tr><td>${esc(it.name||"")}</td><td>${esc(it.sku||"")}</td><td>${esc(it.storageUnit||"")}</td>${K.kind==="sheet"?"<td></td>":K.kind==="cost"?`<td>${l.cost??""}</td>`:`<td>${l.qty??""}</td>`}</tr>`; }).join("");
+  w.document.write(`<!doctype html><title>${esc(d.ref||K.title)}</title><style>body{font:13px/1.4 Inter,Arial,sans-serif;padding:24px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ccc;padding:6px 8px;text-align:left}th{background:#f3f2f7}</style>
+    <h2>${esc(K.title)} ${esc(d.ref||"")}${d.name?" — "+esc(d.name):""}</h2><p>${K.loc?"Branch: "+esc(locName(d.locationId))+" · ":""}${d.reason?"Reason: "+esc(d.reason)+" · ":""}${d.businessDate?"Date: "+esc(d.businessDate):""}</p>
+    <table><thead><tr><th>Name</th><th>SKU</th><th>Unit</th><th>${K.kind==="sheet"||K.kind==="spot"?"Counted":K.kind==="cost"?"New cost":"Quantity"}</th></tr></thead><tbody>${rows}</tbody></table><script>window.onload=()=>window.print()<\/script>`);
+  w.document.close();
+}
+function exportDocs(route){
+  const K = DOC_KINDS[route], out = [["Reference","Name","Branch","Reason","Type","Status","Business date","Item","SKU","Quantity","Cost","Created"]];
+  S.inv_docs.filter(d=>d.kind===K.kind && live(d)).forEach(d => (d.items||[]).forEach(l => { const it = itemOf(l.itemId)||{}; out.push([d.ref, d.name, locName(d.locationId), d.reason, d.direction, d.status, d.businessDate, it.name, it.sku, l.qty, l.cost, d.createdAt]); }));
+  const csv = out.map(r => r.map(v => `"${String(v??"").replace(/"/g,'""')}"`).join(",")).join("\n");
+  const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob(["﻿"+csv], {type:"text/csv"})); a.download = route + ".csv"; a.click();
+}
+document.addEventListener("click", e => {
+  const t = e.target;
+  const nw = t.closest("[data-docnew]"); if(nw){ e.preventDefault(); return newDoc(nw.dataset.docnew); }
+  const op = t.closest("[data-docopen]"); if(op){ const [r, id] = op.dataset.docopen.split(":"); return openDoc(r, id); }
+  const tb = t.closest("[data-doctab]"); if(tb){ e.preventDefault(); const [r, k] = tb.dataset.doctab.split(":"); DOC.tab[r] = k; return render(); }
+  const ex = t.closest("[data-docexport]"); if(ex) return exportDocs(ex.dataset.docexport);
+  if(!DOC.open) return;
+  if(t.closest("[data-docback]")){ e.preventDefault(); DOC.open = null; DOC.edit = null; return render(); }
+  if(t.closest("[data-docsave]")) return saveDoc();
+  if(t.closest("[data-docsubmit]")) return submitDoc();
+  if(t.closest("[data-docdel]")) return deleteDoc();
+  if(t.closest("[data-docprint]")) return printDoc();
+  if(t.closest("[data-docclear]")){ if(confirm("Remove all items from this list?")){ readDocHeader(); DOC.edit.items = []; render(); } return; }
+  const rm = t.closest("[data-docrm]"); if(rm){ readDocHeader(); DOC.edit.items.splice(+rm.dataset.docrm, 1); return render(); }
+});
+document.addEventListener("input", e => {
+  const t = e.target;
+  const qd = t.closest("[data-docq]"); if(qd){ DOC.q[qd.dataset.docq] = t.value; const pos = t.selectionStart; render(); const el = $(`[data-docq="${qd.dataset.docq}"]`); if(el){ el.focus(); el.setSelectionRange(pos,pos); } return; }
+  if(DOC.edit && ["dName","dReason","dDate","dNotes"].includes(t.id)){ readDocHeader(); return; }
+  const ln = t.closest("[data-docl]"); if(ln && DOC.edit){ const [ix, f] = ln.dataset.docl.split(":"); DOC.edit.items[+ix][f] = t.value; docRowLive(+ix); return; }
+});
+document.addEventListener("change", e => {
+  if(!DOC.open || !DOC.edit) return;
+  const t = e.target;
+  if(t.id==="dAdd"){ const v = t.value, it = S.inv_items.find(i => live(i) && (`${i.name} · ${i.sku||""}`===v || i.sku===v.trim() || i.name.toLowerCase()===v.trim().toLowerCase()));
+    if(!it){ if(v) toast("No item matches that name"); return; } readDocHeader(); docAddItems([it.id]); render(); setTimeout(()=>{ const q = document.querySelectorAll("[data-docl]"); q[q.length-1]?.focus(); }, 0); return; }
+  if(t.id==="dAddCat" && t.value){ readDocHeader(); const n = docAddItems(S.inv_items.filter(i=>live(i)&&i.category===t.value).sort((a,b)=>a.name.localeCompare(b.name)).map(i=>i.id)); toast(`Added ${n} item${n===1?"":"s"}`); return render(); }
+  if(t.id==="dAddSheet" && t.value){ readDocHeader(); const sh = S.inv_docs.find(x=>x.id===t.value); const n = docAddItems((sh?.items||[]).map(l=>l.itemId)); toast(`Added ${n} item${n===1?"":"s"}`); return render(); }
+  if(t.id==="dLoc" || t.id==="dDir"){ readDocHeader(); render(); }
+});
+window.addEventListener("hashchange", () => { if(DOC.open && location.hash.slice(1)!==DOC.open.route){ DOC.open = null; DOC.edit = null; } });
+
 /* ---------- Inventory Count: enter what's on the shelf; feeds the Inventory dashboard ---------- */
-const IC = { branch:"", levels:{}, loaded:{}, draft:{}, q:"", cat:"", saving:false };
+const IC = { branch:"", levels:{}, loaded:{}, draft:{}, q:"", cat:"", sheet:"", saving:false };
 async function loadLevels(branch, force){
   if(!branch || storeMode!=="db" || (!force && IC.loaded[branch])) return;
   IC.loaded[branch] = "loading";
@@ -1375,20 +1656,22 @@ async function loadLevels(branch, force){
   if(location.hash.slice(1)==="inventory-count") render();
 }
 function viewInventoryCount(){
-  const act = activeBranches();
+  const act = locList();
   if(!act.length) return `<h1>Inventory Count</h1>` + placeholder("No active branches", "Add a branch first.");
-  if(!act.some(b=>b.id===IC.branch)) IC.branch = state.branch!=="all" ? state.branch : act[0].id;
+  if(!act.some(b=>b[0]===IC.branch)) IC.branch = state.branch!=="all" && act.some(b=>b[0]===state.branch) ? state.branch : act[0][0];
+  const sheets = S.inv_docs.filter(x=>x.kind==="sheet" && live(x)), sheet = sheets.find(x=>x.id===IC.sheet), inSheet = sheet ? new Set((sheet.items||[]).map(l=>l.itemId)) : null;
   loadLevels(IC.branch);
   const lv = IC.levels[IC.branch] || {}, d = IC.draft[IC.branch] || {};
-  const cats = [...new Set(S.inv_items.filter(live).map(i=>i.category).filter(Boolean))].sort();
+  const cats = invCatNames();
   const q = IC.q.toLowerCase();
-  const items = S.inv_items.filter(live).filter(i => (!IC.cat || i.category===IC.cat) && (!q || (i.name+" "+(i.sku||"")).toLowerCase().includes(q)))
+  const items = S.inv_items.filter(live).filter(i => (!inSheet || inSheet.has(i.id)) && (!IC.cat || i.category===IC.cat) && (!q || (i.name+" "+(i.sku||"")).toLowerCase().includes(q)))
     .sort((a,b)=>(a.category||"").localeCompare(b.category||"") || a.name.localeCompare(b.name));
   const entered = Object.values(d).filter(v => v!=="" && v!=null).length;
   const fmtD = t => t ? new Date(t).toLocaleDateString("en-GB",{day:"numeric",month:"short"}) : "";
   return `<h1>Inventory Count</h1><p class="subt">Type what's on the shelf for each item, in its storage unit. Leave items blank to skip them. Each save keeps the previous counts as history.</p>
     <div class="row fbar">
-      <select class="sel" id="icBranch" aria-label="Branch">${act.map(b=>`<option value="${esc(b.id)}" ${b.id===IC.branch?"selected":""}>${esc(b.name)}</option>`).join("")}</select>
+      <select class="sel" id="icBranch" aria-label="Branch or warehouse">${act.map(([k,t])=>`<option value="${esc(k)}" ${k===IC.branch?"selected":""}>${esc(t)}</option>`).join("")}</select>
+      ${sheets.length?`<select class="sel" id="icSheet" aria-label="Count sheet"><option value="">All items</option>${sheets.map(x=>`<option value="${esc(x.id)}" ${x.id===IC.sheet?"selected":""}>${esc(x.name||x.ref)}</option>`).join("")}</select>`:""}
       <select class="sel" id="icCat" aria-label="Category"><option value="">All categories</option>${cats.map(c=>`<option ${c===IC.cat?"selected":""}>${esc(c)}</option>`).join("")}</select>
       <input class="sel" id="icQ" placeholder="Search items" value="${esc(IC.q)}" style="min-width:200px">
       <span class="sp"></span><span class="note" id="icCount">${entered} item${entered===1?"":"s"} entered</span>
@@ -1413,7 +1696,7 @@ async function saveCount(){
   const { error } = await WOK.sb.from("stock_counts").insert(rows);
   IC.saving = false;
   if(error){ console.error(error); toast("Couldn't save the count: " + error.message); render(); return; }
-  IC.draft[IC.branch] = {}; DASH.key = ""; toast(`Saved ${rows.length} item${rows.length===1?"":"s"} for ${branches.find(b=>b.id===IC.branch)?.name||"the branch"}`);
+  IC.draft[IC.branch] = {}; DASH.key = ""; toast(`Saved ${rows.length} item${rows.length===1?"":"s"} for ${locName(IC.branch)}`);
   await loadLevels(IC.branch, true); render();
 }
 $("#view").addEventListener("input", e => {
@@ -1426,6 +1709,7 @@ $("#view").addEventListener("input", e => {
 $("#view").addEventListener("change", e => {
   if(e.target.id==="icBranch"){ IC.branch = e.target.value; render(); }
   if(e.target.id==="icCat"){ IC.cat = e.target.value; render(); }
+  if(e.target.id==="icSheet"){ IC.sheet = e.target.value; render(); }
 });
 $("#view").addEventListener("click", e => {
   if(e.target.id==="icSave") saveCount();
