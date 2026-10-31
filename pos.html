@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Slick POS</title>
+<style>
+:root{--bg:#f3f2f7;--s:#fff;--ink:#1c1b22;--ink2:#5b5a66;--mut:#8d8c98;--line:#e5e3ec;--acc:#5b2bc4;--accs:#efe9fc;--acci:#47209e;--good:#1f8a4c;--goods:#e5f5ec;--warn:#b45a12;--warns:#fdf0e6;--bad:#9e0c24;--bads:#fdecef}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif;background:var(--bg);color:var(--ink);font-size:15px}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+.hide{display:none!important}
+/* activation */
+.center{min-height:100%;display:grid;place-items:center;padding:24px}
+.panel{background:var(--s);border-radius:16px;padding:32px;width:min(420px,100%);box-shadow:0 10px 40px rgba(30,20,60,.08);text-align:center}
+.logo{width:56px;height:56px;border-radius:14px;background:var(--acc);color:#fff;display:grid;place-items:center;font-weight:700;font-size:24px;margin:0 auto 14px}
+.panel h1{margin:0 0 6px;font-size:22px}.panel p{color:var(--ink2);margin:0 0 20px}
+.codein{width:100%;font-size:30px;letter-spacing:.4em;text-align:center;padding:12px;border:2px solid var(--line);border-radius:12px;font-family:ui-monospace,Menlo,monospace}
+.codein:focus{outline:none;border-color:var(--acc)}
+.big{width:100%;padding:14px;border:0;border-radius:12px;background:var(--acc);color:#fff;font-weight:600;font-size:16px;margin-top:14px}
+.big:disabled{opacity:.5}
+.err{color:var(--bad);font-size:13px;min-height:18px;margin-top:10px}
+/* app */
+.app{display:grid;grid-template-rows:56px 1fr;height:100vh}
+.top{display:flex;align-items:center;gap:12px;background:var(--s);border-bottom:1px solid var(--line);padding:0 14px}
+.top .logo{width:34px;height:34px;font-size:15px;border-radius:9px;margin:0}
+.top b{font-size:15px}.top .sp{flex:1}
+.tbtn{border:1px solid var(--line);background:var(--s);border-radius:10px;padding:8px 12px;font-weight:500;display:inline-flex;gap:6px;align-items:center}
+.tbtn .badge{background:var(--bad);color:#fff;border-radius:999px;font-size:12px;padding:0 7px;font-weight:600}
+.pill{font-size:12px;padding:3px 9px;border-radius:999px;background:var(--goods);color:var(--good);font-weight:500}
+.pill.off{background:var(--warns);color:var(--warn)}
+.main{display:grid;grid-template-columns:170px 1fr 380px;min-height:0}
+@media(max-width:1000px){.main{grid-template-columns:130px 1fr 320px}}
+.cats{background:var(--s);border-right:1px solid var(--line);overflow:auto;padding:8px}
+.cat{display:block;width:100%;text-align:left;border:0;background:none;padding:12px 10px;border-radius:10px;font-weight:500;color:var(--ink2);margin-bottom:2px}
+.cat.on{background:var(--accs);color:var(--acci)}
+.menu{overflow:auto;padding:14px;display:flex;flex-direction:column;gap:12px}
+.search{width:100%;padding:11px 14px;border:1px solid var(--line);border-radius:12px;background:var(--s)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.prod{background:var(--s);border:1px solid var(--line);border-radius:12px;padding:14px 12px;text-align:left;min-height:92px;display:flex;flex-direction:column;justify-content:space-between;gap:8px;transition:transform .05s}
+.prod:active{transform:scale(.97);border-color:var(--acc)}
+.prod span{font-weight:500;line-height:1.25}.prod b{color:var(--acci)}
+.cart{background:var(--s);border-left:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
+.otype{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;padding:12px;border-bottom:1px solid var(--line)}
+.otype button{border:1px solid var(--line);background:var(--s);border-radius:10px;padding:9px 4px;font-weight:500;font-size:14px}
+.otype button.on{background:var(--acc);border-color:var(--acc);color:#fff}
+.extra{padding:10px 12px;border-bottom:1px solid var(--line);display:grid;gap:8px}
+.extra input{padding:9px 11px;border:1px solid var(--line);border-radius:10px;width:100%}
+.lines{flex:1;overflow:auto;padding:4px 12px}
+.line{display:grid;grid-template-columns:1fr auto;gap:4px 10px;padding:10px 0;border-bottom:1px solid var(--line)}
+.line .n{font-weight:500}.line .p{text-align:right;font-variant-numeric:tabular-nums}
+.qty{display:inline-flex;align-items:center;gap:10px}.qty button{width:32px;height:32px;border-radius:9px;border:1px solid var(--line);background:var(--s);font-size:18px;line-height:1}
+.line .note{grid-column:1/-1;font-size:12px;color:var(--mut)}
+.empty{color:var(--mut);text-align:center;padding:40px 10px}
+.totals{padding:12px;border-top:1px solid var(--line);display:grid;gap:6px;font-variant-numeric:tabular-nums}
+.totals div{display:flex;justify-content:space-between}.totals .g{font-size:20px;font-weight:700}
+.acts{display:grid;grid-template-columns:1fr 1fr 2fr;gap:8px;padding:0 12px 12px}
+.acts button{border:1px solid var(--line);background:var(--s);border-radius:12px;padding:14px 6px;font-weight:600}
+.acts .pay{background:var(--acc);border-color:var(--acc);color:#fff;font-size:16px}
+.acts button:disabled{opacity:.45}
+/* modal */
+.scrim{position:fixed;inset:0;background:rgba(20,16,35,.45);display:none;align-items:center;justify-content:center;padding:16px;z-index:10}
+.scrim.show{display:flex}
+.modal{background:var(--s);border-radius:16px;width:min(520px,100%);max-height:92vh;overflow:auto}
+.modal.wide{width:min(860px,100%)}
+.mh{display:flex;align-items:center;padding:16px 20px;border-bottom:1px solid var(--line)}.mh h2{margin:0;font-size:18px;flex:1}
+.x{border:0;background:none;font-size:24px;color:var(--mut)}
+.mb{padding:18px 20px}
+.mf{display:flex;gap:8px;justify-content:flex-end;padding:14px 20px;border-top:1px solid var(--line)}
+.btn{border:1px solid var(--line);background:var(--s);border-radius:10px;padding:11px 16px;font-weight:600}
+.btn.pri{background:var(--acc);border-color:var(--acc);color:#fff}.btn.bad{color:var(--bad)}.btn:disabled{opacity:.5}
+.paym{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px}
+.paym button{border:1px solid var(--line);background:var(--s);border-radius:12px;padding:16px 6px;font-weight:600}.paym button.on{border-color:var(--acc);background:var(--accs);color:var(--acci)}
+.due{font-size:30px;font-weight:700;text-align:center;margin:4px 0 14px}
+.tender{width:100%;font-size:24px;padding:10px 12px;border:2px solid var(--line);border-radius:12px;text-align:right}
+.quick{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:10px}.quick button{border:1px solid var(--line);background:var(--s);border-radius:10px;padding:12px 4px;font-weight:600}
+.change{display:flex;justify-content:space-between;font-size:18px;margin-top:14px}
+.f{display:grid;gap:6px;margin-bottom:12px}.f label{font-size:13px;color:var(--ink2);font-weight:500}.f input,.f textarea{padding:10px 12px;border:1px solid var(--line);border-radius:10px}
+.receipt{font-family:ui-monospace,Menlo,monospace;font-size:13px;background:#fbfbfd;border:1px dashed var(--line);border-radius:10px;padding:16px;white-space:pre-wrap;line-height:1.5}
+.ilist{display:grid;gap:10px}
+.icard{border:1px solid var(--line);border-radius:12px;padding:12px 14px;display:grid;gap:6px}
+.icard .r{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.spill{font-size:12px;padding:2px 9px;border-radius:999px;font-weight:500}.s-pending{background:#e8f0fd;color:#2c5fb8}.s-active{background:var(--warns);color:var(--warn)}
+.mut{color:var(--mut);font-size:13px}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;padding:12px 18px;border-radius:10px;opacity:0;transition:opacity .2s;z-index:20;pointer-events:none}.toast.show{opacity:1}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}.stats div{background:var(--bg);border-radius:10px;padding:12px}.stats b{display:block;font-size:20px;margin-top:2px}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="wokdb.js"></script>
+</head>
+<body>
+<div id="boot" class="center"><div class="panel"><div class="logo">S</div><h1>Slick POS</h1><p>Connecting…</p></div></div>
+
+<div id="activate" class="center hide"><form class="panel" id="actForm">
+  <div class="logo">S</div><h1>Activate this device</h1>
+  <p>Enter the 6-digit activation code from the back office<br>(Manage → Devices).</p>
+  <input class="codein" id="code" inputmode="numeric" maxlength="6" autocomplete="off" placeholder="••••••" aria-label="Activation code">
+  <button class="big" id="actBtn" disabled>Activate</button>
+  <div class="err" id="actErr"></div>
+  <a href="index.html#devices" style="color:#5b2bc4;font-size:14px">← Back office</a>
+</form></div>
+
+<div id="app" class="app hide">
+  <div class="top">
+    <div class="logo">S</div><div><b id="tBranch">—</b><div class="mut" id="tDevice">—</div></div>
+    <span class="pill" id="shiftPill">Shift closed</span>
+    <div class="sp"></div>
+    <button class="tbtn" id="incomingBtn">Incoming orders <span class="badge hide" id="incBadge">0</span></button>
+    <button class="tbtn" id="shiftBtn">Open shift</button>
+    <button class="tbtn" id="menuBtn" aria-label="More">⋯</button>
+  </div>
+  <div class="main">
+    <nav class="cats" id="cats"></nav>
+    <section class="menu"><input class="search" id="q" placeholder="Search menu" aria-label="Search menu"><div class="grid" id="grid"></div></section>
+    <aside class="cart">
+      <div class="otype" id="otype"><button data-t="dinein" class="on">Dine-in</button><button data-t="takeaway">Takeaway</button><button data-t="delivery">Delivery</button></div>
+      <div class="extra" id="extra"></div>
+      <div class="lines" id="lines"></div>
+      <div class="totals" id="totals"></div>
+      <div class="acts"><button id="clearBtn">Clear</button><button id="discBtn">Discount</button><button class="pay" id="payBtn">Pay</button></div>
+    </aside>
+  </div>
+</div>
+
+<div class="scrim" id="scrim"><div class="modal" id="modal"></div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+(() => {
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const usd = n => "USD " + (+n||0).toFixed(2);
+const show = id => ["boot","activate","app"].forEach(x => $("#"+x).classList.toggle("hide", x!==id));
+let tt; const toast = m => { const t=$("#toast"); t.textContent=m; t.classList.add("show"); clearTimeout(tt); tt=setTimeout(()=>t.classList.remove("show"),2400); };
+const store = { get(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } }, set(k,v){ try{ v==null?localStorage.removeItem(k):localStorage.setItem(k,v); }catch(e){} } };
+
+let db = null;
+const S = { brands:[], devices:[], branches:[], categories:[], products:[], orders:[], shifts:[] };
+let device = null, branch = null, cat = "", otype = "dinein", cart = [], discount = 0, tableNo = "", cust = { name:"", phone:"", address:"" };
+
+/* ---------- boot ---------- */
+(async function boot(){
+  const timer = setTimeout(() => { if(!db) $("#boot p").textContent = "Can't reach the server. Check the connection and reopen."; }, 10000);
+  try{ db = window.claude && await window.claude.use("db"); }catch(e){ db = null; }
+  clearTimeout(timer);
+  if(!db){ $("#boot p").textContent = "Sign in with your staff account to continue."; return; }
+  Object.keys(S).forEach(c => db.collection(c).onSnapshot(snap => { S[c] = snap.docs.map(d => ({ ...d.data(), id:d.id })); onData(c); }, e => console.error(c, e)));
+})();
+let started = false;
+function onData(c){
+  if(c==="devices" && !started){ started = true; const id = store.get("wokDevice"); if(id && S.devices.some(d=>d.id===id && !d.deleted && d.activatedAt)) startApp(id); else { store.set("wokDevice", null); show("activate"); $("#code").focus(); } return; }
+  if(!device) return;
+  device = S.devices.find(d => d.id===device.id) || device;
+  if(device.deleted){ store.set("wokDevice", null); location.reload(); return; }
+  branch = S.branches.find(b => b.id===device.branchId) || branch;
+  renderAll();
+}
+
+/* ---------- activation ---------- */
+$("#code").addEventListener("input", e => { e.target.value = e.target.value.replace(/\D/g,""); $("#actBtn").disabled = e.target.value.length!==6; $("#actErr").textContent = ""; });
+$("#actForm").addEventListener("submit", async e => {
+  e.preventDefault();
+  const code = $("#code").value, d = S.devices.find(x => x.code===code && !x.deleted);
+  if(!d){ $("#actErr").textContent = "That code isn't valid. Check it in Manage → Devices."; return; }
+  if(d.activatedAt){ $("#actErr").textContent = "This code was already used. Generate a new code in the back office."; return; }
+  $("#actBtn").disabled = true;
+  try{ await db.collection("devices").doc(d.id).update({ activatedAt:new Date().toISOString(), lastSeen:new Date().toISOString() }); store.set("wokDevice", d.id); startApp(d.id); toast("Device activated"); }
+  catch(err){ console.error(err); $("#actErr").textContent = "Couldn't activate. You may not have access to this back office."; $("#actBtn").disabled = false; }
+});
+function startApp(id){
+  device = S.devices.find(d => d.id===id); branch = S.branches.find(b => b.id===device.branchId);
+  show("app"); renderAll();
+  setInterval(() => db.collection("devices").doc(device.id).update({ lastSeen:new Date().toISOString() }).catch(()=>{}), 5*60*1000);
+}
+
+/* ---------- data helpers ---------- */
+const live = r => !r.deleted;
+const products = () => S.products.filter(p => live(p) && p.active!==false && (!p.brandId || !branch?.brandId || p.brandId===branch.brandId) && (!p.channels || p.channels.includes("pos")) && (!p.branchIds?.length || p.branchIds.includes(device.branchId)));
+const openShift = () => S.shifts.find(s => s.deviceId===device.id && !s.closedAt);
+const incoming = () => S.orders.filter(o => o.branchId===device.branchId && o.channel!=="pos" && (o.status==="pending" || o.status==="active"));
+
+/* ---------- render ---------- */
+function renderAll(){
+  const bn = S.brands.find(b=>b.id===branch?.brandId)?.name;
+  $("#tBranch").textContent = (bn ? bn + " · " : "") + (branch?.name || "Unknown branch");
+  $("#tDevice").textContent = device.name;
+  const sh = openShift();
+  $("#shiftPill").textContent = sh ? "Shift open" : "Shift closed"; $("#shiftPill").classList.toggle("off", !sh);
+  $("#shiftBtn").textContent = sh ? "Close shift" : "Open shift";
+  const inc = incoming(), pend = inc.filter(o=>o.status==="pending").length;
+  $("#incBadge").textContent = pend; $("#incBadge").classList.toggle("hide", !pend);
+  renderMenu(); renderCart();
+  if(modalKind==="incoming") openIncoming();
+}
+function renderMenu(){
+  const prods = products();
+  const cats = S.categories.filter(c => live(c) && prods.some(p => p.categoryId===c.id)).sort((a,b)=>(a.sort??999)-(b.sort??999));
+  if(cat && !cats.some(c=>c.id===cat)) cat = "";
+  $("#cats").innerHTML = `<button class="cat ${!cat?"on":""}" data-cat="">All</button>` + cats.map(c=>`<button class="cat ${cat===c.id?"on":""}" data-cat="${esc(c.id)}">${esc(c.name)}</button>`).join("");
+  const q = $("#q").value.toLowerCase();
+  const list = prods.filter(p => (!cat || p.categoryId===cat) && (!q || p.name.toLowerCase().includes(q))).sort((a,b)=>a.name.localeCompare(b.name));
+  $("#grid").innerHTML = list.length ? list.map(p=>`<button class="prod" data-add="${esc(p.id)}"><span>${esc(p.name)}</span><b>${usd(p.price)}</b></button>`).join("") : `<div class="empty">No products${S.products.length?" here":". Add them in the back office"}.</div>`;
+}
+function totals(){ const sub = cart.reduce((a,i)=>a+i.price*i.qty,0), disc = +(sub*discount/100).toFixed(2); return { sub, disc, total: +(sub-disc).toFixed(2) }; }
+function renderCart(){
+  document.querySelectorAll("#otype button").forEach(b => b.classList.toggle("on", b.dataset.t===otype));
+  $("#extra").innerHTML = otype==="dinein" ? `<input id="tbl" placeholder="Table number" value="${esc(tableNo)}" inputmode="numeric">`
+    : otype==="delivery" ? `<input id="cPhone" placeholder="Customer phone" value="${esc(cust.phone)}"><input id="cName" placeholder="Customer name" value="${esc(cust.name)}"><input id="cAddr" placeholder="Address" value="${esc(cust.address)}">`
+    : `<input id="cName" placeholder="Customer name (optional)" value="${esc(cust.name)}">`;
+  $("#lines").innerHTML = cart.length ? cart.map((i,ix)=>`<div class="line"><span class="n">${esc(i.name)}</span><span class="p">${usd(i.price*i.qty)}</span>
+    <span class="qty"><button data-q="${ix}:-1" aria-label="Less">−</button>${i.qty}<button data-q="${ix}:1" aria-label="More">+</button></span><span class="p mut">${usd(i.price)} each</span></div>`).join("") : `<div class="empty">Tap items to start an order</div>`;
+  const t = totals();
+  $("#totals").innerHTML = `<div><span>Subtotal</span><span>${usd(t.sub)}</span></div>${discount?`<div><span>Discount ${discount}%</span><span>−${usd(t.disc)}</span></div>`:""}<div class="g"><span>Total</span><span>${usd(t.total)}</span></div>`;
+  $("#payBtn").disabled = !cart.length; $("#payBtn").textContent = cart.length ? `Pay ${usd(t.total)}` : "Pay";
+}
+
+/* ---------- events ---------- */
+$("#cats").addEventListener("click", e => { const b = e.target.closest("[data-cat]"); if(b){ cat = b.dataset.cat; renderMenu(); } });
+$("#q").addEventListener("input", renderMenu);
+$("#grid").addEventListener("click", e => { const b = e.target.closest("[data-add]"); if(!b) return; const p = S.products.find(x=>x.id===b.dataset.add); const ex = cart.find(i=>i.productId===p.id); if(ex) ex.qty++; else cart.push({ productId:p.id, name:p.name, price:+p.price||0, qty:1 }); renderCart(); });
+$("#lines").addEventListener("click", e => { const b = e.target.closest("[data-q]"); if(!b) return; const [ix,d] = b.dataset.q.split(":").map(Number); cart[ix].qty += d; if(cart[ix].qty<=0) cart.splice(ix,1); renderCart(); });
+$("#otype").addEventListener("click", e => { const b = e.target.closest("[data-t]"); if(b){ otype = b.dataset.t; renderCart(); } });
+$("#extra").addEventListener("input", e => { if(e.target.id==="tbl") tableNo = e.target.value; if(e.target.id==="cPhone") cust.phone = e.target.value; if(e.target.id==="cName") cust.name = e.target.value; if(e.target.id==="cAddr") cust.address = e.target.value; });
+$("#clearBtn").addEventListener("click", () => { resetOrder(); });
+function resetOrder(){ cart = []; discount = 0; tableNo = ""; cust = { name:"", phone:"", address:"" }; renderCart(); }
+
+/* ---------- modals ---------- */
+let modalKind = null;
+function modal(kind, html, wide){ modalKind = kind; $("#modal").className = "modal" + (wide?" wide":""); $("#modal").innerHTML = html; $("#scrim").classList.add("show"); }
+function closeModal(){ $("#scrim").classList.remove("show"); modalKind = null; }
+$("#scrim").addEventListener("click", e => { if(e.target.id==="scrim" || e.target.closest("[data-close]")) closeModal(); });
+
+$("#discBtn").addEventListener("click", () => {
+  modal("disc", `<div class="mh"><h2>Discount</h2><button class="x" data-close aria-label="Close">×</button></div><div class="mb"><div class="quick">${[0,5,10,15,20,25,50,100].map(p=>`<button data-disc="${p}">${p?p+"%":"None"}</button>`).join("")}</div></div>`);
+});
+$("#modal").addEventListener("click", async e => {
+  const d = e.target.closest("[data-disc]"); if(d){ discount = +d.dataset.disc; closeModal(); renderCart(); return; }
+  const pm = e.target.closest("[data-pm]"); if(pm){ payMethod = pm.dataset.pm; document.querySelectorAll("[data-pm]").forEach(b=>b.classList.toggle("on", b===pm)); $("#cashBox").classList.toggle("hide", payMethod!=="cash"); updChange(); return; }
+  const qk = e.target.closest("[data-qk]"); if(qk){ $("#tender").value = qk.dataset.qk; updChange(); return; }
+  if(e.target.closest("#confirmPay")) return completeSale();
+  const ia = e.target.closest("[data-inc]"); if(ia){ const [id,s] = ia.dataset.inc.split(":"); try{ await db.collection("orders").doc(id).update({ status:s, updatedAt:new Date().toISOString(), handledBy:device.name }); toast(s==="active"?"Order accepted · sent to kitchen":s==="declined"?"Order declined":"Order completed"); }catch(err){ console.error(err); toast("Couldn't update the order"); } return; }
+  if(e.target.closest("#doOpenShift")) return doOpenShift();
+  if(e.target.closest("#doCloseShift")) return doCloseShift();
+  if(e.target.closest("#deact")){ store.set("wokDevice", null); location.reload(); }
+});
+$("#modal").addEventListener("input", e => { if(e.target.id==="tender") updChange(); });
+
+/* payment */
+let payMethod = "cash";
+$("#payBtn").addEventListener("click", () => {
+  if(!openShift()){ toast("Open a shift before taking payments"); return; }
+  if(otype==="delivery" && !cust.phone.trim()){ toast("Enter the customer's phone for delivery"); return; }
+  const t = totals(); payMethod = "cash";
+  const q = [t.total, Math.ceil(t.total/5)*5, Math.ceil(t.total/10)*10, Math.ceil(t.total/20)*20].filter((v,i,a)=>a.indexOf(v)===i);
+  modal("pay", `<div class="mh"><h2>Payment</h2><button class="x" data-close aria-label="Close">×</button></div><div class="mb">
+    <div class="due">${usd(t.total)}</div>
+    <div class="paym"><button data-pm="cash" class="on">Cash</button><button data-pm="card">Card</button><button data-pm="other">Other</button></div>
+    <div id="cashBox"><input class="tender" id="tender" inputmode="decimal" value="${t.total.toFixed(2)}" aria-label="Amount received">
+    <div class="quick">${q.map(v=>`<button data-qk="${v}">${usd(v)}</button>`).join("")}</div>
+    <div class="change"><span>Change</span><b id="chg">USD 0.00</b></div></div></div>
+    <div class="mf"><button class="btn" data-close>Cancel</button><button class="btn pri" id="confirmPay">Complete sale</button></div>`);
+});
+function updChange(){ const t = totals().total, v = +$("#tender")?.value || 0; if($("#chg")) $("#chg").textContent = payMethod==="cash" ? usd(Math.max(0, v-t)) : "—"; if($("#confirmPay")) $("#confirmPay").disabled = payMethod==="cash" && v < t; }
+async function completeSale(){
+  const t = totals(), now = new Date().toISOString(), tender = payMethod==="cash" ? +$("#tender").value : t.total;
+  const no = String(Math.max(1000, ...S.orders.map(o=>+o.no||0)) + 1);
+  const order = { no, channel:"pos", source:"POS", type: otype==="dinein"?"dinein":otype==="takeaway"?"pickup":"delivery", table: otype==="dinein"?tableNo:"",
+    customerName:cust.name.trim(), phone:cust.phone.trim(), address: otype==="delivery"?cust.address.trim():"",
+    brandId:branch?.brandId || null, branchId:device.branchId, deviceId:device.id, shiftId:openShift().id, agent:device.name, items:cart, subtotal:+t.sub.toFixed(2), discountPct:discount, discount:t.disc, total:t.total,
+    payment:{ method:payMethod, tendered:tender, change:+Math.max(0,tender-t.total).toFixed(2) }, status:"closed", createdAt:now, updatedAt:now };
+  $("#confirmPay").disabled = true;
+  try{
+    const id = "pos_" + Date.now().toString(36) + Math.random().toString(36).slice(2,5);
+    await db.collection("orders").doc(id).set(order);
+    showReceipt(order); resetOrder();
+  }catch(err){ console.error(err); toast("Couldn't save the sale. Try again."); $("#confirmPay").disabled = false; }
+}
+function receiptText(o){
+  const w = 32, row = (a,b) => a.slice(0, w-b.length-1).padEnd(w-b.length) + b;
+  const lines = [ (()=>{ const n = (S.brands.find(b=>b.id===branch?.brandId)?.name || "Slick").toUpperCase(); return n.padStart((w+n.length)/2); })(), (branch?.name||"").padStart((w+(branch?.name||"").length)/2), "", row("Order #"+o.no, o.type==="dinein"?"Dine-in"+(o.table?" T"+o.table:""):o.type==="pickup"?"Takeaway":"Delivery"),
+    new Date(o.createdAt).toLocaleString("en-GB"), "-".repeat(w), ...o.items.map(i => row(i.qty+" x "+i.name, (i.price*i.qty).toFixed(2))), "-".repeat(w), row("Subtotal", o.subtotal.toFixed(2)) ];
+  if(o.discount) lines.push(row("Discount "+o.discountPct+"%", "-"+o.discount.toFixed(2)));
+  lines.push(row("TOTAL USD", o.total.toFixed(2)), row("Paid ("+o.payment.method+")", o.payment.tendered.toFixed(2)));
+  if(o.payment.change) lines.push(row("Change", o.payment.change.toFixed(2)));
+  lines.push("", "Thank you!".padStart((w+10)/2));
+  return lines.join("\n");
+}
+function showReceipt(o){
+  modal("receipt", `<div class="mh"><h2>Sale complete · ${usd(o.total)}</h2><button class="x" data-close aria-label="Close">×</button></div><div class="mb">
+    ${o.payment.change ? `<div class="due" style="font-size:22px">Change: ${usd(o.payment.change)}</div>` : ""}
+    <div class="receipt">${esc(receiptText(o))}</div><p class="mut" style="margin-top:10px">Receipt and kitchen printing start working in the installed Android app.</p></div>
+    <div class="mf"><button class="btn pri" data-close>New order</button></div>`);
+}
+
+/* incoming call-center / online orders */
+$("#incomingBtn").addEventListener("click", openIncoming);
+function openIncoming(){
+  const list = incoming().sort((a,b)=>(a.status==="pending"?0:1)-(b.status==="pending"?0:1) || b.createdAt.localeCompare(a.createdAt));
+  modal("incoming", `<div class="mh"><h2>Incoming orders · ${esc(branch?.name||"")}</h2><button class="x" data-close aria-label="Close">×</button></div><div class="mb"><div class="ilist">${
+    list.length ? list.map(o=>`<div class="icard"><div class="r"><b>#${esc(o.no)} · ${esc(o.source||"Call center")}</b><span class="spill s-${o.status}">${o.status==="pending"?"Waiting for you":"In kitchen"}</span></div>
+      <div class="mut">${esc(o.customerName||"Guest")} · ${esc(o.phone||"")} · ${o.type==="pickup"?"Pickup":"Delivery"}${o.address?" · "+esc(o.address):""}</div>
+      <div>${o.items.map(i=>`${i.qty} × ${esc(i.name)}`).join(", ")}</div>${o.notes?`<div class="mut">Note: ${esc(o.notes)}</div>`:""}
+      <div class="r"><b>${usd(o.total)}</b><span>${o.status==="pending" ? `<button class="btn bad" data-inc="${esc(o.id)}:declined">Decline</button> <button class="btn pri" data-inc="${esc(o.id)}:active">Accept</button>` : `<button class="btn pri" data-inc="${esc(o.id)}:closed">Mark done</button>`}</span></div></div>`).join("")
+    : `<div class="empty">No incoming orders for this branch right now.</div>`}</div></div>`, true);
+}
+
+/* shifts */
+$("#shiftBtn").addEventListener("click", () => {
+  const sh = openShift();
+  if(!sh) return modal("shift", `<div class="mh"><h2>Open shift</h2><button class="x" data-close aria-label="Close">×</button></div><div class="mb">
+    <div class="f"><label for="sName">Cashier name</label><input id="sName" placeholder="Who is working this register?"></div>
+    <div class="f"><label for="sCash">Starting cash in drawer (USD)</label><input id="sCash" inputmode="decimal" value="0"></div></div>
+    <div class="mf"><button class="btn" data-close>Cancel</button><button class="btn pri" id="doOpenShift">Open shift</button></div>`);
+  const sales = S.orders.filter(o => o.shiftId===sh.id && o.status==="closed");
+  const by = m => sales.filter(o=>o.payment?.method===m).reduce((a,o)=>a+o.total,0);
+  const expected = (+sh.openingCash||0) + by("cash");
+  modal("shift", `<div class="mh"><h2>Close shift</h2><button class="x" data-close aria-label="Close">×</button></div><div class="mb">
+    <p class="mut">Opened by ${esc(sh.cashier||"—")} at ${new Date(sh.openedAt).toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"})}</p>
+    <div class="stats"><div>Orders<b>${sales.length}</b></div><div>Net sales<b>${usd(sales.reduce((a,o)=>a+o.total,0))}</b></div><div>Cash<b>${usd(by("cash"))}</b></div><div>Card / other<b>${usd(by("card")+by("other"))}</b></div></div>
+    <div class="f"><label>Expected cash in drawer</label><b style="font-size:18px">${usd(expected)}</b></div>
+    <div class="f"><label for="sCount">Counted cash (USD)</label><input id="sCount" inputmode="decimal" placeholder="${expected.toFixed(2)}"></div></div>
+    <div class="mf"><button class="btn" data-close>Cancel</button><button class="btn pri" id="doCloseShift">Close shift</button></div>`);
+});
+async function doOpenShift(){
+  const id = "sh_" + Date.now().toString(36);
+  try{ await db.collection("shifts").doc(id).set({ deviceId:device.id, branchId:device.branchId, cashier:$("#sName").value.trim(), openingCash:+$("#sCash").value||0, openedAt:new Date().toISOString() }); closeModal(); toast("Shift opened"); }
+  catch(err){ console.error(err); toast("Couldn't open the shift"); }
+}
+async function doCloseShift(){
+  const sh = openShift(), sales = S.orders.filter(o => o.shiftId===sh.id && o.status==="closed");
+  const cash = sales.filter(o=>o.payment?.method==="cash").reduce((a,o)=>a+o.total,0), expected = (+sh.openingCash||0)+cash;
+  const counted = $("#sCount").value==="" ? expected : +$("#sCount").value;
+  try{ await db.collection("shifts").doc(sh.id).update({ closedAt:new Date().toISOString(), orders:sales.length, sales:+sales.reduce((a,o)=>a+o.total,0).toFixed(2), expectedCash:+expected.toFixed(2), countedCash:counted, difference:+(counted-expected).toFixed(2) });
+    closeModal(); toast(Math.abs(counted-expected)<0.01 ? "Shift closed · drawer balanced" : `Shift closed · difference ${usd(counted-expected)}`); }
+  catch(err){ console.error(err); toast("Couldn't close the shift"); }
+}
+$("#menuBtn").addEventListener("click", () => modal("more", `<div class="mh"><h2>Device</h2><button class="x" data-close aria-label="Close">×</button></div><div class="mb">
+  <p><b>${esc(device.name)}</b><br><span class="mut">${esc(branch?.name||"")}</span></p><p class="mut">To move this tablet to another branch, generate a new code in the back office and activate again.</p></div>
+  <div class="mf"><a class="btn" href="index.html#devices" style="margin-right:auto;text-decoration:none">Back office</a><button class="btn bad" id="deact">Deactivate on this tablet</button><button class="btn" data-close>Close</button></div>`));
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Order Online</title>
+<meta name="description" content="Order online for delivery, takeaway or at your table.">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{--bg:#f6f5f9;--s:#fff;--ink:#1c1b22;--ink2:#5b5a66;--mut:#8d8c98;--line:#e7e5ee;--acc:#5b2bc4;--accs:#efe9fc;--acci:#47209e;--bad:#9e0c24}
+*{box-sizing:border-box}html,body{margin:0}body{font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif;background:var(--bg);color:var(--ink);font-size:15px;padding-bottom:90px}
+button,input,select,textarea{font:inherit;color:inherit}button{cursor:pointer}
+.hero{background:var(--acc);color:#fff;padding:22px 18px 18px}
+.hero .row{display:flex;align-items:center;gap:12px;max-width:900px;margin:0 auto}
+.logo{width:46px;height:46px;border-radius:12px;background:#fff;color:var(--acc);display:grid;place-items:center;font-weight:800;font-size:20px}
+.hero h1{margin:0;font-size:21px}.hero p{margin:2px 0 0;opacity:.85;font-size:14px}
+.banner{max-width:900px;margin:12px auto 0;background:rgba(255,255,255,.15);border-radius:10px;padding:8px 12px;font-size:14px}
+.wrap{max-width:900px;margin:0 auto;padding:14px}
+.card{background:var(--s);border:1px solid var(--line);border-radius:14px;padding:14px}
+.modes{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px}
+.modes button{border:1px solid var(--line);background:var(--s);border-radius:12px;padding:12px;font-weight:600}
+.modes button.on{background:var(--acc);border-color:var(--acc);color:#fff}
+.where{margin-top:12px}.where label{display:block;font-size:13px;color:var(--ink2);margin-bottom:6px;font-weight:500}
+.where select{width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:10px;background:var(--s)}
+.info{font-size:13px;color:var(--ink2);margin-top:8px}
+.cats{position:sticky;top:0;z-index:5;background:var(--bg);display:flex;gap:8px;overflow-x:auto;padding:12px 14px;max-width:900px;margin:0 auto;scrollbar-width:none}
+.cats button{flex:none;border:1px solid var(--line);background:var(--s);border-radius:999px;padding:7px 14px;font-weight:500;font-size:14px}
+.cats button.on{background:var(--ink);border-color:var(--ink);color:#fff}
+h2{font-size:17px;margin:20px 0 10px}
+.items{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px}
+.item{background:var(--s);border:1px solid var(--line);border-radius:14px;padding:14px;display:flex;justify-content:space-between;align-items:center;gap:12px}
+.item b{display:block;font-weight:600}.item small{color:var(--mut);display:block;margin-top:2px}.item .pr{color:var(--acci);font-weight:600;margin-top:6px}
+.add{flex:none;width:38px;height:38px;border-radius:50%;border:0;background:var(--accs);color:var(--acci);font-size:22px;font-weight:600;line-height:1}
+.qtyc{display:inline-flex;align-items:center;gap:8px;flex:none}.qtyc button{width:32px;height:32px;border-radius:50%;border:1px solid var(--line);background:var(--s);font-size:18px}
+.bar{position:fixed;left:0;right:0;bottom:0;padding:12px 14px;background:linear-gradient(transparent,var(--bg) 30%)}
+.bar button{display:flex;justify-content:space-between;width:100%;max-width:900px;margin:0 auto;border:0;border-radius:14px;background:var(--acc);color:#fff;padding:15px 18px;font-weight:600;font-size:16px;box-shadow:0 8px 24px rgba(91,43,196,.3)}
+.scrim{position:fixed;inset:0;background:rgba(20,16,35,.45);display:none;align-items:flex-end;justify-content:center;z-index:20}
+.scrim.show{display:flex}
+.sheet{background:var(--s);width:min(560px,100%);max-height:92vh;overflow:auto;border-radius:18px 18px 0 0;padding:18px}
+@media(min-width:700px){.scrim{align-items:center}.sheet{border-radius:18px}}
+.sheet h3{margin:0 0 12px;font-size:19px;display:flex;justify-content:space-between;align-items:center}
+.x{border:0;background:none;font-size:26px;color:var(--mut)}
+.line{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}
+.tot{display:grid;gap:6px;margin:14px 0}.tot div{display:flex;justify-content:space-between}.tot .g{font-size:18px;font-weight:700}
+.f{margin-bottom:10px}.f label{display:block;font-size:13px;color:var(--ink2);margin-bottom:5px;font-weight:500}
+.f input,.f textarea{width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:10px}
+.primary{width:100%;border:0;border-radius:12px;background:var(--acc);color:#fff;padding:14px;font-weight:600;font-size:16px}
+.primary:disabled{opacity:.5}
+.err{color:var(--bad);font-size:13px;min-height:18px;margin:6px 0}
+.done{text-align:center;padding:30px 10px}.done .ok{width:64px;height:64px;border-radius:50%;background:#e5f5ec;color:#1f8a4c;display:grid;place-items:center;font-size:32px;margin:0 auto 12px}
+.closed{text-align:center;padding:60px 20px;color:var(--ink2)}
+</style>
+</head>
+<body>
+<header class="hero"><div class="row"><div class="logo" id="logo">·</div><div><h1 id="brand">Order online</h1><p id="sub">Delivery · Takeaway · Dine-in</p></div></div><div class="banner" id="banner" hidden></div></header>
+<main id="main"><div class="closed">Loading the menu…</div></main>
+<div class="bar" id="bar" hidden><button id="cartBtn"><span id="cartCount">0 items</span><span id="cartTotal">USD 0</span></button></div>
+<footer style="text-align:center;color:#8d8c98;font-size:12px;padding:20px 0 0">Powered by Slick</footer>
+<div class="scrim" id="scrim"><div class="sheet" id="sheet"></div></div>
+
+<script>
+(async () => {
+const sb = supabase.createClient("https://akrezmxgtorkuwxxctyk.supabase.co", "sb_publishable_tL62keD2HdovsMpI8XAkWg_TPdjaUVh");
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const usd = n => "USD " + (+n||0).toLocaleString("en-US",{maximumFractionDigits:2});
+const params = new URLSearchParams(location.search);
+const qrBranch = params.get("branch"), qrTable = params.get("table");
+let brandId = params.get("brand");
+const bl = await sb.from("brands").select("id,name").eq("active", true).order("name");
+if(bl.error){ $("#main").innerHTML = `<div class="closed">We couldn't load the menu. Please try again in a moment.</div>`; return; }
+if(!brandId && bl.data.length === 1) brandId = bl.data[0].id;
+if(!brandId){ $("#main").innerHTML = `<div class="wrap"><h2>Choose a restaurant</h2><div class="items">${bl.data.map(b=>`<a class="item" style="text-decoration:none;color:inherit" href="?brand=${encodeURIComponent(b.id)}"><b>${esc(b.name)}</b><span class="add" style="display:grid;place-items:center">›</span></a>`).join("")}</div></div>`; return; }
+const brand = bl.data.find(b => b.id === brandId);
+if(!brand){ $("#main").innerHTML = `<div class="closed">This restaurant isn't taking online orders.</div>`; return; }
+$("#brand").textContent = brand.name; $("#logo").textContent = brand.name.trim()[0].toUpperCase(); document.title = brand.name + " – Order Online";
+
+const [st, br, ca, pr, zo] = await Promise.all([
+  sb.from("settings").select("data").eq("id","online_"+brandId).maybeSingle(),
+  sb.from("branches").select("id,name,open_time,close_time").eq("brand_id", brandId),
+  sb.from("categories").select("id,name,sort").eq("brand_id", brandId).order("sort"),
+  sb.from("products").select("id,name,price,description,category_id,channels,branch_ids").eq("brand_id", brandId).order("name"),
+  sb.from("delivery_zones").select("id,name,branch_id,fee,min_order,eta").order("name")
+]);
+if([st,br,ca,pr,zo].some(r => r.error)){ $("#main").innerHTML = `<div class="closed">We couldn't load the menu. Please try again in a moment.</div>`; return; }
+const cfg = st.data?.data || {}, branches = br.data, cats = ca.data, products = pr.data, zones = zo.data.filter(z => branches.some(b => b.id === z.branch_id));
+const bcfg = id => (cfg.branches||{})[id] || {};
+const modeOn = (m, b) => (cfg.modes||{})[m] !== false && (!b || bcfg(b)[m] !== false);
+if(cfg.brandName){ $("#brand").textContent = cfg.brandName; document.title = cfg.brandName + " – Order Online"; }
+if(cfg.banner){ $("#banner").textContent = cfg.banner; $("#banner").hidden = false; }
+if(!cfg.enabled){ $("#main").innerHTML = `<div class="closed"><b>Online ordering is closed right now.</b><br>Please call us or try again later.</div>`; return; }
+
+let mode = qrBranch ? "dinein" : (modeOn("delivery") ? "delivery" : "takeaway");
+let zoneId = "", branchId = qrBranch || "", cat = "", cart = [];
+const zoneList = () => zones.filter(z => modeOn("delivery", z.branch_id));
+const curBranch = () => mode === "delivery" ? (zones.find(z=>z.id===zoneId)?.branch_id || "") : branchId;
+const chan = () => mode === "delivery" ? "delivery" : mode === "takeaway" ? "takeaway" : "dinein";
+const visible = () => products.filter(p => (!p.channels || p.channels.includes(chan())) && (!curBranch() || !p.branch_ids?.length || p.branch_ids.includes(curBranch())));
+
+function render(){
+  const modes = qrBranch ? [] : [["delivery","Delivery"],["takeaway","Takeaway"]].filter(([m]) => modeOn(m));
+  let h = `<div class="wrap"><div class="card">`;
+  if(qrBranch){ h += `<b>Dine-in at ${esc(branches.find(b=>b.id===qrBranch)?.name || brand.name)}</b>${qrTable?` · Table ${esc(qrTable)}`:""}<div class="info">Order from your table. We'll bring it to you.</div>`; }
+  else {
+    h += `<div class="modes">${modes.map(([m,t])=>`<button data-mode="${m}" class="${mode===m?"on":""}">${t}</button>`).join("")}</div><div class="where">`;
+    if(mode==="delivery") h += `<label for="zone">Deliver to</label><select id="zone"><option value="">Choose your area…</option>${zoneList().map(z=>`<option value="${esc(z.id)}" ${z.id===zoneId?"selected":""}>${esc(z.name)}</option>`).join("")}</select>${zoneId?zoneInfo():zoneList().length?"":`<div class="info">Delivery areas are being set up. Takeaway is available.</div>`}`;
+    else h += `<label for="branch">Pick up from</label><select id="branch"><option value="">Choose a branch…</option>${branches.filter(b=>modeOn("takeaway", b.id)).map(b=>`<option value="${esc(b.id)}" ${b.id===branchId?"selected":""}>${esc(b.name)}</option>`).join("")}</select>${branchId?`<div class="info">Open ${esc(branches.find(b=>b.id===branchId)?.open_time||"")}–${esc(branches.find(b=>b.id===branchId)?.close_time||"")}</div>`:""}`;
+    h += `</div>`;
+  }
+  h += `</div></div>`;
+  const vis = visible(), vcats = cats.filter(c => vis.some(p=>p.category_id===c.id));
+  h += `<nav class="cats">${vcats.map(c=>`<button data-cat="${esc(c.id)}">${esc(c.name)}</button>`).join("")}</nav><div class="wrap">`;
+  h += vcats.map(c => `<section id="c_${esc(c.id)}"><h2>${esc(c.name)}</h2><div class="items">${vis.filter(p=>p.category_id===c.id).map(itemCard).join("")}</div></section>`).join("");
+  h += `</div>`;
+  $("#main").innerHTML = h; renderBar();
+}
+function zoneInfo(){ const z = zones.find(x=>x.id===zoneId); return `<div class="info">From ${esc(branches.find(b=>b.id===z.branch_id)?.name||"")} · Delivery ${usd(z.fee)}${z.min_order?` · Minimum ${usd(z.min_order)}`:""}${z.eta?` · About ${z.eta} min`:""}</div>`; }
+function itemCard(p){ const q = cart.find(i=>i.productId===p.id)?.qty || 0;
+  return `<div class="item"><div><b>${esc(p.name)}</b>${p.description?`<small>${esc(p.description)}</small>`:""}<div class="pr">${usd(p.price)}</div></div>${q ? `<span class="qtyc"><button data-q="${esc(p.id)}:-1" aria-label="Remove one">−</button>${q}<button data-q="${esc(p.id)}:1" aria-label="Add one">+</button></span>` : `<button class="add" data-q="${esc(p.id)}:1" aria-label="Add ${esc(p.name)}">+</button>`}</div>`; }
+const sub = () => cart.reduce((a,i)=>a+i.price*i.qty,0);
+const fee = () => mode==="delivery" ? (+zones.find(z=>z.id===zoneId)?.fee||0) : 0;
+function renderBar(){ const n = cart.reduce((a,i)=>a+i.qty,0); $("#bar").hidden = !n; $("#cartCount").textContent = `View order · ${n} item${n>1?"s":""}`; $("#cartTotal").textContent = usd(sub()); }
+
+$("#main").addEventListener("click", e => {
+  const m = e.target.closest("[data-mode]"); if(m){ mode = m.dataset.mode; cart = cart.filter(i => visible().some(p=>p.id===i.productId)); render(); return; }
+  const c = e.target.closest("[data-cat]"); if(c){ document.getElementById("c_"+c.dataset.cat)?.scrollIntoView({ behavior:"smooth", block:"start" }); return; }
+  const q = e.target.closest("[data-q]"); if(q){ const [id,d] = q.dataset.q.split(":"); const p = products.find(x=>x.id===id); const ex = cart.find(i=>i.productId===id);
+    if(ex){ ex.qty += +d; if(ex.qty<=0) cart = cart.filter(i=>i!==ex); } else if(+d>0) cart.push({ productId:id, name:p.name, price:+p.price, qty:1 });
+    const y = scrollY; render(); scrollTo(0,y); }
+});
+$("#main").addEventListener("change", e => {
+  if(e.target.id==="zone"){ zoneId = e.target.value; render(); }
+  if(e.target.id==="branch"){ branchId = e.target.value; render(); }
+});
+$("#cartBtn").addEventListener("click", openCart);
+$("#scrim").addEventListener("click", e => { if(e.target.id==="scrim" || e.target.closest("[data-close]")) $("#scrim").classList.remove("show"); });
+
+function openCart(){
+  const z = zones.find(x=>x.id===zoneId), min = mode==="delivery" ? (+z?.min_order||0) : 0;
+  $("#sheet").innerHTML = `<h3>Your order <button class="x" data-close aria-label="Close">×</button></h3>
+    ${cart.map(i=>`<div class="line"><span>${i.qty} × ${esc(i.name)}</span><span>${usd(i.price*i.qty)}</span></div>`).join("")}
+    <div class="tot"><div><span>Subtotal</span><span>${usd(sub())}</span></div>${mode==="delivery"?`<div><span>Delivery</span><span>${zoneId?usd(fee()):"—"}</span></div>`:""}<div class="g"><span>Total</span><span>${usd(sub()+fee())}</span></div></div>
+    ${min && sub()<min ? `<div class="err">Minimum order for this area is ${usd(min)}.</div>` : ""}
+    <form id="co"><div class="f"><label for="cName">Your name *</label><input id="cName" required autocomplete="name"></div>
+    <div class="f"><label for="cPhone">Phone *</label><input id="cPhone" required type="tel" autocomplete="tel" placeholder="+961 …"></div>
+    ${mode==="delivery"?`<div class="f"><label for="cAddr">Address *</label><textarea id="cAddr" rows="2" required autocomplete="street-address" placeholder="Building, street, floor, landmark"></textarea></div>`:""}
+    <div class="f"><label for="cNote">Notes for the kitchen</label><input id="cNote" placeholder="e.g. extra spicy, no onions"></div>
+    <div class="err" id="coErr"></div><button class="primary" id="place" ${min && sub()<min?"disabled":""}>Place order · ${usd(sub()+fee())}</button>
+    <p class="info" style="text-align:center">Pay ${mode==="delivery"?"on delivery":"at the counter"}.</p></form>`;
+  $("#scrim").classList.add("show");
+  $("#co").addEventListener("submit", placeOrder);
+}
+async function placeOrder(e){
+  e.preventDefault();
+  const b = curBranch();
+  if(!b){ $("#coErr").textContent = mode==="delivery" ? "Choose your delivery area first." : "Choose a branch first."; return; }
+  const phone = $("#cPhone").value.trim(); if(phone.replace(/\D/g,"").length < 7){ $("#coErr").textContent = "Enter a valid phone number."; return; }
+  $("#place").disabled = true;
+  const row = { brand_id: brandId, channel:"online", status:"pending", source: mode==="dinein" ? "Table QR" : "Website", type: mode==="takeaway" ? "pickup" : mode,
+    branch_id:b, zone_id: mode==="delivery" ? zoneId : null, table_no: mode==="dinein" ? (qrTable||"") : null,
+    customer_name:$("#cName").value.trim(), phone, address: mode==="delivery" ? $("#cAddr").value.trim() : null, notes:$("#cNote").value.trim() || null,
+    items: cart, subtotal:+sub().toFixed(2), delivery_fee:fee(), discount:0, total:+(sub()+fee()).toFixed(2) };
+  const { error } = await sb.from("orders").insert(row);
+  if(error){ console.error(error); $("#coErr").textContent = "We couldn't place your order. Please try again or call us."; $("#place").disabled = false; return; }
+  const bn = branches.find(x=>x.id===b)?.name || "";
+  $("#sheet").innerHTML = `<div class="done"><div class="ok">✓</div><h3 style="justify-content:center">Order received</h3><p>${esc(bn)} has your order and will confirm it shortly.</p><p class="info">${mode==="delivery"?"We'll call you if we need directions.":mode==="takeaway"?"We'll have it ready for pickup.":"We'll bring it to your table."}</p><button class="primary" data-close>Done</button></div>`;
+  cart = []; render();
+}
+render();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,3 @@
+-- Run after supabase-schema.sql. Lets cashiers activate devices, and makes the owner login.
+-- Replace the email with the owner's login email, then run:
+-- insert into staff (user_id, name, role) select id, 'Owner', 'owner' from auth.users where email = 'you@example.com';

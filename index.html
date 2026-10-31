@@ -1,0 +1,968 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Slick – Back Office</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f7f7f9; --surface:#fff; --ink:#1c1b22; --ink2:#5b5a66; --muted:#8d8c98; --line:#e7e6ec;
+  --accent:#5b2bc4; --accent-soft:#f1ecfc; --accent-ink:#47209e;
+  --chart:#5b2bc4; --chart-soft:#ece6fa;
+  --good:#1f8a4c; --good-soft:#e5f5ec; --warn:#a86500; --warn-soft:#fdf1dc;
+  --radius:10px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{font-family:Inter,system-ui,sans-serif;background:var(--bg);color:var(--ink);font-size:14px;line-height:1.45}
+button,input,select,textarea{font:inherit;color:inherit}
+.app{display:grid;grid-template-columns:240px 1fr;min-height:100vh}
+/* sidebar */
+.side{background:var(--surface);border-right:1px solid var(--line);padding:18px 12px;position:sticky;top:0;height:100vh;overflow:auto}
+.brand{display:flex;align-items:center;gap:10px;padding:4px 10px 18px}
+.logo{width:34px;height:34px;border-radius:9px;background:var(--accent);color:#fff;display:grid;place-items:center;font-weight:700}
+.brand b{display:block;font-size:15px}.brand small{color:var(--muted)}
+.nav a,.nav button{display:flex;align-items:center;gap:10px;width:100%;padding:8px 10px;border-radius:8px;border:0;background:none;color:var(--ink2);text-decoration:none;cursor:pointer;text-align:left;font-weight:500}
+.nav a:hover,.nav button:hover{background:var(--bg);color:var(--ink)}
+.nav a.on{background:var(--accent-soft);color:var(--accent-ink)}
+.nav .chev{margin-left:auto;transition:transform .15s;color:var(--muted)}
+.nav .grp.open .chev{transform:rotate(90deg)}
+.nav .sub{display:none;padding:2px 0 6px 30px}
+.nav .grp.open .sub{display:block}
+.nav .sub a{padding:6px 10px;font-weight:400;font-size:13px}
+.nav .sub .lbl{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);padding:8px 10px 2px}
+.ico{width:18px;height:18px;flex:none}
+/* top */
+.main{min-width:0}
+.top{display:flex;align-items:center;gap:12px;padding:14px 28px;background:var(--surface);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5}
+.top .sp{flex:1}
+.sel{padding:7px 10px;border:1px solid var(--line);border-radius:8px;background:var(--surface)}
+.pill{font-size:12px;padding:3px 9px;border-radius:999px;background:var(--bg);color:var(--ink2)}
+.content{padding:24px 28px 60px;max-width:1280px}
+h1{font-size:22px;margin:0 0 4px}
+.subt{color:var(--ink2);margin:0 0 18px}
+.tabs{display:flex;gap:22px;border-bottom:1px solid var(--line);margin-bottom:18px}
+.tabs a{padding:8px 0;color:var(--ink2);text-decoration:none;border-bottom:2px solid transparent;font-weight:500}
+.tabs a.on{color:var(--ink);border-color:var(--accent)}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:18px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--surface)}
+.seg button{border:0;background:none;padding:7px 14px;cursor:pointer;color:var(--ink2)}
+.seg button.on{background:var(--accent);color:#fff}
+.btn{border:1px solid var(--line);background:var(--surface);padding:8px 14px;border-radius:8px;cursor:pointer;font-weight:500}
+.btn:hover{border-color:#cfcdd8}
+.btn.pri{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.pri:hover{background:var(--accent-ink)}
+.btn.danger{color:var(--accent-ink)}
+.btn.sm{padding:5px 10px;font-size:13px}
+/* cards */
+.grid{display:grid;gap:16px}
+.kpis{grid-template-columns:repeat(auto-fill,minmax(300px,1fr))}
+.kpi{box-shadow:0 1px 3px rgba(20,18,40,.06)}
+.kh{display:flex;align-items:center;justify-content:space-between}
+.kh h3{font-size:14px;font-weight:600;color:var(--ink)}
+.vr{font-size:13px;color:#3f6fd8;text-decoration:none}.vr:hover{text-decoration:underline}
+.kpi .d.up{color:var(--good)}.kpi .d.down{color:var(--accent-ink)}
+.kpi .chart{margin-top:10px}
+.new{background:#1f8a4c;color:#fff;font-size:10px;padding:1px 6px;border-radius:4px;font-weight:600;vertical-align:2px}
+.fbar .sp{flex:1}
+.toggle{display:inline-flex;align-items:center;gap:8px;cursor:pointer;color:var(--ink2)}
+.toggle input{position:absolute;opacity:0;width:0;height:0}
+.toggle .trk{width:34px;height:20px;border-radius:999px;background:#d9d7e0;position:relative;transition:background .15s}
+.toggle .trk::after{content:"";position:absolute;left:2px;top:2px;width:16px;height:16px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.2);transition:left .15s}
+.toggle input:checked+.trk{background:var(--accent)}.toggle input:checked+.trk::after{left:16px}
+.toggle input:focus-visible+.trk{outline:2px solid var(--accent);outline-offset:2px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px}
+.card h3{margin:0 0 2px;font-size:13px;font-weight:500;color:var(--ink2)}
+.kpi .v{font-size:22px;font-weight:500;margin-top:4px;font-variant-numeric:tabular-nums}
+.kpi .d{font-size:12px;color:var(--muted);margin-top:2px}
+.two{grid-template-columns:1fr 1fr;margin-top:16px}
+@media(max-width:1000px){.two{grid-template-columns:1fr}.app{grid-template-columns:1fr}.side{position:static;height:auto}}
+.chart{position:relative}
+.chart svg{display:block;width:100%;height:auto}
+.tip{position:absolute;pointer-events:none;background:var(--ink);color:#fff;font-size:12px;padding:6px 9px;border-radius:6px;white-space:nowrap;transform:translate(-50%,-110%);opacity:0;transition:opacity .1s}
+.tip b{font-weight:600}
+/* table */
+table{width:100%;border-collapse:collapse}
+th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:middle}
+th{font-size:12px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:.03em}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+tr:last-child td{border-bottom:0}
+.tbl{padding:0;overflow:auto}
+.tag{display:inline-flex;align-items:center;gap:5px;font-size:12px;padding:2px 8px;border-radius:999px;font-weight:500}
+.tag.on{background:var(--good-soft);color:var(--good)}
+.tag.off{background:var(--bg);color:var(--muted)}
+.tag.cc{background:var(--chart-soft);color:var(--chart)}
+.dot{width:6px;height:6px;border-radius:50%;background:currentColor}
+.code{font-family:ui-monospace,Menlo,monospace;font-size:12px;color:var(--ink2)}
+.empty{text-align:center;padding:48px 20px;color:var(--ink2)}
+.banner{background:var(--warn-soft);color:var(--warn);padding:9px 14px;border-radius:8px;margin-bottom:16px;font-size:13px}
+.note{font-size:12px;color:var(--muted)}
+/* modal */
+.scrim{position:fixed;inset:0;background:rgba(20,18,30,.4);display:none;align-items:flex-start;justify-content:center;padding:6vh 16px;z-index:20;overflow:auto}
+.scrim.show{display:flex}
+.modal{background:var(--surface);border-radius:12px;width:min(620px,100%);box-shadow:0 20px 60px rgba(0,0,0,.2)}
+.modal header{padding:18px 22px;border-bottom:1px solid var(--line);display:flex;align-items:center}
+.modal header h2{margin:0;font-size:17px;flex:1}
+.modal .body{padding:18px 22px;display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.modal footer{padding:14px 22px;border-top:1px solid var(--line);display:flex;gap:10px;justify-content:flex-end}
+.f{display:flex;flex-direction:column;gap:5px}
+.f.full{grid-column:1/-1}
+.f label{font-size:12px;font-weight:500;color:var(--ink2)}
+.f input,.f select,.f textarea{padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--surface)}
+.f input:focus,.f select:focus,.f textarea:focus{outline:2px solid var(--chart-soft);border-color:var(--chart)}
+.chk{display:flex;align-items:center;gap:8px;font-size:13px}
+.err{color:var(--accent-ink);font-size:12px;grid-column:1/-1;min-height:0}
+.x{border:0;background:none;font-size:20px;cursor:pointer;color:var(--muted)}
+.toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 16px;border-radius:8px;opacity:0;transition:opacity .2s;z-index:30}
+.toast.show{opacity:1}
+.ph{display:grid;place-items:center;text-align:center;padding:70px 20px;color:var(--ink2)}
+.ph .big{font-size:18px;color:var(--ink);font-weight:600;margin-bottom:6px}
+
+.phead{display:flex;align-items:center;gap:10px;margin-bottom:18px;flex-wrap:wrap}.phead h1{margin:0}.phead .sp,.ttop .sp,.pager .sp{flex:1}
+.ttop{display:flex;align-items:center;gap:12px;padding:14px 16px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.ttabs{display:flex;gap:18px}.ttabs a{color:var(--ink2);text-decoration:none;font-weight:500;padding:4px 0;border-bottom:2px solid transparent}.ttabs a.on{color:var(--ink);border-color:var(--accent)}
+.search{min-width:220px}
+tr.click{cursor:pointer}tr.click:hover td{background:#faf9fd}
+.pager{display:flex;align-items:center;gap:8px;padding:12px 16px;border-top:1px solid var(--line)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.lnk{color:#3f6fd8;text-decoration:none}.lnk:hover{text-decoration:underline}
+.chip{display:inline-flex;align-items:center;gap:6px;background:var(--accent-soft);color:var(--accent-ink);border-radius:999px;padding:3px 6px 3px 10px;font-size:12px}
+.chip button{border:0;background:none;cursor:pointer;color:inherit;font-size:14px}
+.multi{display:flex;flex-wrap:wrap;gap:6px 16px}
+.f textarea{resize:vertical}
+.tabs a.dis{opacity:.5;pointer-events:none}
+.card h3.ct,.ct{margin:0;font-size:15px;font-weight:600;color:var(--ink)}
+.board{display:grid;grid-template-columns:repeat(5,minmax(230px,1fr));gap:14px;overflow-x:auto;padding-bottom:10px}
+.bcol{display:flex;flex-direction:column;gap:10px;min-width:230px}
+.bhead{display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:9px 12px}
+.cnt{font-size:12px;background:var(--bg);border-radius:999px;padding:0 8px;color:var(--ink2)}.cnt.hot{background:var(--accent);color:#fff}
+.info{width:16px;height:16px;border-radius:50%;background:var(--ink);color:#fff;font-size:10px;display:grid;place-items:center;font-weight:700;cursor:help}
+.bempty{background:#ededf2;border-radius:8px;padding:44px 12px;text-align:center;color:var(--ink2);font-size:13px}
+.ocard{display:flex;flex-direction:column;gap:7px;text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:12px 14px;cursor:pointer;box-shadow:0 1px 3px rgba(20,18,40,.08)}
+.ocard:hover{border-color:#cfc6ee}
+.orow{display:flex;align-items:center;justify-content:space-between;font-size:15px}
+.oline{display:flex;gap:8px;align-items:flex-start;font-size:13px}.oline .ico{width:15px;height:15px;margin-top:2px;color:var(--ink2)}
+.ototal{font-weight:600;font-size:15px}
+.spill{font-size:11px;padding:2px 8px;border-radius:999px;font-weight:500;background:var(--bg);color:var(--ink2)}
+.s-active{background:#fdf0e6;color:#b45a12}.s-pending{background:#e8f0fd;color:#2c5fb8}.s-closed{background:var(--good-soft);color:var(--good)}.s-declined{background:#fdecef;color:#9e0c24}
+.modal.wide{width:min(1000px,100%)}
+.ccgrid{display:grid;grid-template-columns:300px 1fr;gap:20px;padding:18px 22px}
+@media(max-width:800px){.ccgrid{grid-template-columns:1fr}}
+.ccleft{display:flex;flex-direction:column;gap:12px}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0}
+.chipb{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:4px 11px;font-size:12px;cursor:pointer}.chipb.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+.pgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;max-height:260px;overflow:auto}
+.pbtn{display:flex;flex-direction:column;gap:4px;text-align:left;border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:9px 10px;cursor:pointer;font-size:13px}
+.pbtn:hover{border-color:var(--accent)}.pbtn b{font-weight:600;color:var(--accent-ink)}
+.cart{margin-top:14px;border-top:1px solid var(--line);padding-top:12px}
+.citem{display:grid;grid-template-columns:1fr auto 90px;gap:10px;align-items:center;padding:6px 0;font-size:13px}
+.qty{display:inline-flex;align-items:center;gap:8px}.qty button{width:24px;height:24px;border-radius:6px;border:1px solid var(--line);background:var(--surface);cursor:pointer}
+.ctot{display:flex;justify-content:space-between;font-size:16px;border-top:1px solid var(--line);margin-top:8px;padding-top:10px}
+.setup{display:flex;gap:24px;align-items:center;flex-wrap:wrap}.setup>div:first-child{flex:1;min-width:280px}
+.steps{margin:8px 0 0;padding-left:20px;color:var(--ink2)}.steps li{margin:4px 0}
+.apk{display:flex;flex-direction:column;gap:6px;align-items:center}
+.acode{font-family:ui-monospace,Menlo,monospace;font-size:15px;letter-spacing:.15em;background:var(--bg);padding:3px 8px;border-radius:6px}
+.linkbox{border:1px dashed var(--line);border-radius:8px;padding:9px 10px}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="wokdb.js"></script>
+</head>
+<body>
+<div class="app">
+  <aside class="side">
+    <div class="brand"><div class="logo">S</div><div><b>Slick</b><small>Restaurant ERP</small></div></div>
+    <nav class="nav" id="nav"></nav>
+  </aside>
+  <div class="main">
+    <div class="top">
+      <select class="sel" id="brandSel" aria-label="Brand filter"></select>
+      <select class="sel" id="branchSel" aria-label="Branch filter"></select>
+      <span class="pill" id="syncPill">Connecting…</span>
+      <div class="sp"></div>
+      <span class="note" id="who"></span><button class="btn sm" id="signOut" type="button">Sign out</button>
+    </div>
+    <div class="content" id="view"></div>
+  </div>
+</div>
+
+<div class="scrim" id="scrim">
+  <form class="modal" id="branchForm" autocomplete="off">
+    <header><h2 id="mTitle">Add branch</h2><button type="button" class="x" data-close aria-label="Close">×</button></header>
+    <div class="body">
+      <div class="f"><label for="fName">Branch name *</label><input id="fName" required maxlength="60" placeholder="e.g. Hamra"></div>
+      <div class="f"><label for="fCode">Reference code</label><input id="fCode" maxlength="10" placeholder="Auto"></div>
+      <div class="f full"><label for="fBrand">Brand *</label><select id="fBrand"></select></div>
+      <div class="f full"><label for="fAddr">Address</label><input id="fAddr" maxlength="160"></div>
+      <div class="f"><label for="fCity">Area / city</label><input id="fCity" maxlength="60" placeholder="e.g. Beirut"></div>
+      <div class="f"><label for="fPhone">Phone</label><input id="fPhone" maxlength="30"></div>
+      <div class="f"><label for="fOpen">Opens</label><input id="fOpen" type="time" value="11:00"></div>
+      <div class="f"><label for="fClose">Closes</label><input id="fClose" type="time" value="23:30"></div>
+      <div class="f full"><label for="fZones">Delivery zones (comma-separated)</label><input id="fZones" maxlength="300" placeholder="Hamra, Verdun, Ras Beirut"></div>
+      <div class="f full">
+        <label class="chk"><input type="checkbox" id="fActive" checked> Active (shows in reports and filters)</label>
+        <label class="chk"><input type="checkbox" id="fCC" checked> Receives call-center orders</label>
+        <label class="chk"><input type="checkbox" id="fProd"> Central kitchen / production site</label>
+      </div>
+      <div class="err" id="fErr"></div>
+    </div>
+    <footer>
+      <button type="button" class="btn danger" id="delBtn" style="margin-right:auto;display:none">Delete branch</button>
+      <button type="button" class="btn" data-close>Cancel</button>
+      <button type="submit" class="btn pri" id="saveBtn">Save branch</button>
+    </footer>
+  </form>
+</div>
+
+<div class="scrim" id="confirmScrim">
+  <div class="modal" style="width:min(420px,100%)">
+    <header><h2>Delete branch?</h2></header>
+    <div style="padding:18px 22px" id="confirmText"></div>
+    <footer><button class="btn" id="cNo">Cancel</button><button class="btn pri" id="cYes">Delete</button></footer>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+(() => {
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const money = n => "USD " + n.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});
+
+/* ---------- navigation map (mirrors the Foodics structure) ---------- */
+const I = {
+  dash:'<path d="M3 3h7v9H3zM14 3h7v5h-7zM14 12h7v9h-7zM3 16h7v5H3z"/>',
+  orders:'<path d="M3 4h2l2.4 11.2a2 2 0 0 0 2 1.6h7.7a2 2 0 0 0 2-1.5L21 8H6"/><circle cx="10" cy="20" r="1"/><circle cx="17" cy="20" r="1"/>',
+  phone:'<path d="M4 14v-2a8 8 0 0 1 16 0v2"/><rect x="2" y="14" width="5" height="6" rx="1.5"/><rect x="17" y="14" width="5" height="6" rx="1.5"/>',
+  users:'<circle cx="9" cy="8" r="3.5"/><path d="M2 20c.8-3.5 3.6-5.5 7-5.5s6.2 2 7 5.5"/><circle cx="17" cy="9" r="2.5"/><path d="M17 14.5c2.5 0 4.3 1.6 5 4"/>',
+  chart:'<path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/>',
+  box:'<path d="M3 7l9-4 9 4v10l-9 4-9-4z"/><path d="M3 7l9 4 9-4M12 11v10"/>',
+  book:'<path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 21V5M8 7h7"/>',
+  chef:'<path d="M7 14a4 4 0 1 1 1.5-7.7A4 4 0 0 1 16 6a3.5 3.5 0 1 1 1 7.9V20H7z"/><path d="M7 17h10"/>',
+  gear:'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-2.7 1.1V21a2 2 0 1 1-4 0v-.1a1.6 1.6 0 0 0-2.7-1.1l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.6 1.6 0 0 0 3.6 15H3a2 2 0 1 1 0-4h.1a1.6 1.6 0 0 0 1.1-2.7l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1A1.6 1.6 0 0 0 9.7 4.4V3a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 2.7 1.1l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0 1.1 2.7H21a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1z"/>',
+  tag:'<path d="M3 12V4a1 1 0 0 1 1-1h8l9 9-9 9z"/><circle cx="7.5" cy="7.5" r="1.5"/>'
+};
+const NAV = [
+  {id:"dashboard",t:"Dashboard",i:"dash"},
+  {id:"orders",t:"Orders",i:"orders"},
+  {id:"call-center",t:"Call Center",i:"phone"},
+  {id:"customers",t:"Customers",i:"users"},
+  {t:"Reports",i:"chart",kids:[["sales-reports","Sales Reports"],["inventory-reports","Inventory Reports"],["business-reports","Business Reports"],["analysis-reports","Analysis Reports"]]},
+  {t:"Inventory",i:"box",kids:[["inv-items","Items"],["suppliers","Suppliers"],["purchase-orders","Purchase Orders"],["transfer-orders","Transfer Orders"],["inventory-count","Inventory Count"],["warehouses","Warehouses"],["adjustments","Quantity & Cost Adjustments"],["spot-check","Spot Check"]]},
+  {t:"Recipes & Production",i:"chef",kids:[["recipes","Recipes"],["prep-items","Prep Items (Sub-recipes)"],["production","Production Batches"],["food-cost","Food Cost Analysis"]]},
+  {t:"Menu",i:"book",kids:[["@Menu Builder"],["categories","Categories"],["products","Products"],["modifiers","Modifiers"],["combos","Combos"],["groups","Groups"],["@Menu Settings"],["price-tags","Price Tags"],["allergens","Allergens"]]},
+  {t:"Manage",i:"gear",kids:[["users","Users"],["roles","Roles"],["brands","Brands"],["branches","Branches"],["devices","Devices"],["taxes","Taxes & Groups"],["payment-methods","Payment Methods"],["charges","Charges"],["delivery-zones","Delivery Zones"],["online-ordering","Online Ordering"],["kitchen-flows","Kitchen Flows"],["reasons","Reasons"],["settings","Settings"]]},
+  {t:"Marketing",i:"tag",kids:[["loyalty","Loyalty"],["gift-cards","Gift Cards"],["discounts","Discounts"],["promotions","Promotions"],["coupons","Coupons"]]}
+];
+const TITLES = {};
+NAV.forEach(n => { if(n.id) TITLES[n.id]=n.t; (n.kids||[]).forEach(k => { if(!k[0].startsWith("@")) TITLES[k[0]] = k[1]; }); });
+const svgIco = k => `<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${I[k]}</svg>`;
+
+function renderNav(route){
+  $("#nav").innerHTML = NAV.map((n,gi) => {
+    if(n.id) return `<a href="#${n.id}" class="${route===n.id?"on":""}">${svgIco(n.i)}${n.t}</a>`;
+    const open = n.kids.some(k => k[0]===route);
+    return `<div class="grp ${open?"open":""}" data-g="${gi}"><button type="button">${svgIco(n.i)}${n.t}<span class="chev">›</span></button><div class="sub">${
+      n.kids.map(k => k[0].startsWith("@") ? `<div class="lbl">${k[0].slice(1)}</div>` : `<a href="#${k[0]}" class="${route===k[0]?"on":""}">${k[1]}</a>`).join("")
+    }</div></div>`;
+  }).join("");
+}
+$("#nav").addEventListener("click", e => {
+  const b = e.target.closest(".grp > button"); if(!b) return;
+  const g = b.parentElement, was = g.classList.contains("open");
+  document.querySelectorAll(".nav .grp").forEach(x => x.classList.remove("open"));
+  if(!was) g.classList.add("open");
+});
+
+/* ---------- branch store ---------- */
+let branches = [];        // {id,name,code,address,city,phone,open,close,zones,active,callCenter,production,createdAt}
+let db = null, col = null, storeMode = "loading";
+const state = { range:"day", dashTab:"general", branch:"all", brand:(()=>{ try{ return localStorage.getItem("slickBrand")||"all"; }catch(e){ return "all"; } })(), compare:false, date:"", userName:"" };
+
+function activeBranches(){ return branches.filter(b => b.active !== false && (state.brand==="all" || b.brandId===state.brand)); }
+function brandList(){ return (typeof S!=="undefined" ? S.brands : []).filter(b => !b.deleted).sort((a,b)=>a.name.localeCompare(b.name)); }
+function brandName(id){ return (typeof S!=="undefined" ? S.brands : []).find(b=>b.id===id)?.name || "—"; }
+function defaultBrand(){ const l = brandList(); return state.brand!=="all" ? state.brand : (l.length===1 ? l[0].id : ""); }
+function sortBranches(){ branches.sort((a,b) => (a.code||"").localeCompare(b.code||"", undefined, {numeric:true}) || a.name.localeCompare(b.name)); }
+function nextCode(){
+  let n = 0; branches.forEach(b => { const m = /^B(\d+)$/i.exec(b.code||""); if(m) n = Math.max(n, +m[1]); });
+  return "B" + String(n+1).padStart(2,"0");
+}
+function setSync(text){ $("#syncPill").textContent = text; }
+
+async function initStore(){
+  const timer = null;
+  try{
+    if(!window.claude || !window.claude.use) { clearTimeout(timer); return fallback(); }
+    db = await window.claude.use("db");
+    if(!db){ clearTimeout(timer); return fallback(); }
+    try{ const user = await window.claude.use("user"); if(user){ const n = await user.name?.(); if(n){ $("#who").textContent = n; state.userName = String(n).split(" ")[0]; } } }catch(e){}
+    col = db.collection("branches");
+    subscribeAll();
+    col.onSnapshot(snap => {
+      clearTimeout(timer);
+      storeMode = "db";
+      const list = [];
+      (snap.docs || snap).forEach(d => { const v = typeof d.data === "function" ? d.data() : d; list.push({ ...v, id: d.id ?? v.id }); });
+      branches = list; sortBranches();
+      setSync("Saved · " + branches.length + " branch" + (branches.length===1?"":"es"));
+      render();
+    }, err => { clearTimeout(timer); console.error(err); fallback("Couldn't load saved branches"); });
+  }catch(e){ clearTimeout(timer); console.error(e); fallback(); }
+}
+function fallback(msg){
+  if(storeMode === "db") return;
+  storeMode = "local";
+  if(!branches.length) branches = ["Branch 1","Branch 2","Branch 3","Branch 4","Branch 5"].map((n,i)=>({id:"local"+i,name:n,code:"B0"+(i+1),active:true,callCenter:true,open:"11:00",close:"23:30",city:"",zones:""}));
+  setSync(msg || "Preview mode · changes not saved");
+  render();
+}
+async function saveBranch(data, id){
+  if(storeMode === "db"){
+    if(id) await col.doc(id).update(data);
+    else { const nid = "br_" + Date.now().toString(36) + Math.random().toString(36).slice(2,6); await col.doc(nid).set({ ...data, createdAt: new Date().toISOString() }); }
+  } else {
+    if(id){ const b = branches.find(x => x.id===id); Object.assign(b, data); }
+    else branches.push({ ...data, id:"local"+Date.now() });
+    sortBranches(); render();
+  }
+}
+async function deleteBranch(id){
+  if(storeMode === "db") await col.doc(id).delete();
+  else { branches = branches.filter(b => b.id!==id); render(); }
+}
+
+/* ---------- sample sales data (deterministic per branch + day) ---------- */
+function rng(seed){ let h = 2166136261; for(const c of seed) h = Math.imul(h ^ c.charCodeAt(0), 16777619); return () => { h += 0x6D2B79F5; let t = h; t = Math.imul(t ^ t>>>15, t|1); t ^= t + Math.imul(t ^ t>>>7, t|61); return ((t ^ t>>>14)>>>0)/4294967296; }; }
+const HOUR_SHAPE = [0,0,0,0,0,0,0,0,0,0,.2,.6,1,.9,.6,.4,.35,.5,.8,1,.85,.6,.35,.15];
+function branchDay(b, dayKey){
+  const r = rng(b.id + dayKey);
+  const scale = 0.7 + r()*0.7;
+  const hours = HOUR_SHAPE.map(s => Math.round(s * scale * (5 + r()*4)));
+  const orders = hours.reduce((a,c)=>a+c,0);
+  const ticket = 21 + r()*8, dr = 0.02 + r()*0.03;
+  const net = orders * ticket;
+  return { hours, orders, net, disc: net*dr, pay: net*1.08, ticket, dr };
+}
+const todayStr = () => { const d = new Date(); return new Date(d - d.getTimezoneOffset()*60000).toISOString().slice(0,10); };
+function dayKeys(offset){
+  const n = state.range==="day"?1:state.range==="week"?7:30, out=[], d = new Date(state.date+"T12:00:00");
+  for(let i=0;i<n;i++){ const x = new Date(d); x.setDate(d.getDate()-i-offset*n); out.push(x.toISOString().slice(0,10)); }
+  return out;
+}
+function aggregate(list, offset){
+  const keys = dayKeys(offset||0), per = {};
+  const z = () => Array(24).fill(0);
+  const tot = { hours:z(), hNet:z(), hPay:z(), hDisc:z(), orders:0, net:0, disc:0, pay:0 };
+  list.forEach(b => {
+    const p = { orders:0, net:0, disc:0, pay:0 };
+    keys.forEach(k => { const d = branchDay(b,k); p.orders+=d.orders; p.net+=d.net; p.disc+=d.disc; p.pay+=d.pay;
+      d.hours.forEach((h,i)=>{ tot.hours[i]+=h; tot.hNet[i]+=h*d.ticket; tot.hPay[i]+=h*d.ticket*1.08; tot.hDisc[i]+=h*d.ticket*d.dr; }); });
+    per[b.id] = p; tot.orders+=p.orders; tot.net+=p.net; tot.disc+=p.disc; tot.pay+=p.pay;
+  });
+  return { tot, per };
+}
+
+/* ---------- charts ---------- */
+const FMT = { n: v => Math.round(v).toLocaleString() + " orders", m: v => money(v) };
+function lineChart(values, opt = {}){
+  const W=640, H=opt.h||230, L=opt.axis===false?8:44, R=12, T=12, B=30, max = Math.max(1,...values), n = values.length;
+  const x = i => L + i*(W-L-R)/(n-1), y = v => T + (H-T-B)*(1 - v/max);
+  const pts = values.map((v,i)=>`${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(" ");
+  let g = "";
+  if(opt.axis!==false){
+    const ticks = [0, max/2, max];
+    g += ticks.map(t => `<line x1="${L}" x2="${W-R}" y1="${y(t)}" y2="${y(t)}" stroke="#ecebf0"/><text x="${L-6}" y="${y(t)+4}" text-anchor="end" font-size="10" fill="#8d8c98">${opt.fmt==="m"?Math.round(t):Math.round(t)}</text>`).join("");
+  } else g += `<line x1="${L}" x2="${W-R}" y1="${y(0)}" y2="${y(0)}" stroke="#ecebf0"/>`;
+  const step = opt.labelStep || 3;
+  g += values.map((v,i)=> i%step===0 ? `<text x="${x(i)}" y="${H-10}" text-anchor="middle" font-size="${opt.axis===false?16:10}" fill="#8d8c98">${hourLbl(i)}</text>` : "").join("");
+  const dots = opt.dots ? values.map((v,i)=>`<circle cx="${x(i)}" cy="${y(v)}" r="${opt.axis===false?4:3}" fill="var(--chart)"/>`).join("") : "";
+  const area = `${L},${y(0)} ${pts} ${W-R},${y(0)}`;
+  return `<div class="chart" data-vals="${values.map(v=>+v.toFixed(2)).join(",")}" data-h="${H}" data-l="${L}" data-fmt="${opt.fmt||"n"}"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(opt.label||"Chart by hour")}">
+    ${g}${opt.area===false?"":`<polygon points="${area}" fill="var(--chart-soft)" opacity=".6"/>`}<polyline points="${pts}" fill="none" stroke="var(--chart)" stroke-width="${opt.axis===false?3:2}" stroke-linejoin="round"/>${dots}
+    <line class="xh" y1="${T}" y2="${y(0)}" stroke="#bdbbc8" stroke-dasharray="3 3" visibility="hidden"/><circle class="mk" r="${opt.axis===false?8:5}" fill="var(--chart)" stroke="#fff" stroke-width="2" visibility="hidden"/>
+    <rect x="${L}" y="${T}" width="${W-L-R}" height="${H-T-B}" fill="transparent" class="hit"/></svg><div class="tip"></div></div>`;
+}
+function wireLine(el){
+  const svg = el.querySelector("svg"), vals = el.dataset.vals.split(",").map(Number), tip = el.querySelector(".tip");
+  const fmt = FMT[el.dataset.fmt] || FMT.n;
+  const W=640, H=+el.dataset.h, L=+el.dataset.l, R=12, T=12, B=30, max=Math.max(1,...vals), n=vals.length;
+  const x = i => L + i*(W-L-R)/(n-1), y = v => T + (H-T-B)*(1 - v/max);
+  const xh = svg.querySelector(".xh"), mk = svg.querySelector(".mk"), hit = svg.querySelector(".hit");
+  hit.addEventListener("mousemove", e => {
+    const r = svg.getBoundingClientRect(), sx = (e.clientX - r.left) * W / r.width;
+    const i = Math.max(0, Math.min(n-1, Math.round((sx-L)/((W-L-R)/(n-1)))));
+    xh.setAttribute("x1",x(i)); xh.setAttribute("x2",x(i)); xh.setAttribute("visibility","visible");
+    mk.setAttribute("cx",x(i)); mk.setAttribute("cy",y(vals[i])); mk.setAttribute("visibility","visible");
+    tip.innerHTML = `${hourLbl(i)}<br><b>${fmt(vals[i])}</b>`;
+    tip.style.left = (x(i)*r.width/W)+"px"; tip.style.top = (y(vals[i])*r.height/H)+"px"; tip.style.opacity = 1;
+  });
+  hit.addEventListener("mouseleave", () => { xh.setAttribute("visibility","hidden"); mk.setAttribute("visibility","hidden"); tip.style.opacity = 0; });
+}
+function barList(rows){ // horizontal bars, single measure
+  const max = Math.max(1, ...rows.map(r=>r.v));
+  return `<div style="display:flex;flex-direction:column;gap:12px">${rows.map(r => `
+    <div title="${esc(r.name)}: ${money(r.v)}">
+      <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px"><span>${esc(r.name)}</span><span style="font-variant-numeric:tabular-nums;color:var(--ink2)">${money(r.v)}</span></div>
+      <div style="height:8px;background:var(--bg);border-radius:4px"><div style="height:8px;width:${(r.v/max*100).toFixed(1)}%;background:var(--chart);border-radius:4px"></div></div>
+    </div>`).join("")}</div>`;
+}
+
+/* ---------- views ---------- */
+const hourLbl = i => String(i%12||12).padStart(2,"0") + ":00 " + (i<12?"AM":"PM");
+function filterBar(){
+  return `<div class="row fbar"><div class="seg" id="rangeSeg">${["day","week","month"].map(r=>`<button data-r="${r}" class="${state.range===r?"on":""}">${r[0].toUpperCase()+r.slice(1)}</button>`).join("")}</div>
+    <input type="date" class="sel" id="datePick" value="${state.date}" max="${todayStr()}" aria-label="Date">
+    <label class="toggle"><input type="checkbox" id="cmpToggle" ${state.compare?"checked":""}><span class="trk"></span>Compare</label>
+    <span class="sp"></span><span class="note">Sample figures until the POS is connected</span></div>`;
+}
+function delta(cur, prev){
+  if(!state.compare) return "";
+  if(!prev) return `<div class="d">No data for previous period</div>`;
+  const pct = (cur-prev)/prev*100, up = pct>=0;
+  return `<div class="d ${up?"up":"down"}">${up?"▲":"▼"} ${Math.abs(pct).toFixed(1)}% vs previous ${state.range}</div>`;
+}
+function kpiCard(title, value, series, fmt, cur, prev){
+  return `<div class="card kpi"><div class="kh"><h3>${title}</h3><a href="#sales-reports" class="vr">View Report</a></div>
+    <div class="v">${value}</div>${delta(cur, prev)}
+    ${lineChart(series, {h:300, axis:false, area:false, dots:true, labelStep:3, fmt, label:title+" by hour"})}</div>`;
+}
+function viewDashboard(){
+  const act = activeBranches();
+  const list = state.branch==="all" ? act : act.filter(b=>b.id===state.branch);
+  const tabs = [["general","General"],["branches","Branches"],["inventory","Inventory"],["call-center","Call Center"],["kitchen","Kitchen"]];
+  let h = `<h1>Welcome, ${esc(state.userName||"Admin")}</h1><p class="subt">${state.branch==="all" ? `All ${act.length} active branches` : esc(list[0]?.name||"")}</p>
+    <div class="tabs">${tabs.map(([k,t])=>`<a href="#dashboard" data-dt="${k}" class="${state.dashTab===k?"on":""}">${t}${k==="kitchen"?' <span class="new">New!</span>':""}</a>`).join("")}</div>`;
+  if(!act.length) return h + `<div class="card empty">No active branches yet.<br><br><a class="btn pri" href="#branches">Add your first branch</a></div>`;
+  const { tot, per } = aggregate(list, 0);
+  const prev = state.compare ? aggregate(list, 1).tot : null;
+  if(state.dashTab==="general"){
+    h += filterBar() + `<div class="grid kpis">
+      ${kpiCard("Orders", tot.orders.toLocaleString(), tot.hours, "n", tot.orders, prev?.orders)}
+      ${kpiCard("Net Sales", money(tot.net), tot.hNet, "m", tot.net, prev?.net)}
+      ${kpiCard("Net Payments", money(tot.pay), tot.hPay, "m", tot.pay, prev?.pay)}
+      ${kpiCard("Return Amount", money(0), Array(24).fill(0), "m", 0, 0)}
+      ${kpiCard("Discount Amount", money(tot.disc), tot.hDisc, "m", tot.disc, prev?.disc)}
+      ${kpiCard("Average Ticket", money(tot.orders? tot.net/tot.orders : 0), tot.hours.map((o,i)=>o?tot.hNet[i]/o:0), "m", tot.orders?tot.net/tot.orders:0, prev&&prev.orders?prev.net/prev.orders:0)}
+    </div>
+    <div class="grid two">
+      <div class="card"><div class="kh"><h3>Top branches by net sales</h3><a href="#branches-report" data-dt2="branches" class="vr">View all</a></div><div style="height:12px"></div>${barList(list.map(b=>({name:b.name,v:per[b.id].net})).sort((a,b)=>b.v-a.v))}</div>
+      <div class="card"><div class="kh"><h3>Order types</h3></div><div style="height:12px"></div>${barList([{name:"Delivery",v:tot.net*.46},{name:"Takeaway",v:tot.net*.31},{name:"Dine-in",v:tot.net*.15},{name:"Aggregators",v:tot.net*.08}])}</div>
+    </div>`;
+  } else if(state.dashTab==="branches"){
+    h += filterBar() + `<div class="card tbl"><table><thead><tr><th>Branch</th><th>Code</th><th class="num">Orders</th><th class="num">Net sales</th><th class="num">Avg. ticket</th><th class="num">Discounts</th></tr></thead><tbody>${
+      list.map(b => { const p = per[b.id]; return `<tr><td>${esc(b.name)}</td><td class="code">${esc(b.code)}</td><td class="num">${p.orders}</td><td class="num">${money(p.net)}</td><td class="num">${money(p.orders?p.net/p.orders:0)}</td><td class="num">${money(p.disc)}</td></tr>`; }).join("")
+    }<tr style="font-weight:600"><td>Total</td><td></td><td class="num">${tot.orders}</td><td class="num">${money(tot.net)}</td><td class="num">${money(tot.orders?tot.net/tot.orders:0)}</td><td class="num">${money(tot.disc)}</td></tr></tbody></table></div>`;
+  } else {
+    h += placeholder(tabs.find(t=>t[0]===state.dashTab)[1] + " dashboard", "This tab fills in once the matching module is built.");
+  }
+  return h;
+}
+const kpi = (t,v) => `<div class="card kpi"><h3>${t}</h3><div class="v">${v}</div></div>`;
+const placeholder = (t, s) => `<div class="card ph"><div><div class="big">${esc(t)}</div>${esc(s)}</div></div>`;
+
+function viewBranches(){
+  const list = branches.filter(b => state.brand==="all" || b.brandId===state.brand);
+  const n = list.length, a = activeBranches().length;
+  let h = `<div class="row" style="justify-content:space-between;margin-bottom:6px"><div><h1>Branches</h1><p class="subt" style="margin:0">${n} total · ${a} active</p></div>
+    <button class="btn pri" id="addBranch">+ Add branch</button></div><div style="height:14px"></div>`;
+  if(storeMode==="local") h += `<div class="banner">Preview mode: branches you add here won't be saved. Open this page from claude.ai while signed in to save them.</div>`;
+  if(!n) return h + `<div class="card empty">No branches yet. Add your first branch to get started.</div>`;
+  h += `<div class="card tbl"><table><thead><tr><th>Code</th><th>Name</th><th>Brand</th><th>Area</th><th>Hours</th><th>Phone</th><th>Status</th><th></th></tr></thead><tbody>${
+    list.map(b => `<tr>
+      <td class="code">${esc(b.code)}</td>
+      <td><b style="font-weight:600">${esc(b.name)}</b>${b.production?` <span class="tag cc">Central kitchen</span>`:""}</td>
+      <td>${esc(brandName(b.brandId))}</td>
+      <td>${esc(b.city)||'<span class="note">—</span>'}</td>
+      <td>${esc(b.open||"")}${b.open||b.close?"–":""}${esc(b.close||"")}</td>
+      <td>${esc(b.phone)||'<span class="note">—</span>'}</td>
+      <td><span class="tag ${b.active!==false?"on":"off"}"><span class="dot"></span>${b.active!==false?"Active":"Inactive"}</span>${b.callCenter?` <span class="tag cc">Call center</span>`:""}</td>
+      <td class="num"><button class="btn sm" data-edit="${esc(b.id)}">Edit</button></td></tr>`).join("")
+  }</tbody></table></div>
+  <p class="note" style="margin-top:12px">Inactive branches stay in your history but are hidden from dashboards, filters and call-center routing.</p>`;
+  return h;
+}
+
+function render(){
+  const route = (location.hash.slice(1) || "dashboard");
+  renderNav(route);
+  // branch selector
+  const bl = brandList();
+  if(state.brand!=="all" && !bl.some(b=>b.id===state.brand)) state.brand = "all";
+  $("#brandSel").innerHTML = `<option value="all">All brands (${bl.length})</option>` + bl.map(b=>`<option value="${esc(b.id)}" ${state.brand===b.id?"selected":""}>${esc(b.name)}</option>`).join("");
+  $("#brandSel").style.display = bl.length ? "" : "none";
+  const act = activeBranches();
+  if(state.branch!=="all" && !act.some(b=>b.id===state.branch)) state.branch = "all";
+  $("#branchSel").innerHTML = `<option value="all">All branches (${act.length})</option>` + act.map(b=>`<option value="${esc(b.id)}" ${state.branch===b.id?"selected":""}>${esc(b.name)}</option>`).join("");
+  const v = $("#view");
+  if(storeMode==="loading"){ v.innerHTML = `<div class="ph"><div>Loading…</div></div>`; return; }
+  if(route==="dashboard") v.innerHTML = viewDashboard();
+  else if(route==="branches") v.innerHTML = viewBranches();
+  else if(moduleRoute(route) !== null) v.innerHTML = moduleRoute(route);
+  else v.innerHTML = `<h1>${esc(TITLES[route]||"Not found")}</h1><p class="subt">&nbsp;</p>` + placeholder("Coming next", "This screen is part of the plan and will be built in a later step.");
+  v.querySelectorAll(".chart").forEach(wireLine);
+}
+
+/* ---------- events ---------- */
+window.addEventListener("hashchange", () => { render(); window.scrollTo(0,0); });
+$("#view").addEventListener("change", e => {
+  if(e.target.id==="datePick" && e.target.value){ state.date = e.target.value; render(); }
+  if(e.target.id==="cmpToggle"){ state.compare = e.target.checked; render(); }
+});
+$("#branchSel").addEventListener("change", e => { state.branch = e.target.value; render(); });
+$("#brandSel").addEventListener("change", e => { state.brand = e.target.value; state.branch = "all"; try{ localStorage.setItem("slickBrand", state.brand); }catch(err){} render(); });
+$("#view").addEventListener("click", e => {
+  const r = e.target.closest("[data-r]"); if(r){ state.range = r.dataset.r; render(); return; }
+  const t2 = e.target.closest("[data-dt2]"); if(t2){ e.preventDefault(); state.dashTab = t2.dataset.dt2; render(); return; }
+  const t = e.target.closest("[data-dt]"); if(t){ e.preventDefault(); state.dashTab = t.dataset.dt; render(); return; }
+  if(e.target.closest("#addBranch")) openForm();
+  const ed = e.target.closest("[data-edit]"); if(ed) openForm(ed.dataset.edit);
+});
+
+let editing = null;
+function openForm(id){
+  editing = id || null;
+  const b = id ? branches.find(x=>x.id===id) : null;
+  $("#mTitle").textContent = b ? "Edit branch" : "Add branch";
+  $("#fBrand").innerHTML = `<option value="">Choose brand…</option>` + brandList().map(x=>`<option value="${esc(x.id)}">${esc(x.name)}</option>`).join("");
+  $("#fBrand").value = b?.brandId || defaultBrand();
+  $("#fName").value = b?.name || ""; $("#fCode").value = b?.code || ""; $("#fCode").placeholder = b ? "" : nextCode();
+  $("#fAddr").value = b?.address || ""; $("#fCity").value = b?.city || ""; $("#fPhone").value = b?.phone || "";
+  $("#fOpen").value = b?.open || "11:00"; $("#fClose").value = b?.close || "23:30"; $("#fZones").value = b?.zones || "";
+  $("#fActive").checked = b ? b.active!==false : true; $("#fCC").checked = b ? !!b.callCenter : true; $("#fProd").checked = !!b?.production;
+  $("#delBtn").style.display = b ? "" : "none"; $("#fErr").textContent = "";
+  $("#scrim").classList.add("show"); setTimeout(()=>$("#fName").focus(), 30);
+}
+function closeForm(){ $("#scrim").classList.remove("show"); editing = null; }
+document.querySelectorAll("[data-close]").forEach(b => b.addEventListener("click", closeForm));
+$("#scrim").addEventListener("click", e => { if(e.target.id==="scrim") closeForm(); });
+document.addEventListener("keydown", e => { if(e.key==="Escape"){ closeForm(); $("#confirmScrim").classList.remove("show"); } });
+
+$("#branchForm").addEventListener("submit", async e => {
+  e.preventDefault();
+  const name = $("#fName").value.trim();
+  const code = ($("#fCode").value.trim() || (editing ? "" : nextCode())).toUpperCase();
+  if(!name){ $("#fErr").textContent = "Branch name is required."; return; }
+  const brandId = $("#fBrand").value;
+  if(brandList().length && !brandId){ $("#fErr").textContent = "Choose the brand this branch belongs to."; return; }
+  if(branches.some(b => b.id!==editing && b.brandId===brandId && b.name.toLowerCase()===name.toLowerCase())){ $("#fErr").textContent = "This brand already has a branch with this name."; return; }
+  if(code && branches.some(b => b.id!==editing && (b.code||"").toUpperCase()===code)){ $("#fErr").textContent = "That reference code is already used."; return; }
+  const data = { name, code, brandId, address:$("#fAddr").value.trim(), city:$("#fCity").value.trim(), phone:$("#fPhone").value.trim(),
+    open:$("#fOpen").value, close:$("#fClose").value, zones:$("#fZones").value.trim(),
+    active:$("#fActive").checked, callCenter:$("#fCC").checked, production:$("#fProd").checked, updatedAt:new Date().toISOString() };
+  $("#saveBtn").disabled = true;
+  try{ await saveBranch(data, editing); toast(editing ? "Branch updated" : `${name} added`); closeForm(); }
+  catch(err){ console.error(err); $("#fErr").textContent = "Couldn't save. You may not have edit access to this page."; }
+  finally{ $("#saveBtn").disabled = false; }
+});
+$("#delBtn").addEventListener("click", () => {
+  const b = branches.find(x=>x.id===editing); if(!b) return;
+  $("#confirmText").innerHTML = `This removes <b>${esc(b.name)}</b> permanently. To keep its history, mark it inactive instead.`;
+  $("#confirmScrim").classList.add("show");
+});
+$("#cNo").addEventListener("click", () => $("#confirmScrim").classList.remove("show"));
+$("#cYes").addEventListener("click", async () => {
+  const id = editing; $("#confirmScrim").classList.remove("show");
+  try{ await deleteBranch(id); toast("Branch deleted"); closeForm(); } catch(err){ console.error(err); toast("Couldn't delete branch"); }
+});
+let tt; function toast(m){ const t = $("#toast"); t.textContent = m; t.classList.add("show"); clearTimeout(tt); tt = setTimeout(()=>t.classList.remove("show"), 2200); }
+
+/* ---------- generic collections (menu, inventory, devices, call center, online ordering) ---------- */
+const COLS = ["brands","categories","products","inv_items","devices","orders","zones","settings"];
+const S = {}; COLS.forEach(c => S[c] = []);
+function subscribeAll(){
+  COLS.forEach(c => db.collection(c).onSnapshot(snap => {
+    S[c] = snap.docs.map(d => ({ ...d.data(), id: d.id }));
+    render();
+  }, err => console.error("load " + c, err)));
+}
+const uid = p => p + "_" + Date.now().toString(36) + Math.random().toString(36).slice(2,6);
+async function put(col, id, data){
+  const now = new Date().toISOString();
+  if(storeMode === "db"){
+    if(id && S[col].some(r => r.id===id)) await db.collection(col).doc(id).update({ ...data, updatedAt: now });
+    else await db.collection(col).doc(id || uid(col.slice(0,3))).set({ ...data, createdAt: now, updatedAt: now });
+  } else {
+    const r = id && S[col].find(x => x.id===id);
+    if(r) Object.assign(r, data, { updatedAt: now }); else S[col].push({ ...data, id: id || uid(col.slice(0,3)), createdAt: now, updatedAt: now });
+    render();
+  }
+}
+const live = r => !r.deleted;
+const catName = id => S.categories.find(c => c.id===id)?.name || "—";
+const branchName = id => branches.find(b => b.id===id)?.name || "—";
+const fmtDate = s => s ? new Date(s).toLocaleString("en-GB",{year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit"}).replace(",","") : "—";
+const ago = s => { const m = Math.round((Date.now() - new Date(s))/60000); if(m<1) return "just now"; if(m<60) return m + " minute" + (m>1?"s":"") + " ago"; const h = Math.round(m/60); if(h<24) return (h===1?"an":h) + " hour" + (h>1?"s":"") + " ago"; return Math.round(h/24) + " days ago"; };
+const usd = n => "USD " + (+n||0).toLocaleString("en-US",{maximumFractionDigits:2});
+
+/* ---------- CRUD screens, Foodics-style ---------- */
+const CHANNELS = [["pos","POS"],["callcenter","Call center"],["delivery","Online delivery"],["takeaway","Online takeaway"],["dinein","Dine-in QR"]];
+const brandFilter = r => state.brand==="all" || r.brandId===state.brand;
+const brandField = {k:"brandId",l:"Brand",t:"select",req:1,opts:()=>brandList().map(b=>[b.id,b.name]),auto:()=>defaultBrand()};
+const CRUD = {
+  brands: {
+    col:"brands", title:"Brands", one:"Brand",
+    tabs:[["all","All",live],["deleted","Deleted",r=>r.deleted]],
+    sort:(a,b)=>a.name.localeCompare(b.name),
+    search:r=>r.name,
+    cols:[["Brand",r=>`<b>${esc(r.name)}</b>${r.nameAr?` <span class="note">${esc(r.nameAr)}</span>`:""}`],
+      ["Branches",r=>branches.filter(b=>b.brandId===r.id).length,"num"],["Products",r=>S.products.filter(p=>live(p)&&p.brandId===r.id).length,"num"],
+      ["Status",r=>r.active===false?'<span class="tag off">Inactive</span>':'<span class="tag on">Active</span>']],
+    fields:[{k:"name",l:"Brand name",req:1},{k:"nameAr",l:"Name (Arabic)"},{k:"active",l:"Active",t:"chk",def:true}]
+  },
+  categories: {
+    col:"categories", title:"Categories", one:"Category",
+    tabs:[["all","All",live],["deleted","Deleted",r=>r.deleted]],
+    sort:(a,b)=>(a.sort??999)-(b.sort??999) || a.name.localeCompare(b.name),
+    search:r=>r.name+" "+(r.reference||""),
+    filter:brandFilter,
+    cols:[["Name",r=>`<b>${esc(r.name)}</b>`],["Brand",r=>esc(brandName(r.brandId))],["Reference",r=>esc(r.reference||"—")],
+      ["Products",r=>`<a class="lnk" href="#products" data-catfilter="${esc(r.id)}">Products (${S.products.filter(p=>live(p)&&p.categoryId===r.id).length})</a>`],
+      ["Sort",r=>r.sort??"—","num"],["Created",r=>fmtDate(r.createdAt)]],
+    fields:[{k:"name",l:"Name",req:1},{k:"nameAr",l:"Name (Arabic)"},brandField,{k:"reference",l:"Reference"},{k:"sort",l:"Sort order",t:"number"}]
+  },
+  products: {
+    col:"products", title:"Products", one:"Product",
+    tabs:[["all","All",live],["active","Active",r=>live(r)&&r.active!==false],["inactive","Inactive",r=>live(r)&&r.active===false],["deleted","Deleted",r=>r.deleted]],
+    sort:(a,b)=>(a.sku||"").localeCompare(b.sku||"",undefined,{numeric:true}),
+    search:r=>r.name+" "+(r.sku||"")+" "+catName(r.categoryId),
+    filter:r=>brandFilter(r) && (!state.catFilter || r.categoryId===state.catFilter),
+    cols:[["Name",r=>`<b>${esc(r.name)}</b>`],["Brand",r=>esc(brandName(r.brandId))],["SKU",r=>`<span class="code">${esc(r.sku||"")}</span>`],["Category",r=>esc(catName(r.categoryId))],
+      ["Price",r=>usd(r.price)],["Tax Group",r=>esc(r.taxGroup||"—")],
+      ["Channels",r=>chanTags(r)],["Active",r=>r.active===false?'<span class="tag off">Inactive</span>':'<span class="tag on">Active</span>']],
+    fields:[{k:"name",l:"Name",req:1},{k:"nameAr",l:"Name (Arabic)"},brandField,{k:"sku",l:"SKU",auto:()=>nextSku("products")},
+      {k:"categoryId",l:"Category",t:"select",req:1,opts:()=>S.categories.filter(c=>live(c)&&brandFilter(c)).map(c=>[c.id,(state.brand==="all"?brandName(c.brandId)+" · ":"")+c.name])},
+      {k:"price",l:"Price (USD)",t:"number",req:1},{k:"taxGroup",l:"Tax group",t:"select",opts:()=>[["TAX","TAX"],["No tax","No tax"]],def:"TAX"},
+      {k:"description",l:"Description",t:"textarea",full:1},
+      {k:"channels",l:"Sell on (menu zoning by channel)",t:"multi",full:1,opts:()=>CHANNELS,def:CHANNELS.map(c=>c[0])},
+      {k:"branchIds",l:"Available in branches (leave all unticked = every branch of the brand)",t:"multi",full:1,opts:()=>branches.filter(brandFilter).map(b=>[b.id,(state.brand==="all"?brandName(b.brandId)+" · ":"")+b.name])},
+      {k:"active",l:"Active",t:"chk",def:true}]
+  },
+  "inv-items": {
+    col:"inv_items", title:"Inventory Items", one:"Item",
+    tabs:[["all","All",live],["items","Items",r=>live(r)&&r.kind!=="produced"],["produced","Produced",r=>live(r)&&r.kind==="produced"],["deleted","Deleted",r=>r.deleted]],
+    sort:(a,b)=>(b.sku||"").localeCompare(a.sku||"",undefined,{numeric:true}),
+    search:r=>r.name+" "+(r.sku||"")+" "+(r.category||""),
+    cols:[["Name",r=>`<b>${esc(r.name)}</b>`],["Sku",r=>`<span class="code">${esc(r.sku||"")}</span>`],["Category",r=>esc(r.category||"—")],
+      ["Type",r=>r.kind==="produced"?'<span class="tag cc">Produced</span>':'<span class="tag off">Purchased</span>'],
+      ["Storage unit",r=>esc(r.storageUnit||"—")],["Cost",r=>r.cost?usd(r.cost):"—","num"]],
+    fields:[{k:"name",l:"Name",req:1},{k:"sku",l:"SKU",auto:()=>nextSku("inv_items")},
+      {k:"category",l:"Category",t:"list",opts:()=>[...new Set(S.inv_items.map(i=>i.category).filter(Boolean))].sort()},
+      {k:"kind",l:"Type",t:"select",opts:()=>[["purchased","Purchased"],["produced","Produced (made in-house)"]],def:"purchased"},
+      {k:"storageUnit",l:"Storage unit",ph:"e.g. kg, box, gallon"},{k:"ingredientUnit",l:"Ingredient unit",ph:"e.g. g, ml, piece"},
+      {k:"factor",l:"Storage → ingredient factor",t:"number",ph:"e.g. 1000"},{k:"cost",l:"Cost per storage unit (USD)",t:"number"},
+      {k:"minLevel",l:"Minimum level",t:"number"},{k:"parLevel",l:"Par level",t:"number"},{k:"barcode",l:"Barcode"}]
+  },
+  "delivery-zones": {
+    col:"zones", title:"Delivery Zones", one:"Delivery Zone",
+    tabs:[["all","All",live],["deleted","Deleted",r=>r.deleted]],
+    sort:(a,b)=>branchName(a.branchId).localeCompare(branchName(b.branchId))||a.name.localeCompare(b.name),
+    search:r=>r.name+" "+branchName(r.branchId),
+    cols:[["Zone",r=>`<b>${esc(r.name)}</b>`],["Branch",r=>esc(branchName(r.branchId))],["Delivery fee",r=>usd(r.fee)],["Min. order",r=>usd(r.minOrder)],["Est. time",r=>r.eta?esc(r.eta)+" min":"—"],
+      ["Status",r=>r.active===false?'<span class="tag off">Off</span>':'<span class="tag on">On</span>']],
+    fields:[{k:"name",l:"Zone / area name",req:1},{k:"branchId",l:"Delivering branch",t:"select",req:1,opts:()=>activeBranches().map(b=>[b.id,b.name])},
+      {k:"fee",l:"Delivery fee (USD)",t:"number"},{k:"minOrder",l:"Minimum order (USD)",t:"number"},{k:"eta",l:"Estimated time (min)",t:"number"},{k:"active",l:"Accept orders for this zone",t:"chk",def:true}]
+  }
+};
+function chanTags(r){ const c = r.channels || CHANNELS.map(x=>x[0]); return c.length===CHANNELS.length ? '<span class="note">All</span>' : c.map(k=>`<span class="tag off">${esc((CHANNELS.find(x=>x[0]===k)||[,k])[1])}</span>`).join(" "); }
+function nextSku(col){ let n=0; S[col].forEach(r=>{ const m=/(\d+)$/.exec(r.sku||""); if(m) n=Math.max(n,+m[1]); }); return "sk-"+String(n+1).padStart(4,"0"); }
+
+state.tabs = {}; state.q = {}; state.page = {}; state.catFilter = "";
+function crudView(key){
+  const cfg = CRUD[key], tab = state.tabs[key] || "all", q = (state.q[key]||"").toLowerCase();
+  let list = S[cfg.col].filter(cfg.tabs.find(t=>t[0]===tab)[2]).filter(cfg.filter||(()=>true)).filter(r => !q || cfg.search(r).toLowerCase().includes(q));
+  list.sort(cfg.sort);
+  const per = 50, pages = Math.max(1, Math.ceil(list.length/per)), pg = Math.min(state.page[key]||1, pages);
+  const shown = list.slice((pg-1)*per, pg*per);
+  let h = `<div class="phead"><h1>${cfg.title}</h1><div class="sp"></div><button class="btn pri" data-create="${key}">Create ${cfg.one}</button></div>`;
+  if(storeMode==="local") h += `<div class="banner">Preview mode: changes won't be saved.</div>`;
+  h += `<div class="card tbl"><div class="ttop"><div class="ttabs">${cfg.tabs.map(t=>`<a href="#${key}" data-tab="${key}:${t[0]}" class="${tab===t[0]?"on":""}">${t[1]}</a>`).join("")}</div>
+    ${key==="products"&&state.catFilter?`<span class="chip">Category: ${esc(catName(state.catFilter))} <button data-clearcat aria-label="Clear">×</button></span>`:""}
+    <div class="sp"></div><input class="sel search" data-search="${key}" placeholder="Search" value="${esc(state.q[key]||"")}" aria-label="Search ${cfg.title}"></div>`;
+  if(!shown.length) h += `<div class="empty">${S[cfg.col].length ? "Nothing matches." : `No ${cfg.title.toLowerCase()} yet.`}</div>`;
+  else h += `<table><thead><tr>${cfg.cols.map(c=>`<th class="${c[2]||""}">${c[0]}</th>`).join("")}</tr></thead><tbody>${
+    shown.map(r=>`<tr class="click" data-open="${key}:${esc(r.id)}">${cfg.cols.map(c=>`<td class="${c[2]||""}">${c[1](r)}</td>`).join("")}</tr>`).join("")}</tbody></table>`;
+  h += `<div class="pager"><span class="note">Showing ${list.length?(pg-1)*per+1:0} to ${Math.min(pg*per,list.length)} out of ${list.length}</span><div class="sp"></div>
+    <button class="btn sm" data-page="${key}:${pg-1}" ${pg<=1?"disabled":""}>Previous</button><button class="btn sm" data-page="${key}:${pg+1}" ${pg>=pages?"disabled":""}>Next</button></div></div>`;
+  return h;
+}
+
+/* generic modal */
+let crudEdit = null;
+function openCrud(key, id){
+  const cfg = CRUD[key], r = id ? S[cfg.col].find(x=>x.id===id) : null;
+  crudEdit = { key, id: r?.id || null };
+  const val = f => r ? r[f.k] : (f.auto ? f.auto() : f.def);
+  const field = f => {
+    const v = val(f), idA = "cf_"+f.k, full = f.full||f.t==="textarea"||f.t==="multi" ? " full" : "";
+    if(f.t==="chk") return `<div class="f full"><label class="chk"><input type="checkbox" id="${idA}" ${v!==false&&v!==undefined?"checked":""}> ${f.l}</label></div>`;
+    if(f.t==="select") return `<div class="f${full}"><label for="${idA}">${f.l}${f.req?" *":""}</label><select id="${idA}"><option value="">Choose…</option>${f.opts().map(([k,t])=>`<option value="${esc(k)}" ${k===v?"selected":""}>${esc(t)}</option>`).join("")}</select></div>`;
+    if(f.t==="multi"){ const set = new Set(v||[]); return `<div class="f full"><label>${f.l}</label><div class="multi" id="${idA}">${f.opts().map(([k,t])=>`<label class="chk"><input type="checkbox" value="${esc(k)}" ${set.has(k)?"checked":""}> ${esc(t)}</label>`).join("")}</div></div>`; }
+    if(f.t==="textarea") return `<div class="f full"><label for="${idA}">${f.l}</label><textarea id="${idA}" rows="3">${esc(v||"")}</textarea></div>`;
+    const list = f.t==="list" ? `<datalist id="${idA}_dl">${f.opts().map(o=>`<option value="${esc(o)}">`).join("")}</datalist>` : "";
+    return `<div class="f${full}"><label for="${idA}">${f.l}${f.req?" *":""}</label><input id="${idA}" ${f.t==="number"?'type="number" step="any" min="0"':""} ${f.t==="list"?`list="${idA}_dl"`:""} value="${esc(v??"")}" placeholder="${esc(f.ph||"")}">${list}</div>`;
+  };
+  $("#crudBox").innerHTML = `<header><h2>${r?"Edit":"Create"} ${cfg.one}</h2><button type="button" class="x" data-cclose aria-label="Close">×</button></header>
+    <div class="body">${cfg.fields.map(field).join("")}<div class="err" id="cErr"></div></div>
+    <footer>${r ? (r.deleted ? `<button type="button" class="btn" id="cRestore" style="margin-right:auto">Restore</button>` : `<button type="button" class="btn danger" id="cDelete" style="margin-right:auto">Delete</button>`) : ""}
+    <button type="button" class="btn" data-cclose>Close</button><button type="submit" class="btn pri">Save</button></footer>`;
+  $("#crudScrim").classList.add("show");
+  setTimeout(()=>$("#crudBox input, #crudBox select")?.focus(), 30);
+}
+const closeCrud = () => { $("#crudScrim").classList.remove("show"); crudEdit = null; };
+async function submitCrud(e){
+  e.preventDefault();
+  const cfg = CRUD[crudEdit.key], data = {};
+  for(const f of cfg.fields){
+    const el = $("#cf_"+f.k);
+    if(f.t==="chk") data[f.k] = el.checked;
+    else if(f.t==="multi") data[f.k] = [...el.querySelectorAll("input:checked")].map(i=>i.value);
+    else if(f.t==="number") data[f.k] = el.value==="" ? null : +el.value;
+    else data[f.k] = el.value.trim();
+    if(f.req && (data[f.k]===""||data[f.k]===null)){ $("#cErr").textContent = f.l + " is required."; el.focus(); return; }
+  }
+  if(cfg.fields.some(f=>f.k==="sku") && data.sku && S[cfg.col].some(r=>r.id!==crudEdit.id && live(r) && r.sku===data.sku)){ $("#cErr").textContent = "That SKU is already used."; return; }
+  try{ await put(cfg.col, crudEdit.id, data); toast(cfg.one + " saved"); closeCrud(); }
+  catch(err){ console.error(err); $("#cErr").textContent = "Couldn't save. You may not have edit access."; }
+}
+async function softDelete(flag){
+  const cfg = CRUD[crudEdit.key];
+  try{ await put(cfg.col, crudEdit.id, { deleted: flag }); toast(flag ? cfg.one + " moved to Deleted" : cfg.one + " restored"); closeCrud(); }
+  catch(err){ console.error(err); $("#cErr").textContent = "Couldn't update."; }
+}
+
+/* ---------- Call Center (Foodics board) ---------- */
+const CC_COLS = [["draft","Draft","Orders that are not yet sent to the branch"],["pending","Pending","Orders that are not yet accepted by the branch"],
+  ["active","Active","Orders that are currently being prepared in the branch"],["declined","Declined","Orders that have been declined from the branch or the call center"],
+  ["closed","Closed","Orders that are completed, voided, joined or returned"]];
+const CC_SUB = { draft:"Draft", pending:"Sent to branch", active:"Sent To Kitchen", declined:"Declined", closed:"Done" };
+const SOURCES = ["Phone","Toters","NokNok","Talabat","WhatsApp","Website","Walk-in"];
+state.ccBranch = "all"; state.ccAgent = "all"; state.ccTab = "today";
+function viewCallCenter(){
+  const today = new Date().toDateString();
+  const agents = [...new Set(S.orders.map(o=>o.agent).filter(Boolean))];
+  const list = S.orders.filter(o => o.channel!=="pos" && brandFilter(o) && new Date(o.createdAt).toDateString()===today)
+    .filter(o => state.ccBranch==="all" || o.branchId===state.ccBranch).filter(o => state.ccAgent==="all" || o.agent===state.ccAgent)
+    .sort((a,b)=> b.createdAt.localeCompare(a.createdAt));
+  let h = `<div class="phead"><h1>Call Center</h1><div class="sp"></div>
+    <select class="sel" id="ccBranch" aria-label="Branch"><option value="all">All Branches</option>${branches.map(b=>`<option value="${esc(b.id)}" ${state.ccBranch===b.id?"selected":""}>${esc(b.name)}</option>`).join("")}</select>
+    <select class="sel" id="ccAgent" aria-label="Agent"><option value="all">All Agents</option>${agents.map(a=>`<option ${state.ccAgent===a?"selected":""}>${esc(a)}</option>`).join("")}</select>
+    <button class="btn pri" id="ccNew">${svgIco("phone")} New Call Center Order</button></div>
+    <div class="tabs"><a href="#call-center" class="on">Today's Orders</a><a href="#call-center" class="dis" title="Coming next">Edit Requests</a></div>`;
+  if(storeMode==="local") h += `<div class="banner">Preview mode: orders won't be saved.</div>`;
+  h += `<div class="board">${CC_COLS.map(([k,t,d]) => { const col = list.filter(o=>o.status===k); return `<div class="bcol"><div class="bhead"><b>${t}</b><span class="cnt ${col.length&&k==="active"?"hot":""}">${col.length}</span><span class="sp"></span><span class="info" title="${d}">i</span></div>
+    ${col.length ? col.map(ccCard).join("") : `<div class="bempty">You don't have ${t} orders</div>`}</div>`; }).join("")}</div>`;
+  return h;
+}
+const ccCard = o => `<button class="ocard" data-order="${esc(o.id)}"><div class="orow"><b>#${esc(o.no)}</b><span class="spill s-${o.status}">${CC_SUB[o.status]}</span></div>
+  <div class="oline">${svgIco("users")}<span>${esc(o.customerName||"Guest")}<br><span class="note">${esc(o.phone||"")}</span></span></div>
+  <div class="oline">${svgIco("dash")}<span class="note">Created ${ago(o.createdAt)}<br>Modified ${ago(o.updatedAt||o.createdAt)}</span></div>
+  <div class="oline">${svgIco("phone")}<span>${esc(o.agent||"Operator")} · ${esc(o.source||"Phone")}</span></div>
+  <div class="ototal">${usd(o.total)}</div><div class="oline">${svgIco("box")}<span>${brandList().length>1?esc(brandName(o.brandId))+" · ":""}${esc(branchName(o.branchId))} · ${o.type==="pickup"?"Pickup":o.type==="dinein"?"Dine-in":"Delivery"}</span></div></button>`;
+
+let ccEdit = null, cart = [];
+function openOrder(id){
+  const o = id ? S.orders.find(x=>x.id===id) : null;
+  ccEdit = o ? o.id : null; cart = o ? o.items.map(i=>({...i})) : [];
+  const ro = o && o.status!=="draft";
+  const cc = activeBranches().filter(b=>b.callCenter!==false);
+  $("#ccBox").innerHTML = `<header><h2>${o?`Order #${esc(o.no)} <span class="spill s-${o.status}">${CC_SUB[o.status]}</span>`:"New Call Center Order"}</h2><button type="button" class="x" data-ccclose aria-label="Close">×</button></header>
+  <div class="ccgrid"><div class="ccleft">
+    <div class="f"><label for="oPhone">Customer phone *</label><input id="oPhone" value="${esc(o?.phone||"")}" ${ro?"disabled":""} placeholder="+961 …"></div>
+    <div class="f"><label for="oName">Customer name</label><input id="oName" value="${esc(o?.customerName||"")}" ${ro?"disabled":""}></div>
+    <div class="f"><label for="oSource">Source</label><select id="oSource" ${ro?"disabled":""}>${SOURCES.map(s=>`<option ${(o?.source||"Phone")===s?"selected":""}>${s}</option>`).join("")}</select></div>
+    <div class="f"><label>Order type</label><div class="seg" id="oType">${[["delivery","Delivery"],["pickup","Pickup"]].map(([k,t])=>`<button type="button" data-ot="${k}" class="${(o?.type||"delivery")===k?"on":""}" ${ro?"disabled":""}>${t}</button>`).join("")}</div></div>
+    <div class="f" id="oAddrF"><label for="oAddr">Delivery address</label><textarea id="oAddr" rows="2" ${ro?"disabled":""}>${esc(o?.address||"")}</textarea></div>
+    <div class="f"><label for="oBrand">Brand *</label><select id="oBrand" ${ro?"disabled":""}><option value="">Choose brand…</option>${brandList().filter(b=>b.active!==false).map(b=>`<option value="${esc(b.id)}" ${(o?.brandId||defaultBrand())===b.id?"selected":""}>${esc(b.name)}</option>`).join("")}</select></div>
+    <div class="f"><label for="oBranch">Branch (agent picks) *</label><select id="oBranch" ${ro?"disabled":""}></select></div>
+    <div class="f"><label for="oNotes">Notes</label><input id="oNotes" value="${esc(o?.notes||"")}" ${ro?"disabled":""}></div>
+  </div><div class="ccright">
+    ${ro?"":`<input class="sel search" id="oSearch" placeholder="Search products" style="width:100%"><div class="chips" id="oCats"></div><div class="pgrid" id="oProducts"></div>`}
+    <div class="cart" id="oCart"></div>
+  </div></div>
+  <div class="err" id="oErr" style="padding:0 22px"></div>
+  <footer>${ccActions(o)}</footer>`;
+  state.oCat = ""; fillOrderBranches(o?.branchId); renderOrderMenu(); renderCart(ro);
+  $("#ccScrim").classList.add("show");
+}
+function ccActions(o){
+  if(!o || o.status==="draft") return `<button type="button" class="btn" data-ccclose>Cancel</button><button type="button" class="btn" data-osave="draft">Save as Draft</button><button type="button" class="btn pri" data-osave="pending">Send to Branch</button>`;
+  const b = [`<button type="button" class="btn" data-ccclose>Close</button>`];
+  if(o.status==="pending") b.unshift(`<button type="button" class="btn danger" data-ostatus="declined" style="margin-right:auto">Decline</button>`), b.push(`<button type="button" class="btn pri" data-ostatus="active">Branch accepted</button>`);
+  if(o.status==="active") b.push(`<button type="button" class="btn pri" data-ostatus="closed">Mark done</button>`);
+  if(o.status==="declined") b.push(`<button type="button" class="btn" data-ostatus="draft">Back to draft</button>`);
+  return b.join("");
+}
+function fillOrderBranches(sel){
+  const bd = $("#oBrand").value;
+  const list = branches.filter(b => b.active!==false && b.callCenter!==false && (!bd || b.brandId===bd));
+  $("#oBranch").innerHTML = `<option value="">${bd||!brandList().length?"Choose branch…":"Choose a brand first"}</option>` + list.map(b=>`<option value="${esc(b.id)}" ${sel===b.id?"selected":""}>${esc(b.name)}</option>`).join("");
+}
+function availableProducts(){
+  const br = $("#oBranch")?.value, bd = $("#oBrand")?.value;
+  return S.products.filter(p => live(p) && p.active!==false && (!bd || p.brandId===bd) && (!p.channels || p.channels.includes("callcenter")) && (!br || !p.branchIds?.length || p.branchIds.includes(br)));
+}
+function renderOrderMenu(){
+  const box = $("#oProducts"); if(!box) return;
+  const q = ($("#oSearch").value||"").toLowerCase(), prods = availableProducts();
+  const cats = S.categories.filter(c => live(c) && prods.some(p=>p.categoryId===c.id)).sort(CRUD.categories.sort);
+  $("#oCats").innerHTML = `<button type="button" class="chipb ${!state.oCat?"on":""}" data-ocat="">All</button>` + cats.map(c=>`<button type="button" class="chipb ${state.oCat===c.id?"on":""}" data-ocat="${esc(c.id)}">${esc(c.name)}</button>`).join("");
+  const list = prods.filter(p => (!state.oCat || p.categoryId===state.oCat) && (!q || p.name.toLowerCase().includes(q)));
+  box.innerHTML = list.length ? list.map(p=>`<button type="button" class="pbtn" data-add="${esc(p.id)}"><span>${esc(p.name)}</span><b>${usd(p.price)}</b></button>`).join("") : `<div class="note" style="padding:12px">No products${S.products.length?" match":" yet. Add them under Menu → Products"}.</div>`;
+}
+function renderCart(ro){
+  const total = cart.reduce((a,i)=>a+i.price*i.qty,0);
+  $("#oCart").innerHTML = `<div class="kh"><h3>Order items</h3><span class="note">${cart.reduce((a,i)=>a+i.qty,0)} items</span></div>` +
+    (cart.length ? cart.map((i,ix)=>`<div class="citem"><span class="cname">${esc(i.name)}</span>${ro?`<span>× ${i.qty}</span>`:`<span class="qty"><button type="button" data-q="${ix}:-1" aria-label="Less">−</button>${i.qty}<button type="button" data-q="${ix}:1" aria-label="More">+</button></span>`}<span class="num">${usd(i.price*i.qty)}</span></div>`).join("") : `<div class="note" style="padding:10px 0">Tap products to add them.</div>`) +
+    `<div class="ctot"><span>Total</span><b>${usd(total)}</b></div>`;
+}
+async function saveOrder(status){
+  const phone = $("#oPhone").value.trim(), branchId = $("#oBranch").value;
+  if(!phone){ $("#oErr").textContent = "Customer phone is required."; return; }
+  if(status==="pending" && !branchId){ $("#oErr").textContent = "Pick the branch that will prepare this order."; return; }
+  if(status==="pending" && !cart.length){ $("#oErr").textContent = "Add at least one product."; return; }
+  const type = $("#oType .on")?.dataset.ot || "delivery";
+  const brandId = $("#oBrand").value;
+  if(status==="pending" && brandList().length && !brandId){ $("#oErr").textContent = "Choose the brand."; return; }
+  const data = { brandId, phone, customerName:$("#oName").value.trim(), source:$("#oSource").value, type, address: type==="delivery" ? $("#oAddr").value.trim() : "",
+    branchId, notes:$("#oNotes").value.trim(), items:cart, total: +cart.reduce((a,i)=>a+i.price*i.qty,0).toFixed(2), status };
+  if(!ccEdit){ data.no = String(Math.max(1000, ...S.orders.map(o=>+o.no||0)) + 1); data.agent = state.userName || "Operator"; data.channel = "callcenter"; }
+  try{ await put("orders", ccEdit, data); toast(status==="pending" ? `Order sent to ${branchName(branchId)}` : "Draft saved"); $("#ccScrim").classList.remove("show"); }
+  catch(err){ console.error(err); $("#oErr").textContent = "Couldn't save the order."; }
+}
+async function setOrderStatus(s){
+  try{ await put("orders", ccEdit, { status: s }); toast("Order " + CC_SUB[s].toLowerCase()); $("#ccScrim").classList.remove("show"); }
+  catch(err){ console.error(err); $("#oErr").textContent = "Couldn't update the order."; }
+}
+
+/* ---------- Devices: POS app (APK) setup from the dashboard ---------- */
+const DEV_TYPES = [["cashier","Cashier (POS)"],["kds","Kitchen Display (KDS)"],["waiter","Waiter app"],["notifier","Order Notifier"],["display","Customer Display"]];
+function viewDevices(){
+  const list = S.devices.filter(live).sort((a,b)=>branchName(a.branchId).localeCompare(branchName(b.branchId))||a.name.localeCompare(b.name));
+  let h = `<div class="phead"><h1>Devices</h1><div class="sp"></div><button class="btn pri" id="devNew">Create Device</button></div>
+  <div class="card setup"><div><h3>Set up a POS tablet</h3><ol class="steps"><li>Download the <b>Slick POS</b> APK on the Android tablet and install it (allow "install from this source" when asked).</li><li>Create a device here and choose its branch and type.</li><li>Open the app, sign in with a staff account, then enter the device's 6-digit activation code.</li><li>The tablet downloads its branch, menu, prices and printers, then it's ready to take orders.</li></ol></div>
+  <div class="apk"><a class="btn pri" href="the-wok-pos.apk" download>⬇ Download POS APK</a><a class="lnk" href="pos.html" target="_blank" rel="noopener">or open POS in a browser</a></div></div><div style="height:16px"></div>`;
+  if(storeMode==="local") h += `<div class="banner">Preview mode: devices won't be saved.</div>`;
+  h += `<div class="card tbl">${list.length ? `<table><thead><tr><th>Name</th><th>Type</th><th>Branch</th><th>Activation code</th><th>Status</th><th>Last seen</th><th></th></tr></thead><tbody>${list.map(d=>`<tr>
+    <td><b>${esc(d.name)}</b></td><td>${esc((DEV_TYPES.find(t=>t[0]===d.type)||[,d.type])[1])}</td><td>${esc(branchName(d.branchId))}</td>
+    <td><span class="acode">${esc(d.code)}</span></td><td>${d.activatedAt?'<span class="tag on"><span class="dot"></span>Active</span>':'<span class="tag off">Waiting for activation</span>'}</td>
+    <td>${d.lastSeen?ago(d.lastSeen):"—"}</td><td class="num"><button class="btn sm" data-devcode="${esc(d.id)}">New code</button> <button class="btn sm danger" data-devdel="${esc(d.id)}">Remove</button></td></tr>`).join("")}</tbody></table>`
+    : `<div class="empty">No devices yet. Create one for each tablet, kitchen screen or printer station.</div>`}</div>`;
+  return h;
+}
+const newCode = () => String(Math.floor(100000 + Math.random()*900000));
+function openDevice(){
+  $("#crudBox").innerHTML = `<header><h2>Create Device</h2><button type="button" class="x" data-cclose aria-label="Close">×</button></header>
+  <div class="body"><div class="f full"><label for="dName">Device name *</label><input id="dName" placeholder="e.g. Kaslik Cashier 1"></div>
+  <div class="f"><label for="dType">Type</label><select id="dType">${DEV_TYPES.map(([k,t])=>`<option value="${k}">${t}</option>`).join("")}</select></div>
+  <div class="f"><label for="dBranch">Branch *</label><select id="dBranch"><option value="">Choose…</option>${activeBranches().map(b=>`<option value="${esc(b.id)}">${esc(b.name)}</option>`).join("")}</select></div>
+  <div class="err" id="cErr"></div></div><footer><button type="button" class="btn" data-cclose>Cancel</button><button type="button" class="btn pri" id="dSave">Create &amp; get code</button></footer>`;
+  crudEdit = { key:"device" }; $("#crudScrim").classList.add("show"); setTimeout(()=>$("#dName").focus(),30);
+}
+
+/* ---------- Online Ordering (link for delivery, takeaway, dine-in) ---------- */
+function olBrand(){ return defaultBrand(); }
+function onlineCfg(){ const id = "online_" + olBrand(); return S.settings.find(s=>s.id===id) || { id }; }
+function viewOnline(){
+  if(!olBrand()) return `<div class="phead"><h1>Online Ordering</h1></div><div class="card empty">Each brand has its own ordering page.<br>Choose a brand in the selector at the top${brandList().length?"":", or create one in Manage → Brands"}.</div>`;
+  const c = onlineCfg(), bc = c.branches || {}, link = new URL("order.html?brand=" + encodeURIComponent(olBrand()), location.href.split("#")[0]).href;
+  const modes = [["delivery","Delivery"],["takeaway","Takeaway"],["dinein","Dine-in (table QR)"]];
+  let h = `<div class="phead"><h1>Online Ordering · ${esc(brandName(olBrand()))}</h1><div class="sp"></div><button class="btn pri" id="olSave">Save changes</button></div>`;
+  if(storeMode==="local") h += `<div class="banner">Preview mode: settings won't be saved.</div>`;
+  h += `<div class="grid" style="grid-template-columns:1fr 1fr;gap:16px">
+  <div class="card"><h3 class="ct">Ordering page</h3>
+    <label class="chk" style="margin:10px 0"><input type="checkbox" id="olOn" ${c.enabled?"checked":""}> Accept online orders</label>
+    <div class="f"><label for="olName">Brand name on page</label><input id="olName" value="${esc(c.brandName||brandName(olBrand()))}"></div>
+    <div class="f" style="margin-top:10px"><label>Ordering link</label><div class="linkbox"><a class="lnk" href="${esc(link)}" target="_blank" rel="noopener">${esc(link)}</a></div></div>
+    <div class="f" style="margin-top:10px"><label for="olMsg">Announcement banner</label><input id="olMsg" value="${esc(c.banner||"")}" placeholder="e.g. Free delivery on orders over USD 30"></div>
+  </div>
+  <div class="card"><h3 class="ct">Order types</h3><p class="note">Turn each type on for the whole page. Fine-tune per branch below.</p>
+    ${modes.map(([k,t])=>`<label class="chk" style="margin:8px 0"><input type="checkbox" id="olm_${k}" ${(c.modes||{})[k]!==false?"checked":""}> ${t}</label>`).join("")}
+    <p class="note" style="margin-top:12px">Which products appear on each type is set per product under <a class="lnk" href="#products">Menu → Products</a> ("Sell on"). Delivery fees and areas are set in <a class="lnk" href="#delivery-zones">Delivery Zones</a>.</p></div></div>
+  <div style="height:16px"></div><div class="card tbl"><div class="ttop"><h3 class="ct">Locations</h3></div><table><thead><tr><th>Branch</th>${modes.map(m=>`<th>${m[1]}</th>`).join("")}<th class="num">Tables (for QR)</th><th>Table QR links</th><th>Delivery zones</th></tr></thead><tbody>${
+    activeBranches().map(b=>{ const x = bc[b.id] || {}; const z = S.zones.filter(zz=>live(zz)&&zz.branchId===b.id&&zz.active!==false).length;
+      return `<tr><td><b>${esc(b.name)}</b><br><span class="note">${esc(b.open||"")}–${esc(b.close||"")}</span></td>${modes.map(([k])=>`<td><label class="toggle"><input type="checkbox" data-olb="${esc(b.id)}:${k}" ${x[k]!==false?"checked":""}><span class="trk"></span></label></td>`).join("")}
+      <td class="num"><input type="number" min="0" class="sel" style="width:80px" data-oltables="${esc(b.id)}" value="${x.tables??""}" aria-label="Tables at ${esc(b.name)}"></td><td>${x.tables ? Array.from({length:Math.min(+x.tables,40)},(_,i)=>`<a class="lnk" target="_blank" rel="noopener" href="order.html?brand=${encodeURIComponent(olBrand())}&branch=${encodeURIComponent(b.id)}&table=${i+1}">T${i+1}</a>`).join(" ") : '<span class="note">Set tables</span>'}</td><td>${z ? `${z} zone${z>1?"s":""}` : '<a class="lnk" href="#delivery-zones">Add zones</a>'}</td></tr>`; }).join("")
+  }</tbody></table></div>`;
+  return h;
+}
+async function saveOnline(){
+  const bc = {};
+  document.querySelectorAll("[data-olb]").forEach(i => { const [b,k] = i.dataset.olb.split(":"); (bc[b] ||= {})[k] = i.checked; });
+  document.querySelectorAll("[data-oltables]").forEach(i => { const b = i.dataset.oltables; (bc[b] ||= {}).tables = i.value==="" ? null : +i.value; });
+  const data = { enabled:$("#olOn").checked, brandName:$("#olName").value.trim(), banner:$("#olMsg").value.trim(),
+    modes:{ delivery:$("#olm_delivery").checked, takeaway:$("#olm_takeaway").checked, dinein:$("#olm_dinein").checked }, branches: bc };
+  try{ await put("settings", "online_" + olBrand(), data); toast("Online ordering saved"); } catch(err){ console.error(err); toast("Couldn't save settings"); }
+}
+
+/* ---------- wiring ---------- */
+function moduleRoute(route){
+  if(CRUD[route]) return crudView(route);
+  if(route==="call-center") return viewCallCenter();
+  if(route==="devices") return viewDevices();
+  if(route==="online-ordering") return viewOnline();
+  return null;
+}
+document.body.insertAdjacentHTML("beforeend", `<div class="scrim" id="crudScrim"><form class="modal" id="crudBox" autocomplete="off"></form></div>
+  <div class="scrim" id="ccScrim"><div class="modal wide" id="ccBox"></div></div>`);
+$("#crudBox").addEventListener("submit", submitCrud);
+$("#crudScrim").addEventListener("click", async e => {
+  if(e.target.id==="crudScrim" || e.target.closest("[data-cclose]")) return closeCrud();
+  if(e.target.closest("#cDelete")) return softDelete(true);
+  if(e.target.closest("#cRestore")) return softDelete(false);
+  if(e.target.closest("#dSave")){
+    const name = $("#dName").value.trim(), branchId = $("#dBranch").value;
+    if(!name || !branchId){ $("#cErr").textContent = "Name and branch are required."; return; }
+    const code = newCode();
+    try{ await put("devices", null, { name, type:$("#dType").value, branchId, code }); closeCrud(); toast(`Device created · activation code ${code}`); }
+    catch(err){ console.error(err); $("#cErr").textContent = "Couldn't create the device."; }
+  }
+});
+$("#ccScrim").addEventListener("click", e => {
+  if(e.target.id==="ccScrim" || e.target.closest("[data-ccclose]")) return $("#ccScrim").classList.remove("show");
+  const ot = e.target.closest("[data-ot]"); if(ot && !ot.disabled){ document.querySelectorAll("#oType button").forEach(b=>b.classList.toggle("on", b===ot)); $("#oAddrF").style.display = ot.dataset.ot==="delivery" ? "" : "none"; }
+  const oc = e.target.closest("[data-ocat]"); if(oc){ state.oCat = oc.dataset.ocat; renderOrderMenu(); }
+  const add = e.target.closest("[data-add]"); if(add){ const p = S.products.find(x=>x.id===add.dataset.add); const ex = cart.find(i=>i.productId===p.id); if(ex) ex.qty++; else cart.push({ productId:p.id, name:p.name, price:+p.price||0, qty:1 }); renderCart(false); }
+  const q = e.target.closest("[data-q]"); if(q){ const [ix,d] = q.dataset.q.split(":").map(Number); cart[ix].qty += d; if(cart[ix].qty<=0) cart.splice(ix,1); renderCart(false); }
+  const sv = e.target.closest("[data-osave]"); if(sv) saveOrder(sv.dataset.osave);
+  const st = e.target.closest("[data-ostatus]"); if(st) setOrderStatus(st.dataset.ostatus);
+});
+$("#ccScrim").addEventListener("input", e => { if(e.target.id==="oSearch") renderOrderMenu(); });
+$("#ccScrim").addEventListener("change", e => {
+  if(e.target.id==="oBrand"){ fillOrderBranches(""); cart = cart.filter(i => S.products.find(p=>p.id===i.productId)?.brandId===e.target.value); state.oCat=""; renderOrderMenu(); renderCart(false); }
+  if(e.target.id==="oBranch") renderOrderMenu();
+});
+$("#view").addEventListener("click", async e => {
+  const t = e.target;
+  const tab = t.closest("[data-tab]"); if(tab){ e.preventDefault(); const [k,v] = tab.dataset.tab.split(":"); state.tabs[k] = v; state.page[k] = 1; render(); return; }
+  const cr = t.closest("[data-create]"); if(cr) return openCrud(cr.dataset.create);
+  const op = t.closest("[data-open]"); if(op && !t.closest("a")){ const i = op.dataset.open.indexOf(":"); return openCrud(op.dataset.open.slice(0,i), op.dataset.open.slice(i+1)); }
+  const pg = t.closest("[data-page]"); if(pg){ const [k,v] = pg.dataset.page.split(":"); state.page[k] = +v; render(); window.scrollTo(0,0); return; }
+  const cf = t.closest("[data-catfilter]"); if(cf){ state.catFilter = cf.dataset.catfilter; state.tabs.products = "all"; state.page.products = 1; return; }
+  if(t.closest("[data-clearcat]")){ state.catFilter = ""; render(); return; }
+  if(t.closest("#ccNew")) return openOrder();
+  const oc = t.closest("[data-order]"); if(oc) return openOrder(oc.dataset.order);
+  if(t.closest("#devNew")) return openDevice();
+  const dc = t.closest("[data-devcode]"); if(dc){ const code = newCode(); await put("devices", dc.dataset.devcode, { code, activatedAt:null }); toast("New activation code " + code); return; }
+  const dd = t.closest("[data-devdel]"); if(dd){ await put("devices", dd.dataset.devdel, { deleted:true }); toast("Device removed"); return; }
+  if(t.closest("#olSave")) return saveOnline();
+});
+$("#view").addEventListener("input", e => {
+  const s = e.target.closest("[data-search]"); if(!s) return;
+  const k = s.dataset.search; state.q[k] = s.value; state.page[k] = 1;
+  const pos = s.selectionStart; render(); const n = document.querySelector(`[data-search="${k}"]`); if(n){ n.focus(); n.setSelectionRange(pos,pos); }
+});
+$("#view").addEventListener("change", e => {
+  if(e.target.id==="ccBranch"){ state.ccBranch = e.target.value; render(); }
+  if(e.target.id==="ccAgent"){ state.ccAgent = e.target.value; render(); }
+});
+
+state.date = todayStr();
+render();
+initStore();
+document.getElementById("signOut").addEventListener("click", () => window.WOK && WOK.user.signOut());
+})();
+</script>
+</body>
+</html>
