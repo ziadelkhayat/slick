@@ -165,7 +165,14 @@ tr.click{cursor:pointer}tr.click:hover td{background:#faf9fd}
 .apk{display:flex;flex-direction:column;gap:6px;align-items:center}
 .acode{font-family:ui-monospace,Menlo,monospace;font-size:15px;letter-spacing:.15em;background:var(--bg);padding:3px 8px;border-radius:6px}
 .linkbox{border:1px dashed var(--line);border-radius:8px;padding:9px 10px}
+.zmap{height:340px;border:1px solid var(--line);border-radius:10px;margin-top:6px}
+.zh{background:#fff;border:2px solid #5b2bc4;border-radius:50%}
+.legend{display:flex;flex-wrap:wrap;gap:14px;padding:10px 14px;border-top:1px solid var(--line);font-size:13px}
+.lg{display:inline-flex;align-items:center;gap:6px}.lg i{width:12px;height:12px;border-radius:3px;display:inline-block}
+.leaflet-container{font:inherit}
 </style>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="wokdb.js"></script>
 </head>
@@ -502,6 +509,7 @@ function render(){
   else if(moduleRoute(route) !== null) v.innerHTML = moduleRoute(route);
   else v.innerHTML = `<h1>${esc(TITLES[route]||"Not found")}</h1><p class="subt">&nbsp;</p>` + placeholder("Coming next", "This screen is part of the plan and will be built in a later step.");
   v.querySelectorAll(".chart").forEach(wireLine);
+  if(route==="delivery-zones") setTimeout(initZonesOverview, 0);
 }
 
 /* ---------- events ---------- */
@@ -659,10 +667,11 @@ const CRUD = {
     tabs:[["all","All",live],["deleted","Deleted",r=>r.deleted]],
     sort:(a,b)=>branchName(a.branchId).localeCompare(branchName(b.branchId))||a.name.localeCompare(b.name),
     search:r=>r.name+" "+branchName(r.branchId),
-    cols:[["Zone",r=>`<b>${esc(r.name)}</b>`],["Branch",r=>esc(branchName(r.branchId))],["Delivery fee",r=>usd(r.fee)],["Min. order",r=>usd(r.minOrder)],["Est. time",r=>r.eta?esc(r.eta)+" min":"—"],
+    cols:[["Zone",r=>`<b>${esc(r.name)}</b>`],["Branch",r=>esc(branchName(r.branchId))],["Delivery fee",r=>usd(r.fee)],["Min. order",r=>usd(r.minOrder)],["Est. time",r=>r.eta?esc(r.eta)+" min":"—"],["Map area",r=>Array.isArray(r.polygon)&&r.polygon.length>=3?`<span class="tag on">Drawn · ${r.polygon.length} points</span>`:'<span class="tag off">Not drawn</span>'],
       ["Status",r=>r.active===false?'<span class="tag off">Off</span>':'<span class="tag on">On</span>']],
     fields:[{k:"name",l:"Zone / area name",req:1},{k:"branchId",l:"Delivering branch",t:"select",req:1,opts:()=>activeBranches().map(b=>[b.id,b.name])},
-      {k:"fee",l:"Delivery fee (USD)",t:"number"},{k:"minOrder",l:"Minimum order (USD)",t:"number"},{k:"eta",l:"Estimated time (min)",t:"number"},{k:"active",l:"Accept orders for this zone",t:"chk",def:true}]
+      {k:"fee",l:"Delivery fee (USD)",t:"number"},{k:"minOrder",l:"Minimum order (USD)",t:"number"},{k:"eta",l:"Estimated time (min)",t:"number"},{k:"active",l:"Accept orders for this zone",t:"chk",def:true},
+      {k:"polygon",l:"Zone area on the map *",t:"polygon",full:1}]
   }
 };
 function chanTags(r){ const c = r.channels || CHANNELS.map(x=>x[0]); return c.length===CHANNELS.length ? '<span class="note">All</span>' : c.map(k=>`<span class="tag off">${esc((CHANNELS.find(x=>x[0]===k)||[,k])[1])}</span>`).join(" "); }
@@ -677,6 +686,7 @@ function crudView(key){
   const shown = list.slice((pg-1)*per, pg*per);
   let h = `<div class="phead"><h1>${cfg.title}</h1><div class="sp"></div><button class="btn pri" data-create="${key}">Create ${cfg.one}</button></div>`;
   if(storeMode==="local") h += `<div class="banner">Preview mode: changes won't be saved.</div>`;
+  if(key==="delivery-zones") h += `<div class="card" style="padding:0;overflow:hidden;margin-bottom:16px"><div id="zonesMap" style="height:380px"></div><div id="zonesLegend" class="legend"></div></div>`;
   h += `<div class="card tbl"><div class="ttop"><div class="ttabs">${cfg.tabs.map(t=>`<a href="#${key}" data-tab="${key}:${t[0]}" class="${tab===t[0]?"on":""}">${t[1]}</a>`).join("")}</div>
     ${key==="products"&&state.catFilter?`<span class="chip">Category: ${esc(catName(state.catFilter))} <button data-clearcat aria-label="Clear">×</button></span>`:""}
     <div class="sp"></div><input class="sel search" data-search="${key}" placeholder="Search" value="${esc(state.q[key]||"")}" aria-label="Search ${cfg.title}"></div>`;
@@ -696,6 +706,7 @@ function openCrud(key, id){
   const val = f => r ? r[f.k] : (f.auto ? f.auto() : f.def);
   const field = f => {
     const v = val(f), idA = "cf_"+f.k, full = f.full||f.t==="textarea"||f.t==="multi" ? " full" : "";
+    if(f.t==="polygon") return `<div class="f full"><label>${f.l}</label><div class="note">Click the map to add corners around the area this branch delivers to. Drag a corner to adjust it.</div><div id="zoneMap" class="zmap"></div><div class="row" style="margin:8px 0 0"><button type="button" class="btn sm" id="zUndo">Undo last point</button><button type="button" class="btn sm" id="zClear">Clear</button><span class="note" id="zInfo"></span></div></div>`;
     if(f.t==="chk") return `<div class="f full"><label class="chk"><input type="checkbox" id="${idA}" ${v!==false&&v!==undefined?"checked":""}> ${f.l}</label></div>`;
     if(f.t==="select") return `<div class="f${full}"><label for="${idA}">${f.l}${f.req?" *":""}</label><select id="${idA}"><option value="">Choose…</option>${f.opts().map(([k,t])=>`<option value="${esc(k)}" ${k===v?"selected":""}>${esc(t)}</option>`).join("")}</select></div>`;
     if(f.t==="multi"){ const set = new Set(v||[]); return `<div class="f full"><label>${f.l}</label><div class="multi" id="${idA}">${f.opts().map(([k,t])=>`<label class="chk"><input type="checkbox" value="${esc(k)}" ${set.has(k)?"checked":""}> ${esc(t)}</label>`).join("")}</div></div>`; }
@@ -708,6 +719,7 @@ function openCrud(key, id){
     <footer>${r ? (r.deleted ? `<button type="button" class="btn" id="cRestore" style="margin-right:auto">Restore</button>` : `<button type="button" class="btn danger" id="cDelete" style="margin-right:auto">Delete</button>`) : ""}
     <button type="button" class="btn" data-cclose>Close</button><button type="submit" class="btn pri">Save</button></footer>`;
   $("#crudScrim").classList.add("show");
+  if(cfg.fields.some(f=>f.t==="polygon")) setTimeout(()=>zoneEditor(r?.polygon || [], r?.id), 60);
   setTimeout(()=>$("#crudBox input, #crudBox select")?.focus(), 30);
 }
 const closeCrud = () => { $("#crudScrim").classList.remove("show"); crudEdit = null; };
@@ -716,6 +728,7 @@ async function submitCrud(e){
   const cfg = CRUD[crudEdit.key], data = {};
   for(const f of cfg.fields){
     const el = $("#cf_"+f.k);
+    if(f.t==="polygon"){ data[f.k] = zonePts.map(p=>[+p[0].toFixed(6), +p[1].toFixed(6)]); if(data[f.k].length < 3){ $("#cErr").textContent = "Draw the zone on the map (at least 3 points)."; return; } continue; }
     if(f.t==="chk") data[f.k] = el.checked;
     else if(f.t==="multi") data[f.k] = [...el.querySelectorAll("input:checked")].map(i=>i.value);
     else if(f.t==="number") data[f.k] = el.value==="" ? null : +el.value;
@@ -731,6 +744,52 @@ async function softDelete(flag){
   try{ await put(cfg.col, crudEdit.id, { deleted: flag }); toast(flag ? cfg.one + " moved to Deleted" : cfg.one + " restored"); closeCrud(); }
   catch(err){ console.error(err); $("#cErr").textContent = "Couldn't update."; }
 }
+
+/* ---------- Delivery zone maps ---------- */
+const ZCOL = ["#5b2bc4","#1f8a4c","#c2410c","#2c5fb8","#b91c5c","#0f766e","#a16207","#6d28d9"];
+const branchColor = id => ZCOL[Math.max(0, branches.findIndex(b=>b.id===id)) % ZCOL.length];
+const LB = [33.89, 35.52];
+function baseMap(el){
+  const m = L.map(el).setView(LB, 11);
+  L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom:19, attribution:"© OpenStreetMap" }).addTo(m);
+  return m;
+}
+let zonePts = [], zoneMapObj = null;
+function zoneEditor(pts, selfId){
+  if(typeof L === "undefined"){ $("#zInfo").textContent = "Map couldn't load. Check the internet connection."; return; }
+  if(zoneMapObj){ zoneMapObj.remove(); zoneMapObj = null; }
+  zonePts = (pts||[]).map(p=>[p[0],p[1]]);
+  const m = zoneMapObj = baseMap("zoneMap");
+  S.zones.filter(z => live(z) && z.id!==selfId && Array.isArray(z.polygon) && z.polygon.length>=3 && brandFilter({brandId: branches.find(b=>b.id===z.branchId)?.brandId}))
+    .forEach(z => L.polygon(z.polygon, { color:branchColor(z.branchId), weight:1, fillOpacity:.08, dashArray:"4", interactive:false }).addTo(m).bindTooltip(z.name));
+  const poly = L.polygon([], { color:"#5b2bc4", weight:2, fillOpacity:.2 }).addTo(m);
+  let handles = [];
+  const draw = () => {
+    poly.setLatLngs(zonePts); handles.forEach(h=>h.remove());
+    handles = zonePts.map((p,i) => L.marker(p, { draggable:true, icon:L.divIcon({ className:"zh", iconSize:[12,12] }) }).addTo(m)
+      .on("drag", e => { const ll = e.target.getLatLng(); zonePts[i] = [ll.lat, ll.lng]; poly.setLatLngs(zonePts); }));
+    $("#zInfo").textContent = zonePts.length < 3 ? `${zonePts.length} point${zonePts.length===1?"":"s"} · add at least 3` : `${zonePts.length} points`;
+  };
+  m.on("click", e => { zonePts.push([e.latlng.lat, e.latlng.lng]); draw(); });
+  $("#zUndo").onclick = () => { zonePts.pop(); draw(); };
+  $("#zClear").onclick = () => { zonePts = []; draw(); };
+  draw();
+  if(zonePts.length >= 3) m.fitBounds(poly.getBounds(), { padding:[20,20] });
+  setTimeout(()=>m.invalidateSize(), 100);
+}
+let zonesOverview = null;
+function initZonesOverview(){
+  const el = document.getElementById("zonesMap"); if(!el || typeof L === "undefined") return;
+  if(zonesOverview){ zonesOverview.remove(); zonesOverview = null; }
+  const m = zonesOverview = baseMap(el);
+  const list = S.zones.filter(z => live(z) && Array.isArray(z.polygon) && z.polygon.length>=3 && brandFilter({brandId: branches.find(b=>b.id===z.branchId)?.brandId}));
+  const layers = list.map(z => L.polygon(z.polygon, { color:branchColor(z.branchId), weight:2, fillOpacity: z.active===false ? .03 : .18, dashArray: z.active===false ? "4" : null })
+    .bindTooltip(`${esc(z.name)} · ${esc(branchName(z.branchId))}`, { sticky:true }).on("click", () => openCrud("delivery-zones", z.id)).addTo(m));
+  if(layers.length) m.fitBounds(L.featureGroup(layers).getBounds(), { padding:[20,20] });
+  const lg = document.getElementById("zonesLegend");
+  if(lg) lg.innerHTML = [...new Set(list.map(z=>z.branchId))].map(id => `<span class="lg"><i style="background:${branchColor(id)}"></i>${esc(branchName(id))}</span>`).join("") || '<span class="note">No zones drawn yet. Create a zone and draw it on the map.</span>';
+}
+const mapLink = o => (o.lat && o.lng) ? `<a class="lnk" href="https://www.google.com/maps?q=${o.lat},${o.lng}" target="_blank" rel="noopener">📍 Open pinned location</a>` : "";
 
 /* ---------- Call Center (Foodics board) ---------- */
 const CC_COLS = [["draft","Draft","Orders that are not yet sent to the branch"],["pending","Pending","Orders that are not yet accepted by the branch"],
@@ -759,7 +818,7 @@ const ccCard = o => `<button class="ocard" data-order="${esc(o.id)}"><div class=
   <div class="oline">${svgIco("users")}<span>${esc(o.customerName||"Guest")}<br><span class="note">${esc(o.phone||"")}</span></span></div>
   <div class="oline">${svgIco("dash")}<span class="note">Created ${ago(o.createdAt)}<br>Modified ${ago(o.updatedAt||o.createdAt)}</span></div>
   <div class="oline">${svgIco("phone")}<span>${esc(o.agent||"Operator")} · ${esc(o.source||"Phone")}</span></div>
-  <div class="ototal">${usd(o.total)}</div><div class="oline">${svgIco("box")}<span>${brandList().length>1?esc(brandName(o.brandId))+" · ":""}${esc(branchName(o.branchId))} · ${o.type==="pickup"?"Pickup":o.type==="dinein"?"Dine-in":"Delivery"}</span></div></button>`;
+  <div class="ototal">${usd(o.total)}</div>${o.lat?`<div class="oline">${mapLink(o)}</div>`:""}<div class="oline">${svgIco("box")}<span>${brandList().length>1?esc(brandName(o.brandId))+" · ":""}${esc(branchName(o.branchId))} · ${o.type==="pickup"?"Pickup":o.type==="dinein"?"Dine-in":"Delivery"}</span></div></button>`;
 
 let ccEdit = null, cart = [];
 function openOrder(id){
@@ -776,6 +835,7 @@ function openOrder(id){
     <div class="f" id="oAddrF"><label for="oAddr">Delivery address</label><textarea id="oAddr" rows="2" ${ro?"disabled":""}>${esc(o?.address||"")}</textarea></div>
     <div class="f"><label for="oBrand">Brand *</label><select id="oBrand" ${ro?"disabled":""}><option value="">Choose brand…</option>${brandList().filter(b=>b.active!==false).map(b=>`<option value="${esc(b.id)}" ${(o?.brandId||defaultBrand())===b.id?"selected":""}>${esc(b.name)}</option>`).join("")}</select></div>
     <div class="f"><label for="oBranch">Branch (agent picks) *</label><select id="oBranch" ${ro?"disabled":""}></select></div>
+    ${o?.lat ? `<div class="f"><label>Customer's pinned location</label>${mapLink(o)}</div>` : ""}
     <div class="f"><label for="oNotes">Notes</label><input id="oNotes" value="${esc(o?.notes||"")}" ${ro?"disabled":""}></div>
   </div><div class="ccright">
     ${ro?"":`<input class="sel search" id="oSearch" placeholder="Search products" style="width:100%"><div class="chips" id="oCats"></div><div class="pgrid" id="oProducts"></div>`}

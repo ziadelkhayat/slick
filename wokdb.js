@@ -14,10 +14,10 @@
     categories: "id brand_id name name_ar reference sort deleted created_at",
     products: "id brand_id name name_ar sku category_id price tax_group description image_url channels branch_ids active deleted created_at",
     inventory_items: "id name sku category kind storage_unit ingredient_unit factor cost min_level par_level barcode deleted created_at",
-    delivery_zones: "id name branch_id fee min_order eta active deleted created_at",
+    delivery_zones: "id name branch_id fee min_order eta polygon active deleted created_at",
     devices: "id name type branch_id code activated_at last_seen deleted created_at",
     shifts: "id device_id branch_id cashier opening_cash opened_at closed_at orders sales expected_cash counted_cash difference",
-    orders: "id brand_id no channel source type status branch_id device_id shift_id zone_id customer_name phone address table_no notes items subtotal discount_pct discount delivery_fee total payment agent handled_by created_at",
+    orders: "id brand_id no channel source type status branch_id device_id shift_id zone_id customer_name phone address lat lng table_no notes items subtotal discount_pct discount delivery_fee total payment agent handled_by created_at",
   };
   Object.keys(COLS).forEach(k => COLS[k] = new Set(COLS[k].split(" ")));
   const RENAME = { open: "open_time", close: "close_time", table: "table_no" };

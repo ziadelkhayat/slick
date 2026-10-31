@@ -6,6 +6,8 @@
 <title>Order Online</title>
 <meta name="description" content="Order online for delivery, takeaway or at your table.">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
 :root{--bg:#f6f5f9;--s:#fff;--ink:#1c1b22;--ink2:#5b5a66;--mut:#8d8c98;--line:#e7e5ee;--acc:#5b2bc4;--accs:#efe9fc;--acci:#47209e;--bad:#9e0c24}
 *{box-sizing:border-box}html,body{margin:0}body{font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif;background:var(--bg);color:var(--ink);font-size:15px;padding-bottom:90px}
@@ -49,6 +51,10 @@ h2{font-size:17px;margin:20px 0 10px}
 .err{color:var(--bad);font-size:13px;min-height:18px;margin:6px 0}
 .done{text-align:center;padding:30px 10px}.done .ok{width:64px;height:64px;border-radius:50%;background:#e5f5ec;color:#1f8a4c;display:grid;place-items:center;font-size:32px;margin:0 auto 12px}
 .closed{text-align:center;padding:60px 20px;color:var(--ink2)}
+.dmap{height:280px;border-radius:12px;border:1px solid var(--line);margin-top:8px;z-index:0}
+.locbtn{border:1px solid var(--acc);background:var(--accs);color:var(--acci);border-radius:10px;padding:9px 14px;font-weight:600}
+.locbtn:disabled{opacity:.6}.ok2{color:#1f8a4c}
+.tblin{width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:10px}
 </style>
 </head>
 <body>
@@ -80,7 +86,7 @@ const [st, br, ca, pr, zo] = await Promise.all([
   sb.from("branches").select("id,name,open_time,close_time").eq("brand_id", brandId),
   sb.from("categories").select("id,name,sort").eq("brand_id", brandId).order("sort"),
   sb.from("products").select("id,name,price,description,category_id,channels,branch_ids").eq("brand_id", brandId).order("name"),
-  sb.from("delivery_zones").select("id,name,branch_id,fee,min_order,eta").order("name")
+  sb.from("delivery_zones").select("id,name,branch_id,fee,min_order,eta,polygon").order("name")
 ]);
 if([st,br,ca,pr,zo].some(r => r.error)){ $("#main").innerHTML = `<div class="closed">We couldn't load the menu. Please try again in a moment.</div>`; return; }
 const cfg = st.data?.data || {}, branches = br.data, cats = ca.data, products = pr.data, zones = zo.data.filter(z => branches.some(b => b.id === z.branch_id));
@@ -91,47 +97,100 @@ if(cfg.banner){ $("#banner").textContent = cfg.banner; $("#banner").hidden = fal
 if(!cfg.enabled){ $("#main").innerHTML = `<div class="closed"><b>Online ordering is closed right now.</b><br>Please call us or try again later.</div>`; return; }
 
 let mode = qrBranch ? "dinein" : (modeOn("delivery") ? "delivery" : "takeaway");
-let zoneId = "", branchId = qrBranch || "", cat = "", cart = [];
-const zoneList = () => zones.filter(z => modeOn("delivery", z.branch_id));
+let zoneId = "", branchId = qrBranch || "", tableNo = qrTable || "", cat = "", cart = [], pin = null, map = null, marker = null;
+const zoneList = () => zones.filter(z => modeOn("delivery", z.branch_id) && Array.isArray(z.polygon) && z.polygon.length >= 3);
 const curBranch = () => mode === "delivery" ? (zones.find(z=>z.id===zoneId)?.branch_id || "") : branchId;
 const chan = () => mode === "delivery" ? "delivery" : mode === "takeaway" ? "takeaway" : "dinein";
 const visible = () => products.filter(p => (!p.channels || p.channels.includes(chan())) && (!curBranch() || !p.branch_ids?.length || p.branch_ids.includes(curBranch())));
 
-function render(){
-  const modes = qrBranch ? [] : [["delivery","Delivery"],["takeaway","Takeaway"]].filter(([m]) => modeOn(m));
+/* point-in-polygon (ray casting) — polygon is [[lat,lng],...] */
+function inside(pt, poly){
+  let c = false;
+  for(let i = 0, j = poly.length - 1; i < poly.length; j = i++){
+    const [yi, xi] = poly[i], [yj, xj] = poly[j];
+    if(((yi > pt[0]) !== (yj > pt[0])) && (pt[1] < (xj - xi) * (pt[0] - yi) / (yj - yi) + xi)) c = !c;
+  }
+  return c;
+}
+function locate(){
+  zoneId = "";
+  if(pin){ const z = zoneList().find(z => inside(pin, z.polygon)); if(z) zoneId = z.id; }
+  $("#zoneStatus").innerHTML = !pin ? `<div class="info">Finding your location… If it doesn't appear, allow location access or tap the map where you are.</div>`
+    : zoneId ? zoneInfo() : `<div class="err">Sorry, we don't deliver to this location yet.${modeOn("takeaway") ? " You can order for takeaway instead." : ""}</div>`;
+  cart = cart.filter(i => visible().some(p=>p.id===i.productId));
+  renderMenu();
+}
+function setPin(latlng, pan){
+  pin = [latlng.lat ?? latlng[0], latlng.lng ?? latlng[1]];
+  if(!marker){ marker = L.marker(pin, { draggable:true }).addTo(map); marker.on("dragend", () => setPin(marker.getLatLng())); }
+  else marker.setLatLng(pin);
+  if(pan) map.setView(pin, 16);
+  locate();
+}
+function initMap(){
+  if(map){ map.remove(); map = null; marker = null; }
+  map = L.map("dmap", { zoomControl:true }).setView([33.89, 35.52], 11);
+  L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom:19, attribution:"© OpenStreetMap" }).addTo(map);
+  const zl = zoneList();
+  if(zl.length){ const g = L.featureGroup(zl.map(z => L.polygon(z.polygon, { color:"#5b2bc4", weight:1, fillOpacity:.06, interactive:false }))).addTo(map); map.fitBounds(g.getBounds(), { padding:[10,10] }); }
+  map.on("click", e => setPin(e.latlng));
+  if(pin) setPin(pin, true);
+}
+function useLocation(){
+  const b = $("#locBtn");
+  if(!navigator.geolocation){ $("#zoneStatus").innerHTML = `<div class="err">Your browser can't share location. Tap the map to place the pin.</div>`; return; }
+  b.disabled = true; b.textContent = "Finding you…";
+  navigator.geolocation.getCurrentPosition(p => { b.disabled = false; b.textContent = "📍 Locate me again"; setPin([p.coords.latitude, p.coords.longitude], true); },
+    () => { b.disabled = false; b.textContent = "📍 Use my location"; $("#zoneStatus").innerHTML = `<div class="err">We couldn't get your location. Tap the map to place the pin instead.</div>`; },
+    { enableHighAccuracy:true, timeout:12000 });
+}
+
+function renderWhere(){
+  const modes = qrBranch ? [] : [["delivery","Delivery"],["takeaway","Takeaway"],["dinein","Dine-in"]].filter(([m]) => modeOn(m));
   let h = `<div class="wrap"><div class="card">`;
   if(qrBranch){ h += `<b>Dine-in at ${esc(branches.find(b=>b.id===qrBranch)?.name || brand.name)}</b>${qrTable?` · Table ${esc(qrTable)}`:""}<div class="info">Order from your table. We'll bring it to you.</div>`; }
   else {
     h += `<div class="modes">${modes.map(([m,t])=>`<button data-mode="${m}" class="${mode===m?"on":""}">${t}</button>`).join("")}</div><div class="where">`;
-    if(mode==="delivery") h += `<label for="zone">Deliver to</label><select id="zone"><option value="">Choose your area…</option>${zoneList().map(z=>`<option value="${esc(z.id)}" ${z.id===zoneId?"selected":""}>${esc(z.name)}</option>`).join("")}</select>${zoneId?zoneInfo():zoneList().length?"":`<div class="info">Delivery areas are being set up. Takeaway is available.</div>`}`;
-    else h += `<label for="branch">Pick up from</label><select id="branch"><option value="">Choose a branch…</option>${branches.filter(b=>modeOn("takeaway", b.id)).map(b=>`<option value="${esc(b.id)}" ${b.id===branchId?"selected":""}>${esc(b.name)}</option>`).join("")}</select>${branchId?`<div class="info">Open ${esc(branches.find(b=>b.id===branchId)?.open_time||"")}–${esc(branches.find(b=>b.id===branchId)?.close_time||"")}</div>`:""}`;
+    if(mode==="delivery"){
+      h += zoneList().length ? `<label>Your delivery location <span style="font-weight:400;color:#8d8c98">· drag the pin if it's not exact</span></label><button class="locbtn" id="locBtn" type="button">📍 Locate me again</button><div id="dmap" class="dmap"></div><div id="zoneStatus"></div>`
+        : `<div class="info">Delivery areas are being set up.${modeOn("takeaway")?" Takeaway is available.":""}</div>`;
+    } else {
+      const list = branches.filter(b=>modeOn(mode, b.id));
+      h += `<label for="branch">${mode==="takeaway"?"Pick up from":"Eat in at"}</label><select id="branch"><option value="">Choose a branch…</option>${list.map(b=>`<option value="${esc(b.id)}" ${b.id===branchId?"selected":""}>${esc(b.name)}</option>`).join("")}</select>${branchId?`<div class="info">Open ${esc(branches.find(b=>b.id===branchId)?.open_time||"")}–${esc(branches.find(b=>b.id===branchId)?.close_time||"")}</div>`:""}`;
+      if(mode==="dinein") h += `<label for="tbl" style="margin-top:10px">Table number (optional)</label><input id="tbl" class="tblin" inputmode="numeric" value="${esc(tableNo)}" placeholder="e.g. 4">`;
+    }
     h += `</div>`;
   }
   h += `</div></div>`;
+  $("#whereBox").innerHTML = h;
+  if(mode==="delivery" && !qrBranch && zoneList().length){ initMap(); locate(); if(!pin) useLocation(); }
+}
+function renderMenu(){
   const vis = visible(), vcats = cats.filter(c => vis.some(p=>p.category_id===c.id));
-  h += `<nav class="cats">${vcats.map(c=>`<button data-cat="${esc(c.id)}">${esc(c.name)}</button>`).join("")}</nav><div class="wrap">`;
+  let h = `<nav class="cats">${vcats.map(c=>`<button data-cat="${esc(c.id)}">${esc(c.name)}</button>`).join("")}</nav><div class="wrap">`;
   h += vcats.map(c => `<section id="c_${esc(c.id)}"><h2>${esc(c.name)}</h2><div class="items">${vis.filter(p=>p.category_id===c.id).map(itemCard).join("")}</div></section>`).join("");
   h += `</div>`;
-  $("#main").innerHTML = h; renderBar();
+  $("#menuBox").innerHTML = h; renderBar();
 }
-function zoneInfo(){ const z = zones.find(x=>x.id===zoneId); return `<div class="info">From ${esc(branches.find(b=>b.id===z.branch_id)?.name||"")} · Delivery ${usd(z.fee)}${z.min_order?` · Minimum ${usd(z.min_order)}`:""}${z.eta?` · About ${z.eta} min`:""}</div>`; }
+function render(){ renderWhere(); renderMenu(); }
+function zoneInfo(){ const z = zones.find(x=>x.id===zoneId); return `<div class="info ok2">✓ Delivered by <b>${esc(branches.find(b=>b.id===z.branch_id)?.name||"")}</b> · Delivery ${usd(z.fee)}${z.min_order?` · Minimum ${usd(z.min_order)}`:""}${z.eta?` · About ${z.eta} min`:""}</div>`; }
 function itemCard(p){ const q = cart.find(i=>i.productId===p.id)?.qty || 0;
   return `<div class="item"><div><b>${esc(p.name)}</b>${p.description?`<small>${esc(p.description)}</small>`:""}<div class="pr">${usd(p.price)}</div></div>${q ? `<span class="qtyc"><button data-q="${esc(p.id)}:-1" aria-label="Remove one">−</button>${q}<button data-q="${esc(p.id)}:1" aria-label="Add one">+</button></span>` : `<button class="add" data-q="${esc(p.id)}:1" aria-label="Add ${esc(p.name)}">+</button>`}</div>`; }
 const sub = () => cart.reduce((a,i)=>a+i.price*i.qty,0);
 const fee = () => mode==="delivery" ? (+zones.find(z=>z.id===zoneId)?.fee||0) : 0;
 function renderBar(){ const n = cart.reduce((a,i)=>a+i.qty,0); $("#bar").hidden = !n; $("#cartCount").textContent = `View order · ${n} item${n>1?"s":""}`; $("#cartTotal").textContent = usd(sub()); }
 
+$("#main").innerHTML = `<div id="whereBox"></div><div id="menuBox"></div>`;
 $("#main").addEventListener("click", e => {
-  const m = e.target.closest("[data-mode]"); if(m){ mode = m.dataset.mode; cart = cart.filter(i => visible().some(p=>p.id===i.productId)); render(); return; }
+  const m = e.target.closest("[data-mode]"); if(m){ mode = m.dataset.mode; if(mode!=="delivery") zoneId = ""; cart = cart.filter(i => visible().some(p=>p.id===i.productId)); render(); return; }
+  if(e.target.closest("#locBtn")) return useLocation();
   const c = e.target.closest("[data-cat]"); if(c){ document.getElementById("c_"+c.dataset.cat)?.scrollIntoView({ behavior:"smooth", block:"start" }); return; }
   const q = e.target.closest("[data-q]"); if(q){ const [id,d] = q.dataset.q.split(":"); const p = products.find(x=>x.id===id); const ex = cart.find(i=>i.productId===id);
     if(ex){ ex.qty += +d; if(ex.qty<=0) cart = cart.filter(i=>i!==ex); } else if(+d>0) cart.push({ productId:id, name:p.name, price:+p.price, qty:1 });
-    const y = scrollY; render(); scrollTo(0,y); }
+    const y = scrollY; renderMenu(); scrollTo(0,y); }
 });
-$("#main").addEventListener("change", e => {
-  if(e.target.id==="zone"){ zoneId = e.target.value; render(); }
-  if(e.target.id==="branch"){ branchId = e.target.value; render(); }
-});
+$("#main").addEventListener("change", e => { if(e.target.id==="branch"){ branchId = e.target.value; cart = cart.filter(i => visible().some(p=>p.id===i.productId)); render(); } });
+$("#main").addEventListener("input", e => { if(e.target.id==="tbl") tableNo = e.target.value.trim(); });
 $("#cartBtn").addEventListener("click", openCart);
 $("#scrim").addEventListener("click", e => { if(e.target.id==="scrim" || e.target.closest("[data-close]")) $("#scrim").classList.remove("show"); });
 
@@ -143,7 +202,7 @@ function openCart(){
     ${min && sub()<min ? `<div class="err">Minimum order for this area is ${usd(min)}.</div>` : ""}
     <form id="co"><div class="f"><label for="cName">Your name *</label><input id="cName" required autocomplete="name"></div>
     <div class="f"><label for="cPhone">Phone *</label><input id="cPhone" required type="tel" autocomplete="tel" placeholder="+961 …"></div>
-    ${mode==="delivery"?`<div class="f"><label for="cAddr">Address *</label><textarea id="cAddr" rows="2" required autocomplete="street-address" placeholder="Building, street, floor, landmark"></textarea></div>`:""}
+    ${mode==="delivery"?`<div class="f"><label for="cAddr">Address details *</label><textarea id="cAddr" rows="2" required autocomplete="street-address" placeholder="Building, floor, apartment, landmark"></textarea></div>`:""}
     <div class="f"><label for="cNote">Notes for the kitchen</label><input id="cNote" placeholder="e.g. extra spicy, no onions"></div>
     <div class="err" id="coErr"></div><button class="primary" id="place" ${min && sub()<min?"disabled":""}>Place order · ${usd(sub()+fee())}</button>
     <p class="info" style="text-align:center">Pay ${mode==="delivery"?"on delivery":"at the counter"}.</p></form>`;
@@ -153,18 +212,19 @@ function openCart(){
 async function placeOrder(e){
   e.preventDefault();
   const b = curBranch();
-  if(!b){ $("#coErr").textContent = mode==="delivery" ? "Choose your delivery area first." : "Choose a branch first."; return; }
+  if(!b){ $("#coErr").textContent = mode==="delivery" ? (pin ? "We don't deliver to the pinned location." : "Pin your delivery location on the map first.") : "Choose a branch first."; return; }
   const phone = $("#cPhone").value.trim(); if(phone.replace(/\D/g,"").length < 7){ $("#coErr").textContent = "Enter a valid phone number."; return; }
   $("#place").disabled = true;
-  const row = { brand_id: brandId, channel:"online", status:"pending", source: mode==="dinein" ? "Table QR" : "Website", type: mode==="takeaway" ? "pickup" : mode,
-    branch_id:b, zone_id: mode==="delivery" ? zoneId : null, table_no: mode==="dinein" ? (qrTable||"") : null,
+  const row = { brand_id: brandId, channel:"online", status:"pending", source: qrBranch ? "Table QR" : "Website", type: mode==="takeaway" ? "pickup" : mode,
+    branch_id:b, zone_id: mode==="delivery" ? zoneId : null, table_no: mode==="dinein" ? (tableNo||null) : null,
+    lat: mode==="delivery" ? pin[0] : null, lng: mode==="delivery" ? pin[1] : null,
     customer_name:$("#cName").value.trim(), phone, address: mode==="delivery" ? $("#cAddr").value.trim() : null, notes:$("#cNote").value.trim() || null,
     items: cart, subtotal:+sub().toFixed(2), delivery_fee:fee(), discount:0, total:+(sub()+fee()).toFixed(2) };
   const { error } = await sb.from("orders").insert(row);
   if(error){ console.error(error); $("#coErr").textContent = "We couldn't place your order. Please try again or call us."; $("#place").disabled = false; return; }
   const bn = branches.find(x=>x.id===b)?.name || "";
   $("#sheet").innerHTML = `<div class="done"><div class="ok">✓</div><h3 style="justify-content:center">Order received</h3><p>${esc(bn)} has your order and will confirm it shortly.</p><p class="info">${mode==="delivery"?"We'll call you if we need directions.":mode==="takeaway"?"We'll have it ready for pickup.":"We'll bring it to your table."}</p><button class="primary" data-close>Done</button></div>`;
-  cart = []; render();
+  cart = []; renderMenu();
 }
 render();
 })();
