@@ -681,6 +681,7 @@ function subscribeAll(){
     S[c] = snap.docs.map(d => ({ ...d.data(), id: d.id }));
     if(c==="orders" && DASH.key) dashSoon();
     if(c==="orders" && ORD.key) ordSoon();
+    if(c==="orders" && CUS.key && location.hash.slice(1)==="customers"){ clearTimeout(CUS.t); CUS.t = setTimeout(()=>loadCustomers(true), 2000); }
     render();
   }, err => console.error("load " + c, err)));
 }
@@ -1063,6 +1064,7 @@ function moduleRoute(route){
   if(route==="online-ordering") return viewOnline();
   if(route==="inventory-count") return viewInventoryCount();
   if(route==="orders") return viewOrders();
+  if(route==="customers") return viewCustomers();
   return null;
 }
 
@@ -1223,6 +1225,143 @@ $("#view").addEventListener("click", e => {
   if(e.target.id==="ordRefresh"){ loadOrders(true); render(); return; }
   if(e.target.id==="ordCsv"){ exportOrders(); return; }
   const tr = e.target.closest("tr[data-oid]"); if(tr){ openOrderDetail(tr.dataset.oid); return; }
+});
+
+/* ---------- Customers: one record per phone, filled automatically from orders ---------- */
+const CUS = { filter:"all", q:"", sort:"last", page:1, per:50, rows:[], count:0, summary:null, loading:false, err:"", key:"", t:null };
+const CUS_TABS = [["all","All"],["repeat","Repeat"],["new","New (30 days)"],["inactive","Inactive (60+ days)"],["blacklisted","Blacklisted"]];
+const normPhone = p => String(p||"").replace(/[^0-9+]/g, "");
+const ago2 = t => { if(!t) return "—"; const d = Math.floor((Date.now()-new Date(t))/86400000); return d<=0 ? "Today" : d===1 ? "Yesterday" : d<31 ? d+" days ago" : new Date(t).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"}); };
+async function loadCustomers(force){
+  if(!window.WOK || storeMode!=="db") return;
+  const key = JSON.stringify([CUS.filter, CUS.q, CUS.sort, CUS.page]);
+  if(!force && key===CUS.key && (CUS.loading || CUS.summary || CUS.err)) return;
+  CUS.key = key; CUS.loading = true; CUS.err = "";
+  const { data, error } = await WOK.sb.rpc("slick_customers", { p_q: CUS.q.trim(), p_filter: CUS.filter, p_sort: CUS.sort, p_limit: CUS.per, p_offset: (CUS.page-1)*CUS.per });
+  if(CUS.key!==key) return;
+  CUS.loading = false;
+  if(error){ console.error(error); CUS.err = error.message; } else { CUS.rows = data.rows; CUS.count = data.count; CUS.summary = data.summary; }
+  if(location.hash.slice(1)==="customers") render();
+}
+function viewCustomers(){
+  if(storeMode!=="db") return `<h1>Customers</h1>` + placeholder("Customers", "Sign in to see customers.");
+  loadCustomers();
+  const S2 = CUS.summary, pages = Math.max(1, Math.ceil(CUS.count/CUS.per)), a = CUS.count ? (CUS.page-1)*CUS.per+1 : 0, b = Math.min(CUS.count, CUS.page*CUS.per);
+  return `<div class="phead"><h1>Customers</h1><span class="sp"></span><button class="btn" id="cusCsv">Export CSV</button><button class="btn pri" id="cusAdd">+ Add customer</button></div>
+  ${S2 ? `<div class="grid kpis" style="margin-bottom:16px">
+    ${kpiX("Customers", (+S2.total).toLocaleString(), `${S2.withOrders} have ordered`)}
+    ${kpiX("New this month", (+S2.new30).toLocaleString(), "First order in the last 30 days")}
+    ${kpiX("Repeat customers", (+S2.repeat).toLocaleString(), S2.withOrders ? `${Math.round(S2.repeat/S2.withOrders*100)}% of customers who ordered` : "")}
+    ${kpiX("Average spend", money(+S2.avgSpend), "Lifetime, per customer")}
+  </div>` : ""}
+  <div class="card tbl otbl"><div class="ttop"><div class="ttabs">${CUS_TABS.map(([k,t])=>`<a href="#customers" data-ctab="${k}" class="${CUS.filter===k?"on":""}">${t}</a>`).join("")}</div><span class="sp"></span>
+    <input class="sel" id="cusQ" placeholder="Name, phone or email" value="${esc(CUS.q)}" style="min-width:200px">
+    <select class="sel" id="cusSort">${[["last","Last order"],["spent","Total spent"],["orders","Most orders"],["new","Newest"],["name","Name A–Z"]].map(([v,t])=>`<option value="${v}" ${CUS.sort===v?"selected":""}>Sort: ${t}</option>`).join("")}</select></div>
+  ${CUS.err ? `<p class="note" style="padding:16px">Couldn't load customers: ${esc(CUS.err)}</p>` : `<table><thead><tr><th>Customer</th><th>Phone</th><th class="num">Orders</th><th class="num">Total spent</th><th class="num">Avg. order</th><th>Last order</th><th>Tags</th></tr></thead><tbody>${
+    CUS.rows.length ? CUS.rows.map(c => `<tr class="clk" data-cid="${esc(c.id)}"><td><b>${esc(c.name || "Unnamed")}</b>${c.blacklisted?' <span class="spill s-declined">Blacklisted</span>':""}${c.email?`<div class="note">${esc(c.email)}</div>`:""}</td><td>${esc(c.phone)}</td>
+      <td class="num">${c.n}</td><td class="num">${money(+c.spent)}</td><td class="num">${money(c.n ? c.spent/c.n : 0)}</td><td>${ago2(c.last_at)}</td><td>${(c.tags||[]).map(t=>`<span class="tag cc">${esc(t)}</span>`).join(" ")}</td></tr>`).join("")
+    : `<tr><td colspan="7" class="note" style="padding:24px;text-align:center">${CUS.loading ? "Loading customers…" : CUS.q || CUS.filter!=="all" ? "No customers match." : "No customers yet. They're added automatically when an order has a phone number."}</td></tr>`
+  }</tbody></table>`}
+  <div class="pager"><span class="note">${a}–${b} of ${CUS.count.toLocaleString()}</span><span class="sp"></span><button class="btn" id="cusPrev" ${CUS.page<=1?"disabled":""}>‹ Previous</button><span class="note">Page ${CUS.page} of ${pages}</span><button class="btn" id="cusNext" ${CUS.page>=pages?"disabled":""}>Next ›</button></div></div>`;
+}
+async function openCustomer(id){
+  let c = { id:null, phone:"", name:"", email:"", birthday:null, notes:"", tags:[], blacklisted:false, addresses:[] }, orders = [];
+  if(id){
+    const [r1, r2] = await Promise.all([WOK.sb.from("customers").select("*").eq("id", id).maybeSingle(),
+      WOK.sb.from("orders").select("id,no,created_at,branch_id,channel,type,status,total,items").eq("customer_id", id).order("created_at", { ascending:false }).limit(100)]);
+    if(r1.error || !r1.data) return toast("Couldn't open this customer");
+    c = r1.data; orders = r2.data || [];
+  }
+  const ok = orders.filter(o => ["pending","active","closed"].includes(o.status)), spent = ok.reduce((a,o)=>a+(+o.total||0),0);
+  const fav = {}; ok.forEach(o => (Array.isArray(o.items)?o.items:[]).forEach(i => { fav[i.name] = (fav[i.name]||0) + (+i.qty||1); }));
+  const favs = Object.entries(fav).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  const byBr = {}; ok.forEach(o => byBr[o.branch_id] = (byBr[o.branch_id]||0)+1); const topBr = Object.entries(byBr).sort((a,b)=>b[1]-a[1])[0];
+  const dt = t => new Date(t).toLocaleString("en-GB",{day:"numeric",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"});
+  const box = $("#ccBox"); box.className = "modal wide";
+  box.innerHTML = `<header><h2>${id ? esc(c.name || c.phone) : "New customer"} ${c.blacklisted?'<span class="spill s-declined">Blacklisted</span>':""}</h2><button type="button" class="x" data-ccclose aria-label="Close">×</button></header>
+  <div style="padding:18px 22px;max-height:72vh;overflow:auto">
+    ${id ? `<div class="odet"><div><span>Orders</span>${ok.length}</div><div><span>Total spent</span>${money(spent)}</div><div><span>Average order</span>${money(ok.length?spent/ok.length:0)}</div>
+      <div><span>First order</span>${ok.length?ago2(ok[ok.length-1].created_at):"—"}</div><div><span>Last order</span>${ok.length?ago2(ok[0].created_at):"—"}</div><div><span>Usual branch</span>${topBr?esc(branches.find(b=>b.id===topBr[0])?.name||"—"):"—"}</div></div>` : ""}
+    <div class="body" style="padding:0;margin-bottom:14px">
+      <div class="f"><label for="cuName">Name</label><input id="cuName" value="${esc(c.name||"")}"></div>
+      <div class="f"><label for="cuPhone">Phone *</label><input id="cuPhone" value="${esc(c.phone||"")}" placeholder="+961 …"></div>
+      <div class="f"><label for="cuEmail">Email</label><input id="cuEmail" type="email" value="${esc(c.email||"")}"></div>
+      <div class="f"><label for="cuBday">Birthday</label><input id="cuBday" type="date" value="${esc(c.birthday||"")}"></div>
+      <div class="f"><label for="cuTags">Tags</label><input id="cuTags" value="${esc((c.tags||[]).join(", "))}" placeholder="e.g. VIP, corporate"></div>
+      <div class="f"><label><input type="checkbox" id="cuBlack" ${c.blacklisted?"checked":""}> Blacklisted (warn agents and branches)</label></div>
+      <div class="f" style="grid-column:1/-1"><label for="cuNotes">Notes</label><textarea id="cuNotes" rows="2" placeholder="Allergies, preferences, gate code…">${esc(c.notes||"")}</textarea></div>
+    </div>
+    ${(c.addresses||[]).length ? `<h3 style="font-size:14px;margin:0 0 6px">Saved addresses</h3>${c.addresses.map((a,i)=>`<div class="note" style="margin-bottom:4px">${esc(a.address)} ${a.lat?mapLink(a):""} <a href="#customers" class="lnk" data-deladdr="${i}">Remove</a></div>`).join("")}` : ""}
+    ${favs.length ? `<h3 style="font-size:14px;margin:14px 0 6px">Favourite items</h3><div>${favs.map(([n,q])=>`<span class="tag cc" style="margin:0 6px 6px 0">${esc(n)} × ${q}</span>`).join("")}</div>` : ""}
+    ${id ? `<h3 style="font-size:14px;margin:14px 0 6px">Order history</h3><div class="card tbl otbl"><table><thead><tr><th>Order</th><th>Date</th><th>Branch</th><th>Channel</th><th>Status</th><th class="num">Total</th></tr></thead><tbody>${
+      orders.length ? orders.map(o=>`<tr class="clk" data-coid="${esc(o.id)}"><td><b>#${esc(o.no)}</b></td><td>${dt(o.created_at)}</td><td>${esc(branches.find(b=>b.id===o.branch_id)?.name||"—")}</td><td>${esc(CH_LBL[o.channel]||cap(o.channel))}</td><td><span class="spill s-${o.status}">${ORD_ST[o.status]||o.status}</span></td><td class="num">${money(+o.total||0)}</td></tr>`).join("")
+      : `<tr><td colspan="6" class="note">No orders yet.</td></tr>`}</tbody></table></div>` : ""}
+    <div class="err" id="cuErr"></div>
+  </div>
+  <footer>${id && ["owner","admin"].includes(state.role) ? `<button type="button" class="btn bad" id="cuDel">Delete</button>` : ""}<span style="flex:1"></span><button type="button" class="btn" data-ccclose>Cancel</button><button type="button" class="btn pri" id="cuSave">${id?"Save":"Add customer"}</button></footer>`;
+  window.__cus = c;
+  $("#ccScrim").classList.add("show");
+}
+async function saveCustomer(){
+  const c = window.__cus, phone = normPhone($("#cuPhone").value);
+  if(phone.length < 6){ $("#cuErr").textContent = "Enter a valid phone number."; return; }
+  const row = { name: $("#cuName").value.trim() || null, phone, email: $("#cuEmail").value.trim() || null, birthday: $("#cuBday").value || null,
+    tags: $("#cuTags").value.split(",").map(t=>t.trim()).filter(Boolean), blacklisted: $("#cuBlack").checked, notes: $("#cuNotes").value.trim() || null,
+    addresses: c.addresses || [], updated_at: new Date().toISOString() };
+  const res = c.id ? await WOK.sb.from("customers").update(row).eq("id", c.id) : await WOK.sb.from("customers").insert(row);
+  if(res.error){ $("#cuErr").textContent = /duplicate|unique/i.test(res.error.message) ? "A customer with this phone already exists." : res.error.message; return; }
+  toast(c.id ? "Customer saved" : "Customer added"); $("#ccScrim").classList.remove("show"); loadCustomers(true);
+}
+async function deleteCustomer(){
+  const c = window.__cus; if(!confirm(`Delete ${c.name || c.phone}? Their past orders stay in Orders.`)) return;
+  const { error } = await WOK.sb.from("customers").delete().eq("id", c.id);
+  if(error) return toast("Couldn't delete: " + error.message);
+  await WOK.sb.from("orders").update({ customer_id: null }).eq("customer_id", c.id);
+  toast("Customer deleted"); $("#ccScrim").classList.remove("show"); loadCustomers(true);
+}
+async function exportCustomers(){
+  toast("Preparing export…");
+  const { data, error } = await WOK.sb.rpc("slick_customers", { p_q: CUS.q.trim(), p_filter: CUS.filter, p_sort: CUS.sort, p_limit: 10000, p_offset: 0 });
+  if(error) return toast("Export failed: " + error.message);
+  const q = v => { v = v==null ? "" : String(v); return /[",\n]/.test(v) ? `"${v.replace(/"/g,'""')}"` : v; };
+  const rows = data.rows.map(c => [c.name, c.phone, c.email, c.n, (+c.spent).toFixed(2), c.n?(c.spent/c.n).toFixed(2):"0.00", c.first_at?new Date(c.first_at).toLocaleDateString("en-GB"):"", c.last_at?new Date(c.last_at).toLocaleDateString("en-GB"):"", (c.tags||[]).join("; "), c.blacklisted?"Yes":""]);
+  const blob = new Blob([[["Name","Phone","Email","Orders","Total spent (USD)","Avg order (USD)","First order","Last order","Tags","Blacklisted"], ...rows].map(l=>l.map(q).join(",")).join("\n")], { type:"text/csv" });
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `slick-customers-${todayStr()}.csv`; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href), 2000);
+}
+let cusQT; $("#view").addEventListener("input", e => { if(e.target.id==="cusQ"){ clearTimeout(cusQT); const v = e.target.value; cusQT = setTimeout(() => { CUS.q = v; CUS.page = 1; render(); const el = $("#cusQ"); if(el){ el.focus(); el.setSelectionRange(v.length, v.length); } }, 350); } });
+$("#view").addEventListener("change", e => { if(e.target.id==="cusSort"){ CUS.sort = e.target.value; CUS.page = 1; render(); } });
+$("#view").addEventListener("click", e => {
+  const tb = e.target.closest("[data-ctab]"); if(tb){ e.preventDefault(); CUS.filter = tb.dataset.ctab; CUS.page = 1; render(); return; }
+  if(e.target.id==="cusPrev"){ CUS.page--; render(); return; }
+  if(e.target.id==="cusNext"){ CUS.page++; render(); return; }
+  if(e.target.id==="cusAdd"){ openCustomer(null); return; }
+  if(e.target.id==="cusCsv"){ exportCustomers(); return; }
+  const tr = e.target.closest("tr[data-cid]"); if(tr){ openCustomer(tr.dataset.cid); return; }
+});
+// call center: recognise returning customers by phone
+let ccLookT;
+async function ccLookup(){
+  const inp = $("#oPhone"); if(!inp || inp.disabled) return;
+  const ph = normPhone(inp.value); let hint = $("#oCustHint");
+  if(!hint){ inp.insertAdjacentHTML("afterend", `<div class="note" id="oCustHint" style="margin-top:4px"></div>`); hint = $("#oCustHint"); }
+  if(ph.length < 6){ hint.innerHTML = ""; return; }
+  const { data } = await WOK.sb.from("customers").select("id,name,addresses,blacklisted,notes").eq("phone", ph).maybeSingle();
+  if(normPhone($("#oPhone")?.value) !== ph) return;
+  if(!data){ hint.innerHTML = "New customer"; return; }
+  const { count } = await WOK.sb.from("orders").select("id", { count:"exact", head:true }).eq("customer_id", data.id).in("status", ["pending","active","closed"]);
+  if($("#oName") && !$("#oName").value && data.name) $("#oName").value = data.name;
+  if($("#oAddr") && !$("#oAddr").value && data.addresses?.[0]?.address) $("#oAddr").value = data.addresses[0].address;
+  hint.innerHTML = `${data.blacklisted ? '<b style="color:#9e0c24">⚠ Blacklisted customer.</b> ' : ""}Returning customer · ${count||0} order${count===1?"":"s"}${data.notes ? ` · <i>${esc(data.notes)}</i>` : ""}${(data.addresses||[]).length>1 ? `<br>${data.addresses.slice(0,4).map((a,i)=>`<a href="#call-center" class="lnk" data-useaddr="${i}">${esc(a.address.slice(0,40))}</a>`).join(" · ")}` : ""}`;
+  window.__ccCust = data;
+}
+document.addEventListener("input", e => { if(e.target.id==="oPhone"){ clearTimeout(ccLookT); ccLookT = setTimeout(ccLookup, 450); } });
+document.addEventListener("click", e => {
+  if(!e.target.closest || !e.target.closest("#ccScrim")) return;
+  const ua = e.target.closest("[data-useaddr]"); if(ua){ e.preventDefault(); const a = window.__ccCust?.addresses?.[+ua.dataset.useaddr]; if(a && $("#oAddr")) $("#oAddr").value = a.address; return; }
+  const da = e.target.closest("[data-deladdr]"); if(da){ e.preventDefault(); window.__cus.addresses.splice(+da.dataset.deladdr, 1); da.parentElement.remove(); return; }
+  if(e.target.id==="cuSave") return saveCustomer();
+  if(e.target.id==="cuDel") return deleteCustomer();
+  const co = e.target.closest("tr[data-coid]"); if(co) return openOrderDetail(co.dataset.coid);
 });
 
 /* ---------- Inventory Count: enter what's on the shelf; feeds the Inventory dashboard ---------- */
