@@ -175,7 +175,7 @@ tr.click{cursor:pointer}tr.click:hover td{background:#faf9fd}
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="wokdb.js?v=9"></script>
+<script src="wokdb.js?v=10"></script>
 </head>
 <body>
 <div class="app">
@@ -257,8 +257,7 @@ const NAV = [
   {id:"call-center",t:"Call Center",i:"phone"},
   {id:"customers",t:"Customers",i:"users"},
   {t:"Reports",i:"chart",kids:[["sales-reports","Sales Reports"],["inventory-reports","Inventory Reports"],["business-reports","Business Reports"],["analysis-reports","Analysis Reports"]]},
-  {t:"Inventory",i:"box",kids:[["inv-items","Items"],["suppliers","Suppliers"],["purchase-orders","Purchase Orders"],["transfer-orders","Transfer Orders"],["inventory-count","Inventory Count"],["@More"],["quantity-adjustments","Quantity Adjustment"],["cost-adjustments","Cost Adjustment"],["order-transactions","Order Transactions"],["inv-categories","Inventory Categories"],["warehouses","Warehouses"],["spot-check","Inventory Spot Check"],["count-sheets","Count Sheet"]]},
-  {t:"Recipes & Production",i:"chef",kids:[["recipes","Recipes"],["prep-items","Prep Items (Sub-recipes)"],["production","Production Batches"],["food-cost","Food Cost Analysis"]]},
+  {t:"Inventory",i:"box",kids:[["inv-items","Items"],["suppliers","Suppliers"],["purchase-orders","Purchase Orders"],["transfer-orders","Transfer Orders"],["inventory-count","Inventory Count"],["production","Production"],["@More"],["quantity-adjustments","Quantity Adjustment"],["cost-adjustments","Cost Adjustment"],["order-transactions","Order Transactions"],["inv-categories","Inventory Categories"],["warehouses","Warehouses"],["spot-check","Inventory Spot Check"],["count-sheets","Count Sheet"]]},
   {t:"Menu",i:"book",kids:[["@Menu Builder"],["categories","Categories"],["products","Products"],["modifiers","Modifiers"],["combos","Combos"],["groups","Groups"],["@Menu Settings"],["price-tags","Price Tags"],["allergens","Allergens"]]},
   {t:"Manage",i:"gear",kids:[["company","Company"],["users","Users"],["roles","Roles"],["brands","Brands"],["branches","Branches"],["devices","Devices"],["taxes","Taxes & Groups"],["payment-methods","Payment Methods"],["order-sources","Order Sources"],["charges","Charges"],["delivery-zones","Delivery Zones"],["online-ordering","Online Ordering"],["kitchen-flows","Kitchen Flows"],["reasons","Reasons"],["settings","Settings"]]},
   {t:"Marketing",i:"tag",kids:[["loyalty","Loyalty"],["gift-cards","Gift Cards"],["discounts","Discounts"],["promotions","Promotions"],["coupons","Coupons"]]}
@@ -738,36 +737,41 @@ const CRUD = {
     fields:[{k:"name",l:"Name",req:1},{k:"nameAr",l:"Name (Arabic)"},brandField,{k:"reference",l:"Reference"},{k:"sort",l:"Sort order",t:"number"}]
   },
   products: {
-    col:"products", title:"Products", one:"Product",
+    col:"products", title:"Products", one:"Product", detail: r => productDetail(r),
     tabs:[["all","All",live],["active","Active",r=>live(r)&&r.active!==false],["inactive","Inactive",r=>live(r)&&r.active===false],["deleted","Deleted",r=>r.deleted]],
     sort:(a,b)=>(a.sku||"").localeCompare(b.sku||"",undefined,{numeric:true}),
     search:r=>r.name+" "+(r.sku||"")+" "+catName(r.categoryId),
     filter:r=>brandFilter(r) && (!state.catFilter || r.categoryId===state.catFilter),
     cols:[["Name",r=>`<b>${esc(r.name)}</b>`],["Brand",r=>esc(brandName(r.brandId))],["SKU",r=>`<span class="code">${esc(r.sku||"")}</span>`],["Category",r=>esc(catName(r.categoryId))],
-      ["Price",r=>usd(r.price)],["Tax Group",r=>esc(r.taxGroup||"—")],
+      ["Price",r=>r.pricingMethod==="open"?"Open":usd(r.price)],["Cost %",r=>{ const c = productCost(r); return +r.price && c ? (c/r.price*100).toFixed(1)+" %" : '<span class="note">—</span>'; },"num"],["Tax Group",r=>esc(r.taxGroup||"—")],
       ["Channels",r=>chanTags(r)],["Active",r=>r.active===false?'<span class="tag off">Inactive</span>':'<span class="tag on">Active</span>']],
     fields:[{k:"name",l:"Name",req:1},{k:"nameAr",l:"Name (Arabic)"},brandField,{k:"sku",l:"SKU",auto:()=>nextSku("products")},
       {k:"categoryId",l:"Category",t:"select",req:1,opts:()=>S.categories.filter(c=>live(c)&&brandFilter(c)).map(c=>[c.id,(state.brand==="all"?brandName(c.brandId)+" · ":"")+c.name])},
+      {k:"pricingMethod",l:"Pricing method",t:"select",opts:()=>[["fixed","Fixed price"],["open","Open price (cashier enters it)"]],def:"fixed"},
       {k:"price",l:"Price (USD)",t:"number",req:1},{k:"taxGroup",l:"Tax group",t:"select",opts:()=>[["TAX","TAX"],["No tax","No tax"]],def:"TAX"},
+      {k:"costingMethod",l:"Costing method",t:"select",opts:()=>[["ingredients","From ingredients"],["fixed","Fixed cost"]],def:"ingredients"},{k:"cost",l:"Fixed cost (USD, if fixed)",t:"number"},
+      {k:"sellingMethod",l:"Selling method",t:"select",opts:()=>[["unit","Unit"],["weight","Weight"]],def:"unit"},{k:"barcode",l:"Barcode"},
+      {k:"prepTime",l:"Preparation time (minutes)",t:"number"},{k:"calories",l:"Calories (kCal)",t:"number"},
       {k:"description",l:"Description",t:"textarea",full:1},
       {k:"channels",l:"Sell on (menu zoning by channel)",t:"multi",full:1,opts:()=>CHANNELS,def:CHANNELS.map(c=>c[0])},
       {k:"branchIds",l:"Available in branches (leave all unticked = every branch of the brand)",t:"multi",full:1,opts:()=>branches.filter(brandFilter).map(b=>[b.id,(state.brand==="all"?brandName(b.brandId)+" · ":"")+b.name])},
       {k:"active",l:"Active",t:"chk",def:true}]
   },
   "inv-items": {
-    col:"inv_items", title:"Inventory Items", one:"Item",
+    col:"inv_items", title:"Inventory Items", one:"Item", detail: r => invItemDetail(r),
     tabs:[["all","All",live],["items","Items",r=>live(r)&&r.kind!=="produced"],["produced","Produced",r=>live(r)&&r.kind==="produced"],["deleted","Deleted",r=>r.deleted]],
     sort:(a,b)=>(b.sku||"").localeCompare(a.sku||"",undefined,{numeric:true}),
     search:r=>r.name+" "+(r.sku||"")+" "+(r.category||""),
     cols:[["Name",r=>`<b>${esc(r.name)}</b>`],["Sku",r=>`<span class="code">${esc(r.sku||"")}</span>`],["Category",r=>esc(r.category||"—")],
       ["Type",r=>r.kind==="produced"?'<span class="tag cc">Produced</span>':'<span class="tag off">Purchased</span>'],
-      ["Storage unit",r=>esc(r.storageUnit||"—")],["Cost",r=>r.cost?usd(r.cost):"—","num"]],
-    fields:[{k:"name",l:"Name",req:1},{k:"sku",l:"SKU",auto:()=>nextSku("inv_items")},
+      ["Storage unit",r=>esc(r.storageUnit||"—")],["Ingredients",r=>(r.ingredients||[]).length?(r.ingredients.length+""):(r.kind==="produced"?'<span class="tag off">Missing</span>':"—"),"num"],["Cost",r=>r.cost?usd(r.cost):"—","num"]],
+    fields:[{k:"name",l:"Name",req:1},{k:"nameAr",l:"Name (Arabic)"},{k:"sku",l:"SKU",auto:()=>nextSku("inv_items")},
       {k:"category",l:"Category",t:"select",opts:()=>invCatNames().map(n=>[n,n])},
       {k:"kind",l:"Type",t:"select",opts:()=>[["purchased","Purchased"],["produced","Produced (made in-house)"]],def:"purchased"},
       {k:"storageUnit",l:"Storage unit",ph:"e.g. kg, box, gallon"},{k:"ingredientUnit",l:"Ingredient unit",ph:"e.g. g, ml, piece"},
-      {k:"factor",l:"Storage → ingredient factor",t:"number",ph:"e.g. 1000"},{k:"cost",l:"Cost per storage unit (USD)",t:"number"},
-      {k:"minLevel",l:"Minimum level",t:"number"},{k:"parLevel",l:"Par level",t:"number"},{k:"barcode",l:"Barcode"}]
+      {k:"factor",l:"Storage → ingredient factor",t:"number",ph:"e.g. 1000"},
+      {k:"costingMethod",l:"Costing method",t:"select",opts:()=>[["fixed","Fixed (enter the cost)"],["transactions","From transactions (production updates it)"]],def:"fixed"},{k:"cost",l:"Cost per storage unit (USD)",t:"number"},
+      {k:"minLevel",l:"Minimum level",t:"number"},{k:"parLevel",l:"Par level",t:"number"},{k:"maxLevel",l:"Maximum level",t:"number"},{k:"barcode",l:"Barcode"}]
   },
   "inv-categories": {
     col:"inv_categories", title:"Inventory Categories", one:"Category",
@@ -823,6 +827,7 @@ function nextSku(col){ let n=0; S[col].forEach(r=>{ const m=/(\d+)$/.exec(r.sku|
 
 state.tabs = {}; state.q = {}; state.page = {}; state.catFilter = "";
 function crudView(key){
+  if(CRUD[key].detail && DET.key===key && DET.id){ const r = S[CRUD[key].col].find(x=>x.id===DET.id); if(r) return CRUD[key].detail(r); closeDetail(); }
   const cfg = CRUD[key], tab = state.tabs[key] || "all", q = (state.q[key]||"").toLowerCase();
   let list = S[cfg.col].filter(cfg.tabs.find(t=>t[0]===tab)[2]).filter(cfg.filter||(()=>true)).filter(r => !q || cfg.search(r).toLowerCase().includes(q));
   list.sort(cfg.sort);
@@ -1115,7 +1120,7 @@ function moduleRoute(route){
   if(route==="customers") return viewCustomers();
   if(route==="company") return viewCompany();
   if(DOC_KINDS[route]) return viewDocs(route);
-  if(route==="order-transactions") return `<h1>Order Transactions</h1><p class="subt">Consumption, returns and waste created automatically from sales.</p>` + placeholder("Starts with recipes", "Each sold product will deduct its recipe ingredients from the branch stock and show up here (Consumption, Return, Waste). It turns on once recipes are set up under Recipes & Production.");
+  if(route==="order-transactions") return `<h1>Order Transactions</h1><p class="subt">Consumption, returns and waste created automatically from sales.</p>` + placeholder("Starts with recipes", "Each sold product will deduct its recipe ingredients from the branch stock and show up here (Consumption, Return, Waste). It turns on next, now that products have ingredients (open a product under Menu → Products).");
   return null;
 }
 
@@ -1463,13 +1468,168 @@ function resetPageFilters(){
   state.tabs = {}; state.q = {}; state.page = {}; state.catFilter = "";
   Object.assign(IC, { q:"", cat:"", sheet:"" });
   DOC.tab = {}; DOC.q = {}; DOC.open = null; DOC.edit = null;
+  closeDetail();
 }
+
+/* ---------- Detail pages (Foodics-style): product and inventory item, with ingredients (recipes) ---------- */
+const DET = { key:"", id:"", ing:null, br:null, dirtyIng:false, dirtyBr:false, saving:false };
+const ORDER_TYPES = [["dinein","Dine In"],["pickup","Pick Up"],["delivery","Delivery"]];
+const uomOf = it => it?.ingredientUnit || it?.storageUnit || "";
+// cost of using `qty` of an item, where qty is in the item's ingredient unit and cost is per storage unit
+// a produced item with no cost yet is valued at its ingredients (depth-limited to avoid loops)
+const itemUnitCost = (it, depth=0) => !it ? 0 : (+it.cost || (it.kind==="produced" && depth < 4 ? recipeCost(it.ingredients, depth+1) : 0));
+const ingCost = (it, qty, depth=0) => !it ? 0 : (+qty||0) / (+it.factor || 1) * itemUnitCost(it, depth);
+const recipeCost = (list, depth=0) => (list||[]).reduce((s,l) => s + ingCost(itemOf(l.itemId), l.qty, depth), 0);
+const productCost = p => p.costingMethod==="fixed" ? (+p.cost||0) : recipeCost(p.ingredients);
+const fmtCost = n => "USD " + (+n||0).toLocaleString("en-US",{maximumFractionDigits:5});
+
+function openDetail(key, id){
+  const r = S[CRUD[key].col].find(x=>x.id===id); if(!r) return;
+  DET.key = key; DET.id = id; DET.dirtyIng = false; DET.dirtyBr = false;
+  DET.ing = JSON.parse(JSON.stringify(Array.isArray(r.ingredients) ? r.ingredients : []));
+  DET.br = { customPrices: { ...(r.customPrices||{}) }, inactive: [...(r.inactiveBranchIds||[])], oos: [...(r.outOfStockBranchIds||[])] };
+  if(key==="inv-items") loadStock();
+  render(); window.scrollTo(0,0);
+}
+function closeDetail(){ DET.key = ""; DET.id = ""; DET.ing = null; DET.br = null; }
+const info = (l, v) => `<div><div class="note">${l}</div><div>${v}</div></div>`;
+const infoGrid = cells => `<div class="card" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px 18px;margin-bottom:16px">${cells.join("")}</div>`;
+
+function ingEditor(forKey, rec){
+  const rows = DET.ing, isProd = forKey==="products";
+  const used = new Set(rows.map(l=>l.itemId));
+  const avail = S.inv_items.filter(i => live(i) && !used.has(i.id) && i.id!==rec.id).sort((a,b)=>a.name.localeCompare(b.name));
+  const total = recipeCost(rows);
+  const head = isProd ? `<th>Name</th><th>SKU</th><th class="num">Quantity</th><th class="num">Cost</th><th>Applies on</th><th></th>` : `<th>Name</th><th>SKU</th><th class="num">Quantity</th><th class="num">Cost</th><th></th>`;
+  const body = rows.map((l, ix) => {
+    const it = itemOf(l.itemId) || { name:"(deleted item)" }, types = l.types || ORDER_TYPES.map(t=>t[0]);
+    return `<tr><td><b>${esc(it.name)}</b>${it.kind==="produced"?' <span class="tag cc">Produced</span>':""}</td><td><span class="code">${esc(it.sku||"")}</span></td>
+      <td class="num" style="white-space:nowrap"><input type="number" min="0" step="any" class="sel" data-ingq="${ix}" value="${esc(l.qty ?? "")}" style="width:100px;text-align:right" aria-label="Quantity of ${esc(it.name)}"> <span class="note">${esc(uomOf(it))}</span></td>
+      <td class="num" data-ingc="${ix}">${fmtCost(ingCost(it, l.qty))}</td>
+      ${isProd ? `<td>${ORDER_TYPES.map(([k,t])=>`<label class="chk" style="display:inline-flex;margin-right:8px"><input type="checkbox" data-ingt="${ix}:${k}" ${types.includes(k)?"checked":""}> ${t}</label>`).join("")}</td>` : ""}
+      <td><button class="btn sm" data-ingrm="${ix}" aria-label="Remove ${esc(it.name)}">×</button></td></tr>`;
+  }).join("");
+  const unit = isProd ? "1 portion of this product" : `1 ${esc(rec.storageUnit||"unit")} of this item`;
+  return `<div class="card tbl" style="margin-bottom:16px"><div class="ttop"><b>Ingredients</b><span class="note" style="margin-left:8px">Quantities to make ${unit}, in each ingredient's ingredient unit.</span><div class="sp"></div>
+      <input class="sel" id="ingAdd" list="ingAddL" placeholder="Add ingredient: name or SKU" style="min-width:240px"><datalist id="ingAddL">${avail.map(i=>`<option value="${esc(i.name)} · ${esc(i.sku||"")}">`).join("")}</datalist>
+      <button class="btn pri sm" data-ingsave ${DET.dirtyIng && !DET.saving ? "" : "disabled"}>${DET.saving?"Saving…":"Save ingredients"}</button></div>
+    ${rows.length ? `<table><thead><tr>${head}</tr></thead><tbody>${body}</tbody><tfoot><tr><td colspan="3"><b>Total ingredients cost</b></td><td class="num"><b id="ingTotal">${fmtCost(total)}</b></td><td colspan="${isProd?2:1}"></td></tr></tfoot></table>`
+      : `<div class="empty">No ingredients yet. ${isProd ? "Add the inventory items (raw or produced) used to make this product." : "Add the inventory items needed to produce this item. Production batches use this list."}</div>`}</div>`;
+}
+
+function productDetail(p){
+  const cost = productCost(p), price = +p.price || 0, pct = price ? cost/price*100 : 0;
+  const brs = branches.filter(b => !p.brandId || !b.brandId || b.brandId===p.brandId);
+  const yes = (arr, id) => arr.includes(id);
+  const usedIn = [];
+  let h = `<div class="phead"><a href="#products" class="btn" data-detback style="text-decoration:none">← Back</a><h1 style="margin-left:10px">${esc(p.name)}</h1>
+    ${p.active===false?'<span class="tag off" style="margin-left:8px">Inactive</span>':'<span class="tag on" style="margin-left:8px">Active</span>'}<div class="sp"></div>
+    <button class="btn" data-dettoggle>${p.active===false?"Activate Product":"Deactivate Product"}</button><button class="btn pri" data-detedit>Edit Product</button></div>`;
+  h += infoGrid([info("Name", esc(p.name)), info("Name Localized", esc(p.nameAr||"—")), info("Brand", esc(brandName(p.brandId))), info("Category", esc(catName(p.categoryId))),
+    info("SKU", `<span class="code">${esc(p.sku||"—")}</span>`), info("Barcode", esc(p.barcode||"—")), info("Tax Group", esc(p.taxGroup||"—")),
+    info("Pricing Method", p.pricingMethod==="open"?"Open Price":"Fixed Price"), info("Selling Method", p.sellingMethod==="weight"?"Weight":"Unit"),
+    info("Costing Method", p.costingMethod==="fixed"?"Fixed Cost":"From Ingredients"), info("Preparation Time", p.prepTime ? esc(p.prepTime)+" min" : "—"),
+    info("Price", p.pricingMethod==="open" ? "Open" : usd(price)), info(p.costingMethod==="fixed"?"Fixed Cost":"Ingredients Cost", fmtCost(cost)),
+    info("Cost %", price ? `<span style="${pct>40?"color:var(--accent-ink);font-weight:600":""}">${pct.toFixed(1)} %</span>` : "—"), info("Calories", p.calories ? esc(p.calories)+" kCal" : "—"),
+    info("Sold on", chanTags(p))]);
+  if(p.description) h += `<div class="card" style="margin-bottom:16px"><div class="note">Description</div>${esc(p.description)}</div>`;
+  h += ingEditor("products", p);
+  // branch settings
+  const B = DET.br;
+  h += `<div class="card tbl" style="margin-bottom:16px"><div class="ttop"><b>Branch settings</b><span class="note" style="margin-left:8px">Custom price, hide from the menu, or mark out of stock (the cashier can still sell out-of-stock products).</span><div class="sp"></div>
+      <button class="btn pri sm" data-brsave ${DET.dirtyBr && !DET.saving ? "" : "disabled"}>${DET.saving?"Saving…":"Save branch settings"}</button></div>
+    ${brs.length ? `<table><thead><tr><th>Branch</th><th class="num">Custom price (USD)</th><th>Inactive in branch</th><th>Out of stock</th></tr></thead><tbody>${brs.map(b=>`<tr>
+      <td><b>${esc(b.name)}</b>${p.branchIds?.length && !p.branchIds.includes(b.id) ? ' <span class="note">· not sold here</span>' : ""}</td>
+      <td class="num"><input type="number" min="0" step="any" class="sel" data-brp="${esc(b.id)}" value="${esc(B.customPrices[b.id] ?? "")}" placeholder="${price}" style="width:110px;text-align:right" aria-label="Custom price in ${esc(b.name)}"></td>
+      <td><label class="chk"><input type="checkbox" data-bri="${esc(b.id)}" ${yes(B.inactive,b.id)?"checked":""}> Hide</label></td>
+      <td><label class="chk"><input type="checkbox" data-bro="${esc(b.id)}" ${yes(B.oos,b.id)?"checked":""}> Out of stock</label></td></tr>`).join("")}</tbody></table>` : `<div class="empty">No branches for this brand yet.</div>`}</div>`;
+  return h;
+}
+
+function invItemDetail(it){
+  const prodCost = recipeCost(DET.ing), produced = it.kind==="produced";
+  const inProducts = S.products.filter(p => live(p) && (p.ingredients||[]).some(l=>l.itemId===it.id));
+  const inItems = S.inv_items.filter(x => live(x) && (x.ingredients||[]).some(l=>l.itemId===it.id));
+  const stock = DOC.stock && DOC.stock!=="loading" ? locList().map(([k,t]) => [t, DOC.stock[k]?.[it.id]]).filter(x=>x[1]!==undefined) : null;
+  let h = `<div class="phead"><a href="#inv-items" class="btn" data-detback style="text-decoration:none">← Back</a><h1 style="margin-left:10px">${esc(it.name)}</h1>
+    ${produced?'<span class="tag cc" style="margin-left:8px">Produced</span>':'<span class="tag off" style="margin-left:8px">Purchased</span>'}<div class="sp"></div>
+    ${produced?`<a class="btn" href="#production" data-newprod="${esc(it.id)}" style="text-decoration:none">Produce</a>`:""}<button class="btn pri" data-detedit>Edit Item</button></div>`;
+  h += infoGrid([info("Name", esc(it.name)), info("Name Localized", esc(it.nameAr||"—")), info("SKU", `<span class="code">${esc(it.sku||"—")}</span>`), info("Barcode", esc(it.barcode||"—")),
+    info("Minimum Level", it.minLevel!=null&&it.minLevel!==""?n2(it.minLevel):"—"), info("Par Level", it.parLevel!=null&&it.parLevel!==""?n2(it.parLevel):"—"), info("Maximum Level", it.maxLevel!=null&&it.maxLevel!==""?n2(it.maxLevel):"—"),
+    info("Storage Unit", esc(it.storageUnit||"—")), info("Ingredient Unit", esc(it.ingredientUnit||"—")),
+    info("Factor", it.storageUnit && it.ingredientUnit ? `1 ${esc(it.storageUnit)} = ${n2(it.factor||1)} ${esc(it.ingredientUnit)}` : "—"),
+    info("Costing Method", it.costingMethod==="transactions" ? "From Transactions" : "Fixed"), info("Category", esc(it.category||"—")),
+    info("Cost", it.cost ? fmtCost(it.cost) + ` <span class="note">/ ${esc(it.storageUnit||"unit")}</span>` : "—"),
+    ...(produced || DET.ing.length ? [info("Total Cost of Production", fmtCost(prodCost) + ` <span class="note">/ ${esc(it.storageUnit||"unit")}</span>`)] : [])]);
+  h += ingEditor("inv-items", it);
+  h += `<div class="grid" style="grid-template-columns:1fr 1fr;gap:16px">
+    <div class="card"><h3 style="margin:0 0 8px;font-size:15px">Stock</h3>${stock===null ? '<p class="note">Loading…</p>' : stock.length ? `<table><tbody>${stock.map(([t,q])=>`<tr><td>${esc(t)}</td><td class="num">${n2(q)} ${esc(it.storageUnit||"")}</td></tr>`).join("")}</tbody></table>` : '<p class="note">Not counted anywhere yet.</p>'}</div>
+    <div class="card"><h3 style="margin:0 0 8px;font-size:15px">Used in</h3>${inProducts.length||inItems.length ? `
+      ${inProducts.map(p=>`<div><a href="#products" class="lnk" data-detopen="products:${esc(p.id)}">${esc(p.name)}</a> <span class="note">product · ${n2((p.ingredients.find(l=>l.itemId===it.id)||{}).qty)} ${esc(uomOf(it))}</span></div>`).join("")}
+      ${inItems.map(x=>`<div><a href="#inv-items" class="lnk" data-detopen="inv-items:${esc(x.id)}">${esc(x.name)}</a> <span class="note">produced item · ${n2((x.ingredients.find(l=>l.itemId===it.id)||{}).qty)} ${esc(uomOf(it))}</span></div>`).join("")}` : '<p class="note">Not used in any recipe yet.</p>'}</div></div>`;
+  return h;
+}
+
+function ingLive(ix){
+  const l = DET.ing[ix], it = itemOf(l.itemId), c = $(`[data-ingc="${ix}"]`); if(c) c.textContent = fmtCost(ingCost(it, l.qty));
+  const t = $("#ingTotal"); if(t) t.textContent = fmtCost(recipeCost(DET.ing));
+  DET.dirtyIng = true; const b = $("[data-ingsave]"); if(b) b.disabled = false;
+}
+async function saveIngredients(){
+  const cfg = CRUD[DET.key], list = DET.ing.filter(l => l.itemId).map(l => {
+    const o = { itemId:l.itemId, qty: l.qty===""||l.qty==null ? 0 : +l.qty };
+    if(DET.key==="products") o.types = l.types || ORDER_TYPES.map(t=>t[0]);
+    return o;
+  });
+  if(list.some(l => !(l.qty > 0))){ toast("Enter a quantity for every ingredient"); return; }
+  DET.saving = true; render();
+  try{ await put(cfg.col, DET.id, { ingredients: list }); DET.ing = list; DET.dirtyIng = false; toast("Ingredients saved"); }
+  catch(e){ console.error(e); toast("Couldn't save. Only owners and admins can edit recipes."); }
+  finally{ DET.saving = false; render(); }
+}
+async function saveBranchSettings(){
+  const B = DET.br, cp = {};
+  Object.entries(B.customPrices).forEach(([k,v]) => { if(v!=="" && v!=null && !isNaN(+v)) cp[k] = +v; });
+  DET.saving = true; render();
+  try{ await put("products", DET.id, { customPrices: cp, inactiveBranchIds: B.inactive, outOfStockBranchIds: B.oos }); B.customPrices = cp; DET.dirtyBr = false; toast("Branch settings saved"); }
+  catch(e){ console.error(e); toast("Couldn't save branch settings"); }
+  finally{ DET.saving = false; render(); }
+}
+document.addEventListener("click", e => {
+  const t = e.target;
+  const dop = t.closest("[data-detopen]"); if(dop){ e.preventDefault(); const [k, id] = dop.dataset.detopen.split(":"); if(location.hash.slice(1)!==k){ location.hash = k; setTimeout(()=>openDetail(k, id), 60); } else openDetail(k, id); return; }
+  const np = t.closest("[data-newprod]"); if(np){ e.preventDefault(); const id = np.dataset.newprod; location.hash = "production"; setTimeout(() => { newDoc("production"); docAddItems([id]); render(); }, 60); return; }
+  if(!DET.id) return;
+  if(t.closest("[data-detback]")){ e.preventDefault(); if((DET.dirtyIng||DET.dirtyBr) && !confirm("Leave without saving your changes?")) return; closeDetail(); return render(); }
+  if(t.closest("[data-detedit]")) return openCrud(DET.key, DET.id);
+  if(t.closest("[data-dettoggle]")){ const r = S.products.find(x=>x.id===DET.id); return put("products", DET.id, { active: r.active===false }).then(()=>toast(r.active===false?"Product activated":"Product deactivated")).catch(()=>toast("Couldn't update")); }
+  if(t.closest("[data-ingsave]")) return saveIngredients();
+  if(t.closest("[data-brsave]")) return saveBranchSettings();
+  const rm = t.closest("[data-ingrm]"); if(rm){ DET.ing.splice(+rm.dataset.ingrm, 1); DET.dirtyIng = true; return render(); }
+});
+document.addEventListener("input", e => {
+  if(!DET.id) return; const t = e.target;
+  const q = t.closest("[data-ingq]"); if(q){ DET.ing[+q.dataset.ingq].qty = t.value; return ingLive(+q.dataset.ingq); }
+  const bp = t.closest("[data-brp]"); if(bp){ DET.br.customPrices[bp.dataset.brp] = t.value; DET.dirtyBr = true; const b = $("[data-brsave]"); if(b) b.disabled = false; }
+});
+document.addEventListener("change", e => {
+  if(!DET.id) return; const t = e.target;
+  if(t.id==="ingAdd"){ const v = t.value.trim(), it = S.inv_items.find(i => live(i) && (`${i.name} · ${i.sku||""}`===v || i.sku===v || i.name.toLowerCase()===v.toLowerCase()));
+    if(!it){ if(v) toast("No inventory item matches that"); return; }
+    if(it.id===DET.id) return toast("An item can't be an ingredient of itself");
+    if(!DET.ing.some(l=>l.itemId===it.id)) DET.ing.push({ itemId:it.id, qty:"", ...(DET.key==="products"?{types:ORDER_TYPES.map(x=>x[0])}:{}) });
+    DET.dirtyIng = true; render(); setTimeout(()=>{ const q = document.querySelectorAll("[data-ingq]"); q[q.length-1]?.focus(); }, 0); return; }
+  const ty = t.closest("[data-ingt]"); if(ty){ const [ix, k] = ty.dataset.ingt.split(":"), l = DET.ing[+ix]; const s = new Set(l.types || ORDER_TYPES.map(x=>x[0])); t.checked ? s.add(k) : s.delete(k); l.types = [...s]; DET.dirtyIng = true; const b = $("[data-ingsave]"); if(b) b.disabled = false; return; }
+  const bi = t.closest("[data-bri]"), bo = t.closest("[data-bro]");
+  if(bi || bo){ const arr = bi ? DET.br.inactive : DET.br.oos, id = (bi||bo).dataset[bi?"bri":"bro"]; const i = arr.indexOf(id); if(t.checked && i<0) arr.push(id); if(!t.checked && i>=0) arr.splice(i,1); DET.dirtyBr = true; const b = $("[data-brsave]"); if(b) b.disabled = false; }
+});
 
 /* ---------- Inventory documents: quantity & cost adjustments, spot checks, count sheets (Foodics "More") ---------- */
 const DOC_KINDS = {
   "quantity-adjustments": { kind:"quantity", title:"Quantity Adjustment", plural:"Quantity Adjustment", loc:1, intro:"Deduct waste, expired or damaged stock, or add stock found. Submitting updates the stock level of each item at the chosen branch or warehouse." },
   "cost-adjustments":     { kind:"cost", title:"Cost Adjustment", plural:"Cost Adjustment", intro:"Adjust your inventory value here by creating a cost adjustment transaction with the new cost of your inventory items." },
   "spot-check":           { kind:"spot", title:"Inventory Spot Check", plural:"Inventory Spot Check", loc:1, intro:"The spot check captures the count of items made by the audit team. It does not change the stock levels and is only used as a reference." },
+  "production":           { kind:"production", title:"Production", plural:"Production", loc:1, intro:"Make produced items (sauces, prepped proteins, noodles…) from their ingredients. Submitting adds the produced quantity to the chosen branch or warehouse and takes out the ingredients used, based on each item's ingredient list." },
   "count-sheets":         { kind:"sheet", title:"Inventory Count Sheet", plural:"Count Sheet", intro:"A count sheet is a saved list of items. Pick it in Inventory Count, adjustments or spot checks to load just those items." }
 };
 const QA_REASONS = ["Waste","Expired","Damaged","Theft","Staff meal","Sample","Found stock","Other"];
@@ -1523,9 +1683,10 @@ function openDoc(route, id){
 function viewDoc(route){
   const K = DOC_KINDS[route], d = DOC.edit, ro = d.status==="closed", saved = d.id && S.inv_docs.find(x=>x.id===d.id);
   if(d.id && saved && !DOC.busy && saved.ref && !d.ref) d.ref = saved.ref;
+  if(ro && saved && Array.isArray(saved.consumed) && saved.consumed.length) d.consumed = saved.consumed;
   const loc = d.locationId, stockLoading = DOC.stock==="loading";
   const usedIds = new Set(d.items.map(l=>l.itemId));
-  const avail = S.inv_items.filter(i=>live(i) && !usedIds.has(i.id)).sort((a,b)=>a.name.localeCompare(b.name));
+  const avail = S.inv_items.filter(i=>live(i) && !usedIds.has(i.id) && (K.kind!=="production" || i.kind==="produced")).sort((a,b)=>a.name.localeCompare(b.name));
   const sheets = S.inv_docs.filter(x=>x.kind==="sheet" && live(x) && x.id!==d.id);
   const info = (l, v) => `<div><div class="note">${l}</div><div>${v}</div></div>`;
   let h = `<div class="phead"><a href="#${route}" class="btn" data-docback style="text-decoration:none">← Back</a><h1 style="margin-left:10px">${K.title}${d.ref?` (${esc(d.ref)})`:""}</h1>
@@ -1569,21 +1730,38 @@ function viewDoc(route){
       return `<tr>${base}<td>${esc(it.storageUnit||"—")}</td>${ro?"":`<td class="num">${stockLoading?"…":cur===undefined?'<span class="note">Not counted</span>':n2(cur)}</td>`}
         <td class="num">${qIn("qty", l.qty, "Quantity")}</td>${ro?"":`<td class="num" data-docnq="${ix}">${stockLoading?"…":n2(now)}</td>`}<td class="num">${cost?usd(cost):"—"}</td><td class="num" data-doctc="${ix}">${cost?usd(cost*q):"—"}</td>${del}</tr>`;
     }
+    if(K.kind==="production"){ const uc = ro && l.cost!=null ? +l.cost : recipeCost(it.ingredients), q = +l.qty||0, none = !ro && !(it.ingredients||[]).length;
+      return `<tr>${base}<td>${esc(it.storageUnit||"—")}${none?' <span class="tag off">No ingredients</span>':""}</td><td class="num">${qIn("qty", l.qty, "Quantity")}</td><td class="num">${fmtCost(uc)}</td><td class="num" data-doctc="${ix}">${fmtCost(uc*q)}</td>${del}</tr>`; }
     if(K.kind==="cost") return `<tr>${base}<td>${esc(it.storageUnit||"—")}</td><td class="num">${ro ? (l.old!=null?usd(l.old):"—") : (+it.cost?usd(it.cost):"—")}</td><td class="num">${ro?usd(l.cost):qIn("cost", l.cost, "New cost")}</td>${del}</tr>`;
     if(K.kind==="spot"){ const sys = ro ? l.sys : cur, c = l.qty, v = (c===""||c==null||sys==null) ? null : +c - +sys;
       return `<tr>${base}<td>${esc(it.storageUnit||"—")}</td><td class="num">${stockLoading&&!ro?"…":sys==null?'<span class="note">Not counted</span>':n2(sys)}</td><td class="num">${qIn("qty", l.qty, "Counted quantity")}</td>
         <td class="num" data-docvar="${ix}" style="${v<0?"color:var(--accent-ink);font-weight:600":""}">${v==null?"—":(v>0?"+":"")+n2(v)}</td>${del}</tr>`; }
     return `<tr>${base}<td>${esc(it.storageUnit||"—")}</td><td>${esc(it.ingredientUnit||"—")}</td>${del}</tr>`;
   });
-  const head = K.kind==="quantity" ? ["Name","SKU","Storage unit",...(ro?[]:["Current qty"]),d.direction==="add"?"Added qty":"Deducted qty",...(ro?[]:["New qty"]),"Unit cost","Total cost"]
+  const head = K.kind==="production" ? ["Name","SKU","Storage unit","Quantity","Unit cost","Total cost"] : K.kind==="quantity" ? ["Name","SKU","Storage unit",...(ro?[]:["Current qty"]),d.direction==="add"?"Added qty":"Deducted qty",...(ro?[]:["New qty"]),"Unit cost","Total cost"]
     : K.kind==="cost" ? ["Name","SKU","Storage unit",ro?"Old cost":"Current cost","New cost"]
     : K.kind==="spot" ? ["Name","SKU","Storage unit","System qty","Counted qty","Variance"] : ["Name","SKU","Storage UOM","Ingredients UOM"];
-  const numCols = new Set(["Current qty","Deducted qty","Added qty","New qty","Unit cost","Total cost","Current cost","Old cost","New cost","System qty","Counted qty","Variance"]);
+  const numCols = new Set(["Current qty","Deducted qty","Added qty","New qty","Unit cost","Total cost","Current cost","Old cost","New cost","System qty","Counted qty","Variance","Quantity"]);
   h += `<div class="card tbl"><div class="ttop"><b>Items</b><span class="note" style="margin-left:8px">${d.items.length}</span></div>`;
   h += d.items.length ? `<table><thead><tr>${head.map(c=>`<th class="${numCols.has(c)?"num":""}">${c}</th>`).join("")}${ro?"":"<th></th>"}</tr></thead><tbody>${rows.join("")}</tbody>
     ${K.kind==="quantity" ? (()=>{ const t = d.items.reduce((s,l)=>{ const it = itemOf(l.itemId)||{}; return s + (+l.qty||0) * (ro && l.cost!=null ? +l.cost : +it.cost||0); }, 0); return `<tfoot><tr><td colspan="${head.length-1}"><b>Total</b></td><td class="num"><b id="docTotal">${usd(t)}</b></td>${ro?"":"<td></td>"}</tr></tfoot>`; })() : ""}</table>`
     : `<div class="empty">No items yet. Add items above${K.kind==="sheet"?"":" or load a count sheet"}.</div>`;
-  return h + `</div>`;
+  h += `</div>`;
+  if(K.kind==="production" && d.items.length) h += prodUsage(d, ro, loc);
+  return h;
+}
+// what a production batch takes out of stock (preview while drafting, actual once submitted)
+function prodUsage(d, ro, loc){
+  let list;
+  if(ro) list = (d.consumed||[]).map(c => ({ itemId:c.itemId, qty:+c.qty, cost:+c.cost }));
+  else { const m = {}; d.items.forEach(l => { const it = itemOf(l.itemId); (it?.ingredients||[]).forEach(g => { const sub = itemOf(g.itemId); if(!sub) return; m[sub.id] = (m[sub.id]||0) + (+g.qty||0) * (+l.qty||0) / (+sub.factor||1); }); });
+    list = Object.entries(m).map(([id, q]) => ({ itemId:id, qty:q, cost:+(itemOf(id)?.cost)||0 })); }
+  if(!list.length) return `<div class="card" style="margin-top:16px"><b>${ro?"Consumption from production":"Ingredients that will be used"}</b><p class="note" style="margin:6px 0 0">${ro?"Nothing was consumed.":"Enter quantities, and make sure each produced item has ingredients (open it under Inventory → Items)."}</p></div>`;
+  const total = list.reduce((s,x)=>s + x.qty*x.cost, 0);
+  return `<div class="card tbl" style="margin-top:16px"><div class="ttop"><b>${ro?"Consumption from production":"Ingredients that will be used"}</b><span class="note" style="margin-left:8px">${ro?"Taken out of stock when this was submitted.":"Updates as you type quantities."}</span></div>
+    <table><thead><tr><th>Name</th><th>SKU</th><th class="num">Quantity</th>${ro?"":'<th class="num">In stock</th>'}<th class="num">Unit cost</th><th class="num">Total cost</th></tr></thead><tbody>${list.sort((a,b)=>(itemOf(a.itemId)?.name||"").localeCompare(itemOf(b.itemId)?.name||"")).map(x => { const it = itemOf(x.itemId) || {}, cur = stockOf(loc, x.itemId), short = !ro && cur!==undefined && cur < x.qty;
+      return `<tr><td><b>${esc(it.name||"(deleted item)")}</b></td><td><span class="code">${esc(it.sku||"")}</span></td><td class="num">${n2(x.qty)} ${esc(it.storageUnit||"")}</td>${ro?"":`<td class="num" style="${short?"color:var(--accent-ink);font-weight:600":""}">${cur===undefined?'<span class="note">Not counted</span>':n2(cur)}</td>`}<td class="num">${fmtCost(x.cost)}</td><td class="num">${fmtCost(x.qty*x.cost)}</td></tr>`; }).join("")}</tbody>
+    <tfoot><tr><td colspan="${ro?4:5}"><b>Total</b></td><td class="num"><b>${fmtCost(total)}</b></td></tr></tfoot></table></div>`;
 }
 
 function docRowLive(ix){   // update the computed cells of one row while typing
@@ -1593,6 +1771,7 @@ function docRowLive(ix){   // update the computed cells of one row while typing
     const tc = $(`[data-doctc="${ix}"]`); if(tc) tc.textContent = +it.cost ? usd(+it.cost * q) : "—";
     const tt = $("#docTotal"); if(tt) tt.textContent = usd(d.items.reduce((s,x)=>s + (+x.qty||0) * (+(itemOf(x.itemId)||{}).cost||0), 0));
   }
+  if(d.kind==="production"){ const tc = $(`[data-doctc="${ix}"]`); if(tc) tc.textContent = fmtCost(recipeCost(it.ingredients) * q); }
   if(d.kind==="spot"){ const el = $(`[data-docvar="${ix}"]`); if(el){ const v = (l.qty===""||cur===undefined) ? null : +l.qty - cur; el.textContent = v==null ? "—" : (v>0?"+":"") + n2(v); el.style.cssText = v<0 ? "color:var(--accent-ink);font-weight:600" : ""; } }
 }
 function readDocHeader(){
@@ -1607,7 +1786,7 @@ function readDocHeader(){
 }
 function docAddItems(ids){
   const d = DOC.edit, have = new Set(d.items.map(l=>l.itemId)); let n = 0;
-  ids.forEach(id => { if(!have.has(id) && itemOf(id)){ d.items.push({ itemId:id, qty:"", cost: d.kind==="cost" ? (itemOf(id).cost ?? "") : undefined }); have.add(id); n++; } });
+  ids.forEach(id => { if(!have.has(id) && itemOf(id) && (d.kind!=="production" || itemOf(id).kind==="produced")){ d.items.push({ itemId:id, qty:"", cost: d.kind==="cost" ? (itemOf(id).cost ?? "") : undefined }); have.add(id); n++; } });
   return n;
 }
 async function saveDoc(silent){
@@ -1618,6 +1797,7 @@ async function saveDoc(silent){
     const it = itemOf(l.itemId) || {}, o = { itemId: l.itemId };
     if(K.kind==="quantity"){ o.qty = l.qty===""||l.qty==null ? null : +l.qty; o.cost = +it.cost || 0; }
     if(K.kind==="cost"){ o.cost = l.cost===""||l.cost==null ? null : +l.cost; o.old = it.cost ?? null; }
+    if(K.kind==="production"){ o.qty = l.qty===""||l.qty==null ? null : +l.qty; o.cost = +recipeCost(it.ingredients).toFixed(5); }
     if(K.kind==="spot"){ o.qty = l.qty===""||l.qty==null ? null : +l.qty; const s = stockOf(d.locationId, l.itemId); o.sys = s===undefined ? null : s; }
     return o;
   });
@@ -1634,7 +1814,8 @@ async function submitDoc(){
   if(K.loc && !d.locationId){ DOC.err = "Choose a branch or warehouse."; return render(); }
   const bad = d.items.filter(l => K.kind==="cost" ? (l.cost===""||l.cost==null) : (l.qty===""||l.qty==null));
   if(bad.length){ DOC.err = `Enter a ${K.kind==="cost"?"new cost":"quantity"} for every item (${bad.length} missing), or remove those rows.`; return render(); }
-  const msg = K.kind==="quantity" ? `Submit ${d.items.length} item${d.items.length===1?"":"s"}? This ${d.direction==="add"?"adds to":"deducts from"} the stock at ${locName(d.locationId)} and can't be edited afterwards.`
+  if(K.kind==="production"){ const none = d.items.filter(l => !(itemOf(l.itemId)?.ingredients||[]).length).map(l => itemOf(l.itemId)?.name); if(none.length){ DOC.err = `Add ingredients first for: ${none.join(", ")} (Inventory → Items → open the item).`; return render(); } }
+  const msg = K.kind==="production" ? `Submit this production at ${locName(d.locationId)}? The produced items are added to stock and their ingredients are taken out. It can't be edited afterwards.` : K.kind==="quantity" ? `Submit ${d.items.length} item${d.items.length===1?"":"s"}? This ${d.direction==="add"?"adds to":"deducts from"} the stock at ${locName(d.locationId)} and can't be edited afterwards.`
     : K.kind==="cost" ? `Submit? The cost of ${d.items.length} item${d.items.length===1?"":"s"} will be updated and this can't be edited afterwards.` : "Submit this spot check? It can't be edited afterwards.";
   if(!confirm(msg)) return;
   if(!(await saveDoc(true))) return;
@@ -1695,6 +1876,7 @@ document.addEventListener("change", e => {
   if(t.id==="dAddCat" && t.value){ readDocHeader(); const n = docAddItems(S.inv_items.filter(i=>live(i)&&i.category===t.value).sort((a,b)=>a.name.localeCompare(b.name)).map(i=>i.id)); toast(`Added ${n} item${n===1?"":"s"}`); return render(); }
   if(t.id==="dAddSheet" && t.value){ readDocHeader(); const sh = S.inv_docs.find(x=>x.id===t.value); const n = docAddItems((sh?.items||[]).map(l=>l.itemId)); toast(`Added ${n} item${n===1?"":"s"}`); return render(); }
   if(t.id==="dLoc" || t.id==="dDir"){ readDocHeader(); render(); }
+  if(t.closest("[data-docl]") && DOC.edit.kind==="production"){ readDocHeader(); render(); }
 });
 
 /* ---------- Inventory Count: enter what's on the shelf; feeds the Inventory dashboard ---------- */
@@ -1833,7 +2015,7 @@ $("#view").addEventListener("click", async e => {
   const t = e.target;
   const tab = t.closest("[data-tab]"); if(tab){ e.preventDefault(); const [k,v] = tab.dataset.tab.split(":"); state.tabs[k] = v; state.page[k] = 1; render(); return; }
   const cr = t.closest("[data-create]"); if(cr) return openCrud(cr.dataset.create);
-  const op = t.closest("[data-open]"); if(op && !t.closest("a")){ const i = op.dataset.open.indexOf(":"); return openCrud(op.dataset.open.slice(0,i), op.dataset.open.slice(i+1)); }
+  const op = t.closest("[data-open]"); if(op && !t.closest("a")){ const i = op.dataset.open.indexOf(":"), k = op.dataset.open.slice(0,i), id = op.dataset.open.slice(i+1); return CRUD[k].detail ? openDetail(k, id) : openCrud(k, id); }
   const pg = t.closest("[data-page]"); if(pg){ const [k,v] = pg.dataset.page.split(":"); state.page[k] = +v; render(); window.scrollTo(0,0); return; }
   const cf = t.closest("[data-catfilter]"); if(cf){ state.catFilter = cf.dataset.catfilter; state.tabs.products = "all"; state.page.products = 1; return; }
   if(t.closest("[data-clearcat]")){ state.catFilter = ""; render(); return; }

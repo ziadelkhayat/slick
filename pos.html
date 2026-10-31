@@ -93,7 +93,7 @@ button{cursor:pointer}
 <script>window.SLICK_OFFLINE = true;</script>
 <script src="supabase.js"></script>
 <script>if(!window.supabase) document.write('<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"><\/script>');</script>
-<script src="wokdb.js?v=9"></script>
+<script src="wokdb.js?v=10"></script>
 </head>
 <body>
 <div id="boot" class="center"><div class="panel"><div class="logo">S</div><h1>Slick POS</h1><p>Connecting…</p></div></div>
@@ -208,7 +208,8 @@ function startApp(id){
 
 /* ---------- data helpers ---------- */
 const live = r => !r.deleted;
-const products = () => S.products.filter(p => live(p) && p.active!==false && (!p.brandId || !branch?.brandId || p.brandId===branch.brandId) && (!p.channels || p.channels.includes("pos")) && (!p.branchIds?.length || p.branchIds.includes(device.branchId)));
+const prodPrice = p => { const c = (p.customPrices||{})[device.branchId]; return c!=null && c!=="" ? +c : +p.price||0; };
+const products = () => S.products.filter(p => live(p) && p.active!==false && !(p.inactiveBranchIds||[]).includes(device.branchId) && (!p.brandId || !branch?.brandId || p.brandId===branch.brandId) && (!p.channels || p.channels.includes("pos")) && (!p.branchIds?.length || p.branchIds.includes(device.branchId)));
 const openShift = () => S.shifts.find(s => s.deviceId===device.id && !s.closedAt);
 const incoming = () => S.orders.filter(o => o.branchId===device.branchId && o.channel!=="pos" && (o.status==="pending" || o.status==="active"));
 
@@ -232,7 +233,7 @@ function renderMenu(){
   $("#cats").innerHTML = `<button class="cat ${!cat?"on":""}" data-cat="">All</button>` + cats.map(c=>`<button class="cat ${cat===c.id?"on":""}" data-cat="${esc(c.id)}">${esc(c.name)}</button>`).join("");
   const q = $("#q").value.toLowerCase();
   const list = prods.filter(p => (!cat || p.categoryId===cat) && (!q || p.name.toLowerCase().includes(q))).sort((a,b)=>a.name.localeCompare(b.name));
-  $("#grid").innerHTML = list.length ? list.map(p=>`<button class="prod" data-add="${esc(p.id)}"><span>${esc(p.name)}</span><b>${usd(p.price)}</b></button>`).join("") : `<div class="empty">No products${S.products.length?" here":". Add them in the back office"}.</div>`;
+  $("#grid").innerHTML = list.length ? list.map(p=>`<button class="prod" data-add="${esc(p.id)}"><span>${esc(p.name)}</span><b>${p.pricingMethod==="open"?"Open price":usd(prodPrice(p))}</b>${(p.outOfStockBranchIds||[]).includes(device.branchId)?'<small style="color:#b45309">Out of stock</small>':""}</button>`).join("") : `<div class="empty">No products${S.products.length?" here":". Add them in the back office"}.</div>`;
 }
 function totals(){ const sub = cart.reduce((a,i)=>a+i.price*i.qty,0), disc = +(sub*discount/100).toFixed(2); return { sub, disc, total: +(sub-disc).toFixed(2) }; }
 function renderCart(){
@@ -250,7 +251,7 @@ function renderCart(){
 /* ---------- events ---------- */
 $("#cats").addEventListener("click", e => { const b = e.target.closest("[data-cat]"); if(b){ cat = b.dataset.cat; renderMenu(); } });
 $("#q").addEventListener("input", renderMenu);
-$("#grid").addEventListener("click", e => { const b = e.target.closest("[data-add]"); if(!b) return; const p = S.products.find(x=>x.id===b.dataset.add); const ex = cart.find(i=>i.productId===p.id); if(ex) ex.qty++; else cart.push({ productId:p.id, name:p.name, price:+p.price||0, qty:1 }); renderCart(); });
+$("#grid").addEventListener("click", e => { const b = e.target.closest("[data-add]"); if(!b) return; const p = S.products.find(x=>x.id===b.dataset.add); let price = prodPrice(p); if(p.pricingMethod==="open"){ const v = prompt("Price for " + p.name, price || ""); if(v===null || v==="" || isNaN(+v) || +v<0) return; price = +v; const ex2 = cart.find(i=>i.productId===p.id && i.price===price); if(ex2) ex2.qty++; else cart.push({ productId:p.id, name:p.name, price, qty:1 }); return renderCart(); } const ex = cart.find(i=>i.productId===p.id); if(ex) ex.qty++; else cart.push({ productId:p.id, name:p.name, price, qty:1 }); renderCart(); });
 $("#lines").addEventListener("click", e => { const b = e.target.closest("[data-q]"); if(!b) return; const [ix,d] = b.dataset.q.split(":").map(Number); cart[ix].qty += d; if(cart[ix].qty<=0) cart.splice(ix,1); renderCart(); });
 $("#otype").addEventListener("click", e => { const b = e.target.closest("[data-t]"); if(b){ otype = b.dataset.t; renderCart(); } });
 $("#extra").addEventListener("input", e => { if(e.target.id==="tbl") tableNo = e.target.value; if(e.target.id==="cPhone") cust.phone = e.target.value; if(e.target.id==="cName") cust.name = e.target.value; if(e.target.id==="cAddr") cust.address = e.target.value; });

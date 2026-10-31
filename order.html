@@ -85,7 +85,7 @@ const [st, br, ca, pr, zo] = await Promise.all([
   sb.from("settings").select("data").eq("id","online_"+brandId).maybeSingle(),
   sb.from("branches").select("id,name,open_time,close_time").eq("brand_id", brandId),
   sb.from("categories").select("id,name,sort").eq("brand_id", brandId).order("sort"),
-  sb.from("products").select("id,name,price,description,category_id,channels,branch_ids").eq("brand_id", brandId).order("name"),
+  sb.from("products").select("id,name,price,description,category_id,channels,branch_ids,pricing_method,custom_prices,inactive_branch_ids,out_of_stock_branch_ids").eq("brand_id", brandId).order("name"),
   sb.from("delivery_zones").select("id,name,branch_id,fee,min_order,eta,polygon").order("name")
 ]);
 if([st,br,ca,pr,zo].some(r => r.error)){ $("#main").innerHTML = `<div class="closed">We couldn't load the menu. Please try again in a moment.</div>`; return; }
@@ -101,7 +101,9 @@ let zoneId = "", branchId = qrBranch || "", tableNo = qrTable || "", cat = "", c
 const zoneList = () => zones.filter(z => modeOn("delivery", z.branch_id) && Array.isArray(z.polygon) && z.polygon.length >= 3);
 const curBranch = () => mode === "delivery" ? (zones.find(z=>z.id===zoneId)?.branch_id || "") : branchId;
 const chan = () => mode === "delivery" ? "delivery" : mode === "takeaway" ? "takeaway" : "dinein";
-const visible = () => products.filter(p => (!p.channels || p.channels.includes(chan())) && (!curBranch() || !p.branch_ids?.length || p.branch_ids.includes(curBranch())));
+const visible = () => products.filter(p => p.pricing_method!=="open" && (!p.channels || p.channels.includes(chan())) && (!curBranch() || ((!p.branch_ids?.length || p.branch_ids.includes(curBranch())) && !(p.inactive_branch_ids||[]).includes(curBranch()))));
+const priceOf = p => { const c = curBranch() && (p.custom_prices||{})[curBranch()]; return c!=null && c!=="" && c!==false ? +c : +p.price; };
+const oos = p => !!curBranch() && (p.out_of_stock_branch_ids||[]).includes(curBranch());
 
 /* point-in-polygon (ray casting) — polygon is [[lat,lng],...] */
 function inside(pt, poly){
@@ -175,7 +177,7 @@ function renderMenu(){
 function render(){ renderWhere(); renderMenu(); }
 function zoneInfo(){ const z = zones.find(x=>x.id===zoneId); return `<div class="info ok2">✓ Delivered by <b>${esc(branches.find(b=>b.id===z.branch_id)?.name||"")}</b> · Delivery ${usd(z.fee)}${z.min_order?` · Minimum ${usd(z.min_order)}`:""}${z.eta?` · About ${z.eta} min`:""}</div>`; }
 function itemCard(p){ const q = cart.find(i=>i.productId===p.id)?.qty || 0;
-  return `<div class="item"><div><b>${esc(p.name)}</b>${p.description?`<small>${esc(p.description)}</small>`:""}<div class="pr">${usd(p.price)}</div></div>${q ? `<span class="qtyc"><button data-q="${esc(p.id)}:-1" aria-label="Remove one">−</button>${q}<button data-q="${esc(p.id)}:1" aria-label="Add one">+</button></span>` : `<button class="add" data-q="${esc(p.id)}:1" aria-label="Add ${esc(p.name)}">+</button>`}</div>`; }
+  return `<div class="item"><div><b>${esc(p.name)}</b>${p.description?`<small>${esc(p.description)}</small>`:""}<div class="pr">${usd(priceOf(p))}</div></div>${oos(p) ? `<span class="pr" style="color:#b45309">Out of stock</span>` : q ? `<span class="qtyc"><button data-q="${esc(p.id)}:-1" aria-label="Remove one">−</button>${q}<button data-q="${esc(p.id)}:1" aria-label="Add one">+</button></span>` : `<button class="add" data-q="${esc(p.id)}:1" aria-label="Add ${esc(p.name)}">+</button>`}</div>`; }
 const sub = () => cart.reduce((a,i)=>a+i.price*i.qty,0);
 const fee = () => mode==="delivery" ? (+zones.find(z=>z.id===zoneId)?.fee||0) : 0;
 function renderBar(){ const n = cart.reduce((a,i)=>a+i.qty,0); $("#bar").hidden = !n; $("#cartCount").textContent = `View order · ${n} item${n>1?"s":""}`; $("#cartTotal").textContent = usd(sub()); }
@@ -186,10 +188,10 @@ $("#main").addEventListener("click", e => {
   if(e.target.closest("#locBtn")) return useLocation();
   const c = e.target.closest("[data-cat]"); if(c){ document.getElementById("c_"+c.dataset.cat)?.scrollIntoView({ behavior:"smooth", block:"start" }); return; }
   const q = e.target.closest("[data-q]"); if(q){ const [id,d] = q.dataset.q.split(":"); const p = products.find(x=>x.id===id); const ex = cart.find(i=>i.productId===id);
-    if(ex){ ex.qty += +d; if(ex.qty<=0) cart = cart.filter(i=>i!==ex); } else if(+d>0) cart.push({ productId:id, name:p.name, price:+p.price, qty:1 });
+    if(ex){ ex.qty += +d; if(ex.qty<=0) cart = cart.filter(i=>i!==ex); } else if(+d>0) { if(oos(p)) return; cart.push({ productId:id, name:p.name, price:priceOf(p), qty:1 }); }
     const y = scrollY; renderMenu(); scrollTo(0,y); }
 });
-$("#main").addEventListener("change", e => { if(e.target.id==="branch"){ branchId = e.target.value; cart = cart.filter(i => visible().some(p=>p.id===i.productId)); render(); } });
+$("#main").addEventListener("change", e => { if(e.target.id==="branch"){ branchId = e.target.value; cart = cart.filter(i => visible().some(p=>p.id===i.productId) && !oos(products.find(p=>p.id===i.productId))); cart.forEach(i => i.price = priceOf(products.find(p=>p.id===i.productId))); render(); } });
 $("#main").addEventListener("input", e => { if(e.target.id==="tbl") tableNo = e.target.value.trim(); });
 $("#cartBtn").addEventListener("click", openCart);
 $("#scrim").addEventListener("click", e => { if(e.target.id==="scrim" || e.target.closest("[data-close]")) $("#scrim").classList.remove("show"); });
