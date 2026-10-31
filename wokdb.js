@@ -45,31 +45,118 @@
     return o;
   }
 
+  /* ---------- offline layer (POS only: set window.SLICK_OFFLINE = true before loading this file) ----------
+     Every collection is cached on the device. Writes go to an outbox first, show up on screen right away,
+     and are sent to the server in order as soon as there is a connection. */
+  const OFF = !!window.SLICK_OFFLINE;
+  const ls = { get(k, d){ try{ const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; }catch(e){ return d; } },
+               set(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){ console.warn("storage full", e); } } };
+  const isNet = e => !navigator.onLine || !e || e.name === "AuthRetryableFetchError" || e.name === "AbortError" || e.status === 0 ||
+    /failed to fetch|network|load failed|timeout|abort|offline/i.test(String(e.message || e)) || (e.code === "" && !e.hint);
+  let outbox = OFF ? ls.get("slick_outbox", []) : [];
+  let failed = OFF ? ls.get("slick_failed", []) : [];
+  let online = navigator.onLine, syncing = false, lastSync = ls.get("slick_last_sync", null), needsLogin = false;
+  const saveBox = () => { ls.set("slick_outbox", outbox); ls.set("slick_failed", failed); };
+  function status(){
+    const st = { online, syncing, pending: outbox.length, failed: failed.length, lastSync, needsLogin };
+    window.dispatchEvent(new CustomEvent("slick-sync", { detail: st })); return st;
+  }
+  function applyOp(rows, op){
+    const i = rows.findIndex(r => r.id === op.id);
+    if(op.op === "set"){ const r = { ...op.data, id: op.id }; i < 0 ? rows.unshift(r) : rows[i] = r; }
+    else if(op.op === "update" && i >= 0) rows[i] = { ...rows[i], ...op.data, id: op.id };
+    else if(op.op === "delete" && i >= 0) rows.splice(i, 1);
+    return rows;
+  }
+  const cacheKey = col => "slick_c_" + col;
+  const local = {};               // col -> rows currently shown (app format)
+  function withPending(col, rows){ outbox.filter(o => o.col === col).forEach(o => applyOp(rows, o)); return rows; }
+
   const listeners = {};          // col -> [cb]
   const timers = {};
+  function emit(col, rows, fromCache){
+    const snap = { docs: rows.map(r => { const { id, ...d } = r; return { id, data: () => ({ ...d }) }; }), metadata:{ fromCache: !!fromCache, hasPendingWrites: outbox.some(o => o.col === col) } };
+    (listeners[col]||[]).forEach(l => l.next(snap));
+  }
   async function fetchAll(col){
     const t = tableOf(col);
     let q = sb.from(t).select("*");
     if(t === "orders") q = q.gte("created_at", new Date(Date.now() - 3*86400000).toISOString()).order("created_at", { ascending:false }).limit(1000);
     else if(t === "shifts") q = q.gte("opened_at", new Date(Date.now() - 7*86400000).toISOString()).limit(1000);
     else q = q.limit(5000);
+    if(OFF && window.AbortSignal && AbortSignal.timeout) q = q.abortSignal(AbortSignal.timeout(15000));
     const { data, error } = await q;
     if(error) throw error;
-    return { docs: data.map(r => ({ id: r.id, data: () => fromRow(col, r) })), metadata:{ fromCache:false, hasPendingWrites:false } };
+    return data.map(r => ({ ...fromRow(col, r), id: r.id }));
   }
   function refresh(col){
     clearTimeout(timers[col]);
     timers[col] = setTimeout(async () => {
-      try{ const snap = await fetchAll(col); (listeners[col]||[]).forEach(l => l.next(snap)); }
-      catch(e){ console.error("load", col, e); (listeners[col]||[]).forEach(l => l.error && l.error({ code:"unavailable", message:e.message })); }
+      try{
+        const rows = await fetchAll(col);
+        if(OFF){ ls.set(cacheKey(col), rows); if(!online){ online = true; status(); } }
+        local[col] = OFF ? withPending(col, rows) : rows;
+        emit(col, local[col], false);
+      }catch(e){
+        if(OFF && isNet(e)){ if(online){ online = false; status(); } return; }   // keep showing the cached copy
+        console.error("load", col, e); (listeners[col]||[]).forEach(l => l.error && l.error({ code:"unavailable", message:e.message }));
+      }
     }, 150);
   }
   const channels = {};
+  async function send(op){
+    const t = tableOf(op.col);
+    if(op.op === "set"){ const { error } = await sb.from(t).upsert(toRow(op.col, op.id, op.data)); if(error) throw error; }
+    else if(op.op === "update"){
+      const row = toRow(op.col, null, op.data);
+      if(t === "settings"){ const cur = await sb.from(t).select("data").eq("id", op.id).maybeSingle(); if(cur.error) throw cur.error; row.data = { ...(cur.data?.data||{}), ...row.data }; }
+      const { error } = await sb.from(t).update(row).eq("id", op.id); if(error) throw error;
+    }
+    else { const { error } = await sb.from(t).delete().eq("id", op.id); if(error) throw error; }
+  }
+  async function flush(){
+    if(!OFF || syncing || !outbox.length) return status();
+    syncing = true; status();
+    try{
+      const { data: { session }, error: se } = await sb.auth.getSession();       // refreshes an expired token when back online
+      if(!session){ if(se && isNet(se)){ online = false; } else if(navigator.onLine){ needsLogin = true; gate("Your session ended. Sign in again to send the saved sales."); } return; }
+      needsLogin = false;
+      const touched = new Set();
+      while(outbox.length){
+        const op = outbox[0];
+        try{ await send(op); outbox.shift(); touched.add(op.col); online = true; lastSync = new Date().toISOString(); ls.set("slick_last_sync", lastSync); saveBox(); status(); }
+        catch(e){
+          if(isNet(e)){ online = false; break; }
+          op.tries = (op.tries||0) + 1; op.lastError = e.message || String(e);
+          if(op.tries >= 3){ failed.push(outbox.shift()); console.error("sync gave up on", op, e); }
+          saveBox(); if(op.tries < 3) break;
+        }
+      }
+      touched.forEach(refresh);
+    } finally { syncing = false; status(); }
+  }
+  function queue(op){
+    const last = [...outbox].reverse().find(o => o.col === op.col && o.id === op.id);
+    if(op.op === "update" && last && last === outbox[outbox.length-1] && last.op !== "delete" && !syncing) last.data = { ...last.data, ...op.data };   // merge repeated updates (e.g. heartbeats)
+    else outbox.push({ ...op, qid: Date.now().toString(36) + Math.random().toString(36).slice(2,6), at: new Date().toISOString() });
+    saveBox();
+    local[op.col] = applyOp(local[op.col] || ls.get(cacheKey(op.col), []), op);
+    emit(op.col, local[op.col], true);
+    status(); setTimeout(flush, 50);
+  }
+  if(OFF){
+    window.addEventListener("online", () => { online = true; status(); flush(); Object.keys(listeners).forEach(refresh); });
+    window.addEventListener("offline", () => { online = false; status(); });
+    document.addEventListener("visibilitychange", () => { if(!document.hidden) flush(); });
+    setInterval(() => { if(outbox.length) flush(); else if(!online) Object.keys(listeners).slice(0,1).forEach(refresh); }, 20000);
+  }
+
   function collection(col){
     const t = tableOf(col);
     return {
       onSnapshot(next, error){
         (listeners[col] ||= []).push({ next, error });
+        if(OFF){ const cached = ls.get(cacheKey(col), null); if(cached){ local[col] = withPending(col, cached); const rows = local[col]; setTimeout(() => next({ docs: rows.map(r => { const { id, ...d } = r; return { id, data: () => ({ ...d }) }; }), metadata:{ fromCache:true, hasPendingWrites:false } }), 0); } }
         refresh(col);
         if(!channels[col]){
           channels[col] = sb.channel("rt-" + t).on("postgres_changes", { event: "*", schema: "public", table: t }, () => refresh(col)).subscribe();
@@ -77,10 +164,15 @@
         return () => { listeners[col] = (listeners[col]||[]).filter(l => l.next !== next); };
       },
       doc(id){
+        if(OFF) return {
+          async set(data){ queue({ op:"set", col, id, data }); },
+          async update(data){ queue({ op:"update", col, id, data }); },
+          async delete(){ queue({ op:"delete", col, id }); }
+        };
         return {
-          async set(data){ const { error } = await sb.from(t).upsert(toRow(col, id, data)); if(error) throw error; refresh(col); },
-          async update(data){ const row = toRow(col, null, data); if(t==="settings"){ const cur = await sb.from(t).select("data").eq("id", id).maybeSingle(); row.data = { ...(cur.data?.data||{}), ...row.data }; } const { error } = await sb.from(t).update(row).eq("id", id); if(error) throw error; refresh(col); },
-          async delete(){ const { error } = await sb.from(t).delete().eq("id", id); if(error) throw error; refresh(col); }
+          async set(data){ await send({ op:"set", col, id, data }); refresh(col); },
+          async update(data){ await send({ op:"update", col, id, data }); refresh(col); },
+          async delete(){ await send({ op:"delete", col, id }); refresh(col); }
         };
       }
     };
@@ -117,20 +209,34 @@
     }
     el.style.display = "grid"; el.querySelector("#wkErr").textContent = msg || "";
   }
-  async function afterLogin(){
-    const { data: { user } } = await sb.auth.getUser();
-    if(!user) return gate();
-    const { data } = await sb.from("staff").select("*").eq("user_id", user.id).maybeSingle();
-    if(!data){ await sb.auth.signOut(); return gate("This login isn't set up as staff yet. Ask the owner to add you."); }
-    staff = { ...data, email: user.email };
+  function useStaff(s){
+    staff = s; if(OFF) ls.set("slick_staff", s);
     const el = document.getElementById("wkGate"); if(el) el.style.display = "none";
-    readyResolve(dbApi);
+    readyResolve(dbApi); if(OFF) setTimeout(flush, 500);
   }
-  (async () => { const { data: { session } } = await sb.auth.getSession(); if(session) await afterLogin(); else gate(); })();
+  async function afterLogin(){
+    const cached = OFF ? ls.get("slick_staff", null) : null;
+    let user = null;
+    try{ const r = await sb.auth.getUser(); user = r.data?.user; if(r.error && isNet(r.error) && cached){ online = false; status(); return useStaff(cached); } }
+    catch(e){ if(cached && isNet(e)) return useStaff(cached); }
+    if(!user) return gate();
+    const { data, error } = await sb.from("staff").select("*").eq("user_id", user.id).maybeSingle();
+    if(error && isNet(error) && cached && cached.user_id === user.id) return useStaff(cached);
+    if(!data){ await sb.auth.signOut(); return gate("This login isn't set up as staff yet. Ask the owner to add you."); }
+    useStaff({ ...data, email: user.email });
+  }
+  (async () => {
+    const cached = OFF ? ls.get("slick_staff", null) : null;
+    let res; try{ res = await sb.auth.getSession(); }catch(e){ res = { data:{ session:null }, error:e }; }
+    const session = res.data?.session;
+    if(session) await afterLogin();
+    else if(cached && (isNet(res.error) || !navigator.onLine)){ online = false; status(); useStaff(cached); }   // offline with an expired token: keep selling, sync after sign-in
+    else gate();
+  })();
 
   const userApi = { id: async () => staff?.user_id, name: async () => staff?.name || staff?.email, role: async () => staff?.role, branchId: async () => staff?.branch_id,
-    canEdit: async () => ["owner","admin"].includes(staff?.role), isOwner: async () => staff?.role === "owner", signOut: async () => { await sb.auth.signOut(); location.reload(); } };
+    canEdit: async () => ["owner","admin"].includes(staff?.role), isOwner: async () => staff?.role === "owner", signOut: async () => { if(OFF && outbox.length && !confirm(outbox.length + " change(s) haven't synced yet. Sign out anyway? They stay saved on this device.")) return; await sb.auth.signOut(); if(OFF) localStorage.removeItem("slick_staff"); location.reload(); } };
 
-  window.WOK = { sb, ready, user: userApi };
+  window.WOK = { sb, ready, user: userApi, sync: { status, flush, failed: () => failed.slice(), retryFailed: () => { outbox.push(...failed.map(o => ({ ...o, tries:0 }))); failed = []; saveBox(); flush(); } } };
   window.claude = { use: async n => n === "db" ? ready : n === "user" ? (await ready, userApi) : null };
 })();

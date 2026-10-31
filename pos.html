@@ -30,6 +30,10 @@ button{cursor:pointer}
 .tbtn .badge{background:var(--bad);color:#fff;border-radius:999px;font-size:12px;padding:0 7px;font-weight:600}
 .pill{font-size:12px;padding:3px 9px;border-radius:999px;background:var(--goods);color:var(--good);font-weight:500}
 .pill.off{background:var(--warns);color:var(--warn)}
+.sync{border:0;cursor:pointer;font:inherit;font-size:12px;padding:4px 10px;border-radius:999px;font-weight:500;display:inline-flex;align-items:center;gap:6px;background:var(--goods);color:var(--good)}
+.sync::before{content:"";width:8px;height:8px;border-radius:50%;background:currentColor}
+.sync.off{background:var(--warns);color:var(--warn)}.sync.bad{background:#fde7ea;color:#9e0c24}
+.sync.busy::before{animation:pulse 1s infinite}@keyframes pulse{50%{opacity:.25}}
 .main{display:grid;grid-template-columns:170px 1fr 380px;min-height:0}
 @media(max-width:1000px){.main{grid-template-columns:130px 1fr 320px}}
 .cats{background:var(--s);border-right:1px solid var(--line);overflow:auto;padding:8px}
@@ -86,7 +90,9 @@ button{cursor:pointer}
 .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;padding:12px 18px;border-radius:10px;opacity:0;transition:opacity .2s;z-index:20;pointer-events:none}.toast.show{opacity:1}
 .stats{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}.stats div{background:var(--bg);border-radius:10px;padding:12px}.stats b{display:block;font-size:20px;margin-top:2px}
 </style>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>window.SLICK_OFFLINE = true;</script>
+<script src="supabase.js"></script>
+<script>if(!window.supabase) document.write('<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"><\/script>');</script>
 <script src="wokdb.js"></script>
 </head>
 <body>
@@ -105,6 +111,7 @@ button{cursor:pointer}
   <div class="top">
     <div class="logo">S</div><div><b id="tBranch">—</b><div class="mut" id="tDevice">—</div></div>
     <span class="pill" id="shiftPill">Shift closed</span>
+    <button class="sync" id="syncPill" title="Connection and sync status">Online</button>
     <div class="sp"></div>
     <button class="tbtn" id="incomingBtn">Incoming orders <span class="badge hide" id="incBadge">0</span></button>
     <button class="tbtn" id="shiftBtn">Open shift</button>
@@ -157,11 +164,36 @@ function onData(c){
   renderAll();
 }
 
+/* ---------- offline & sync status ---------- */
+let syncSt = { online:navigator.onLine, pending:0, failed:0 };
+const ago = t => { if(!t) return "never"; const m = Math.round((Date.now()-new Date(t))/60000); return m<1?"just now":m<60?m+" min ago":new Date(t).toLocaleString("en-GB"); };
+function paintSync(){
+  const p = $("#syncPill"), s = syncSt; if(!p) return;
+  p.className = "sync" + (s.failed||s.needsLogin ? " bad" : !s.online ? " off" : s.pending ? " off busy" : "");
+  p.textContent = s.needsLogin ? "Sign in to sync" : !s.online ? (s.pending ? `Offline · ${s.pending} to sync` : "Offline") : s.pending ? `Syncing ${s.pending}…` : s.failed ? `${s.failed} not synced` : "Online";
+}
+window.addEventListener("slick-sync", e => { const was = syncSt; syncSt = e.detail; paintSync();
+  if(was.pending && !syncSt.pending && syncSt.online) toast("All offline sales synced");
+  if(was.online && !syncSt.online) toast("Offline · sales will be saved on this tablet and synced later"); });
+$("#syncPill").addEventListener("click", () => {
+  const s = syncSt, f = window.WOK.sync.failed();
+  modal("sync", `<div class="mh"><h2>Connection & sync</h2><button class="x" data-close aria-label="Close">×</button></div><div class="mb">
+    <div class="stats"><div><span class="mut">Connection</span><b>${s.online?"Online":"Offline"}</b></div><div><span class="mut">Waiting to sync</span><b>${s.pending}</b></div></div>
+    <p class="mut">Last synced: ${ago(s.lastSync)}. Sales, shifts and order updates made offline are kept on this tablet and sent automatically when the connection is back.</p>
+    ${f.length ? `<p><b>${f.length} change(s) the server rejected</b></p>${f.map(o=>`<p class="mut">${esc(o.col)} · ${esc(o.data?.no ? "Order #"+o.data.no : o.id)} — ${esc(o.lastError||"")}</p>`).join("")}` : ""}</div>
+    <div class="mf">${f.length?'<button class="btn" id="retryFailed">Retry rejected</button>':""}<button class="btn pri" id="syncNow">Sync now</button></div>`);
+});
+document.addEventListener("click", e => {
+  if(e.target.id==="syncNow"){ window.WOK.sync.flush(); closeModal(); toast(navigator.onLine ? "Syncing…" : "Still offline · will sync when the connection is back"); }
+  if(e.target.id==="retryFailed"){ window.WOK.sync.retryFailed(); closeModal(); toast("Retrying"); }
+});
+
 /* ---------- activation ---------- */
 $("#code").addEventListener("input", e => { e.target.value = e.target.value.replace(/\D/g,""); $("#actBtn").disabled = e.target.value.length!==6; $("#actErr").textContent = ""; });
 $("#actForm").addEventListener("submit", async e => {
   e.preventDefault();
   const code = $("#code").value, d = S.devices.find(x => x.code===code && !x.deleted);
+  if(!navigator.onLine){ $("#actErr").textContent = "Connect to the internet to activate. After that the register works offline too."; return; }
   if(!d){ $("#actErr").textContent = "That code isn't valid. Check it in Manage → Devices."; return; }
   if(d.activatedAt){ $("#actErr").textContent = "This code was already used. Generate a new code in the back office."; return; }
   $("#actBtn").disabled = true;
@@ -264,7 +296,7 @@ $("#payBtn").addEventListener("click", () => {
 function updChange(){ const t = totals().total, v = +$("#tender")?.value || 0; if($("#chg")) $("#chg").textContent = payMethod==="cash" ? usd(Math.max(0, v-t)) : "—"; if($("#confirmPay")) $("#confirmPay").disabled = payMethod==="cash" && v < t; }
 async function completeSale(){
   const t = totals(), now = new Date().toISOString(), tender = payMethod==="cash" ? +$("#tender").value : t.total;
-  const no = String(Math.max(1000, ...S.orders.map(o=>+o.no||0)) + 1);
+  const no = String(Math.max(1000, +store.get("slickLastNo")||0, ...S.orders.map(o=>+o.no||0)) + 1); store.set("slickLastNo", no);
   const order = { no, channel:"pos", source:"POS", type: otype==="dinein"?"dinein":otype==="takeaway"?"pickup":"delivery", table: otype==="dinein"?tableNo:"",
     customerName:cust.name.trim(), phone:cust.phone.trim(), address: otype==="delivery"?cust.address.trim():"",
     brandId:branch?.brandId || null, branchId:device.branchId, deviceId:device.id, shiftId:openShift().id, agent:device.name, items:cart, subtotal:+t.sub.toFixed(2), discountPct:discount, discount:t.disc, total:t.total,
@@ -273,7 +305,7 @@ async function completeSale(){
   try{
     const id = "pos_" + Date.now().toString(36) + Math.random().toString(36).slice(2,5);
     await db.collection("orders").doc(id).set(order);
-    showReceipt(order); resetOrder();
+    showReceipt(order); resetOrder(); if(!syncSt.online) toast("Saved on this tablet · will sync when online");
   }catch(err){ console.error(err); toast("Couldn't save the sale. Try again."); $("#confirmPay").disabled = false; }
 }
 function receiptText(o){
@@ -339,6 +371,7 @@ $("#menuBtn").addEventListener("click", () => modal("more", `<div class="mh"><h2
   <p><b>${esc(device.name)}</b><br><span class="mut">${esc(branch?.name||"")}</span></p><p class="mut">To move this tablet to another branch, generate a new code in the back office and activate again.</p></div>
   <div class="mf"><a class="btn" href="index.html#devices" style="margin-right:auto;text-decoration:none">Back office</a><button class="btn bad" id="deact">Deactivate on this tablet</button><button class="btn" data-close>Close</button></div>`));
 })();
+if("serviceWorker" in navigator && !window.Capacitor && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(()=>{});
 </script>
 </body>
 </html>
