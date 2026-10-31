@@ -353,13 +353,15 @@ function dashParams(offset){
 }
 async function loadDash(force){
   if(!window.WOK || storeMode!=="db") return;
-  const cur = dashParams(0), key = JSON.stringify([cur, state.compare]);
+  const kind = dashKind(), cur = kind==="inventory" ? { p_branches: dashParams(0).p_branches } : dashParams(0);
+  const fn = kind==="kitchen" ? "slick_kitchen" : kind==="inventory" ? "slick_inventory" : "slick_dashboard";
+  const key = JSON.stringify([kind, cur, state.compare]);
   if(!force && key===DASH.key && (DASH.cur || DASH.loading || DASH.err)) return;
   if(key!==DASH.key){ DASH.cur = null; DASH.prev = null; }
   DASH.key = key; DASH.loading = true; DASH.err = "";
   try{
-    const calls = [WOK.sb.rpc("slick_dashboard", cur)];
-    if(state.compare) calls.push(WOK.sb.rpc("slick_dashboard", dashParams(1)));
+    const calls = [WOK.sb.rpc(fn, cur)];
+    if(state.compare && kind!=="inventory") calls.push(WOK.sb.rpc(fn, dashParams(1)));
     const res = await Promise.all(calls);
     if(DASH.key!==key) return;                       // filters changed meanwhile
     const bad = res.find(r => r.error); if(bad) throw bad.error;
@@ -367,6 +369,8 @@ async function loadDash(force){
   }catch(e){ console.error("dashboard", e); if(DASH.key===key) DASH.err = e.message || "Couldn't load the numbers"; }
   finally{ if(DASH.key===key){ DASH.loading = false; if((location.hash.slice(1)||"dashboard")==="dashboard") render(); } }
 }
+function dashKind(){ return state.dashTab==="kitchen" ? "kitchen" : state.dashTab==="inventory" ? "inventory" : "sales"; }
+const mins = v => v==null ? "—" : (+v).toFixed(1) + " min";
 function dashSoon(){ clearTimeout(DASH.t); DASH.t = setTimeout(() => loadDash(true), 1500); }   // new/changed orders → refresh
 setInterval(() => { if((location.hash.slice(1)||"dashboard")==="dashboard" && !document.hidden && state.date===todayStr()) loadDash(true); }, 60000);
 const hours24 = (rows, f) => { const a = Array(24).fill(0); (rows||[]).forEach(r => a[r.h] = +r[f]||0); return a; };
@@ -439,7 +443,7 @@ function delta(cur, prev){
   return `<div class="d ${up?"up":"down"}">${up?"▲":"▼"} ${Math.abs(pct).toFixed(1)}% vs previous ${state.range}</div>`;
 }
 function kpiCard(title, value, series, fmt, cur, prev, labels){
-  return `<div class="card kpi"><div class="kh"><h3>${title}</h3><a href="#sales-reports" class="vr">View Report</a></div>
+  return `<div class="card kpi"><div class="kh"><h3>${title}</h3><a href="#dashboard" data-report="${esc(title)}" class="vr">View Report</a></div>
     <div class="v">${value}</div>${delta(cur, prev)}
     ${lineChart(series, {h:300, axis:false, area:false, dots:true, labelStep:3, fmt, label:title+" by hour", labels})}</div>`;
 }
@@ -450,11 +454,10 @@ function viewDashboard(){
   let h = `<h1>Welcome, ${esc(state.userName||"Admin")}</h1><p class="subt">${state.branch==="all" ? `All ${act.length} active branches` : esc(list[0]?.name||"")}</p>
     <div class="tabs">${tabs.map(([k,t])=>`<a href="#dashboard" data-dt="${k}" class="${state.dashTab===k?"on":""}">${t}${k==="kitchen"?' <span class="new">New!</span>':""}</a>`).join("")}</div>`;
   if(!act.length) return h + `<div class="card empty">No active branches yet.<br><br><a class="btn pri" href="#branches">Add your first branch</a></div>`;
-  if(["inventory","kitchen"].includes(state.dashTab)) return h + placeholder(tabs.find(t=>t[0]===state.dashTab)[1] + " dashboard", "This tab fills in once the matching module is built.");
   if(storeMode!=="db") return h + placeholder("Dashboard", "Sign in to see live sales.");
   loadDash();
   const D = DASH.cur, P = state.compare ? DASH.prev : null;
-  h += filterBar();
+  h += state.dashTab==="inventory" ? `<div class="row fbar"><span class="note">Based on the latest inventory count of each item${state.branch==="all"?" across your branches":""}.</span><span class="sp"></span><span class="note">${DASH.loading ? "Updating…" : DASH.at ? "Updated " + new Date(DASH.at).toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"}) : ""}</span><a class="btn" href="#inventory-count" style="text-decoration:none">Start inventory count</a><button class="btn" id="dashRefresh">↻ Refresh</button></div>` : filterBar();
   if(DASH.err && !D) return h + `<div class="card empty">Couldn't load the dashboard: ${esc(DASH.err)}<br><br><button class="btn" id="dashRefresh">Try again</button></div>`;
   if(!D) return h + `<div class="card ph"><div>Loading live numbers…</div></div>`;
   const avg = x => x && x.orders ? x.net/x.orders : 0;
@@ -488,6 +491,10 @@ function viewDashboard(){
     h += `<div class="card tbl"><table><thead><tr><th>Branch</th><th>Code</th><th class="num">Orders</th><th class="num">Net sales</th><th class="num">Share</th><th class="num">Avg. ticket</th><th class="num">Discounts</th>${state.compare?'<th class="num">vs previous</th>':""}</tr></thead><tbody>${
       rows.map(({b,p,q}) => `<tr><td>${esc(b.name)}</td><td class="code">${esc(b.code)}</td><td class="num">${p.n}</td><td class="num">${money(+p.net)}</td><td class="num">${tot?(p.net/tot*100).toFixed(1)+"%":"—"}</td><td class="num">${money(p.n?p.net/p.n:0)}</td><td class="num">${money(+p.disc)}</td>${state.compare?`<td class="num">${q&&+q.net?((p.net-q.net)/q.net*100).toFixed(1)+"%":"—"}</td>`:""}</tr>`).join("")
     }<tr style="font-weight:600"><td>Total</td><td></td><td class="num">${D.orders}</td><td class="num">${money(tot)}</td><td class="num">${tot?"100%":"—"}</td><td class="num">${money(avg(D))}</td><td class="num">${money(+D.discount)}</td>${state.compare?`<td class="num">${P&&+P.net?((D.net-P.net)/P.net*100).toFixed(1)+"%":"—"}</td>`:""}</tr></tbody></table></div>`;
+  } else if(state.dashTab==="kitchen"){
+    h += viewKitchenDash(D, P, bname);
+  } else if(state.dashTab==="inventory"){
+    h += viewInventoryDash(D, bname);
   } else if(state.dashTab==="call-center"){
     const cc = D.callcenter || {}, st = cc.byStatus || {}, ccOk = (cc.byAgent||[]).reduce((a,x)=>a+x.n,0), ccNet = (cc.byAgent||[]).reduce((a,x)=>a+(+x.net),0);
     h += `<div class="grid kpis">
@@ -498,6 +505,59 @@ function viewDashboard(){
       <div class="card"><div class="kh"><h3>Orders by branch</h3></div><div style="height:12px"></div>${barList((cc.byBranch||[]).map(b=>({name:bname(b.id), v:b.n, sub:money(+b.net)})).sort((a,b)=>b.v-a.v), v=>v+" orders")}</div>
     </div>`;
   }
+  return h;
+}
+function prevLine(cur, prev, fmt, lowerIsBetter){
+  if(!state.compare || prev==null) return "";
+  if(cur==null || !+prev) return `<div class="d">Previous ${state.range}: ${fmt(prev)}</div>`;
+  const pct = (cur-prev)/prev*100, good = lowerIsBetter ? pct<=0 : pct>=0;
+  return `<div class="d ${good?"up":"down"}">${pct>=0?"▲":"▼"} ${Math.abs(pct).toFixed(1)}% vs previous ${state.range}</div>`;
+}
+const kpiX = (t, v, sub, extra) => `<div class="card kpi"><div class="kh"><h3>${t}</h3></div><div class="v">${v}</div>${sub?`<div class="d">${sub}</div>`:""}${extra||""}</div>`;
+function viewKitchenDash(K, P, bname){
+  const q = K.queue || [], qp = q.reduce((a,x)=>a+x.pending,0), qa = q.reduce((a,x)=>a+x.active,0);
+  const late = v => v!=null && v>5 ? ` style="color:var(--accent-ink);font-weight:600"` : "";
+  let h = `<div class="card" style="margin-bottom:16px"><div class="kh"><h3>Live kitchen queue</h3><span class="note">Right now · online & call center orders</span></div>
+    ${q.length ? `<div class="tbl" style="margin-top:10px"><table><thead><tr><th>Branch</th><th class="num">Waiting to accept</th><th class="num">Oldest waiting</th><th class="num">In the kitchen</th><th class="num">Longest in kitchen</th></tr></thead><tbody>${
+      q.sort((a,b)=>(b.pending+b.active)-(a.pending+a.active)).map(x=>`<tr><td>${esc(bname(x.id))}</td><td class="num">${x.pending}</td><td class="num"${late(x.oldest_pending)}>${x.oldest_pending!=null?x.oldest_pending+" min":"—"}</td><td class="num">${x.active}</td><td class="num"${x.oldest_active>30?late(99):""}>${x.oldest_active!=null?x.oldest_active+" min":"—"}</td></tr>`).join("")
+    }</tbody></table></div>` : `<p class="note" style="margin:10px 0 0">No orders waiting. All caught up.</p>`}</div>`;
+  h += `<div class="grid kpis">
+    ${kpiX("Kitchen tickets", (+K.tickets).toLocaleString(), "All orders sent to the kitchen, including POS", prevLine(+K.tickets, P&&+P.tickets, v=>(+v).toLocaleString()))}
+    ${kpiX("Online & call center orders", (+K.incoming).toLocaleString(), `${K.accepted} accepted · ${K.declined} declined`, prevLine(+K.incoming, P&&+P.incoming, v=>(+v).toLocaleString()))}
+    ${kpiX("Avg. time to accept", mins(K.avgAccept), `${K.slowAccept} took more than 5 min`, prevLine(K.avgAccept, P?.avgAccept, mins, true))}
+    ${kpiX("Avg. preparation time", mins(K.avgPrep), "From accepted to done", prevLine(K.avgPrep, P?.avgPrep, mins, true))}
+    ${kpiX("Avg. order to done", mins(K.avgTotal), "From the order coming in to done", prevLine(K.avgTotal, P?.avgTotal, mins, true))}
+    ${kpiX("Late orders", (+K.late).toLocaleString(), "Took more than 45 min from order to done", prevLine(+K.late, P&&+P.late, v=>(+v).toLocaleString(), true))}
+  </div>
+  <div class="card" style="margin-bottom:16px"><div class="kh"><h3>Kitchen tickets by hour</h3></div>${lineChart(hours24(K.hours,"n"), {w:1400, h:260, fs:13, dots:true, label:"Kitchen tickets by hour"})}</div>
+  <div class="card tbl"><table><thead><tr><th>Branch</th><th class="num">Online & call center</th><th class="num">Avg. to accept</th><th class="num">Avg. prep</th><th class="num">Late</th><th class="num">Declined</th></tr></thead><tbody>${
+    (K.branches||[]).length ? K.branches.sort((a,b)=>b.n-a.n).map(b=>`<tr><td>${esc(bname(b.id))}</td><td class="num">${b.n}</td><td class="num">${mins(b.acc)}</td><td class="num">${mins(b.prep)}</td><td class="num">${b.late}</td><td class="num">${b.declined}</td></tr>`).join("")
+    : `<tr><td colspan="6" class="note">No online or call center orders in this period.</td></tr>`
+  }</tbody></table></div>
+  <p class="note" style="margin-top:10px">Times are recorded when a branch taps Accept and Mark done on the POS (or the order is closed from Call Center). POS sales count as tickets but aren't timed. Orders from before this update have no times.</p>`;
+  return h;
+}
+function viewInventoryDash(I, bname){
+  const fmtD = d => d ? new Date(d).toLocaleDateString("en-GB",{day:"numeric",month:"short"}) : "Never";
+  const hints = [];
+  if(I.items && I.withCost < I.items) hints.push(`${I.items - I.withCost} of ${I.items} items have no cost, so their stock value shows as zero.`);
+  if(I.items && !I.withMin) hints.push("No item has a minimum level yet. Set one to get low-stock alerts.");
+  let h = hints.length ? `<div class="card" style="margin-bottom:16px;border-color:#f3d9a4;background:#fffaf0"><b>Finish setting up inventory</b><ul style="margin:6px 0 0 18px;padding:0">${hints.map(x=>`<li>${esc(x)}</li>`).join("")}</ul><a href="#inv-items" class="vr" style="display:inline-block;margin-top:8px">Open Inventory → Items</a></div>` : "";
+  h += `<div class="grid kpis">
+    ${kpiX("Stock value", money(+I.value), "Latest counts × item cost")}
+    ${kpiX("Items counted", `${I.counted} <span class="note" style="font-size:14px">of ${I.items}</span>`, I.counted ? "" : "No counts yet")}
+    ${kpiX("Below minimum", (+I.belowMin).toLocaleString(), "Item × branch pairs under their minimum")}
+    ${kpiX("Out of stock", (+I.outOfStock).toLocaleString(), "Counted at zero")}
+  </div>
+  <div class="card tbl" style="margin-bottom:16px"><table><thead><tr><th>Branch</th><th class="num">Stock value</th><th class="num">Items counted</th><th class="num">Below minimum</th><th>Last count</th><th></th></tr></thead><tbody>${
+    (I.branches||[]).sort((a,b)=>b.value-a.value).map(b=>`<tr><td>${esc(bname(b.id))}</td><td class="num">${money(+b.value)}</td><td class="num">${b.counted}</td><td class="num">${b.below_min}</td><td>${fmtD(b.last_count)}</td><td><a href="#inventory-count" data-icbranch="${esc(b.id)}" class="vr">Count now</a></td></tr>`).join("")
+  }</tbody></table></div>
+  <div class="grid two">
+    <div class="card"><div class="kh"><h3>Stock value by category</h3></div><div style="height:12px"></div>${barList((I.categories||[]).map(c=>({name:c.k, v:+c.value, sub:c.n+" items"})))}</div>
+    <div class="card"><div class="kh"><h3>Low stock</h3><span class="note">Lowest first</span></div>${(I.low||[]).length ? `<div class="tbl" style="margin-top:8px"><table><thead><tr><th>Item</th><th>Branch</th><th class="num">On hand</th><th class="num">Min</th><th class="num">To reach par</th></tr></thead><tbody>${
+      I.low.map(x=>`<tr><td>${esc(x.name)}</td><td>${esc(bname(x.branch_id))}</td><td class="num">${(+x.qty).toLocaleString()} ${esc(x.unit||"")}</td><td class="num">${(+x.min_level).toLocaleString()}</td><td class="num">${x.par_level ? Math.max(0, x.par_level - x.qty).toLocaleString() : "—"}</td></tr>`).join("")
+    }</tbody></table></div>` : `<p class="note" style="margin:10px 0 0">${I.withMin ? "Nothing is below its minimum level." : "Low-stock alerts appear once items have minimum levels and have been counted."}</p>`}</div>
+  </div>`;
   return h;
 }
 const kpi = (t,v) => `<div class="card kpi"><h3>${t}</h3><div class="v">${v}</div></div>`;
@@ -556,6 +616,7 @@ $("#branchSel").addEventListener("change", e => { state.branch = e.target.value;
 $("#brandSel").addEventListener("change", e => { state.brand = e.target.value; state.branch = "all"; try{ localStorage.setItem("slickBrand", state.brand); }catch(err){} render(); });
 $("#view").addEventListener("click", e => {
   if(e.target.closest("#dashRefresh")){ loadDash(true); render(); return; }
+  const rp = e.target.closest("[data-report]"); if(rp){ e.preventDefault(); openReport(rp.dataset.report); return; }
   const r = e.target.closest("[data-r]"); if(r){ state.range = r.dataset.r; render(); return; }
   const t2 = e.target.closest("[data-dt2]"); if(t2){ e.preventDefault(); state.dashTab = t2.dataset.dt2; render(); return; }
   const t = e.target.closest("[data-dt]"); if(t){ e.preventDefault(); state.dashTab = t.dataset.dt; render(); return; }
@@ -998,7 +1059,106 @@ function moduleRoute(route){
   if(route==="call-center") return viewCallCenter();
   if(route==="devices") return viewDevices();
   if(route==="online-ordering") return viewOnline();
+  if(route==="inventory-count") return viewInventoryCount();
   return null;
+}
+
+/* ---------- Inventory Count: enter what's on the shelf; feeds the Inventory dashboard ---------- */
+const IC = { branch:"", levels:{}, loaded:{}, draft:{}, q:"", cat:"", saving:false };
+async function loadLevels(branch, force){
+  if(!branch || storeMode!=="db" || (!force && IC.loaded[branch])) return;
+  IC.loaded[branch] = "loading";
+  const { data, error } = await WOK.sb.rpc("slick_stock_levels", { p_branch: branch });
+  if(error){ IC.loaded[branch] = null; toast("Couldn't load the last counts"); console.error(error); return; }
+  IC.levels[branch] = Object.fromEntries((data||[]).map(r => [r.item_id, r])); IC.loaded[branch] = true;
+  if(location.hash.slice(1)==="inventory-count") render();
+}
+function viewInventoryCount(){
+  const act = activeBranches();
+  if(!act.length) return `<h1>Inventory Count</h1>` + placeholder("No active branches", "Add a branch first.");
+  if(!act.some(b=>b.id===IC.branch)) IC.branch = state.branch!=="all" ? state.branch : act[0].id;
+  loadLevels(IC.branch);
+  const lv = IC.levels[IC.branch] || {}, d = IC.draft[IC.branch] || {};
+  const cats = [...new Set(S.inv_items.filter(live).map(i=>i.category).filter(Boolean))].sort();
+  const q = IC.q.toLowerCase();
+  const items = S.inv_items.filter(live).filter(i => (!IC.cat || i.category===IC.cat) && (!q || (i.name+" "+(i.sku||"")).toLowerCase().includes(q)))
+    .sort((a,b)=>(a.category||"").localeCompare(b.category||"") || a.name.localeCompare(b.name));
+  const entered = Object.values(d).filter(v => v!=="" && v!=null).length;
+  const fmtD = t => t ? new Date(t).toLocaleDateString("en-GB",{day:"numeric",month:"short"}) : "";
+  return `<h1>Inventory Count</h1><p class="subt">Type what's on the shelf for each item, in its storage unit. Leave items blank to skip them. Each save keeps the previous counts as history.</p>
+    <div class="row fbar">
+      <select class="sel" id="icBranch" aria-label="Branch">${act.map(b=>`<option value="${esc(b.id)}" ${b.id===IC.branch?"selected":""}>${esc(b.name)}</option>`).join("")}</select>
+      <select class="sel" id="icCat" aria-label="Category"><option value="">All categories</option>${cats.map(c=>`<option ${c===IC.cat?"selected":""}>${esc(c)}</option>`).join("")}</select>
+      <input class="sel" id="icQ" placeholder="Search items" value="${esc(IC.q)}" style="min-width:200px">
+      <span class="sp"></span><span class="note" id="icCount">${entered} item${entered===1?"":"s"} entered</span>
+      <button class="btn" id="icClear" ${entered?"":"disabled"}>Clear</button>
+      <button class="btn pri" id="icSave" ${entered && !IC.saving?"":"disabled"}>${IC.saving?"Saving…":"Save count"}</button>
+    </div>
+    ${IC.loaded[IC.branch]==="loading" ? `<p class="note">Loading last counts…</p>` : ""}
+    <div class="card tbl"><table><thead><tr><th>Item</th><th>Category</th><th>Unit</th><th class="num">Last count</th><th class="num">Min</th><th class="num" style="width:150px">Counted now</th></tr></thead><tbody>${
+      items.length ? items.map(i => { const l = lv[i.id], low = l && +i.minLevel>0 && +l.qty < +i.minLevel;
+        return `<tr><td><b>${esc(i.name)}</b> <span class="code">${esc(i.sku||"")}</span></td><td>${esc(i.category||"—")}</td><td>${esc(i.storageUnit||"—")}</td>
+          <td class="num"${low?' style="color:var(--accent-ink);font-weight:600"':""}>${l ? `${(+l.qty).toLocaleString()} <span class="note">· ${fmtD(l.counted_at)}</span>` : '<span class="note">Never</span>'}</td>
+          <td class="num">${+i.minLevel ? (+i.minLevel).toLocaleString() : "—"}</td>
+          <td class="num"><input type="number" min="0" step="any" inputmode="decimal" class="sel" data-ic="${esc(i.id)}" value="${esc(d[i.id] ?? "")}" style="width:120px;text-align:right" aria-label="Counted quantity of ${esc(i.name)}"></td></tr>`; }).join("")
+      : `<tr><td colspan="6" class="note">No items match.</td></tr>`
+    }</tbody></table></div>`;
+}
+async function saveCount(){
+  const d = IC.draft[IC.branch] || {}, now = new Date().toISOString(), batch = "cnt_" + Date.now().toString(36);
+  const rows = Object.entries(d).filter(([,v]) => v!=="" && v!=null && !isNaN(+v) && +v>=0).map(([item, v]) => ({ branch_id: IC.branch, item_id: item, qty: +v, counted_at: now, counted_by: state.userName || null, batch }));
+  if(!rows.length) return;
+  IC.saving = true; render();
+  const { error } = await WOK.sb.from("stock_counts").insert(rows);
+  IC.saving = false;
+  if(error){ console.error(error); toast("Couldn't save the count: " + error.message); render(); return; }
+  IC.draft[IC.branch] = {}; DASH.key = ""; toast(`Saved ${rows.length} item${rows.length===1?"":"s"} for ${branches.find(b=>b.id===IC.branch)?.name||"the branch"}`);
+  await loadLevels(IC.branch, true); render();
+}
+$("#view").addEventListener("input", e => {
+  const inp = e.target.closest("[data-ic]");
+  if(inp){ (IC.draft[IC.branch] ||= {})[inp.dataset.ic] = inp.value;
+    const n = Object.values(IC.draft[IC.branch]).filter(v=>v!=="").length;
+    $("#icCount").textContent = `${n} item${n===1?"":"s"} entered`; $("#icSave").disabled = !n; $("#icClear").disabled = !n; return; }
+  if(e.target.id==="icQ"){ IC.q = e.target.value; const pos = e.target.selectionStart; render(); const el = $("#icQ"); el.focus(); el.setSelectionRange(pos,pos); }
+});
+$("#view").addEventListener("change", e => {
+  if(e.target.id==="icBranch"){ IC.branch = e.target.value; render(); }
+  if(e.target.id==="icCat"){ IC.cat = e.target.value; render(); }
+});
+$("#view").addEventListener("click", e => {
+  if(e.target.id==="icSave") saveCount();
+  if(e.target.id==="icClear" && confirm("Clear the quantities you typed for this branch?")){ IC.draft[IC.branch] = {}; render(); }
+  const cb = e.target.closest("[data-icbranch]"); if(cb) IC.branch = cb.dataset.icbranch;
+});
+
+/* ---------- KPI breakdown ("View Report") ---------- */
+function openReport(title){
+  const D = DASH.cur; if(!D) return;
+  const hr = Array.from({length:24}, (_,h) => D.hours.find(x=>x.h===h) || { h, n:0, net:0, pay:0, disc:0 }).filter(x => x.n);
+  const period = state.range==="day" ? new Date(state.date+"T12:00:00").toLocaleDateString("en-GB",{weekday:"short",day:"numeric",month:"short",year:"numeric"}) : `${rangeDays()} days to ${new Date(state.date+"T12:00:00").toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"})}`;
+  const scope = state.branch==="all" ? (state.brand==="all" ? "All branches" : brandName(state.brand)) : (branches.find(b=>b.id===state.branch)?.name || "");
+  const rowH = x => [hourLbl(x.h), x.n, (+x.net).toFixed(2), (+x.pay).toFixed(2), (+x.disc).toFixed(2), (x.n ? x.net/x.n : 0).toFixed(2)];
+  const days = (D.days||[]).map(x => [x.d, x.n, (+x.net).toFixed(2)]);
+  window.__rep = { title, period, scope, hr: hr.map(rowH), days };
+  const box = $("#ccBox"); box.className = "modal wide";
+  box.innerHTML = `<header><h2>${esc(title)} · ${esc(period)}</h2><button type="button" class="x" data-ccclose aria-label="Close">×</button></header>
+    <div style="padding:16px 22px;max-height:70vh;overflow:auto"><p class="note" style="margin-top:0">${esc(scope)}. Orders that were declined or still drafts are left out.</p>
+    <div class="card tbl"><table><thead><tr><th>Hour</th><th class="num">Orders</th><th class="num">Net sales</th><th class="num">Net payments</th><th class="num">Discounts</th><th class="num">Avg. ticket</th></tr></thead><tbody>${
+      hr.length ? hr.map(x=>`<tr><td>${hourLbl(x.h)}</td><td class="num">${x.n}</td><td class="num">${money(+x.net)}</td><td class="num">${money(+x.pay)}</td><td class="num">${money(+x.disc)}</td><td class="num">${money(x.n?x.net/x.n:0)}</td></tr>`).join("")
+        + `<tr style="font-weight:600"><td>Total</td><td class="num">${D.orders}</td><td class="num">${money(+D.net)}</td><td class="num">${money(+D.payments)}</td><td class="num">${money(+D.discount)}</td><td class="num">${money(D.orders?D.net/D.orders:0)}</td></tr>`
+      : `<tr><td colspan="6" class="note">No sales in this period.</td></tr>`}</tbody></table></div>
+    ${rangeDays()>1 && days.length ? `<h3 style="margin:18px 0 8px;font-size:15px">By day</h3><div class="card tbl"><table><thead><tr><th>Date</th><th class="num">Orders</th><th class="num">Net sales</th></tr></thead><tbody>${D.days.map(x=>`<tr><td>${new Date(x.d+"T12:00:00").toLocaleDateString("en-GB",{weekday:"short",day:"numeric",month:"short"})}</td><td class="num">${x.n}</td><td class="num">${money(+x.net)}</td></tr>`).join("")}</tbody></table></div>` : ""}
+    </div><footer><button type="button" class="btn" id="repCsv">Download CSV</button><button type="button" class="btn pri" data-ccclose>Close</button></footer>`;
+  $("#ccScrim").classList.add("show");
+}
+function downloadReportCsv(){
+  const r = window.__rep; if(!r) return;
+  const q = v => /[",\n]/.test(String(v)) ? `"${String(v).replace(/"/g,'""')}"` : v;
+  const lines = [[`Slick sales report`], [r.scope], [r.period], [], ["Hour","Orders","Net sales (USD)","Net payments (USD)","Discounts (USD)","Avg ticket (USD)"], ...r.hr];
+  if(r.days.length > 1) lines.push([], ["Date","Orders","Net sales (USD)"], ...r.days);
+  const blob = new Blob([lines.map(l => l.map(q).join(",")).join("\n")], { type:"text/csv" });
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `slick-sales-${state.date}-${state.range}.csv`; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href), 2000);
 }
 document.body.insertAdjacentHTML("beforeend", `<div class="scrim" id="crudScrim"><form class="modal" id="crudBox" autocomplete="off"></form></div>
   <div class="scrim" id="ccScrim"><div class="modal wide" id="ccBox"></div></div>`);
@@ -1015,7 +1175,7 @@ $("#crudScrim").addEventListener("click", async e => {
     catch(err){ console.error(err); $("#cErr").textContent = "Couldn't create the device."; }
   }
 });
-$("#ccScrim").addEventListener("click", e => {
+$("#ccScrim").addEventListener("click", e => { if(e.target.id==="repCsv") return downloadReportCsv();
   if(e.target.id==="ccScrim" || e.target.closest("[data-ccclose]")) return $("#ccScrim").classList.remove("show");
   const ot = e.target.closest("[data-ot]"); if(ot && !ot.disabled){ document.querySelectorAll("#oType button").forEach(b=>b.classList.toggle("on", b===ot)); $("#oAddrF").style.display = ot.dataset.ot==="delivery" ? "" : "none"; }
   const oc = e.target.closest("[data-ocat]"); if(oc){ state.oCat = oc.dataset.ocat; renderOrderMenu(); }
