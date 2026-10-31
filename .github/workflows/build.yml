@@ -24,14 +24,15 @@ jobs:
           java-version: 17
       - name: Build Android POS app (APK)
         run: |
-          mkdir -p www && cp pos.html www/index.html && cp wokdb.js www/
           npm install
+          mkdir -p www && cp pos.html www/index.html && cp wokdb.js www/
+          cp node_modules/@supabase/supabase-js/dist/umd/supabase.js www/supabase.js || curl -fsSL https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js -o www/supabase.js
           npx cap add android
           npx cap sync android
           cd android && chmod +x gradlew && ./gradlew assembleDebug --no-daemon
       - name: Prepare website
         run: |
-          mkdir -p site && cp index.html pos.html order.html wokdb.js site/
+          mkdir -p site && cp index.html pos.html order.html wokdb.js sw.js site/ && cp www/supabase.js site/
           cp android/app/build/outputs/apk/debug/app-debug.apk site/the-wok-pos.apk
       - uses: actions/upload-pages-artifact@v3
         with:
