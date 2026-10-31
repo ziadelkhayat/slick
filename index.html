@@ -146,7 +146,8 @@ tr.click{cursor:pointer}tr.click:hover td{background:#faf9fd}
 .oline{display:flex;gap:8px;align-items:flex-start;font-size:13px}.oline .ico{width:15px;height:15px;margin-top:2px;color:var(--ink2)}
 .ototal{font-weight:600;font-size:15px}
 .spill{font-size:11px;padding:2px 8px;border-radius:999px;font-weight:500;background:var(--bg);color:var(--ink2)}
-.s-active{background:#fdf0e6;color:#b45a12}.s-pending{background:#e8f0fd;color:#2c5fb8}.s-closed{background:var(--good-soft);color:var(--good)}.s-declined{background:#fdecef;color:#9e0c24}
+.s-active{background:#fdf0e6;color:#b45a12}.s-pending{background:#e8f0fd;color:#2c5fb8}.s-closed{background:var(--good-soft);color:var(--good)}.s-declined{background:#fdecef;color:#9e0c24}.s-void{background:#eee;color:#666;text-decoration:line-through}.s-draft{background:#f1eff6;color:#5b5a66}
+.otbl tr.clk{cursor:pointer}.otbl tr.clk:hover td{background:#faf9fc}.odet{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px 18px;margin-bottom:16px}.odet div span{display:block;font-size:12px;color:var(--muted)}
 .modal.wide{width:min(1000px,100%)}
 .ccgrid{display:grid;grid-template-columns:300px 1fr;gap:20px;padding:18px 22px}
 @media(max-width:800px){.ccgrid{grid-template-columns:1fr}}
@@ -174,7 +175,7 @@ tr.click{cursor:pointer}tr.click:hover td{background:#faf9fd}
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="wokdb.js?v=7"></script>
+<script src="wokdb.js?v=8"></script>
 </head>
 <body>
 <div class="app">
@@ -304,7 +305,7 @@ async function initStore(){
     if(!window.claude || !window.claude.use) { clearTimeout(timer); return fallback(); }
     db = await window.claude.use("db");
     if(!db){ clearTimeout(timer); return fallback(); }
-    try{ const user = await window.claude.use("user"); if(user){ const n = await user.name?.(); if(n){ $("#who").textContent = n; state.userName = String(n).split(" ")[0]; } } }catch(e){}
+    try{ const user = await window.claude.use("user"); if(user){ const n = await user.name?.(); if(n){ $("#who").textContent = n; state.userName = String(n).split(" ")[0]; } state.role = await user.role?.(); state.fullName = n || ""; } }catch(e){}
     col = db.collection("branches");
     subscribeAll();
     col.onSnapshot(snap => {
@@ -679,6 +680,7 @@ function subscribeAll(){
   COLS.forEach(c => db.collection(c).onSnapshot(snap => {
     S[c] = snap.docs.map(d => ({ ...d.data(), id: d.id }));
     if(c==="orders" && DASH.key) dashSoon();
+    if(c==="orders" && ORD.key) ordSoon();
     render();
   }, err => console.error("load " + c, err)));
 }
@@ -1060,8 +1062,168 @@ function moduleRoute(route){
   if(route==="devices") return viewDevices();
   if(route==="online-ordering") return viewOnline();
   if(route==="inventory-count") return viewInventoryCount();
+  if(route==="orders") return viewOrders();
   return null;
 }
+
+/* ---------- Orders: every order from every channel, any date range ---------- */
+const ORD_TABS = [["all","All"],["pending","Pending"],["active","Active"],["closed","Closed"],["declined","Declined"],["void","Void"],["draft","Draft"]];
+const ORD_ST = { draft:"Draft", pending:"Pending", active:"Active", closed:"Closed", declined:"Declined", void:"Void" };
+const daysAgo = n => { const d = new Date(); d.setDate(d.getDate()-n); return new Date(d - d.getTimezoneOffset()*60000).toISOString().slice(0,10); };
+const ORD = { tab:"all", q:"", from:"", to:"", channel:"", type:"", pay:"", page:1, per:50, rows:[], count:0, counts:{}, loading:false, err:"", key:"", t:null, open:null };
+const ordTypeLbl = t => TYPE_LBL[t] || cap(t||"—");
+function ordQuery(sel, opts, withStatus){
+  const sb = WOK.sb, t0 = new Date(ORD.from+"T00:00:00"), t1 = new Date(ORD.to+"T00:00:00"); t1.setDate(t1.getDate()+1);
+  let q = sb.from("orders").select(sel, opts).gte("created_at", t0.toISOString()).lt("created_at", t1.toISOString());
+  const act = activeBranches();
+  if(state.branch!=="all") q = q.eq("branch_id", state.branch);
+  else if(state.brand!=="all") q = q.in("branch_id", act.length ? act.map(b=>b.id) : ["-"]);
+  if(ORD.channel) q = q.eq("channel", ORD.channel);
+  if(ORD.type) q = ORD.type==="pickup" ? q.in("type", ["pickup","takeaway"]) : q.eq("type", ORD.type);
+  if(ORD.pay) q = q.eq("payment->>method", ORD.pay);
+  const s = ORD.q.trim().replace(/[,()*%\\]/g, " ").trim();
+  if(s) q = /^\d+$/.test(s) ? q.or(`no.eq.${s},phone.ilike.*${s}*`) : q.or(`customer_name.ilike.*${s}*,phone.ilike.*${s}*,agent.ilike.*${s}*`);
+  if(withStatus && ORD.tab!=="all") q = q.eq("status", ORD.tab);
+  return q;
+}
+async function loadOrders(force){
+  if(!window.WOK || storeMode!=="db") return;
+  if(!ORD.from){ ORD.from = daysAgo(6); ORD.to = todayStr(); }
+  const key = JSON.stringify([ORD.tab, ORD.q, ORD.from, ORD.to, ORD.channel, ORD.type, ORD.pay, ORD.page, state.branch, state.brand]);
+  if(!force && key===ORD.key && (ORD.loading || ORD.rows.length || ORD.err || ORD.count===0 && ORD.loaded===key)) return;
+  ORD.key = key; ORD.loading = true; ORD.err = "";
+  const cols = "id,no,channel,source,type,status,branch_id,brand_id,customer_name,phone,table_no,total,payment,agent,handled_by,created_at";
+  try{
+    const list = ordQuery(cols, { count:"exact" }, true).order("created_at", { ascending:false }).range((ORD.page-1)*ORD.per, ORD.page*ORD.per-1);
+    const counts = ORD_TABS.filter(t=>t[0]!=="all").map(([st]) => ordQuery("id", { count:"exact", head:true }, false).eq("status", st));
+    const [res, ...cs] = await Promise.all([list, ...counts]);
+    if(ORD.key!==key) return;
+    if(res.error) throw res.error;
+    ORD.rows = res.data.map(r => ({ ...fromRowO(r) })); ORD.count = res.count || 0;
+    ORD.counts = {}; ORD_TABS.filter(t=>t[0]!=="all").forEach(([st], i) => ORD.counts[st] = cs[i].count || 0);
+    ORD.counts.all = Object.values(ORD.counts).reduce((a,b)=>a+b,0); ORD.loaded = key;
+  }catch(e){ console.error("orders", e); if(ORD.key===key) ORD.err = e.message || "Couldn't load orders"; }
+  finally{ if(ORD.key===key){ ORD.loading = false; if(location.hash.slice(1)==="orders") render(); } }
+}
+const fromRowO = r => { const o = {}; for(const [k,v] of Object.entries(r)) o[k.replace(/_([a-z])/g,(_,c)=>c.toUpperCase())] = v; if(o.tableNo!=null) o.table = o.tableNo; return o; };
+function ordSoon(){ if(location.hash.slice(1)!=="orders") return; clearTimeout(ORD.t); ORD.t = setTimeout(() => { loadOrders(true); if(ORD.open) openOrderDetail(ORD.open, true); }, 1200); }
+function viewOrders(){
+  if(storeMode!=="db") return `<h1>Orders</h1>` + placeholder("Orders", "Sign in to see orders.");
+  loadOrders();
+  const sel = (id, val, opts) => `<select class="sel" id="${id}">${opts.map(([v,t])=>`<option value="${v}" ${val===v?"selected":""}>${t}</option>`).join("")}</select>`;
+  const pages = Math.max(1, Math.ceil(ORD.count/ORD.per)), a = ORD.count ? (ORD.page-1)*ORD.per+1 : 0, b = Math.min(ORD.count, ORD.page*ORD.per);
+  const dt = t => new Date(t).toLocaleString("en-GB",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"});
+  return `<div class="phead"><h1>Orders</h1><span class="sp"></span><button class="btn" id="ordCsv">Export CSV</button><button class="btn" id="ordRefresh">↻ Refresh</button></div>
+  <div class="row fbar" style="flex-wrap:wrap">
+    <label class="note">From <input type="date" class="sel" id="ordFrom" value="${ORD.from}" max="${todayStr()}"></label>
+    <label class="note">To <input type="date" class="sel" id="ordTo" value="${ORD.to}" max="${todayStr()}"></label>
+    ${sel("ordChannel", ORD.channel, [["","All channels"],["pos","POS"],["online","Online ordering"],["callcenter","Call center"]])}
+    ${sel("ordType", ORD.type, [["","All types"],["dinein","Dine-in"],["pickup","Takeaway"],["delivery","Delivery"]])}
+    ${sel("ordPay", ORD.pay, [["","All payments"],["cash","Cash"],["card","Card"],["other","Other"]])}
+    <input class="sel" id="ordQ" placeholder="Order #, customer, phone" value="${esc(ORD.q)}" style="min-width:210px">
+  </div>
+  <div class="card tbl otbl"><div class="ttop"><div class="ttabs">${ORD_TABS.map(([k,t])=>`<a href="#orders" data-otab="${k}" class="${ORD.tab===k?"on":""}">${t} <span class="note">${ORD.counts[k] ?? ""}</span></a>`).join("")}</div><span class="sp"></span><span class="note">${ORD.loading ? "Loading…" : ""}</span></div>
+  ${ORD.err ? `<p class="note" style="padding:16px">Couldn't load orders: ${esc(ORD.err)}</p>` : `<table><thead><tr><th>Order</th><th>Date</th><th>Branch</th><th>Channel</th><th>Type</th><th>Customer</th><th>Status</th><th>Payment</th><th class="num">Total</th></tr></thead><tbody>${
+    ORD.rows.length ? ORD.rows.map(o => `<tr class="clk" data-oid="${esc(o.id)}"><td><b>#${esc(o.no)}</b></td><td>${dt(o.createdAt)}</td><td>${esc(branches.find(x=>x.id===o.branchId)?.name || "—")}</td>
+      <td><span class="tag cc">${esc(CH_LBL[o.channel] || cap(o.channel))}</span></td><td>${esc(ordTypeLbl(o.type))}${o.table?` · T${esc(o.table)}`:""}</td>
+      <td>${esc(o.customerName || "—")}${o.phone?`<div class="note">${esc(o.phone)}</div>`:""}</td><td><span class="spill s-${o.status}">${ORD_ST[o.status]||o.status}</span></td>
+      <td>${esc(PAY_LBL[o.payment?.method] || (o.payment?.method ? cap(o.payment.method) : "—"))}</td><td class="num">${money(+o.total||0)}</td></tr>`).join("")
+    : `<tr><td colspan="9" class="note" style="padding:24px;text-align:center">${ORD.loading ? "Loading orders…" : "No orders match these filters."}</td></tr>`
+  }</tbody></table>`}
+  <div class="pager"><span class="note">${a}–${b} of ${ORD.count.toLocaleString()}</span><span class="sp"></span><button class="btn" id="ordPrev" ${ORD.page<=1?"disabled":""}>‹ Previous</button><span class="note">Page ${ORD.page} of ${pages}</span><button class="btn" id="ordNext" ${ORD.page>=pages?"disabled":""}>Next ›</button></div></div>`;
+}
+async function openOrderDetail(id, quiet){
+  const { data, error } = await WOK.sb.from("orders").select("*").eq("id", id).maybeSingle();
+  if(error || !data){ if(!quiet) toast("Couldn't open this order"); return; }
+  const o = fromRowO(data); ORD.open = id;
+  const dt = t => t ? new Date(t).toLocaleString("en-GB",{day:"numeric",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"}) : "—";
+  const mins = (a,b) => a && b ? Math.round((new Date(b)-new Date(a))/60000) + " min" : "";
+  const admin = ["owner","admin"].includes(state.role);
+  const items = Array.isArray(o.items) ? o.items : [];
+  const box = $("#ccBox"); box.className = "modal wide";
+  box.innerHTML = `<header><h2>Order #${esc(o.no)} <span class="spill s-${o.status}">${ORD_ST[o.status]||o.status}</span></h2><button type="button" class="x" data-ccclose aria-label="Close">×</button></header>
+  <div style="padding:18px 22px;max-height:72vh;overflow:auto">
+    <div class="odet">
+      <div><span>Branch</span>${esc(branches.find(x=>x.id===o.branchId)?.name || "—")}</div>
+      ${brandList().length>1?`<div><span>Brand</span>${esc(brandName(o.brandId))}</div>`:""}
+      <div><span>Channel</span>${esc(CH_LBL[o.channel] || cap(o.channel))}${o.source && o.source!=="POS"?` · ${esc(o.source)}`:""}</div>
+      <div><span>Type</span>${esc(ordTypeLbl(o.type))}${o.table?` · Table ${esc(o.table)}`:""}</div>
+      <div><span>Placed</span>${dt(o.createdAt)}</div>
+      ${o.acceptedAt?`<div><span>Accepted</span>${dt(o.acceptedAt)} <span class="note">(${mins(o.createdAt,o.acceptedAt)})</span></div>`:""}
+      ${o.doneAt?`<div><span>${o.status==="declined"?"Declined":"Done"}</span>${dt(o.doneAt)} <span class="note">(${mins(o.createdAt,o.doneAt)} total)</span></div>`:""}
+      ${o.agent?`<div><span>${o.channel==="pos"?"Device":"Agent"}</span>${esc(o.agent)}</div>`:""}
+      ${o.handledBy?`<div><span>Handled by</span>${esc(o.handledBy)}</div>`:""}
+    </div>
+    ${o.customerName||o.phone||o.address ? `<div class="card" style="margin-bottom:14px"><b>Customer</b><div style="margin-top:6px">${esc(o.customerName||"")}${o.phone?` · <a class="lnk" href="tel:${esc(o.phone)}">${esc(o.phone)}</a>`:""}</div>${o.address?`<div class="note" style="margin-top:4px">${esc(o.address)}</div>`:""}${o.lat?`<div style="margin-top:6px">${mapLink(o)}</div>`:""}</div>` : ""}
+    <div class="card tbl" style="margin-bottom:14px"><table><thead><tr><th>Item</th><th class="num">Qty</th><th class="num">Price</th><th class="num">Total</th></tr></thead><tbody>${
+      items.map(i=>`<tr><td>${esc(i.name)}${i.note?`<div class="note">${esc(i.note)}</div>`:""}</td><td class="num">${+i.qty||1}</td><td class="num">${money(+i.price||0)}</td><td class="num">${money((+i.qty||1)*(+i.price||0))}</td></tr>`).join("")
+    }<tr><td colspan="3">Subtotal</td><td class="num">${money(+(o.subtotal ?? o.total) || 0)}</td></tr>
+    ${+o.discount?`<tr><td colspan="3">Discount${o.discountPct?` (${o.discountPct}%)`:""}</td><td class="num">−${money(+o.discount)}</td></tr>`:""}
+    ${+o.deliveryFee?`<tr><td colspan="3">Delivery fee</td><td class="num">${money(+o.deliveryFee)}</td></tr>`:""}
+    <tr style="font-weight:600"><td colspan="3">Total</td><td class="num">${money(+o.total||0)}</td></tr></tbody></table></div>
+    ${o.payment ? `<p><b>Payment:</b> ${esc(PAY_LBL[o.payment.method] || cap(o.payment.method))}${o.payment.tendered!=null?` · tendered ${money(+o.payment.tendered)}`:""}${+o.payment.change?` · change ${money(+o.payment.change)}`:""}</p>` : `<p class="note">Not paid yet${o.channel!=="pos"?" (pay on delivery / pickup)":""}.</p>`}
+    ${o.notes?`<p><b>Notes:</b> ${esc(o.notes)}</p>`:""}
+    ${o.status==="void"?`<p style="color:#9e0c24"><b>Voided</b> ${dt(o.voidedAt)}${o.voidedBy?` by ${esc(o.voidedBy)}`:""}${o.voidReason?` — ${esc(o.voidReason)}`:""}</p>`:""}
+  </div>
+  <footer><button type="button" class="btn" data-oprint="${esc(o.id)}">Print receipt</button><span style="flex:1"></span>
+    ${o.status==="pending"?`<button type="button" class="btn bad" data-oact="declined">Decline</button><button type="button" class="btn pri" data-oact="active">Accept</button>`:""}
+    ${o.status==="active"?`<button type="button" class="btn pri" data-oact="closed">Mark done</button>`:""}
+    ${o.status==="closed" && admin?`<button type="button" class="btn bad" data-oact="void">Void order</button>`:""}
+    <button type="button" class="btn" data-ccclose>Close</button></footer>`;
+  window.__ordOpen = o;
+  $("#ccScrim").classList.add("show");
+}
+async function orderAction(st){
+  const o = window.__ordOpen; if(!o) return;
+  const patch = { status: st, updated_at: new Date().toISOString(), handled_by: state.fullName || state.userName || null };
+  if(st==="void"){ const why = prompt(`Void order #${o.no}? It will be removed from sales. Reason:`); if(why===null) return; if(!why.trim()) return toast("Please give a reason to void"); patch.void_reason = why.trim(); patch.voided_by = state.fullName || state.userName || null; delete patch.handled_by; }
+  if(st==="declined" && !confirm(`Decline order #${o.no}?`)) return;
+  const { error } = await WOK.sb.from("orders").update(patch).eq("id", o.id);
+  if(error){ console.error(error); return toast("Couldn't update: " + error.message); }
+  toast(st==="active"?"Order accepted":st==="closed"?"Order marked done":st==="declined"?"Order declined":"Order voided");
+  DASH.key = ""; await openOrderDetail(o.id, true); loadOrders(true);
+}
+function printOrder(){
+  const o = window.__ordOpen; if(!o) return;
+  const items = Array.isArray(o.items) ? o.items : [], b = branches.find(x=>x.id===o.branchId);
+  const w = window.open("", "_blank", "width=380,height=640"); if(!w) return toast("Allow pop-ups to print");
+  w.document.write(`<!doctype html><title>Order #${esc(o.no)}</title><style>body{font:13px/1.4 monospace;width:72mm;margin:0 auto;padding:8px}h2,p.c{text-align:center;margin:4px 0}table{width:100%;border-collapse:collapse}td{padding:2px 0}td.r{text-align:right}hr{border:0;border-top:1px dashed #000}</style>
+    <h2>${esc((brandName(o.brandId)!=="—"?brandName(o.brandId):"Slick").toUpperCase())}</h2><p class="c">${esc(b?.name||"")}</p><hr>
+    <p>Order #${esc(o.no)} · ${esc(ordTypeLbl(o.type))}${o.table?" T"+esc(o.table):""}<br>${new Date(o.createdAt).toLocaleString("en-GB")}${o.customerName?"<br>"+esc(o.customerName):""}${o.phone?" · "+esc(o.phone):""}${o.address?"<br>"+esc(o.address):""}</p><hr>
+    <table>${items.map(i=>`<tr><td>${+i.qty||1} x ${esc(i.name)}</td><td class="r">${((+i.qty||1)*(+i.price||0)).toFixed(2)}</td></tr>`).join("")}</table><hr>
+    <table><tr><td>Subtotal</td><td class="r">${(+(o.subtotal ?? o.total)||0).toFixed(2)}</td></tr>${+o.discount?`<tr><td>Discount</td><td class="r">-${(+o.discount).toFixed(2)}</td></tr>`:""}${+o.deliveryFee?`<tr><td>Delivery</td><td class="r">${(+o.deliveryFee).toFixed(2)}</td></tr>`:""}<tr><td><b>TOTAL USD</b></td><td class="r"><b>${(+o.total||0).toFixed(2)}</b></td></tr>${o.payment?`<tr><td>Paid (${esc(o.payment.method)})</td><td class="r">${(+o.payment.tendered||+o.total||0).toFixed(2)}</td></tr>`:""}</table>
+    ${o.status==="void"?"<h2>*** VOID ***</h2>":""}<hr><p class="c">Thank you!</p><script>window.onload=()=>{window.print();}<\/script>`);
+  w.document.close();
+}
+async function exportOrders(){
+  toast("Preparing export…");
+  const { data, error } = await ordQuery("no,created_at,branch_id,channel,source,type,table_no,status,customer_name,phone,address,subtotal,discount,delivery_fee,total,payment,agent,items", {}, true).order("created_at", { ascending:false }).range(0, 4999);
+  if(error) return toast("Export failed: " + error.message);
+  const q = v => { v = v==null ? "" : String(v); return /[",\n]/.test(v) ? `"${v.replace(/"/g,'""')}"` : v; };
+  const head = ["Order","Date","Branch","Channel","Source","Type","Table","Status","Customer","Phone","Address","Items","Subtotal","Discount","Delivery fee","Total","Payment","Agent/Device"];
+  const rows = data.map(r => [r.no, new Date(r.created_at).toLocaleString("en-GB"), branches.find(x=>x.id===r.branch_id)?.name||"", CH_LBL[r.channel]||r.channel, r.source, ordTypeLbl(r.type), r.table_no, ORD_ST[r.status]||r.status, r.customer_name, r.phone, r.address,
+    (Array.isArray(r.items)?r.items:[]).map(i=>`${+i.qty||1}x ${i.name}`).join("; "), r.subtotal, r.discount, r.delivery_fee, r.total, r.payment?.method, r.agent]);
+  const blob = new Blob([[head, ...rows].map(l=>l.map(q).join(",")).join("\n")], { type:"text/csv" });
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `slick-orders-${ORD.from}-to-${ORD.to}.csv`; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href), 2000);
+  if(data.length===5000) toast("Exported the latest 5,000 orders. Narrow the dates for more.");
+}
+$("#view").addEventListener("change", e => {
+  const id = e.target.id, v = e.target.value;
+  if(id==="ordFrom"){ ORD.from = v || daysAgo(6); if(ORD.to < ORD.from) ORD.to = ORD.from; ORD.page = 1; render(); }
+  if(id==="ordTo"){ ORD.to = v || todayStr(); if(ORD.from > ORD.to) ORD.from = ORD.to; ORD.page = 1; render(); }
+  if(id==="ordChannel"){ ORD.channel = v; ORD.page = 1; render(); }
+  if(id==="ordType"){ ORD.type = v; ORD.page = 1; render(); }
+  if(id==="ordPay"){ ORD.pay = v; ORD.page = 1; render(); }
+});
+let ordQT; $("#view").addEventListener("input", e => { if(e.target.id==="ordQ"){ clearTimeout(ordQT); const v = e.target.value; ordQT = setTimeout(() => { ORD.q = v; ORD.page = 1; render(); const el = $("#ordQ"); if(el){ el.focus(); el.setSelectionRange(v.length, v.length); } }, 350); } });
+$("#view").addEventListener("click", e => {
+  const tb = e.target.closest("[data-otab]"); if(tb){ e.preventDefault(); ORD.tab = tb.dataset.otab; ORD.page = 1; render(); return; }
+  if(e.target.id==="ordPrev"){ ORD.page--; render(); return; }
+  if(e.target.id==="ordNext"){ ORD.page++; render(); return; }
+  if(e.target.id==="ordRefresh"){ loadOrders(true); render(); return; }
+  if(e.target.id==="ordCsv"){ exportOrders(); return; }
+  const tr = e.target.closest("tr[data-oid]"); if(tr){ openOrderDetail(tr.dataset.oid); return; }
+});
 
 /* ---------- Inventory Count: enter what's on the shelf; feeds the Inventory dashboard ---------- */
 const IC = { branch:"", levels:{}, loaded:{}, draft:{}, q:"", cat:"", saving:false };
@@ -1176,6 +1338,9 @@ $("#crudScrim").addEventListener("click", async e => {
   }
 });
 $("#ccScrim").addEventListener("click", e => { if(e.target.id==="repCsv") return downloadReportCsv();
+  const oa = e.target.closest("[data-oact]"); if(oa) return orderAction(oa.dataset.oact);
+  if(e.target.closest("[data-oprint]")) return printOrder();
+  if(e.target.id==="ccScrim" || e.target.closest("[data-ccclose]")) ORD.open = null;
   if(e.target.id==="ccScrim" || e.target.closest("[data-ccclose]")) return $("#ccScrim").classList.remove("show");
   const ot = e.target.closest("[data-ot]"); if(ot && !ot.disabled){ document.querySelectorAll("#oType button").forEach(b=>b.classList.toggle("on", b===ot)); $("#oAddrF").style.display = ot.dataset.ot==="delivery" ? "" : "none"; }
   const oc = e.target.closest("[data-ocat]"); if(oc){ state.oCat = oc.dataset.ocat; renderOrderMenu(); }
