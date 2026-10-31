@@ -180,7 +180,7 @@ tr.click{cursor:pointer}tr.click:hover td{background:#faf9fd}
 <body>
 <div class="app">
   <aside class="side">
-    <div class="brand"><div class="logo">S</div><div><b>Slick</b><small>Restaurant ERP</small></div></div>
+    <div class="brand"><div class="logo" id="coLogo">S</div><div><b id="coName">Slick</b><small id="coSub">Restaurant ERP</small></div></div>
     <nav class="nav" id="nav"></nav>
   </aside>
   <div class="main">
@@ -260,7 +260,7 @@ const NAV = [
   {t:"Inventory",i:"box",kids:[["inv-items","Items"],["suppliers","Suppliers"],["purchase-orders","Purchase Orders"],["transfer-orders","Transfer Orders"],["inventory-count","Inventory Count"],["@More"],["quantity-adjustments","Quantity Adjustment"],["cost-adjustments","Cost Adjustment"],["order-transactions","Order Transactions"],["inv-categories","Inventory Categories"],["warehouses","Warehouses"],["spot-check","Inventory Spot Check"],["count-sheets","Count Sheet"]]},
   {t:"Recipes & Production",i:"chef",kids:[["recipes","Recipes"],["prep-items","Prep Items (Sub-recipes)"],["production","Production Batches"],["food-cost","Food Cost Analysis"]]},
   {t:"Menu",i:"book",kids:[["@Menu Builder"],["categories","Categories"],["products","Products"],["modifiers","Modifiers"],["combos","Combos"],["groups","Groups"],["@Menu Settings"],["price-tags","Price Tags"],["allergens","Allergens"]]},
-  {t:"Manage",i:"gear",kids:[["users","Users"],["roles","Roles"],["brands","Brands"],["branches","Branches"],["devices","Devices"],["taxes","Taxes & Groups"],["payment-methods","Payment Methods"],["order-sources","Order Sources"],["charges","Charges"],["delivery-zones","Delivery Zones"],["online-ordering","Online Ordering"],["kitchen-flows","Kitchen Flows"],["reasons","Reasons"],["settings","Settings"]]},
+  {t:"Manage",i:"gear",kids:[["company","Company"],["users","Users"],["roles","Roles"],["brands","Brands"],["branches","Branches"],["devices","Devices"],["taxes","Taxes & Groups"],["payment-methods","Payment Methods"],["order-sources","Order Sources"],["charges","Charges"],["delivery-zones","Delivery Zones"],["online-ordering","Online Ordering"],["kitchen-flows","Kitchen Flows"],["reasons","Reasons"],["settings","Settings"]]},
   {t:"Marketing",i:"tag",kids:[["loyalty","Loyalty"],["gift-cards","Gift Cards"],["discounts","Discounts"],["promotions","Promotions"],["coupons","Coupons"]]}
 ];
 const TITLES = {};
@@ -597,6 +597,7 @@ function render(){
   const act = activeBranches();
   if(state.branch!=="all" && !act.some(b=>b.id===state.branch)) state.branch = "all";
   $("#branchSel").innerHTML = `<option value="all">All branches (${act.length})</option>` + act.map(b=>`<option value="${esc(b.id)}" ${state.branch===b.id?"selected":""}>${esc(b.name)}</option>`).join("");
+  paintCompany();
   const v = $("#view");
   if(storeMode==="loading"){ v.innerHTML = `<div class="ph"><div>Loading…</div></div>`; return; }
   if(route==="dashboard") v.innerHTML = viewDashboard();
@@ -608,7 +609,8 @@ function render(){
 }
 
 /* ---------- events ---------- */
-window.addEventListener("hashchange", () => { render(); window.scrollTo(0,0); });
+let lastRoute = location.hash.slice(1) || "dashboard";
+window.addEventListener("hashchange", () => { const r = location.hash.slice(1) || "dashboard"; if(r !== lastRoute){ resetPageFilters(); lastRoute = r; } render(); window.scrollTo(0,0); });
 $("#view").addEventListener("change", e => {
   if(e.target.id==="datePick" && e.target.value){ state.date = e.target.value; render(); }
   if(e.target.id==="cmpToggle"){ state.compare = e.target.checked; render(); }
@@ -1111,6 +1113,7 @@ function moduleRoute(route){
   if(route==="inventory-count") return viewInventoryCount();
   if(route==="orders") return viewOrders();
   if(route==="customers") return viewCustomers();
+  if(route==="company") return viewCompany();
   if(DOC_KINDS[route]) return viewDocs(route);
   if(route==="order-transactions") return `<h1>Order Transactions</h1><p class="subt">Consumption, returns and waste created automatically from sales.</p>` + placeholder("Starts with recipes", "Each sold product will deduct its recipe ingredients from the branch stock and show up here (Consumption, Return, Waste). It turns on once recipes are set up under Recipes & Production.");
   return null;
@@ -1412,6 +1415,56 @@ document.addEventListener("click", e => {
   const co = e.target.closest("tr[data-coid]"); if(co) return openOrderDetail(co.dataset.coid);
 });
 
+
+/* ---------- Company: the business that owns every brand and branch ---------- */
+const CURRENCIES = [["USD","US Dollar (USD)"],["LBP","Lebanese Pound (LBP)"],["EUR","Euro (EUR)"],["AED","UAE Dirham (AED)"],["SAR","Saudi Riyal (SAR)"]];
+const company = () => S.settings.find(x=>x.id==="company") || {};
+function paintCompany(){
+  const c = company(), n = $("#coName"), l = $("#coLogo"), sub = $("#coSub"); if(!n) return;
+  n.textContent = c.name || "Slick"; sub.textContent = c.name ? "Slick ERP" : "Restaurant ERP";
+  const ini = (c.name || "S").trim().split(/\s+/).map(w=>w[0]).join("").slice(0,2).toUpperCase();
+  l.innerHTML = c.logoUrl ? `<img src="${esc(c.logoUrl)}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:inherit">` : esc(ini);
+  document.title = (c.name ? c.name + " – " : "Slick – ") + "Back Office";
+}
+function viewCompany(){
+  const c = company(), admin = !state.role || state.role==="owner" || state.role==="admin";
+  const f = (k, l, ph, type, full) => `<div class="f${full?" full":""}"><label for="co_${k}">${l}</label><input id="co_${k}" class="sel" ${type?`type="${type}"`:""} value="${esc(c[k]||"")}" placeholder="${esc(ph||"")}" ${admin?"":"disabled"}></div>`;
+  const nb = brandList().length, nbr = branches.length;
+  return `<div class="phead"><h1>Company</h1><div class="sp"></div>${admin?`<button class="btn pri" id="coSave">Save changes</button>`:""}</div>
+    <p class="subt" style="margin-top:-6px">Your company owns every brand and branch in Slick: ${nb} brand${nb===1?"":"s"} and ${nbr} branch${nbr===1?"":"es"} today. The main (owner) account belongs to it.</p>
+    ${admin?"":`<div class="banner">Only the owner or an admin can change company details.</div>`}
+    <div class="card" style="margin-bottom:16px"><h3 style="margin:0 0 12px;font-size:15px">Company details</h3>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px">
+        ${f("name","Company name *","e.g. Wok Group SAL")}${f("legalName","Legal name","As on the commercial register")}
+        ${f("taxNumber","Tax (VAT) number")}${f("crNumber","Commercial register number")}
+        <div class="f"><label for="co_currency">Currency</label><select id="co_currency" class="sel" ${admin?"":"disabled"}>${CURRENCIES.map(([k,t])=>`<option value="${k}" ${(c.currency||"USD")===k?"selected":""}>${t}</option>`).join("")}</select></div>
+        ${f("vatRate","VAT rate (%)","e.g. 11","number")}
+        ${f("phone","Phone")}${f("email","Email","","email")}
+        ${f("address","Address","","",1)}${f("logoUrl","Logo image link (optional)","https://…","url",1)}
+      </div><div class="err" id="coErr"></div></div>
+    <div class="card"><h3 style="margin:0 0 8px;font-size:15px">Structure</h3>
+      <p class="note" style="margin:0 0 10px">Company → Brands → Branches. Manage them under Manage → Brands and Manage → Branches.</p>
+      <div style="font-size:14px"><b>${esc(c.name||"Your company")}</b>${brandList().map(b=>`<div style="margin:6px 0 0 16px">↳ ${esc(b.name)} <span class="note">· ${branches.filter(x=>x.brandId===b.id).map(x=>esc(x.name)).join(", ") || "no branches yet"}</span></div>`).join("") || `<div class="note" style="margin:6px 0 0 16px">No brands yet</div>`}</div></div>`;
+}
+async function saveCompany(){
+  const v = k => ($("#co_"+k)?.value || "").trim();
+  const data = { name:v("name"), legalName:v("legalName"), taxNumber:v("taxNumber"), crNumber:v("crNumber"), currency:v("currency")||"USD", vatRate: v("vatRate")==="" ? null : +v("vatRate"), phone:v("phone"), email:v("email"), address:v("address"), logoUrl:v("logoUrl") };
+  if(!data.name){ $("#coErr").textContent = "Company name is required."; $("#co_name").focus(); return; }
+  try{ await put("settings", "company", data); toast("Company saved"); }
+  catch(e){ console.error(e); $("#coErr").textContent = "Couldn't save. Only the owner or an admin can change this."; }
+}
+document.addEventListener("click", e => { if(e.target.closest("#coSave")) saveCompany(); });
+
+/* filters belong to the page: leaving a page puts its filters back to the defaults */
+function resetPageFilters(){
+  Object.assign(state, { range:"day", date:todayStr(), compare:false, dashTab:"general", branch:"all" }); DASH.key = "";
+  Object.assign(ORD, { tab:"all", q:"", from:"", to:"", channel:"", type:"", pay:"", page:1, key:"", open:null });
+  Object.assign(CUS, { filter:"all", q:"", sort:"last", page:1, key:"" });
+  state.tabs = {}; state.q = {}; state.page = {}; state.catFilter = "";
+  Object.assign(IC, { q:"", cat:"", sheet:"" });
+  DOC.tab = {}; DOC.q = {}; DOC.open = null; DOC.edit = null;
+}
+
 /* ---------- Inventory documents: quantity & cost adjustments, spot checks, count sheets (Foodics "More") ---------- */
 const DOC_KINDS = {
   "quantity-adjustments": { kind:"quantity", title:"Quantity Adjustment", plural:"Quantity Adjustment", loc:1, intro:"Deduct waste, expired or damaged stock, or add stock found. Submitting updates the stock level of each item at the chosen branch or warehouse." },
@@ -1643,7 +1696,6 @@ document.addEventListener("change", e => {
   if(t.id==="dAddSheet" && t.value){ readDocHeader(); const sh = S.inv_docs.find(x=>x.id===t.value); const n = docAddItems((sh?.items||[]).map(l=>l.itemId)); toast(`Added ${n} item${n===1?"":"s"}`); return render(); }
   if(t.id==="dLoc" || t.id==="dDir"){ readDocHeader(); render(); }
 });
-window.addEventListener("hashchange", () => { if(DOC.open && location.hash.slice(1)!==DOC.open.route){ DOC.open = null; DOC.edit = null; } });
 
 /* ---------- Inventory Count: enter what's on the shelf; feeds the Inventory dashboard ---------- */
 const IC = { branch:"", levels:{}, loaded:{}, draft:{}, q:"", cat:"", sheet:"", saving:false };
