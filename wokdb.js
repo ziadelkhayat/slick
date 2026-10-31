@@ -190,6 +190,7 @@
   .wk-card button{width:100%;margin-top:16px;padding:12px;border:0;border-radius:10px;background:#5b2bc4;color:#fff;font:inherit;font-weight:600;cursor:pointer}
   .wk-card button:disabled{opacity:.6}.wk-err{color:#9e0c24;font-size:13px;min-height:18px;margin-top:10px;text-align:center}`;
   function gate(msg){
+    if(!document.body){ document.addEventListener("DOMContentLoaded", () => gate(msg), { once:true }); return; }   // page still loading
     let el = document.getElementById("wkGate");
     if(!el){
       const st = document.createElement("style"); st.textContent = css; document.head.appendChild(st);
