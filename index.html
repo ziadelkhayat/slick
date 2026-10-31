@@ -174,7 +174,7 @@ tr.click{cursor:pointer}tr.click:hover td{background:#faf9fd}
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="wokdb.js"></script>
+<script src="wokdb.js?v=7"></script>
 </head>
 <body>
 <div class="app">
@@ -340,61 +340,66 @@ async function deleteBranch(id){
   else { branches = branches.filter(b => b.id!==id); render(); }
 }
 
-/* ---------- sample sales data (deterministic per branch + day) ---------- */
-function rng(seed){ let h = 2166136261; for(const c of seed) h = Math.imul(h ^ c.charCodeAt(0), 16777619); return () => { h += 0x6D2B79F5; let t = h; t = Math.imul(t ^ t>>>15, t|1); t ^= t + Math.imul(t ^ t>>>7, t|61); return ((t ^ t>>>14)>>>0)/4294967296; }; }
-const HOUR_SHAPE = [0,0,0,0,0,0,0,0,0,0,.2,.6,1,.9,.6,.4,.35,.5,.8,1,.85,.6,.35,.15];
-function branchDay(b, dayKey){
-  const r = rng(b.id + dayKey);
-  const scale = 0.7 + r()*0.7;
-  const hours = HOUR_SHAPE.map(s => Math.round(s * scale * (5 + r()*4)));
-  const orders = hours.reduce((a,c)=>a+c,0);
-  const ticket = 21 + r()*8, dr = 0.02 + r()*0.03;
-  const net = orders * ticket;
-  return { hours, orders, net, disc: net*dr, pay: net*1.08, ticket, dr };
-}
+/* ---------- live dashboard data (summed in Supabase by slick_dashboard) ---------- */
 const todayStr = () => { const d = new Date(); return new Date(d - d.getTimezoneOffset()*60000).toISOString().slice(0,10); };
-function dayKeys(offset){
-  const n = state.range==="day"?1:state.range==="week"?7:30, out=[], d = new Date(state.date+"T12:00:00");
-  for(let i=0;i<n;i++){ const x = new Date(d); x.setDate(d.getDate()-i-offset*n); out.push(x.toISOString().slice(0,10)); }
-  return out;
+const rangeDays = () => state.range==="day"?1:state.range==="week"?7:30;
+const DASH = { key:"", cur:null, prev:null, loading:false, err:"", at:0, t:null };
+function dashParams(offset){
+  const n = rangeDays(), d = new Date(state.date+"T12:00:00"); d.setDate(d.getDate() - offset*n);
+  const act = activeBranches();
+  return { p_day: d.toISOString().slice(0,10), p_days: n,
+    p_branches: state.branch!=="all" ? [state.branch] : (act.length ? act.map(b=>b.id) : null),
+    p_brand: state.brand==="all" ? null : state.brand };
 }
-function aggregate(list, offset){
-  const keys = dayKeys(offset||0), per = {};
-  const z = () => Array(24).fill(0);
-  const tot = { hours:z(), hNet:z(), hPay:z(), hDisc:z(), orders:0, net:0, disc:0, pay:0 };
-  list.forEach(b => {
-    const p = { orders:0, net:0, disc:0, pay:0 };
-    keys.forEach(k => { const d = branchDay(b,k); p.orders+=d.orders; p.net+=d.net; p.disc+=d.disc; p.pay+=d.pay;
-      d.hours.forEach((h,i)=>{ tot.hours[i]+=h; tot.hNet[i]+=h*d.ticket; tot.hPay[i]+=h*d.ticket*1.08; tot.hDisc[i]+=h*d.ticket*d.dr; }); });
-    per[b.id] = p; tot.orders+=p.orders; tot.net+=p.net; tot.disc+=p.disc; tot.pay+=p.pay;
-  });
-  return { tot, per };
+async function loadDash(force){
+  if(!window.WOK || storeMode!=="db") return;
+  const cur = dashParams(0), key = JSON.stringify([cur, state.compare]);
+  if(!force && key===DASH.key && (DASH.cur || DASH.loading || DASH.err)) return;
+  if(key!==DASH.key){ DASH.cur = null; DASH.prev = null; }
+  DASH.key = key; DASH.loading = true; DASH.err = "";
+  try{
+    const calls = [WOK.sb.rpc("slick_dashboard", cur)];
+    if(state.compare) calls.push(WOK.sb.rpc("slick_dashboard", dashParams(1)));
+    const res = await Promise.all(calls);
+    if(DASH.key!==key) return;                       // filters changed meanwhile
+    const bad = res.find(r => r.error); if(bad) throw bad.error;
+    DASH.cur = res[0].data; DASH.prev = res[1]?.data || null; DASH.at = Date.now();
+  }catch(e){ console.error("dashboard", e); if(DASH.key===key) DASH.err = e.message || "Couldn't load the numbers"; }
+  finally{ if(DASH.key===key){ DASH.loading = false; if((location.hash.slice(1)||"dashboard")==="dashboard") render(); } }
 }
+function dashSoon(){ clearTimeout(DASH.t); DASH.t = setTimeout(() => loadDash(true), 1500); }   // new/changed orders → refresh
+setInterval(() => { if((location.hash.slice(1)||"dashboard")==="dashboard" && !document.hidden && state.date===todayStr()) loadDash(true); }, 60000);
+const hours24 = (rows, f) => { const a = Array(24).fill(0); (rows||[]).forEach(r => a[r.h] = +r[f]||0); return a; };
+const TYPE_LBL = { dinein:"Dine-in", pickup:"Takeaway", takeaway:"Takeaway", delivery:"Delivery", other:"Other" };
+const CH_LBL = { pos:"POS", online:"Online ordering", callcenter:"Call center", other:"Other" };
+const PAY_LBL = { cash:"Cash", card:"Card", other:"Other", "on delivery":"Pay on delivery" };
+const cap = s => String(s||"").charAt(0).toUpperCase() + String(s||"").slice(1);
 
 /* ---------- charts ---------- */
 const FMT = { n: v => Math.round(v).toLocaleString() + " orders", m: v => money(v) };
 function lineChart(values, opt = {}){
-  const W=640, H=opt.h||230, L=opt.axis===false?8:44, R=12, T=12, B=30, max = Math.max(1,...values), n = values.length;
+  const W=opt.w||640, H=opt.h||230, L=opt.axis===false?8:44, R=12, T=12, B=30, max = Math.max(1,...values), n = values.length;
   const x = i => L + i*(W-L-R)/(n-1), y = v => T + (H-T-B)*(1 - v/max);
   const pts = values.map((v,i)=>`${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(" ");
   let g = "";
   if(opt.axis!==false){
     const ticks = [0, max/2, max];
-    g += ticks.map(t => `<line x1="${L}" x2="${W-R}" y1="${y(t)}" y2="${y(t)}" stroke="#ecebf0"/><text x="${L-6}" y="${y(t)+4}" text-anchor="end" font-size="10" fill="#8d8c98">${opt.fmt==="m"?Math.round(t):Math.round(t)}</text>`).join("");
+    g += ticks.map(t => `<line x1="${L}" x2="${W-R}" y1="${y(t)}" y2="${y(t)}" stroke="#ecebf0"/><text x="${L-6}" y="${y(t)+4}" text-anchor="end" font-size="${opt.fs||10}" fill="#8d8c98">${Math.round(t).toLocaleString()}</text>`).join("");
   } else g += `<line x1="${L}" x2="${W-R}" y1="${y(0)}" y2="${y(0)}" stroke="#ecebf0"/>`;
   const step = opt.labelStep || 3;
-  g += values.map((v,i)=> i%step===0 ? `<text x="${x(i)}" y="${H-10}" text-anchor="middle" font-size="${opt.axis===false?16:10}" fill="#8d8c98">${hourLbl(i)}</text>` : "").join("");
+  const lab = i => opt.labels ? opt.labels[i] : hourLbl(i);
+  g += values.map((v,i)=> i%step===0 ? `<text x="${x(i)}" y="${H-10}" text-anchor="${opt.labels&&i===n-1?"end":opt.labels&&i===0?"start":"middle"}" font-size="${opt.axis===false?16:(opt.fs||10)}" fill="#8d8c98">${esc(lab(i))}</text>` : "").join("");
   const dots = opt.dots ? values.map((v,i)=>`<circle cx="${x(i)}" cy="${y(v)}" r="${opt.axis===false?4:3}" fill="var(--chart)"/>`).join("") : "";
   const area = `${L},${y(0)} ${pts} ${W-R},${y(0)}`;
-  return `<div class="chart" data-vals="${values.map(v=>+v.toFixed(2)).join(",")}" data-h="${H}" data-l="${L}" data-fmt="${opt.fmt||"n"}"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(opt.label||"Chart by hour")}">
+  return `<div class="chart" data-vals="${values.map(v=>+v.toFixed(2)).join(",")}" data-h="${H}" data-w="${W}" data-l="${L}" data-fmt="${opt.fmt||"n"}" ${opt.labels?`data-labels="${esc(opt.labels.join("|"))}"`:""}><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(opt.label||"Chart by hour")}">
     ${g}${opt.area===false?"":`<polygon points="${area}" fill="var(--chart-soft)" opacity=".6"/>`}<polyline points="${pts}" fill="none" stroke="var(--chart)" stroke-width="${opt.axis===false?3:2}" stroke-linejoin="round"/>${dots}
     <line class="xh" y1="${T}" y2="${y(0)}" stroke="#bdbbc8" stroke-dasharray="3 3" visibility="hidden"/><circle class="mk" r="${opt.axis===false?8:5}" fill="var(--chart)" stroke="#fff" stroke-width="2" visibility="hidden"/>
     <rect x="${L}" y="${T}" width="${W-L-R}" height="${H-T-B}" fill="transparent" class="hit"/></svg><div class="tip"></div></div>`;
 }
 function wireLine(el){
   const svg = el.querySelector("svg"), vals = el.dataset.vals.split(",").map(Number), tip = el.querySelector(".tip");
-  const fmt = FMT[el.dataset.fmt] || FMT.n;
-  const W=640, H=+el.dataset.h, L=+el.dataset.l, R=12, T=12, B=30, max=Math.max(1,...vals), n=vals.length;
+  const fmt = FMT[el.dataset.fmt] || FMT.n, labs = el.dataset.labels ? el.dataset.labels.split("|") : null;
+  const W=+el.dataset.w||640, H=+el.dataset.h, L=+el.dataset.l, R=12, T=12, B=30, max=Math.max(1,...vals), n=vals.length;
   const x = i => L + i*(W-L-R)/(n-1), y = v => T + (H-T-B)*(1 - v/max);
   const xh = svg.querySelector(".xh"), mk = svg.querySelector(".mk"), hit = svg.querySelector(".hit");
   hit.addEventListener("mousemove", e => {
@@ -402,16 +407,18 @@ function wireLine(el){
     const i = Math.max(0, Math.min(n-1, Math.round((sx-L)/((W-L-R)/(n-1)))));
     xh.setAttribute("x1",x(i)); xh.setAttribute("x2",x(i)); xh.setAttribute("visibility","visible");
     mk.setAttribute("cx",x(i)); mk.setAttribute("cy",y(vals[i])); mk.setAttribute("visibility","visible");
-    tip.innerHTML = `${hourLbl(i)}<br><b>${fmt(vals[i])}</b>`;
+    tip.innerHTML = `${esc(labs ? labs[i] : hourLbl(i))}<br><b>${fmt(vals[i])}</b>`;
     tip.style.left = (x(i)*r.width/W)+"px"; tip.style.top = (y(vals[i])*r.height/H)+"px"; tip.style.opacity = 1;
   });
   hit.addEventListener("mouseleave", () => { xh.setAttribute("visibility","hidden"); mk.setAttribute("visibility","hidden"); tip.style.opacity = 0; });
 }
-function barList(rows){ // horizontal bars, single measure
+function barList(rows, fmt){ // horizontal bars, single measure
+  fmt = fmt || money;
+  if(!rows.length) return `<p class="note" style="margin:8px 0 0">No sales in this period yet.</p>`;
   const max = Math.max(1, ...rows.map(r=>r.v));
   return `<div style="display:flex;flex-direction:column;gap:12px">${rows.map(r => `
-    <div title="${esc(r.name)}: ${money(r.v)}">
-      <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px"><span>${esc(r.name)}</span><span style="font-variant-numeric:tabular-nums;color:var(--ink2)">${money(r.v)}</span></div>
+    <div title="${esc(r.name)}: ${esc(fmt(r.v))}">
+      <div style="display:flex;justify-content:space-between;gap:10px;font-size:13px;margin-bottom:4px"><span>${esc(r.name)}${r.sub?` <span class="note">· ${esc(r.sub)}</span>`:""}</span><span style="font-variant-numeric:tabular-nums;color:var(--ink2);white-space:nowrap">${esc(fmt(r.v))}</span></div>
       <div style="height:8px;background:var(--bg);border-radius:4px"><div style="height:8px;width:${(r.v/max*100).toFixed(1)}%;background:var(--chart);border-radius:4px"></div></div>
     </div>`).join("")}</div>`;
 }
@@ -422,7 +429,8 @@ function filterBar(){
   return `<div class="row fbar"><div class="seg" id="rangeSeg">${["day","week","month"].map(r=>`<button data-r="${r}" class="${state.range===r?"on":""}">${r[0].toUpperCase()+r.slice(1)}</button>`).join("")}</div>
     <input type="date" class="sel" id="datePick" value="${state.date}" max="${todayStr()}" aria-label="Date">
     <label class="toggle"><input type="checkbox" id="cmpToggle" ${state.compare?"checked":""}><span class="trk"></span>Compare</label>
-    <span class="sp"></span><span class="note">Sample figures until the POS is connected</span></div>`;
+    <span class="sp"></span><span class="note">${DASH.loading ? "Updating…" : DASH.at ? "Live · updated " + new Date(DASH.at).toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"}) : ""}</span>
+    <button class="btn" id="dashRefresh" title="Refresh now">↻ Refresh</button></div>`;
 }
 function delta(cur, prev){
   if(!state.compare) return "";
@@ -430,10 +438,10 @@ function delta(cur, prev){
   const pct = (cur-prev)/prev*100, up = pct>=0;
   return `<div class="d ${up?"up":"down"}">${up?"▲":"▼"} ${Math.abs(pct).toFixed(1)}% vs previous ${state.range}</div>`;
 }
-function kpiCard(title, value, series, fmt, cur, prev){
+function kpiCard(title, value, series, fmt, cur, prev, labels){
   return `<div class="card kpi"><div class="kh"><h3>${title}</h3><a href="#sales-reports" class="vr">View Report</a></div>
     <div class="v">${value}</div>${delta(cur, prev)}
-    ${lineChart(series, {h:300, axis:false, area:false, dots:true, labelStep:3, fmt, label:title+" by hour"})}</div>`;
+    ${lineChart(series, {h:300, axis:false, area:false, dots:true, labelStep:3, fmt, label:title+" by hour", labels})}</div>`;
 }
 function viewDashboard(){
   const act = activeBranches();
@@ -442,27 +450,53 @@ function viewDashboard(){
   let h = `<h1>Welcome, ${esc(state.userName||"Admin")}</h1><p class="subt">${state.branch==="all" ? `All ${act.length} active branches` : esc(list[0]?.name||"")}</p>
     <div class="tabs">${tabs.map(([k,t])=>`<a href="#dashboard" data-dt="${k}" class="${state.dashTab===k?"on":""}">${t}${k==="kitchen"?' <span class="new">New!</span>':""}</a>`).join("")}</div>`;
   if(!act.length) return h + `<div class="card empty">No active branches yet.<br><br><a class="btn pri" href="#branches">Add your first branch</a></div>`;
-  const { tot, per } = aggregate(list, 0);
-  const prev = state.compare ? aggregate(list, 1).tot : null;
+  if(["inventory","kitchen"].includes(state.dashTab)) return h + placeholder(tabs.find(t=>t[0]===state.dashTab)[1] + " dashboard", "This tab fills in once the matching module is built.");
+  if(storeMode!=="db") return h + placeholder("Dashboard", "Sign in to see live sales.");
+  loadDash();
+  const D = DASH.cur, P = state.compare ? DASH.prev : null;
+  h += filterBar();
+  if(DASH.err && !D) return h + `<div class="card empty">Couldn't load the dashboard: ${esc(DASH.err)}<br><br><button class="btn" id="dashRefresh">Try again</button></div>`;
+  if(!D) return h + `<div class="card ph"><div>Loading live numbers…</div></div>`;
+  const avg = x => x && x.orders ? x.net/x.orders : 0;
+  const bname = id => branches.find(b=>b.id===id)?.name || "Unassigned";
   if(state.dashTab==="general"){
-    h += filterBar() + `<div class="grid kpis">
-      ${kpiCard("Orders", tot.orders.toLocaleString(), tot.hours, "n", tot.orders, prev?.orders)}
-      ${kpiCard("Net Sales", money(tot.net), tot.hNet, "m", tot.net, prev?.net)}
-      ${kpiCard("Net Payments", money(tot.pay), tot.hPay, "m", tot.pay, prev?.pay)}
-      ${kpiCard("Return Amount", money(0), Array(24).fill(0), "m", 0, 0)}
-      ${kpiCard("Discount Amount", money(tot.disc), tot.hDisc, "m", tot.disc, prev?.disc)}
-      ${kpiCard("Average Ticket", money(tot.orders? tot.net/tot.orders : 0), tot.hours.map((o,i)=>o?tot.hNet[i]/o:0), "m", tot.orders?tot.net/tot.orders:0, prev&&prev.orders?prev.net/prev.orders:0)}
-    </div>
-    <div class="grid two">
-      <div class="card"><div class="kh"><h3>Top branches by net sales</h3><a href="#branches-report" data-dt2="branches" class="vr">View all</a></div><div style="height:12px"></div>${barList(list.map(b=>({name:b.name,v:per[b.id].net})).sort((a,b)=>b.v-a.v))}</div>
-      <div class="card"><div class="kh"><h3>Order types</h3></div><div style="height:12px"></div>${barList([{name:"Delivery",v:tot.net*.46},{name:"Takeaway",v:tot.net*.31},{name:"Dine-in",v:tot.net*.15},{name:"Aggregators",v:tot.net*.08}])}</div>
+    const hN = hours24(D.hours,"n"), hNet = hours24(D.hours,"net"), hPay = hours24(D.hours,"pay"), hDisc = hours24(D.hours,"disc");
+    h += `<div class="grid kpis">
+      ${kpiCard("Orders", D.orders.toLocaleString(), hN, "n", D.orders, P?.orders)}
+      ${kpiCard("Net Sales", money(+D.net), hNet, "m", +D.net, P&&+P.net)}
+      ${kpiCard("Net Payments", money(+D.payments), hPay, "m", +D.payments, P&&+P.payments)}
+      ${kpiCard("Discount Amount", money(+D.discount), hDisc, "m", +D.discount, P&&+P.discount)}
+      ${kpiCard("Average Ticket", money(avg(D)), hN.map((o,i)=>o?hNet[i]/o:0), "m", avg(D), P&&avg(P))}
+      <div class="card kpi"><div class="kh"><h3>Declined orders</h3></div><div class="v">${D.declined.n}</div><div class="d">${money(+D.declined.v)} not sold · ${D.open} order${D.open===1?"":"s"} still open</div>
+        ${state.compare && P ? `<div class="d">Previous ${state.range}: ${P.declined.n}</div>` : ""}</div>
+    </div>`;
+    if(rangeDays()>1){
+      const n = rangeDays(), days = [], labels = [], end = new Date(state.date+"T12:00:00");
+      for(let i=n-1;i>=0;i--){ const x = new Date(end); x.setDate(end.getDate()-i); const k = x.toISOString().slice(0,10); days.push(+(D.days.find(d=>d.d===k)?.net||0)); labels.push(x.toLocaleDateString("en-GB",{day:"numeric",month:"short"})); }
+      h += `<div class="card" style="margin-bottom:16px"><div class="kh"><h3>Net sales by day</h3></div>${lineChart(days, {w:1400, h:260, fs:13, fmt:"m", dots:true, labelStep: n>7?5:1, labels, label:"Net sales by day"})}</div>`;
+    }
+    h += `<div class="grid two">
+      <div class="card"><div class="kh"><h3>Top branches by net sales</h3><a href="#dashboard" data-dt2="branches" class="vr">View all</a></div><div style="height:12px"></div>${barList(D.branches.map(b=>({name:bname(b.id), v:+b.net, sub:b.n+" orders"})).sort((a,b)=>b.v-a.v))}</div>
+      <div class="card"><div class="kh"><h3>Order types</h3></div><div style="height:12px"></div>${barList(D.types.map(t=>({name:TYPE_LBL[t.k]||cap(t.k), v:+t.net, sub:t.n+" orders"})).sort((a,b)=>b.v-a.v))}</div>
+      <div class="card"><div class="kh"><h3>Sales channels</h3></div><div style="height:12px"></div>${barList(D.channels.map(t=>({name:CH_LBL[t.k]||cap(t.k), v:+t.net, sub:t.n+" orders"})).sort((a,b)=>b.v-a.v))}</div>
+      <div class="card"><div class="kh"><h3>Payment methods</h3></div><div style="height:12px"></div>${barList(D.payMethods.map(t=>({name:PAY_LBL[t.k]||cap(t.k), v:+t.v, sub:t.n+" orders"})).sort((a,b)=>b.v-a.v))}</div>
+      <div class="card" style="grid-column:1/-1"><div class="kh"><h3>Top products</h3></div><div style="height:12px"></div>${barList(D.products.map(p=>({name:p.name, v:+p.v, sub:(+p.qty).toLocaleString()+" sold"})))}</div>
     </div>`;
   } else if(state.dashTab==="branches"){
-    h += filterBar() + `<div class="card tbl"><table><thead><tr><th>Branch</th><th>Code</th><th class="num">Orders</th><th class="num">Net sales</th><th class="num">Avg. ticket</th><th class="num">Discounts</th></tr></thead><tbody>${
-      list.map(b => { const p = per[b.id]; return `<tr><td>${esc(b.name)}</td><td class="code">${esc(b.code)}</td><td class="num">${p.orders}</td><td class="num">${money(p.net)}</td><td class="num">${money(p.orders?p.net/p.orders:0)}</td><td class="num">${money(p.disc)}</td></tr>`; }).join("")
-    }<tr style="font-weight:600"><td>Total</td><td></td><td class="num">${tot.orders}</td><td class="num">${money(tot.net)}</td><td class="num">${money(tot.orders?tot.net/tot.orders:0)}</td><td class="num">${money(tot.disc)}</td></tr></tbody></table></div>`;
-  } else {
-    h += placeholder(tabs.find(t=>t[0]===state.dashTab)[1] + " dashboard", "This tab fills in once the matching module is built.");
+    const rows = list.map(b => { const p = D.branches.find(x=>x.id===b.id) || { n:0, net:0, disc:0 }; const q = P?.branches.find(x=>x.id===b.id); return { b, p, q }; }).sort((a,b)=>b.p.net-a.p.net);
+    const tot = +D.net || 0;
+    h += `<div class="card tbl"><table><thead><tr><th>Branch</th><th>Code</th><th class="num">Orders</th><th class="num">Net sales</th><th class="num">Share</th><th class="num">Avg. ticket</th><th class="num">Discounts</th>${state.compare?'<th class="num">vs previous</th>':""}</tr></thead><tbody>${
+      rows.map(({b,p,q}) => `<tr><td>${esc(b.name)}</td><td class="code">${esc(b.code)}</td><td class="num">${p.n}</td><td class="num">${money(+p.net)}</td><td class="num">${tot?(p.net/tot*100).toFixed(1)+"%":"—"}</td><td class="num">${money(p.n?p.net/p.n:0)}</td><td class="num">${money(+p.disc)}</td>${state.compare?`<td class="num">${q&&+q.net?((p.net-q.net)/q.net*100).toFixed(1)+"%":"—"}</td>`:""}</tr>`).join("")
+    }<tr style="font-weight:600"><td>Total</td><td></td><td class="num">${D.orders}</td><td class="num">${money(tot)}</td><td class="num">${tot?"100%":"—"}</td><td class="num">${money(avg(D))}</td><td class="num">${money(+D.discount)}</td>${state.compare?`<td class="num">${P&&+P.net?((D.net-P.net)/P.net*100).toFixed(1)+"%":"—"}</td>`:""}</tr></tbody></table></div>`;
+  } else if(state.dashTab==="call-center"){
+    const cc = D.callcenter || {}, st = cc.byStatus || {}, ccOk = (cc.byAgent||[]).reduce((a,x)=>a+x.n,0), ccNet = (cc.byAgent||[]).reduce((a,x)=>a+(+x.net),0);
+    h += `<div class="grid kpis">
+      ${kpi("Call center orders", ccOk.toLocaleString())}${kpi("Net sales", money(ccNet))}${kpi("Average ticket", money(ccOk?ccNet/ccOk:0))}
+      ${kpi("Waiting for branch", (st.pending||0).toLocaleString())}${kpi("Active (in kitchen)", (st.active||0).toLocaleString())}${kpi("Declined", (st.declined||0).toLocaleString())}
+    </div><div class="grid two">
+      <div class="card"><div class="kh"><h3>Orders by agent</h3></div><div style="height:12px"></div>${barList((cc.byAgent||[]).map(a=>({name:a.k, v:a.n, sub:money(+a.net)})), v=>v+" orders")}</div>
+      <div class="card"><div class="kh"><h3>Orders by branch</h3></div><div style="height:12px"></div>${barList((cc.byBranch||[]).map(b=>({name:bname(b.id), v:b.n, sub:money(+b.net)})).sort((a,b)=>b.v-a.v), v=>v+" orders")}</div>
+    </div>`;
   }
   return h;
 }
@@ -521,6 +555,7 @@ $("#view").addEventListener("change", e => {
 $("#branchSel").addEventListener("change", e => { state.branch = e.target.value; render(); });
 $("#brandSel").addEventListener("change", e => { state.brand = e.target.value; state.branch = "all"; try{ localStorage.setItem("slickBrand", state.brand); }catch(err){} render(); });
 $("#view").addEventListener("click", e => {
+  if(e.target.closest("#dashRefresh")){ loadDash(true); render(); return; }
   const r = e.target.closest("[data-r]"); if(r){ state.range = r.dataset.r; render(); return; }
   const t2 = e.target.closest("[data-dt2]"); if(t2){ e.preventDefault(); state.dashTab = t2.dataset.dt2; render(); return; }
   const t = e.target.closest("[data-dt]"); if(t){ e.preventDefault(); state.dashTab = t.dataset.dt; render(); return; }
@@ -582,6 +617,7 @@ const S = {}; COLS.forEach(c => S[c] = []);
 function subscribeAll(){
   COLS.forEach(c => db.collection(c).onSnapshot(snap => {
     S[c] = snap.docs.map(d => ({ ...d.data(), id: d.id }));
+    if(c==="orders" && DASH.key) dashSoon();
     render();
   }, err => console.error("load " + c, err)));
 }
