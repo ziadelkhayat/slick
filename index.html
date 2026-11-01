@@ -350,12 +350,15 @@ body[data-route="call-center"] .ocard{padding:10px 12px;gap:5px;font-size:13px}
 .sortl li.drag{cursor:grabbing;border-color:var(--accent);box-shadow:0 8px 22px rgba(91,43,196,.18);background:var(--chart-soft,#f3efff);position:relative;z-index:2}
 .sortl .grip{color:var(--ink3,#8d8c98);letter-spacing:-2px;font-weight:700}
 .sortl .st{flex:1;font-weight:500}
+tr.grp td{background:var(--bg,#f6f6fa);font-size:13px;padding-top:12px}
+tr.off td:first-child b{color:var(--ink3,#8d8c98);text-decoration:line-through}
+tr.chg td:first-child{box-shadow:inset 3px 0 0 var(--accent)}
 </style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="wokdb.js?v=14"></script>
-<script src="modpick.js?v=1"></script>
+<script src="modpick.js?v=2"></script>
 </head>
 <body>
 <div class="app">
@@ -440,7 +443,7 @@ const NAV = [
   {id:"customers",t:"Customers",i:"users"},
   {t:"Reports",i:"chart",kids:[["sales-reports","Sales Reports"],["inventory-reports","Inventory Reports"],["business-reports","Business Reports"],["analysis-reports","Analysis Reports"]]},
   {t:"Inventory",i:"box",kids:[["inv-items","Items"],["suppliers","Suppliers"],["purchase-orders","Purchase Orders"],["transfer-orders","Transfer Orders"],["transfers","Transfers"],["inventory-count","Inventory Count"],["production","Production"],["@More"],["quantity-adjustments","Quantity Adjustment"],["cost-adjustments","Cost Adjustment"],["order-transactions","Order Transactions"],["inv-categories","Inventory Categories"],["warehouses","Warehouses"],["spot-check","Inventory Spot Check"],["count-sheets","Count Sheet"]]},
-  {t:"Menu",i:"book",kids:[["@Menu Builder"],["categories","Categories"],["products","Products"],["modifiers","Modifiers"],["modifier-options","Modifier Options"],["combos","Combos"],["groups","Groups"],["@Menu Settings"],["price-tags","Price Tags"],["allergens","Allergens"]]},
+  {t:"Menu",i:"book",kids:[["@Menu Builder"],["categories","Categories"],["products","Products"],["modifiers","Modifiers"],["modifier-options","Modifier Options"],["branch-menu","Branch Menus"],["combos","Combos"],["groups","Groups"],["@Menu Settings"],["price-tags","Price Tags"],["allergens","Allergens"]]},
   {t:"Manage",i:"gear",kids:[["company","Company"],["users","Users"],["roles","Roles"],["brands","Brands"],["branches","Branches"],["devices","Devices"],["taxes","Taxes & Groups"],["payment-methods","Payment Methods"],["order-sources","Order Sources"],["charges","Charges"],["delivery-zones","Delivery Zones"],["online-ordering","Online Ordering"],["kitchen-flows","Kitchen Flows"],["reasons","Reasons"],["settings","Settings"]]},
   {t:"Marketing",i:"tag",kids:[["loyalty","Loyalty"],["gift-cards","Gift Cards"],["discounts","Discounts"],["promotions","Promotions"],["coupons","Coupons"]]}
 ];
@@ -511,7 +514,7 @@ const SUBI = {
   "sales-reports":"bars","inventory-reports":"pie","business-reports":"chart","analysis-reports":"layout",
   "inv-items":"box","suppliers":"truck","purchase-orders":"cart","transfer-orders":"clipboard","transfers":"swap","inventory-count":"sheet","production":"factory",
   "quantity-adjustments":"sliders","cost-adjustments":"dollar","order-transactions":"receipt","inv-categories":"folder","warehouses":"warehouse","spot-check":"search","count-sheets":"list",
-  "categories":"grid","products":"utensils","modifiers":"layers","modifier-options":"list","combos":"combo","groups":"folder","price-tags":"pricetag","allergens":"alert",
+  "categories":"grid","products":"utensils","modifiers":"layers","modifier-options":"list","branch-menu":"store","combos":"combo","groups":"folder","price-tags":"pricetag","allergens":"alert",
   "company":"building","users":"user","roles":"shield","brands":"store","branches":"map","devices":"tablet","taxes":"percent","payment-methods":"card","order-sources":"source",
   "charges":"plusc","delivery-zones":"globe","online-ordering":"globe","kitchen-flows":"flow","reasons":"message","settings":"gear",
   "loyalty":"heart","gift-cards":"gift","discounts":"percent","promotions":"megaphone","coupons":"ticket",
@@ -1415,7 +1418,7 @@ function fillOrderBranches(sel){
 }
 function availableProducts(){
   const br = $("#oBranch")?.value, bd = $("#oBrand")?.value;
-  return S.products.filter(p => live(p) && p.active!==false && (!bd || p.brandId===bd) && (!p.channels || p.channels.includes("callcenter")) && (!br || !p.branchIds?.length || p.branchIds.includes(br)));
+  return S.products.filter(p => live(p) && p.active!==false && (!bd || p.brandId===bd) && (!p.channels || p.channels.includes("callcenter")) && (!br || ((!p.branchIds?.length || p.branchIds.includes(br)) && !(p.inactiveBranchIds||[]).includes(br))));
 }
 function ccPrice(p){ const b = $("#oBranch")?.value, c = b && (p.customPrices||{})[b]; return c!=null && c!=="" ? +c : +p.price||0; }
 function renderOrderMenu(){
@@ -1492,13 +1495,15 @@ function openDevice(){
 }
 
 /* ---------- Online Ordering (link for delivery, takeaway, dine-in) ---------- */
-function olBrand(){ return defaultBrand(); }
+function olBrand(){ const l = brandList().filter(b=>b.active!==false); if(state.olBrand && l.some(b=>b.id===state.olBrand)) return state.olBrand; return defaultBrand() || l[0]?.id || ""; }
 function onlineCfg(){ const id = "online_" + olBrand(); return S.settings.find(s=>s.id===id) || { id }; }
 function viewOnline(){
   if(!olBrand()) return `<div class="phead"><h1>Online Ordering</h1></div><div class="card empty">Each brand has its own ordering page.<br>Choose a brand in the selector at the top${brandList().length?"":", or create one in Manage → Brands"}.</div>`;
   const c = onlineCfg(), bc = c.branches || {}, link = new URL("order.html?brand=" + encodeURIComponent(olBrand()), location.href.split("#")[0]).href;
   const modes = [["delivery","Delivery"],["takeaway","Takeaway"],["dinein","Dine-in (table QR)"]];
-  let h = `<div class="phead"><h1>Online Ordering · ${esc(brandName(olBrand()))}</h1><div class="sp"></div><button class="btn pri" id="olSave">Save changes</button></div>`;
+  let h = `<div class="phead"><h1>Online Ordering</h1><div class="sp"></div><button class="btn pri" id="olSave">Save changes</button></div>
+    <p class="subt" style="margin-top:-6px">Every brand has its own ordering page, link, menu and settings.</p>
+    ${brandList().filter(b=>b.active!==false).length > 1 ? `<div class="tabs" style="margin-bottom:16px">${brandList().filter(b=>b.active!==false).map(b=>`<a href="#online-ordering" data-olbrand="${esc(b.id)}" class="${b.id===olBrand()?"on":""}">${esc(b.name)}${(S.settings.find(x=>x.id==="online_"+b.id)||{}).enabled?' <span class="tag on" style="margin-left:4px">Live</span>':""}</a>`).join("")}</div>` : ""}`;
   if(storeMode==="local") h += `<div class="banner">Preview mode: settings won't be saved.</div>`;
   h += `<div class="grid" style="grid-template-columns:1fr 1fr;gap:16px">
   <div class="card"><h3 class="ct">Ordering page</h3>
@@ -1511,7 +1516,7 @@ function viewOnline(){
     ${modes.map(([k,t])=>`<label class="chk" style="margin:8px 0"><input type="checkbox" id="olm_${k}" ${(c.modes||{})[k]!==false?"checked":""}> ${t}</label>`).join("")}
     <p class="note" style="margin-top:12px">Which products appear on each type is set per product under <a class="lnk" href="#products">Menu → Products</a> ("Sell on"). Delivery fees and areas are set in <a class="lnk" href="#delivery-zones">Delivery Zones</a>.</p></div></div>
   <div style="height:16px"></div><div class="card tbl"><div class="ttop"><h3 class="ct">Locations</h3></div><table><thead><tr><th>Branch</th>${modes.map(m=>`<th>${m[1]}</th>`).join("")}<th class="num">Tables (for QR)</th><th>Table QR links</th><th>Delivery zones</th></tr></thead><tbody>${
-    activeBranches().map(b=>{ const x = bc[b.id] || {}; const z = S.zones.filter(zz=>live(zz)&&zz.branchId===b.id&&zz.active!==false).length;
+    (branches.some(b=>b.active!==false && b.brandId===olBrand()) ? "" : `<tr><td colspan="7" class="note" style="padding:16px">This brand has no branches yet. Add them under Manage → Branches.</td></tr>`) + branches.filter(b=>b.active!==false && b.brandId===olBrand()).map(b=>{ const x = bc[b.id] || {}; const z = S.zones.filter(zz=>live(zz)&&zz.branchId===b.id&&zz.active!==false).length;
       return `<tr><td><b>${esc(b.name)}</b><br><span class="note">${esc(b.open||"")}–${esc(b.close||"")}</span></td>${modes.map(([k])=>`<td><label class="toggle"><input type="checkbox" data-olb="${esc(b.id)}:${k}" ${x[k]!==false?"checked":""}><span class="trk"></span></label></td>`).join("")}
       <td class="num"><input type="number" min="0" class="sel" style="width:80px" data-oltables="${esc(b.id)}" value="${x.tables??""}" aria-label="Tables at ${esc(b.name)}"></td><td>${x.tables ? Array.from({length:Math.min(+x.tables,40)},(_,i)=>`<a class="lnk" target="_blank" rel="noopener" href="order.html?brand=${encodeURIComponent(olBrand())}&branch=${encodeURIComponent(b.id)}&table=${i+1}">T${i+1}</a>`).join(" ") : '<span class="note">Set tables</span>'}</td><td>${z ? `${z} zone${z>1?"s":""}` : '<a class="lnk" href="#delivery-zones">Add zones</a>'}</td></tr>`; }).join("")
   }</tbody></table></div>`;
@@ -1526,12 +1531,87 @@ async function saveOnline(){
   try{ await put("settings", "online_" + olBrand(), data); toast("Online ordering saved"); } catch(err){ console.error(err); toast("Couldn't save settings"); }
 }
 
+document.addEventListener("click", e => { const t = e.target.closest("[data-olbrand]"); if(t){ e.preventDefault(); state.olBrand = t.dataset.olbrand; render(); } });
+
+/* ---------- Branch Menus: what each branch sells, at what price, and what's out of stock ---------- */
+const BM = { branch:"", kind:"products", q:"", draft:{} };
+function bmItems(){
+  const br = branches.find(b=>b.id===BM.branch); if(!br) return [];
+  if(BM.kind==="options") return S.modifier_options.filter(o=>live(o)&&o.active!==false).sort((a,b)=>modRank(a.modifierId)-modRank(b.modifierId)||String(a.modifierId).localeCompare(String(b.modifierId))||bySort(a,b));
+  return S.products.filter(p=>live(p)&&p.active!==false&&(!br.brandId||!p.brandId||p.brandId===br.brandId)).sort(CRUD.products.sort);
+}
+function bmState(r){
+  const b = BM.branch, d = BM.draft[r.id] || {};
+  const on = d.on ?? ((!r.branchIds?.length || r.branchIds.includes(b)) && !(r.inactiveBranchIds||[]).includes(b));
+  const stock = d.stock ?? !(r.outOfStockBranchIds||[]).includes(b);
+  const cp = (r.customPrices||{})[b], price = d.price ?? (cp!=null && cp!=="" ? String(cp) : "");
+  return { on, stock, price };
+}
+function viewBranchMenu(){
+  const list = branches.filter(b=>b.active!==false && brandFilter(b));
+  if(!list.some(b=>b.id===BM.branch)) BM.branch = (state.branch!=="all" && list.some(b=>b.id===state.branch)) ? state.branch : list[0]?.id || "";
+  const br = branches.find(b=>b.id===BM.branch), dirty = Object.keys(BM.draft).length;
+  let h = `<div class="phead"><h1>Branch Menus</h1><div class="sp"></div><button class="btn pri" id="bmSave" ${dirty?"":"disabled"}>Save${dirty?` (${dirty})`:""}</button></div>
+    <p class="subt" style="margin-top:-6px">Each brand has its own menu; each branch can switch items off, set its own price, or mark them out of stock. The POS, call center and online ordering follow this.</p>`;
+  if(!br) return h + `<div class="card empty">No branches yet. Add them under Manage → Branches.</div>`;
+  const q = BM.q.trim().toLowerCase(), items = bmItems().filter(r => !q || r.name.toLowerCase().includes(q));
+  const grp = r => BM.kind==="options" ? modName(r.modifierId) : catName(r.categoryId);
+  const all = bmItems(), offN = all.filter(r=>!bmState(r).on).length, oosN = all.filter(r=>bmState(r).on && !bmState(r).stock).length;
+  h += `<div class="card tbl"><div class="ttop" style="flex-wrap:wrap;gap:10px">
+      <select class="sel" id="bmBranch" aria-label="Branch">${list.map(b=>`<option value="${esc(b.id)}" ${b.id===BM.branch?"selected":""}>${brandList().length>1?esc(brandName(b.brandId))+" · ":""}${esc(b.name)}</option>`).join("")}</select>
+      <div class="ttabs"><a href="#branch-menu" data-bmkind="products" class="${BM.kind==="products"?"on":""}">Products</a><a href="#branch-menu" data-bmkind="options" class="${BM.kind==="options"?"on":""}">Modifier options</a></div>
+      <span class="note">${all.length-offN} on the menu · ${offN} off · ${oosN} out of stock</span><div class="sp"></div>
+      <input class="sel search" id="bmQ" placeholder="Search" value="${esc(BM.q)}" aria-label="Search"></div>`;
+  if(!items.length) return h + `<div class="empty">${all.length ? "Nothing matches." : "Nothing on this brand's menu yet."}</div></div>`;
+  let last = null;
+  h += `<table><thead><tr><th>${BM.kind==="options"?"Option":"Product"}</th><th class="num">Base price</th><th class="num">Price at ${esc(br.name)}</th><th>On the menu</th><th>In stock</th></tr></thead><tbody>`;
+  items.forEach(r => { const g = grp(r), st = bmState(r);
+    if(g!==last){ last = g; h += `<tr class="grp"><td colspan="5"><b>${esc(g)}</b> <a href="#branch-menu" class="lnk" data-bmall="${esc(g)}:1">All on</a> · <a href="#branch-menu" class="lnk" data-bmall="${esc(g)}:0">All off</a></td></tr>`; }
+    h += `<tr class="${st.on?"":"off"}${BM.draft[r.id]?" chg":""}"><td><b>${esc(r.name)}</b></td><td class="num">${usd(+r.price||0)}</td>
+      <td class="num"><input type="number" min="0" step="any" class="sel" style="width:96px;text-align:right" data-bmprice="${esc(r.id)}" value="${esc(st.price)}" placeholder="${esc(String(+r.price||0))}" aria-label="Price of ${esc(r.name)} at ${esc(br.name)}"></td>
+      <td><label class="toggle"><input type="checkbox" data-bmon="${esc(r.id)}" ${st.on?"checked":""}><span class="trk"></span></label></td>
+      <td><label class="toggle"><input type="checkbox" data-bmstock="${esc(r.id)}" ${st.stock?"checked":""} ${st.on?"":"disabled"}><span class="trk"></span></label></td></tr>`; });
+  return h + `</tbody></table></div>`;
+}
+function bmSet(id, k, v){ const d = BM.draft[id] ||= {}; d[k] = v; }
+async function saveBranchMenu(){
+  const b = BM.branch, col = BM.kind==="options" ? "modifier_options" : "products"; let n = 0;
+  $("#bmSave").disabled = true; $("#bmSave").textContent = "Saving…";
+  try{
+    for(const [id, d] of Object.entries(BM.draft)){
+      const r = S[col].find(x=>x.id===id); if(!r) continue; const ch = {};
+      if(d.on!=null){ const ia = new Set(r.inactiveBranchIds||[]);
+        if(d.on){ ia.delete(b); if(r.branchIds?.length && !r.branchIds.includes(b)) ch.branchIds = [...r.branchIds, b]; } else ia.add(b);
+        ch.inactiveBranchIds = [...ia]; }
+      if(d.stock!=null){ const os = new Set(r.outOfStockBranchIds||[]); d.stock ? os.delete(b) : os.add(b); ch.outOfStockBranchIds = [...os]; }
+      if(d.price!=null){ const cp = { ...(r.customPrices||{}) }; if(d.price==="" || +d.price===+r.price) delete cp[b]; else cp[b] = +d.price; ch.customPrices = cp; }
+      await put(col, id, ch); n++;
+    }
+    BM.draft = {}; toast(`${n} item${n===1?"":"s"} updated for ${branchName(b)}`); render();
+  }catch(err){ console.error(err); toast("Couldn't save. Only the owner or an admin can change the menu."); $("#bmSave").disabled = false; $("#bmSave").textContent = "Save"; }
+}
+$("#view").addEventListener("change", e => {
+  const t = e.target;
+  if(t.id==="bmBranch"){ if(Object.keys(BM.draft).length && !confirm("Discard unsaved changes for this branch?")){ t.value = BM.branch; return; } BM.branch = t.value; BM.draft = {}; return render(); }
+  if(t.dataset.bmon){ bmSet(t.dataset.bmon, "on", t.checked); return render(); }
+  if(t.dataset.bmstock){ bmSet(t.dataset.bmstock, "stock", t.checked); return render(); }
+  if(t.dataset.bmprice!=null && t.dataset.bmprice){ bmSet(t.dataset.bmprice, "price", t.value.trim()); return render(); }
+});
+let bmQT; $("#view").addEventListener("input", e => { if(e.target.id==="bmQ"){ clearTimeout(bmQT); const v = e.target.value; bmQT = setTimeout(() => { BM.q = v; render(); const el = $("#bmQ"); if(el){ el.focus(); el.setSelectionRange(v.length, v.length); } }, 300); } });
+$("#view").addEventListener("click", e => {
+  const k = e.target.closest("[data-bmkind]"); if(k){ e.preventDefault(); if(Object.keys(BM.draft).length && !confirm("Discard unsaved changes?")) return; BM.kind = k.dataset.bmkind; BM.draft = {}; return render(); }
+  const a = e.target.closest("[data-bmall]"); if(a){ e.preventDefault(); const i = a.dataset.bmall.lastIndexOf(":"), g = a.dataset.bmall.slice(0,i), on = a.dataset.bmall.slice(i+1)==="1";
+    bmItems().filter(r => (BM.kind==="options" ? modName(r.modifierId) : catName(r.categoryId))===g).forEach(r => bmSet(r.id, "on", on)); return render(); }
+  if(e.target.id==="bmSave") return saveBranchMenu();
+});
+
 /* ---------- wiring ---------- */
 function moduleRoute(route){
   if(CRUD[route]) return crudView(route);
   if(route==="call-center") return viewCallCenter();
   if(route==="devices") return viewDevices();
   if(route==="online-ordering") return viewOnline();
+  if(route==="branch-menu") return viewBranchMenu();
   if(route==="inventory-count") return viewInventoryCount();
   if(route==="orders") return viewOrders();
   if(route==="customers") return viewCustomers();
@@ -1893,6 +1973,7 @@ function resetPageFilters(){
   Object.assign(state, { range:"day", date:todayStr(), dateSet:false, compare:false, dashTab:"general", branch:"all" }); DASH.key = "";
   Object.assign(ORD, { tab:"all", q:"", from:"", to:"", channel:"", type:"", pay:"", page:1, key:"", open:null });
   Object.assign(CUS, { filter:"all", q:"", sort:"last", page:1, key:"" });
+  Object.assign(BM, { q:"", draft:{} });
   state.tabs = {}; state.q = {}; state.page = {}; state.catFilter = ""; state.modFilter = "";
   Object.assign(IC, { q:"", cat:"", sheet:"" });
   DOC.tab = {}; DOC.q = {}; DOC.open = null; DOC.edit = null;
@@ -2092,17 +2173,17 @@ function modLinks(p){
   const rows = DET.mods, used = new Set(rows.map(l=>l.modifierId));
   const avail = S.modifiers.filter(m => live(m) && !used.has(m.id)).sort(bySort);
   const num = (ix, f, v, lbl) => `<input type="number" min="0" step="1" class="sel" data-modl="${ix}:${f}" value="${esc(v ?? "")}" style="width:70px;text-align:right" aria-label="${lbl}">`;
-  return `<div class="card tbl" style="margin-bottom:16px"><div class="ttop"><b>Modifiers</b><span class="note" style="margin-left:8px">Choices the customer makes for this product. Minimum 1 makes a choice required; maximum 0 means no limit; free options aren't charged.</span><div class="sp"></div>
+  return `<div class="card tbl" style="margin-bottom:16px"><div class="ttop"><b>Modifiers</b><span class="note" style="margin-left:8px">Choices the customer makes for this product. Minimum 1 makes a choice required; maximum 0 means no limit; "Repeat options" lets the same option be picked several times (each one counts toward the maximum); free options aren't charged.</span><div class="sp"></div>
       <select class="sel" id="modAdd" aria-label="Add a modifier"><option value="">Add modifier…</option>${avail.map(m=>`<option value="${esc(m.id)}">${esc(m.name)} (${modOptions(m.id).length})</option>`).join("")}</select>
       <button class="btn pri sm" data-modsave ${DET.dirtyMods && !DET.saving ? "" : "disabled"}>${DET.saving?"Saving…":"Save modifiers"}</button></div>
-    ${rows.length ? `<table><thead><tr><th>Name</th><th class="num">Options</th><th class="num">Minimum</th><th class="num">Maximum</th><th class="num">Free</th><th></th></tr></thead><tbody>${rows.map((l, ix) => `<tr>
+    ${rows.length ? `<table><thead><tr><th>Name</th><th class="num">Options</th><th class="num">Minimum</th><th class="num">Maximum</th><th class="num">Free</th><th title="The same option can be picked more than once, e.g. 2 × Extra cheese">Repeat options</th><th></th></tr></thead><tbody>${rows.map((l, ix) => `<tr>
       <td><a href="#modifiers" class="lnk" data-detopen="modifiers:${esc(l.modifierId)}">${esc(modName(l.modifierId))}</a></td><td class="num">${modOptions(l.modifierId).length}</td>
-      <td class="num">${num(ix,"min",l.min,"Minimum options")}</td><td class="num">${num(ix,"max",l.max,"Maximum options")}</td><td class="num">${num(ix,"free",l.free,"Free options")}</td>
+      <td class="num">${num(ix,"min",l.min,"Minimum options")}</td><td class="num">${num(ix,"max",l.max,"Maximum options")}</td><td class="num">${num(ix,"free",l.free,"Free options")}</td><td><label class="toggle"><input type="checkbox" data-modmulti="${ix}" ${l.multi?"checked":""} aria-label="Allow the same option more than once"><span class="trk"></span></label></td>
       <td><button class="btn sm" data-modrm="${ix}" aria-label="Remove ${esc(modName(l.modifierId))}">×</button></td></tr>`).join("")}</tbody></table>`
       : `<div class="empty">No modifiers linked.${S.modifiers.filter(live).length ? "" : " Create them first under Menu → Modifiers."}</div>`}</div>`;
 }
 async function saveModLinks(){
-  const list = DET.mods.map(l => ({ modifierId:l.modifierId, min: Math.max(0, parseInt(l.min)||0), max: Math.max(0, parseInt(l.max)||0), free: Math.max(0, parseInt(l.free)||0) }));
+  const list = DET.mods.map(l => ({ modifierId:l.modifierId, min: Math.max(0, parseInt(l.min)||0), max: Math.max(0, parseInt(l.max)||0), free: Math.max(0, parseInt(l.free)||0), ...(l.multi ? { multi:true } : {}) }));
   const bad = list.find(l => l.max && l.min > l.max); if(bad){ toast(`${modName(bad.modifierId)}: minimum can't be more than maximum`); return; }
   DET.saving = true; render();
   try{ await put("products", DET.id, { modifiers: list }); DET.mods = list; DET.dirtyMods = false; toast("Modifiers saved"); }
@@ -2120,6 +2201,7 @@ document.addEventListener("click", e => {
   const rm = t.closest("[data-modrm]"); if(rm){ DET.mods.splice(+rm.dataset.modrm, 1); DET.dirtyMods = true; return render(); }
   const mv = t.closest("[data-modmv]"); if(mv){ const [ix, d] = mv.dataset.modmv.split(":").map(Number), j = ix + d; [DET.mods[ix], DET.mods[j]] = [DET.mods[j], DET.mods[ix]]; DET.dirtyMods = true; return render(); }
 });
+document.addEventListener("change", e => { const m = e.target.closest("[data-modmulti]"); if(m && DET.mods){ DET.mods[+m.dataset.modmulti].multi = m.checked; modDirty(); } });
 document.addEventListener("input", e => { const m = e.target.closest("[data-modl]"); if(m && DET.mods){ const [ix, f] = m.dataset.modl.split(":"); DET.mods[+ix][f] = e.target.value; modDirty(); } });
 document.addEventListener("change", e => { if(e.target.id==="modAdd" && e.target.value && DET.mods){ DET.mods.push({ modifierId:e.target.value, min:0, max:0, free:0 }); DET.mods.sort((a,b)=>modRank(a.modifierId)-modRank(b.modifierId)); DET.dirtyMods = true; render(); } });
 // call center: pick options for the chosen branch
