@@ -372,7 +372,7 @@ tr.chg td:first-child{box-shadow:inset 3px 0 0 var(--accent)}
       <button class="menuBtn" id="menuBtn" type="button" aria-label="Open menu"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
       <select class="sel" id="brandSel" aria-label="Brand filter"></select>
       <select class="sel" id="branchSel" aria-label="Branch filter"></select>
-      <span class="pill" id="syncPill">Connecting…</span>
+      <span class="pill" id="syncPill" hidden>Connecting…</span>
       <div class="sp"></div>
       <span class="avatar" id="avatar" aria-hidden="true">S</span><span class="note" id="who"></span><button class="btn sm" id="signOut" type="button"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4h4v16h-4M10 17l5-5-5-5M15 12H3"/></svg>Sign out</button>
     </div>
@@ -1255,7 +1255,22 @@ const CRUD = {
   }
 };
 function chanTags(r){ const c = r.channels || CHANNELS.map(x=>x[0]); return c.length===CHANNELS.length ? '<span class="note">All</span>' : c.map(k=>`<span class="tag off">${esc((CHANNELS.find(x=>x[0]===k)||[,k])[1])}</span>`).join(" "); }
-function nextSku(col){ let n=0; S[col].forEach(r=>{ const m=/(\d+)$/.exec(r.sku||""); if(m) n=Math.max(n,+m[1]); }); return "sk-"+String(n+1).padStart(4,"0"); }
+/* SKU generator: PR for products, MD for modifier options, IN for inventory items (PR-0001, PR-0002…) */
+const SKU_PREFIX = { products:"PR", modifier_options:"MD", inv_items:"IN" };
+function nextSku(col, taken){ const pre = SKU_PREFIX[col] || "SK", re = new RegExp("^" + pre + "-?(\\d+)$", "i"); let n = 0;
+  S[col].forEach(r => { const m = re.exec(r.sku||""); if(m) n = Math.max(n, +m[1]); }); (taken||[]).forEach(v => { const m = re.exec(v); if(m) n = Math.max(n, +m[1]); });
+  return pre + "-" + String(n+1).padStart(4,"0"); }
+// give every item without a prefixed SKU (empty or the old sk-0001 style) a new one, in list order
+async function generateSkus(key){
+  const cfg = CRUD[key], col = cfg.col, pre = SKU_PREFIX[col], re = new RegExp("^" + pre + "-\\d+$", "i");
+  const todo = S[col].filter(r => live(r) && !re.test(r.sku||"")).sort(cfg.sort);
+  if(!todo.length) return toast(`Every ${cfg.one.toLowerCase()} already has a ${pre} SKU`);
+  if(!confirm(`Give ${todo.length} ${cfg.title.toLowerCase()} new SKUs (${pre}-0001, ${pre}-0002…)? Items that already have a ${pre} SKU keep theirs.`)) return;
+  const made = [];
+  try{ for(const r of todo){ const sku = nextSku(col, made); made.push(sku); await put(col, r.id, { sku }); } toast(`${made.length} SKUs generated`); }
+  catch(err){ console.error(err); toast("Couldn't save all SKUs. Only the owner or an admin can change this."); }
+}
+document.addEventListener("click", e => { const b = e.target.closest("[data-genskus]"); if(b) generateSkus(b.dataset.genskus); });
 
 state.tabs = {}; state.q = {}; state.page = {}; state.catFilter = "";
 function crudView(key){
@@ -1265,7 +1280,7 @@ function crudView(key){
   list.sort(cfg.sort);
   const per = 50, pages = Math.max(1, Math.ceil(list.length/per)), pg = Math.min(state.page[key]||1, pages);
   const shown = list.slice((pg-1)*per, pg*per);
-  let h = `<div class="phead"><h1>${cfg.title}</h1><div class="sp"></div>${SORTABLE[key] ? `<button class="btn" data-sorter="${key}">${svgIco("sort")} Sort</button>` : ""}<button class="btn pri" data-create="${key}">Create ${cfg.one}</button></div>`;
+  let h = `<div class="phead"><h1>${cfg.title}</h1><div class="sp"></div>${SKU_PREFIX[cfg.col] ? `<button class="btn" data-genskus="${key}" title="Give items without a ${SKU_PREFIX[cfg.col]} SKU a new one">Generate SKUs</button>` : ""}${SORTABLE[key] ? `<button class="btn" data-sorter="${key}">${svgIco("sort")} Sort</button>` : ""}<button class="btn pri" data-create="${key}">Create ${cfg.one}</button></div>`;
   if(storeMode==="local") h += `<div class="banner">Preview mode: changes won't be saved.</div>`;
   if(cfg.note) h += `<p class="subt" style="margin-top:-6px">${esc(cfg.note)}</p>`;
   if(cfg.top) h += cfg.top();
