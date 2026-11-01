@@ -378,6 +378,8 @@ a.btn{text-decoration:none}
 #zonesMap,.zmap{position:relative;z-index:0;isolation:isolate}
 tr.grp .toggle{vertical-align:middle}
 .spill.s-refund{background:#fde8e8;color:#9e0c24}
+.bmgrip{cursor:grab;color:var(--ink3,#9a98a6);margin-right:8px;letter-spacing:-2px;user-select:none}
+tr[draggable="true"].dragging{opacity:.45}tr.dropto td{box-shadow:inset 0 2px 0 #5b2bc4}
 </style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -1934,7 +1936,7 @@ function renderOrderMenu(){
     : prods.filter(p => state.oCat==="_none" ? !cats.some(c=>c.id===p.categoryId) : p.categoryId===state.oCat);
   $("#oCatTitle").textContent = q ? `${list.length} result${list.length===1?"":"s"} for “${q}”` : (cats.find(c=>c.id===state.oCat)?.name || (state.oCat==="_none" ? "Other" : ""));
   const inCart = id => cart.filter(i=>i.productId===id).reduce((a,i)=>a+i.qty,0);
-  box.innerHTML = list.length ? list.sort((a,b)=>String(a.name).localeCompare(String(b.name))).map(p=>{ const c = inCart(p.id), oos = (p.outOfStockBranchIds||[]).includes($("#oBranch")?.value);
+  box.innerHTML = list.length ? list.sort((a,b)=>(q ? catRank(a.categoryId)-catRank(b.categoryId) : 0) || bySort(a,b)).map(p=>{ const c = inCart(p.id), oos = (p.outOfStockBranchIds||[]).includes($("#oBranch")?.value);
     return `<button type="button" class="pbtn${c?" sel":""}" data-add="${esc(p.id)}" ${oos?"disabled title=\"Out of stock at this branch\"":""}>${c?`<em>${c}</em>`:""}${p.imageUrl?`<img class="ccimg" src="${esc(p.imageUrl)}" alt="" loading="lazy">`:""}<span>${esc(p.name)}</span><b>${oos?"Out of stock":usd(ccPrice(p))}</b>${(p.modifiers||[]).length?`<small>Options</small>`:""}</button>`; }).join("")
     : `<div class="note" style="padding:12px">${S.products.length ? (q ? "No products match." : $("#oBrand")?.value ? "No products in this category." : "Choose a brand to see its menu.") : "No products yet. Add them under Menu → Products."}</div>`;
 }
@@ -2108,7 +2110,7 @@ const BM = { branch:"", kind:"products", q:"", draft:{} };
 function bmItems(){
   const br = branches.find(b=>b.id===BM.branch); if(!br) return [];
   if(BM.kind==="options") return S.modifier_options.filter(o=>live(o)&&o.active!==false).sort((a,b)=>modName(a.modifierId).localeCompare(modName(b.modifierId))||bySort(a,b));
-  return S.products.filter(p=>live(p)&&p.active!==false&&(!br.brandId||!p.brandId||p.brandId===br.brandId)).sort((a,b)=>catRank(a.categoryId)-catRank(b.categoryId) || String(a.categoryId).localeCompare(String(b.categoryId)) || String(a.name).localeCompare(String(b.name)));
+  return S.products.filter(p=>live(p)&&p.active!==false&&(!br.brandId||!p.brandId||p.brandId===br.brandId)).sort((a,b)=>catRank(a.categoryId)-catRank(b.categoryId) || String(a.categoryId).localeCompare(String(b.categoryId)) || bySort(a,b));
 }
 function bmState(r){
   const b = BM.branch, d = BM.draft[r.id] || {};
@@ -2122,7 +2124,7 @@ function viewBranchMenu(){
   if(!list.some(b=>b.id===BM.branch)) BM.branch = (state.branch!=="all" && list.some(b=>b.id===state.branch)) ? state.branch : list[0]?.id || "";
   const br = branches.find(b=>b.id===BM.branch), dirty = Object.keys(BM.draft).length;
   let h = `<div class="phead"><h1>Menus</h1><div class="sp"></div>${scopeBar(false)}<button class="btn pri" id="bmSave" ${dirty?"":"disabled"}>Save${dirty?` (${dirty})`:""}</button></div>
-    <p class="subt" style="margin-top:-6px">Each branch has its own menu, built from the brand's categories and their products: switch a whole category or single products on or off, set the branch's own prices, or mark items out of stock. The POS, call center and online ordering of that branch follow it.</p>`;
+    <p class="subt" style="margin-top:-6px">Drag categories and items (⋮⋮) to set their order in the POS, call center and online menu. Each branch has its own menu, built from the brand's categories and their products: switch a whole category or single products on or off, set the branch's own prices, or mark items out of stock. The POS, call center and online ordering of that branch follow it.</p>`;
   if(!br) return h + `<div class="card empty">No branches yet. Add them under Manage → Branches.</div>`;
   const q = BM.q.trim().toLowerCase(), items = bmItems().filter(r => !q || r.name.toLowerCase().includes(q));
   const grp = r => BM.kind==="options" ? modName(r.modifierId) : catName(r.categoryId);
@@ -2137,14 +2139,33 @@ function viewBranchMenu(){
   h += `<table><thead><tr><th>${BM.kind==="options"?"Option":"Product"}</th><th class="num">Base price</th><th class="num">Price at ${esc(br.name)}</th><th>On the menu</th><th>In stock</th></tr></thead><tbody>`;
   items.forEach(r => { const g = grp(r), st = bmState(r);
     const cOn = BM.kind==="options" || bmCatOn(r.categoryId);
-    if(g!==last){ last = g; h += `<tr class="grp"><td colspan="5">${BM.kind!=="options" ? `<label class="toggle" style="margin-right:8px" title="Category on the menu at ${esc(br.name)}"><input type="checkbox" data-bmcat="${esc(r.categoryId)}" ${cOn?"checked":""}><span class="trk"></span></label>` : ""}<b>${esc(g)}</b>${cOn ? ` <a href="#branch-menu" class="lnk" data-bmall="${esc(g)}:1">All on</a> · <a href="#branch-menu" class="lnk" data-bmall="${esc(g)}:0">All off</a>` : ` <span class="tag off">Category off at this branch</span>`}</td></tr>`; }
+    const drag = BM.kind!=="options" && !q;
+    if(g!==last){ last = g; h += `<tr class="grp"${drag ? ` draggable="true" data-bmdrag="c:${esc(r.categoryId)}" title="Drag to move this category"` : ""}><td colspan="5">${drag ? '<span class="bmgrip" aria-hidden="true">⋮⋮</span>' : ""}${BM.kind!=="options" ? `<label class="toggle" style="margin-right:8px" title="Category on the menu at ${esc(br.name)}"><input type="checkbox" data-bmcat="${esc(r.categoryId)}" ${cOn?"checked":""}><span class="trk"></span></label>` : ""}<b>${esc(g)}</b>${cOn ? ` <a href="#branch-menu" class="lnk" data-bmall="${esc(g)}:1">All on</a> · <a href="#branch-menu" class="lnk" data-bmall="${esc(g)}:0">All off</a>` : ` <span class="tag off">Category off at this branch</span>`}</td></tr>`; }
     if(!cOn) return;
-    h += `<tr class="${st.on?"":"off"}${BM.draft[r.id]?" chg":""}"><td><b>${esc(r.name)}</b></td><td class="num">${usd(+r.price||0)}</td>
+    h += `<tr class="${st.on?"":"off"}${BM.draft[r.id]?" chg":""}"${drag ? ` draggable="true" data-bmdrag="p:${esc(r.id)}" data-bmcatof="${esc(r.categoryId)}"` : ""}><td>${drag ? '<span class="bmgrip" aria-hidden="true" title="Drag to move">⋮⋮</span>' : ""}<b>${esc(r.name)}</b></td><td class="num">${usd(+r.price||0)}</td>
       <td class="num"><input type="number" min="0" step="any" class="sel" style="width:96px;text-align:right" data-bmprice="${esc(r.id)}" value="${esc(st.price)}" placeholder="${esc(String(+r.price||0))}" aria-label="Price of ${esc(r.name)} at ${esc(br.name)}"></td>
       <td><label class="toggle"><input type="checkbox" data-bmon="${esc(r.id)}" ${st.on?"checked":""}><span class="trk"></span></label></td>
       <td><label class="toggle"><input type="checkbox" data-bmstock="${esc(r.id)}" ${st.stock?"checked":""} ${st.on?"":"disabled"}><span class="trk"></span></label></td></tr>`; });
   return h + `</tbody></table></div>`;
 }
+/* drag to order categories and their products; the order is the same in the POS, call center and online menu */
+let bmDrag = null;
+document.addEventListener("dragstart", e => { const t = e.target.closest?.("[data-bmdrag]"); if(!t) return; bmDrag = { key:t.dataset.bmdrag, cat:t.dataset.bmcatof }; e.dataTransfer.effectAllowed = "move"; try{ e.dataTransfer.setData("text/plain", bmDrag.key); }catch(_){} t.classList.add("dragging"); });
+document.addEventListener("dragend", e => { document.querySelectorAll(".dragging,.dropto").forEach(x => x.classList.remove("dragging","dropto")); });
+const bmDropOk = t => { if(!bmDrag || !t) return false; const k = t.dataset.bmdrag; if(!k || k===bmDrag.key) return false;
+  return bmDrag.key.startsWith("c:") ? k.startsWith("c:") : (k.startsWith("p:") && t.dataset.bmcatof===bmDrag.cat); };
+document.addEventListener("dragover", e => { const t = e.target.closest?.("[data-bmdrag]"); if(!bmDropOk(t)) return; e.preventDefault(); document.querySelectorAll(".dropto").forEach(x => x.classList.remove("dropto")); t.classList.add("dropto"); });
+document.addEventListener("drop", async e => { const t = e.target.closest?.("[data-bmdrag]"); if(!bmDropOk(t)) return; e.preventDefault();
+  const from = bmDrag.key.slice(2), to = t.dataset.bmdrag.slice(2), isCat = bmDrag.key.startsWith("c:"); bmDrag = null;
+  const br = branches.find(b=>b.id===BM.branch);
+  const list = isCat ? S.categories.filter(c => live(c) && (!br?.brandId || c.brandId===br.brandId)).sort(bySort)
+                     : S.products.filter(p => live(p) && p.categoryId===S.products.find(x=>x.id===from)?.categoryId).sort(bySort);
+  const ids = list.map(x=>x.id), i = ids.indexOf(from), j = ids.indexOf(to); if(i<0 || j<0) return;
+  ids.splice(i, 1); ids.splice(ids.indexOf(to) + (i < j ? 1 : 0), 0, from);
+  const col = isCat ? "categories" : "products"; let n = 0;
+  try{ for(const [k, id] of ids.entries()){ const r = S[col].find(x=>x.id===id); if(r && r.sort !== (k+1)*10){ await put(col, id, { sort:(k+1)*10 }); n++; } }
+    toast(isCat ? "Category order saved for every channel" : "Item order saved for every channel"); render(); }
+  catch(err){ console.error(err); toast("Couldn't save the new order"); } });
 function bmSet(id, k, v){ const d = BM.draft[id] ||= {}; d[k] = v; }
 const bmCatOn = id => { const d = BM.draft["cat:"+id]; if(d && d.on!=null) return d.on; return !(S.categories.find(c=>c.id===id)?.inactiveBranchIds||[]).includes(BM.branch); };
 async function saveBranchMenu(){
