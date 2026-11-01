@@ -175,7 +175,7 @@ tr.click{cursor:pointer}tr.click:hover td{background:#faf9fd}
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="wokdb.js?v=11"></script>
+<script src="wokdb.js?v=12"></script>
 <script src="modpick.js?v=1"></script>
 </head>
 <body>
@@ -258,7 +258,7 @@ const NAV = [
   {id:"call-center",t:"Call Center",i:"phone"},
   {id:"customers",t:"Customers",i:"users"},
   {t:"Reports",i:"chart",kids:[["sales-reports","Sales Reports"],["inventory-reports","Inventory Reports"],["business-reports","Business Reports"],["analysis-reports","Analysis Reports"]]},
-  {t:"Inventory",i:"box",kids:[["inv-items","Items"],["suppliers","Suppliers"],["purchase-orders","Purchase Orders"],["transfer-orders","Transfer Orders"],["inventory-count","Inventory Count"],["production","Production"],["@More"],["quantity-adjustments","Quantity Adjustment"],["cost-adjustments","Cost Adjustment"],["order-transactions","Order Transactions"],["inv-categories","Inventory Categories"],["warehouses","Warehouses"],["spot-check","Inventory Spot Check"],["count-sheets","Count Sheet"]]},
+  {t:"Inventory",i:"box",kids:[["inv-items","Items"],["suppliers","Suppliers"],["purchase-orders","Purchase Orders"],["transfer-orders","Transfer Orders"],["transfers","Transfers"],["inventory-count","Inventory Count"],["production","Production"],["@More"],["quantity-adjustments","Quantity Adjustment"],["cost-adjustments","Cost Adjustment"],["order-transactions","Order Transactions"],["inv-categories","Inventory Categories"],["warehouses","Warehouses"],["spot-check","Inventory Spot Check"],["count-sheets","Count Sheet"]]},
   {t:"Menu",i:"book",kids:[["@Menu Builder"],["categories","Categories"],["products","Products"],["modifiers","Modifiers"],["modifier-options","Modifier Options"],["combos","Combos"],["groups","Groups"],["@Menu Settings"],["price-tags","Price Tags"],["allergens","Allergens"]]},
   {t:"Manage",i:"gear",kids:[["company","Company"],["users","Users"],["roles","Roles"],["brands","Brands"],["branches","Branches"],["devices","Devices"],["taxes","Taxes & Groups"],["payment-methods","Payment Methods"],["order-sources","Order Sources"],["charges","Charges"],["delivery-zones","Delivery Zones"],["online-ordering","Online Ordering"],["kitchen-flows","Kitchen Flows"],["reasons","Reasons"],["settings","Settings"]]},
   {t:"Marketing",i:"tag",kids:[["loyalty","Loyalty"],["gift-cards","Gift Cards"],["discounts","Discounts"],["promotions","Promotions"],["coupons","Coupons"]]}
@@ -676,7 +676,7 @@ $("#cYes").addEventListener("click", async () => {
 let tt; function toast(m){ const t = $("#toast"); t.textContent = m; t.classList.add("show"); clearTimeout(tt); tt = setTimeout(()=>t.classList.remove("show"), 2200); }
 
 /* ---------- generic collections (menu, inventory, devices, call center, online ordering) ---------- */
-const COLS = ["brands","categories","products","inv_items","devices","orders","zones","settings","order_sources","inv_categories","warehouses","inv_docs","modifiers","modifier_options"];
+const COLS = ["brands","categories","products","inv_items","devices","orders","zones","settings","order_sources","inv_categories","warehouses","inv_docs","modifiers","modifier_options","suppliers"];
 const S = {}; COLS.forEach(c => S[c] = []);
 function subscribeAll(){
   COLS.forEach(c => db.collection(c).onSnapshot(snap => {
@@ -782,6 +782,17 @@ const CRUD = {
       {k:"sku",l:"SKU",auto:()=>nextSku("modifier_options")},{k:"price",l:"Price (USD)",t:"number",def:0},{k:"taxGroup",l:"Tax group",t:"select",opts:()=>[["TAX","TAX"],["No tax","No tax"]],def:"TAX"},
       {k:"costingMethod",l:"Costing method",t:"select",opts:()=>[["ingredients","From ingredients"],["fixed","Fixed cost"]],def:"ingredients"},{k:"cost",l:"Fixed cost (USD, if fixed)",t:"number"},
       {k:"calories",l:"Calories (kCal)",t:"number"},{k:"sort",l:"Sort order",t:"number"},{k:"active",l:"Active",t:"chk",def:true}]
+  },
+  suppliers: {
+    col:"suppliers", title:"Suppliers", one:"Supplier",
+    tabs:[["all","All",live],["deleted","Deleted",r=>r.deleted]],
+    sort:(a,b)=>a.name.localeCompare(b.name),
+    search:r=>[r.name,r.code,r.contactName,r.phone,r.email].join(" "),
+    cols:[["Name",r=>`<b>${esc(r.name)}</b>`],["Code",r=>`<span class="code">${esc(r.code||"")}</span>`],["Contact",r=>esc(r.contactName||"—")],["Phone",r=>esc(r.phone||"—")],["Email",r=>esc(r.email||"—")],
+      ["Purchase Orders",r=>S.inv_docs.filter(d=>live(d)&&d.kind==="purchase"&&d.supplierId===r.id).length,"num"],["Created",r=>fmtDate(r.createdAt)]],
+    fields:[{k:"name",l:"Name",req:1},{k:"code",l:"Code",auto:()=>"SUP-"+String(S.suppliers.length+1).padStart(3,"0")},{k:"contactName",l:"Contact name"},{k:"phone",l:"Phone"},{k:"email",l:"Email"},
+      {k:"address",l:"Address",full:1},{k:"notes",l:"Notes",t:"textarea"}],
+    unique:"name"
   },
   "inv-items": {
     col:"inv_items", title:"Inventory Items", one:"Item", detail: r => invItemDetail(r),
@@ -1147,7 +1158,8 @@ function moduleRoute(route){
   if(route==="customers") return viewCustomers();
   if(route==="company") return viewCompany();
   if(DOC_KINDS[route]) return viewDocs(route);
-  if(route==="order-transactions") return `<h1>Order Transactions</h1><p class="subt">Consumption, returns and waste created automatically from sales.</p>` + placeholder("Starts with recipes", "Each sold product will deduct its recipe ingredients from the branch stock and show up here (Consumption, Return, Waste). It turns on next, now that products have ingredients (open a product under Menu → Products).");
+  if(route==="order-transactions") return viewOrderTx();
+  if(route==="__old_order_tx") return `<h1>Order Transactions</h1><p class="subt">Consumption, returns and waste created automatically from sales.</p>` + placeholder("Starts with recipes", "Each sold product will deduct its recipe ingredients from the branch stock and show up here (Consumption, Return, Waste). It turns on next, now that products have ingredients (open a product under Menu → Products).");
   return null;
 }
 
@@ -1740,11 +1752,159 @@ async function ccAdd(p){
   renderCart(false);
 }
 
+/* ---------- Purchase orders, transfer orders, transfers ---------- */
+const supName = id => S.suppliers.find(x=>x.id===id)?.name || "—";
+function docStatusTag(d){
+  const t = d.status==="closed" ? (d.kind==="purchase"||d.kind==="transfer" ? "Received" : d.kind==="torder" ? "Fulfilled" : "Closed")
+    : d.status==="pending" ? (d.kind==="transfer" ? "Sent" : "Pending") : d.status==="rejected" ? "Rejected" : "Draft";
+  const cls = d.status==="closed" ? "on" : d.status==="pending" ? "cc" : "off";
+  return `<span class="tag ${cls}">${t}</span>`;
+}
+function viewFlowList(route, K, tabs, all, list){
+  const tab = DOC.tab[route] || "all";
+  const shown = list.filter(d => tab==="all" || d.status===tab);
+  const cols = [["Reference",d=>`<span class="code">${esc(d.ref||"…")}</span>`],
+    ...(K.kind==="purchase" ? [["Supplier",d=>esc(supName(d.supplierId))],["Destination",d=>esc(locName(d.locationId))]]
+      : K.kind==="torder" ? [["Branch",d=>esc(locName(d.locationId))],["Requested from",d=>esc(locName(d.destId))]]
+      : [["From",d=>esc(locName(d.locationId))],["To",d=>esc(locName(d.destId))]]),
+    ["Status",d=>docStatusTag(d)],["Items",d=>(d.items||[]).length,"num"],
+    ...(K.kind==="purchase" ? [["Total",d=>usd((d.items||[]).reduce((s,l)=>s+(+l.qty||0)*(+l.cost||0),0)),"num"]] : []),
+    ["Business Date",d=>esc(d.businessDate||"—")],["Created",d=>fmtDate(d.createdAt)]];
+  const counts = {}; all.forEach(d => counts[d.status] = (counts[d.status]||0) + 1);
+  let h = `<div class="phead"><h1>${K.plural}</h1><div class="sp"></div>${all.length?`<button class="btn" data-docexport="${route}">Export</button>`:""}<button class="btn pri" data-docnew="${route}">New ${K.title}</button></div>
+    <p class="subt" style="margin-top:-6px">${esc(K.intro)}</p>
+    <div class="card tbl"><div class="ttop"><div class="ttabs">${tabs.map(t=>`<a href="#${route}" data-doctab="${route}:${t[0]}" class="${tab===t[0]?"on":""}">${t[1]}${t[0]!=="all"&&counts[t[0]]?` (${counts[t[0]]})`:""}</a>`).join("")}</div><div class="sp"></div>
+    <input class="sel search" data-docq="${route}" placeholder="Search" value="${esc(DOC.q[route]||"")}" aria-label="Search"></div>`;
+  h += shown.length ? `<table><thead><tr>${cols.map(c=>`<th class="${c[2]||""}">${c[0]}</th>`).join("")}</tr></thead><tbody>${shown.map(d=>`<tr class="click" data-docopen="${route}:${esc(d.id)}">${cols.map(c=>`<td class="${c[2]||""}">${c[1](d)}</td>`).join("")}</tr>`).join("")}</tbody></table>`
+    : `<div class="empty">${all.length ? "Nothing here." : `No ${K.plural.toLowerCase()} yet.`}</div>`;
+  return h + `</div>`;
+}
+function flowInfo(d, K, info){
+  const who = (l, v) => info(l, esc(v||"—"));
+  return [
+    K.kind==="purchase" ? info("Supplier", esc(supName(d.supplierId))) : "",
+    info(K.kind==="purchase" ? "Destination" : K.kind==="torder" ? "Requesting branch" : "From", esc(locName(d.locationId))),
+    K.kind!=="purchase" ? info(K.kind==="torder" ? "Requested from" : "To", esc(locName(d.destId))) : "",
+    info("Business Date", esc(d.businessDate||"—")), who("Creator", d.createdBy), who(K.kind==="transfer"?"Sent by":"Submitted by", d.submittedBy),
+    info(K.kind==="transfer"?"Sent At":"Submitted At", fmtDate(d.submittedAt)), who(K.kind==="torder"?"Fulfilled by":"Received by", d.receivedBy),
+    info(K.kind==="torder"?"Fulfilled At":"Received At", fmtDate(d.receivedAt)), info("Number of Items", (d.items||[]).length),
+    d.linkedId ? info(K.kind==="torder" ? "Transfer" : "Transfer order", `<a href="#${K.kind==="torder"?"transfers":"transfer-orders"}" class="lnk" data-doclink="${K.kind==="torder"?"transfers":"transfer-orders"}:${esc(d.linkedId)}">${esc(S.inv_docs.find(x=>x.id===d.linkedId)?.ref || "Open")}</a>`) : "",
+    d.notes ? info("Notes", esc(d.notes)) : ""].join("");
+}
+function flowButtons(d, K){
+  const b = DOC.busy;
+  if(d.status==="draft") return `<button class="btn pri" data-flow="submit" ${b||!d.items.length?"disabled":""}>${b?"Working…":K.kind==="transfer"?"Send":K.kind==="torder"?"Submit request":"Submit order"}</button>`;
+  if(d.status!=="pending") return "";
+  if(K.kind==="torder") return `<button class="btn danger" data-flow="reject" ${b?"disabled":""}>Reject</button><button class="btn pri" data-flow="fulfil" ${b?"disabled":""}>Create transfer</button>`;
+  return `${K.kind==="purchase"?`<button class="btn danger" data-flow="reject" ${b?"disabled":""}>Reject</button>`:""}<button class="btn pri" data-flow="receive" ${b?"disabled":""}>${b?"Working…":"Receive items"}</button>`;
+}
+function flowHead(d, K, ro, recv){
+  const q = K.kind==="purchase" ? "Ordered" : K.kind==="torder" ? "Requested" : d.status==="draft" ? "Quantity" : "Sent";
+  return ["Name","SKU","Storage unit", ...(d.status==="draft" && K.kind!=="purchase" ? ["In stock at source"] : []), d.status==="draft" ? "Quantity" : q,
+    ...(recv || (d.status==="closed" && K.kind!=="torder") ? ["Received"] : []), ...(K.kind==="purchase" ? ["Unit cost","Total cost"] : [])];
+}
+function flowRow(d, K, l, ix, it, base, del, qIn, ro, recv, cur, stockLoading){
+  const draft = d.status==="draft", r = recv ? DOC.recv[ix] : null;
+  const srcStock = draft && K.kind!=="purchase" ? `<td class="num">${stockLoading?"…":stockOf(K.kind==="torder" ? d.destId : d.locationId, l.itemId)===undefined?'<span class="note">Not counted</span>':n2(stockOf(K.kind==="torder" ? d.destId : d.locationId, l.itemId))}</td>` : "";
+  const rIn = (f, v, lbl) => `<input type="number" min="0" step="any" inputmode="decimal" class="sel" data-docrecv="${ix}:${f}" value="${esc(v ?? "")}" style="width:110px;text-align:right" aria-label="${lbl} of ${esc(it.name)}">`;
+  const recvCell = recv ? `<td class="num">${rIn("qty", r.qty, "Received quantity")}</td>` : (d.status==="closed" && K.kind!=="torder") ? `<td class="num">${n2(l.qty)}</td>` : "";
+  let costCells = "";
+  if(K.kind==="purchase"){
+    const c = recv ? r.cost : (l.cost ?? it.cost), q = recv ? r.qty : l.qty;
+    costCells = `<td class="num">${draft ? qIn("cost", l.cost ?? it.cost ?? "", "Unit cost") : recv ? rIn("cost", r.cost, "Unit cost") : usd(+c||0)}</td><td class="num" data-doctc="${ix}">${usd((+q||0)*(+c||0))}</td>`;
+  }
+  return `<tr>${base}<td>${esc(it.storageUnit||"—")}</td>${srcStock}<td class="num">${qIn("qty", l.qty, "Quantity")}</td>${recvCell}${costCells}${del}</tr>`;
+}
+async function flowAction(action){
+  const d = DOC.edit, K = DOC_KINDS[DOC.open.route]; readDocHeader(); DOC.err = "";
+  if(action==="submit"){
+    if(!d.locationId || (K.kind==="purchase" && !d.supplierId) || (K.kind!=="purchase" && !d.destId)){ DOC.err = K.kind==="purchase" ? "Choose the supplier and where it's delivered." : "Choose where it comes from and where it goes."; return render(); }
+    if(d.items.some(l => !(+l.qty > 0))){ DOC.err = "Enter a quantity for every item, or remove the empty rows."; return render(); }
+    if(K.kind==="transfer" && !confirm(`Send ${d.items.length} item${d.items.length===1?"":"s"} from ${locName(d.locationId)} to ${locName(d.destId)}? They're taken out of ${locName(d.locationId)} now.`)) return;
+    if(!(await saveDoc(true))) return;
+  }
+  if(action==="reject" && !confirm(`Reject ${d.ref}?`)) return;
+  let lines = null;
+  if(action==="receive"){
+    lines = d.items.map((l, ix) => ({ itemId:l.itemId, qty: +DOC.recv[ix].qty || 0, ...(K.kind==="purchase" ? { cost: +DOC.recv[ix].cost || 0 } : {}), ordered: +l.qty || 0 }));
+    const diff = lines.filter(x => x.qty !== x.ordered).length;
+    if(!confirm(`Receive into ${locName(K.kind==="transfer" ? d.destId : d.locationId)}?${diff ? ` ${diff} item${diff===1?"":"s"} differ from what was ${K.kind==="transfer"?"sent":"ordered"}.` : ""}`)) return;
+  }
+  DOC.busy = true; render();
+  const { data, error } = await WOK.sb.rpc("slick_doc_action", { p_id: d.id, p_action: action, p_by: state.fullName || state.userName || null, p_lines: lines });
+  DOC.busy = false;
+  if(error){ console.error(error); DOC.err = "Couldn't do that: " + error.message; return render(); }
+  if(action==="submit"){ d.status = "pending"; d.submittedAt = new Date().toISOString(); d.submittedBy = state.fullName || null; toast(K.kind==="transfer" ? "Transfer sent" : "Submitted"); }
+  if(action==="receive"){ d.status = "closed"; d.items = lines; d.receivedAt = new Date().toISOString(); d.receivedBy = state.fullName || null; toast("Received"); DOC.recv = null; }
+  if(action==="reject"){ d.status = "rejected"; toast("Rejected"); }
+  if(action==="fulfil"){ d.status = "closed"; d.linkedId = data?.transfer; d.receivedBy = state.fullName || null; d.receivedAt = new Date().toISOString(); toast("Transfer created as a draft. Check it and press Send.");
+    try{ await put("inv_docs", d.id, { linkedId: data?.transfer }); }catch(e){} }   // also reloads the list so the new transfer shows up
+  DASH.key = ""; IC.loaded = {}; DOC.stockAt = 0; loadStock(true); render();
+}
+document.addEventListener("click", e => {
+  const t = e.target;
+  const f = t.closest("[data-flow]"); if(f && DOC.open) return flowAction(f.dataset.flow);
+  const l = t.closest("[data-doclink]"); if(l){ e.preventDefault(); const [r, id] = l.dataset.doclink.split(":"); location.hash = r; setTimeout(() => openDoc(r, id), 80); }
+});
+document.addEventListener("input", e => {
+  const r = e.target.closest("[data-docrecv]"); if(!r || !DOC.recv) return;
+  const [ix, f] = r.dataset.docrecv.split(":"); DOC.recv[+ix][f] = e.target.value;
+  const tc = $(`[data-doctc="${ix}"]`); if(tc){ const x = DOC.recv[+ix]; tc.textContent = usd((+x.qty||0)*(+x.cost||0)); }
+});
+
+/* ---------- Order transactions: what each sale took out of stock ---------- */
+const OT = { kind:"", page:1, per:50, rows:[], count:0, loading:false, key:"", err:"" };
+async function loadOT(){
+  if(storeMode!=="db") return;
+  const key = [OT.kind, OT.page, state.branch].join("|"); if(OT.key===key) return; OT.key = key; OT.loading = true;
+  let q = WOK.sb.from("order_transactions").select("*", { count:"exact" }).order("created_at", { ascending:false }).range((OT.page-1)*OT.per, OT.page*OT.per-1);
+  if(OT.kind) q = q.eq("kind", OT.kind);
+  if(state.branch!=="all") q = q.eq("branch_id", state.branch);
+  const { data, error, count } = await q;
+  OT.loading = false;
+  if(error){ OT.err = error.message; console.error(error); } else { OT.rows = data || []; OT.count = count || 0; OT.err = ""; }
+  if(location.hash.slice(1)==="order-transactions") render();
+}
+function viewOrderTx(){
+  loadOT();
+  const tabs = [["","All"],["consumption","Consumption"],["return","Return"]];
+  const pages = Math.max(1, Math.ceil(OT.count/OT.per));
+  let h = `<div class="phead"><h1>Order Transactions</h1><div class="sp"></div><button class="btn" id="otRefresh">↻ Refresh</button></div>
+    <p class="subt" style="margin-top:-6px">Every completed sale takes its recipe ingredients (product and options, for its order type) out of the branch stock. Voided sales put them back.</p>
+    <div class="card tbl"><div class="ttop"><div class="ttabs">${tabs.map(t=>`<a href="#order-transactions" data-ottab="${t[0]}" class="${OT.kind===t[0]?"on":""}">${t[1]}</a>`).join("")}</div><div class="sp"></div><span class="note">${OT.loading?"Loading…":""}</span></div>`;
+  if(OT.err) h += `<div class="empty">${esc(OT.err)}</div>`;
+  else if(!OT.rows.length) h += `<div class="empty">${OT.loading ? "Loading…" : "No transactions yet. They appear as sales are completed for products that have ingredients."}</div>`;
+  else h += `<table><thead><tr><th>Reference</th><th>Branch</th><th>Order</th><th>Type</th><th class="num">Items</th><th class="num">Cost</th><th>Created</th></tr></thead><tbody>${OT.rows.map(r=>`<tr class="click" data-otopen="${esc(r.id)}">
+      <td><span class="code">${esc(r.ref)}</span></td><td>${esc(branchName(r.branch_id))}</td><td>#${esc(r.order_no||"")}</td>
+      <td>${r.kind==="return"?'<span class="tag off">Return from order</span>':'<span class="tag on">Consumption from order</span>'}</td><td class="num">${(r.items||[]).length}</td><td class="num">${fmtCost(r.total_cost)}</td><td>${fmtDate(r.created_at)}</td></tr>`).join("")}</tbody></table>`;
+  h += `<div class="pager"><span class="note">${OT.count} transaction${OT.count===1?"":"s"}</span><div class="sp"></div><button class="btn sm" data-otpage="-1" ${OT.page<=1?"disabled":""}>Previous</button><button class="btn sm" data-otpage="1" ${OT.page>=pages?"disabled":""}>Next</button></div></div>`;
+  return h;
+}
+function openOT(id){
+  const r = OT.rows.find(x=>x.id===id); if(!r) return;
+  $("#ccBox").innerHTML = `<header><h2>${r.kind==="return"?"Return":"Consumption"} from order (${esc(r.ref)})</h2><button type="button" class="x" data-ccclose aria-label="Close">×</button></header>
+    <div class="body"><p class="note">${esc(branchName(r.branch_id))} · Order #${esc(r.order_no||"")} · ${fmtDate(r.created_at)}</p>
+    <table><thead><tr><th>Name</th><th>SKU</th><th class="num">Quantity</th><th class="num">Unit cost</th><th class="num">Total cost</th></tr></thead><tbody>${(r.items||[]).map(x => { const it = itemOf(x.itemId) || {};
+      return `<tr><td>${esc(it.name||"(deleted item)")}</td><td><span class="code">${esc(it.sku||"")}</span></td><td class="num">${n2(x.qty)} ${esc(it.storageUnit||"")}</td><td class="num">${fmtCost(x.cost)}</td><td class="num">${fmtCost(x.qty*x.cost)}</td></tr>`; }).join("")}</tbody>
+    <tfoot><tr><td colspan="4"><b>Total</b></td><td class="num"><b>${fmtCost(r.total_cost)}</b></td></tr></tfoot></table></div>`;
+  $("#ccScrim").classList.add("show");
+}
+document.addEventListener("click", e => {
+  const t = e.target;
+  const tb = t.closest("[data-ottab]"); if(tb){ e.preventDefault(); OT.kind = tb.dataset.ottab; OT.page = 1; OT.key = ""; return render(); }
+  const pg = t.closest("[data-otpage]"); if(pg){ OT.page += +pg.dataset.otpage; OT.key = ""; return render(); }
+  if(t.id==="otRefresh"){ OT.key = ""; return render(); }
+  const op = t.closest("[data-otopen]"); if(op) return openOT(op.dataset.otopen);
+});
+
 /* ---------- Inventory documents: quantity & cost adjustments, spot checks, count sheets (Foodics "More") ---------- */
 const DOC_KINDS = {
   "quantity-adjustments": { kind:"quantity", title:"Quantity Adjustment", plural:"Quantity Adjustment", loc:1, intro:"Deduct waste, expired or damaged stock, or add stock found. Submitting updates the stock level of each item at the chosen branch or warehouse." },
   "cost-adjustments":     { kind:"cost", title:"Cost Adjustment", plural:"Cost Adjustment", intro:"Adjust your inventory value here by creating a cost adjustment transaction with the new cost of your inventory items." },
   "spot-check":           { kind:"spot", title:"Inventory Spot Check", plural:"Inventory Spot Check", loc:1, intro:"The spot check captures the count of items made by the audit team. It does not change the stock levels and is only used as a reference." },
+  "purchase-orders":      { kind:"purchase", title:"Purchase Order", plural:"Purchase Orders", loc:1, flow:1, intro:"Order stock from a supplier. Submit it when it's sent, then receive it when the goods arrive: receiving adds the quantities that actually arrived to the branch or warehouse and updates item costs." },
+  "transfer-orders":      { kind:"torder", title:"Transfer Order", plural:"Transfer Orders", loc:1, flow:1, intro:"A branch asks a warehouse (or another branch) for stock. The sender fulfils it by creating a transfer with the same items, which they can adjust before sending." },
+  "transfers":            { kind:"transfer", title:"Transfer", plural:"Transfers", loc:1, flow:1, intro:"Move stock between branches and warehouses. Sending takes it out of the source; receiving adds what actually arrived at the destination." },
   "production":           { kind:"production", title:"Production", plural:"Production", loc:1, intro:"Make produced items (sauces, prepped proteins, noodles…) from their ingredients. Submitting adds the produced quantity to the chosen branch or warehouse and takes out the ingredients used, based on each item's ingredient list." },
   "count-sheets":         { kind:"sheet", title:"Inventory Count Sheet", plural:"Count Sheet", intro:"A count sheet is a saved list of items. Pick it in Inventory Count, adjustments or spot checks to load just those items." }
 };
@@ -1772,7 +1932,8 @@ function viewDocs(route){
   const all = S.inv_docs.filter(d => d.kind===K.kind && live(d));
   const list = all.filter(d => tab==="all" || d.status===tab).filter(d => !q || ((d.ref||"")+" "+(d.name||"")+" "+locName(d.locationId)+" "+(d.reason||"")).toLowerCase().includes(q))
     .sort((a,b)=>String(b.createdAt).localeCompare(String(a.createdAt)));
-  const tabs = K.kind==="sheet" ? [] : [["all","All"],["draft","Draft"],["closed","Closed"]];
+  const tabs = K.kind==="sheet" ? [] : K.flow ? [["all","All"],["draft","Draft"],["pending","Pending"],["closed","Closed"],["rejected","Rejected"]] : [["all","All"],["draft","Draft"],["closed","Closed"]];
+  if(K.flow) return viewFlowList(route, K, tabs, all, list);
   const cols = K.kind==="sheet" ? [["Reference",d=>`<span class="code">${esc(d.ref||"…")}</span>`],["Name",d=>`<b>${esc(d.name||"—")}</b>`],["Items",d=>(d.items||[]).length,"num"],["Created At",d=>fmtDate(d.createdAt)]]
     : [["Reference",d=>`<span class="code">${esc(d.ref||"…")}</span>`], ...(K.loc?[["Branch",d=>esc(locName(d.locationId))]]:[]), ...(K.kind==="quantity"?[["Reason",d=>esc(d.reason||"—")+(d.direction==="add"?' <span class="tag on">Add</span>':"")]]:[]),
        ["Items",d=>(d.items||[]).length,"num"],["Status",d=>d.status==="closed"?'<span class="tag on">Closed</span>':'<span class="tag off">Draft</span>'],["Business Date",d=>esc(d.businessDate||"—")],["Created",d=>fmtDate(d.createdAt)]];
@@ -1788,16 +1949,19 @@ function viewDocs(route){
 function newDoc(route){
   const K = DOC_KINDS[route];
   DOC.edit = { id:null, kind:K.kind, status:"draft", items:[], businessDate:daysAgo(0), direction:"deduct", reason:K.kind==="quantity"?"Waste":"", locationId: K.loc ? (state.branch!=="all" ? state.branch : (locList()[0]||[])[0] || "") : "", name:"", notes:"" };
-  DOC.open = { route, id:null }; DOC.err = ""; if(K.loc || K.kind==="cost") loadStock(); render(); window.scrollTo(0,0);
+  if(K.kind==="torder") DOC.edit.destId = S.warehouses.filter(live)[0]?.id || "";
+  DOC.open = { route, id:null }; DOC.err = ""; DOC.recv = null; if(K.loc || K.kind==="cost") loadStock(); render(); window.scrollTo(0,0);
 }
 function openDoc(route, id){
   const d = S.inv_docs.find(x=>x.id===id); if(!d) return;
   DOC.edit = JSON.parse(JSON.stringify(d)); DOC.edit.items = Array.isArray(DOC.edit.items) ? DOC.edit.items : [];
-  DOC.open = { route, id }; DOC.err = ""; if(DOC_KINDS[route].loc) loadStock(); render(); window.scrollTo(0,0);
+  DOC.open = { route, id }; DOC.err = ""; DOC.recv = null; if(DOC_KINDS[route].loc) loadStock(); render(); window.scrollTo(0,0);
 }
 
 function viewDoc(route){
-  const K = DOC_KINDS[route], d = DOC.edit, ro = d.status==="closed", saved = d.id && S.inv_docs.find(x=>x.id===d.id);
+  const K = DOC_KINDS[route], d = DOC.edit, ro = d.status!=="draft", saved = d.id && S.inv_docs.find(x=>x.id===d.id);
+  const recv = K.flow && d.status==="pending" && K.kind!=="torder";
+  if(recv && !DOC.recv) DOC.recv = d.items.map(l => ({ qty: l.qty ?? "", cost: l.cost ?? itemOf(l.itemId)?.cost ?? "" }));
   if(d.id && saved && !DOC.busy && saved.ref && !d.ref) d.ref = saved.ref;
   if(ro && saved && Array.isArray(saved.consumed) && saved.consumed.length) d.consumed = saved.consumed;
   const loc = d.locationId, stockLoading = DOC.stock==="loading";
@@ -1806,22 +1970,25 @@ function viewDoc(route){
   const sheets = S.inv_docs.filter(x=>x.kind==="sheet" && live(x) && x.id!==d.id);
   const info = (l, v) => `<div><div class="note">${l}</div><div>${v}</div></div>`;
   let h = `<div class="phead"><a href="#${route}" class="btn" data-docback style="text-decoration:none">← Back</a><h1 style="margin-left:10px">${K.title}${d.ref?` (${esc(d.ref)})`:""}</h1>
-    ${K.kind!=="sheet" ? (ro?'<span class="tag on" style="margin-left:8px">Closed</span>':'<span class="tag off" style="margin-left:8px">Draft</span>') : ""}<div class="sp"></div>
+    ${K.kind!=="sheet" ? `<span style="margin-left:8px">${docStatusTag(d)}</span>` : ""}<div class="sp"></div>
     ${d.id ? `<button class="btn" data-docprint>Print</button>` : ""}
     ${d.id && !ro ? `<button class="btn danger" data-docdel>Delete</button>` : ""}
     ${!ro ? `<button class="btn" data-docsave ${DOC.busy?"disabled":""}>${K.kind==="sheet"?"Save":"Save draft"}</button>` : ""}
-    ${!ro && K.kind!=="sheet" ? `<button class="btn pri" data-docsubmit ${DOC.busy||!d.items.length?"disabled":""}>${DOC.busy?"Working…":"Submit"}</button>` : ""}</div>`;
+    ${!ro && K.kind!=="sheet" && !K.flow ? `<button class="btn pri" data-docsubmit ${DOC.busy||!d.items.length?"disabled":""}>${DOC.busy?"Working…":"Submit"}</button>` : ""}
+    ${K.flow ? flowButtons(d, K) : ""}</div>`;
   if(DOC.err) h += `<div class="banner" style="background:#fdecef;color:#9e0c24">${esc(DOC.err)}</div>`;
   // header fields
   if(ro){
     h += `<div class="card" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:14px;margin-bottom:16px">
-      ${K.loc?info("Branch", esc(locName(loc))):""}${K.kind==="quantity"?info("Reason", esc(d.reason||"—")+(d.direction==="add"?" (added)":" (deducted)")):""}
+      ${K.flow ? flowInfo(d, K, info) : `${K.loc?info("Branch", esc(locName(loc))):""}${K.kind==="quantity"?info("Reason", esc(d.reason||"—")+(d.direction==="add"?" (added)":" (deducted)")):""}
       ${info("Business Date", esc(d.businessDate||"—"))}${info("Creator", esc(d.createdBy||"—"))}${info("Submitter", esc(d.submittedBy||"—"))}
-      ${info("Submitted At", fmtDate(d.submittedAt))}${info("Created At", fmtDate(d.createdAt))}${info("Number of Items", d.items.length)}${d.notes?info("Notes", esc(d.notes)):""}</div>`;
+      ${info("Submitted At", fmtDate(d.submittedAt))}${info("Created At", fmtDate(d.createdAt))}${info("Number of Items", d.items.length)}${d.notes?info("Notes", esc(d.notes)):""}`}</div>`;
   } else {
     h += `<div class="card" style="margin-bottom:16px"><div class="grid2" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px">
       ${K.kind==="sheet" ? `<div class="f"><label for="dName">Name *</label><input id="dName" class="sel" value="${esc(d.name||"")}" placeholder="e.g. Branch Count Sheet"></div>` : ""}
-      ${K.loc ? `<div class="f"><label for="dLoc">Branch / warehouse *</label><select id="dLoc" class="sel"><option value="">Choose…</option>${locList().map(([k,t])=>`<option value="${esc(k)}" ${k===loc?"selected":""}>${esc(t)}</option>`).join("")}</select></div>` : ""}
+      ${K.kind==="purchase" ? `<div class="f"><label for="dSup">Supplier *</label><select id="dSup" class="sel"><option value="">Choose…</option>${S.suppliers.filter(live).sort((a,b)=>a.name.localeCompare(b.name)).map(x=>`<option value="${esc(x.id)}" ${x.id===d.supplierId?"selected":""}>${esc(x.name)}</option>`).join("")}</select>${S.suppliers.filter(live).length?"":'<div class="note">Add suppliers under Inventory → Suppliers.</div>'}</div>` : ""}
+      ${K.loc ? `<div class="f"><label for="dLoc">${K.kind==="purchase"?"Deliver to":K.kind==="torder"?"Requesting branch":K.kind==="transfer"?"From":"Branch / warehouse"} *</label><select id="dLoc" class="sel"><option value="">Choose…</option>${locList().map(([k,t])=>`<option value="${esc(k)}" ${k===loc?"selected":""}>${esc(t)}</option>`).join("")}</select></div>` : ""}
+      ${K.kind==="transfer"||K.kind==="torder" ? `<div class="f"><label for="dDest">${K.kind==="torder"?"Request from":"To"} *</label><select id="dDest" class="sel"><option value="">Choose…</option>${locList().filter(([k])=>k!==loc).map(([k,t])=>`<option value="${esc(k)}" ${k===d.destId?"selected":""}>${esc(t)}</option>`).join("")}</select></div>` : ""}
       ${K.kind==="quantity" ? `<div class="f"><label for="dReason">Reason</label><input id="dReason" class="sel" list="dReasonL" value="${esc(d.reason||"")}"><datalist id="dReasonL">${QA_REASONS.map(r=>`<option value="${esc(r)}">`).join("")}</datalist></div>
         <div class="f"><label for="dDir">Type</label><select id="dDir" class="sel"><option value="deduct" ${d.direction!=="add"?"selected":""}>Deduct from stock</option><option value="add" ${d.direction==="add"?"selected":""}>Add to stock</option></select></div>` : ""}
       ${K.kind!=="sheet" ? `<div class="f"><label for="dDate">Business date</label><input id="dDate" type="date" class="sel" value="${esc(d.businessDate||"")}"></div>` : ""}
@@ -1841,6 +2008,7 @@ function viewDoc(route){
     const del = ro ? "" : `<td><button class="btn sm" data-docrm="${ix}" aria-label="Remove ${esc(it.name)}">×</button></td>`;
     const qIn = (f, v, lbl) => ro ? n2(v) : `<input type="number" min="0" step="any" inputmode="decimal" class="sel" data-docl="${ix}:${f}" value="${esc(v ?? "")}" style="width:110px;text-align:right" aria-label="${lbl} of ${esc(it.name)}">`;
     const base = `<td><b>${esc(it.name)}</b></td><td><span class="code">${esc(it.sku||"")}</span></td>`;
+    if(K.flow) return flowRow(d, K, l, ix, it, base, del, qIn, ro, recv, cur, stockLoading);
     if(K.kind==="quantity"){
       const cost = ro && l.cost!=null ? +l.cost : +it.cost||0, q = +l.qty||0, now = Math.max(0, (cur||0) + (d.direction==="add"?q:-q));
       return `<tr>${base}<td>${esc(it.storageUnit||"—")}</td>${ro?"":`<td class="num">${stockLoading?"…":cur===undefined?'<span class="note">Not counted</span>':n2(cur)}</td>`}
@@ -1854,10 +2022,10 @@ function viewDoc(route){
         <td class="num" data-docvar="${ix}" style="${v<0?"color:var(--accent-ink);font-weight:600":""}">${v==null?"—":(v>0?"+":"")+n2(v)}</td>${del}</tr>`; }
     return `<tr>${base}<td>${esc(it.storageUnit||"—")}</td><td>${esc(it.ingredientUnit||"—")}</td>${del}</tr>`;
   });
-  const head = K.kind==="production" ? ["Name","SKU","Storage unit","Quantity","Unit cost","Total cost"] : K.kind==="quantity" ? ["Name","SKU","Storage unit",...(ro?[]:["Current qty"]),d.direction==="add"?"Added qty":"Deducted qty",...(ro?[]:["New qty"]),"Unit cost","Total cost"]
+  const head = K.flow ? flowHead(d, K, ro, recv) : K.kind==="production" ? ["Name","SKU","Storage unit","Quantity","Unit cost","Total cost"] : K.kind==="quantity" ? ["Name","SKU","Storage unit",...(ro?[]:["Current qty"]),d.direction==="add"?"Added qty":"Deducted qty",...(ro?[]:["New qty"]),"Unit cost","Total cost"]
     : K.kind==="cost" ? ["Name","SKU","Storage unit",ro?"Old cost":"Current cost","New cost"]
     : K.kind==="spot" ? ["Name","SKU","Storage unit","System qty","Counted qty","Variance"] : ["Name","SKU","Storage UOM","Ingredients UOM"];
-  const numCols = new Set(["Current qty","Deducted qty","Added qty","New qty","Unit cost","Total cost","Current cost","Old cost","New cost","System qty","Counted qty","Variance","Quantity"]);
+  const numCols = new Set(["Current qty","Deducted qty","Added qty","New qty","Unit cost","Total cost","Current cost","Old cost","New cost","System qty","Counted qty","Variance","Quantity","Ordered","Sent","Requested","Received","In stock at source"]);
   h += `<div class="card tbl"><div class="ttop"><b>Items</b><span class="note" style="margin-left:8px">${d.items.length}</span></div>`;
   h += d.items.length ? `<table><thead><tr>${head.map(c=>`<th class="${numCols.has(c)?"num":""}">${c}</th>`).join("")}${ro?"":"<th></th>"}</tr></thead><tbody>${rows.join("")}</tbody>
     ${K.kind==="quantity" ? (()=>{ const t = d.items.reduce((s,l)=>{ const it = itemOf(l.itemId)||{}; return s + (+l.qty||0) * (ro && l.cost!=null ? +l.cost : +it.cost||0); }, 0); return `<tfoot><tr><td colspan="${head.length-1}"><b>Total</b></td><td class="num"><b id="docTotal">${usd(t)}</b></td>${ro?"":"<td></td>"}</tr></tfoot>`; })() : ""}</table>`
@@ -1895,6 +2063,8 @@ function readDocHeader(){
   const v = id => $(id)?.value;
   if($("#dName")) d.name = v("#dName").trim();
   if($("#dLoc")) d.locationId = v("#dLoc");
+  if($("#dSup")) d.supplierId = v("#dSup");
+  if($("#dDest")) d.destId = v("#dDest");
   if($("#dReason")) d.reason = v("#dReason").trim();
   if($("#dDir")) d.direction = v("#dDir");
   if($("#dDate")) d.businessDate = v("#dDate") || null;
@@ -1915,9 +2085,11 @@ async function saveDoc(silent){
     if(K.kind==="cost"){ o.cost = l.cost===""||l.cost==null ? null : +l.cost; o.old = it.cost ?? null; }
     if(K.kind==="production"){ o.qty = l.qty===""||l.qty==null ? null : +l.qty; o.cost = +recipeCost(it.ingredients).toFixed(5); }
     if(K.kind==="spot"){ o.qty = l.qty===""||l.qty==null ? null : +l.qty; const s = stockOf(d.locationId, l.itemId); o.sys = s===undefined ? null : s; }
+    if(K.flow){ o.qty = l.qty===""||l.qty==null ? null : +l.qty; if(K.kind==="purchase") o.cost = l.cost===""||l.cost==null ? (+it.cost||0) : +l.cost; }
     return o;
   });
   const data = { kind:d.kind, name:d.name||null, locationId:d.locationId||null, reason:d.reason||null, direction:d.direction||"deduct", businessDate:d.businessDate||null, items, notes:d.notes||null };
+  if(K.flow){ data.supplierId = d.supplierId||null; data.destId = d.destId||null; }
   const id = d.id || uid("idoc");
   if(!d.id){ data.status = "draft"; data.createdBy = state.fullName || state.userName || null; }
   DOC.busy = true; DOC.err = "";
@@ -1991,7 +2163,7 @@ document.addEventListener("change", e => {
     if(!it){ if(v) toast("No item matches that name"); return; } readDocHeader(); docAddItems([it.id]); render(); setTimeout(()=>{ const q = document.querySelectorAll("[data-docl]"); q[q.length-1]?.focus(); }, 0); return; }
   if(t.id==="dAddCat" && t.value){ readDocHeader(); const n = docAddItems(S.inv_items.filter(i=>live(i)&&i.category===t.value).sort((a,b)=>a.name.localeCompare(b.name)).map(i=>i.id)); toast(`Added ${n} item${n===1?"":"s"}`); return render(); }
   if(t.id==="dAddSheet" && t.value){ readDocHeader(); const sh = S.inv_docs.find(x=>x.id===t.value); const n = docAddItems((sh?.items||[]).map(l=>l.itemId)); toast(`Added ${n} item${n===1?"":"s"}`); return render(); }
-  if(t.id==="dLoc" || t.id==="dDir"){ readDocHeader(); render(); }
+  if(t.id==="dLoc" || t.id==="dDir" || t.id==="dDest" || t.id==="dSup"){ readDocHeader(); render(); }
   if(t.closest("[data-docl]") && DOC.edit.kind==="production"){ readDocHeader(); render(); }
 });
 
