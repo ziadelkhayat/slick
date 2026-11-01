@@ -1485,7 +1485,9 @@ function viewCallCenter(){
     ${col.length ? col.map(ccCard).join("") : `<div class="bempty">You don't have ${t} orders</div>`}</div>`; }).join("")}</div>`;
   return h;
 }
-const ccCard = o => `<button class="ocard" data-order="${esc(o.id)}"><div class="orow"><b>#${esc(o.no)}</b><span class="spill s-${o.status}">${CC_SUB[o.status]}</span></div>
+// order number comes from the POS that bills the order; until then call-center / online orders go by invoice number
+const ordRef = o => o.no ? "#" + o.no : "Inv " + (o.invoiceNo || o.invoice_no || "—");
+const ccCard = o => `<button class="ocard" data-order="${esc(o.id)}"><div class="orow"><b>${esc(ordRef(o))}</b><span class="spill s-${o.status}">${CC_SUB[o.status]}</span></div>
   <div class="oline">${svgIco("users")}<span>${esc(o.customerName||"Guest")}<br><span class="note">${esc(o.phone||"")}</span></span></div>
   <div class="oline">${svgIco("dash")}<span class="note">Created ${ago(o.createdAt)}<br>Modified ${ago(o.updatedAt||o.createdAt)}</span></div>
   <div class="oline">${svgIco("phone")}<span>${esc(o.agent||"Operator")} · ${esc(o.source||"Phone")}</span></div>
@@ -1499,7 +1501,7 @@ function openOrder(id){
   ccEdit = o ? o.id : null; cart = o ? o.items.map(i=>({...i})) : [];
   const ro = !ccEditable(o), dis = ro ? "disabled" : "";
   const box = $("#ccBox"); box.className = "modal ccfull";
-  box.innerHTML = `<header><h2>${o?`Order #${esc(o.no)} <span class="spill s-${o.status}">${CC_SUB[o.status]}</span>`:"New Call Center Order"}</h2>
+  box.innerHTML = `<header><h2>${o?`Order ${esc(ordRef(o))} <span class="spill s-${o.status}">${CC_SUB[o.status]}</span>`:"New Call Center Order"}</h2>
     ${o && !ro && o.status!=="draft" ? `<span class="note">Changes go straight to ${esc(branchName(o.branchId))}</span>` : ""}<button type="button" class="x" data-ccclose aria-label="Close">×</button></header>
   <div class="ccx">
    <section class="ccleft">
@@ -1583,8 +1585,8 @@ async function saveOrder(status){
   if(o && o.status!=="draft" && !ccEditable(S.orders.find(x=>x.id===ccEdit))){ $("#oErr").textContent = "The branch already closed this order, so it can't be changed."; return; }
   const data = { brandId, phone, customerName:name, source:$("#oSource").value, type, address: type==="delivery" ? $("#oAddr").value.trim() : "",
     branchId, notes:$("#oNotes").value.trim(), items:cart, total: +cart.reduce((a,i)=>a+i.price*i.qty,0).toFixed(2), status };
-  if(!ccEdit){ if(storeMode!=="db") data.no = String(Math.max(0, ...S.orders.map(o=>+o.no||0)) + 1); data.agent = state.userName || "Operator"; data.channel = "callcenter"; }
-  try{ await put("orders", ccEdit, data); toast(o && o.status!=="draft" ? `Order #${o.no} updated · ${branchName(branchId)} sees the changes` : status==="pending" ? `Order sent to ${branchName(branchId)}` : "Draft saved"); $("#ccScrim").classList.remove("show"); }
+  if(!ccEdit){ data.agent = state.userName || "Operator"; data.channel = "callcenter"; }
+  try{ await put("orders", ccEdit, data); toast(o && o.status!=="draft" ? `Order ${ordRef(o)} updated · ${branchName(branchId)} sees the changes` : status==="pending" ? `Order sent to ${branchName(branchId)}` : "Draft saved"); $("#ccScrim").classList.remove("show"); }
   catch(err){ console.error(err); $("#oErr").textContent = "Couldn't save the order."; }
 }
 async function setOrderStatus(s){
@@ -1811,7 +1813,7 @@ function viewOrders(){
   </div>
   <div class="card tbl otbl"><div class="ttop"><div class="ttabs">${ORD_TABS.map(([k,t])=>`<a href="#orders" data-otab="${k}" class="${ORD.tab===k?"on":""}">${t} <span class="note">${ORD.counts[k] ?? ""}</span></a>`).join("")}</div><span class="sp"></span><span class="note">${ORD.loading ? "Loading…" : ""}</span></div>
   ${ORD.err ? `<p class="note" style="padding:16px">Couldn't load orders: ${esc(ORD.err)}</p>` : `<table><thead><tr><th>Order #</th><th>Invoice #</th><th>Brand</th><th>Branch</th><th>Customer</th><th>Status</th><th>Channel</th><th>Source</th><th>Type</th><th>Opened at</th><th class="num">Total</th></tr></thead><tbody>${
-    ORD.rows.length ? ORD.rows.map(o => `<tr class="clk" data-oid="${esc(o.id)}"><td><b>#${esc(o.no)}</b></td><td>${o.invoiceNo ? esc(o.invoiceNo) : '<span class="note">—</span>'}</td>
+    ORD.rows.length ? ORD.rows.map(o => `<tr class="clk" data-oid="${esc(o.id)}"><td>${o.no ? `<b>#${esc(o.no)}</b>` : '<span class="note" title="Gets its number when a POS bills it">—</span>'}</td><td>${o.invoiceNo ? esc(o.invoiceNo) : '<span class="note">—</span>'}</td>
       <td>${esc(brandName(o.brandId) || "—")}</td><td>${esc(branches.find(x=>x.id===o.branchId)?.name || "—")}</td>
       <td>${esc(o.customerName || "—")}${o.phone?`<div class="note">${esc(o.phone)}</div>`:""}</td><td><span class="spill s-${o.status}">${ORD_ST[o.status]||o.status}</span></td>
       <td><span class="tag cc">${esc(CH_LBL[o.channel] || cap(o.channel))}</span></td><td>${esc(o.source || "—")}</td><td>${esc(ordTypeLbl(o.type))}${o.table?` · T${esc(o.table)}`:""}</td>
@@ -1829,7 +1831,7 @@ async function openOrderDetail(id, quiet){
   const admin = ["owner","admin"].includes(state.role);
   const items = Array.isArray(o.items) ? o.items : [];
   const box = $("#ccBox"); box.className = "modal wide";
-  box.innerHTML = `<header><h2>Order #${esc(o.no)} <span class="spill s-${o.status}">${ORD_ST[o.status]||o.status}</span></h2><button type="button" class="x" data-ccclose aria-label="Close">×</button></header>
+  box.innerHTML = `<header><h2>Order ${esc(ordRef(o))} <span class="spill s-${o.status}">${ORD_ST[o.status]||o.status}</span></h2><button type="button" class="x" data-ccclose aria-label="Close">×</button></header>
   <div style="padding:18px 22px;max-height:72vh;overflow:auto">
     <div class="odet">
       <div><span>Invoice</span>${esc(o.invoiceNo || "—")}</div>
@@ -1865,8 +1867,8 @@ async function openOrderDetail(id, quiet){
 async function orderAction(st){
   const o = window.__ordOpen; if(!o) return;
   const patch = { status: st, updated_at: new Date().toISOString(), handled_by: state.fullName || state.userName || null };
-  if(st==="void"){ const why = prompt(`Void order #${o.no}? It will be removed from sales. Reason:`); if(why===null) return; if(!why.trim()) return toast("Please give a reason to void"); patch.void_reason = why.trim(); patch.voided_by = state.fullName || state.userName || null; delete patch.handled_by; }
-  if(st==="declined" && !confirm(`Decline order #${o.no}?`)) return;
+  if(st==="void"){ const why = prompt(`Void order ${ordRef(o)}? It will be removed from sales. Reason:`); if(why===null) return; if(!why.trim()) return toast("Please give a reason to void"); patch.void_reason = why.trim(); patch.voided_by = state.fullName || state.userName || null; delete patch.handled_by; }
+  if(st==="declined" && !confirm(`Decline order ${ordRef(o)}?`)) return;
   const { error } = await WOK.sb.from("orders").update(patch).eq("id", o.id);
   if(error){ console.error(error); return toast("Couldn't update: " + error.message); }
   toast(st==="active"?"Order accepted":st==="closed"?"Order marked done":st==="declined"?"Order declined":"Order voided");
@@ -1876,9 +1878,9 @@ function printOrder(){
   const o = window.__ordOpen; if(!o) return;
   const items = Array.isArray(o.items) ? o.items : [], b = branches.find(x=>x.id===o.branchId);
   const w = window.open("", "_blank", "width=380,height=640"); if(!w) return toast("Allow pop-ups to print");
-  w.document.write(`<!doctype html><title>Order #${esc(o.no)}</title><style>body{font:13px/1.4 monospace;width:72mm;margin:0 auto;padding:8px}h2,p.c{text-align:center;margin:4px 0}table{width:100%;border-collapse:collapse}td{padding:2px 0}td.r{text-align:right}hr{border:0;border-top:1px dashed #000}</style>
+  w.document.write(`<!doctype html><title>Order ${esc(ordRef(o))}</title><style>body{font:13px/1.4 monospace;width:72mm;margin:0 auto;padding:8px}h2,p.c{text-align:center;margin:4px 0}table{width:100%;border-collapse:collapse}td{padding:2px 0}td.r{text-align:right}hr{border:0;border-top:1px dashed #000}</style>
     <h2>${esc((brandName(o.brandId)!=="—"?brandName(o.brandId):"Slick").toUpperCase())}</h2><p class="c">${esc(b?.name||"")}</p><hr>
-    <p>Order #${esc(o.no)} · ${esc(ordTypeLbl(o.type))}${o.table?" T"+esc(o.table):""}<br>${new Date(o.createdAt).toLocaleString("en-GB")}${o.customerName?"<br>"+esc(o.customerName):""}${o.phone?" · "+esc(o.phone):""}${o.address?"<br>"+esc(o.address):""}</p><hr>
+    <p>Order ${esc(ordRef(o))} · ${esc(ordTypeLbl(o.type))}${o.table?" T"+esc(o.table):""}<br>${new Date(o.createdAt).toLocaleString("en-GB")}${o.customerName?"<br>"+esc(o.customerName):""}${o.phone?" · "+esc(o.phone):""}${o.address?"<br>"+esc(o.address):""}</p><hr>
     <table>${items.map(i=>`<tr><td>${+i.qty||1} x ${esc(i.name)}${i.mods?`<br>&nbsp;&nbsp;+ ${esc(i.mods)}`:""}</td><td class="r">${((+i.qty||1)*(+i.price||0)).toFixed(2)}</td></tr>`).join("")}</table><hr>
     <table><tr><td>Subtotal</td><td class="r">${(+(o.subtotal ?? o.total)||0).toFixed(2)}</td></tr>${+o.discount?`<tr><td>Discount</td><td class="r">-${(+o.discount).toFixed(2)}</td></tr>`:""}${+o.deliveryFee?`<tr><td>Delivery</td><td class="r">${(+o.deliveryFee).toFixed(2)}</td></tr>`:""}<tr><td><b>TOTAL USD</b></td><td class="r"><b>${(+o.total||0).toFixed(2)}</b></td></tr>${o.payment?`<tr><td>Paid (${esc(o.payment.method)})</td><td class="r">${(+o.payment.tendered||+o.total||0).toFixed(2)}</td></tr>`:""}</table>
     ${o.status==="void"?"<h2>*** VOID ***</h2>":""}<hr><p class="c">Thank you!</p><script>window.onload=()=>{window.print();}<\/script>`);
@@ -1958,7 +1960,7 @@ async function openCustomer(id){
   let c = { id:null, phone:"", name:"", email:"", birthday:null, notes:"", tags:[], blacklisted:false, addresses:[] }, orders = [];
   if(id){
     const [r1, r2] = await Promise.all([WOK.sb.from("customers").select("*").eq("id", id).maybeSingle(),
-      WOK.sb.from("orders").select("id,no,created_at,branch_id,channel,type,status,total").eq("customer_id", id).order("created_at", { ascending:false }).limit(100)]);
+      WOK.sb.from("orders").select("id,no,invoice_no,created_at,branch_id,channel,type,status,total").eq("customer_id", id).order("created_at", { ascending:false }).limit(100)]);
     if(r1.error || !r1.data) return toast("Couldn't open this customer");
     c = r1.data; orders = r2.data || [];
   }
@@ -1980,7 +1982,7 @@ async function openCustomer(id){
     </div>
     ${(c.addresses||[]).length ? `<h3 style="font-size:14px;margin:0 0 6px">Saved addresses</h3>${c.addresses.map((a,i)=>`<div class="note" style="margin-bottom:4px">${esc(a.address)} ${a.lat?mapLink(a):""} <a href="#customers" class="lnk" data-deladdr="${i}">Remove</a></div>`).join("")}` : ""}
     ${id ? `<h3 style="font-size:14px;margin:14px 0 6px">Order history</h3><div class="card tbl otbl"><table><thead><tr><th>Order</th><th>Date</th><th>Branch</th><th>Channel</th><th>Status</th><th class="num">Total</th></tr></thead><tbody>${
-      orders.length ? orders.map(o=>`<tr class="clk" data-coid="${esc(o.id)}"><td><b>#${esc(o.no)}</b></td><td>${dt(o.created_at)}</td><td>${esc(branchName(o.branch_id) || "—")}</td><td>${esc(CH_LBL[o.channel]||cap(o.channel))}</td><td><span class="spill s-${o.status}">${ORD_ST[o.status]||o.status}</span></td><td class="num">${money(+o.total||0)}</td></tr>`).join("")
+      orders.length ? orders.map(o=>`<tr class="clk" data-coid="${esc(o.id)}"><td><b>${esc(ordRef(o))}</b></td><td>${dt(o.created_at)}</td><td>${esc(branchName(o.branch_id) || "—")}</td><td>${esc(CH_LBL[o.channel]||cap(o.channel))}</td><td><span class="spill s-${o.status}">${ORD_ST[o.status]||o.status}</span></td><td class="num">${money(+o.total||0)}</td></tr>`).join("")
       : `<tr><td colspan="6" class="note">No orders yet.</td></tr>`}</tbody></table></div>` : ""}
     <div class="err" id="cuErr"></div>
   </div>

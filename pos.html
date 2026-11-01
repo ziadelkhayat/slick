@@ -285,7 +285,7 @@ const bizDate = (t = new Date()) => { const d = new Date(+new Date(t) - dayCut()
 function nextOrderNo(){
   const day = bizDate(), key = "slickNo_" + device.id; let c = {}; try{ c = JSON.parse(store.get(key) || "{}"); }catch(e){}
   let n = c.day===day ? +c.n||0 : 0;
-  S.orders.forEach(o => { if(o.deviceId===device.id && o.channel==="pos" && bizDate(o.createdAt)===day) n = Math.max(n, +o.no||0); });   // survives a reinstall
+  S.orders.forEach(o => { if(o.deviceId===device.id && o.no && bizDate(o.createdAt)===day) n = Math.max(n, +o.no||0); });   // survives a reinstall
   n++; store.set(key, JSON.stringify({ day, n })); return String(n);
 }
 /* ---------- tax (prices include it) ---------- */
@@ -376,7 +376,8 @@ $("#modal").addEventListener("click", async e => {
   const pm = e.target.closest("[data-pm]"); if(pm){ payMethod = payMethods().find(m=>m.id===pm.dataset.pm); document.querySelectorAll("[data-pm]").forEach(b=>b.classList.toggle("on", b===pm)); $("#cashBox").style.display = payMethod?.type==="cash" ? "" : "none"; updChange(); return; }
   const qk = e.target.closest("[data-qk]"); if(qk){ $("#tender").value = qk.dataset.qk; updChange(); return; }
   if(e.target.closest("#confirmPay")) return completeSale();
-  const ia = e.target.closest("[data-inc]"); if(ia){ if(!can("pos_incoming")) return deny("handling incoming orders"); const [id,s] = ia.dataset.inc.split(":"); try{ await db.collection("orders").doc(id).update({ status:s, updatedAt:new Date().toISOString(), handledBy:cashier?.name || device.name }); toast(s==="active"?"Order accepted · sent to kitchen":s==="declined"?"Order declined":"Order completed"); }catch(err){ console.error(err); toast("Couldn't update the order"); } return; }
+  const ia = e.target.closest("[data-inc]"); if(ia){ if(!can("pos_incoming")) return deny("handling incoming orders"); const [id,s] = ia.dataset.inc.split(":"); try{ const o = S.orders.find(x=>x.id===id), bill = (s==="active" || s==="closed") && o && !o.no ? { no: nextOrderNo(), deviceId: device.id } : {};   // this register bills it, so it numbers it
+    await db.collection("orders").doc(id).update({ status:s, updatedAt:new Date().toISOString(), handledBy:cashier?.name || device.name, ...bill }); toast(s==="active"?(bill.no ? "Order #"+bill.no+" accepted · sent to kitchen" : "Order accepted · sent to kitchen"):s==="declined"?"Order declined":"Order completed"); }catch(err){ console.error(err); toast("Couldn't update the order"); } return; }
   if(e.target.closest("#doOpenShift")) return doOpenShift();
   if(e.target.closest("#doCloseShift")) return doCloseShift();
   if(e.target.closest("#deact")){ store.set("wokDevice", null); location.reload(); }
@@ -437,7 +438,7 @@ $("#incomingBtn").addEventListener("click", openIncoming);
 function openIncoming(){
   const list = incoming().sort((a,b)=>(a.status==="pending"?0:1)-(b.status==="pending"?0:1) || b.createdAt.localeCompare(a.createdAt));
   modal("incoming", `<div class="mh"><h2>Incoming orders · ${esc(branch?.name||"")}</h2><button class="x" data-close aria-label="Close">×</button></div><div class="mb"><div class="ilist">${
-    list.length ? list.map(o=>`<div class="icard"><div class="r"><b>#${esc(o.no)} · ${esc(o.source||"Call center")}</b><span class="spill s-${o.status}">${o.status==="pending"?"Waiting for you":"In kitchen"}</span></div>
+    list.length ? list.map(o=>`<div class="icard"><div class="r"><b>${o.no ? "#"+esc(o.no) : "Inv "+esc(o.invoiceNo||"—")} · ${esc(o.source||"Call center")}</b><span class="spill s-${o.status}">${o.status==="pending"?"Waiting for you":"In kitchen"}</span></div>
       <div class="mut">${esc(o.customerName||"Guest")} · ${esc(o.phone||"")} · ${o.type==="pickup"?"Pickup":"Delivery"}${o.address?" · "+esc(o.address):""}</div>
       <div>${o.items.map(i=>`${i.qty} × ${esc(i.name)}${i.mods?` <span class="mut">(${esc(i.mods)})</span>`:""}`).join(", ")}</div>${o.notes?`<div class="mut">Note: ${esc(o.notes)}</div>`:""}${o.lat?`<div><a href="https://www.google.com/maps?q=${o.lat},${o.lng}" target="_blank" rel="noopener" style="color:#5b2bc4">📍 Open pinned location</a></div>`:""}
       <div class="r"><b>${usd(o.total)}</b><span>${o.status==="pending" ? `<button class="btn bad" data-inc="${esc(o.id)}:declined">Decline</button> <button class="btn pri" data-inc="${esc(o.id)}:active">Accept</button>` : `<button class="btn pri" data-inc="${esc(o.id)}:closed">Mark done</button>`}</span></div></div>`).join("")
