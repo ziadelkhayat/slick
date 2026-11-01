@@ -1891,8 +1891,8 @@ function ccActions(o){
   if(!o || o.status==="draft") return `<button type="button" class="btn" data-osave="draft">Save as Draft</button><button type="button" class="btn pri" data-osave="pending">Send to Branch</button>`;
   const b = [];
   if(ccEditable(o)) b.push(`<button type="button" class="btn pri" data-osave="keep">Save changes</button>`);
-  if(o.status==="pending") b.push(`<button type="button" class="btn" data-ostatus="active">Branch accepted</button>`, `<button type="button" class="btn danger" data-ostatus="declined">Decline</button>`);
-  if(o.status==="active") b.push(`<button type="button" class="btn" data-ostatus="closed">Mark done</button>`);
+  // the branch accepts and completes orders on its POS; the call center can only cancel one the branch hasn't accepted yet
+  if(o.status==="pending") b.push(`<button type="button" class="btn danger" data-ostatus="declined">Cancel order</button>`);
   if(o.status==="declined") b.push(`<button type="button" class="btn" data-ostatus="draft">Back to draft</button>`);
   if(!b.length) b.push(`<button type="button" class="btn" data-ccclose>Close</button>`);
   return b.join("");
@@ -1971,6 +1971,7 @@ async function saveOrder(status){
   catch(err){ console.error(err); $("#oErr").textContent = "Couldn't save the order."; }
 }
 async function setOrderStatus(s){
+  if(s==="active" || s==="closed") return toast("Only the branch can accept or close an order, on its POS.");
   try{ await put("orders", ccEdit, { status: s }); toast("Order " + CC_SUB[s].toLowerCase()); $("#ccScrim").classList.remove("show"); }
   catch(err){ console.error(err); $("#oErr").textContent = "Couldn't update the order."; }
 }
@@ -2305,13 +2306,13 @@ async function openOrderDetail(id, quiet){
     ${o.status==="void"?`<p style="color:#9e0c24"><b>Voided</b> ${dt(o.voidedAt)}${o.voidedBy?` by ${esc(o.voidedBy)}`:""}${o.voidReason?` — ${esc(o.voidReason)}`:""}</p>`:""}
   </div>
   <footer><button type="button" class="btn" data-oprint="${esc(o.id)}">Print receipt</button><span style="flex:1"></span>
-    ${o.status==="pending"?`<button type="button" class="btn bad" data-oact="declined">Decline</button><button type="button" class="btn pri" data-oact="active">Accept</button>`:""}
-    ${o.status==="active"?`<button type="button" class="btn pri" data-oact="closed">Mark done</button>`:""}
+    ${["pending","active"].includes(o.status)?`<span class="note">The branch accepts and closes this order on its POS.</span>`:""}
     <button type="button" class="btn" data-ccclose>Close</button></footer>`;
   window.__ordOpen = o;
   $("#ccScrim").classList.add("show");
 }
 async function orderAction(st){
+  if(arguments[0]==="active" || arguments[0]==="closed") return toast("Only the branch can accept or close an order, on its POS.");
   const o = window.__ordOpen; if(!o) return;
   const patch = { status: st, updated_at: new Date().toISOString(), handled_by: state.fullName || state.userName || null };
   if(st==="void"){ const why = prompt(`Void order ${ordRef(o)}? It will be removed from sales. Reason:`); if(why===null) return; if(!why.trim()) return toast("Please give a reason to void"); patch.void_reason = why.trim(); patch.voided_by = state.fullName || state.userName || null; delete patch.handled_by; }
