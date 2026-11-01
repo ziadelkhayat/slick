@@ -354,11 +354,19 @@ tr.grp td{background:var(--bg,#f6f6fa);font-size:13px;padding-top:12px}
 tr.off td:first-child b{color:var(--ink3,#8d8c98);text-decoration:line-through}
 tr.chg td:first-child{box-shadow:inset 3px 0 0 var(--accent)}
 .multi .mhead{grid-column:1/-1;flex-basis:100%;width:100%;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink3,#8d8c98);margin:8px 0 2px}
+.acct{position:relative}.acctbtn{display:flex;align-items:center;gap:9px;border:1px solid transparent;background:none;border-radius:999px;padding:3px 10px 3px 3px;font:inherit;font-weight:600;color:var(--ink);cursor:pointer}
+.acctbtn:hover,.acctbtn[aria-expanded="true"]{background:var(--surface);border-color:var(--line)}.acctbtn .chev{font-size:11px;color:var(--ink3,#8d8c98)}
+.acctmenu{position:absolute;right:0;top:calc(100% + 8px);min-width:250px;background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:0 14px 40px rgba(20,18,40,.16);padding:6px;z-index:40;display:flex;flex-direction:column}
+.acctmenu[hidden]{display:none}.acchead{display:flex;flex-direction:column;padding:10px 12px 12px;border-bottom:1px solid var(--line);margin-bottom:4px}
+.acctmenu a,.acctmenu button{display:block;text-align:left;padding:9px 12px;border-radius:9px;color:var(--ink);text-decoration:none;font:inherit;font-size:14px;background:none;border:0;cursor:pointer}
+.acctmenu a:hover,.acctmenu button:hover{background:var(--bg,#f4f3f8)}.acctmenu #amSignOut{color:#b42318;border-top:1px solid var(--line);border-radius:0 0 9px 9px;margin-top:4px}
+@media(max-width:700px){#who{display:none}}
+a.btn{text-decoration:none}
 </style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="wokdb.js?v=16"></script>
+<script src="wokdb.js?v=17"></script>
 <script src="modpick.js?v=2"></script>
 </head>
 <body>
@@ -374,7 +382,12 @@ tr.chg td:first-child{box-shadow:inset 3px 0 0 var(--accent)}
       <select class="sel" id="branchSel" aria-label="Branch filter"></select>
       <span class="pill" id="syncPill" hidden>Connecting…</span>
       <div class="sp"></div>
-      <span class="avatar" id="avatar" aria-hidden="true">S</span><span class="note" id="who"></span><button class="btn sm" id="signOut" type="button"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4h4v16h-4M10 17l5-5-5-5M15 12H3"/></svg>Sign out</button>
+      <div class="acct"><button type="button" class="acctbtn" id="acctBtn" aria-haspopup="menu" aria-expanded="false"><span class="avatar" id="avatar" aria-hidden="true">S</span><span id="who"></span><span class="chev" aria-hidden="true">▾</span></button>
+        <div class="acctmenu" id="acctMenu" role="menu" hidden>
+          <div class="acchead"><b id="amName">—</b><span class="note" id="amEmail"></span><span class="tag on" id="amRole" style="margin-top:6px;align-self:flex-start">Owner</span></div>
+          <a href="#account" role="menuitem">Account settings</a><a href="#company" role="menuitem" data-ownr>Business settings</a><a href="#users" role="menuitem" data-ownr>Users</a><a href="#roles" role="menuitem" data-ownr>Roles</a>
+          <button type="button" role="menuitem" id="amSignOut">Sign out</button>
+        </div></div><button class="btn sm" id="signOut" type="button" style="display:none"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4h4v16h-4M10 17l5-5-5-5M15 12H3"/></svg>Sign out</button>
     </div>
     <div class="content" id="view"></div>
   </div>
@@ -448,7 +461,7 @@ const NAV = [
   {t:"Manage",i:"gear",kids:[["company","Company"],["users","Users"],["roles","Roles"],["brands","Brands"],["branches","Branches"],["devices","Devices"],["taxes","Taxes & Groups"],["payment-methods","Payment Methods"],["order-sources","Order Sources"],["charges","Charges"],["delivery-zones","Delivery Zones"],["online-ordering","Online Ordering"],["kitchen-flows","Kitchen Flows"],["reasons","Reasons"],["settings","Settings"]]},
   {t:"Marketing",i:"tag",kids:[["loyalty","Loyalty"],["gift-cards","Gift Cards"],["discounts","Discounts"],["promotions","Promotions"],["coupons","Coupons"]]}
 ];
-const TITLES = {};
+const TITLES = { account:"Account settings" };
 NAV.forEach(n => { if(n.id) TITLES[n.id]=n.t; (n.kids||[]).forEach(k => { if(!k[0].startsWith("@")) TITLES[k[0]] = k[1]; }); });
 const svgIco = k => `<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${I[k]||""}</svg>`;
 /* ---------- icons for every screen (lucide-style strokes) ---------- */
@@ -584,7 +597,7 @@ async function initStore(){
     if(!window.claude || !window.claude.use) { clearTimeout(timer); return fallback(); }
     db = await window.claude.use("db");
     if(!db){ clearTimeout(timer); return fallback(); }
-    try{ const user = await window.claude.use("user"); if(user){ const n = await user.name?.(); if(n){ $("#who").textContent = n; $("#avatar").textContent = String(n).trim().split(/\s+/).map(w=>w[0]).join("").slice(0,2).toUpperCase(); state.userName = String(n).split(" ")[0]; } state.role = await user.role?.(); state.userId = await user.id?.(); state.fullName = n || ""; } }catch(e){}
+    try{ const user = await window.claude.use("user"); if(user){ const n = await user.name?.(); if(n){ $("#who").textContent = n; $("#avatar").textContent = String(n).trim().split(/\s+/).map(w=>w[0]).join("").slice(0,2).toUpperCase(); state.userName = String(n).split(" ")[0]; } state.role = await user.role?.(); state.userId = await user.id?.(); state.email = await user.email?.() || ""; state.fullName = n || ""; paintAcct(); } }catch(e){}
     col = db.collection("branches");
     subscribeAll();
     col.onSnapshot(snap => {
@@ -1736,6 +1749,7 @@ function moduleRoute(route){
   if(route==="call-center") return viewCallCenter();
   if(route==="devices") return viewDevices();
   if(route==="online-ordering") return viewOnline();
+  if(route==="account") return viewAccount();
   if(route==="branch-menu") return viewBranchMenu();
   if(route==="inventory-count") return viewInventoryCount();
   if(route==="orders") return viewOrders();
@@ -2053,6 +2067,44 @@ document.addEventListener("click", e => {
   const co = e.target.closest("tr[data-coid]"); if(co) return openOrderDetail(co.dataset.coid);
 });
 
+
+/* ---------- Account (top-right name, like Foodics): the signed-in user's own settings ---------- */
+const ROLE_LBL = { owner:"Owner · full access", admin:"Admin", agent:"Staff", cashier:"Cashier" };
+function paintAcct(){
+  const n = state.fullName || state.userName || "Account";
+  $("#who").textContent = n; $("#amName").textContent = n; $("#amEmail").textContent = state.email || "";
+  $("#amRole").textContent = ROLE_LBL[state.role] || (state.role ? cap(state.role) : "Preview");
+  document.querySelectorAll("#acctMenu [data-ownr]").forEach(a => a.hidden = !canOpen("company"));
+}
+$("#acctBtn").addEventListener("click", e => { e.stopPropagation(); const m = $("#acctMenu"), open = m.hidden; m.hidden = !open; $("#acctBtn").setAttribute("aria-expanded", open); });
+document.addEventListener("click", e => { if(!e.target.closest(".acct")) { $("#acctMenu").hidden = true; $("#acctBtn").setAttribute("aria-expanded", "false"); } else if(e.target.closest("#acctMenu a")) $("#acctMenu").hidden = true; });
+$("#amSignOut").addEventListener("click", () => window.WOK && WOK.user.signOut());
+function viewAccount(){
+  const owner = state.role==="owner", n = state.fullName || "";
+  return `<div class="phead"><h1>Account settings</h1><div class="sp"></div><button class="btn pri" id="acSave">Save changes</button></div>
+    <div class="grid" style="grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;align-items:start">
+    <div class="card"><h3 style="margin:0 0 12px;font-size:15px">Profile</h3>
+      <div class="f" style="margin-bottom:12px"><label for="acName">Name</label><input id="acName" class="sel" value="${esc(n)}"></div>
+      <div class="f" style="margin-bottom:12px"><label>Email (sign-in)</label><input class="sel" value="${esc(state.email||"")}" disabled></div>
+      <div class="f"><label>Password</label><div><button type="button" class="btn" id="acReset">Email me a password reset link</button></div><div class="note" style="margin-top:6px">You set the new password yourself from the link; Slick never sees it.</div></div>
+      <div class="err" id="acErr"></div></div>
+    <div class="card"><h3 style="margin:0 0 12px;font-size:15px">Access</h3>
+      ${owner ? `<p style="margin:0 0 8px"><span class="tag on">Owner</span> <b>Super user</b></p><p class="note" style="margin:0 0 12px">This account owns the business: it sees every brand, branch and screen and can change everything, including users, roles and permissions. Roles never restrict the owner.</p>`
+        : `<p style="margin:0 0 8px"><span class="tag">${esc(ROLE_LBL[state.role] || state.role || "—")}</span></p><p class="note" style="margin:0 0 12px">Your access comes from your role. Ask the owner to change it.</p>`}
+      ${canOpen("company") ? `<div style="display:flex;flex-wrap:wrap;gap:8px"><a class="btn" href="#company">Business settings</a><a class="btn" href="#users">Users</a><a class="btn" href="#roles">Roles</a><a class="btn" href="#brands">Brands</a><a class="btn" href="#branches">Branches</a></div>` : ""}
+    </div></div>`;
+}
+async function saveAccount(){
+  const name = ($("#acName")?.value || "").trim(); if(!name){ $("#acErr").textContent = "Enter your name."; return; }
+  try{ const { error } = await WOK.sb.from("staff").update({ name }).eq("user_id", state.userId); if(error) throw error;
+    await WOK.sb.from("staff_users").update({ name }).eq("user_id", state.userId);
+    state.fullName = name; state.userName = name.split(" ")[0]; $("#avatar").textContent = name.split(/\s+/).map(w=>w[0]).join("").slice(0,2).toUpperCase(); paintAcct(); toast("Account saved"); }
+  catch(e){ console.error(e); $("#acErr").textContent = "Couldn't save your name. Only the owner can change account names; ask them under Manage → Users."; }
+}
+document.addEventListener("click", async e => {
+  if(e.target.closest("#acSave")) return saveAccount();
+  if(e.target.closest("#acReset")){ if(!state.email) return; const { error } = await WOK.sb.auth.resetPasswordForEmail(state.email, { redirectTo: location.href.split("#")[0] }); toast(error ? "Couldn't send the email: " + error.message : "Password reset link sent to " + state.email); }
+});
 
 /* ---------- Company: the business that owns every brand and branch ---------- */
 const CURRENCIES = [["USD","US Dollar (USD)"],["LBP","Lebanese Pound (LBP)"],["EUR","Euro (EUR)"],["AED","UAE Dirham (AED)"],["SAR","Saudi Riyal (SAR)"]];
