@@ -366,6 +366,7 @@ a.btn{text-decoration:none}
 .bform .fsec:first-child{border-top:0;padding-top:0;margin-top:0}
 .hours{display:flex;flex-direction:column;gap:6px}.hrow{display:grid;grid-template-columns:100px 140px 22px 140px 1fr;gap:10px;align-items:center}.hrow input[type=time]{padding:6px 8px}
 @media(max-width:700px){.bform{grid-template-columns:1fr}.hrow{grid-template-columns:80px 1fr 22px 1fr;}.hrow .chk{grid-column:1/-1}}
+.mgrip{cursor:grab;color:var(--ink3,#8d8c98);font-weight:700;letter-spacing:-2px;touch-action:none;user-select:none}tr.mdrag td{background:var(--chart-soft,#f3efff)}
 </style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -761,11 +762,18 @@ function kpiCard(title, value, series, fmt, cur, prev, labels){
     <div class="v">${value}</div>${delta(cur, prev)}
     ${lineChart(series, {h:300, axis:false, area:false, dots:true, labelStep:3, fmt, label:title+" by hour", labels})}</div>`;
 }
+/* brand / branch filter shown inside the pages that need it */
+function scopeBar(withBranch){
+  const bl = brandList(), act = activeBranches();
+  return `${bl.length>1 ? `<select class="sel" data-scope="brand" aria-label="Brand"><option value="all">All brands (${bl.length})</option>${bl.map(b=>`<option value="${esc(b.id)}" ${state.brand===b.id?"selected":""}>${esc(b.name)}</option>`).join("")}</select>` : ""}${withBranch ? `<select class="sel" data-scope="branch" aria-label="Branch"><option value="all">All branches (${act.length})</option>${act.map(b=>`<option value="${esc(b.id)}" ${state.branch===b.id?"selected":""}>${esc(b.name)}</option>`).join("")}</select>` : ""}`;
+}
+document.addEventListener("change", e => { const t = e.target.closest("[data-scope]"); if(!t) return;
+  if(t.dataset.scope==="brand"){ state.brand = t.value; state.branch = "all"; } else state.branch = t.value; render(); });
 function viewDashboard(){
   const act = activeBranches();
   const list = state.branch==="all" ? act : act.filter(b=>b.id===state.branch);
   const tabs = [["general","General"],["branches","Branches"],["inventory","Inventory"],["call-center","Call Center"],["kitchen","Kitchen"]];
-  let h = `<h1>Welcome, ${esc(state.userName||"Admin")}</h1><p class="subt">${state.branch==="all" ? `All ${act.length} active branches` : esc(list[0]?.name||"")}</p>
+  let h = `<div class="phead"><h1>Welcome, ${esc(state.userName||"Admin")}</h1><div class="sp"></div>${scopeBar(true)}</div><p class="subt">${state.branch==="all" ? `All ${act.length} active branches` : esc(list[0]?.name||"")}</p>
     <div class="tabs">${tabs.map(([k,t])=>`<a href="#dashboard" data-dt="${k}" class="${state.dashTab===k?"on":""}">${t}${k==="kitchen"?' <span class="new">New!</span>':""}</a>`).join("")}</div>`;
   if(!act.length) return h + `<div class="card empty">No active branches yet.<br><br><a class="btn pri" href="#branches">Add your first branch</a></div>`;
   if(storeMode!=="db") return h + placeholder("Dashboard", "Sign in to see live sales.");
@@ -881,7 +889,7 @@ function viewBranches(){
   const list = branches.filter(b => state.brand==="all" || b.brandId===state.brand);
   const n = list.length, a = activeBranches().length;
   let h = `<div class="row" style="justify-content:space-between;margin-bottom:6px"><div><h1>Branches</h1><p class="subt" style="margin:0">${n} total · ${a} active</p></div>
-    <button class="btn pri" id="addBranch">+ Add branch</button></div><div style="height:14px"></div>`;
+    <div class="row" style="gap:8px;margin:0">${scopeBar(false)}<button class="btn pri" id="addBranch">+ Add branch</button></div></div><div style="height:14px"></div>`;
   if(storeMode==="local") h += `<div class="banner">Preview mode: branches you add here won't be saved. Open this page from claude.ai while signed in to save them.</div>`;
   if(!n) return h + `<div class="card empty">No branches yet. Add your first branch to get started.</div>`;
   h += `<div class="card tbl"><table><thead><tr><th>Code</th><th>Name</th><th>Brand</th><th>Area</th><th>Today</th><th>Phone</th><th>Status</th><th></th></tr></thead><tbody>${
@@ -907,9 +915,7 @@ function render(){
   const bl = brandList();
   if(state.brand!=="all" && !bl.some(b=>b.id===state.brand)) state.brand = "all";
   $("#brandSel").innerHTML = `<option value="all">All brands (${bl.length})</option>` + bl.map(b=>`<option value="${esc(b.id)}" ${state.brand===b.id?"selected":""}>${esc(b.name)}</option>`).join("");
-  const noScope = route==="customers"; // customers belong to the company, not to a brand or branch
-  $("#brandSel").style.display = bl.length && !noScope ? "" : "none";
-  $("#branchSel").style.display = noScope ? "none" : "";
+  $("#brandSel").style.display = "none"; $("#branchSel").style.display = "none";   // brand / branch filters live on the pages that use them
   const act = activeBranches();
   if(state.branch!=="all" && !act.some(b=>b.id===state.branch)) state.branch = "all";
   $("#branchSel").innerHTML = `<option value="all">All branches (${act.length})</option>` + act.map(b=>`<option value="${esc(b.id)}" ${state.branch===b.id?"selected":""}>${esc(b.name)}</option>`).join("");
@@ -1057,7 +1063,7 @@ const taxTabs = on => `<div class="tabs" style="margin-bottom:14px"><a href="#ta
 
 /* ---------- users & roles ---------- */
 const PERMS = [["@Back office"],["bo_dashboard","Dashboard"],["bo_orders","Orders"],["bo_callcenter","Call center"],["bo_customers","Customers"],["bo_reports","Reports"],["bo_inventory","Inventory"],["bo_menu","Menu"],["bo_manage","Manage (settings, users, branches) — full admin"],["bo_marketing","Marketing"],
-  ["@POS app"],["pos_access","Use the POS (sign in with PIN)"],["pos_discount","Give discounts"],["pos_shift","Open and close shifts"],["pos_incoming","Accept / decline call-center and online orders"],["pos_open_price","Sell open-price items"],["pos_settings","Device settings"]];
+  ["@POS app"],["pos_access","Use the POS (sign in with PIN)"],["pos_discount","Give discounts"],["pos_shift","Open and close shifts"],["pos_endday","End the business day"],["pos_incoming","Accept / decline call-center and online orders"],["pos_open_price","Sell open-price items"],["pos_settings","Device settings"]];
 const PERM_KEYS = PERMS.filter(p=>!p[0].startsWith("@")).map(p=>p[0]);
 const roleName = id => S.roles.find(r=>r.id===id)?.name || "—";
 async function pinHash(id, pin){ const b = await crypto.subtle.digest("SHA-256", new TextEncoder().encode("slick:" + id + ":" + pin)); return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,"0")).join(""); }
@@ -1205,7 +1211,7 @@ const CRUD = {
   modifiers: {
     col:"modifiers", title:"Modifiers", one:"Modifier", detail: r => modifierDetail(r),
     tabs:[["all","All",live],["deleted","Deleted",r=>r.deleted]],
-    sort:bySort,
+    sort:(a,b)=>a.name.localeCompare(b.name),
     search:r=>r.name+" "+(r.reference||""),
     cols:[["Name",r=>`<b>${esc(r.name)}</b>${r.nameAr?` <span class="note">${esc(r.nameAr)}</span>`:""}`],["Reference",r=>esc(r.reference||"—")],
       ["Options",r=>S.modifier_options.filter(o=>live(o)&&o.modifierId===r.id).length,"num"],["Linked Products",r=>S.products.filter(p=>live(p)&&(p.modifiers||[]).some(l=>l.modifierId===r.id)).length,"num"],["Created",r=>fmtDate(r.createdAt)]],
@@ -1216,7 +1222,7 @@ const CRUD = {
   "modifier-options": {
     col:"modifier_options", title:"Modifier Options", one:"Modifier Option", detail: r => optionDetail(r),
     tabs:[["all","All",live],["active","Active",r=>live(r)&&r.active!==false],["inactive","Inactive",r=>live(r)&&r.active===false],["deleted","Deleted",r=>r.deleted]],
-    sort:(a,b)=>modRank(a.modifierId)-modRank(b.modifierId) || String(a.modifierId).localeCompare(String(b.modifierId)) || bySort(a,b),
+    sort:(a,b)=>modName(a.modifierId).localeCompare(modName(b.modifierId)) || bySort(a,b),
     search:r=>r.name+" "+(r.sku||"")+" "+modName(r.modifierId),
     filter:r=>!state.modFilter || r.modifierId===state.modFilter,
     cols:[["Name",r=>`<b>${esc(r.name)}</b>`],["Modifier",r=>esc(modName(r.modifierId))],["SKU",r=>`<span class="code">${esc(r.sku||"")}</span>`],["Price",r=>+r.price?usd(r.price):'<span class="note">Free</span>',"num"],
@@ -1329,10 +1335,11 @@ function crudView(key){
   list.sort(cfg.sort);
   const per = 50, pages = Math.max(1, Math.ceil(list.length/per)), pg = Math.min(state.page[key]||1, pages);
   const shown = list.slice((pg-1)*per, pg*per);
-  let h = `<div class="phead"><h1>${cfg.title}</h1><div class="sp"></div>${SKU_PREFIX[cfg.col] ? `<button class="btn" data-genskus="${key}" title="Give items without a ${SKU_PREFIX[cfg.col]} SKU a new one">Generate SKUs</button>` : ""}${SORTABLE[key] ? `<button class="btn" data-sorter="${key}">${svgIco("sort")} Sort</button>` : ""}<button class="btn pri" data-create="${key}">Create ${cfg.one}</button></div>`;
+  let h = `<div class="phead"><h1>${cfg.title}</h1><div class="sp"></div>${SKU_PREFIX[cfg.col] ? `<button class="btn" data-genskus="${key}" title="Give items without a ${SKU_PREFIX[cfg.col]} SKU a new one">Generate SKUs</button>` : ""}${SORTABLE[key] && !SORTABLE[key].inside ? `<button class="btn" data-sorter="${key}">${svgIco("sort")} Sort</button>` : ""}<button class="btn pri" data-create="${key}">Create ${cfg.one}</button></div>`;
   if(storeMode==="local") h += `<div class="banner">Preview mode: changes won't be saved.</div>`;
   if(cfg.note) h += `<p class="subt" style="margin-top:-6px">${esc(cfg.note)}</p>`;
   if(cfg.top) h += cfg.top();
+  if(cfg.filter===brandFilter || ["products","delivery-zones"].includes(key)){ const sb = scopeBar(false); if(sb) h = h.replace('<div class="sp"></div>', '<div class="sp"></div>' + sb); }
   if(key==="delivery-zones") h += `<div class="card" style="padding:0;overflow:hidden;margin-bottom:16px"><div id="zonesMap" style="height:380px"></div><div id="zonesLegend" class="legend"></div></div>`;
   h += `<div class="card tbl"><div class="ttop"><div class="ttabs">${cfg.tabs.map(t=>`<a href="#${key}" data-tab="${key}:${t[0]}" class="${tab===t[0]?"on":""}">${t[1]}</a>`).join("")}</div>
     ${key==="modifier-options"&&state.modFilter?`<span class="chip">Modifier: ${esc(modName(state.modFilter))} <button data-clearmod aria-label="Clear">×</button></span>`:""}
@@ -1351,10 +1358,9 @@ const PM_TYPES = [["cash","Cash"],["card","Card"],["other","Other"]];
 const SORTABLE = {
   categories: { col:"categories", scope: () => brandList().length > 1 ? ["Brand", brandList().map(b=>[b.id,b.name]), r => r.brandId] : null, def: () => state.brand!=="all" ? state.brand : brandList()[0]?.id },
   products: { col:"products", scope: () => ["Category", S.categories.filter(c=>live(c)&&brandFilter(c)).sort(bySort).map(c=>[c.id,(state.brand==="all"&&brandList().length>1?brandName(c.brandId)+" · ":"")+c.name]), r => r.categoryId], def: () => state.catFilter || S.categories.filter(c=>live(c)&&brandFilter(c)).sort(bySort)[0]?.id },
-  modifiers: { col:"modifiers", scope: () => null },
   "payment-methods": { col:"payment_methods", scope: () => null },
   "order-sources": { col:"order_sources", scope: () => null },
-  "modifier-options": { col:"modifier_options", scope: () => ["Modifier", S.modifiers.filter(live).sort(bySort).map(m=>[m.id,m.name]), r => r.modifierId], def: () => state.modFilter || S.modifiers.filter(live).sort(bySort)[0]?.id }
+  "modifier-options": { col:"modifier_options", inside:true, scope: () => ["Modifier", S.modifiers.filter(live).sort(bySort).map(m=>[m.id,m.name]), r => r.modifierId], def: () => state.modFilter || S.modifiers.filter(live).sort(bySort)[0]?.id }
 };
 let SORTER = null;
 function openSorter(key, scopeVal){
@@ -1370,7 +1376,7 @@ function paintSorter(){
   $("#crudBox").innerHTML = `<header><h2>Sort ${esc(CRUD[key].title)}</h2><button type="button" class="x" data-cclose aria-label="Close">×</button></header>
     <div class="sortbody">
       <p class="note" style="margin:0 0 10px">Drag ${esc(one)} up or down into place. The POS, call center and online ordering show them in this order.</p>
-      ${sc ? `<div class="f" style="margin-bottom:10px"><label for="srtScope">${sc[0]}</label><select id="srtScope" class="sel">${sc[1].map(([k,t])=>`<option value="${esc(k)}" ${k===v?"selected":""}>${esc(t)}</option>`).join("")}</select></div>` : ""}
+      ${sc && cfg.inside ? `<p style="margin:0 0 10px"><b>${esc(sc[0])}:</b> ${esc((sc[1].find(x=>x[0]===v)||[,""])[1])}</p>` : ""}${sc && !cfg.inside ? `<div class="f" style="margin-bottom:10px"><label for="srtScope">${sc[0]}</label><select id="srtScope" class="sel">${sc[1].map(([k,t])=>`<option value="${esc(k)}" ${k===v?"selected":""}>${esc(t)}</option>`).join("")}</select></div>` : ""}
       ${ids.length ? `<ol class="sortl" id="srtList">${ids.map((id,i)=>`<li data-sid="${esc(id)}" tabindex="0" aria-label="${esc(name(id))}. Drag to move, or use the arrow keys"><span class="grip" aria-hidden="true">⋮⋮</span><span class="st">${esc(name(id))}</span></li>`).join("")}</ol>`
         : `<div class="empty">Nothing to sort here.</div>`}
       <div class="err" id="cErr"></div>
@@ -1407,6 +1413,7 @@ async function saveSorter(){
 }
 document.addEventListener("click", e => {
   const b = e.target.closest("[data-sorter]"); if(b) return openSorter(b.dataset.sorter);
+  const so = e.target.closest("[data-sortopts]"); if(so) return openSorter("modifier-options", so.dataset.sortopts);
   if(!SORTER || !e.target.closest("#crudBox") || crudEdit?.key!=="sorter") return;
   if(e.target.closest("#srtAZ")){ const col = S[SORTABLE[SORTER.key].col]; SORTER.ids.sort((x,y)=>(col.find(r=>r.id===x)?.name||"").localeCompare(col.find(r=>r.id===y)?.name||"")); return paintSorter(); }
   if(e.target.closest("#srtSave")) return saveSorter();
@@ -1527,7 +1534,7 @@ function viewCallCenter(){
     .filter(o => state.ccBranch==="all" || o.branchId===state.ccBranch).filter(o => state.ccAgent==="all" || o.agent===state.ccAgent)
     .sort((a,b)=> b.createdAt.localeCompare(a.createdAt));
   let h = `<div class="phead"><h1>Call Center</h1><span class="note">Today's orders · open orders stay until closed</span><div class="sp"></div>
-    <select class="sel" id="ccBranch" aria-label="Branch"><option value="all">All Branches</option>${branches.map(b=>`<option value="${esc(b.id)}" ${state.ccBranch===b.id?"selected":""}>${esc(b.name)}</option>`).join("")}</select>
+    ${scopeBar(false)}<select class="sel" id="ccBranch" aria-label="Branch"><option value="all">All Branches</option>${branches.filter(brandFilter).map(b=>`<option value="${esc(b.id)}" ${state.ccBranch===b.id?"selected":""}>${esc(b.name)}</option>`).join("")}</select>
     <select class="sel" id="ccAgent" aria-label="Agent"><option value="all">All Agents</option>${agents.map(a=>`<option ${state.ccAgent===a?"selected":""}>${esc(a)}</option>`).join("")}</select>
     <button class="btn pri" id="ccNew">${svgIco("phone")} New Call Center Order</button></div>
 `;
@@ -1761,7 +1768,7 @@ document.addEventListener("click", e => { const t = e.target.closest("[data-olbr
 const BM = { branch:"", kind:"products", q:"", draft:{} };
 function bmItems(){
   const br = branches.find(b=>b.id===BM.branch); if(!br) return [];
-  if(BM.kind==="options") return S.modifier_options.filter(o=>live(o)&&o.active!==false).sort((a,b)=>modRank(a.modifierId)-modRank(b.modifierId)||String(a.modifierId).localeCompare(String(b.modifierId))||bySort(a,b));
+  if(BM.kind==="options") return S.modifier_options.filter(o=>live(o)&&o.active!==false).sort((a,b)=>modName(a.modifierId).localeCompare(modName(b.modifierId))||bySort(a,b));
   return S.products.filter(p=>live(p)&&p.active!==false&&(!br.brandId||!p.brandId||p.brandId===br.brandId)).sort(CRUD.products.sort);
 }
 function bmState(r){
@@ -2243,7 +2250,7 @@ document.addEventListener("click", e => { if(e.target.closest("#coSave")) saveCo
 
 /* filters belong to the page: leaving a page puts its filters back to the defaults */
 function resetPageFilters(){
-  Object.assign(state, { range:"day", date:todayStr(), dateSet:false, compare:false, dashTab:"general", branch:"all" }); DASH.key = "";
+  Object.assign(state, { range:"day", date:todayStr(), dateSet:false, compare:false, dashTab:"general", branch:"all", brand:"all" }); DASH.key = "";
   Object.assign(ORD, { tab:"all", q:"", from:"", to:"", channel:"", type:"", pay:"", source:"", brand:"", branch:"", page:1, key:"", open:null });
   Object.assign(CUS, { filter:"all", q:"", sort:"last", page:1, key:"" });
   Object.assign(BM, { q:"", draft:{} });
@@ -2270,7 +2277,7 @@ function openDetail(key, id){
   DET.key = key; DET.id = id; DET.dirtyIng = false; DET.dirtyBr = false;
   DET.ing = JSON.parse(JSON.stringify(Array.isArray(r.ingredients) ? r.ingredients : []));
   DET.br = { customPrices: { ...(r.customPrices||{}) }, inactive: [...(r.inactiveBranchIds||[])], oos: [...(r.outOfStockBranchIds||[])] };
-  DET.mods = JSON.parse(JSON.stringify(Array.isArray(r.modifiers) ? r.modifiers : [])).sort((a,b)=>modRank(a.modifierId)-modRank(b.modifierId)); DET.dirtyMods = false;
+  DET.mods = JSON.parse(JSON.stringify(Array.isArray(r.modifiers) ? r.modifiers : [])); DET.dirtyMods = false;
   if(key==="inv-items") loadStock();
   render(); window.scrollTo(0,0);
 }
@@ -2418,7 +2425,7 @@ function modifierDetail(m){
   let h = `<div class="phead"><a href="#modifiers" class="btn" data-detback style="text-decoration:none">← Back</a><h1 style="margin-left:10px">${esc(m.name)}</h1><div class="sp"></div>
     <button class="btn" data-modaddopt="${esc(m.id)}">Add Option</button><button class="btn pri" data-detedit>Edit Modifier</button></div>`;
   h += infoGrid([info("Name", esc(m.name)), info("Name Localized", esc(m.nameAr||"—")), info("Reference", esc(m.reference||"—")), info("Options", opts.length), info("Linked Products", prods.length), info("Created", fmtDate(m.createdAt))]);
-  h += `<div class="card tbl" style="margin-bottom:16px"><div class="ttop"><b>Options</b><div class="sp"></div><a href="#modifier-options" class="lnk" data-modallopts="${esc(m.id)}">Open in Modifier Options</a></div>
+  h += `<div class="card tbl" style="margin-bottom:16px"><div class="ttop"><b>Options</b><div class="sp"></div>${opts.length>1?`<button class="btn sm" data-sortopts="${esc(m.id)}">${svgIco("sort")} Sort options</button>`:""}<a href="#modifier-options" class="lnk" data-modallopts="${esc(m.id)}">Open in Modifier Options</a></div>
     ${opts.length ? `<table><thead><tr><th>Name</th><th>SKU</th><th class="num">Price</th><th class="num">Cost</th><th>Status</th></tr></thead><tbody>${opts.map(o=>`<tr class="click" data-detopen="modifier-options:${esc(o.id)}">
       <td><b>${esc(o.name)}</b></td><td><span class="code">${esc(o.sku||"")}</span></td><td class="num">${+o.price?usd(o.price):'<span class="note">Free</span>'}</td><td class="num">${productCost(o)?fmtCost(productCost(o)):"—"}</td>
       <td>${o.active===false?'<span class="tag off">Inactive</span>':'<span class="tag on">Active</span>'}</td></tr>`).join("")}</tbody></table>` : `<div class="empty">No options yet. Use "Add Option".</div>`}</div>`;
@@ -2449,12 +2456,21 @@ function modLinks(p){
   return `<div class="card tbl" style="margin-bottom:16px"><div class="ttop"><b>Modifiers</b><span class="note" style="margin-left:8px">Choices the customer makes for this product. Minimum 1 makes a choice required; maximum 0 means no limit; "Repeat options" lets the same option be picked several times (each one counts toward the maximum); free options aren't charged.</span><div class="sp"></div>
       <select class="sel" id="modAdd" aria-label="Add a modifier"><option value="">Add modifier…</option>${avail.map(m=>`<option value="${esc(m.id)}">${esc(m.name)} (${modOptions(m.id).length})</option>`).join("")}</select>
       <button class="btn pri sm" data-modsave ${DET.dirtyMods && !DET.saving ? "" : "disabled"}>${DET.saving?"Saving…":"Save modifiers"}</button></div>
-    ${rows.length ? `<table><thead><tr><th>Name</th><th class="num">Options</th><th class="num">Minimum</th><th class="num">Maximum</th><th class="num">Free</th><th title="The same option can be picked more than once, e.g. 2 × Extra cheese">Repeat options</th><th></th></tr></thead><tbody>${rows.map((l, ix) => `<tr>
-      <td><a href="#modifiers" class="lnk" data-detopen="modifiers:${esc(l.modifierId)}">${esc(modName(l.modifierId))}</a></td><td class="num">${modOptions(l.modifierId).length}</td>
+    ${rows.length ? `<table><thead><tr><th style="width:28px"></th><th>Name</th><th class="num">Options</th><th class="num">Minimum</th><th class="num">Maximum</th><th class="num">Free</th><th title="The same option can be picked more than once, e.g. 2 × Extra cheese">Repeat options</th><th></th></tr></thead><tbody id="modRows">${rows.map((l, ix) => `<tr data-mix="${ix}">
+      <td class="mgrip" title="Drag to change the order customers see">⋮⋮</td><td><a href="#modifiers" class="lnk" data-detopen="modifiers:${esc(l.modifierId)}">${esc(modName(l.modifierId))}</a></td><td class="num">${modOptions(l.modifierId).length}</td>
       <td class="num">${num(ix,"min",l.min,"Minimum options")}</td><td class="num">${num(ix,"max",l.max,"Maximum options")}</td><td class="num">${num(ix,"free",l.free,"Free options")}</td><td><label class="toggle"><input type="checkbox" data-modmulti="${ix}" ${l.multi?"checked":""} aria-label="Allow the same option more than once"><span class="trk"></span></label></td>
       <td><button class="btn sm" data-modrm="${ix}" aria-label="Remove ${esc(modName(l.modifierId))}">×</button></td></tr>`).join("")}</tbody></table>`
       : `<div class="empty">No modifiers linked.${S.modifiers.filter(live).length ? "" : " Create them first under Menu → Modifiers."}</div>`}</div>`;
 }
+// drag a product's modifiers into the order the cashier and customer see them
+document.addEventListener("pointerdown", e => {
+  const g = e.target.closest(".mgrip"); if(!g || !DET.mods) return; e.preventDefault();
+  const tb = g.closest("tbody"), row = g.closest("tr"); row.classList.add("mdrag");
+  const move = ev => { const over = [...tb.children].find(r => { if(r===row) return false; const b = r.getBoundingClientRect(); return ev.clientY >= b.top && ev.clientY <= b.bottom; }); if(!over) return; const b = over.getBoundingClientRect(); tb.insertBefore(row, ev.clientY > b.top + b.height/2 ? over.nextSibling : over); };
+  const up = () => { document.removeEventListener("pointermove", move); document.removeEventListener("pointerup", up); row.classList.toggle("mdrag", false);
+    const order = [...tb.children].map(r => +r.dataset.mix); if(order.some((v,i)=>v!==i)){ DET.mods = order.map(i => DET.mods[i]); modDirty(); render(); } };
+  document.addEventListener("pointermove", move); document.addEventListener("pointerup", up);
+});
 async function saveModLinks(){
   const list = DET.mods.map(l => ({ modifierId:l.modifierId, min: Math.max(0, parseInt(l.min)||0), max: Math.max(0, parseInt(l.max)||0), free: Math.max(0, parseInt(l.free)||0), ...(l.multi ? { multi:true } : {}) }));
   const bad = list.find(l => l.max && l.min > l.max); if(bad){ toast(`${modName(bad.modifierId)}: minimum can't be more than maximum`); return; }
@@ -2476,7 +2492,7 @@ document.addEventListener("click", e => {
 });
 document.addEventListener("change", e => { const m = e.target.closest("[data-modmulti]"); if(m && DET.mods){ DET.mods[+m.dataset.modmulti].multi = m.checked; modDirty(); } });
 document.addEventListener("input", e => { const m = e.target.closest("[data-modl]"); if(m && DET.mods){ const [ix, f] = m.dataset.modl.split(":"); DET.mods[+ix][f] = e.target.value; modDirty(); } });
-document.addEventListener("change", e => { if(e.target.id==="modAdd" && e.target.value && DET.mods){ DET.mods.push({ modifierId:e.target.value, min:0, max:0, free:0 }); DET.mods.sort((a,b)=>modRank(a.modifierId)-modRank(b.modifierId)); DET.dirtyMods = true; render(); } });
+document.addEventListener("change", e => { if(e.target.id==="modAdd" && e.target.value && DET.mods){ DET.mods.push({ modifierId:e.target.value, min:0, max:0, free:0 }); DET.dirtyMods = true; render(); } });
 // call center: pick options for the chosen branch
 async function ccAdd(p){
   const b = $("#oBranch")?.value || "";
@@ -2487,7 +2503,7 @@ async function ccAdd(p){
     const opts = S.modifier_options.filter(o => live(o) && o.active!==false && ids.has(o.modifierId) && !(b && (o.inactiveBranchIds||[]).includes(b)))
       .sort((x,y)=>(x.sort??999)-(y.sort??999) || x.name.localeCompare(y.name))
       .map(o => { const c = b && (o.customPrices||{})[b]; return { id:o.id, modifierId:o.modifierId, name:o.name, price: c!=null && c!=="" ? +c : +o.price||0, oos: !!b && (o.outOfStockBranchIds||[]).includes(b) }; });
-    const r = await SlickMods.pick({ name:p.name, basePrice:price, links:p.modifiers.filter(l=>groups[l.modifierId]).sort((a,b)=>(groups[a.modifierId].sort??9999)-(groups[b.modifierId].sort??9999)), groups, options:opts, money:usd }); if(!r) return;
+    const r = await SlickMods.pick({ name:p.name, basePrice:price, links:p.modifiers.filter(l=>groups[l.modifierId]), groups, options:opts, money:usd }); if(!r) return;
     options = r.options; mods = r.mods; price = r.unitPrice;
   }
   const k = window.SlickMods ? SlickMods.key(p.id, options) : p.id, ex = cart.find(i => (window.SlickMods ? SlickMods.key(i.productId, i.options) : i.productId) === k);
@@ -2612,7 +2628,7 @@ function viewOrderTx(){
   loadOT();
   const tabs = [["","All"],["consumption","Consumption"],["return","Return"]];
   const pages = Math.max(1, Math.ceil(OT.count/OT.per));
-  let h = `<div class="phead"><h1>Order Transactions</h1><div class="sp"></div><button class="btn" id="otRefresh">↻ Refresh</button></div>
+  let h = `<div class="phead"><h1>Order Transactions</h1><div class="sp"></div>${scopeBar(true)}<button class="btn" id="otRefresh">↻ Refresh</button></div>
     <p class="subt" style="margin-top:-6px">Every completed sale takes its recipe ingredients (product and options, for its order type) out of the branch stock. Voided sales put them back.</p>
     <div class="card tbl"><div class="ttop"><div class="ttabs">${tabs.map(t=>`<a href="#order-transactions" data-ottab="${t[0]}" class="${OT.kind===t[0]?"on":""}">${t[1]}</a>`).join("")}</div><div class="sp"></div><span class="note">${OT.loading?"Loading…":""}</span></div>`;
   if(OT.err) h += `<div class="empty">${esc(OT.err)}</div>`;
