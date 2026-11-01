@@ -120,7 +120,7 @@
     const t = tableOf(op.col);
     if(op.op === "set"){ const { error } = await sb.from(t).upsert(toRow(op.col, op.id, op.data)); if(error) throw error; }
     else if(op.op === "update"){
-      const row = toRow(op.col, null, op.data);
+      const row = toRow(op.col, null, op.data); delete row.id;   // never touch the key on update (settings rows came back with id:null)
       if(t === "settings"){ const cur = await sb.from(t).select("data").eq("id", op.id).maybeSingle(); if(cur.error) throw cur.error; row.data = { ...(cur.data?.data||{}), ...row.data }; }
       const { error } = await sb.from(t).update(row).eq("id", op.id); if(error) throw error;
     }
