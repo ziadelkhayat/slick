@@ -817,7 +817,9 @@ function render(){
   const bl = brandList();
   if(state.brand!=="all" && !bl.some(b=>b.id===state.brand)) state.brand = "all";
   $("#brandSel").innerHTML = `<option value="all">All brands (${bl.length})</option>` + bl.map(b=>`<option value="${esc(b.id)}" ${state.brand===b.id?"selected":""}>${esc(b.name)}</option>`).join("");
-  $("#brandSel").style.display = bl.length ? "" : "none";
+  const noScope = route==="customers"; // customers belong to the company, not to a brand or branch
+  $("#brandSel").style.display = bl.length && !noScope ? "" : "none";
+  $("#branchSel").style.display = noScope ? "none" : "";
   const act = activeBranches();
   if(state.branch!=="all" && !act.some(b=>b.id===state.branch)) state.branch = "all";
   $("#branchSel").innerHTML = `<option value="all">All branches (${act.length})</option>` + act.map(b=>`<option value="${esc(b.id)}" ${state.branch===b.id?"selected":""}>${esc(b.name)}</option>`).join("");
@@ -1590,20 +1592,19 @@ async function openCustomer(id){
   let c = { id:null, phone:"", name:"", email:"", birthday:null, notes:"", tags:[], blacklisted:false, addresses:[] }, orders = [];
   if(id){
     const [r1, r2] = await Promise.all([WOK.sb.from("customers").select("*").eq("id", id).maybeSingle(),
-      WOK.sb.from("orders").select("id,no,created_at,branch_id,channel,type,status,total,items").eq("customer_id", id).order("created_at", { ascending:false }).limit(100)]);
+      WOK.sb.from("orders").select("id,no,created_at,channel,type,status,total,items").eq("customer_id", id).order("created_at", { ascending:false }).limit(100)]);
     if(r1.error || !r1.data) return toast("Couldn't open this customer");
     c = r1.data; orders = r2.data || [];
   }
   const ok = orders.filter(o => ["pending","active","closed"].includes(o.status)), spent = ok.reduce((a,o)=>a+(+o.total||0),0);
   const fav = {}; ok.forEach(o => (Array.isArray(o.items)?o.items:[]).forEach(i => { fav[i.name] = (fav[i.name]||0) + (+i.qty||1); }));
   const favs = Object.entries(fav).sort((a,b)=>b[1]-a[1]).slice(0,5);
-  const byBr = {}; ok.forEach(o => byBr[o.branch_id] = (byBr[o.branch_id]||0)+1); const topBr = Object.entries(byBr).sort((a,b)=>b[1]-a[1])[0];
   const dt = t => new Date(t).toLocaleString("en-GB",{day:"numeric",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"});
   const box = $("#ccBox"); box.className = "modal wide";
   box.innerHTML = `<header><h2>${id ? esc(c.name || c.phone) : "New customer"} ${c.blacklisted?'<span class="spill s-declined">Blacklisted</span>':""}</h2><button type="button" class="x" data-ccclose aria-label="Close">×</button></header>
   <div style="padding:18px 22px;max-height:72vh;overflow:auto">
     ${id ? `<div class="odet"><div><span>Orders</span>${ok.length}</div><div><span>Total spent</span>${money(spent)}</div><div><span>Average order</span>${money(ok.length?spent/ok.length:0)}</div>
-      <div><span>First order</span>${ok.length?ago2(ok[ok.length-1].created_at):"—"}</div><div><span>Last order</span>${ok.length?ago2(ok[0].created_at):"—"}</div><div><span>Usual branch</span>${topBr?esc(branches.find(b=>b.id===topBr[0])?.name||"—"):"—"}</div></div>` : ""}
+      <div><span>First order</span>${ok.length?ago2(ok[ok.length-1].created_at):"—"}</div><div><span>Last order</span>${ok.length?ago2(ok[0].created_at):"—"}</div></div>` : ""}
     <div class="body" style="padding:0;margin-bottom:14px">
       <div class="f"><label for="cuName">Name</label><input id="cuName" value="${esc(c.name||"")}"></div>
       <div class="f"><label for="cuPhone">Phone *</label><input id="cuPhone" value="${esc(c.phone||"")}" placeholder="+961 …"></div>
@@ -1615,9 +1616,9 @@ async function openCustomer(id){
     </div>
     ${(c.addresses||[]).length ? `<h3 style="font-size:14px;margin:0 0 6px">Saved addresses</h3>${c.addresses.map((a,i)=>`<div class="note" style="margin-bottom:4px">${esc(a.address)} ${a.lat?mapLink(a):""} <a href="#customers" class="lnk" data-deladdr="${i}">Remove</a></div>`).join("")}` : ""}
     ${favs.length ? `<h3 style="font-size:14px;margin:14px 0 6px">Favourite items</h3><div>${favs.map(([n,q])=>`<span class="tag cc" style="margin:0 6px 6px 0">${esc(n)} × ${q}</span>`).join("")}</div>` : ""}
-    ${id ? `<h3 style="font-size:14px;margin:14px 0 6px">Order history</h3><div class="card tbl otbl"><table><thead><tr><th>Order</th><th>Date</th><th>Branch</th><th>Channel</th><th>Status</th><th class="num">Total</th></tr></thead><tbody>${
-      orders.length ? orders.map(o=>`<tr class="clk" data-coid="${esc(o.id)}"><td><b>#${esc(o.no)}</b></td><td>${dt(o.created_at)}</td><td>${esc(branches.find(b=>b.id===o.branch_id)?.name||"—")}</td><td>${esc(CH_LBL[o.channel]||cap(o.channel))}</td><td><span class="spill s-${o.status}">${ORD_ST[o.status]||o.status}</span></td><td class="num">${money(+o.total||0)}</td></tr>`).join("")
-      : `<tr><td colspan="6" class="note">No orders yet.</td></tr>`}</tbody></table></div>` : ""}
+    ${id ? `<h3 style="font-size:14px;margin:14px 0 6px">Order history</h3><div class="card tbl otbl"><table><thead><tr><th>Order</th><th>Date</th><th>Channel</th><th>Status</th><th class="num">Total</th></tr></thead><tbody>${
+      orders.length ? orders.map(o=>`<tr class="clk" data-coid="${esc(o.id)}"><td><b>#${esc(o.no)}</b></td><td>${dt(o.created_at)}</td><td>${esc(CH_LBL[o.channel]||cap(o.channel))}</td><td><span class="spill s-${o.status}">${ORD_ST[o.status]||o.status}</span></td><td class="num">${money(+o.total||0)}</td></tr>`).join("")
+      : `<tr><td colspan="5" class="note">No orders yet.</td></tr>`}</tbody></table></div>` : ""}
     <div class="err" id="cuErr"></div>
   </div>
   <footer>${id && ["owner","admin"].includes(state.role) ? `<button type="button" class="btn bad" id="cuDel">Delete</button>` : ""}<span style="flex:1"></span><button type="button" class="btn" data-ccclose>Cancel</button><button type="button" class="btn pri" id="cuSave">${id?"Save":"Add customer"}</button></footer>`;
