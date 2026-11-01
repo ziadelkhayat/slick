@@ -362,11 +362,15 @@ tr.chg td:first-child{box-shadow:inset 3px 0 0 var(--accent)}
 .acctmenu a:hover,.acctmenu button:hover{background:var(--bg,#f4f3f8)}.acctmenu #amSignOut{color:#b42318;border-top:1px solid var(--line);border-radius:0 0 9px 9px;margin-top:4px}
 @media(max-width:700px){#who{display:none}}
 a.btn{text-decoration:none}
+.bform{grid-template-columns:repeat(2,minmax(0,1fr));max-height:72vh;overflow:auto}.bform .fsec{grid-column:1/-1;margin:10px 0 0;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink3,#8d8c98);border-top:1px solid var(--line);padding-top:12px}
+.bform .fsec:first-child{border-top:0;padding-top:0;margin-top:0}
+.hours{display:flex;flex-direction:column;gap:6px}.hrow{display:grid;grid-template-columns:100px 140px 22px 140px 1fr;gap:10px;align-items:center}.hrow input[type=time]{padding:6px 8px}
+@media(max-width:700px){.bform{grid-template-columns:1fr}.hrow{grid-template-columns:80px 1fr 22px 1fr;}.hrow .chk{grid-column:1/-1}}
 </style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="wokdb.js?v=18"></script>
+<script src="wokdb.js?v=19"></script>
 <script src="modpick.js?v=2"></script>
 </head>
 <body>
@@ -394,23 +398,33 @@ a.btn{text-decoration:none}
 </div>
 
 <div class="scrim" id="scrim">
-  <form class="modal" id="branchForm" autocomplete="off">
+  <form class="modal wide" id="branchForm" autocomplete="off">
     <header><h2 id="mTitle">Add branch</h2><button type="button" class="x" data-close aria-label="Close">×</button></header>
-    <div class="body">
+    <div class="body bform">
+      <h4 class="fsec">General</h4>
       <div class="f"><label for="fName">Branch name *</label><input id="fName" required maxlength="60" placeholder="e.g. Hamra"></div>
+      <div class="f"><label for="fNameAr">Name (Arabic)</label><input id="fNameAr" maxlength="60" dir="auto"></div>
       <div class="f"><label for="fCode">Reference code</label><input id="fCode" maxlength="10" placeholder="Auto"></div>
-      <div class="f full"><label for="fBrand">Brand *</label><select id="fBrand"></select></div>
+      <div class="f"><label for="fBrand">Brand *</label><select id="fBrand"></select></div>
+      <div class="f"><label for="fTaxNo">Branch tax (VAT) number</label><input id="fTaxNo" maxlength="40" placeholder="Leave empty to use the company's"></div>
+      <div class="f"><label for="fPhone">Phone</label><input id="fPhone" maxlength="30"></div>
       <div class="f full"><label for="fAddr">Address</label><input id="fAddr" maxlength="160"></div>
       <div class="f"><label for="fCity">Area / city</label><input id="fCity" maxlength="60" placeholder="e.g. Beirut"></div>
-      <div class="f"><label for="fPhone">Phone</label><input id="fPhone" maxlength="30"></div>
-      <div class="f"><label for="fOpen">Opens</label><input id="fOpen" type="time" value="11:00"></div>
-      <div class="f"><label for="fClose">Closes</label><input id="fClose" type="time" value="23:30"></div>
-      <div class="f full"><label for="fZones">Delivery zones (comma-separated)</label><input id="fZones" maxlength="300" placeholder="Hamra, Verdun, Ras Beirut"></div>
+      <div class="f"><label>Location (latitude, longitude)</label><div style="display:grid;grid-template-columns:1fr 1fr;gap:6px"><input id="fLat" inputmode="decimal" placeholder="33.89" ><input id="fLng" inputmode="decimal" placeholder="35.50"></div><a class="lnk note" id="fMapLnk" target="_blank" rel="noopener" href="https://www.google.com/maps">Find it on Google Maps</a></div>
+      <h4 class="fsec">Opening hours</h4>
+      <div class="f full"><div class="hours" id="fHours"></div><div class="note">Times after midnight (e.g. closes 02:00) count for the day that opened. Reports use the business day set under Company.</div></div>
+      <h4 class="fsec">Order types at this branch</h4>
+      <div class="f full"><div class="multi" id="fTypes"><label class="chk"><input type="checkbox" value="dinein"> Dine-in</label><label class="chk"><input type="checkbox" value="takeaway"> Takeaway</label><label class="chk"><input type="checkbox" value="delivery"> Delivery</label></div></div>
+      <h4 class="fsec">Receipt</h4>
+      <div class="f full"><label for="fRHead">Receipt header</label><textarea id="fRHead" rows="2" maxlength="300" placeholder="e.g. Welcome to The Wok Hamra"></textarea></div>
+      <div class="f full"><label for="fRFoot">Receipt footer</label><textarea id="fRFoot" rows="2" maxlength="300" placeholder="e.g. Thank you! Follow us @thewok"></textarea></div>
+      <h4 class="fsec">Options</h4>
       <div class="f full">
         <label class="chk"><input type="checkbox" id="fActive" checked> Active (shows in reports and filters)</label>
         <label class="chk"><input type="checkbox" id="fCC" checked> Receives call-center orders</label>
         <label class="chk"><input type="checkbox" id="fProd"> Central kitchen / production site</label>
       </div>
+      <input type="hidden" id="fOpen" value="11:00"><input type="hidden" id="fClose" value="23:30"><input type="hidden" id="fZones">
       <div class="err" id="fErr"></div>
     </div>
     <footer>
@@ -870,13 +884,13 @@ function viewBranches(){
     <button class="btn pri" id="addBranch">+ Add branch</button></div><div style="height:14px"></div>`;
   if(storeMode==="local") h += `<div class="banner">Preview mode: branches you add here won't be saved. Open this page from claude.ai while signed in to save them.</div>`;
   if(!n) return h + `<div class="card empty">No branches yet. Add your first branch to get started.</div>`;
-  h += `<div class="card tbl"><table><thead><tr><th>Code</th><th>Name</th><th>Brand</th><th>Area</th><th>Hours</th><th>Phone</th><th>Status</th><th></th></tr></thead><tbody>${
+  h += `<div class="card tbl"><table><thead><tr><th>Code</th><th>Name</th><th>Brand</th><th>Area</th><th>Today</th><th>Phone</th><th>Status</th><th></th></tr></thead><tbody>${
     list.map(b => `<tr>
       <td class="code">${esc(b.code)}</td>
       <td><b style="font-weight:600">${esc(b.name)}</b>${b.production?` <span class="tag cc">Central kitchen</span>`:""}</td>
       <td>${esc(brandName(b.brandId))}</td>
       <td>${esc(b.city)||'<span class="note">—</span>'}</td>
-      <td>${esc(b.open||"")}${b.open||b.close?"–":""}${esc(b.close||"")}</td>
+      <td>${(() => { const d = b.settings?.hours?.[DAYS[(new Date().getDay()+6)%7][0]]; return d ? (d.closed ? '<span class="note">Closed today</span>' : `${esc(d.open)}–${esc(d.close)}`) : `${esc(b.open||"")}${b.open||b.close?"–":""}${esc(b.close||"")}`; })()}</td>
       <td>${esc(b.phone)||'<span class="note">—</span>'}</td>
       <td><span class="tag ${b.active!==false?"on":"off"}"><span class="dot"></span>${b.active!==false?"Active":"Inactive"}</span>${b.callCenter?` <span class="tag cc">Call center</span>`:""}</td>
       <td class="num"><button class="btn sm" data-edit="${esc(b.id)}">Edit</button></td></tr>`).join("")
@@ -943,10 +957,24 @@ function openForm(id){
   $("#fName").value = b?.name || ""; $("#fCode").value = b?.code || ""; $("#fCode").placeholder = b ? "" : nextCode();
   $("#fAddr").value = b?.address || ""; $("#fCity").value = b?.city || ""; $("#fPhone").value = b?.phone || "";
   $("#fOpen").value = b?.open || "11:00"; $("#fClose").value = b?.close || "23:30"; $("#fZones").value = b?.zones || "";
+  const st = b?.settings || {};
+  $("#fNameAr").value = b?.nameAr || ""; $("#fTaxNo").value = b?.taxNumber || ""; $("#fLat").value = b?.lat ?? ""; $("#fLng").value = b?.lng ?? "";
+  $("#fRHead").value = st.receiptHeader || ""; $("#fRFoot").value = st.receiptFooter || ""; paintMapLink();
+  const types = st.orderTypes || ["dinein","takeaway","delivery"]; document.querySelectorAll("#fTypes input").forEach(i => i.checked = types.includes(i.value));
+  const H = st.hours || {}, o0 = b?.open || "11:00", c0 = b?.close || "23:30";
+  $("#fHours").innerHTML = DAYS.map(([k,t]) => { const d = H[k] || { open:o0, close:c0, closed:false };
+    return `<div class="hrow" data-day="${k}"><b>${t}</b><input type="time" class="sel" data-h="open" value="${esc(d.open||o0)}" ${d.closed?"disabled":""} aria-label="${t} opens"><span class="note">to</span><input type="time" class="sel" data-h="close" value="${esc(d.close||c0)}" ${d.closed?"disabled":""} aria-label="${t} closes"><label class="chk"><input type="checkbox" data-h="closed" ${d.closed?"checked":""}> Closed</label></div>`; }).join("")
+    + `<button type="button" class="btn sm" id="fHoursAll" style="margin-top:6px">Copy Monday to every day</button>`;
   $("#fActive").checked = b ? b.active!==false : true; $("#fCC").checked = b ? !!b.callCenter : true; $("#fProd").checked = !!b?.production;
   $("#delBtn").style.display = b ? "" : "none"; $("#fErr").textContent = "";
   $("#scrim").classList.add("show"); setTimeout(()=>$("#fName").focus(), 30);
 }
+const DAYS = [["mon","Monday"],["tue","Tuesday"],["wed","Wednesday"],["thu","Thursday"],["fri","Friday"],["sat","Saturday"],["sun","Sunday"]];
+function paintMapLink(){ const la = $("#fLat").value.trim(), ln = $("#fLng").value.trim(); $("#fMapLnk").href = la && ln ? `https://www.google.com/maps?q=${encodeURIComponent(la)},${encodeURIComponent(ln)}` : "https://www.google.com/maps"; $("#fMapLnk").textContent = la && ln ? "Open this location on Google Maps" : "Find it on Google Maps (right-click a spot to copy its coordinates)"; }
+$("#branchForm").addEventListener("input", e => { if(e.target.id==="fLat" || e.target.id==="fLng"){ const m = /^\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*$/.exec(e.target.value); if(m){ $("#fLat").value = m[1]; $("#fLng").value = m[2]; } paintMapLink(); } });
+$("#branchForm").addEventListener("change", e => { if(e.target.dataset.h==="closed"){ e.target.closest(".hrow").querySelectorAll("input[type=time]").forEach(i => i.disabled = e.target.checked); } });
+$("#branchForm").addEventListener("click", e => { if(e.target.id==="fHoursAll"){ const rows = [...document.querySelectorAll("#fHours .hrow")], m = rows[0];
+  rows.slice(1).forEach(r => { ["open","close"].forEach(k => { r.querySelector(`[data-h="${k}"]`).value = m.querySelector(`[data-h="${k}"]`).value; }); const c = m.querySelector('[data-h="closed"]').checked; r.querySelector('[data-h="closed"]').checked = c; r.querySelectorAll("input[type=time]").forEach(i => i.disabled = c); }); } });
 function closeForm(){ $("#scrim").classList.remove("show"); editing = null; }
 document.querySelectorAll("[data-close]").forEach(b => b.addEventListener("click", closeForm));
 $("#scrim").addEventListener("click", e => { if(e.target.id==="scrim") closeForm(); });
@@ -961,8 +989,16 @@ $("#branchForm").addEventListener("submit", async e => {
   if(brandList().length && !brandId){ $("#fErr").textContent = "Choose the brand this branch belongs to."; return; }
   if(branches.some(b => b.id!==editing && b.brandId===brandId && b.name.toLowerCase()===name.toLowerCase())){ $("#fErr").textContent = "This brand already has a branch with this name."; return; }
   if(code && branches.some(b => b.id!==editing && (b.code||"").toUpperCase()===code)){ $("#fErr").textContent = "That reference code is already used."; return; }
+  const hours = {}; document.querySelectorAll("#fHours .hrow").forEach(r => { hours[r.dataset.day] = { open:r.querySelector('[data-h="open"]').value, close:r.querySelector('[data-h="close"]').value, closed:r.querySelector('[data-h="closed"]').checked }; });
+  const orderTypes = [...document.querySelectorAll("#fTypes input:checked")].map(i => i.value);
+  if(!orderTypes.length){ $("#fErr").textContent = "Pick at least one order type for this branch."; return; }
+  const lat = $("#fLat").value.trim(), lng = $("#fLng").value.trim();
+  if((lat && isNaN(+lat)) || (lng && isNaN(+lng))){ $("#fErr").textContent = "Location must be numbers, e.g. 33.89 and 35.50."; return; }
+  const mon = hours.mon || {};
   const data = { name, code, brandId, address:$("#fAddr").value.trim(), city:$("#fCity").value.trim(), phone:$("#fPhone").value.trim(),
-    open:$("#fOpen").value, close:$("#fClose").value, zones:$("#fZones").value.trim(),
+    nameAr:$("#fNameAr").value.trim(), taxNumber:$("#fTaxNo").value.trim(), lat: lat ? +lat : null, lng: lng ? +lng : null,
+    settings:{ ...(branches.find(x=>x.id===editing)?.settings || {}), hours, orderTypes, receiptHeader:$("#fRHead").value.trim(), receiptFooter:$("#fRFoot").value.trim() },
+    open: mon.closed ? $("#fOpen").value : (mon.open || $("#fOpen").value), close: mon.closed ? $("#fClose").value : (mon.close || $("#fClose").value), zones:$("#fZones").value.trim(),
     active:$("#fActive").checked, callCenter:$("#fCC").checked, production:$("#fProd").checked, updatedAt:new Date().toISOString() };
   $("#saveBtn").disabled = true;
   try{ await saveBranch(data, editing); toast(editing ? "Branch updated" : `${name} added`); closeForm(); }
@@ -1402,9 +1438,11 @@ function openCrud(key, id){
   if(cfg.fields.some(f=>f.t==="polygon")) setTimeout(()=>zoneEditor(r?.polygon || [], r?.id), 60);
   setTimeout(()=>$("#crudBox input, #crudBox select")?.focus(), 30);
 }
-const closeCrud = () => { $("#crudScrim").classList.remove("show"); crudEdit = null; };
+const closeCrud = () => { $("#crudScrim").classList.remove("show"); crudEdit = null; $("#crudBox").className = "modal"; };
 async function submitCrud(e){
   e.preventDefault();
+  if(crudEdit?.key==="devset") return saveDeviceSettings();
+  if(!crudEdit || !CRUD[crudEdit.key]) return;
   const cfg = CRUD[crudEdit.key], data = {};
   for(const f of cfg.fields){
     const el = $("#cf_"+f.k);
@@ -1616,13 +1654,61 @@ function viewDevices(){
   <div class="apk"><a class="btn pri" href="the-wok-pos.apk" download>⬇ Download POS APK</a><a class="lnk" href="pos.html" target="_blank" rel="noopener">or open POS in a browser</a></div></div><div style="height:16px"></div>`;
   if(storeMode==="local") h += `<div class="banner">Preview mode: devices won't be saved.</div>`;
   h += `<div class="card tbl">${list.length ? `<table><thead><tr><th>Name</th><th>Type</th><th>Branch</th><th>Activation code</th><th>Status</th><th>Last seen</th><th></th></tr></thead><tbody>${list.map(d=>`<tr>
-    <td><b>${esc(d.name)}</b></td><td>${esc((DEV_TYPES.find(t=>t[0]===d.type)||[,d.type])[1])}</td><td>${esc(branchName(d.branchId))}</td>
+    <td><b>${esc(d.name)}</b>${d.reference?` <span class="note">${esc(d.reference)}</span>`:""}${devSummary(d)}</td><td>${esc((DEV_TYPES.find(t=>t[0]===d.type)||[,d.type])[1])}</td><td>${esc(branchName(d.branchId))}</td>
     <td><span class="acode">${esc(d.code)}</span></td><td>${d.activatedAt?'<span class="tag on"><span class="dot"></span>Active</span>':'<span class="tag off">Waiting for activation</span>'}</td>
-    <td>${d.lastSeen?ago(d.lastSeen):"—"}</td><td class="num"><button class="btn sm" data-devcode="${esc(d.id)}">New code</button> <button class="btn sm danger" data-devdel="${esc(d.id)}">Remove</button></td></tr>`).join("")}</tbody></table>`
+    <td>${d.lastSeen?ago(d.lastSeen):"—"}</td><td class="num"><button class="btn sm" data-devset="${esc(d.id)}">Settings</button> <button class="btn sm" data-devcode="${esc(d.id)}">New code</button> <button class="btn sm danger" data-devdel="${esc(d.id)}">Remove</button></td></tr>`).join("")}</tbody></table>`
     : `<div class="empty">No devices yet. Create one for each tablet, kitchen screen or printer station.</div>`}</div>`;
   return h;
 }
 const newCode = () => String(Math.floor(100000 + Math.random()*900000));
+/* ---------- device settings (Foodics-style, per tablet) ---------- */
+const OT3 = [["dinein","Dine-in"],["takeaway","Takeaway"],["delivery","Delivery"]];
+function devSummary(d){ const s = d.settings || {}, bits = [];
+  if(s.autoAccept) bits.push("Auto-accepts orders"); if(+s.lockMinutes) bits.push(`Locks after ${s.lockMinutes} min`); if(+s.tables) bits.push(`${s.tables} tables`); if(s.kitchenPrinter) bits.push("Kitchen printer");
+  return bits.length ? `<div class="note">${bits.map(esc).join(" · ")}</div>` : ""; }
+function openDeviceSettings(id){
+  const d = S.devices.find(x=>x.id===id); if(!d) return; const s = d.settings || {}, br = branches.find(b=>b.id===d.branchId), brTypes = br?.settings?.orderTypes || OT3.map(x=>x[0]);
+  const types = s.orderTypes || brTypes, sel = (k, v, opts) => `<select id="ds_${k}" class="sel">${opts.map(([a,b])=>`<option value="${a}" ${String(v)===String(a)?"selected":""}>${b}</option>`).join("")}</select>`;
+  $("#crudBox").innerHTML = `<header><h2>Device settings · ${esc(d.name)}</h2><button type="button" class="x" data-cclose aria-label="Close">×</button></header>
+  <div class="body bform">
+    <h4 class="fsec">General</h4>
+    <div class="f"><label for="ds_name">Device name *</label><input id="ds_name" value="${esc(d.name)}"></div>
+    <div class="f"><label for="ds_reference">Reference</label><input id="ds_reference" value="${esc(d.reference||"")}" placeholder="e.g. C1"></div>
+    <div class="f"><label for="ds_type">Type</label>${sel("type", d.type, DEV_TYPES)}</div>
+    <div class="f"><label for="ds_branch">Branch</label>${sel("branch", d.branchId, branches.filter(b=>b.active!==false || b.id===d.branchId).map(b=>[b.id,(brandList().length>1?brandName(b.brandId)+" · ":"")+b.name]))}<div class="note">Moving a tablet to another branch needs a new activation code.</div></div>
+    <h4 class="fsec">Orders</h4>
+    <div class="f full"><label>Order types on this device</label><div class="multi" id="ds_types">${OT3.map(([k,t])=>`<label class="chk"><input type="checkbox" value="${k}" ${types.includes(k)?"checked":""} ${brTypes.includes(k)?"":"disabled"}> ${t}${brTypes.includes(k)?"":" (off for this branch)"}</label>`).join("")}</div></div>
+    <div class="f"><label for="ds_defaultType">Default order type</label>${sel("defaultType", s.defaultType || types[0] || "dinein", OT3)}</div>
+    <div class="f"><label for="ds_tables">Dine-in tables</label><input id="ds_tables" type="number" min="0" max="200" value="${esc(s.tables ?? "")}" placeholder="0 = type the table number"></div>
+    <div class="f full"><label class="chk"><input type="checkbox" id="ds_autoAccept" ${s.autoAccept?"checked":""}> Auto-accept call-center and online orders for this branch (sends them straight to the kitchen and gives them this device's order number)</label></div>
+    <h4 class="fsec">Printing &amp; hardware</h4>
+    <div class="f"><label for="ds_receipt">After each sale</label>${sel("receipt", s.receipt || "show", [["show","Show the receipt"],["print","Print the receipt automatically"],["none","Don't show or print"]])}</div>
+    <div class="f"><label for="ds_copies">Receipt copies</label><input id="ds_copies" type="number" min="1" max="5" value="${esc(s.copies || 1)}"></div>
+    <div class="f"><label for="ds_kitchenPrinter">Kitchen printer (IP address or name)</label><input id="ds_kitchenPrinter" value="${esc(s.kitchenPrinter||"")}" placeholder="e.g. 192.168.1.50"></div>
+    <div class="f"><label for="ds_receiptPrinter">Receipt printer (IP address or name)</label><input id="ds_receiptPrinter" value="${esc(s.receiptPrinter||"")}" placeholder="Built-in / 192.168.1.51"></div>
+    <div class="f full"><label class="chk"><input type="checkbox" id="ds_cashDrawer" ${s.cashDrawer!==false?"checked":""}> Cash drawer connected (opens for cash payments)</label></div>
+    <h4 class="fsec">Security</h4>
+    <div class="f"><label for="ds_lockMinutes">Auto-lock after (minutes idle)</label><input id="ds_lockMinutes" type="number" min="0" max="240" value="${esc(s.lockMinutes ?? 10)}"><div class="note">0 = never lock. Only applies once users have PINs.</div></div>
+    <div class="f"><label class="chk" style="margin-top:22px"><input type="checkbox" id="ds_lockAfterSale" ${s.lockAfterSale?"checked":""}> Lock after every sale</label></div>
+    <div class="err" id="cErr"></div>
+  </div>
+  <footer><button type="button" class="btn" data-cclose>Cancel</button><button type="button" class="btn pri" id="dsSave">Save settings</button></footer>`;
+  crudEdit = { key:"devset", id }; $("#crudBox").className = "modal wide"; $("#crudScrim").classList.add("show");
+}
+async function saveDeviceSettings(){
+  const id = crudEdit.id, d = S.devices.find(x=>x.id===id), v = k => ($("#ds_"+k)?.value || "").trim(), ck = k => !!$("#ds_"+k)?.checked;
+  const name = v("name"); if(!name){ $("#cErr").textContent = "Device name is required."; return; }
+  const orderTypes = [...document.querySelectorAll("#ds_types input:checked")].map(i=>i.value);
+  if(!orderTypes.length){ $("#cErr").textContent = "Pick at least one order type."; return; }
+  const defaultType = orderTypes.includes(v("defaultType")) ? v("defaultType") : orderTypes[0];
+  const settings = { ...(d.settings||{}), orderTypes, defaultType, tables: +v("tables") || 0, autoAccept: ck("autoAccept"), receipt: v("receipt"), copies: Math.max(1, +v("copies") || 1),
+    kitchenPrinter: v("kitchenPrinter"), receiptPrinter: v("receiptPrinter"), cashDrawer: ck("cashDrawer"), lockMinutes: Math.max(0, +v("lockMinutes") || 0), lockAfterSale: ck("lockAfterSale") };
+  const ch = { name, reference: v("reference"), type: v("type"), settings };
+  if(v("branch") !== d.branchId){ if(!confirm("Move this device to another branch? It will need a new activation code.")) return; ch.branchId = v("branch"); ch.code = newCode(); ch.activatedAt = null; }
+  try{ await put("devices", id, ch); toast(ch.code ? `Device moved · new activation code ${ch.code}` : "Device settings saved"); closeCrud(); }
+  catch(err){ console.error(err); $("#cErr").textContent = "Couldn't save. Only the owner or an admin can change devices."; }
+}
+document.addEventListener("click", e => { const b = e.target.closest("[data-devset]"); if(b) return openDeviceSettings(b.dataset.devset); if(e.target.closest("#dsSave")) saveDeviceSettings(); });
 function openDevice(){
   $("#crudBox").innerHTML = `<header><h2>Create Device</h2><button type="button" class="x" data-cclose aria-label="Close">×</button></header>
   <div class="body"><div class="f full"><label for="dName">Device name *</label><input id="dName" placeholder="e.g. Kaslik Cashier 1"></div>

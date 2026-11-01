@@ -128,7 +128,7 @@ body{-webkit-font-smoothing:antialiased}
 <script>window.SLICK_OFFLINE = true;</script>
 <script src="supabase.js"></script>
 <script>if(!window.supabase) document.write('<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"><\/script>');</script>
-<script src="wokdb.js?v=18"></script>
+<script src="wokdb.js?v=19"></script>
 <script src="modpick.js?v=2"></script>
 </head>
 <body>
@@ -203,6 +203,7 @@ function onData(c){
   device = S.devices.find(d => d.id===device.id) || device;
   if(device.deleted){ store.set("wokDevice", null); location.reload(); return; }
   branch = S.branches.find(b => b.id===device.branchId) || branch;
+  if(c==="orders" && devSet().autoAccept) autoAccept();
   if(c==="users" || c==="roles"){ if(cashier){ cashier = S.users.find(u=>u.id===cashier.id && live(u) && u.active!==false) || null; } lockIfNeeded(); }
   renderAll();
 }
@@ -245,7 +246,7 @@ $("#actForm").addEventListener("submit", async e => {
 });
 function startApp(id){
   device = S.devices.find(d => d.id===id); branch = S.branches.find(b => b.id===device.branchId);
-  show("app"); renderAll(); lockIfNeeded();
+  show("app"); renderAll(); lockIfNeeded(); if(devSet().autoAccept) autoAccept();
   setInterval(() => db.collection("devices").doc(device.id).update({ lastSeen:new Date().toISOString() }).catch(()=>{}), 5*60*1000);
 }
 
@@ -277,7 +278,7 @@ $("#lock").addEventListener("click", e => { const b = e.target.closest("[data-pi
   $("#pinErr").textContent = ""; paintPin(); if(pinBuf.length===4) tryPin(); });
 document.addEventListener("keydown", e => { if($("#lock").classList.contains("hide")) return; if(/^\d$/.test(e.key) && pinBuf.length < 4){ pinBuf += e.key; paintPin(); if(pinBuf.length===4) tryPin(); } else if(e.key==="Backspace"){ pinBuf = pinBuf.slice(0,-1); paintPin(); } });
 $("#lockBtn").addEventListener("click", () => lock());
-let idleT; ["pointerdown","keydown"].forEach(ev => document.addEventListener(ev, () => { clearTimeout(idleT); idleT = setTimeout(() => { if(usePins() && cashier) lock(); }, 10*60*1000); }));
+let idleT; ["pointerdown","keydown"].forEach(ev => document.addEventListener(ev, () => { clearTimeout(idleT); const mins = devSet().lockMinutes ?? 10; if(+mins > 0) idleT = setTimeout(() => { if(usePins() && cashier) lock(); }, mins*60*1000); }));
 const deny = what => { toast(`${cashier ? cashier.name + ", your" : "Your"} role doesn't allow ${what}.`); return true; };
 /* ---------- order numbers: each tablet counts 1, 2, 3… and starts again every business day ---------- */
 const dayCut = () => { const m = /^(\d{1,2}):(\d{2})/.exec((S.settings.find(x=>x.id==="company")||{}).dayEnd || ""); return m ? Math.min(719, (+m[1])*60 + (+m[2])) : 0; };
@@ -297,7 +298,23 @@ const payMethods = () => { const l = S.payment_methods.filter(m => live(m) && m.
 const incoming = () => S.orders.filter(o => o.branchId===device.branchId && o.channel!=="pos" && (o.status==="pending" || o.status==="active"));
 
 /* ---------- render ---------- */
+const autoDone = new Set();
+async function autoAccept(){
+  for(const o of S.orders.filter(o => o.branchId===device.branchId && o.channel!=="pos" && o.status==="pending" && !autoDone.has(o.id))){
+    autoDone.add(o.id);
+    try{ await db.collection("orders").doc(o.id).update({ status:"active", updatedAt:new Date().toISOString(), handledBy:(cashier?.name || device.name) + " (auto)", ...(o.no ? {} : { no: nextOrderNo(), deviceId: device.id }) });
+      toast(`New ${o.channel==="online"?"online":"call-center"} order accepted automatically`); }catch(err){ console.error(err); autoDone.delete(o.id); }
+  }
+}
+/* ---------- device & branch settings (Manage → Devices → Settings, Manage → Branches) ---------- */
+const devSet = () => device?.settings || {}, brSet = () => branch?.settings || {};
+const allowedTypes = () => { const b = brSet().orderTypes || ["dinein","takeaway","delivery"], d = devSet().orderTypes || b, a = ["dinein","takeaway","delivery"].filter(t => b.includes(t) && d.includes(t)); return a.length ? a : ["dinein","takeaway","delivery"]; };
+const defaultType = () => { const a = allowedTypes(), d = devSet().defaultType; return a.includes(d) ? d : a[0]; };
+function applyTypes(){ const a = allowedTypes(); document.querySelectorAll("#otype [data-t]").forEach(b => b.style.display = a.includes(b.dataset.t) ? "" : "none"); if(!a.includes(otype)) otype = defaultType(); }
+let typeInit = false;
 function renderAll(){
+  if(!typeInit && device){ typeInit = true; otype = defaultType(); }
+  applyTypes();
   const bn = S.brands.find(b=>b.id===branch?.brandId)?.name;
   $("#tBranch").textContent = (bn ? bn + " · " : "") + (branch?.name || "Unknown branch");
   $("#tDevice").textContent = device.name;
@@ -322,7 +339,7 @@ function renderMenu(){
 function totals(){ const sub = cart.reduce((a,i)=>a+i.price*i.qty,0), disc = +(sub*discount/100).toFixed(2); return { sub, disc, total: +(sub-disc).toFixed(2) }; }
 function renderCart(){
   document.querySelectorAll("#otype button").forEach(b => b.classList.toggle("on", b.dataset.t===otype));
-  $("#extra").innerHTML = otype==="dinein" ? `<input id="tbl" placeholder="Table number" value="${esc(tableNo)}" inputmode="numeric">`
+  $("#extra").innerHTML = otype==="dinein" ? (+devSet().tables ? `<select id="tbl" aria-label="Table"><option value="">Choose table…</option>${Array.from({length:+devSet().tables},(_,i)=>`<option ${String(i+1)===String(tableNo)?"selected":""}>${i+1}</option>`).join("")}</select>` : `<input id="tbl" placeholder="Table number" value="${esc(tableNo)}" inputmode="numeric">`)
     : otype==="delivery" ? `<input id="cPhone" placeholder="Customer phone" value="${esc(cust.phone)}"><input id="cName" placeholder="Customer name" value="${esc(cust.name)}"><input id="cAddr" placeholder="Address" value="${esc(cust.address)}">`
     : `<input id="cName" placeholder="Customer name (optional)" value="${esc(cust.name)}">`;
   $("#lines").innerHTML = cart.length ? cart.map((i,ix)=>`<div class="line"><span class="n">${esc(i.name)}${i.mods?`<small class="mut" style="display:block;font-size:12px">${esc(i.mods)}</small>`:""}</span><span class="p">${usd(i.price*i.qty)}</span>
@@ -357,9 +374,10 @@ async function addProduct(p){
 $("#grid").addEventListener("click", e => { const b = e.target.closest("[data-add]"); if(!b) return; const p = S.products.find(x=>x.id===b.dataset.add); if(p) addProduct(p); });
 $("#lines").addEventListener("click", e => { const b = e.target.closest("[data-q]"); if(!b) return; const [ix,d] = b.dataset.q.split(":").map(Number); cart[ix].qty += d; if(cart[ix].qty<=0) cart.splice(ix,1); renderCart(); });
 $("#otype").addEventListener("click", e => { const b = e.target.closest("[data-t]"); if(b){ otype = b.dataset.t; renderCart(); } });
+$("#extra").addEventListener("change", e => { if(e.target.id==="tbl") tableNo = e.target.value; });
 $("#extra").addEventListener("input", e => { if(e.target.id==="tbl") tableNo = e.target.value; if(e.target.id==="cPhone") cust.phone = e.target.value; if(e.target.id==="cName") cust.name = e.target.value; if(e.target.id==="cAddr") cust.address = e.target.value; });
 $("#clearBtn").addEventListener("click", () => { resetOrder(); });
-function resetOrder(){ cart = []; discount = 0; tableNo = ""; cust = { name:"", phone:"", address:"" }; renderCart(); }
+function resetOrder(){ otype = defaultType(); cart = []; discount = 0; tableNo = ""; cust = { name:"", phone:"", address:"" }; renderCart(); }
 
 /* ---------- modals ---------- */
 let modalKind = null;
@@ -411,19 +429,29 @@ async function completeSale(){
   try{
     const id = "pos_" + Date.now().toString(36) + Math.random().toString(36).slice(2,5);
     await db.collection("orders").doc(id).set(order);
-    showReceipt(order); resetOrder(); if(!syncSt.online) toast("Saved on this tablet · will sync when online");
+    if(devSet().receipt==="none"){ closeModal(); toast(`Sale complete · ${usd(order.total)}${order.payment.change ? " · change " + usd(order.payment.change) : ""}`); } else showReceipt(order);
+    resetOrder(); if(devSet().lockAfterSale && usePins()) lock(); if(!syncSt.online) toast("Saved on this tablet · will sync when online");
   }catch(err){ console.error(err); toast("Couldn't save the sale. Try again."); $("#confirmPay").disabled = false; }
+}
+function rcptHead(w){
+  const c = l => l.slice(0,w).padStart((w + Math.min(w,l.length))/2), out = [];
+  if(branch?.nameAr) out.push(c(branch.nameAr));
+  (brSet().receiptHeader || "").split("\n").map(l=>l.trim()).filter(Boolean).forEach(l => out.push(c(l)));
+  const tax = branch?.taxNumber || (S.settings.find(x=>x.id==="company")||{}).taxNumber; if(tax) out.push(c("VAT No. " + tax));
+  if(branch?.phone) out.push(c("Tel " + branch.phone));
+  return out;
 }
 function receiptText(o){
   const w = 32, row = (a,b) => a.slice(0, w-b.length-1).padEnd(w-b.length) + b;
-  const lines = [ (()=>{ const n = (S.brands.find(b=>b.id===branch?.brandId)?.name || "Slick").toUpperCase(); return n.padStart((w+n.length)/2); })(), (branch?.name||"").padStart((w+(branch?.name||"").length)/2), "", row("Order #"+o.no, o.type==="dinein"?"Dine-in"+(o.table?" T"+o.table:""):o.type==="pickup"?"Takeaway":"Delivery"),
+  const lines = [ (()=>{ const n = (S.brands.find(b=>b.id===branch?.brandId)?.name || "Slick").toUpperCase(); return n.padStart((w+n.length)/2); })(), (branch?.name||"").padStart((w+(branch?.name||"").length)/2), ...rcptHead(w), "", row("Order #"+o.no, o.type==="dinein"?"Dine-in"+(o.table?" T"+o.table:""):o.type==="pickup"?"Takeaway":"Delivery"),
     new Date(o.createdAt).toLocaleString("en-GB"), "-".repeat(w), ...o.items.flatMap(i => [row(i.qty+" x "+i.name, (i.price*i.qty).toFixed(2)), ...(i.mods ? ["  + " + i.mods] : [])]), "-".repeat(w), row("Subtotal", o.subtotal.toFixed(2)) ];
   if(o.discount) lines.push(row("Discount "+o.discountPct+"%", "-"+o.discount.toFixed(2)));
   lines.push(row("TOTAL USD", o.total.toFixed(2)));
   if(o.tax) lines.push(row("  incl. tax", o.tax.toFixed(2)));
   lines.push(row("Paid ("+o.payment.method+")", o.payment.tendered.toFixed(2)));
   if(o.payment.change) lines.push(row("Change", o.payment.change.toFixed(2)));
-  lines.push("", "Thank you!".padStart((w+10)/2));
+  const foot = (brSet().receiptFooter || "Thank you!").split("\n").map(l => l.trim()).filter(Boolean);
+  lines.push("", ...foot.map(l => l.slice(0,w).padStart((w + Math.min(w,l.length))/2)));
   return lines.join("\n");
 }
 function showReceipt(o){
