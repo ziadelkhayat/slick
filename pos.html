@@ -93,7 +93,8 @@ button{cursor:pointer}
 <script>window.SLICK_OFFLINE = true;</script>
 <script src="supabase.js"></script>
 <script>if(!window.supabase) document.write('<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"><\/script>');</script>
-<script src="wokdb.js?v=10"></script>
+<script src="wokdb.js?v=11"></script>
+<script src="modpick.js?v=1"></script>
 </head>
 <body>
 <div id="boot" class="center"><div class="panel"><div class="logo">S</div><h1>Slick POS</h1><p>Connecting…</p></div></div>
@@ -143,7 +144,7 @@ let tt; const toast = m => { const t=$("#toast"); t.textContent=m; t.classList.a
 const store = { get(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } }, set(k,v){ try{ v==null?localStorage.removeItem(k):localStorage.setItem(k,v); }catch(e){} } };
 
 let db = null;
-const S = { brands:[], devices:[], branches:[], categories:[], products:[], orders:[], shifts:[] };
+const S = { brands:[], devices:[], branches:[], categories:[], products:[], orders:[], shifts:[], modifiers:[], modifier_options:[] };
 let device = null, branch = null, cat = "", otype = "dinein", cart = [], discount = 0, tableNo = "", cust = { name:"", phone:"", address:"" };
 
 /* ---------- boot ---------- */
@@ -241,7 +242,7 @@ function renderCart(){
   $("#extra").innerHTML = otype==="dinein" ? `<input id="tbl" placeholder="Table number" value="${esc(tableNo)}" inputmode="numeric">`
     : otype==="delivery" ? `<input id="cPhone" placeholder="Customer phone" value="${esc(cust.phone)}"><input id="cName" placeholder="Customer name" value="${esc(cust.name)}"><input id="cAddr" placeholder="Address" value="${esc(cust.address)}">`
     : `<input id="cName" placeholder="Customer name (optional)" value="${esc(cust.name)}">`;
-  $("#lines").innerHTML = cart.length ? cart.map((i,ix)=>`<div class="line"><span class="n">${esc(i.name)}</span><span class="p">${usd(i.price*i.qty)}</span>
+  $("#lines").innerHTML = cart.length ? cart.map((i,ix)=>`<div class="line"><span class="n">${esc(i.name)}${i.mods?`<small class="mut" style="display:block;font-size:12px">${esc(i.mods)}</small>`:""}</span><span class="p">${usd(i.price*i.qty)}</span>
     <span class="qty"><button data-q="${ix}:-1" aria-label="Less">−</button>${i.qty}<button data-q="${ix}:1" aria-label="More">+</button></span><span class="p mut">${usd(i.price)} each</span></div>`).join("") : `<div class="empty">Tap items to start an order</div>`;
   const t = totals();
   $("#totals").innerHTML = `<div><span>Subtotal</span><span>${usd(t.sub)}</span></div>${discount?`<div><span>Discount ${discount}%</span><span>−${usd(t.disc)}</span></div>`:""}<div class="g"><span>Total</span><span>${usd(t.total)}</span></div>`;
@@ -251,7 +252,26 @@ function renderCart(){
 /* ---------- events ---------- */
 $("#cats").addEventListener("click", e => { const b = e.target.closest("[data-cat]"); if(b){ cat = b.dataset.cat; renderMenu(); } });
 $("#q").addEventListener("input", renderMenu);
-$("#grid").addEventListener("click", e => { const b = e.target.closest("[data-add]"); if(!b) return; const p = S.products.find(x=>x.id===b.dataset.add); let price = prodPrice(p); if(p.pricingMethod==="open"){ const v = prompt("Price for " + p.name, price || ""); if(v===null || v==="" || isNaN(+v) || +v<0) return; price = +v; const ex2 = cart.find(i=>i.productId===p.id && i.price===price); if(ex2) ex2.qty++; else cart.push({ productId:p.id, name:p.name, price, qty:1 }); return renderCart(); } const ex = cart.find(i=>i.productId===p.id); if(ex) ex.qty++; else cart.push({ productId:p.id, name:p.name, price, qty:1 }); renderCart(); });
+// options of the product's modifiers that this branch sells, at this branch's price
+function modData(p){
+  const groups = {}; S.modifiers.forEach(m => { if(!m.deleted) groups[m.id] = { name:m.name }; });
+  const ids = new Set((p.modifiers||[]).map(l=>l.modifierId));
+  const options = S.modifier_options.filter(o => !o.deleted && o.active!==false && ids.has(o.modifierId) && !(o.inactiveBranchIds||[]).includes(device.branchId))
+    .sort((a,b)=>(a.sort??999)-(b.sort??999) || a.name.localeCompare(b.name))
+    .map(o => { const c = (o.customPrices||{})[device.branchId]; return { id:o.id, modifierId:o.modifierId, name:o.name, price: c!=null && c!=="" ? +c : +o.price||0, oos:(o.outOfStockBranchIds||[]).includes(device.branchId) }; });
+  return { links:(p.modifiers||[]).filter(l => groups[l.modifierId]), groups, options };
+}
+async function addProduct(p){
+  let price = prodPrice(p);
+  if(p.pricingMethod==="open"){ const v = prompt("Price for " + p.name, price || ""); if(v===null || v==="" || isNaN(+v) || +v<0) return; price = +v; }
+  let options = [], mods = "";
+  if((p.modifiers||[]).length && window.SlickMods){ const r = await SlickMods.pick({ name:p.name, basePrice:price, ...modData(p), money:usd }); if(!r) return; options = r.options; mods = r.mods; price = r.unitPrice; }
+  const k = SlickMods ? SlickMods.key(p.id, options) : p.id;
+  const ex = cart.find(i => (window.SlickMods ? SlickMods.key(i.productId, i.options) : i.productId) === k && i.price === price);
+  if(ex) ex.qty++; else cart.push({ productId:p.id, name:p.name, price, qty:1, ...(options.length ? { options, mods } : {}) });
+  renderCart();
+}
+$("#grid").addEventListener("click", e => { const b = e.target.closest("[data-add]"); if(!b) return; const p = S.products.find(x=>x.id===b.dataset.add); if(p) addProduct(p); });
 $("#lines").addEventListener("click", e => { const b = e.target.closest("[data-q]"); if(!b) return; const [ix,d] = b.dataset.q.split(":").map(Number); cart[ix].qty += d; if(cart[ix].qty<=0) cart.splice(ix,1); renderCart(); });
 $("#otype").addEventListener("click", e => { const b = e.target.closest("[data-t]"); if(b){ otype = b.dataset.t; renderCart(); } });
 $("#extra").addEventListener("input", e => { if(e.target.id==="tbl") tableNo = e.target.value; if(e.target.id==="cPhone") cust.phone = e.target.value; if(e.target.id==="cName") cust.name = e.target.value; if(e.target.id==="cAddr") cust.address = e.target.value; });
@@ -312,7 +332,7 @@ async function completeSale(){
 function receiptText(o){
   const w = 32, row = (a,b) => a.slice(0, w-b.length-1).padEnd(w-b.length) + b;
   const lines = [ (()=>{ const n = (S.brands.find(b=>b.id===branch?.brandId)?.name || "Slick").toUpperCase(); return n.padStart((w+n.length)/2); })(), (branch?.name||"").padStart((w+(branch?.name||"").length)/2), "", row("Order #"+o.no, o.type==="dinein"?"Dine-in"+(o.table?" T"+o.table:""):o.type==="pickup"?"Takeaway":"Delivery"),
-    new Date(o.createdAt).toLocaleString("en-GB"), "-".repeat(w), ...o.items.map(i => row(i.qty+" x "+i.name, (i.price*i.qty).toFixed(2))), "-".repeat(w), row("Subtotal", o.subtotal.toFixed(2)) ];
+    new Date(o.createdAt).toLocaleString("en-GB"), "-".repeat(w), ...o.items.flatMap(i => [row(i.qty+" x "+i.name, (i.price*i.qty).toFixed(2)), ...(i.mods ? ["  + " + i.mods] : [])]), "-".repeat(w), row("Subtotal", o.subtotal.toFixed(2)) ];
   if(o.discount) lines.push(row("Discount "+o.discountPct+"%", "-"+o.discount.toFixed(2)));
   lines.push(row("TOTAL USD", o.total.toFixed(2)), row("Paid ("+o.payment.method+")", o.payment.tendered.toFixed(2)));
   if(o.payment.change) lines.push(row("Change", o.payment.change.toFixed(2)));
@@ -333,7 +353,7 @@ function openIncoming(){
   modal("incoming", `<div class="mh"><h2>Incoming orders · ${esc(branch?.name||"")}</h2><button class="x" data-close aria-label="Close">×</button></div><div class="mb"><div class="ilist">${
     list.length ? list.map(o=>`<div class="icard"><div class="r"><b>#${esc(o.no)} · ${esc(o.source||"Call center")}</b><span class="spill s-${o.status}">${o.status==="pending"?"Waiting for you":"In kitchen"}</span></div>
       <div class="mut">${esc(o.customerName||"Guest")} · ${esc(o.phone||"")} · ${o.type==="pickup"?"Pickup":"Delivery"}${o.address?" · "+esc(o.address):""}</div>
-      <div>${o.items.map(i=>`${i.qty} × ${esc(i.name)}`).join(", ")}</div>${o.notes?`<div class="mut">Note: ${esc(o.notes)}</div>`:""}${o.lat?`<div><a href="https://www.google.com/maps?q=${o.lat},${o.lng}" target="_blank" rel="noopener" style="color:#5b2bc4">📍 Open pinned location</a></div>`:""}
+      <div>${o.items.map(i=>`${i.qty} × ${esc(i.name)}${i.mods?` <span class="mut">(${esc(i.mods)})</span>`:""}`).join(", ")}</div>${o.notes?`<div class="mut">Note: ${esc(o.notes)}</div>`:""}${o.lat?`<div><a href="https://www.google.com/maps?q=${o.lat},${o.lng}" target="_blank" rel="noopener" style="color:#5b2bc4">📍 Open pinned location</a></div>`:""}
       <div class="r"><b>${usd(o.total)}</b><span>${o.status==="pending" ? `<button class="btn bad" data-inc="${esc(o.id)}:declined">Decline</button> <button class="btn pri" data-inc="${esc(o.id)}:active">Accept</button>` : `<button class="btn pri" data-inc="${esc(o.id)}:closed">Mark done</button>`}</span></div></div>`).join("")
     : `<div class="empty">No incoming orders for this branch right now.</div>`}</div></div>`, true);
 }
