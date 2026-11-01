@@ -125,7 +125,7 @@ body{-webkit-font-smoothing:antialiased}
 <script>window.SLICK_OFFLINE = true;</script>
 <script src="supabase.js"></script>
 <script>if(!window.supabase) document.write('<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"><\/script>');</script>
-<script src="wokdb.js?v=13"></script>
+<script src="wokdb.js?v=14"></script>
 <script src="modpick.js?v=1"></script>
 </head>
 <body>
@@ -259,13 +259,14 @@ function renderAll(){
   renderMenu(); renderCart();
   if(modalKind==="incoming") openIncoming();
 }
+const catRank = p => { const c = S.categories.find(x=>x.id===p.categoryId); return c?.sort ?? 999; };   // "All" follows the category order
 function renderMenu(){
   const prods = products();
-  const cats = S.categories.filter(c => live(c) && prods.some(p => p.categoryId===c.id)).sort((a,b)=>(a.sort??999)-(b.sort??999));
+  const cats = S.categories.filter(c => live(c) && prods.some(p => p.categoryId===c.id)).sort((a,b)=>(a.sort??999)-(b.sort??999) || a.name.localeCompare(b.name));
   if(cat && !cats.some(c=>c.id===cat)) cat = "";
   $("#cats").innerHTML = `<button class="cat ${!cat?"on":""}" data-cat="">All</button>` + cats.map(c=>`<button class="cat ${cat===c.id?"on":""}" data-cat="${esc(c.id)}">${esc(c.name)}</button>`).join("");
   const q = $("#q").value.toLowerCase();
-  const list = prods.filter(p => (!cat || p.categoryId===cat) && (!q || p.name.toLowerCase().includes(q))).sort((a,b)=>a.name.localeCompare(b.name));
+  const list = prods.filter(p => (!cat || p.categoryId===cat) && (!q || p.name.toLowerCase().includes(q))).sort((a,b)=>(cat || q ? 0 : catRank(a)-catRank(b) || String(a.categoryId).localeCompare(String(b.categoryId))) || (a.sort??999)-(b.sort??999) || a.name.localeCompare(b.name));
   $("#grid").innerHTML = list.length ? list.map(p=>`<button class="prod" data-add="${esc(p.id)}"><span>${esc(p.name)}</span><b>${p.pricingMethod==="open"?"Open price":usd(prodPrice(p))}</b>${(p.outOfStockBranchIds||[]).includes(device.branchId)?'<small style="color:#b45309">Out of stock</small>':""}</button>`).join("") : `<div class="empty">No products${S.products.length?" here":". Add them in the back office"}.</div>`;
 }
 function totals(){ const sub = cart.reduce((a,i)=>a+i.price*i.qty,0), disc = +(sub*discount/100).toFixed(2); return { sub, disc, total: +(sub-disc).toFixed(2) }; }
@@ -286,12 +287,12 @@ $("#cats").addEventListener("click", e => { const b = e.target.closest("[data-ca
 $("#q").addEventListener("input", renderMenu);
 // options of the product's modifiers that this branch sells, at this branch's price
 function modData(p){
-  const groups = {}; S.modifiers.forEach(m => { if(!m.deleted) groups[m.id] = { name:m.name }; });
+  const groups = {}; S.modifiers.forEach(m => { if(!m.deleted) groups[m.id] = { name:m.name, sort:m.sort }; });
   const ids = new Set((p.modifiers||[]).map(l=>l.modifierId));
   const options = S.modifier_options.filter(o => !o.deleted && o.active!==false && ids.has(o.modifierId) && !(o.inactiveBranchIds||[]).includes(device.branchId))
     .sort((a,b)=>(a.sort??999)-(b.sort??999) || a.name.localeCompare(b.name))
     .map(o => { const c = (o.customPrices||{})[device.branchId]; return { id:o.id, modifierId:o.modifierId, name:o.name, price: c!=null && c!=="" ? +c : +o.price||0, oos:(o.outOfStockBranchIds||[]).includes(device.branchId) }; });
-  return { links:(p.modifiers||[]).filter(l => groups[l.modifierId]), groups, options };
+  return { links:(p.modifiers||[]).filter(l => groups[l.modifierId]).sort((a,b)=>(groups[a.modifierId].sort??999)-(groups[b.modifierId].sort??999)), groups, options };
 }
 async function addProduct(p){
   let price = prodPrice(p);

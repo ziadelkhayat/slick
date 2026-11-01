@@ -96,13 +96,13 @@ $("#brand").textContent = brand.name; $("#logo").textContent = brand.name.trim()
 const [st, br, ca, pr, zo, mg, mo] = await Promise.all([
   sb.from("settings").select("data").eq("id","online_"+brandId).maybeSingle(),
   sb.from("branches").select("id,name,open_time,close_time").eq("brand_id", brandId),
-  sb.from("categories").select("id,name,sort").eq("brand_id", brandId).order("sort"),
-  sb.from("products").select("id,name,price,description,category_id,channels,branch_ids,pricing_method,custom_prices,inactive_branch_ids,out_of_stock_branch_ids,modifiers").eq("brand_id", brandId).order("name"),
+  sb.from("categories").select("id,name,sort").eq("brand_id", brandId).order("sort").order("name"),
+  sb.from("products").select("id,name,price,description,category_id,channels,branch_ids,pricing_method,custom_prices,inactive_branch_ids,out_of_stock_branch_ids,modifiers,sort").eq("brand_id", brandId).order("sort").order("name"),
   sb.from("delivery_zones").select("id,name,branch_id,fee,min_order,eta,polygon").order("name"),
-  sb.from("modifiers").select("id,name,deleted"),
+  sb.from("modifiers").select("id,name,sort,deleted"),
   sb.from("modifier_options").select("id,modifier_id,name,price,custom_prices,inactive_branch_ids,out_of_stock_branch_ids,sort,active,deleted")
 ]);
-const mgroups = {}; (mg.data||[]).forEach(m => { if(!m.deleted) mgroups[m.id] = { name:m.name }; });
+const mgroups = {}; (mg.data||[]).forEach(m => { if(!m.deleted) mgroups[m.id] = { name:m.name, sort:m.sort }; });
 const mopts = (mo.data||[]).filter(o => o.active!==false && !o.deleted);
 if([st,br,ca,pr,zo].some(r => r.error)){ $("#main").innerHTML = `<div class="closed">We couldn't load the menu. Please try again in a moment.</div>`; return; }
 const cfg = st.data?.data || {}, branches = br.data, cats = ca.data, products = pr.data, zones = zo.data.filter(z => branches.some(b => b.id === z.branch_id));
@@ -198,7 +198,7 @@ function modData(p){
   const options = mopts.filter(o => ids.has(o.modifier_id) && !(b && (o.inactive_branch_ids||[]).includes(b)) && !(b && (o.out_of_stock_branch_ids||[]).includes(b)))
     .sort((x,y)=>(x.sort??999)-(y.sort??999) || x.name.localeCompare(y.name))
     .map(o => { const c = b && (o.custom_prices||{})[b]; return { id:o.id, modifierId:o.modifier_id, name:o.name, price: c!=null && c!=="" && c!==false ? +c : +o.price||0 }; });
-  return { links:(p.modifiers||[]).filter(l => mgroups[l.modifierId]), groups:mgroups, options };
+  return { links:(p.modifiers||[]).filter(l => mgroups[l.modifierId]).sort((a,b)=>(mgroups[a.modifierId].sort??999)-(mgroups[b.modifierId].sort??999)), groups:mgroups, options };
 }
 const hasMods = p => (p.modifiers||[]).some(l => mgroups[l.modifierId]);
 async function addItem(p){

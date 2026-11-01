@@ -343,11 +343,19 @@ body[data-route="call-center"] .ocard{padding:10px 12px;gap:5px;font-size:13px}
 .ccx .cccart.wide{grid-column:2 / 4}
 @media(max-width:1000px){.modal.ccfull{inset:0;border-radius:0;overflow:auto}.ccx{grid-template-columns:1fr;overflow:visible}.ccmenu{grid-template-columns:1fr;height:70vh}.cccats{flex-direction:row;overflow-x:auto;border-right:0;border-bottom:1px solid var(--line)}.catb{flex:none}.ccx .cccart.wide{grid-column:auto}
   body[data-route="call-center"] .board{grid-template-columns:repeat(5,minmax(220px,1fr));overflow-x:auto;height:auto}}
+.sortbody{padding:16px 22px;max-height:66vh;overflow:auto}
+.sortl{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.sortl li{display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:7px 10px;cursor:grab;user-select:none}
+.sortl li.drag{opacity:.5;border-style:dashed;border-color:var(--accent)}
+.sortl .grip{color:var(--ink3,#8d8c98);letter-spacing:-2px;font-weight:700}
+.sortl .sn{min-width:26px;font-size:12px;color:var(--ink3,#8d8c98);font-variant-numeric:tabular-nums}
+.sortl .st{flex:1;font-weight:500}
+.sortl .btn.sm{padding:3px 9px}
 </style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="wokdb.js?v=13"></script>
+<script src="wokdb.js?v=14"></script>
 <script src="modpick.js?v=1"></script>
 </head>
 <body>
@@ -414,6 +422,7 @@ const money = n => "USD " + n.toLocaleString("en-US",{minimumFractionDigits:2,ma
 
 /* ---------- navigation map (mirrors the Foodics structure) ---------- */
 const I = {
+  sort:'<path d="M7 4v16M3 8l4-4 4 4M17 20V4M13 16l4 4 4-4"/>',
   dash:'<path d="M3 3h7v9H3zM14 3h7v5h-7zM14 12h7v9h-7zM3 16h7v5H3z"/>',
   orders:'<path d="M3 4h2l2.4 11.2a2 2 0 0 0 2 1.6h7.7a2 2 0 0 0 2-1.5L21 8H6"/><circle cx="10" cy="20" r="1"/><circle cx="17" cy="20" r="1"/>',
   phone:'<path d="M4 14v-2a8 8 0 0 1 16 0v2"/><rect x="2" y="14" width="5" height="6" rx="1.5"/><rect x="17" y="14" width="5" height="6" rx="1.5"/>',
@@ -888,7 +897,7 @@ let lastRoute = location.hash.slice(1) || "dashboard";
 // phone/tablet: slide-in menu
 $("#menuBtn").addEventListener("click", e => { e.stopPropagation(); document.body.classList.toggle("navopen"); });
 document.addEventListener("click", e => { if(document.body.classList.contains("navopen") && (!e.target.closest(".side") || e.target.closest(".side a"))) document.body.classList.remove("navopen"); });
-window.addEventListener("hashchange", () => { const r = location.hash.slice(1) || "dashboard"; if(r !== lastRoute){ resetPageFilters(); lastRoute = r; } render(); window.scrollTo(0,0); });
+window.addEventListener("hashchange", () => { const r = location.hash.slice(1) || "dashboard"; if(r !== lastRoute){ resetPageFilters(); lastRoute = r; document.querySelectorAll(".scrim.show").forEach(x => x.classList.remove("show")); } render(); window.scrollTo(0,0); });
 $("#view").addEventListener("change", e => {
   if(e.target.id==="datePick" && e.target.value){ state.date = e.target.value; state.dateSet = state.date !== todayStr(); render(); }
   if(e.target.id==="cmpToggle"){ state.compare = e.target.checked; render(); }
@@ -984,6 +993,10 @@ async function put(col, id, data){
 }
 const live = r => !r.deleted;
 const catName = id => S.categories.find(c => c.id===id)?.name || "—";
+/* one sort order everywhere: back office, POS, call center and online ordering all read the same "sort" field */
+const bySort = (a,b) => (a.sort??9999)-(b.sort??9999) || String(a.name||"").localeCompare(String(b.name||""));
+const catRank = id => S.categories.find(c => c.id===id)?.sort ?? 9999;
+const modRank = id => S.modifiers.find(m => m.id===id)?.sort ?? 9999;
 const branchName = id => branches.find(b => b.id===id)?.name || "—";
 const fmtDate = s => s ? new Date(s).toLocaleString("en-GB",{year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit"}).replace(",","") : "—";
 const ago = s => { const m = Math.round((Date.now() - new Date(s))/60000); if(m<1) return "just now"; if(m<60) return m + " minute" + (m>1?"s":"") + " ago"; const h = Math.round(m/60); if(h<24) return (h===1?"an":h) + " hour" + (h>1?"s":"") + " ago"; return Math.round(h/24) + " days ago"; };
@@ -1018,7 +1031,7 @@ const CRUD = {
   products: {
     col:"products", title:"Products", one:"Product", detail: r => productDetail(r),
     tabs:[["all","All",live],["active","Active",r=>live(r)&&r.active!==false],["inactive","Inactive",r=>live(r)&&r.active===false],["deleted","Deleted",r=>r.deleted]],
-    sort:(a,b)=>(a.sku||"").localeCompare(b.sku||"",undefined,{numeric:true}),
+    sort:(a,b)=>catRank(a.categoryId)-catRank(b.categoryId) || String(a.categoryId).localeCompare(String(b.categoryId)) || bySort(a,b),
     search:r=>r.name+" "+(r.sku||"")+" "+catName(r.categoryId),
     filter:r=>brandFilter(r) && (!state.catFilter || r.categoryId===state.catFilter),
     cols:[["Name",r=>`<b>${esc(r.name)}</b>`],["Brand",r=>esc(brandName(r.brandId))],["SKU",r=>`<span class="code">${esc(r.sku||"")}</span>`],["Category",r=>esc(catName(r.categoryId))],
@@ -1039,7 +1052,7 @@ const CRUD = {
   modifiers: {
     col:"modifiers", title:"Modifiers", one:"Modifier", detail: r => modifierDetail(r),
     tabs:[["all","All",live],["deleted","Deleted",r=>r.deleted]],
-    sort:(a,b)=>a.name.localeCompare(b.name),
+    sort:bySort,
     search:r=>r.name+" "+(r.reference||""),
     cols:[["Name",r=>`<b>${esc(r.name)}</b>${r.nameAr?` <span class="note">${esc(r.nameAr)}</span>`:""}`],["Reference",r=>esc(r.reference||"—")],
       ["Options",r=>S.modifier_options.filter(o=>live(o)&&o.modifierId===r.id).length,"num"],["Linked Products",r=>S.products.filter(p=>live(p)&&(p.modifiers||[]).some(l=>l.modifierId===r.id)).length,"num"],["Created",r=>fmtDate(r.createdAt)]],
@@ -1050,7 +1063,7 @@ const CRUD = {
   "modifier-options": {
     col:"modifier_options", title:"Modifier Options", one:"Modifier Option", detail: r => optionDetail(r),
     tabs:[["all","All",live],["active","Active",r=>live(r)&&r.active!==false],["inactive","Inactive",r=>live(r)&&r.active===false],["deleted","Deleted",r=>r.deleted]],
-    sort:(a,b)=>modName(a.modifierId).localeCompare(modName(b.modifierId)) || (a.sort??999)-(b.sort??999) || a.name.localeCompare(b.name),
+    sort:(a,b)=>modRank(a.modifierId)-modRank(b.modifierId) || String(a.modifierId).localeCompare(String(b.modifierId)) || bySort(a,b),
     search:r=>r.name+" "+(r.sku||"")+" "+modName(r.modifierId),
     filter:r=>!state.modFilter || r.modifierId===state.modFilter,
     cols:[["Name",r=>`<b>${esc(r.name)}</b>`],["Modifier",r=>esc(modName(r.modifierId))],["SKU",r=>`<span class="code">${esc(r.sku||"")}</span>`],["Price",r=>+r.price?usd(r.price):'<span class="note">Free</span>',"num"],
@@ -1148,7 +1161,7 @@ function crudView(key){
   list.sort(cfg.sort);
   const per = 50, pages = Math.max(1, Math.ceil(list.length/per)), pg = Math.min(state.page[key]||1, pages);
   const shown = list.slice((pg-1)*per, pg*per);
-  let h = `<div class="phead"><h1>${cfg.title}</h1><div class="sp"></div><button class="btn pri" data-create="${key}">Create ${cfg.one}</button></div>`;
+  let h = `<div class="phead"><h1>${cfg.title}</h1><div class="sp"></div>${SORTABLE[key] ? `<button class="btn" data-sorter="${key}">${svgIco("sort")} Sort</button>` : ""}<button class="btn pri" data-create="${key}">Create ${cfg.one}</button></div>`;
   if(storeMode==="local") h += `<div class="banner">Preview mode: changes won't be saved.</div>`;
   if(cfg.note) h += `<p class="subt" style="margin-top:-6px">${esc(cfg.note)}</p>`;
   if(key==="delivery-zones") h += `<div class="card" style="padding:0;overflow:hidden;margin-bottom:16px"><div id="zonesMap" style="height:380px"></div><div id="zonesLegend" class="legend"></div></div>`;
@@ -1163,6 +1176,60 @@ function crudView(key){
     <button class="btn sm" data-page="${key}:${pg-1}" ${pg<=1?"disabled":""}>Previous</button><button class="btn sm" data-page="${key}:${pg+1}" ${pg>=pages?"disabled":""}>Next</button></div></div>`;
   return h;
 }
+
+/* ---------- Sort: drag items into the order every screen should show them ---------- */
+const SORTABLE = {
+  categories: { col:"categories", scope: () => brandList().length > 1 ? ["Brand", brandList().map(b=>[b.id,b.name]), r => r.brandId] : null, def: () => state.brand!=="all" ? state.brand : brandList()[0]?.id },
+  products: { col:"products", scope: () => ["Category", S.categories.filter(c=>live(c)&&brandFilter(c)).sort(bySort).map(c=>[c.id,(state.brand==="all"&&brandList().length>1?brandName(c.brandId)+" · ":"")+c.name]), r => r.categoryId], def: () => state.catFilter || S.categories.filter(c=>live(c)&&brandFilter(c)).sort(bySort)[0]?.id },
+  modifiers: { col:"modifiers", scope: () => null },
+  "modifier-options": { col:"modifier_options", scope: () => ["Modifier", S.modifiers.filter(live).sort(bySort).map(m=>[m.id,m.name]), r => r.modifierId], def: () => state.modFilter || S.modifiers.filter(live).sort(bySort)[0]?.id }
+};
+let SORTER = null;
+function openSorter(key, scopeVal){
+  const cfg = SORTABLE[key], sc = cfg.scope(), v = sc ? (scopeVal ?? cfg.def() ?? "") : "";
+  const ids = S[cfg.col].filter(r => live(r) && (!sc || sc[2](r)===v)).sort(bySort).map(r=>r.id);
+  SORTER = { key, v, ids, orig: ids.join(","), dirty:false };
+  crudEdit = { key:"sorter" };
+  paintSorter(); $("#crudScrim").classList.add("show");
+}
+function paintSorter(){
+  const { key, v, ids } = SORTER, cfg = SORTABLE[key], sc = cfg.scope(), col = S[cfg.col], name = id => col.find(r=>r.id===id)?.name || "—";
+  const one = CRUD[key].title.toLowerCase();
+  $("#crudBox").innerHTML = `<header><h2>Sort ${esc(CRUD[key].title)}</h2><button type="button" class="x" data-cclose aria-label="Close">×</button></header>
+    <div class="sortbody">
+      <p class="note" style="margin:0 0 10px">Drag ${esc(one)} into place (or use the arrows). The POS, call center and online ordering show them in this order.</p>
+      ${sc ? `<div class="f" style="margin-bottom:10px"><label for="srtScope">${sc[0]}</label><select id="srtScope" class="sel">${sc[1].map(([k,t])=>`<option value="${esc(k)}" ${k===v?"selected":""}>${esc(t)}</option>`).join("")}</select></div>` : ""}
+      ${ids.length ? `<ol class="sortl" id="srtList">${ids.map((id,i)=>`<li draggable="true" data-sid="${esc(id)}"><span class="grip" aria-hidden="true">⋮⋮</span><span class="sn">${i+1}</span><span class="st">${esc(name(id))}</span>
+        <button type="button" class="btn sm" data-smove="${i}:-1" ${i===0?"disabled":""} aria-label="Move up">↑</button><button type="button" class="btn sm" data-smove="${i}:1" ${i===ids.length-1?"disabled":""} aria-label="Move down">↓</button></li>`).join("")}</ol>`
+        : `<div class="empty">Nothing to sort here.</div>`}
+      <div class="err" id="cErr"></div>
+    </div>
+    <footer><button type="button" class="btn" id="srtAZ" style="margin-right:auto" ${ids.length<2?"disabled":""}>A–Z</button><button type="button" class="btn" data-cclose>Cancel</button><button type="button" class="btn pri" id="srtSave" ${ids.length?"":"disabled"}>Save order</button></footer>`;
+  wireSortDrag();
+}
+function wireSortDrag(){
+  const ol = $("#srtList"); if(!ol) return; let drag = null;
+  ol.addEventListener("dragstart", e => { drag = e.target.closest("li"); if(!drag) return; drag.classList.add("drag"); e.dataTransfer.effectAllowed = "move"; try{ e.dataTransfer.setData("text/plain", drag.dataset.sid); }catch(err){} });
+  ol.addEventListener("dragover", e => { if(!drag) return; e.preventDefault(); const over = e.target.closest("li"); if(!over || over===drag) return;
+    const r = over.getBoundingClientRect(); ol.insertBefore(drag, e.clientY > r.top + r.height/2 ? over.nextSibling : over); });
+  ol.addEventListener("dragend", () => { if(!drag) return; drag.classList.remove("drag"); drag = null; SORTER.ids = [...ol.querySelectorAll("li")].map(li=>li.dataset.sid); paintSorter(); });
+}
+async function saveSorter(){
+  const { key, ids } = SORTER, cfg = SORTABLE[key], col = S[cfg.col];
+  const changes = ids.map((id,i)=>[id,i+1]).filter(([id,n]) => col.find(r=>r.id===id)?.sort !== n);
+  if(!changes.length){ closeCrud(); return; }
+  $("#srtSave").disabled = true; $("#srtSave").textContent = "Saving…";
+  try{ for(const [id,n] of changes) await put(cfg.col, id, { sort:n }); closeCrud(); toast("Order saved · all screens updated"); }
+  catch(err){ console.error(err); $("#cErr").textContent = "Couldn't save the order. Only the owner or an admin can change the menu."; $("#srtSave").disabled = false; $("#srtSave").textContent = "Save order"; }
+}
+document.addEventListener("click", e => {
+  const b = e.target.closest("[data-sorter]"); if(b) return openSorter(b.dataset.sorter);
+  if(!SORTER || !e.target.closest("#crudBox") || crudEdit?.key!=="sorter") return;
+  const mv = e.target.closest("[data-smove]"); if(mv){ const [i,d] = mv.dataset.smove.split(":").map(Number), a = SORTER.ids; [a[i], a[i+d]] = [a[i+d], a[i]]; return paintSorter(); }
+  if(e.target.closest("#srtAZ")){ const col = S[SORTABLE[SORTER.key].col]; SORTER.ids.sort((x,y)=>(col.find(r=>r.id===x)?.name||"").localeCompare(col.find(r=>r.id===y)?.name||"")); return paintSorter(); }
+  if(e.target.closest("#srtSave")) return saveSorter();
+});
+document.addEventListener("change", e => { if(e.target.id==="srtScope" && SORTER){ if(SORTER.ids.join(",")!==SORTER.orig && !confirm("Discard the order you changed here?")) { e.target.value = SORTER.v; return; } openSorter(SORTER.key, e.target.value); } });
 
 /* generic modal */
 let crudEdit = null;
@@ -1355,7 +1422,7 @@ function renderOrderMenu(){
     : prods.filter(p => state.oCat==="_none" ? !cats.some(c=>c.id===p.categoryId) : p.categoryId===state.oCat);
   $("#oCatTitle").textContent = q ? `${list.length} result${list.length===1?"":"s"} for “${q}”` : (cats.find(c=>c.id===state.oCat)?.name || (state.oCat==="_none" ? "Other" : ""));
   const inCart = id => cart.filter(i=>i.productId===id).reduce((a,i)=>a+i.qty,0);
-  box.innerHTML = list.length ? list.sort((a,b)=>(a.sort??999)-(b.sort??999)||a.name.localeCompare(b.name)).map(p=>{ const c = inCart(p.id), oos = (p.outOfStockBranchIds||[]).includes($("#oBranch")?.value);
+  box.innerHTML = list.length ? list.sort((a,b)=>(q ? catRank(a.categoryId)-catRank(b.categoryId) : 0) || bySort(a,b)).map(p=>{ const c = inCart(p.id), oos = (p.outOfStockBranchIds||[]).includes($("#oBranch")?.value);
     return `<button type="button" class="pbtn${c?" sel":""}" data-add="${esc(p.id)}" ${oos?"disabled title=\"Out of stock at this branch\"":""}>${c?`<em>${c}</em>`:""}<span>${esc(p.name)}</span><b>${oos?"Out of stock":usd(ccPrice(p))}</b>${(p.modifiers||[]).length?`<small>Options</small>`:""}</button>`; }).join("")
     : `<div class="note" style="padding:12px">${S.products.length ? (q ? "No products match." : $("#oBrand")?.value ? "No products in this category." : "Choose a brand to see its menu.") : "No products yet. Add them under Menu → Products."}</div>`;
 }
@@ -1839,7 +1906,7 @@ function openDetail(key, id){
   DET.key = key; DET.id = id; DET.dirtyIng = false; DET.dirtyBr = false;
   DET.ing = JSON.parse(JSON.stringify(Array.isArray(r.ingredients) ? r.ingredients : []));
   DET.br = { customPrices: { ...(r.customPrices||{}) }, inactive: [...(r.inactiveBranchIds||[])], oos: [...(r.outOfStockBranchIds||[])] };
-  DET.mods = JSON.parse(JSON.stringify(Array.isArray(r.modifiers) ? r.modifiers : [])); DET.dirtyMods = false;
+  DET.mods = JSON.parse(JSON.stringify(Array.isArray(r.modifiers) ? r.modifiers : [])).sort((a,b)=>modRank(a.modifierId)-modRank(b.modifierId)); DET.dirtyMods = false;
   if(key==="inv-items") loadStock();
   render(); window.scrollTo(0,0);
 }
@@ -2013,15 +2080,14 @@ function optionDetail(o){
 // the Modifiers section of a product
 function modLinks(p){
   const rows = DET.mods, used = new Set(rows.map(l=>l.modifierId));
-  const avail = S.modifiers.filter(m => live(m) && !used.has(m.id)).sort((a,b)=>a.name.localeCompare(b.name));
+  const avail = S.modifiers.filter(m => live(m) && !used.has(m.id)).sort(bySort);
   const num = (ix, f, v, lbl) => `<input type="number" min="0" step="1" class="sel" data-modl="${ix}:${f}" value="${esc(v ?? "")}" style="width:70px;text-align:right" aria-label="${lbl}">`;
   return `<div class="card tbl" style="margin-bottom:16px"><div class="ttop"><b>Modifiers</b><span class="note" style="margin-left:8px">Choices the customer makes for this product. Minimum 1 makes a choice required; maximum 0 means no limit; free options aren't charged.</span><div class="sp"></div>
       <select class="sel" id="modAdd" aria-label="Add a modifier"><option value="">Add modifier…</option>${avail.map(m=>`<option value="${esc(m.id)}">${esc(m.name)} (${modOptions(m.id).length})</option>`).join("")}</select>
       <button class="btn pri sm" data-modsave ${DET.dirtyMods && !DET.saving ? "" : "disabled"}>${DET.saving?"Saving…":"Save modifiers"}</button></div>
-    ${rows.length ? `<table><thead><tr><th>Name</th><th class="num">Options</th><th class="num">Minimum</th><th class="num">Maximum</th><th class="num">Free</th><th>Order</th><th></th></tr></thead><tbody>${rows.map((l, ix) => `<tr>
+    ${rows.length ? `<table><thead><tr><th>Name</th><th class="num">Options</th><th class="num">Minimum</th><th class="num">Maximum</th><th class="num">Free</th><th></th></tr></thead><tbody>${rows.map((l, ix) => `<tr>
       <td><a href="#modifiers" class="lnk" data-detopen="modifiers:${esc(l.modifierId)}">${esc(modName(l.modifierId))}</a></td><td class="num">${modOptions(l.modifierId).length}</td>
       <td class="num">${num(ix,"min",l.min,"Minimum options")}</td><td class="num">${num(ix,"max",l.max,"Maximum options")}</td><td class="num">${num(ix,"free",l.free,"Free options")}</td>
-      <td><button class="btn sm" data-modmv="${ix}:-1" ${ix?"":"disabled"} aria-label="Move up">↑</button> <button class="btn sm" data-modmv="${ix}:1" ${ix<rows.length-1?"":"disabled"} aria-label="Move down">↓</button></td>
       <td><button class="btn sm" data-modrm="${ix}" aria-label="Remove ${esc(modName(l.modifierId))}">×</button></td></tr>`).join("")}</tbody></table>`
       : `<div class="empty">No modifiers linked.${S.modifiers.filter(live).length ? "" : " Create them first under Menu → Modifiers."}</div>`}</div>`;
 }
@@ -2045,18 +2111,18 @@ document.addEventListener("click", e => {
   const mv = t.closest("[data-modmv]"); if(mv){ const [ix, d] = mv.dataset.modmv.split(":").map(Number), j = ix + d; [DET.mods[ix], DET.mods[j]] = [DET.mods[j], DET.mods[ix]]; DET.dirtyMods = true; return render(); }
 });
 document.addEventListener("input", e => { const m = e.target.closest("[data-modl]"); if(m && DET.mods){ const [ix, f] = m.dataset.modl.split(":"); DET.mods[+ix][f] = e.target.value; modDirty(); } });
-document.addEventListener("change", e => { if(e.target.id==="modAdd" && e.target.value && DET.mods){ DET.mods.push({ modifierId:e.target.value, min:0, max:0, free:0 }); DET.dirtyMods = true; render(); } });
+document.addEventListener("change", e => { if(e.target.id==="modAdd" && e.target.value && DET.mods){ DET.mods.push({ modifierId:e.target.value, min:0, max:0, free:0 }); DET.mods.sort((a,b)=>modRank(a.modifierId)-modRank(b.modifierId)); DET.dirtyMods = true; render(); } });
 // call center: pick options for the chosen branch
 async function ccAdd(p){
   const b = $("#oBranch")?.value || "";
   let price = (() => { const c = b && (p.customPrices||{})[b]; return c!=null && c!=="" ? +c : +p.price||0; })(), options = [], mods = "";
   if((p.modifiers||[]).length && window.SlickMods){
-    const groups = {}; S.modifiers.filter(live).forEach(m => groups[m.id] = { name:m.name });
+    const groups = {}; S.modifiers.filter(live).forEach(m => groups[m.id] = { name:m.name, sort:m.sort });
     const ids = new Set(p.modifiers.map(l=>l.modifierId));
     const opts = S.modifier_options.filter(o => live(o) && o.active!==false && ids.has(o.modifierId) && !(b && (o.inactiveBranchIds||[]).includes(b)))
       .sort((x,y)=>(x.sort??999)-(y.sort??999) || x.name.localeCompare(y.name))
       .map(o => { const c = b && (o.customPrices||{})[b]; return { id:o.id, modifierId:o.modifierId, name:o.name, price: c!=null && c!=="" ? +c : +o.price||0, oos: !!b && (o.outOfStockBranchIds||[]).includes(b) }; });
-    const r = await SlickMods.pick({ name:p.name, basePrice:price, links:p.modifiers.filter(l=>groups[l.modifierId]), groups, options:opts, money:usd }); if(!r) return;
+    const r = await SlickMods.pick({ name:p.name, basePrice:price, links:p.modifiers.filter(l=>groups[l.modifierId]).sort((a,b)=>(groups[a.modifierId].sort??9999)-(groups[b.modifierId].sort??9999)), groups, options:opts, money:usd }); if(!r) return;
     options = r.options; mods = r.mods; price = r.unitPrice;
   }
   const k = window.SlickMods ? SlickMods.key(p.id, options) : p.id, ex = cart.find(i => (window.SlickMods ? SlickMods.key(i.productId, i.options) : i.productId) === k);
