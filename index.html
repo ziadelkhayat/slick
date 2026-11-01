@@ -1314,15 +1314,14 @@ const CRUD = {
   },
   "inv-items": {
     col:"inv_items", title:"Inventory Items", one:"Item", detail: r => invItemDetail(r),
-    tabs:[["all","All",live],["items","Items",r=>live(r)&&r.kind!=="produced"],["produced","Produced",r=>live(r)&&r.kind==="produced"],["deleted","Deleted",r=>r.deleted]],
+    tabs:[["all","All",live],["deleted","Deleted",r=>r.deleted]],
     sort:(a,b)=>(b.sku||"").localeCompare(a.sku||"",undefined,{numeric:true}),
     search:r=>r.name+" "+(r.sku||"")+" "+(r.category||""),
     cols:[["Name",r=>`<b>${esc(r.name)}</b>`],["Sku",r=>`<span class="code">${esc(r.sku||"")}</span>`],["Category",r=>esc(r.category||"—")],
-      ["Type",r=>r.kind==="produced"?'<span class="tag cc">Produced</span>':'<span class="tag off">Purchased</span>'],
-      ["Storage unit",r=>esc(r.storageUnit||"—")],["Ingredients",r=>(r.ingredients||[]).length?(r.ingredients.length+""):(r.kind==="produced"?'<span class="tag off">Missing</span>':"—"),"num"],["Cost",r=>r.cost?usd(r.cost):"—","num"]],
+      ["Storage unit",r=>esc(r.storageUnit||"—")],["Ingredients",r=>(r.ingredients||[]).length?(r.ingredients.length+""):"—","num"],["Cost",r=>r.cost?usd(r.cost):"—","num"]],
     fields:[{k:"name",l:"Name",req:1},{k:"nameAr",l:"Name (Arabic)"},{k:"sku",l:"SKU",auto:()=>nextSku("inv_items")},
       {k:"category",l:"Category",t:"select",opts:()=>invCatNames().map(n=>[n,n])},
-      {k:"kind",l:"Type",t:"select",opts:()=>[["purchased","Purchased"],["produced","Produced (made in-house)"]],def:"purchased"},
+      
       {k:"storageUnit",l:"Storage unit",ph:"e.g. kg, box, gallon"},{k:"ingredientUnit",l:"Ingredient unit",ph:"e.g. g, ml, piece"},
       {k:"factor",l:"Storage → ingredient factor",t:"number",ph:"e.g. 1000"},
       {k:"costingMethod",l:"Costing method",t:"select",opts:()=>[["fixed","Fixed (enter the cost)"],["transactions","From transactions (production updates it)"]],def:"fixed"},{k:"cost",l:"Cost per storage unit (USD)",t:"number"},
@@ -1619,18 +1618,17 @@ const IMPEX = {
       else if(x["option sku"]) d.sku = x["option sku"];
       return { col:"modifier_options", id: ex?.id, data:d };
     } },
-  "inv-items": { file:"inventory-items", head:["SKU","Name","Name (Arabic)","Category","Type","Storage Unit","Ingredient Unit","Factor","Costing Method","Cost","Minimum Level","Par Level","Maximum Level","Barcode"],
-    rows: () => S.inv_items.filter(live).sort(CRUD["inv-items"].sort).map(r => [r.sku, r.name, r.nameAr, r.category, r.kind==="produced"?"Produced":"Purchased", r.storageUnit, r.ingredientUnit, r.factor, r.costingMethod==="transactions"?"Transactions":"Fixed", r.cost, r.minLevel, r.parLevel, r.maxLevel, r.barcode]),
+  "inv-items": { file:"inventory-items", head:["SKU","Name","Name (Arabic)","Category","Storage Unit","Ingredient Unit","Factor","Costing Method","Cost","Minimum Level","Par Level","Maximum Level","Barcode"],
+    rows: () => S.inv_items.filter(live).sort(CRUD["inv-items"].sort).map(r => [r.sku, r.name, r.nameAr, r.category, r.storageUnit, r.ingredientUnit, r.factor, r.costingMethod==="transactions"?"Transactions":"Fixed", r.cost, r.minLevel, r.parLevel, r.maxLevel, r.barcode]),
     build: (x, ctx) => {
       const ex = (x.sku && S.inv_items.find(i => live(i) && (i.sku||"").toLowerCase()===x.sku.toLowerCase())) || byName(S.inv_items, x.name);
       const d = { name:x.name };
       if(x["name (arabic)"]) d.nameAr = x["name (arabic)"]; if(x.category) d.category = x.category;
-      if(x.type) d.kind = /produc/i.test(x.type) ? "produced" : "purchased";
       if(x["storage unit"]) d.storageUnit = x["storage unit"]; if(x["ingredient unit"]) d.ingredientUnit = x["ingredient unit"];
       if(x["costing method"]) d.costingMethod = /trans/i.test(x["costing method"]) ? "transactions" : "fixed";
       [["factor","factor"],["cost","cost"],["minimum level","minLevel"],["par level","parLevel"],["maximum level","maxLevel"]].forEach(([h,k]) => { if(x[h]!=="" && x[h]!=null) d[k] = numOr(x[h], null); });
       if(x.barcode) d.barcode = x.barcode;
-      if(!ex){ d.sku = x.sku || nextSku("inv_items", ctx.skus); ctx.skus.push(d.sku); if(!d.kind) d.kind = "purchased"; if(!d.costingMethod) d.costingMethod = "fixed"; }
+      if(!ex){ d.sku = x.sku || nextSku("inv_items", ctx.skus); ctx.skus.push(d.sku); if(!d.costingMethod) d.costingMethod = "fixed"; }
       else if(x.sku) d.sku = x.sku;
       return { col:"inv_items", id: ex?.id, data:d };
     } }
@@ -2686,7 +2684,8 @@ const ORDER_TYPES = [["dinein","Dine In"],["pickup","Pick Up"],["delivery","Deli
 const uomOf = it => it?.ingredientUnit || it?.storageUnit || "";
 // cost of using `qty` of an item, where qty is in the item's ingredient unit and cost is per storage unit
 // a produced item with no cost yet is valued at its ingredients (depth-limited to avoid loops)
-const itemUnitCost = (it, depth=0) => !it ? 0 : (+it.cost || (it.kind==="produced" && depth < 4 ? recipeCost(it.ingredients, depth+1) : 0));
+const hasRecipe = it => !!it && (it.ingredients||[]).length > 0;
+const itemUnitCost = (it, depth=0) => !it ? 0 : (+it.cost || (hasRecipe(it) && depth < 4 ? recipeCost(it.ingredients, depth+1) : 0));
 const ingCost = (it, qty, depth=0) => !it ? 0 : (+qty||0) / (+it.factor || 1) * itemUnitCost(it, depth);
 const recipeCost = (list, depth=0) => (list||[]).reduce((s,l) => s + ingCost(itemOf(l.itemId), l.qty, depth), 0);
 const productCost = p => p.costingMethod==="fixed" ? (+p.cost||0) : recipeCost(p.ingredients);
@@ -2713,7 +2712,7 @@ function ingEditor(forKey, rec){
   const head = isProd ? `<th>Name</th><th>SKU</th><th class="num">Quantity</th><th class="num">Cost</th><th>Applies on</th><th></th>` : `<th>Name</th><th>SKU</th><th class="num">Quantity</th><th class="num">Cost</th><th></th>`;
   const body = rows.map((l, ix) => {
     const it = itemOf(l.itemId) || { name:"(deleted item)" }, types = l.types || ORDER_TYPES.map(t=>t[0]);
-    return `<tr><td><b>${esc(it.name)}</b>${it.kind==="produced"?' <span class="tag cc">Produced</span>':""}</td><td><span class="code">${esc(it.sku||"")}</span></td>
+    return `<tr><td><b>${esc(it.name)}</b></td><td><span class="code">${esc(it.sku||"")}</span></td>
       <td class="num" style="white-space:nowrap"><input type="number" min="0" step="any" class="sel" data-ingq="${ix}" value="${esc(l.qty ?? "")}" style="width:100px;text-align:right" aria-label="Quantity of ${esc(it.name)}"> <span class="note">${esc(uomOf(it))}</span></td>
       <td class="num" data-ingc="${ix}">${fmtCost(ingCost(it, l.qty))}</td>
       ${isProd ? `<td>${ORDER_TYPES.map(([k,t])=>`<label class="chk" style="display:inline-flex;margin-right:8px"><input type="checkbox" data-ingt="${ix}:${k}" ${types.includes(k)?"checked":""}> ${t}</label>`).join("")}</td>` : ""}
@@ -2760,12 +2759,12 @@ function branchSettings(p, brs, price){
 }
 
 function invItemDetail(it){
-  const prodCost = recipeCost(DET.ing), produced = it.kind==="produced";
+  const prodCost = recipeCost(DET.ing), produced = hasRecipe(it);
   const inProducts = S.products.filter(p => live(p) && (p.ingredients||[]).some(l=>l.itemId===it.id));
   const inItems = S.inv_items.filter(x => live(x) && (x.ingredients||[]).some(l=>l.itemId===it.id));
   const stock = DOC.stock && DOC.stock!=="loading" ? locList().map(([k,t]) => [t, DOC.stock[k]?.[it.id]]).filter(x=>x[1]!==undefined) : null;
   let h = `<div class="phead"><a href="#inv-items" class="btn" data-detback style="text-decoration:none">← Back</a><h1 style="margin-left:10px">${esc(it.name)}</h1>
-    ${produced?'<span class="tag cc" style="margin-left:8px">Produced</span>':'<span class="tag off" style="margin-left:8px">Purchased</span>'}<div class="sp"></div>
+<div class="sp"></div>
     ${produced?`<a class="btn" href="#production" data-newprod="${esc(it.id)}" style="text-decoration:none">Produce</a>`:""}<button class="btn pri" data-detedit>Edit Item</button></div>`;
   h += infoGrid([info("Name", esc(it.name)), info("Name Localized", esc(it.nameAr||"—")), info("SKU", `<span class="code">${esc(it.sku||"—")}</span>`), info("Barcode", esc(it.barcode||"—")),
     info("Minimum Level", it.minLevel!=null&&it.minLevel!==""?n2(it.minLevel):"—"), info("Par Level", it.parLevel!=null&&it.parLevel!==""?n2(it.parLevel):"—"), info("Maximum Level", it.maxLevel!=null&&it.maxLevel!==""?n2(it.maxLevel):"—"),
@@ -3160,7 +3159,7 @@ function viewDoc(route){
   if(ro && saved && Array.isArray(saved.consumed) && saved.consumed.length) d.consumed = saved.consumed;
   const loc = d.locationId, stockLoading = DOC.stock==="loading";
   const usedIds = new Set(d.items.map(l=>l.itemId));
-  const avail = S.inv_items.filter(i=>live(i) && !usedIds.has(i.id) && (K.kind!=="production" || i.kind==="produced")).sort((a,b)=>a.name.localeCompare(b.name));
+  const avail = S.inv_items.filter(i=>live(i) && !usedIds.has(i.id) && (K.kind!=="production" || hasRecipe(i))).sort((a,b)=>a.name.localeCompare(b.name));
   const sheets = S.inv_docs.filter(x=>x.kind==="sheet" && live(x) && x.id!==d.id);
   const info = (l, v) => `<div><div class="note">${l}</div><div>${v}</div></div>`;
   let h = `<div class="phead"><a href="#${route}" class="btn" data-docback style="text-decoration:none">← Back</a><h1 style="margin-left:10px">${K.title}${d.ref?` (${esc(d.ref)})`:""}</h1>
@@ -3266,7 +3265,7 @@ function readDocHeader(){
 }
 function docAddItems(ids){
   const d = DOC.edit, have = new Set(d.items.map(l=>l.itemId)); let n = 0;
-  ids.forEach(id => { if(!have.has(id) && itemOf(id) && (d.kind!=="production" || itemOf(id).kind==="produced")){ d.items.push({ itemId:id, qty:"", cost: d.kind==="cost" ? (itemOf(id).cost ?? "") : undefined }); have.add(id); n++; } });
+  ids.forEach(id => { if(!have.has(id) && itemOf(id) && (d.kind!=="production" || hasRecipe(itemOf(id)))){ d.items.push({ itemId:id, qty:"", cost: d.kind==="cost" ? (itemOf(id).cost ?? "") : undefined }); have.add(id); n++; } });
   return n;
 }
 async function saveDoc(silent){
