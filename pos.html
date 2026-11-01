@@ -128,7 +128,7 @@ body{-webkit-font-smoothing:antialiased}
 <script>window.SLICK_OFFLINE = true;</script>
 <script src="supabase.js"></script>
 <script>if(!window.supabase) document.write('<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"><\/script>');</script>
-<script src="wokdb.js?v=15"></script>
+<script src="wokdb.js?v=16"></script>
 <script src="modpick.js?v=2"></script>
 </head>
 <body>
@@ -185,7 +185,7 @@ let tt; const toast = m => { const t=$("#toast"); t.textContent=m; t.classList.a
 const store = { get(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } }, set(k,v){ try{ v==null?localStorage.removeItem(k):localStorage.setItem(k,v); }catch(e){} } };
 
 let db = null;
-const S = { brands:[], devices:[], branches:[], categories:[], products:[], orders:[], shifts:[], modifiers:[], modifier_options:[], taxes:[], tax_groups:[], payment_methods:[], roles:[], users:[] };
+const S = { brands:[], devices:[], branches:[], categories:[], products:[], orders:[], shifts:[], modifiers:[], modifier_options:[], taxes:[], tax_groups:[], payment_methods:[], roles:[], users:[], settings:[] };
 let device = null, branch = null, cat = "", otype = "dinein", cart = [], discount = 0, tableNo = "", cust = { name:"", phone:"", address:"" };
 
 /* ---------- boot ---------- */
@@ -279,6 +279,15 @@ document.addEventListener("keydown", e => { if($("#lock").classList.contains("hi
 $("#lockBtn").addEventListener("click", () => lock());
 let idleT; ["pointerdown","keydown"].forEach(ev => document.addEventListener(ev, () => { clearTimeout(idleT); idleT = setTimeout(() => { if(usePins() && cashier) lock(); }, 10*60*1000); }));
 const deny = what => { toast(`${cashier ? cashier.name + ", your" : "Your"} role doesn't allow ${what}.`); return true; };
+/* ---------- order numbers: each tablet counts 1, 2, 3… and starts again every business day ---------- */
+const dayCut = () => { const m = /^(\d{1,2}):(\d{2})/.exec((S.settings.find(x=>x.id==="company")||{}).dayEnd || ""); return m ? Math.min(719, (+m[1])*60 + (+m[2])) : 0; };
+const bizDate = (t = new Date()) => { const d = new Date(+new Date(t) - dayCut()*60000); return new Date(d - d.getTimezoneOffset()*60000).toISOString().slice(0,10); };
+function nextOrderNo(){
+  const day = bizDate(), key = "slickNo_" + device.id; let c = {}; try{ c = JSON.parse(store.get(key) || "{}"); }catch(e){}
+  let n = c.day===day ? +c.n||0 : 0;
+  S.orders.forEach(o => { if(o.deviceId===device.id && o.channel==="pos" && bizDate(o.createdAt)===day) n = Math.max(n, +o.no||0); });   // survives a reinstall
+  n++; store.set(key, JSON.stringify({ day, n })); return String(n);
+}
 /* ---------- tax (prices include it) ---------- */
 const prodTaxRate = id => { const p = S.products.find(x=>x.id===id), g = p && S.tax_groups.find(x=>x.id===p.taxGroup && live(x)); return g ? (g.taxIds||[]).reduce((a,t) => { const x = S.taxes.find(y=>y.id===t && live(y)); return a + (x ? +x.rate||0 : 0); }, 0)/100 : 0; };
 function orderTax(items, disc){ let g = 0, t = 0; (items||[]).forEach(i => { const l = (+i.price||0)*(+i.qty||1), r = prodTaxRate(i.productId); g += l; t += l*r/(1+r); }); if(g>0 && disc>0) t *= 1 - Math.min(disc,g)/g; return +t.toFixed(2); }
@@ -392,7 +401,7 @@ $("#payBtn").addEventListener("click", () => {
 function updChange(){ const t = totals().total, v = +$("#tender")?.value || 0; if($("#chg")) $("#chg").textContent = payMethod?.type==="cash" ? usd(Math.max(0, v-t)) : "—"; if($("#confirmPay")) $("#confirmPay").disabled = payMethod?.type==="cash" && v < t; }
 async function completeSale(){
   const t = totals(), now = new Date().toISOString(), tender = payMethod?.type==="cash" ? +$("#tender").value : t.total;
-  const no = String(Math.max(1000, +store.get("slickLastNo")||0, ...S.orders.map(o=>+o.no||0)) + 1); store.set("slickLastNo", no);
+  const no = nextOrderNo();
   const order = { no, channel:"pos", source:"POS", type: otype==="dinein"?"dinein":otype==="takeaway"?"pickup":"delivery", table: otype==="dinein"?tableNo:"",
     customerName:cust.name.trim(), phone:cust.phone.trim(), address: otype==="delivery"?cust.address.trim():"",
     brandId:branch?.brandId || null, branchId:device.branchId, deviceId:device.id, shiftId:openShift().id, agent:cashier?.name || device.name, items:cart, subtotal:+t.sub.toFixed(2), discountPct:discount, discount:t.disc, total:t.total,

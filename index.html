@@ -358,7 +358,7 @@ tr.chg td:first-child{box-shadow:inset 3px 0 0 var(--accent)}
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="wokdb.js?v=15"></script>
+<script src="wokdb.js?v=16"></script>
 <script src="modpick.js?v=2"></script>
 </head>
 <body>
@@ -1583,7 +1583,7 @@ async function saveOrder(status){
   if(o && o.status!=="draft" && !ccEditable(S.orders.find(x=>x.id===ccEdit))){ $("#oErr").textContent = "The branch already closed this order, so it can't be changed."; return; }
   const data = { brandId, phone, customerName:name, source:$("#oSource").value, type, address: type==="delivery" ? $("#oAddr").value.trim() : "",
     branchId, notes:$("#oNotes").value.trim(), items:cart, total: +cart.reduce((a,i)=>a+i.price*i.qty,0).toFixed(2), status };
-  if(!ccEdit){ data.no = String(Math.max(1000, ...S.orders.map(o=>+o.no||0)) + 1); data.agent = state.userName || "Operator"; data.channel = "callcenter"; }
+  if(!ccEdit){ if(storeMode!=="db") data.no = String(Math.max(0, ...S.orders.map(o=>+o.no||0)) + 1); data.agent = state.userName || "Operator"; data.channel = "callcenter"; }
   try{ await put("orders", ccEdit, data); toast(o && o.status!=="draft" ? `Order #${o.no} updated · ${branchName(branchId)} sees the changes` : status==="pending" ? `Order sent to ${branchName(branchId)}` : "Draft saved"); $("#ccScrim").classList.remove("show"); }
   catch(err){ console.error(err); $("#oErr").textContent = "Couldn't save the order."; }
 }
@@ -1746,32 +1746,35 @@ function moduleRoute(route){
 }
 
 /* ---------- Orders: every order from every channel, any date range ---------- */
-const ORD_TABS = [["all","All"],["pending","Pending"],["active","Active"],["closed","Closed"],["declined","Declined"],["void","Void"],["draft","Draft"]];
-const ORD_ST = { draft:"Draft", pending:"Pending", active:"Active", closed:"Closed", declined:"Declined", void:"Void" };
+const ORD_TABS = [["all","All"],["draft","Draft"],["pending","Pending"],["active","Active"],["closed","Done"],["declined","Declined"],["void","Void"]];
+const ORD_ST = { draft:"Draft", pending:"Pending", active:"Active", closed:"Done", declined:"Declined", void:"Void" };
 const daysAgo = n => { const d = new Date(bizDate()+"T12:00:00"); d.setDate(d.getDate()-n); return new Date(d - d.getTimezoneOffset()*60000).toISOString().slice(0,10); };
-const ORD = { tab:"all", q:"", from:"", to:"", channel:"", type:"", pay:"", page:1, per:50, rows:[], count:0, counts:{}, loading:false, err:"", key:"", t:null, open:null };
+const ORD = { tab:"all", q:"", from:"", to:"", channel:"", type:"", pay:"", source:"", brand:"", branch:"", page:1, per:50, rows:[], count:0, counts:{}, loading:false, err:"", key:"", t:null, open:null };
 const ordTypeLbl = t => TYPE_LBL[t] || cap(t||"—");
 function ordQuery(sel, opts, withStatus){
   const sb = WOK.sb, [t0, t1] = dayBounds(ORD.from, ORD.to);
   let q = sb.from("orders").select(sel, opts).gte("created_at", t0.toISOString()).lt("created_at", t1.toISOString());
   const act = activeBranches();
-  if(state.branch!=="all") q = q.eq("branch_id", state.branch);
+  if(ORD.branch) q = q.eq("branch_id", ORD.branch);
+  else if(state.branch!=="all") q = q.eq("branch_id", state.branch);
   else if(state.brand!=="all") q = q.in("branch_id", act.length ? act.map(b=>b.id) : ["-"]);
+  if(ORD.brand) q = q.eq("brand_id", ORD.brand);
+  if(ORD.source) q = q.eq("source", ORD.source);
   if(ORD.channel) q = q.eq("channel", ORD.channel);
   if(ORD.type) q = ORD.type==="pickup" ? q.in("type", ["pickup","takeaway"]) : q.eq("type", ORD.type);
-  if(ORD.pay) q = q.eq("payment->>method", ORD.pay);
+  if(ORD.pay) q = q.ilike("payment->>method", ORD.pay);
   const s = ORD.q.trim().replace(/[,()*%\\]/g, " ").trim();
-  if(s) q = /^\d+$/.test(s) ? q.or(`no.eq.${s},phone.ilike.*${s}*`) : q.or(`customer_name.ilike.*${s}*,phone.ilike.*${s}*,agent.ilike.*${s}*`);
+  if(s) q = /^\d+$/.test(s) ? q.or(`no.eq.${s},invoice_no.eq.${s},phone.ilike.*${s}*`) : q.or(`customer_name.ilike.*${s}*,phone.ilike.*${s}*,agent.ilike.*${s}*,source.ilike.*${s}*`);
   if(withStatus && ORD.tab!=="all") q = q.eq("status", ORD.tab);
   return q;
 }
 async function loadOrders(force){
   if(!window.WOK || storeMode!=="db") return;
   if(!ORD.from){ ORD.from = daysAgo(6); ORD.to = todayStr(); }
-  const key = JSON.stringify([ORD.tab, ORD.q, ORD.from, ORD.to, ORD.channel, ORD.type, ORD.pay, ORD.page, state.branch, state.brand]);
+  const key = JSON.stringify([ORD.tab, ORD.q, ORD.from, ORD.to, ORD.channel, ORD.type, ORD.pay, ORD.source, ORD.brand, ORD.branch, ORD.page, state.branch, state.brand]);
   if(!force && key===ORD.key && (ORD.loading || ORD.rows.length || ORD.err || ORD.count===0 && ORD.loaded===key)) return;
   ORD.key = key; ORD.loading = true; ORD.err = "";
-  const cols = "id,no,channel,source,type,status,branch_id,brand_id,customer_name,phone,table_no,total,payment,agent,handled_by,created_at";
+  const cols = "id,no,invoice_no,channel,source,type,status,branch_id,brand_id,customer_name,phone,table_no,total,payment,agent,handled_by,created_at";
   try{
     const list = ordQuery(cols, { count:"exact" }, true).order("created_at", { ascending:false }).range((ORD.page-1)*ORD.per, ORD.page*ORD.per-1);
     const counts = ORD_TABS.filter(t=>t[0]!=="all").map(([st]) => ordQuery("id", { count:"exact", head:true }, false).eq("status", st));
@@ -1786,6 +1789,8 @@ async function loadOrders(force){
 }
 const fromRowO = r => { const o = {}; for(const [k,v] of Object.entries(r)) o[k.replace(/_([a-z])/g,(_,c)=>c.toUpperCase())] = v; if(o.tableNo!=null) o.table = o.tableNo; return o; };
 function ordSoon(){ if(location.hash.slice(1)!=="orders") return; clearTimeout(ORD.t); ORD.t = setTimeout(() => { loadOrders(true); if(ORD.open) openOrderDetail(ORD.open, true); }, 1200); }
+const ordSources = () => [...new Set(["POS", ...S.order_sources.filter(r=>live(r)).sort(bySort).map(r=>r.name), "Website", "Table QR", ...ORD.rows.map(o=>o.source).filter(Boolean)])];
+const ordPays = () => [...new Set([...S.payment_methods.filter(r=>live(r)).sort(bySort).map(r=>r.name), "Cash", "Card", "Other"])];
 function viewOrders(){
   if(storeMode!=="db") return `<h1>Orders</h1>` + placeholder("Orders", "Sign in to see orders.");
   loadOrders();
@@ -1796,18 +1801,22 @@ function viewOrders(){
   <div class="row fbar" style="flex-wrap:wrap">
     <label class="note">From <input type="date" class="sel" id="ordFrom" value="${ORD.from}" max="${todayStr()}"></label>
     <label class="note">To <input type="date" class="sel" id="ordTo" value="${ORD.to}" max="${todayStr()}"></label>
-    ${sel("ordChannel", ORD.channel, [["","All channels"],["pos","POS"],["online","Online ordering"],["callcenter","Call center"]])}
+    ${brandList().length>1 ? sel("ordBrand", ORD.brand, [["","All brands"], ...brandList().map(b=>[b.id,esc(b.name)])]) : ""}
+    ${sel("ordBranch", ORD.branch, [["","All branches"], ...branches.filter(b=>!ORD.brand || b.brandId===ORD.brand).map(b=>[b.id,esc(b.name)])])}
+    ${sel("ordChannel", ORD.channel, [["","All channels"],["pos","POS"],["callcenter","Call center"],["online","Online ordering"]])}
+    ${sel("ordSource", ORD.source, [["","All sources"], ...ordSources().map(x=>[esc(x),esc(x)])])}
     ${sel("ordType", ORD.type, [["","All types"],["dinein","Dine-in"],["pickup","Takeaway"],["delivery","Delivery"]])}
-    ${sel("ordPay", ORD.pay, [["","All payments"],["cash","Cash"],["card","Card"],["other","Other"]])}
-    <input class="sel" id="ordQ" placeholder="Order #, customer, phone" value="${esc(ORD.q)}" style="min-width:210px">
+    ${sel("ordPay", ORD.pay, [["","All payments"], ...ordPays().map(x=>[esc(x),esc(x)])])}
+    <input class="sel" id="ordQ" placeholder="Order #, invoice #, customer, phone" value="${esc(ORD.q)}" style="min-width:210px">
   </div>
   <div class="card tbl otbl"><div class="ttop"><div class="ttabs">${ORD_TABS.map(([k,t])=>`<a href="#orders" data-otab="${k}" class="${ORD.tab===k?"on":""}">${t} <span class="note">${ORD.counts[k] ?? ""}</span></a>`).join("")}</div><span class="sp"></span><span class="note">${ORD.loading ? "Loading…" : ""}</span></div>
-  ${ORD.err ? `<p class="note" style="padding:16px">Couldn't load orders: ${esc(ORD.err)}</p>` : `<table><thead><tr><th>Order</th><th>Date</th><th>Branch</th><th>Channel</th><th>Type</th><th>Customer</th><th>Status</th><th>Payment</th><th class="num">Total</th></tr></thead><tbody>${
-    ORD.rows.length ? ORD.rows.map(o => `<tr class="clk" data-oid="${esc(o.id)}"><td><b>#${esc(o.no)}</b></td><td>${dt(o.createdAt)}</td><td>${esc(branches.find(x=>x.id===o.branchId)?.name || "—")}</td>
-      <td><span class="tag cc">${esc(CH_LBL[o.channel] || cap(o.channel))}</span></td><td>${esc(ordTypeLbl(o.type))}${o.table?` · T${esc(o.table)}`:""}</td>
+  ${ORD.err ? `<p class="note" style="padding:16px">Couldn't load orders: ${esc(ORD.err)}</p>` : `<table><thead><tr><th>Order #</th><th>Invoice #</th><th>Brand</th><th>Branch</th><th>Customer</th><th>Status</th><th>Channel</th><th>Source</th><th>Type</th><th>Opened at</th><th class="num">Total</th></tr></thead><tbody>${
+    ORD.rows.length ? ORD.rows.map(o => `<tr class="clk" data-oid="${esc(o.id)}"><td><b>#${esc(o.no)}</b></td><td>${o.invoiceNo ? esc(o.invoiceNo) : '<span class="note">—</span>'}</td>
+      <td>${esc(brandName(o.brandId) || "—")}</td><td>${esc(branches.find(x=>x.id===o.branchId)?.name || "—")}</td>
       <td>${esc(o.customerName || "—")}${o.phone?`<div class="note">${esc(o.phone)}</div>`:""}</td><td><span class="spill s-${o.status}">${ORD_ST[o.status]||o.status}</span></td>
-      <td>${esc(PAY_LBL[o.payment?.method] || (o.payment?.method ? cap(o.payment.method) : "—"))}</td><td class="num">${money(+o.total||0)}</td></tr>`).join("")
-    : `<tr><td colspan="9" class="note" style="padding:24px;text-align:center">${ORD.loading ? "Loading orders…" : "No orders match these filters."}</td></tr>`
+      <td><span class="tag cc">${esc(CH_LBL[o.channel] || cap(o.channel))}</span></td><td>${esc(o.source || "—")}</td><td>${esc(ordTypeLbl(o.type))}${o.table?` · T${esc(o.table)}`:""}</td>
+      <td>${dt(o.createdAt)}</td><td class="num">${money(+o.total||0)}</td></tr>`).join("")
+    : `<tr><td colspan="11" class="note" style="padding:24px;text-align:center">${ORD.loading ? "Loading orders…" : "No orders match these filters."}</td></tr>`
   }</tbody></table>`}
   <div class="pager"><span class="note">${a}–${b} of ${ORD.count.toLocaleString()}</span><span class="sp"></span><button class="btn" id="ordPrev" ${ORD.page<=1?"disabled":""}>‹ Previous</button><span class="note">Page ${ORD.page} of ${pages}</span><button class="btn" id="ordNext" ${ORD.page>=pages?"disabled":""}>Next ›</button></div></div>`;
 }
@@ -1823,8 +1832,9 @@ async function openOrderDetail(id, quiet){
   box.innerHTML = `<header><h2>Order #${esc(o.no)} <span class="spill s-${o.status}">${ORD_ST[o.status]||o.status}</span></h2><button type="button" class="x" data-ccclose aria-label="Close">×</button></header>
   <div style="padding:18px 22px;max-height:72vh;overflow:auto">
     <div class="odet">
+      <div><span>Invoice</span>${esc(o.invoiceNo || "—")}</div>
+      <div><span>Brand</span>${esc(brandName(o.brandId) || "—")}</div>
       <div><span>Branch</span>${esc(branches.find(x=>x.id===o.branchId)?.name || "—")}</div>
-      ${brandList().length>1?`<div><span>Brand</span>${esc(brandName(o.brandId))}</div>`:""}
       <div><span>Channel</span>${esc(CH_LBL[o.channel] || cap(o.channel))}${o.source && o.source!=="POS"?` · ${esc(o.source)}`:""}</div>
       <div><span>Type</span>${esc(ordTypeLbl(o.type))}${o.table?` · Table ${esc(o.table)}`:""}</div>
       <div><span>Placed</span>${dt(o.createdAt)}</div>
@@ -1876,11 +1886,11 @@ function printOrder(){
 }
 async function exportOrders(){
   toast("Preparing export…");
-  const { data, error } = await ordQuery("no,created_at,branch_id,channel,source,type,table_no,status,customer_name,phone,address,subtotal,discount,delivery_fee,total,payment,agent,items", {}, true).order("created_at", { ascending:false }).range(0, 4999);
+  const { data, error } = await ordQuery("no,invoice_no,brand_id,created_at,branch_id,channel,source,type,table_no,status,customer_name,phone,address,subtotal,discount,delivery_fee,total,payment,agent,items", {}, true).order("created_at", { ascending:false }).range(0, 4999);
   if(error) return toast("Export failed: " + error.message);
   const q = v => { v = v==null ? "" : String(v); return /[",\n]/.test(v) ? `"${v.replace(/"/g,'""')}"` : v; };
-  const head = ["Order","Date","Branch","Channel","Source","Type","Table","Status","Customer","Phone","Address","Items","Subtotal","Discount","Delivery fee","Total","Payment","Agent/Device"];
-  const rows = data.map(r => [r.no, new Date(r.created_at).toLocaleString("en-GB"), branches.find(x=>x.id===r.branch_id)?.name||"", CH_LBL[r.channel]||r.channel, r.source, ordTypeLbl(r.type), r.table_no, ORD_ST[r.status]||r.status, r.customer_name, r.phone, r.address,
+  const head = ["Order","Invoice","Brand","Date","Branch","Channel","Source","Type","Table","Status","Customer","Phone","Address","Items","Subtotal","Discount","Delivery fee","Total","Payment","Agent/Device"];
+  const rows = data.map(r => [r.no, r.invoice_no, brandName(r.brand_id), new Date(r.created_at).toLocaleString("en-GB"), branches.find(x=>x.id===r.branch_id)?.name||"", CH_LBL[r.channel]||r.channel, r.source, ordTypeLbl(r.type), r.table_no, ORD_ST[r.status]||r.status, r.customer_name, r.phone, r.address,
     (Array.isArray(r.items)?r.items:[]).map(i=>`${+i.qty||1}x ${i.name}${i.mods?" ("+i.mods+")":""}`).join("; "), r.subtotal, r.discount, r.delivery_fee, r.total, r.payment?.method, r.agent]);
   const blob = new Blob([[head, ...rows].map(l=>l.map(q).join(",")).join("\n")], { type:"text/csv" });
   const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `slick-orders-${ORD.from}-to-${ORD.to}.csv`; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href), 2000);
@@ -1893,6 +1903,9 @@ $("#view").addEventListener("change", e => {
   if(id==="ordChannel"){ ORD.channel = v; ORD.page = 1; render(); }
   if(id==="ordType"){ ORD.type = v; ORD.page = 1; render(); }
   if(id==="ordPay"){ ORD.pay = v; ORD.page = 1; render(); }
+  if(id==="ordSource"){ ORD.source = v; ORD.page = 1; render(); }
+  if(id==="ordBrand"){ ORD.brand = v; ORD.branch = ""; ORD.page = 1; render(); }
+  if(id==="ordBranch"){ ORD.branch = v; ORD.page = 1; render(); }
 });
 let ordQT; $("#view").addEventListener("input", e => { if(e.target.id==="ordQ"){ clearTimeout(ordQT); const v = e.target.value; ordQT = setTimeout(() => { ORD.q = v; ORD.page = 1; render(); const el = $("#ordQ"); if(el){ el.focus(); el.setSelectionRange(v.length, v.length); } }, 350); } });
 $("#view").addEventListener("click", e => {
@@ -2093,7 +2106,7 @@ document.addEventListener("click", e => { if(e.target.closest("#coSave")) saveCo
 /* filters belong to the page: leaving a page puts its filters back to the defaults */
 function resetPageFilters(){
   Object.assign(state, { range:"day", date:todayStr(), dateSet:false, compare:false, dashTab:"general", branch:"all" }); DASH.key = "";
-  Object.assign(ORD, { tab:"all", q:"", from:"", to:"", channel:"", type:"", pay:"", page:1, key:"", open:null });
+  Object.assign(ORD, { tab:"all", q:"", from:"", to:"", channel:"", type:"", pay:"", source:"", brand:"", branch:"", page:1, key:"", open:null });
   Object.assign(CUS, { filter:"all", q:"", sort:"last", page:1, key:"" });
   Object.assign(BM, { q:"", draft:{} });
   state.tabs = {}; state.q = {}; state.page = {}; state.catFilter = ""; state.modFilter = "";

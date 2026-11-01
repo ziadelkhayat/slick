@@ -29,7 +29,7 @@
     roles: "id name description permissions deleted created_at",
     staff_users: "id name email phone employee_no role_id branch_ids pin_hash active user_id deleted created_at",
     modifier_options: "id modifier_id name name_ar sku price tax_group costing_method cost calories ingredients custom_prices inactive_branch_ids out_of_stock_branch_ids sort active deleted created_at",
-    orders: "id brand_id no channel source type status branch_id device_id shift_id zone_id customer_name phone address lat lng table_no notes items subtotal discount_pct discount delivery_fee tax total payment agent handled_by accepted_at done_at void_reason voided_at voided_by created_at",
+    orders: "id brand_id no channel source type status branch_id device_id shift_id zone_id customer_name phone address lat lng table_no notes items subtotal discount_pct discount delivery_fee tax invoice_no total payment agent handled_by accepted_at done_at void_reason voided_at voided_by created_at",
   };
   Object.keys(COLS).forEach(k => COLS[k] = new Set(COLS[k].split(" ")));
   const RENAME = { open: "open_time", close: "close_time", table: "table_no" };
