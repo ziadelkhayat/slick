@@ -380,6 +380,9 @@ tr.grp .toggle{vertical-align:middle}
 .spill.s-refund{background:#fde8e8;color:#9e0c24}
 .bmgrip{cursor:grab;color:var(--ink3,#9a98a6);margin-right:8px;letter-spacing:-2px;user-select:none}
 tr[draggable="true"].dragging{opacity:.45}tr.dropto td{box-shadow:inset 0 2px 0 #5b2bc4}
+.ptabs{display:flex;gap:6px;overflow-x:auto;padding:2px 0 12px;margin-bottom:6px;border-bottom:1px solid var(--line);scrollbar-width:thin}
+.ptabs a{flex:none;padding:7px 13px;border-radius:999px;font-size:13.5px;font-weight:500;color:var(--ink2);text-decoration:none;border:1px solid transparent;white-space:nowrap}
+.ptabs a:hover{background:var(--bg,#f4f3f8)}.ptabs a.on{background:#efe9fb;color:#5b2bc4;border-color:#d9ccf7;font-weight:600}
 </style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -494,7 +497,7 @@ const NAV = [
   {id:"call-center",t:"Call Center",i:"phone"},
   {id:"customers",t:"Customers",i:"users"},
   {t:"Reports",i:"chart",kids:[["sales-reports","Sales Reports"],["inventory-reports","Inventory Reports"],["business-reports","Business Reports"],["analysis-reports","Analysis Reports"]]},
-  {t:"Inventory",i:"box",kids:[["inv-items","Items"],["suppliers","Suppliers"],["purchase-orders","Purchase Orders"],["transfer-orders","Transfer Orders"],["transfers","Transfers"],["inventory-count","Inventory Count"],["production","Production"],["@More"],["quantity-adjustments","Quantity Adjustment"],["cost-adjustments","Cost Adjustment"],["order-transactions","Order Transactions"],["inv-categories","Inventory Categories"],["warehouses","Warehouses"],["spot-check","Inventory Spot Check"],["count-sheets","Count Sheet"]]},
+  {t:"Inventory",i:"box",tabs:1,kids:[["inv-items","Items"],["suppliers","Suppliers"],["purchase-orders","Purchase Orders"],["transfer-orders","Transfer Orders"],["transfers","Transfers"],["inventory-count","Inventory Count"],["production","Production"],["@More"],["quantity-adjustments","Quantity Adjustment"],["cost-adjustments","Cost Adjustment"],["order-transactions","Order Transactions"],["inv-categories","Inventory Categories"],["warehouses","Warehouses"],["spot-check","Inventory Spot Check"],["count-sheets","Count Sheet"]]},
   {t:"Menu",i:"book",kids:[["@Menu Builder"],["categories","Categories"],["products","Products"],["modifiers","Modifiers"],["branch-menu","Menus"],["combos","Combos"],["groups","Groups"],["@Menu Settings"],["price-tags","Price Tags"],["allergens","Allergens"]]},
   {t:"Manage",i:"gear",kids:[["users","Users"],["roles","Roles"],["brands","Brands"],["branches","Branches"],["devices","Devices"],["taxes","Taxes & Groups"],["payment-methods","Payment Methods"],["order-sources","Order Sources"],["charges","Charges"],["delivery-zones","Delivery Zones"],["online-ordering","Online Ordering"],["kitchen-flows","Kitchen Flows"],["reasons","Reasons"],["settings","Settings"]]},
   {t:"Marketing",i:"tag",kids:[["loyalty","Loyalty"],["gift-cards","Gift Cards"],["discounts","Discounts"],["promotions","Promotions"],["coupons","Coupons"]]}
@@ -600,6 +603,7 @@ function renderNav(route){
   $("#nav").innerHTML = NAV.map((n,gi) => {
     if(!canOpen(n.id || n.kids.find(k=>!k[0].startsWith("@"))?.[0])) return "";
     if(n.id) return `<a href="#${n.id}" class="${route===n.id?"on":""}">${svgIco(n.i)}${n.t}</a>`;
+    if(n.tabs){ const first = n.kids.find(k=>!k[0].startsWith("@"))[0]; return `<a href="#${first}" class="${n.kids.some(k=>k[0]===route)?"on":""}">${svgIco(n.i)}${n.t}</a>`; }   // one entry; its screens are tabs on the page
     const open = n.kids.some(k => k[0]===route);
     return `<div class="grp ${open?"open":""}" data-g="${gi}"><button type="button">${svgIco(n.i)}${n.t}<span class="chev">›</span></button><div class="sub">${
       n.kids.map(k => k[0].startsWith("@") ? `<div class="lbl">${k[0].slice(1)}</div>` : `<a href="#${k[0]}" class="${route===k[0]?"on":""}">${svgIco(SUBI[k[0]]||"list")}${k[1]}</a>`).join("")
@@ -983,6 +987,8 @@ function render(){
   else if(route==="branches") v.innerHTML = viewBranches();
   else if(moduleRoute(route) !== null) v.innerHTML = moduleRoute(route);
   else v.innerHTML = `<h1>${esc(TITLES[route]||"Not found")}</h1><p class="subt">&nbsp;</p>` + placeholder("Coming next", "This screen is part of the plan and will be built in a later step.");
+  const tg = NAV.find(n => n.tabs && n.kids.some(k=>k[0]===route));   // Inventory: every screen is a tab at the top of the page
+  if(tg) v.insertAdjacentHTML("afterbegin", `<nav class="ptabs" aria-label="${esc(tg.t)}">${tg.kids.filter(k=>!k[0].startsWith("@")).map(k=>`<a href="#${k[0]}" class="${k[0]===route?"on":""}">${esc(k[1])}</a>`).join("")}</nav>`);
   v.querySelectorAll(".chart").forEach(wireLine);
   if(route==="delivery-zones") setTimeout(initZonesOverview, 0);
 }
