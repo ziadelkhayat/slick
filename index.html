@@ -381,7 +381,7 @@ tr.grp .toggle{vertical-align:middle}
 .bmgrip{cursor:grab;color:var(--ink3,#9a98a6);margin-right:8px;letter-spacing:-2px;user-select:none}
 tr[draggable="true"].dragging{opacity:.45}tr.dropto td{box-shadow:inset 0 2px 0 #5b2bc4}
 .ptabs{display:flex;gap:6px;overflow-x:auto;padding:2px 0 12px;margin-bottom:6px;border-bottom:1px solid var(--line);scrollbar-width:thin}
-.ptabs a{flex:none;padding:7px 13px;border-radius:999px;font-size:13.5px;font-weight:500;color:var(--ink2);text-decoration:none;border:1px solid transparent;white-space:nowrap}
+.ptabs a .ico{width:16px;height:16px;margin-right:6px;vertical-align:-3px}.ptabs a{flex:none;padding:7px 13px;border-radius:999px;font-size:13.5px;font-weight:500;color:var(--ink2);text-decoration:none;border:1px solid transparent;white-space:nowrap}
 .ptabs a:hover{background:var(--bg,#f4f3f8)}.ptabs a.on{background:#efe9fb;color:#5b2bc4;border-color:#d9ccf7;font-weight:600}
 </style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
@@ -989,7 +989,7 @@ function render(){
   else if(moduleRoute(route) !== null) v.innerHTML = moduleRoute(route);
   else v.innerHTML = `<h1>${esc(TITLES[route]||"Not found")}</h1><p class="subt">&nbsp;</p>` + placeholder("Coming next", "This screen is part of the plan and will be built in a later step.");
   const tg = NAV.find(n => n.tabs && n.kids.some(k=>k[0]===route));   // Inventory: every screen is a tab at the top of the page
-  if(tg) v.insertAdjacentHTML("afterbegin", `<nav class="ptabs" aria-label="${esc(tg.t)}">${tg.kids.filter(k=>!k[0].startsWith("@")).map(k=>`<a href="#${k[0]}" class="${k[0]===route?"on":""}">${esc(k[1])}</a>`).join("")}</nav>`);
+  if(tg) v.insertAdjacentHTML("afterbegin", `<nav class="ptabs" aria-label="${esc(tg.t)}">${tg.kids.filter(k=>!k[0].startsWith("@")).map(k=>`<a href="#${k[0]}" class="${k[0]===route?"on":""}">${svgIco(SUBI[k[0]]||"list")}${esc(k[1])}</a>`).join("")}</nav>`);
   v.querySelectorAll(".chart").forEach(wireLine);
   if(route==="delivery-zones") setTimeout(initZonesOverview, 0);
 }
@@ -2163,7 +2163,18 @@ function viewBranchMenu(){
   return h + `</tbody></table></div>`;
 }
 /* drag to order categories and their products; the order is the same in the POS, call center and online menu */
-let bmDrag = null;
+let bmDrag = null, optDrag = null;
+// modifier options: drag rows inside the modifier to set their order (POS, call center, online)
+document.addEventListener("dragstart", e => { const t = e.target.closest?.("[data-optdrag]"); if(!t) return; optDrag = t.dataset.optdrag; e.dataTransfer.effectAllowed = "move"; try{ e.dataTransfer.setData("text/plain", optDrag); }catch(_){} t.classList.add("dragging"); });
+document.addEventListener("dragover", e => { const t = e.target.closest?.("[data-optdrag]"); if(!t || !optDrag || t.dataset.optdrag===optDrag) return; e.preventDefault(); document.querySelectorAll(".dropto").forEach(x => x.classList.remove("dropto")); t.classList.add("dropto"); });
+document.addEventListener("drop", async e => { const t = e.target.closest?.("[data-optdrag]"); if(!t || !optDrag) return; e.preventDefault();
+  const from = optDrag, to = t.dataset.optdrag; optDrag = null; if(from===to) return;
+  const o = S.modifier_options.find(x=>x.id===from); if(!o) return;
+  const ids = modOptions(o.modifierId).map(x=>x.id), i = ids.indexOf(from), j = ids.indexOf(to); if(i<0 || j<0) return;
+  ids.splice(i, 1); ids.splice(ids.indexOf(to) + (i < j ? 1 : 0), 0, from);
+  try{ for(const [k, id] of ids.entries()){ const r = S.modifier_options.find(x=>x.id===id); if(r && r.sort !== (k+1)*10) await put("modifier_options", id, { sort:(k+1)*10 }); }
+    toast("Option order saved for every channel"); render(); }
+  catch(err){ console.error(err); toast("Couldn't save the new order"); } });
 document.addEventListener("dragstart", e => { const t = e.target.closest?.("[data-bmdrag]"); if(!t) return; bmDrag = { key:t.dataset.bmdrag, cat:t.dataset.bmcatof }; e.dataTransfer.effectAllowed = "move"; try{ e.dataTransfer.setData("text/plain", bmDrag.key); }catch(_){} t.classList.add("dragging"); });
 document.addEventListener("dragend", e => { document.querySelectorAll(".dragging,.dropto").forEach(x => x.classList.remove("dragging","dropto")); });
 // a category can be dropped on any row of another category (its header or its items)
@@ -2882,9 +2893,9 @@ function modifierDetail(m){
   let h = `<div class="phead"><a href="#modifiers" class="btn" data-detback style="text-decoration:none">← Back</a><h1 style="margin-left:10px">${esc(m.name)}</h1><div class="sp"></div>
     <button class="btn" data-modaddopt="${esc(m.id)}">Add Option</button><button class="btn pri" data-detedit>Edit Modifier</button></div>`;
   h += infoGrid([info("Name", esc(m.name)), info("Name Localized", esc(m.nameAr||"—")), info("Reference", esc(m.reference||"—")), info("Options", opts.length), info("Linked Products", prods.length), info("Created", fmtDate(m.createdAt))]);
-  h += `<div class="card tbl" style="margin-bottom:16px"><div class="ttop"><b>Options</b><div class="sp"></div>${opts.length>1?`<button class="btn sm" data-sortopts="${esc(m.id)}">${svgIco("sort")} Sort options</button>`:""}</div>
-    ${opts.length ? `<table><thead><tr><th>Name</th><th>SKU</th><th class="num">Price</th><th class="num">Cost</th><th>Status</th></tr></thead><tbody>${opts.map(o=>`<tr class="click" data-detopen="modifier-options:${esc(o.id)}">
-      <td><b>${esc(o.name)}</b></td><td><span class="code">${esc(o.sku||"")}</span></td><td class="num">${+o.price?usd(o.price):'<span class="note">Free</span>'}</td><td class="num">${productCost(o)?fmtCost(productCost(o)):"—"}</td>
+  h += `<div class="card tbl" style="margin-bottom:16px"><div class="ttop"><b>Options</b><div class="sp"></div>${opts.length>1?`<span class="note">Drag ⋮⋮ to reorder</span>`:""}</div>
+    ${opts.length ? `<table><thead><tr><th>Name</th><th>SKU</th><th class="num">Price</th><th class="num">Cost</th><th>Status</th></tr></thead><tbody>${opts.map(o=>`<tr class="click" data-detopen="modifier-options:${esc(o.id)}" draggable="true" data-optdrag="${esc(o.id)}">
+      <td><span class="bmgrip" aria-hidden="true" title="Drag to move">⋮⋮</span><b>${esc(o.name)}</b></td><td><span class="code">${esc(o.sku||"")}</span></td><td class="num">${+o.price?usd(o.price):'<span class="note">Free</span>'}</td><td class="num">${productCost(o)?fmtCost(productCost(o)):"—"}</td>
       <td>${o.active===false?'<span class="tag off">Inactive</span>':'<span class="tag on">Active</span>'}</td></tr>`).join("")}</tbody></table>` : `<div class="empty">No options yet. Use "Add Option".</div>`}</div>`;
   h += `<div class="card" style="margin-bottom:16px"><h3 style="margin:0 0 8px;font-size:15px">Linked products</h3>${prods.length ? prods.map(p => { const l = p.modifiers.find(x=>x.modifierId===m.id);
       return `<div style="margin:4px 0"><a href="#products" class="lnk" data-detopen="products:${esc(p.id)}">${esc(p.name)}</a> <span class="note">· min ${+l.min||0}, max ${+l.max||"any"}${+l.free?`, ${l.free} free`:""}</span></div>`; }).join("")
