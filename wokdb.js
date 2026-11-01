@@ -30,7 +30,8 @@
     day_closes: "id branch_id business_date closed_at closed_by device_id orders sales created_at",
     staff_users: "id name email phone employee_no role_id branch_ids pin_hash active user_id deleted created_at",
     modifier_options: "id modifier_id name name_ar sku price tax_group costing_method cost calories ingredients custom_prices inactive_branch_ids out_of_stock_branch_ids sort active deleted created_at",
-    orders: "id brand_id no channel source type status branch_id device_id shift_id zone_id customer_name phone address lat lng table_no notes items subtotal discount_pct discount delivery_fee tax invoice_no total payment agent handled_by accepted_at done_at void_reason voided_at voided_by created_at",
+    orders: "id brand_id no channel source type status branch_id device_id shift_id zone_id customer_name phone address lat lng table_no notes items subtotal discount_pct discount delivery_fee tax invoice_no total payment agent handled_by accepted_at done_at void_reason voided_at voided_by created_at charges charges_total receipt_notes voided_items returned_items refund_total stock_action return_reason returned_at returned_by approved_by",
+    charges: "id name name_ar type value order_types auto tax_group brand_ids branch_ids active sort deleted created_at",
   };
   Object.keys(COLS).forEach(k => COLS[k] = new Set(COLS[k].split(" ")));
   const RENAME = { open: "open_time", close: "close_time", table: "table_no" };

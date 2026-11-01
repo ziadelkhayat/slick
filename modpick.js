@@ -21,15 +21,21 @@
   .smp label.qrow{cursor:default}.smp .qs{margin-left:10px;display:inline-flex;align-items:center;gap:8px}
   .smp .qs button{width:30px;height:30px;border-radius:50%;border:1px solid #d9d4ee;background:#fff;color:#5b2bc4;font-size:17px;font-weight:700;cursor:pointer;line-height:1}
   .smp .qs button:disabled{opacity:.35;cursor:not-allowed}.smp .qs b{min-width:16px;text-align:center}
-  .smp label.qrow.on{background:#f6f2ff}
+  .smp label.qrow.on{background:#f6f2ff}.smp .dz{display:flex;gap:6px;align-items:center}.smp .dz button{border:1px solid #d9d4ee;background:#fff;border-radius:8px;padding:8px 12px;font:inherit;font-weight:600;cursor:pointer}.smp .dz button.on{background:#efe9fb;border-color:#5b2bc4;color:#5b2bc4}.smp .dz input{flex:1;border:1px solid #ddd8ea;border-radius:10px;padding:9px 10px;font:inherit}
+  .smp textarea{width:100%;box-sizing:border-box;border:1px solid #ddd8ea;border-radius:10px;padding:9px 10px;font:inherit;font-size:14px;resize:vertical}
   .smp footer button{border:0;border-radius:10px;background:#5b2bc4;color:#fff;font:inherit;font-weight:600;padding:12px 18px;cursor:pointer}`;
   function pick(o){
     const money = o.money || (n => "USD " + (+n||0).toFixed(2));
     const links = (o.links||[]).map(l => ({ ...l, opts: (o.options||[]).filter(x => x.modifierId===l.modifierId) })).filter(l => l.opts.length);
-    if(!links.length) return Promise.resolve({ options: [], unitPrice: +o.basePrice||0, mods: "" });
+    if(!links.length && !o.edit) return Promise.resolve({ options: [], unitPrice: +o.basePrice||0, mods: "" });
     if(!document.getElementById("smpCss")){ const st = document.createElement("style"); st.id = "smpCss"; st.textContent = css; document.head.appendChild(st); }
     return new Promise(resolve => {
       const sel = links.map(() => new Map());                     // option id -> how many
+      // editing a cart line: start from what was picked, plus its quantity and note
+      (o.initial||[]).forEach(x => { const gi = links.findIndex(l => l.modifierId===x.modifierId && l.opts.some(y => y.id===x.id)); if(gi >= 0) sel[gi].set(x.id, (sel[gi].get(x.id)||0) + 1); });
+      let qty = Math.max(1, +o.qty||1), note = o.note || "", discT = o.discType || "pct", discV = o.discValue != null && o.discValue !== "" ? String(o.discValue) : "";
+      // item discount (editing only, when the person may give one): a percent of the line or an amount off it
+      const discOf = () => { const line = priceOf() * qty, v = +String(discV).replace(",", ".") || 0; return +(discT === "amt" ? Math.min(v, line) : line * Math.min(v, 100) / 100).toFixed(2); };
       const cnt = gi => [...sel[gi].values()].reduce((a, n) => a + n, 0);
       const units = (l, gi) => { const out = []; l.opts.forEach(x => { for(let k = 0; k < (sel[gi].get(x.id)||0); k++) out.push(x); }); return out; };
       const el = document.createElement("div"); el.className = "smp-scrim";
@@ -44,13 +50,16 @@
                 <span class="qs"><button type="button" data-q="${gi}:${esc(x.id)}:-1" ${on?"":"disabled"} aria-label="Less ${esc(x.name)}">−</button><b>${n}</b><button type="button" data-q="${gi}:${esc(x.id)}:1" ${full||x.oos?"disabled":""} aria-label="More ${esc(x.name)}">+</button></span></label>`;
               const dis = !on && ((full && !one) || x.oos);
               return `<label class="${dis?"dis":""}"><input type="checkbox" name="g${gi}" data-g="${gi}" value="${esc(x.id)}" ${on?"checked":""} ${dis?"disabled":""}>${esc(x.name)}${x.oos?'<span class="oos">Out of stock</span>':""}<span class="p">${+x.price ? "+" + money(x.price) : ""}</span></label>`; }).join("");
-        }).join("")}</div><footer><span class="err" data-err></span><button type="button" data-ok>Add · ${money(priceOf())}</button></footer></div>`;
+        }).join("")}${o.edit ? `<div class="g"><b>Item note</b><span>Shown to the kitchen</span></div><textarea data-note rows="2" placeholder="e.g. no onions, extra spicy">${esc(note)}</textarea>` : ""}${o.edit && o.allowDiscount ? `<div class="g"><b>Item discount</b>${discOf() ? `<span>−${money(discOf())}</span>` : ""}</div>
+          <div class="dz"><button type="button" data-dt="pct" class="${discT==="pct"?"on":""}">%</button><button type="button" data-dt="amt" class="${discT==="amt"?"on":""}">USD</button><input data-dv inputmode="decimal" placeholder="${discT==="amt"?"Amount off":"Percent off"}" value="${esc(discV)}"></div>` : ""}</div><footer>${o.edit ? `<span class="qs" style="margin:0"><button type="button" data-qq="-1" ${qty<=1?"disabled":""} aria-label="Less">−</button><b>${qty}</b><button type="button" data-qq="1" aria-label="More">+</button></span>` : ""}<span class="err" data-err></span><button type="button" data-ok>${o.edit ? "Update" : "Add"} · ${money(priceOf() * qty - (o.allowDiscount ? discOf() : 0))}</button></footer></div>`;
       };
       const redraw = () => { const y = el.querySelector(".b")?.scrollTop; draw(); const b = el.querySelector(".b"); if(b) b.scrollTop = y; };
       const close = v => { el.remove(); document.removeEventListener("keydown", onKey); resolve(v); };
       const onKey = e => { if(e.key === "Escape") close(null); };
       el.addEventListener("click", e => {
         if(e.target === el || e.target.closest("[data-x]")) return close(null);
+        const dt = e.target.closest("[data-dt]"); if(dt){ e.preventDefault(); discT = dt.dataset.dt; return redraw(); }
+        const qq = e.target.closest("[data-qq]"); if(qq){ e.preventDefault(); qty = Math.max(1, qty + (+qq.dataset.qq)); return redraw(); }
         const q = e.target.closest("[data-q]");
         if(q){ e.preventDefault(); const [g, id, d] = q.dataset.q.split(":"), gi = +g, l = links[gi], n = (sel[gi].get(id)||0) + (+d);
           if(+d > 0 && (+l.max||0) > 0 && cnt(gi) >= +l.max) return;
@@ -60,9 +69,11 @@
           if(bad >= 0){ el.querySelector("[data-err]").textContent = `${o.groups?.[links[bad].modifierId]?.name || "Options"}: ${rule(links[bad]).toLowerCase()}`; return; }
           const chosen = []; links.forEach((l, gi) => { let free = +l.free||0; units(l, gi).forEach(x => { const charge = free > 0 ? 0 : (+x.price||0); if(free > 0) free--; chosen.push({ id:x.id, modifierId:l.modifierId, name:x.name, price:charge }); }); });
           const tally = []; chosen.forEach(x => { const t = tally.find(y => y.name===x.name); if(t) t.n++; else tally.push({ name:x.name, n:1 }); });
-          return close({ options: chosen, unitPrice: +priceOf().toFixed(2), mods: tally.map(t => (t.n > 1 ? t.n + "× " : "") + t.name).join(", ") });
+          return close({ options: chosen, unitPrice: +priceOf().toFixed(2), mods: tally.map(t => (t.n > 1 ? t.n + "× " : "") + t.name).join(", "), ...(o.edit ? { qty, note: note.trim(), ...(o.allowDiscount ? { disc: discOf(), discType: discT, discValue: +String(discV).replace(",", ".") || 0 } : {}) } : {}) });
         }
       });
+      el.addEventListener("input", e => { if(e.target.matches("[data-note]")) note = e.target.value;
+        if(e.target.matches("[data-dv]")){ discV = e.target.value; const b = el.querySelector("[data-ok]"); if(b) b.textContent = `Update · ${money(priceOf() * qty - discOf())}`; } });
       el.addEventListener("change", e => {
         const i = e.target.closest("[data-g]"); if(!i) return; const gi = +i.dataset.g, l = links[gi];
         if((+l.max||0) === 1){ sel[gi].clear(); if(i.checked) sel[gi].set(i.value, 1); }
@@ -75,5 +86,7 @@
   }
   // the same options on a line mean the same item (so the cart can merge them)
   const key = (productId, options) => productId + "|" + (options||[]).map(x => x.id).sort().join(",");
-  window.SlickMods = { pick, key };
+  // the text shown on tickets and receipts: the options, then the cashier's note
+  const label = (mods, note) => [mods, note ? "Note: " + note : ""].filter(Boolean).join(" · ");
+  window.SlickMods = { pick, key, label };
 })();
