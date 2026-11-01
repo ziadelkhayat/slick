@@ -497,7 +497,7 @@ const NAV = [
   {id:"call-center",t:"Call Center",i:"phone"},
   {id:"customers",t:"Customers",i:"users"},
   {t:"Reports",i:"chart",kids:[["sales-reports","Sales Reports"],["inventory-reports","Inventory Reports"],["business-reports","Business Reports"],["analysis-reports","Analysis Reports"]]},
-  {t:"Inventory",i:"box",tabs:1,kids:[["inv-items","Items"],["suppliers","Suppliers"],["purchase-orders","Purchase Orders"],["transfer-orders","Transfer Orders"],["transfers","Transfers"],["inventory-count","Inventory Count"],["production","Production"],["@More"],["quantity-adjustments","Quantity Adjustment"],["cost-adjustments","Cost Adjustment"],["order-transactions","Order Transactions"],["inv-categories","Inventory Categories"],["warehouses","Warehouses"],["spot-check","Inventory Spot Check"],["count-sheets","Count Sheet"]]},
+  {t:"Inventory",i:"box",tabs:1,kids:[["inv-categories","Inventory Categories"],["inv-items","Items"],["warehouses","Locations"],["suppliers","Suppliers"],["purchase-orders","Purchase Orders"],["transfer-orders","Transfer Orders"],["transfers","Transfers"],["inventory-count","Inventory Count"],["production","Production"],["quantity-adjustments","Quantity Adjustment"],["cost-adjustments","Cost Adjustment"],["spot-check","Inventory Spot Check"],["count-sheets","Count Sheet"]]},
   {t:"Menu",i:"book",tabs:1,kids:[["@Menu Builder"],["categories","Categories"],["products","Products"],["modifiers","Modifiers"],["branch-menu","Menus"],["combos","Combos"],["groups","Groups"],["@Menu Settings"],["price-tags","Price Tags"],["allergens","Allergens"]]},
   {t:"Manage",i:"gear",kids:[["users","Users"],["roles","Roles"],["brands","Brands"],["branches","Branches"],["devices","Devices"],["taxes","Taxes & Groups"],["payment-methods","Payment Methods"],["order-sources","Order Sources"],["charges","Charges"],["delivery-zones","Delivery Zones"],["online-ordering","Online Ordering"],["kitchen-flows","Kitchen Flows"],["reasons","Reasons"],["settings","Settings"]]},
   {t:"Marketing",i:"tag",kids:[["loyalty","Loyalty"],["gift-cards","Gift Cards"],["discounts","Discounts"],["promotions","Promotions"],["coupons","Coupons"]]}
@@ -1278,7 +1278,7 @@ const CRUD = {
       {k:"categoryId",l:"Category",t:"select",req:1,opts:()=>S.categories.filter(c=>live(c)&&brandFilter(c)).map(c=>[c.id,(state.brand==="all"?brandName(c.brandId)+" · ":"")+c.name])},
       {k:"pricingMethod",l:"Pricing method",t:"select",opts:()=>[["fixed","Fixed price"],["open","Open price (cashier enters it)"]],def:"fixed"},
       {k:"price",l:"Price (USD)",t:"number",req:1},{k:"taxGroup",l:"Tax group",t:"select",opts:()=>taxGroupOpts(),def:"tg_vat",ph:"No tax"},
-      {k:"costingMethod",l:"Costing method",t:"select",opts:()=>[["ingredients","From ingredients"],["fixed","Fixed cost"]],def:"ingredients"},{k:"cost",l:"Fixed cost (USD, if fixed)",t:"number"},
+      {k:"costingMethod",l:"Costing method",t:"select",opts:()=>[["ingredients","From ingredients"],["fixed","Fixed cost"]],def:"ingredients"},{k:"cost",l:"Fixed cost (USD)",t:"number",req:1,when:{k:"costingMethod",is:"fixed"}},
       {k:"sellingMethod",l:"Selling method",t:"select",opts:()=>[["unit","Unit"],["weight","Weight"]],def:"unit"},{k:"barcode",l:"Barcode"},
       {k:"prepTime",l:"Preparation time (minutes)",t:"number"},{k:"calories",l:"Calories (kCal)",t:"number"},
       {k:"imageUrl",l:"Image",t:"image",full:1},
@@ -1308,7 +1308,7 @@ const CRUD = {
     fields:[{k:"name",l:"Name",req:1},{k:"nameAr",l:"Name (Arabic)"},
       {k:"modifierId",l:"Modifier",t:"select",req:1,opts:()=>S.modifiers.filter(live).sort((a,b)=>a.name.localeCompare(b.name)).map(m=>[m.id,m.name]),auto:()=>state.newOptMod||state.modFilter||""},
       {k:"sku",l:"SKU",auto:()=>nextSku("modifier_options")},{k:"price",l:"Price (USD)",t:"number",def:0},{k:"taxGroup",l:"Tax group",t:"select",opts:()=>taxGroupOpts(),def:"tg_vat",ph:"No tax"},
-      {k:"costingMethod",l:"Costing method",t:"select",opts:()=>[["ingredients","From ingredients"],["fixed","Fixed cost"]],def:"ingredients"},{k:"cost",l:"Fixed cost (USD, if fixed)",t:"number"},
+      {k:"costingMethod",l:"Costing method",t:"select",opts:()=>[["ingredients","From ingredients"],["fixed","Fixed cost"]],def:"ingredients"},{k:"cost",l:"Fixed cost (USD)",t:"number",req:1,when:{k:"costingMethod",is:"fixed"}},
       {k:"calories",l:"Calories (kCal)",t:"number"},{k:"active",l:"Active",t:"chk",def:true}]
   },
   suppliers: {
@@ -1354,7 +1354,7 @@ const CRUD = {
     }
   },
   warehouses: {
-    col:"warehouses", title:"Warehouses", one:"Warehouse",
+    col:"warehouses", title:"Locations", one:"Location",
     tabs:[["all","All",live],["deleted","Deleted",r=>r.deleted]],
     sort:(a,b)=>(a.reference||"").localeCompare(b.reference||"",undefined,{numeric:true}) || a.name.localeCompare(b.name),
     search:r=>r.name+" "+(r.reference||""),
