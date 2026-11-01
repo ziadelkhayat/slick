@@ -580,7 +580,7 @@ function receiptText(o){
   const typ = o.type==="dinein" ? "Dine-in"+(o.table?" T"+o.table:"") : o.type==="pickup"||o.type==="takeaway" ? "Pickup" : "Delivery";
   const lines = [ (()=>{ const n = (S.brands.find(b=>b.id===branch?.brandId)?.name || "Slick").toUpperCase(); return n.padStart((w+n.length)/2); })(), (branch?.name||"").padStart((w+(branch?.name||"").length)/2), ...rcptHead(w), "",
     ...(o.status==="refund" ? ["*** REFUND ***".padStart((w+14)/2), row("Return " + ordRef(o), typ), ...(o.invoiceRef || S.orders.find(x=>x.id===o.refundOf)?.invoiceNo ? ["Original invoice " + (o.invoiceRef || S.orders.find(x=>x.id===o.refundOf)?.invoiceNo)] : []), ...(o.returnReason ? ["Reason: " + o.returnReason] : [])]
-      : [row("Order #"+(o.no||"—"), typ), ...(a.rcptInvoice && o.invoiceNo ? ["Invoice " + o.invoiceNo] : [])]), ...(a.rcptSource && o.source ? ["Source: " + o.source] : []),
+      : [row("Order #"+(o.no||"—"), typ), ...(o.ref ? ["Ref " + o.ref] : []), ...(a.rcptInvoice && o.invoiceNo ? ["Invoice " + o.invoiceNo] : [])]), ...(a.rcptSource && o.source ? ["Source: " + o.source] : []),
     ...(a.rcptCustomer && (o.customerName || o.phone) ? [[o.customerName, o.phone].filter(Boolean).join(" · ")] : []),
     new Date(o.createdAt).toLocaleString("en-GB"), "-".repeat(w),
     ...o.items.flatMap(i => [row(i.qty+" x "+i.name, lineNet(i).toFixed(2)), ...(i.mods ? ["  + " + i.mods] : []), ...(+i.disc ? ["  discount -" + (+i.disc).toFixed(2)] : [])]), "-".repeat(w) ];
@@ -630,10 +630,10 @@ function approve(perm, title){
 let OV = { tab:"incoming", q:"", open:null };
 const stLbl = o => o.status==="closed" && fullyBack(o) ? "Refunded" : ({ refund:"Refund", pending:"Waiting for you", active:"In kitchen", closed:"Done", void:"Void", returned:"Returned", declined:"Declined", draft:"Draft" }[o.status] || o.status);
 const typLbl = t => t==="dinein" ? "Dine-in" : t==="pickup"||t==="takeaway" ? "Pickup" : t==="delivery" ? "Delivery" : (t||"—");
-const ordRef = o => o.status==="refund" ? "RET-" + String(o.returnNo || "…").padStart(6,"0") : o.no ? "#" + o.no : o.invoiceNo ? "Inv " + o.invoiceNo : "—";
+const ordRef = o => o.status==="refund" ? "RET-" + String(o.returnNo || "…").padStart(6,"0") : o.no ? "#" + o.no : o.ref || (o.invoiceNo ? "Inv " + o.invoiceNo : "—");
 function ordersFor(tab){
   const mine = S.orders.filter(o => o.branchId===device.branchId), today = bizDate();
-  const q = OV.q.trim().toLowerCase(), m = o => !q || [o.no, o.invoiceNo, o.customerName, o.phone, o.source].some(v => String(v||"").toLowerCase().includes(q));
+  const q = OV.q.trim().toLowerCase(), m = o => !q || [o.no, o.ref, o.invoiceNo, o.customerName, o.phone, o.source].some(v => String(v||"").toLowerCase().includes(q));
   const l = tab==="incoming" ? mine.filter(o => o.channel!=="pos" && ["pending","active"].includes(o.status))
     : tab==="active" ? mine.filter(o => o.status==="active")
     : tab==="closed" ? mine.filter(o => ["closed","void","returned","refund"].includes(o.status) && bizDate(o.createdAt)===today)
@@ -660,7 +660,7 @@ function openOrderView(id){
   const src = o.refundOf && S.orders.find(x=>x.id===o.refundOf);
   if(o.status==="refund" && src) acts.push(`<button class="btn" data-ov="${esc(src.id)}">Open original order</button>`);
   modal("orderview", `<div class="mh"><h2>Order ${esc(ordRef(o))} <span class="spill s-${o.status}">${stLbl(o)}</span></h2><button class="x" data-ovback aria-label="Back">←</button></div><div class="mb">
-    <p class="mut">${o.invoiceNo?`Invoice ${esc(o.invoiceNo)} · `:""}${esc(typLbl(o.type))}${o.table?" T"+esc(o.table):""} · ${esc(o.source || (o.channel==="pos"?"POS":"Call center"))} · ${new Date(o.createdAt).toLocaleString("en-GB",{day:"numeric",month:"short",hour:"numeric",minute:"2-digit"})}${o.agent?` · ${esc(o.agent)}`:""}</p>
+    <p class="mut">${o.ref?`${esc(o.ref)} · `:""}${o.invoiceNo?`Invoice ${esc(o.invoiceNo)} · `:""}${esc(typLbl(o.type))}${o.table?" T"+esc(o.table):""} · ${esc(o.source || (o.channel==="pos"?"POS":"Call center"))} · ${new Date(o.createdAt).toLocaleString("en-GB",{day:"numeric",month:"short",hour:"numeric",minute:"2-digit"})}${o.agent?` · ${esc(o.agent)}`:""}</p>
     ${o.customerName||o.phone ? `<p><b>${esc(o.customerName||"")}</b> ${o.phone?`<a href="tel:${esc(o.phone)}" style="color:#5b2bc4">${esc(o.phone)}</a>`:""}${o.address?`<br><span class="mut">${esc(o.address)}</span>`:""}${o.lat?`<br><a href="https://www.google.com/maps?q=${o.lat},${o.lng}" target="_blank" rel="noopener" style="color:#5b2bc4">📍 Open pinned location</a>`:""}</p>` : ""}
     <div class="vlines">${(o.items||[]).map(i=>`<div><span>${i.qty} × ${esc(i.name)}${i.mods?`<small class="mut" style="display:block">${esc(i.mods)}</small>`:""}${+i.disc?`<small style="display:block;color:#b45309">Discount −${usd(i.disc)}</small>`:""}</span><b>${usd(lineNet(i))}</b></div>`).join("")}
       ${(o.voidedItems||[]).map(i=>`<div class="mut"><span><s>${i.qty} × ${esc(i.name)}</s> · voided${i.reason?" ("+esc(i.reason)+")":""}</span><s>${usd((+i.price||0)*(+i.qty||1))}</s></div>`).join("")}
