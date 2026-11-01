@@ -365,7 +365,7 @@ function openDayEnd(){
   if(act.length) blockers.push(`<p><b>${act.length} order${act.length===1?" is":"s are"} still active.</b> Finish, decline or void ${act.length===1?"it":"them"} first:</p><p class="mut">${act.slice(0,12).map(o => (o.no ? "#"+esc(o.no) : "Inv "+esc(o.invoiceNo||"")) + " · " + (o.status==="pending" ? "waiting" : "in kitchen")).join("<br>")}</p>`);
   if(shifts.length) blockers.push(`<p><b>${shifts.length} shift${shifts.length===1?" is":"s are"} still open.</b> Close ${shifts.length===1?"it":"them"} first:</p><p class="mut">${shifts.map(x => esc(S.devices.find(d=>d.id===x.deviceId)?.name || "Device") + " · " + esc(x.cashier||"")).join("<br>")}</p>`);
   modal("dayend", `<div class="mh"><h2>End day · ${esc(fmtDay(day))}</h2><button class="x" data-close aria-label="Close">×</button></div><div class="mb">
-    ${blockers.length ? blockers.join("") : `<div class="stats"><div>Orders<b>${sales.length}</b></div><div>Sales<b>${usd(sales.reduce((a,o)=>a+(+o.total||0),0))}</b></div></div>
+    ${blockers.length ? blockers.join("") : `<div class="stats"><div>Orders<b>${sales.length}</b></div><div>Net sales<b>${usd(sales.reduce((a,o)=>a+(+o.total||0)-(+o.tax||0),0))}</b></div><div>Payments<b>${usd(sales.reduce((a,o)=>a+(+o.total||0),0))}</b></div></div>
       <p class="mut">Ending the day closes ${esc(fmtDay(day))} for ${esc(branch?.name||"this branch")}. Every device at the branch then starts the next business day.</p>`}</div>
     <div class="mf"><button class="btn" data-close>${blockers.length ? "OK" : "Cancel"}</button>${blockers.length ? "" : `<button class="btn pri" id="doDayEnd" data-day="${day}">End day</button>`}</div>`);
 }
@@ -756,7 +756,7 @@ $("#shiftBtn").addEventListener("click", () => {
   const expected = (+sh.openingCash||0) + by("cash");
   modal("shift", `<div class="mh"><h2>Close shift</h2><button class="x" data-close aria-label="Close">×</button></div><div class="mb">
     <p class="mut">Opened by ${esc(sh.cashier||"—")} at ${new Date(sh.openedAt).toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"})}</p>
-    <div class="stats"><div>Orders<b>${sales.length}</b></div><div>Net sales<b>${usd(sales.reduce((a,o)=>a+o.total,0))}</b></div><div>Cash<b>${usd(by("cash"))}</b></div><div>Card / other<b>${usd(by("card")+by("other"))}</b></div></div>
+    <div class="stats"><div>Orders<b>${sales.length}</b></div><div>Net sales<b>${usd(sales.reduce((a,o)=>a+(+o.total||0)-(+o.tax||0),0))}</b></div><div>Cash<b>${usd(by("cash"))}</b></div><div>Card / other<b>${usd(by("card")+by("other"))}</b></div></div>
     <div class="f"><label>Expected cash in drawer</label><b style="font-size:18px">${usd(expected)}</b></div>
     <div class="f"><label for="sCount">Counted cash (USD)</label><input id="sCount" inputmode="decimal" placeholder="${expected.toFixed(2)}"></div></div>
     <div class="mf"><button class="btn" data-close>Cancel</button><button class="btn pri" id="doCloseShift">Close shift</button></div>`);
