@@ -367,6 +367,9 @@ a.btn{text-decoration:none}
 .hours{display:flex;flex-direction:column;gap:6px}.hrow{display:grid;grid-template-columns:100px 140px 22px 140px 1fr;gap:10px;align-items:center}.hrow input[type=time]{padding:6px 8px}
 @media(max-width:700px){.bform{grid-template-columns:1fr}.hrow{grid-template-columns:80px 1fr 22px 1fr;}.hrow .chk{grid-column:1/-1}}
 .mgrip{cursor:grab;color:var(--ink3,#8d8c98);font-weight:700;letter-spacing:-2px;touch-action:none;user-select:none}tr.mdrag td{background:var(--chart-soft,#f3efff)}
+.imgf{display:flex;gap:14px;align-items:flex-start}.imgprev{width:110px;height:110px;border-radius:12px;border:1px dashed var(--line);display:grid;place-items:center;overflow:hidden;background:var(--bg,#f6f6fa);flex:none}.imgprev img{width:100%;height:100%;object-fit:cover}
+.pname{display:inline-flex;align-items:center;gap:10px}.pthumb{width:34px;height:34px;border-radius:8px;object-fit:cover;flex:none}.pthumb.none{background:var(--bg,#f1f0f6);display:inline-block}
+.ccimg{width:100%;height:84px;object-fit:cover;border-radius:8px;margin-bottom:4px}.ctot.sub{font-size:13px;color:var(--ink2);margin-top:2px;border-top:0;padding-top:0}
 </style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -1207,7 +1210,7 @@ const CRUD = {
     sort:(a,b)=>catRank(a.categoryId)-catRank(b.categoryId) || String(a.categoryId).localeCompare(String(b.categoryId)) || bySort(a,b),
     search:r=>r.name+" "+(r.sku||"")+" "+catName(r.categoryId),
     filter:r=>brandFilter(r) && (!state.catFilter || r.categoryId===state.catFilter),
-    cols:[["Name",r=>`<b>${esc(r.name)}</b>`],["Brand",r=>esc(brandName(r.brandId))],["SKU",r=>`<span class="code">${esc(r.sku||"")}</span>`],["Category",r=>esc(catName(r.categoryId))],
+    cols:[["Name",r=>`<span class="pname">${r.imageUrl?`<img class="pthumb" src="${esc(r.imageUrl)}" alt="" loading="lazy">`:`<span class="pthumb none"></span>`}<b>${esc(r.name)}</b></span>`],["Brand",r=>esc(brandName(r.brandId))],["SKU",r=>`<span class="code">${esc(r.sku||"")}</span>`],["Category",r=>esc(catName(r.categoryId))],
       ["Price",r=>r.pricingMethod==="open"?"Open":usd(r.price)],["Cost %",r=>{ const c = productCost(r); return +r.price && c ? (c/r.price*100).toFixed(1)+" %" : '<span class="note">—</span>'; },"num"],["Tax Group",r=>esc(tgName(r.taxGroup))],
       ["Channels",r=>chanTags(r)],["Active",r=>r.active===false?'<span class="tag off">Inactive</span>':'<span class="tag on">Active</span>']],
     fields:[{k:"name",l:"Name",req:1},{k:"nameAr",l:"Name (Arabic)"},brandField,{k:"sku",l:"SKU",auto:()=>nextSku("products")},
@@ -1217,6 +1220,7 @@ const CRUD = {
       {k:"costingMethod",l:"Costing method",t:"select",opts:()=>[["ingredients","From ingredients"],["fixed","Fixed cost"]],def:"ingredients"},{k:"cost",l:"Fixed cost (USD, if fixed)",t:"number"},
       {k:"sellingMethod",l:"Selling method",t:"select",opts:()=>[["unit","Unit"],["weight","Weight"]],def:"unit"},{k:"barcode",l:"Barcode"},
       {k:"prepTime",l:"Preparation time (minutes)",t:"number"},{k:"calories",l:"Calories (kCal)",t:"number"},
+      {k:"imageUrl",l:"Image",t:"image",full:1},
       {k:"description",l:"Description",t:"textarea",full:1},
       {k:"channels",l:"Sell on (menu zoning by channel)",t:"multi",full:1,opts:()=>CHANNELS,def:CHANNELS.map(c=>c[0])},
       {k:"branchIds",l:"Available in branches (leave all unticked = every branch of the brand)",t:"multi",full:1,opts:()=>branches.filter(brandFilter).map(b=>[b.id,(state.brand==="all"?brandName(b.brandId)+" · ":"")+b.name])},
@@ -1349,7 +1353,7 @@ function crudView(key){
   list.sort(cfg.sort);
   const per = 50, pages = Math.max(1, Math.ceil(list.length/per)), pg = Math.min(state.page[key]||1, pages);
   const shown = list.slice((pg-1)*per, pg*per);
-  let h = `<div class="phead"><h1>${cfg.title}</h1><div class="sp"></div>${SKU_PREFIX[cfg.col] ? `<button class="btn" data-genskus="${key}" title="Give items without a ${SKU_PREFIX[cfg.col]} SKU a new one">Generate SKUs</button>` : ""}${SORTABLE[key] && !SORTABLE[key].inside ? `<button class="btn" data-sorter="${key}">${svgIco("sort")} Sort</button>` : ""}<button class="btn pri" data-create="${key}">Create ${cfg.one}</button></div>`;
+  let h = `<div class="phead"><h1>${cfg.title}</h1><div class="sp"></div>${SORTABLE[key] && !SORTABLE[key].inside ? `<button class="btn" data-sorter="${key}">${svgIco("sort")} Sort</button>` : ""}<button class="btn pri" data-create="${key}">Create ${cfg.one}</button></div>`;
   if(storeMode==="local") h += `<div class="banner">Preview mode: changes won't be saved.</div>`;
   if(cfg.note) h += `<p class="subt" style="margin-top:-6px">${esc(cfg.note)}</p>`;
   if(cfg.top) h += cfg.top();
@@ -1446,6 +1450,8 @@ function openCrud(key, id){
     if(f.t==="chk") return `<div class="f full"><label class="chk"><input type="checkbox" id="${idA}" ${v!==false&&v!==undefined?"checked":""}> ${f.l}</label></div>`;
     if(f.t==="select") return `<div class="f${full}"><label for="${idA}">${f.l}${f.req?" *":""}</label><select id="${idA}"><option value="">${esc(f.ph||"Choose…")}</option>${f.opts().map(([k,t])=>`<option value="${esc(k)}" ${k===v?"selected":""}>${esc(t)}</option>`).join("")}</select></div>`;
     if(f.t==="multi"){ const set = new Set(v||[]); return `<div class="f full"><label>${f.l}</label><div class="multi" id="${idA}">${f.opts().map(([k,t])=>k.startsWith("@") ? `<div class="mhead">${esc(k.slice(1))}</div>` : `<label class="chk"><input type="checkbox" value="${esc(k)}" ${set.has(k)?"checked":""}> ${esc(t)}</label>`).join("")}</div>${f.note?`<div class="note">${esc(f.note)}</div>`:""}</div>`; }
+    if(f.t==="image") return `<div class="f full"><label>${f.l}</label><div class="imgf"><div class="imgprev" id="${idA}_prev">${v ? `<img src="${esc(v)}" alt="">` : '<span class="note">No image</span>'}</div>
+      <div><input type="file" accept="image/*" id="${idA}_file"><input type="hidden" id="${idA}" value="${esc(v||"")}"><div class="note" id="${idA}_st">JPG or PNG. It's resized automatically for the POS, call center and online menu.</div>${v ? `<button type="button" class="btn sm" data-imgclear="${idA}" style="margin-top:6px">Remove image</button>` : ""}</div></div></div>`;
     if(f.t==="pin") return `<div class="f"><label for="${idA}">${f.l}</label><input id="${idA}" type="password" inputmode="numeric" maxlength="4" autocomplete="new-password" placeholder="${r?.pinHash?"•••• (set; type to change)":"4 digits"}"><div class="note">${esc(f.note||"")}</div></div>`;
     if(f.t==="textarea") return `<div class="f full"><label for="${idA}">${f.l}</label><textarea id="${idA}" rows="3">${esc(v||"")}</textarea></div>`;
     const list = f.t==="list" ? `<datalist id="${idA}_dl">${f.opts().map(o=>`<option value="${esc(o)}">`).join("")}</datalist>` : "";
@@ -1459,6 +1465,21 @@ function openCrud(key, id){
   if(cfg.fields.some(f=>f.t==="polygon")) setTimeout(()=>zoneEditor(r?.polygon || [], r?.id), 60);
   setTimeout(()=>$("#crudBox input, #crudBox select")?.focus(), 30);
 }
+// product image: shrink in the browser, upload to the public "menu" storage bucket, keep its link
+async function uploadImage(file){
+  const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = URL.createObjectURL(file); });
+  const sc = Math.min(1, 800 / Math.max(img.width, img.height)), c = document.createElement("canvas"); c.width = Math.round(img.width*sc); c.height = Math.round(img.height*sc);
+  c.getContext("2d").drawImage(img, 0, 0, c.width, c.height); URL.revokeObjectURL(img.src);
+  const blob = await new Promise(r => c.toBlob(r, "image/jpeg", 0.85));
+  if(storeMode!=="db") return URL.createObjectURL(blob);
+  const path = "products/" + Date.now().toString(36) + Math.random().toString(36).slice(2,8) + ".jpg";
+  const { error } = await WOK.sb.storage.from("menu").upload(path, blob, { contentType:"image/jpeg", upsert:false }); if(error) throw error;
+  return WOK.sb.storage.from("menu").getPublicUrl(path).data.publicUrl;
+}
+document.addEventListener("change", async e => { const f = e.target; if(!f.id || !f.id.endsWith("_file") || !f.files?.[0]) return; const base = f.id.slice(0,-5), st = $("#"+base+"_st");
+  st.textContent = "Uploading…"; try{ const url = await uploadImage(f.files[0]); $("#"+base).value = url; $("#"+base+"_prev").innerHTML = `<img src="${esc(url)}" alt="">`; st.textContent = "Image ready. Save to keep it."; }
+  catch(err){ console.error(err); st.textContent = "Couldn't upload the image. Only the owner or an admin can add images."; } });
+document.addEventListener("click", e => { const b = e.target.closest("[data-imgclear]"); if(!b) return; const id = b.dataset.imgclear; $("#"+id).value = ""; $("#"+id+"_prev").innerHTML = '<span class="note">No image</span>'; b.remove(); });
 const closeCrud = () => { $("#crudScrim").classList.remove("show"); crudEdit = null; $("#crudBox").className = "modal"; };
 async function submitCrud(e){
   e.preventDefault();
@@ -1559,11 +1580,12 @@ function viewCallCenter(){
 }
 // order number comes from the POS that bills the order; until then call-center / online orders go by invoice number
 const ordRef = o => o.no ? "#" + o.no : "Inv " + (o.invoiceNo || o.invoice_no || "—");
+const ccTime = t => { if(!t) return "—"; const d = new Date(t), today = bizDate()===bizDate(d); return d.toLocaleString("en-GB", today ? { hour:"2-digit", minute:"2-digit" } : { day:"numeric", month:"short", hour:"2-digit", minute:"2-digit" }); };
 const ccCard = o => `<button class="ocard" data-order="${esc(o.id)}"><div class="orow"><b>${esc(ordRef(o))}</b><span class="spill s-${o.status}">${CC_SUB[o.status]}</span></div>
   <div class="oline">${svgIco("users")}<span>${esc(o.customerName||"Guest")}<br><span class="note">${esc(o.phone||"")}</span></span></div>
-  <div class="oline">${svgIco("dash")}<span class="note">Created ${ago(o.createdAt)}<br>Modified ${ago(o.updatedAt||o.createdAt)}</span></div>
-  <div class="oline">${svgIco("phone")}<span>${esc(o.agent||"Operator")} · ${esc(o.source||"Phone")}</span></div>
-  <div class="ototal">${usd(o.total)}</div>${o.lat?`<div class="oline">${mapLink(o)}</div>`:""}<div class="oline">${svgIco("box")}<span>${brandList().length>1?esc(brandName(o.brandId))+" · ":""}${esc(branchName(o.branchId))} · ${o.type==="pickup"?"Pickup":o.type==="dinein"?"Dine-in":"Delivery"}</span></div></button>`;
+  <div class="oline">${svgIco("dash")}<span class="note">Created ${ccTime(o.createdAt)}<br>Modified ${ccTime(o.updatedAt||o.createdAt)}</span></div>
+  <div class="oline">${svgIco("phone")}<span>${esc(o.source||"Phone")} · ${o.type==="pickup"?"Takeaway":o.type==="dinein"?"Dine-in":"Delivery"}<br><span class="note">${esc(o.agent||"Operator")}</span></span></div>
+  <div class="ototal">${usd(o.total)}</div>${o.lat?`<div class="oline">${mapLink(o)}</div>`:""}<div class="oline">${svgIco("box")}<span>${esc(brandName(o.brandId))} · ${esc(branchName(o.branchId))}${""}</span></div></button>`;
 
 let ccEdit = null, cart = [];
 // call-center orders stay editable until the branch closes them (pending = sent, active = in the kitchen)
@@ -1617,6 +1639,8 @@ function availableProducts(){
   const br = $("#oBranch")?.value, bd = $("#oBrand")?.value;
   return S.products.filter(p => live(p) && p.active!==false && (!bd || p.brandId===bd) && (!p.channels || p.channels.includes("callcenter")) && (!br || ((!p.branchIds?.length || p.branchIds.includes(br)) && !(p.inactiveBranchIds||[]).includes(br))));
 }
+const prodRate = id => { const p = S.products.find(x=>x.id===id), g = p && S.tax_groups.find(x=>x.id===p.taxGroup && live(x)); return g ? taxRate(g)/100 : 0; };
+const ccTax = items => +(items||[]).reduce((a,i) => { const l = (+i.price||0)*(+i.qty||1), r = prodRate(i.productId); return a + l*r/(1+r); }, 0).toFixed(2);
 function ccPrice(p){ const b = $("#oBranch")?.value, c = b && (p.customPrices||{})[b]; return c!=null && c!=="" ? +c : +p.price||0; }
 function renderOrderMenu(){
   const box = $("#oProducts"); if(!box) return;
@@ -1633,14 +1657,14 @@ function renderOrderMenu(){
   $("#oCatTitle").textContent = q ? `${list.length} result${list.length===1?"":"s"} for “${q}”` : (cats.find(c=>c.id===state.oCat)?.name || (state.oCat==="_none" ? "Other" : ""));
   const inCart = id => cart.filter(i=>i.productId===id).reduce((a,i)=>a+i.qty,0);
   box.innerHTML = list.length ? list.sort((a,b)=>(q ? catRank(a.categoryId)-catRank(b.categoryId) : 0) || bySort(a,b)).map(p=>{ const c = inCart(p.id), oos = (p.outOfStockBranchIds||[]).includes($("#oBranch")?.value);
-    return `<button type="button" class="pbtn${c?" sel":""}" data-add="${esc(p.id)}" ${oos?"disabled title=\"Out of stock at this branch\"":""}>${c?`<em>${c}</em>`:""}<span>${esc(p.name)}</span><b>${oos?"Out of stock":usd(ccPrice(p))}</b>${(p.modifiers||[]).length?`<small>Options</small>`:""}</button>`; }).join("")
+    return `<button type="button" class="pbtn${c?" sel":""}" data-add="${esc(p.id)}" ${oos?"disabled title=\"Out of stock at this branch\"":""}>${c?`<em>${c}</em>`:""}${p.imageUrl?`<img class="ccimg" src="${esc(p.imageUrl)}" alt="" loading="lazy">`:""}<span>${esc(p.name)}</span><b>${oos?"Out of stock":usd(ccPrice(p))}</b>${(p.modifiers||[]).length?`<small>Options</small>`:""}</button>`; }).join("")
     : `<div class="note" style="padding:12px">${S.products.length ? (q ? "No products match." : $("#oBrand")?.value ? "No products in this category." : "Choose a brand to see its menu.") : "No products yet. Add them under Menu → Products."}</div>`;
 }
 function renderCart(ro){
   const total = cart.reduce((a,i)=>a+i.price*i.qty,0), qty = cart.reduce((a,i)=>a+i.qty,0);
   $("#oCart").innerHTML = `<div class="kh"><h3>Order items</h3><span class="note">${qty} item${qty===1?"":"s"}</span></div><div class="clist">` +
     (cart.length ? cart.map((i,ix)=>`<div class="citem"><span class="cname">${esc(i.name)}${i.mods?`<div class="note">${esc(i.mods)}</div>`:""}</span>${ro?`<span>× ${i.qty}</span>`:`<span class="qty"><button type="button" data-q="${ix}:-1" aria-label="Less">−</button>${i.qty}<button type="button" data-q="${ix}:1" aria-label="More">+</button></span>`}<span class="num">${usd(i.price*i.qty)}</span></div>`).join("") : `<div class="note" style="padding:18px 0;text-align:center">${ro?"No items.":"Pick a category, then tap products to add them."}</div>`) +
-    `</div><div class="ctot"><span>Total</span><b>${usd(total)}</b></div>`;
+    `</div><div class="ctot sub"><span>Subtotal</span><span>${usd(total)}</span></div><div class="ctot sub"><span>Tax (included)</span><span>${usd(ccTax(cart))}</span></div><div class="ctot"><span>Total</span><b>${usd(total)}</b></div>`;
   if(!ro && $("#oProducts")) renderOrderMenu();
 }
 async function saveOrder(status){
@@ -1927,8 +1951,9 @@ function viewOrders(){
   const dt = t => new Date(t).toLocaleString("en-GB",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"});
   return `<div class="phead"><h1>Orders</h1><span class="sp"></span><button class="btn" id="ordCsv">Export CSV</button><button class="btn" id="ordRefresh">↻ Refresh</button></div>
   <div class="row fbar" style="flex-wrap:wrap">
-    <label class="note">From <input type="date" class="sel" id="ordFrom" value="${ORD.from}" max="${todayStr()}"></label>
-    <label class="note">To <input type="date" class="sel" id="ordTo" value="${ORD.to}" max="${todayStr()}"></label>
+    <div class="seg">${[["day","Day"],["week","Week"],["month","Month"],["custom","Custom"]].map(([k,t])=>`<button type="button" data-ordrange="${k}" class="${(ORD.range||"week")===k?"on":""}">${t}</button>`).join("")}</div>
+    ${(ORD.range||"week")==="custom" ? `<label class="note">From <input type="date" class="sel" id="ordFrom" value="${ORD.from}" max="${todayStr()}"></label>
+    <label class="note">To <input type="date" class="sel" id="ordTo" value="${ORD.to}" max="${todayStr()}"></label>` : `<input type="date" class="sel" id="ordDay" value="${ORD.to}" max="${todayStr()}" aria-label="Business date" title="Business date">`}
     ${sel("ordBrand", ORD.brand, [["","All brands"], ...brandList().map(b=>[b.id,esc(b.name)])])}
     ${sel("ordBranch", ORD.branch, [["","All branches"], ...branches.filter(b=>!ORD.brand || b.brandId===ORD.brand).map(b=>[b.id,esc(b.name)])])}
     ${sel("ordChannel", ORD.channel, [["","All channels"],["pos","POS"],["callcenter","Call center"],["online","Online ordering"]])}
@@ -2036,7 +2061,10 @@ $("#view").addEventListener("change", e => {
   if(id==="ordBranch"){ ORD.branch = v; ORD.page = 1; render(); }
 });
 let ordQT; $("#view").addEventListener("input", e => { if(e.target.id==="ordQ"){ clearTimeout(ordQT); const v = e.target.value; ordQT = setTimeout(() => { ORD.q = v; ORD.page = 1; render(); const el = $("#ordQ"); if(el){ el.focus(); el.setSelectionRange(v.length, v.length); } }, 350); } });
+function ordSetRange(r, end){ ORD.range = r; if(r==="custom") return; const e = end || ORD.to || todayStr(), d = new Date(e+"T12:00:00"); d.setDate(d.getDate() - (r==="day" ? 0 : r==="week" ? 6 : 29)); ORD.to = e; ORD.from = new Date(d - d.getTimezoneOffset()*60000).toISOString().slice(0,10); }
+$("#view").addEventListener("change", e => { if(e.target.id==="ordDay" && e.target.value){ ordSetRange(ORD.range||"week", e.target.value); ORD.page = 1; render(); } });
 $("#view").addEventListener("click", e => {
+  const rg = e.target.closest("[data-ordrange]"); if(rg){ ordSetRange(rg.dataset.ordrange); ORD.page = 1; render(); return; }
   const tb = e.target.closest("[data-otab]"); if(tb){ e.preventDefault(); ORD.tab = tb.dataset.otab; ORD.page = 1; render(); return; }
   if(e.target.id==="ordPrev"){ ORD.page--; render(); return; }
   if(e.target.id==="ordNext"){ ORD.page++; render(); return; }
@@ -2270,7 +2298,7 @@ document.addEventListener("click", e => { if(e.target.closest("#coSave")) saveCo
 /* filters belong to the page: leaving a page puts its filters back to the defaults */
 function resetPageFilters(){
   Object.assign(state, { range:"day", date:todayStr(), dateSet:false, compare:false, dashTab:"general", branch:"all", brand:"all" }); DASH.key = "";
-  Object.assign(ORD, { tab:"all", q:"", from:"", to:"", channel:"", type:"", pay:"", source:"", brand:"", branch:"", page:1, key:"", open:null });
+  Object.assign(ORD, { tab:"all", range:"week", q:"", from:"", to:"", channel:"", type:"", pay:"", source:"", brand:"", branch:"", page:1, key:"", open:null });
   Object.assign(CUS, { filter:"all", q:"", sort:"last", page:1, key:"" });
   Object.assign(BM, { q:"", draft:{} });
   state.tabs = {}; state.q = {}; state.page = {}; state.catFilter = ""; state.modFilter = "";
@@ -2341,7 +2369,7 @@ function productDetail(p){
     info("Price", p.pricingMethod==="open" ? "Open" : usd(price)), info(p.costingMethod==="fixed"?"Fixed Cost":"Ingredients Cost", fmtCost(cost)),
     info("Cost %", price ? `<span style="${pct>40?"color:var(--accent-ink);font-weight:600":""}">${pct.toFixed(1)} %</span>` : "—"), info("Calories", p.calories ? esc(p.calories)+" kCal" : "—"),
     info("Sold on", chanTags(p))]);
-  if(p.description) h += `<div class="card" style="margin-bottom:16px"><div class="note">Description</div>${esc(p.description)}</div>`;
+  if(p.imageUrl || p.description) h += `<div class="card" style="margin-bottom:16px;display:flex;gap:16px;align-items:flex-start">${p.imageUrl?`<img src="${esc(p.imageUrl)}" alt="" style="width:160px;height:160px;object-fit:cover;border-radius:12px">`:""}<div>${p.description?`<div class="note">Description</div>${esc(p.description)}`:'<span class="note">No description</span>'}</div></div>`;
   h += ingEditor("products", p);
   h += modLinks(p);
   h += branchSettings(p, brs, price);

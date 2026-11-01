@@ -124,6 +124,7 @@ body{-webkit-font-smoothing:antialiased}
 .pindots{display:flex;gap:14px;justify-content:center;margin:6px 0 8px}.pindots i{width:16px;height:16px;border-radius:50%;border:2px solid var(--acc);display:block}.pindots i.on{background:var(--acc)}
 .pinpad{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:6px}.pinpad button{height:62px;border-radius:14px;border:1px solid #e4e1ef;background:#fff;font:inherit;font-size:22px;font-weight:600;cursor:pointer}
 .pinpad button:active{background:#efeaff}
+.prod.hasimg{padding-top:8px}.prod img{width:100%;height:78px;object-fit:cover;border-radius:10px;display:block}
 </style>
 <script>window.SLICK_OFFLINE = true;</script>
 <script src="supabase.js"></script>
@@ -369,7 +370,7 @@ function renderMenu(){
   $("#cats").innerHTML = `<button class="cat ${!cat?"on":""}" data-cat="">All</button>` + cats.map(c=>`<button class="cat ${cat===c.id?"on":""}" data-cat="${esc(c.id)}">${esc(c.name)}</button>`).join("");
   const q = $("#q").value.toLowerCase();
   const list = prods.filter(p => (!cat || p.categoryId===cat) && (!q || p.name.toLowerCase().includes(q))).sort((a,b)=>(cat || q ? 0 : catRank(a)-catRank(b) || String(a.categoryId).localeCompare(String(b.categoryId))) || (a.sort??999)-(b.sort??999) || a.name.localeCompare(b.name));
-  $("#grid").innerHTML = list.length ? list.map(p=>`<button class="prod" data-add="${esc(p.id)}"><span>${esc(p.name)}</span><b>${p.pricingMethod==="open"?"Open price":usd(prodPrice(p))}</b>${(p.outOfStockBranchIds||[]).includes(device.branchId)?'<small style="color:#b45309">Out of stock</small>':""}</button>`).join("") : `<div class="empty">No products${S.products.length?" here":". Add them in the back office"}.</div>`;
+  $("#grid").innerHTML = list.length ? list.map(p=>`<button class="prod${p.imageUrl?" hasimg":""}" data-add="${esc(p.id)}">${p.imageUrl?`<img src="${esc(p.imageUrl)}" alt="" loading="lazy">`:""}<span>${esc(p.name)}</span><b>${p.pricingMethod==="open"?"Open price":usd(prodPrice(p))}</b>${(p.outOfStockBranchIds||[]).includes(device.branchId)?'<small style="color:#b45309">Out of stock</small>':""}</button>`).join("") : `<div class="empty">No products${S.products.length?" here":". Add them in the back office"}.</div>`;
 }
 function totals(){ const sub = cart.reduce((a,i)=>a+i.price*i.qty,0), disc = +(sub*discount/100).toFixed(2); return { sub, disc, total: +(sub-disc).toFixed(2) }; }
 function renderCart(){
@@ -380,7 +381,7 @@ function renderCart(){
   $("#lines").innerHTML = cart.length ? cart.map((i,ix)=>`<div class="line"><span class="n">${esc(i.name)}${i.mods?`<small class="mut" style="display:block;font-size:12px">${esc(i.mods)}</small>`:""}</span><span class="p">${usd(i.price*i.qty)}</span>
     <span class="qty"><button data-q="${ix}:-1" aria-label="Less">−</button>${i.qty}<button data-q="${ix}:1" aria-label="More">+</button></span><span class="p mut">${usd(i.price)} each</span></div>`).join("") : `<div class="empty">Tap items to start an order</div>`;
   const t = totals();
-  $("#totals").innerHTML = `<div><span>Subtotal</span><span>${usd(t.sub)}</span></div>${discount?`<div><span>Discount ${discount}%</span><span>−${usd(t.disc)}</span></div>`:""}<div class="g"><span>Total</span><span>${usd(t.total)}</span></div>`;
+  $("#totals").innerHTML = `<div><span>Subtotal</span><span>${usd(t.sub)}</span></div>${discount?`<div><span>Discount ${discount}%</span><span>−${usd(t.disc)}</span></div>`:""}<div class="mut" style="font-size:13px"><span>Tax (included)</span><span>${usd(orderTax(cart, t.disc))}</span></div><div class="g"><span>Total</span><span>${usd(t.total)}</span></div>`;
   $("#payBtn").disabled = !cart.length; $("#payBtn").textContent = cart.length ? `Pay ${usd(t.total)}` : "Pay";
 }
 

@@ -67,6 +67,7 @@ body{-webkit-font-smoothing:antialiased}
 .bar button{background:linear-gradient(135deg,#6c47ff,#5130e8)}
 .sheet{border-radius:24px 24px 0 0}
 .scrim{backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)}
+.item .pimg{width:72px;height:72px;object-fit:cover;border-radius:12px;flex:none}.item .pimg+div{flex:1}
 </style>
 </head>
 <body>
@@ -93,16 +94,21 @@ const brand = bl.data.find(b => b.id === brandId);
 if(!brand){ $("#main").innerHTML = `<div class="closed">This restaurant isn't taking online orders.</div>`; return; }
 $("#brand").textContent = brand.name; $("#logo").textContent = brand.name.trim()[0].toUpperCase(); document.title = brand.name + " – Order Online";
 
-const [st, br, ca, pr, zo, mg, mo] = await Promise.all([
+const [st, br, ca, pr, zo, mg, tx, tg, mo] = await Promise.all([
   sb.from("settings").select("data").eq("id","online_"+brandId).maybeSingle(),
   sb.from("branches").select("id,name,open_time,close_time").eq("brand_id", brandId),
   sb.from("categories").select("id,name,sort").eq("brand_id", brandId).order("sort").order("name"),
-  sb.from("products").select("id,name,price,description,category_id,channels,branch_ids,pricing_method,custom_prices,inactive_branch_ids,out_of_stock_branch_ids,modifiers,sort").eq("brand_id", brandId).order("sort").order("name"),
+  sb.from("products").select("id,name,price,description,category_id,channels,branch_ids,pricing_method,custom_prices,inactive_branch_ids,out_of_stock_branch_ids,modifiers,sort,image_url,tax_group").eq("brand_id", brandId).order("sort").order("name"),
   sb.from("delivery_zones").select("id,name,branch_id,fee,min_order,eta,polygon").order("name"),
   sb.from("modifiers").select("id,name,sort,deleted"),
+  sb.from("taxes").select("id,rate,deleted"), sb.from("tax_groups").select("id,tax_ids,deleted"),
   sb.from("modifier_options").select("id,modifier_id,name,price,custom_prices,inactive_branch_ids,out_of_stock_branch_ids,sort,active,deleted")
 ]);
 const mgroups = {}; (mg.data||[]).forEach(m => { if(!m.deleted) mgroups[m.id] = { name:m.name, sort:m.sort }; });
+// tax included in the prices (shown on the order summary)
+const taxRates = {}; (tx?.data||[]).filter(t=>!t.deleted).forEach(t => taxRates[t.id] = +t.rate||0);
+const groupRate = {}; (tg?.data||[]).filter(g=>!g.deleted).forEach(g => groupRate[g.id] = (g.tax_ids||[]).reduce((a,id)=>a+(taxRates[id]||0),0)/100);
+const taxIn = () => +cart.reduce((a,i) => { const p = products.find(x=>x.id===i.productId), r = (p && groupRate[p.tax_group]) || 0, l = (+i.price||0)*(+i.qty||1); return a + l*r/(1+r); }, 0).toFixed(2);
 const mopts = (mo.data||[]).filter(o => o.active!==false && !o.deleted);
 if([st,br,ca,pr,zo].some(r => r.error)){ $("#main").innerHTML = `<div class="closed">We couldn't load the menu. Please try again in a moment.</div>`; return; }
 const cfg = st.data?.data || {}, branches = br.data, cats = ca.data, products = pr.data, zones = zo.data.filter(z => branches.some(b => b.id === z.branch_id));
@@ -210,7 +216,7 @@ async function addItem(p){
   const y = scrollY; renderMenu(); scrollTo(0,y);
 }
 function itemCard(p){ const q = cart.filter(i=>i.productId===p.id).reduce((a,i)=>a+i.qty,0);
-  return `<div class="item"><div><b>${esc(p.name)}</b>${p.description?`<small>${esc(p.description)}</small>`:""}<div class="pr">${usd(priceOf(p))}</div></div>${oos(p) ? `<span class="pr" style="color:#b45309">Out of stock</span>` : q ? `<span class="qtyc"><button data-q="${esc(p.id)}:-1" aria-label="Remove one">−</button>${q}<button data-q="${esc(p.id)}:1" aria-label="Add one">+</button></span>` : `<button class="add" data-q="${esc(p.id)}:1" aria-label="Add ${esc(p.name)}">+</button>`}</div>`; }
+  return `<div class="item">${p.image_url?`<img class="pimg" src="${esc(p.image_url)}" alt="" loading="lazy">`:""}<div><b>${esc(p.name)}</b>${p.description?`<small>${esc(p.description)}</small>`:""}<div class="pr">${usd(priceOf(p))}</div></div>${oos(p) ? `<span class="pr" style="color:#b45309">Out of stock</span>` : q ? `<span class="qtyc"><button data-q="${esc(p.id)}:-1" aria-label="Remove one">−</button>${q}<button data-q="${esc(p.id)}:1" aria-label="Add one">+</button></span>` : `<button class="add" data-q="${esc(p.id)}:1" aria-label="Add ${esc(p.name)}">+</button>`}</div>`; }
 const sub = () => cart.reduce((a,i)=>a+i.price*i.qty,0);
 const fee = () => mode==="delivery" ? (+zones.find(z=>z.id===zoneId)?.fee||0) : 0;
 function renderBar(){ const n = cart.reduce((a,i)=>a+i.qty,0); $("#bar").hidden = !n; $("#cartCount").textContent = `View order · ${n} item${n>1?"s":""}`; $("#cartTotal").textContent = usd(sub()); }
@@ -235,7 +241,7 @@ function openCart(){
   const z = zones.find(x=>x.id===zoneId), min = mode==="delivery" ? (+z?.min_order||0) : 0;
   $("#sheet").innerHTML = `<h3>Your order <button class="x" data-close aria-label="Close">×</button></h3>
     ${cart.map((i,ix)=>`<div class="line"><span>${i.qty} × ${esc(i.name)}${i.mods?`<small style="display:block;color:#6b6a75">${esc(i.mods)}</small>`:""}</span><span>${usd(i.price*i.qty)} <button type="button" class="x" data-rm="${ix}" aria-label="Remove ${esc(i.name)}" style="width:26px;height:26px;font-size:14px">×</button></span></div>`).join("")}
-    <div class="tot"><div><span>Subtotal</span><span>${usd(sub())}</span></div>${mode==="delivery"?`<div><span>Delivery</span><span>${zoneId?usd(fee()):"—"}</span></div>`:""}<div class="g"><span>Total</span><span>${usd(sub()+fee())}</span></div></div>
+    <div class="tot"><div><span>Subtotal</span><span>${usd(sub())}</span></div><div style="font-size:13px;color:#6b6a75"><span>Tax (included)</span><span>${usd(taxIn())}</span></div>${mode==="delivery"?`<div><span>Delivery</span><span>${zoneId?usd(fee()):"—"}</span></div>`:""}<div class="g"><span>Total</span><span>${usd(sub()+fee())}</span></div></div>
     ${min && sub()<min ? `<div class="err">Minimum order for this area is ${usd(min)}.</div>` : ""}
     <form id="co"><div class="f"><label for="cName">Your name *</label><input id="cName" required autocomplete="name"></div>
     <div class="f"><label for="cPhone">Phone *</label><input id="cPhone" required type="tel" autocomplete="tel" placeholder="+961 …"></div>
