@@ -27,6 +27,7 @@
     tax_groups: "id name name_ar reference tax_ids deleted created_at",
     payment_methods: "id name name_ar type code open_drawer active sort deleted created_at",
     roles: "id name description permissions deleted created_at",
+    day_closes: "id branch_id business_date closed_at closed_by device_id orders sales created_at",
     staff_users: "id name email phone employee_no role_id branch_ids pin_hash active user_id deleted created_at",
     modifier_options: "id modifier_id name name_ar sku price tax_group costing_method cost calories ingredients custom_prices inactive_branch_ids out_of_stock_branch_ids sort active deleted created_at",
     orders: "id brand_id no channel source type status branch_id device_id shift_id zone_id customer_name phone address lat lng table_no notes items subtotal discount_pct discount delivery_fee tax invoice_no total payment agent handled_by accepted_at done_at void_reason voided_at voided_by created_at",

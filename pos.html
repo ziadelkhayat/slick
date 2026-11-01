@@ -128,7 +128,7 @@ body{-webkit-font-smoothing:antialiased}
 <script>window.SLICK_OFFLINE = true;</script>
 <script src="supabase.js"></script>
 <script>if(!window.supabase) document.write('<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"><\/script>');</script>
-<script src="wokdb.js?v=19"></script>
+<script src="wokdb.js?v=20"></script>
 <script src="modpick.js?v=2"></script>
 </head>
 <body>
@@ -156,6 +156,7 @@ body{-webkit-font-smoothing:antialiased}
     <div class="sp"></div>
     <button class="tbtn" id="incomingBtn">Incoming orders <span class="badge hide" id="incBadge">0</span></button>
     <button class="tbtn" id="shiftBtn">Open shift</button>
+    <button class="tbtn" id="dayBtn" title="End the business day for this branch">End day</button>
     <button class="tbtn hide" id="lockBtn" title="Lock the register and switch cashier">🔒 <span id="cashierName"></span></button>
     <button class="tbtn" id="menuBtn" aria-label="More">⋯</button>
   </div>
@@ -185,7 +186,7 @@ let tt; const toast = m => { const t=$("#toast"); t.textContent=m; t.classList.a
 const store = { get(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } }, set(k,v){ try{ v==null?localStorage.removeItem(k):localStorage.setItem(k,v); }catch(e){} } };
 
 let db = null;
-const S = { brands:[], devices:[], branches:[], categories:[], products:[], orders:[], shifts:[], modifiers:[], modifier_options:[], taxes:[], tax_groups:[], payment_methods:[], roles:[], users:[], settings:[] };
+const S = { brands:[], devices:[], branches:[], categories:[], products:[], orders:[], shifts:[], modifiers:[], modifier_options:[], taxes:[], tax_groups:[], payment_methods:[], roles:[], users:[], settings:[], day_closes:[] };
 let device = null, branch = null, cat = "", otype = "dinein", cart = [], discount = 0, tableNo = "", cust = { name:"", phone:"", address:"" };
 
 /* ---------- boot ---------- */
@@ -306,6 +307,39 @@ async function autoAccept(){
       toast(`New ${o.channel==="online"?"online":"call-center"} order accepted automatically`); }catch(err){ console.error(err); autoDone.delete(o.id); }
   }
 }
+/* ---------- end of day: one per branch per business day ---------- */
+const liveOrder = o => o.branchId===device.branchId && !["draft","declined","void"].includes(o.status);
+const dayClosed = d => S.day_closes.some(c => c.branchId===device.branchId && String(c.businessDate).slice(0,10)===d);
+// the latest earlier business day at this branch that had sales and wasn't ended; otherwise today
+function openDay(){ const today = bizDate(), days = [...new Set(S.orders.filter(liveOrder).map(o => bizDate(o.createdAt)))].filter(d => d < today && !dayClosed(d)).sort(); return days.length ? days[days.length-1] : today; }
+function saleBlock(){
+  const today = bizDate(), od = openDay();
+  if(od < today) return `The business day of ${fmtDay(od)} hasn't been ended. End that day first (End day button), then you can sell.`;
+  if(dayClosed(today)) return `Today's business day (${fmtDay(today)}) is already ended at this branch. New sales start after the day end time.`;
+  return "";
+}
+const fmtDay = d => new Date(d + "T12:00:00").toLocaleDateString("en-GB", { weekday:"short", day:"numeric", month:"short" });
+function openDayEnd(){
+  if(!can("pos_endday")) return deny("ending the day");
+  const day = openDay(), act = S.orders.filter(o => o.branchId===device.branchId && ["pending","active"].includes(o.status));
+  const shifts = S.shifts.filter(x => x.branchId===device.branchId && !x.closedAt);
+  const sales = S.orders.filter(o => liveOrder(o) && o.status==="closed" && bizDate(o.createdAt)===day);
+  const blockers = [];
+  if(act.length) blockers.push(`<p><b>${act.length} order${act.length===1?" is":"s are"} still active.</b> Finish, decline or void ${act.length===1?"it":"them"} first:</p><p class="mut">${act.slice(0,12).map(o => (o.no ? "#"+esc(o.no) : "Inv "+esc(o.invoiceNo||"")) + " · " + (o.status==="pending" ? "waiting" : "in kitchen")).join("<br>")}</p>`);
+  if(shifts.length) blockers.push(`<p><b>${shifts.length} shift${shifts.length===1?" is":"s are"} still open.</b> Close ${shifts.length===1?"it":"them"} first:</p><p class="mut">${shifts.map(x => esc(S.devices.find(d=>d.id===x.deviceId)?.name || "Device") + " · " + esc(x.cashier||"")).join("<br>")}</p>`);
+  modal("dayend", `<div class="mh"><h2>End day · ${esc(fmtDay(day))}</h2><button class="x" data-close aria-label="Close">×</button></div><div class="mb">
+    ${blockers.length ? blockers.join("") : `<div class="stats"><div>Orders<b>${sales.length}</b></div><div>Sales<b>${usd(sales.reduce((a,o)=>a+(+o.total||0),0))}</b></div></div>
+      <p class="mut">Ending the day closes ${esc(fmtDay(day))} for ${esc(branch?.name||"this branch")}. Every device at the branch then starts the next business day.</p>`}</div>
+    <div class="mf"><button class="btn" data-close>${blockers.length ? "OK" : "Cancel"}</button>${blockers.length ? "" : `<button class="btn pri" id="doDayEnd" data-day="${day}">End day</button>`}</div>`);
+}
+async function doDayEnd(day){
+  const sales = S.orders.filter(o => liveOrder(o) && o.status==="closed" && bizDate(o.createdAt)===day);
+  if(S.orders.some(o => o.branchId===device.branchId && ["pending","active"].includes(o.status)) || S.shifts.some(x => x.branchId===device.branchId && !x.closedAt)) return openDayEnd();
+  try{ await db.collection("day_closes").doc("dc_" + device.branchId + "_" + day).set({ branchId:device.branchId, businessDate:day, closedAt:new Date().toISOString(), closedBy:cashier?.name || device.name, deviceId:device.id, orders:sales.length, sales:+sales.reduce((a,o)=>a+(+o.total||0),0).toFixed(2) });
+    closeModal(); toast(`Day ended · ${fmtDay(day)}`); renderAll(); }
+  catch(err){ console.error(err); toast("Couldn't end the day. Check the connection and try again."); }
+}
+$("#dayBtn").addEventListener("click", openDayEnd);
 /* ---------- device & branch settings (Manage → Devices → Settings, Manage → Branches) ---------- */
 const devSet = () => device?.settings || {}, brSet = () => branch?.settings || {};
 const allowedTypes = () => { const b = brSet().orderTypes || ["dinein","takeaway","delivery"], d = devSet().orderTypes || b, a = ["dinein","takeaway","delivery"].filter(t => b.includes(t) && d.includes(t)); return a.length ? a : ["dinein","takeaway","delivery"]; };
@@ -320,6 +354,7 @@ function renderAll(){
   $("#tDevice").textContent = device.name;
   const sh = openShift();
   $("#shiftPill").textContent = sh ? "Shift open" : "Shift closed"; $("#shiftPill").classList.toggle("off", !sh);
+  const blk = saleBlock(); $("#dayBtn").textContent = blk && openDay() < bizDate() ? "⚠ End day" : "End day"; $("#dayBtn").title = blk || "End the business day for this branch";
   $("#shiftBtn").textContent = sh ? "Close shift" : "Open shift";
   const inc = incoming(), pend = inc.filter(o=>o.status==="pending").length;
   $("#incBadge").textContent = pend; $("#incBadge").classList.toggle("hide", !pend);
@@ -359,7 +394,7 @@ function modData(p){
   const options = S.modifier_options.filter(o => !o.deleted && o.active!==false && ids.has(o.modifierId) && !(o.inactiveBranchIds||[]).includes(device.branchId))
     .sort((a,b)=>(a.sort??999)-(b.sort??999) || a.name.localeCompare(b.name))
     .map(o => { const c = (o.customPrices||{})[device.branchId]; return { id:o.id, modifierId:o.modifierId, name:o.name, price: c!=null && c!=="" ? +c : +o.price||0, oos:(o.outOfStockBranchIds||[]).includes(device.branchId) }; });
-  return { links:(p.modifiers||[]).filter(l => groups[l.modifierId]).sort((a,b)=>(groups[a.modifierId].sort??999)-(groups[b.modifierId].sort??999)), groups, options };
+  return { links:(p.modifiers||[]).filter(l => groups[l.modifierId]), groups, options };   // in the order set on the product
 }
 async function addProduct(p){
   let price = prodPrice(p);
@@ -397,6 +432,8 @@ $("#modal").addEventListener("click", async e => {
   const ia = e.target.closest("[data-inc]"); if(ia){ if(!can("pos_incoming")) return deny("handling incoming orders"); const [id,s] = ia.dataset.inc.split(":"); try{ const o = S.orders.find(x=>x.id===id), bill = (s==="active" || s==="closed") && o && !o.no ? { no: nextOrderNo(), deviceId: device.id } : {};   // this register bills it, so it numbers it
     await db.collection("orders").doc(id).update({ status:s, updatedAt:new Date().toISOString(), handledBy:cashier?.name || device.name, ...bill }); toast(s==="active"?(bill.no ? "Order #"+bill.no+" accepted · sent to kitchen" : "Order accepted · sent to kitchen"):s==="declined"?"Order declined":"Order completed"); }catch(err){ console.error(err); toast("Couldn't update the order"); } return; }
   if(e.target.closest("#doOpenShift")) return doOpenShift();
+  const de = e.target.closest("#doDayEnd"); if(de) return doDayEnd(de.dataset.day);
+  if(e.target.closest("#goDayEnd")){ closeModal(); return openDayEnd(); }
   if(e.target.closest("#doCloseShift")) return doCloseShift();
   if(e.target.closest("#deact")){ store.set("wokDevice", null); location.reload(); }
 });
@@ -405,6 +442,7 @@ $("#modal").addEventListener("input", e => { if(e.target.id==="tender") updChang
 /* payment */
 let payMethod = null;
 $("#payBtn").addEventListener("click", () => {
+  const blk = saleBlock(); if(blk){ modal("blocked", `<div class="mh"><h2>Can't take sales yet</h2><button class="x" data-close aria-label="Close">×</button></div><div class="mb"><p>${esc(blk)}</p></div><div class="mf"><button class="btn" data-close>OK</button><button class="btn pri" id="goDayEnd">End day</button></div>`); return; }
   if(!openShift()){ toast("Open a shift before taking payments"); return; }
   if(otype==="delivery" && !cust.phone.trim()){ toast("Enter the customer's phone for delivery"); return; }
   const t = totals(), pms = payMethods(); payMethod = pms[0];
