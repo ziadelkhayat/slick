@@ -302,6 +302,47 @@ tr.click:hover td,.otbl tr.clk:hover td{background:#f8f6ff}
   .menuBtn{display:grid;place-items:center}
   .top{padding:10px 14px;flex-wrap:wrap}.content{padding:20px 14px 60px}
 }
+/* call center: one screen, no page scrolling */
+body[data-route="call-center"] .content{max-width:none;padding-bottom:14px}
+body[data-route="call-center"] .board{grid-template-columns:repeat(5,minmax(0,1fr));height:calc(100vh - 168px);overflow:hidden;padding-bottom:0}
+body[data-route="call-center"] .bcol{min-width:0;overflow-y:auto;padding:0 2px 8px}
+body[data-route="call-center"] .bhead{position:sticky;top:0;z-index:1}
+body[data-route="call-center"] .ocard{padding:10px 12px;gap:5px;font-size:13px}
+.modal.ccfull{position:fixed;inset:14px;width:auto;max-width:none;display:flex;flex-direction:column;overflow:hidden}
+.modal.ccfull>header{padding:12px 20px;gap:12px}.modal.ccfull>header h2{font-size:17px;margin-right:auto}
+.ccx{flex:1;min-height:0;display:grid;grid-template-columns:290px minmax(0,1fr) 340px;border-top:1px solid var(--line)}
+.ccx>section{min-height:0;display:flex;flex-direction:column}
+.ccleft{gap:10px;padding:14px 16px;overflow-y:auto;border-right:1px solid var(--line);background:var(--bg,#f6f6fa)}
+.ccleft h4{margin:4px 0 0;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink3,#8d8c98)}
+.ccleft .f input,.ccleft .f select,.ccleft .f textarea{padding:8px 10px;font-size:13.5px}
+.ccleft .seg{display:flex}.ccleft .seg button{flex:1;padding:7px 6px}
+.f2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.ccmenu{display:grid!important;grid-template-columns:190px minmax(0,1fr);min-height:0}
+.cccats{overflow-y:auto;padding:12px 8px;border-right:1px solid var(--line);display:flex;flex-direction:column;gap:3px}
+.catb{display:flex;align-items:center;gap:8px;text-align:left;border:0;background:none;border-radius:10px;padding:9px 10px;font:inherit;font-size:13.5px;font-weight:500;color:var(--ink2);cursor:pointer}
+.catb span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.catb i{font-style:normal;font-size:11px;background:var(--line);border-radius:999px;padding:1px 7px;color:var(--ink2)}
+.catb:hover{background:var(--chart-soft,#efeaff)}
+.catb.on{background:var(--accent);color:#fff}.catb.on i{background:rgba(255,255,255,.25);color:#fff}
+.ccprods{display:flex;flex-direction:column;min-height:0;padding:12px 14px;gap:8px}
+.ccprods .search{width:100%}
+.cchead{font-weight:700;font-size:15px}
+.ccprods .pgrid{flex:1;max-height:none;overflow-y:auto;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));align-content:start;padding:2px}
+.pbtn{position:relative;min-height:74px}.pbtn small{font-size:11px;color:var(--ink3,#8d8c98)}
+.pbtn.sel{border-color:var(--accent);background:var(--chart-soft,#f3efff)}
+.pbtn em{position:absolute;top:6px;right:6px;font-style:normal;background:var(--accent);color:#fff;border-radius:999px;font-size:11px;font-weight:700;min-width:20px;height:20px;display:grid;place-items:center;padding:0 5px}
+.pbtn:disabled{opacity:.45;cursor:not-allowed}
+.cccart{border-left:1px solid var(--line);padding:12px 16px;min-height:0}
+.cccart .cart{flex:1;min-height:0;display:flex;flex-direction:column;margin:0;border:0;padding:0}
+.cccart .clist{flex:1;overflow-y:auto;min-height:0}
+.cccart .ctot{margin-top:8px}
+.cccart .err{min-height:0;margin:6px 0 0}
+.ccacts{display:flex;flex-wrap:wrap;gap:8px;padding-top:10px;border-top:1px solid var(--line);margin-top:8px}
+.ccacts .btn{flex:1;justify-content:center}
+.ccacts .btn.pri{flex-basis:100%;order:-1;padding:11px}
+.ccx .cccart.wide{grid-column:2 / 4}
+@media(max-width:1000px){.modal.ccfull{inset:0;border-radius:0;overflow:auto}.ccx{grid-template-columns:1fr;overflow:visible}.ccmenu{grid-template-columns:1fr;height:70vh}.cccats{flex-direction:row;overflow-x:auto;border-right:0;border-bottom:1px solid var(--line)}.catb{flex:none}.ccx .cccart.wide{grid-column:auto}
+  body[data-route="call-center"] .board{grid-template-columns:repeat(5,minmax(220px,1fr));overflow-x:auto;height:auto}}
 </style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -819,7 +860,7 @@ function viewBranches(){
 
 function render(){
   const route = (location.hash.slice(1) || "dashboard");
-  renderNav(route);
+  renderNav(route); document.body.dataset.route = route;
   if(!state.dateSet) state.date = todayStr();   // follows the business day (end time comes from Company settings)
   // branch selector
   const bl = brandList();
@@ -1227,16 +1268,15 @@ const SOURCES_DEF = ["Phone","Toters","NokNok","Talabat","WhatsApp","Website","W
 function sourceList(cur){ const l = S.order_sources.filter(r=>live(r)&&r.active!==false).sort(CRUD["order-sources"].sort).map(r=>r.name); const out = l.length ? l : SOURCES_DEF; return cur && !out.includes(cur) ? [cur, ...out] : out; }
 state.ccBranch = "all"; state.ccAgent = "all"; state.ccTab = "today";
 function viewCallCenter(){
-  const today = new Date().toDateString();
   const agents = [...new Set(S.orders.map(o=>o.agent).filter(Boolean))];
-  const list = S.orders.filter(o => o.channel!=="pos" && brandFilter(o) && new Date(o.createdAt).toDateString()===today)
+  const list = S.orders.filter(o => o.channel!=="pos" && brandFilter(o) && (bizDate(o.createdAt)===todayStr() || ["draft","pending","active"].includes(o.status)))
     .filter(o => state.ccBranch==="all" || o.branchId===state.ccBranch).filter(o => state.ccAgent==="all" || o.agent===state.ccAgent)
     .sort((a,b)=> b.createdAt.localeCompare(a.createdAt));
-  let h = `<div class="phead"><h1>Call Center</h1><div class="sp"></div>
+  let h = `<div class="phead"><h1>Call Center</h1><span class="note">Today's orders · open orders stay until closed</span><div class="sp"></div>
     <select class="sel" id="ccBranch" aria-label="Branch"><option value="all">All Branches</option>${branches.map(b=>`<option value="${esc(b.id)}" ${state.ccBranch===b.id?"selected":""}>${esc(b.name)}</option>`).join("")}</select>
     <select class="sel" id="ccAgent" aria-label="Agent"><option value="all">All Agents</option>${agents.map(a=>`<option ${state.ccAgent===a?"selected":""}>${esc(a)}</option>`).join("")}</select>
     <button class="btn pri" id="ccNew">${svgIco("phone")} New Call Center Order</button></div>
-    <div class="tabs"><a href="#call-center" class="on">Today's Orders</a><a href="#call-center" class="dis" title="Coming next">Edit Requests</a></div>`;
+`;
   if(storeMode==="local") h += `<div class="banner">Preview mode: orders won't be saved.</div>`;
   h += `<div class="board">${CC_COLS.map(([k,t,d]) => { const col = list.filter(o=>o.status===k); return `<div class="bcol"><div class="bhead"><b>${t}</b><span class="cnt ${col.length&&k==="active"?"hot":""}">${col.length}</span><span class="sp"></span><span class="info" title="${d}">i</span></div>
     ${col.length ? col.map(ccCard).join("") : `<div class="bempty">You don't have ${t} orders</div>`}</div>`; }).join("")}</div>`;
@@ -1249,74 +1289,99 @@ const ccCard = o => `<button class="ocard" data-order="${esc(o.id)}"><div class=
   <div class="ototal">${usd(o.total)}</div>${o.lat?`<div class="oline">${mapLink(o)}</div>`:""}<div class="oline">${svgIco("box")}<span>${brandList().length>1?esc(brandName(o.brandId))+" · ":""}${esc(branchName(o.branchId))} · ${o.type==="pickup"?"Pickup":o.type==="dinein"?"Dine-in":"Delivery"}</span></div></button>`;
 
 let ccEdit = null, cart = [];
+// call-center orders stay editable until the branch closes them (pending = sent, active = in the kitchen)
+const ccEditable = o => !o || o.status==="draft" || (o.channel==="callcenter" && ["pending","active"].includes(o.status));
 function openOrder(id){
   const o = id ? S.orders.find(x=>x.id===id) : null;
   ccEdit = o ? o.id : null; cart = o ? o.items.map(i=>({...i})) : [];
-  const ro = o && o.status!=="draft";
-  const cc = activeBranches().filter(b=>b.callCenter!==false);
-  $("#ccBox").innerHTML = `<header><h2>${o?`Order #${esc(o.no)} <span class="spill s-${o.status}">${CC_SUB[o.status]}</span>`:"New Call Center Order"}</h2><button type="button" class="x" data-ccclose aria-label="Close">×</button></header>
-  <div class="ccgrid"><div class="ccleft">
-    <div class="f"><label for="oPhone">Customer phone *</label><input id="oPhone" value="${esc(o?.phone||"")}" ${ro?"disabled":""} placeholder="+961 …"></div>
-    <div class="f"><label for="oName">Customer name</label><input id="oName" value="${esc(o?.customerName||"")}" ${ro?"disabled":""}></div>
-    <div class="f"><label for="oSource">Source</label><select id="oSource" ${ro?"disabled":""}>${sourceList(o?.source).map((s,i)=>`<option ${(o?.source ? o.source===s : i===0)?"selected":""}>${esc(s)}</option>`).join("")}</select></div>
-    <div class="f"><label>Order type</label><div class="seg" id="oType">${[["delivery","Delivery"],["pickup","Pickup"]].map(([k,t])=>`<button type="button" data-ot="${k}" class="${(o?.type||"delivery")===k?"on":""}" ${ro?"disabled":""}>${t}</button>`).join("")}</div></div>
-    <div class="f" id="oAddrF"><label for="oAddr">Delivery address</label><textarea id="oAddr" rows="2" ${ro?"disabled":""}>${esc(o?.address||"")}</textarea></div>
-    <div class="f"><label for="oBrand">Brand *</label><select id="oBrand" ${ro?"disabled":""}><option value="">Choose brand…</option>${brandList().filter(b=>b.active!==false).map(b=>`<option value="${esc(b.id)}" ${(o?.brandId||defaultBrand())===b.id?"selected":""}>${esc(b.name)}</option>`).join("")}</select></div>
-    <div class="f"><label for="oBranch">Branch (agent picks) *</label><select id="oBranch" ${ro?"disabled":""}></select></div>
-    ${o?.lat ? `<div class="f"><label>Customer's pinned location</label>${mapLink(o)}</div>` : ""}
-    <div class="f"><label for="oNotes">Notes</label><input id="oNotes" value="${esc(o?.notes||"")}" ${ro?"disabled":""}></div>
-  </div><div class="ccright">
-    ${ro?"":`<input class="sel search" id="oSearch" placeholder="Search products" style="width:100%"><div class="chips" id="oCats"></div><div class="pgrid" id="oProducts"></div>`}
-    <div class="cart" id="oCart"></div>
-  </div></div>
-  <div class="err" id="oErr" style="padding:0 22px"></div>
-  <footer>${ccActions(o)}</footer>`;
-  state.oCat = ""; fillOrderBranches(o?.branchId); renderOrderMenu(); renderCart(ro);
+  const ro = !ccEditable(o), dis = ro ? "disabled" : "";
+  const box = $("#ccBox"); box.className = "modal ccfull";
+  box.innerHTML = `<header><h2>${o?`Order #${esc(o.no)} <span class="spill s-${o.status}">${CC_SUB[o.status]}</span>`:"New Call Center Order"}</h2>
+    ${o && !ro && o.status!=="draft" ? `<span class="note">Changes go straight to ${esc(branchName(o.branchId))}</span>` : ""}<button type="button" class="x" data-ccclose aria-label="Close">×</button></header>
+  <div class="ccx">
+   <section class="ccleft">
+    <h4>Customer</h4>
+    <div class="f"><label for="oPhone">Phone *</label><input id="oPhone" value="${esc(o?.phone||"")}" ${dis} placeholder="+961 …" autocomplete="off"></div>
+    <div class="f"><label for="oName">Name *</label><input id="oName" value="${esc(o?.customerName||"")}" ${dis} placeholder="Customer name"></div>
+    <h4>Order</h4>
+    <div class="f2"><div class="f"><label for="oSource">Source</label><select id="oSource" ${dis}>${sourceList(o?.source).map((s,i)=>`<option ${(o?.source ? o.source===s : i===0)?"selected":""}>${esc(s)}</option>`).join("")}</select></div>
+    <div class="f"><label>Type</label><div class="seg" id="oType">${[["delivery","Delivery"],["pickup","Pickup"]].map(([k,t])=>`<button type="button" data-ot="${k}" class="${(o?.type||"delivery")===k?"on":""}" ${dis}>${t}</button>`).join("")}</div></div></div>
+    <div class="f" id="oAddrF"><label for="oAddr">Delivery address</label><textarea id="oAddr" rows="2" ${dis}>${esc(o?.address||"")}</textarea></div>
+    <div class="f2"><div class="f"><label for="oBrand">Brand *</label><select id="oBrand" ${dis}><option value="">Choose…</option>${brandList().filter(b=>b.active!==false).map(b=>`<option value="${esc(b.id)}" ${(o?.brandId||defaultBrand())===b.id?"selected":""}>${esc(b.name)}</option>`).join("")}</select></div>
+    <div class="f"><label for="oBranch">Branch *</label><select id="oBranch" ${dis}></select></div></div>
+    ${o?.lat ? `<div class="f"><label>Pinned location</label>${mapLink(o)}</div>` : ""}
+    <div class="f"><label for="oNotes">Notes</label><input id="oNotes" value="${esc(o?.notes||"")}" ${dis} placeholder="Kitchen or driver notes"></div>
+   </section>
+   ${ro ? "" : `<section class="ccmenu"><nav class="cccats" id="oCats" aria-label="Categories"></nav>
+    <div class="ccprods"><input class="sel search" id="oSearch" placeholder="Search all products" autocomplete="off"><div class="cchead" id="oCatTitle"></div><div class="pgrid" id="oProducts"></div></div></section>`}
+   <section class="cccart${ro?" wide":""}"><div class="cart" id="oCart"></div><div class="err" id="oErr"></div><div class="ccacts">${ccActions(o)}</div></section>
+  </div>`;
+  state.oCat = ""; fillOrderBranches(o?.branchId); renderOrderMenu(); renderCart(ro); ccAddrVis();
   $("#ccScrim").classList.add("show");
+  if(!o) setTimeout(() => $("#oPhone")?.focus(), 30);
 }
+function ccAddrVis(){ const f = $("#oAddrF"); if(f) f.style.display = ($("#oType .on")?.dataset.ot || "delivery")==="delivery" ? "" : "none"; }
 function ccActions(o){
-  if(!o || o.status==="draft") return `<button type="button" class="btn" data-ccclose>Cancel</button><button type="button" class="btn" data-osave="draft">Save as Draft</button><button type="button" class="btn pri" data-osave="pending">Send to Branch</button>`;
-  const b = [`<button type="button" class="btn" data-ccclose>Close</button>`];
-  if(o.status==="pending") b.unshift(`<button type="button" class="btn danger" data-ostatus="declined" style="margin-right:auto">Decline</button>`), b.push(`<button type="button" class="btn pri" data-ostatus="active">Branch accepted</button>`);
-  if(o.status==="active") b.push(`<button type="button" class="btn pri" data-ostatus="closed">Mark done</button>`);
+  if(!o || o.status==="draft") return `<button type="button" class="btn" data-osave="draft">Save as Draft</button><button type="button" class="btn pri" data-osave="pending">Send to Branch</button>`;
+  const b = [];
+  if(ccEditable(o)) b.push(`<button type="button" class="btn pri" data-osave="keep">Save changes</button>`);
+  if(o.status==="pending") b.push(`<button type="button" class="btn" data-ostatus="active">Branch accepted</button>`, `<button type="button" class="btn danger" data-ostatus="declined">Decline</button>`);
+  if(o.status==="active") b.push(`<button type="button" class="btn" data-ostatus="closed">Mark done</button>`);
   if(o.status==="declined") b.push(`<button type="button" class="btn" data-ostatus="draft">Back to draft</button>`);
+  if(!b.length) b.push(`<button type="button" class="btn" data-ccclose>Close</button>`);
   return b.join("");
 }
 function fillOrderBranches(sel){
   const bd = $("#oBrand").value;
-  const list = branches.filter(b => b.active!==false && b.callCenter!==false && (!bd || b.brandId===bd));
-  $("#oBranch").innerHTML = `<option value="">${bd||!brandList().length?"Choose branch…":"Choose a brand first"}</option>` + list.map(b=>`<option value="${esc(b.id)}" ${sel===b.id?"selected":""}>${esc(b.name)}</option>`).join("");
+  const list = branches.filter(b => (b.active!==false && b.callCenter!==false || b.id===sel) && (!bd || b.brandId===bd));
+  $("#oBranch").innerHTML = `<option value="">${bd||!brandList().length?"Choose…":"Pick brand"}</option>` + list.map(b=>`<option value="${esc(b.id)}" ${sel===b.id?"selected":""}>${esc(b.name)}</option>`).join("");
 }
 function availableProducts(){
   const br = $("#oBranch")?.value, bd = $("#oBrand")?.value;
   return S.products.filter(p => live(p) && p.active!==false && (!bd || p.brandId===bd) && (!p.channels || p.channels.includes("callcenter")) && (!br || !p.branchIds?.length || p.branchIds.includes(br)));
 }
+function ccPrice(p){ const b = $("#oBranch")?.value, c = b && (p.customPrices||{})[b]; return c!=null && c!=="" ? +c : +p.price||0; }
 function renderOrderMenu(){
   const box = $("#oProducts"); if(!box) return;
-  const q = ($("#oSearch").value||"").toLowerCase(), prods = availableProducts();
+  const q = ($("#oSearch").value||"").trim().toLowerCase(), prods = availableProducts();
   const cats = S.categories.filter(c => live(c) && prods.some(p=>p.categoryId===c.id)).sort(CRUD.categories.sort);
-  $("#oCats").innerHTML = `<button type="button" class="chipb ${!state.oCat?"on":""}" data-ocat="">All</button>` + cats.map(c=>`<button type="button" class="chipb ${state.oCat===c.id?"on":""}" data-ocat="${esc(c.id)}">${esc(c.name)}</button>`).join("");
-  const list = prods.filter(p => (!state.oCat || p.categoryId===state.oCat) && (!q || p.name.toLowerCase().includes(q)));
-  box.innerHTML = list.length ? list.map(p=>`<button type="button" class="pbtn" data-add="${esc(p.id)}"><span>${esc(p.name)}</span><b>${usd(p.price)}</b></button>`).join("") : `<div class="note" style="padding:12px">No products${S.products.length?" match":" yet. Add them under Menu → Products"}.</div>`;
+  if(state.oCat && !cats.some(c=>c.id===state.oCat)) state.oCat = "";
+  if(!state.oCat && !q && cats.length) state.oCat = cats[0].id;            // open on the first category, not a wall of products
+  const n = id => prods.filter(p=>p.categoryId===id).length;
+  $("#oCats").innerHTML = cats.map(c=>`<button type="button" class="catb ${!q&&state.oCat===c.id?"on":""}" data-ocat="${esc(c.id)}"><span>${esc(c.name)}</span><i>${n(c.id)}</i></button>`).join("")
+    + (prods.some(p=>!cats.some(c=>c.id===p.categoryId)) ? `<button type="button" class="catb ${!q&&state.oCat==="_none"?"on":""}" data-ocat="_none"><span>Other</span><i>${prods.filter(p=>!cats.some(c=>c.id===p.categoryId)).length}</i></button>` : "")
+    || `<div class="note" style="padding:8px">No categories</div>`;
+  const list = q ? prods.filter(p => p.name.toLowerCase().includes(q) || (p.nameAr||"").includes(q))
+    : prods.filter(p => state.oCat==="_none" ? !cats.some(c=>c.id===p.categoryId) : p.categoryId===state.oCat);
+  $("#oCatTitle").textContent = q ? `${list.length} result${list.length===1?"":"s"} for “${q}”` : (cats.find(c=>c.id===state.oCat)?.name || (state.oCat==="_none" ? "Other" : ""));
+  const inCart = id => cart.filter(i=>i.productId===id).reduce((a,i)=>a+i.qty,0);
+  box.innerHTML = list.length ? list.sort((a,b)=>(a.sort??999)-(b.sort??999)||a.name.localeCompare(b.name)).map(p=>{ const c = inCart(p.id), oos = (p.outOfStockBranchIds||[]).includes($("#oBranch")?.value);
+    return `<button type="button" class="pbtn${c?" sel":""}" data-add="${esc(p.id)}" ${oos?"disabled title=\"Out of stock at this branch\"":""}>${c?`<em>${c}</em>`:""}<span>${esc(p.name)}</span><b>${oos?"Out of stock":usd(ccPrice(p))}</b>${(p.modifiers||[]).length?`<small>Options</small>`:""}</button>`; }).join("")
+    : `<div class="note" style="padding:12px">${S.products.length ? (q ? "No products match." : $("#oBrand")?.value ? "No products in this category." : "Choose a brand to see its menu.") : "No products yet. Add them under Menu → Products."}</div>`;
 }
 function renderCart(ro){
-  const total = cart.reduce((a,i)=>a+i.price*i.qty,0);
-  $("#oCart").innerHTML = `<div class="kh"><h3>Order items</h3><span class="note">${cart.reduce((a,i)=>a+i.qty,0)} items</span></div>` +
-    (cart.length ? cart.map((i,ix)=>`<div class="citem"><span class="cname">${esc(i.name)}${i.mods?`<div class="note">${esc(i.mods)}</div>`:""}</span>${ro?`<span>× ${i.qty}</span>`:`<span class="qty"><button type="button" data-q="${ix}:-1" aria-label="Less">−</button>${i.qty}<button type="button" data-q="${ix}:1" aria-label="More">+</button></span>`}<span class="num">${usd(i.price*i.qty)}</span></div>`).join("") : `<div class="note" style="padding:10px 0">Tap products to add them.</div>`) +
-    `<div class="ctot"><span>Total</span><b>${usd(total)}</b></div>`;
+  const total = cart.reduce((a,i)=>a+i.price*i.qty,0), qty = cart.reduce((a,i)=>a+i.qty,0);
+  $("#oCart").innerHTML = `<div class="kh"><h3>Order items</h3><span class="note">${qty} item${qty===1?"":"s"}</span></div><div class="clist">` +
+    (cart.length ? cart.map((i,ix)=>`<div class="citem"><span class="cname">${esc(i.name)}${i.mods?`<div class="note">${esc(i.mods)}</div>`:""}</span>${ro?`<span>× ${i.qty}</span>`:`<span class="qty"><button type="button" data-q="${ix}:-1" aria-label="Less">−</button>${i.qty}<button type="button" data-q="${ix}:1" aria-label="More">+</button></span>`}<span class="num">${usd(i.price*i.qty)}</span></div>`).join("") : `<div class="note" style="padding:18px 0;text-align:center">${ro?"No items.":"Pick a category, then tap products to add them."}</div>`) +
+    `</div><div class="ctot"><span>Total</span><b>${usd(total)}</b></div>`;
+  if(!ro && $("#oProducts")) renderOrderMenu();
 }
 async function saveOrder(status){
-  const phone = $("#oPhone").value.trim(), branchId = $("#oBranch").value;
-  if(!phone){ $("#oErr").textContent = "Customer phone is required."; return; }
-  if(status==="pending" && !branchId){ $("#oErr").textContent = "Pick the branch that will prepare this order."; return; }
-  if(status==="pending" && !cart.length){ $("#oErr").textContent = "Add at least one product."; return; }
-  const type = $("#oType .on")?.dataset.ot || "delivery";
-  const brandId = $("#oBrand").value;
-  if(status==="pending" && brandList().length && !brandId){ $("#oErr").textContent = "Choose the brand."; return; }
-  const data = { brandId, phone, customerName:$("#oName").value.trim(), source:$("#oSource").value, type, address: type==="delivery" ? $("#oAddr").value.trim() : "",
+  const o = ccEdit ? S.orders.find(x=>x.id===ccEdit) : null;
+  if(status==="keep") status = o?.status || "draft";
+  const phone = $("#oPhone").value.trim(), name = $("#oName").value.trim(), branchId = $("#oBranch").value;
+  if(!phone){ $("#oErr").textContent = "Customer phone is required."; $("#oPhone").focus(); return; }
+  if(!name){ $("#oErr").textContent = "Customer name is required."; $("#oName").focus(); return; }
+  const type = $("#oType .on")?.dataset.ot || "delivery", brandId = $("#oBrand").value, sent = status!=="draft";
+  if(sent && brandList().length && !brandId){ $("#oErr").textContent = "Choose the brand."; return; }
+  if(sent && !branchId){ $("#oErr").textContent = "Pick the branch that will prepare this order."; return; }
+  if(sent && !cart.length){ $("#oErr").textContent = "Add at least one product."; return; }
+  if(sent && type==="delivery" && !$("#oAddr").value.trim()){ $("#oErr").textContent = "Enter the delivery address."; $("#oAddr").focus(); return; }
+  if(o && o.status!=="draft" && !ccEditable(S.orders.find(x=>x.id===ccEdit))){ $("#oErr").textContent = "The branch already closed this order, so it can't be changed."; return; }
+  const data = { brandId, phone, customerName:name, source:$("#oSource").value, type, address: type==="delivery" ? $("#oAddr").value.trim() : "",
     branchId, notes:$("#oNotes").value.trim(), items:cart, total: +cart.reduce((a,i)=>a+i.price*i.qty,0).toFixed(2), status };
   if(!ccEdit){ data.no = String(Math.max(1000, ...S.orders.map(o=>+o.no||0)) + 1); data.agent = state.userName || "Operator"; data.channel = "callcenter"; }
-  try{ await put("orders", ccEdit, data); toast(status==="pending" ? `Order sent to ${branchName(branchId)}` : "Draft saved"); $("#ccScrim").classList.remove("show"); }
+  try{ await put("orders", ccEdit, data); toast(o && o.status!=="draft" ? `Order #${o.no} updated · ${branchName(branchId)} sees the changes` : status==="pending" ? `Order sent to ${branchName(branchId)}` : "Draft saved"); $("#ccScrim").classList.remove("show"); }
   catch(err){ console.error(err); $("#oErr").textContent = "Couldn't save the order."; }
 }
 async function setOrderStatus(s){
@@ -1600,13 +1665,11 @@ async function openCustomer(id){
   let c = { id:null, phone:"", name:"", email:"", birthday:null, notes:"", tags:[], blacklisted:false, addresses:[] }, orders = [];
   if(id){
     const [r1, r2] = await Promise.all([WOK.sb.from("customers").select("*").eq("id", id).maybeSingle(),
-      WOK.sb.from("orders").select("id,no,created_at,channel,type,status,total,items").eq("customer_id", id).order("created_at", { ascending:false }).limit(100)]);
+      WOK.sb.from("orders").select("id,no,created_at,branch_id,channel,type,status,total").eq("customer_id", id).order("created_at", { ascending:false }).limit(100)]);
     if(r1.error || !r1.data) return toast("Couldn't open this customer");
     c = r1.data; orders = r2.data || [];
   }
   const ok = orders.filter(o => ["pending","active","closed"].includes(o.status)), spent = ok.reduce((a,o)=>a+(+o.total||0),0);
-  const fav = {}; ok.forEach(o => (Array.isArray(o.items)?o.items:[]).forEach(i => { fav[i.name] = (fav[i.name]||0) + (+i.qty||1); }));
-  const favs = Object.entries(fav).sort((a,b)=>b[1]-a[1]).slice(0,5);
   const dt = t => new Date(t).toLocaleString("en-GB",{day:"numeric",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"});
   const box = $("#ccBox"); box.className = "modal wide";
   box.innerHTML = `<header><h2>${id ? esc(c.name || c.phone) : "New customer"} ${c.blacklisted?'<span class="spill s-declined">Blacklisted</span>':""}</h2><button type="button" class="x" data-ccclose aria-label="Close">×</button></header>
@@ -1614,7 +1677,7 @@ async function openCustomer(id){
     ${id ? `<div class="odet"><div><span>Orders</span>${ok.length}</div><div><span>Total spent</span>${money(spent)}</div><div><span>Average order</span>${money(ok.length?spent/ok.length:0)}</div>
       <div><span>First order</span>${ok.length?ago2(ok[ok.length-1].created_at):"—"}</div><div><span>Last order</span>${ok.length?ago2(ok[0].created_at):"—"}</div></div>` : ""}
     <div class="body" style="padding:0;margin-bottom:14px">
-      <div class="f"><label for="cuName">Name</label><input id="cuName" value="${esc(c.name||"")}"></div>
+      <div class="f"><label for="cuName">Name *</label><input id="cuName" value="${esc(c.name||"")}"></div>
       <div class="f"><label for="cuPhone">Phone *</label><input id="cuPhone" value="${esc(c.phone||"")}" placeholder="+961 …"></div>
       <div class="f"><label for="cuEmail">Email</label><input id="cuEmail" type="email" value="${esc(c.email||"")}"></div>
       <div class="f"><label for="cuBday">Birthday</label><input id="cuBday" type="date" value="${esc(c.birthday||"")}"></div>
@@ -1623,10 +1686,9 @@ async function openCustomer(id){
       <div class="f" style="grid-column:1/-1"><label for="cuNotes">Notes</label><textarea id="cuNotes" rows="2" placeholder="Allergies, preferences, gate code…">${esc(c.notes||"")}</textarea></div>
     </div>
     ${(c.addresses||[]).length ? `<h3 style="font-size:14px;margin:0 0 6px">Saved addresses</h3>${c.addresses.map((a,i)=>`<div class="note" style="margin-bottom:4px">${esc(a.address)} ${a.lat?mapLink(a):""} <a href="#customers" class="lnk" data-deladdr="${i}">Remove</a></div>`).join("")}` : ""}
-    ${favs.length ? `<h3 style="font-size:14px;margin:14px 0 6px">Favourite items</h3><div>${favs.map(([n,q])=>`<span class="tag cc" style="margin:0 6px 6px 0">${esc(n)} × ${q}</span>`).join("")}</div>` : ""}
-    ${id ? `<h3 style="font-size:14px;margin:14px 0 6px">Order history</h3><div class="card tbl otbl"><table><thead><tr><th>Order</th><th>Date</th><th>Channel</th><th>Status</th><th class="num">Total</th></tr></thead><tbody>${
-      orders.length ? orders.map(o=>`<tr class="clk" data-coid="${esc(o.id)}"><td><b>#${esc(o.no)}</b></td><td>${dt(o.created_at)}</td><td>${esc(CH_LBL[o.channel]||cap(o.channel))}</td><td><span class="spill s-${o.status}">${ORD_ST[o.status]||o.status}</span></td><td class="num">${money(+o.total||0)}</td></tr>`).join("")
-      : `<tr><td colspan="5" class="note">No orders yet.</td></tr>`}</tbody></table></div>` : ""}
+    ${id ? `<h3 style="font-size:14px;margin:14px 0 6px">Order history</h3><div class="card tbl otbl"><table><thead><tr><th>Order</th><th>Date</th><th>Branch</th><th>Channel</th><th>Status</th><th class="num">Total</th></tr></thead><tbody>${
+      orders.length ? orders.map(o=>`<tr class="clk" data-coid="${esc(o.id)}"><td><b>#${esc(o.no)}</b></td><td>${dt(o.created_at)}</td><td>${esc(branchName(o.branch_id) || "—")}</td><td>${esc(CH_LBL[o.channel]||cap(o.channel))}</td><td><span class="spill s-${o.status}">${ORD_ST[o.status]||o.status}</span></td><td class="num">${money(+o.total||0)}</td></tr>`).join("")
+      : `<tr><td colspan="6" class="note">No orders yet.</td></tr>`}</tbody></table></div>` : ""}
     <div class="err" id="cuErr"></div>
   </div>
   <footer>${id && ["owner","admin"].includes(state.role) ? `<button type="button" class="btn bad" id="cuDel">Delete</button>` : ""}<span style="flex:1"></span><button type="button" class="btn" data-ccclose>Cancel</button><button type="button" class="btn pri" id="cuSave">${id?"Save":"Add customer"}</button></footer>`;
@@ -1635,6 +1697,7 @@ async function openCustomer(id){
 }
 async function saveCustomer(){
   const c = window.__cus, phone = normPhone($("#cuPhone").value);
+  if(!$("#cuName").value.trim()){ $("#cuErr").textContent = "Customer name is required."; $("#cuName").focus(); return; }
   if(phone.length < 6){ $("#cuErr").textContent = "Enter a valid phone number."; return; }
   const row = { name: $("#cuName").value.trim() || null, phone, email: $("#cuEmail").value.trim() || null, birthday: $("#cuBday").value || null,
     tags: $("#cuTags").value.split(",").map(t=>t.trim()).filter(Boolean), blacklisted: $("#cuBlack").checked, notes: $("#cuNotes").value.trim() || null,
@@ -1678,7 +1741,7 @@ async function ccLookup(){
   if(ph.length < 6){ hint.innerHTML = ""; return; }
   const { data } = await WOK.sb.from("customers").select("id,name,addresses,blacklisted,notes").eq("phone", ph).maybeSingle();
   if(normPhone($("#oPhone")?.value) !== ph) return;
-  if(!data){ hint.innerHTML = "New customer"; return; }
+  if(!data){ hint.innerHTML = "New customer · enter their name below"; window.__ccCust = null; return; }
   const { count } = await WOK.sb.from("orders").select("id", { count:"exact", head:true }).eq("customer_id", data.id).in("status", ["pending","active","closed"]);
   if($("#oName") && !$("#oName").value && data.name) $("#oName").value = data.name;
   if($("#oAddr") && !$("#oAddr").value && data.addresses?.[0]?.address) $("#oAddr").value = data.addresses[0].address;
@@ -2536,8 +2599,8 @@ $("#ccScrim").addEventListener("click", e => { if(e.target.id==="repCsv") return
   if(e.target.closest("[data-oprint]")) return printOrder();
   if(e.target.id==="ccScrim" || e.target.closest("[data-ccclose]")) ORD.open = null;
   if(e.target.id==="ccScrim" || e.target.closest("[data-ccclose]")) return $("#ccScrim").classList.remove("show");
-  const ot = e.target.closest("[data-ot]"); if(ot && !ot.disabled){ document.querySelectorAll("#oType button").forEach(b=>b.classList.toggle("on", b===ot)); $("#oAddrF").style.display = ot.dataset.ot==="delivery" ? "" : "none"; }
-  const oc = e.target.closest("[data-ocat]"); if(oc){ state.oCat = oc.dataset.ocat; renderOrderMenu(); }
+  const ot = e.target.closest("[data-ot]"); if(ot && !ot.disabled){ document.querySelectorAll("#oType button").forEach(b=>b.classList.toggle("on", b===ot)); ccAddrVis(); }
+  const oc = e.target.closest("[data-ocat]"); if(oc){ state.oCat = oc.dataset.ocat; if($("#oSearch")) $("#oSearch").value = ""; renderOrderMenu(); $("#oProducts").scrollTop = 0; }
   const add = e.target.closest("[data-add]"); if(add){ const p = S.products.find(x=>x.id===add.dataset.add); if(p) ccAdd(p); }
   const q = e.target.closest("[data-q]"); if(q){ const [ix,d] = q.dataset.q.split(":").map(Number); cart[ix].qty += d; if(cart[ix].qty<=0) cart.splice(ix,1); renderCart(false); }
   const sv = e.target.closest("[data-osave]"); if(sv) saveOrder(sv.dataset.osave);
