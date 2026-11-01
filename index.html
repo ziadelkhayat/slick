@@ -1324,9 +1324,9 @@ const CRUD = {
     fields:[{k:"name",l:"Name",req:1},{k:"nameAr",l:"Name (Arabic)"},{k:"sku",l:"SKU",auto:()=>nextSku("inv_items")},
       {k:"category",l:"Category",t:"select",opts:()=>invCatNames().map(n=>[n,n])},
       
-      {k:"storageUnit",l:"Storage unit",ph:"e.g. kg, box, gallon"},{k:"ingredientUnit",l:"Ingredient unit",ph:"e.g. g, ml, piece"},
-      {k:"factor",l:"Storage → ingredient factor",t:"number",ph:"e.g. 1000"},
-      {k:"costingMethod",l:"Costing method",t:"select",opts:()=>[["fixed","Fixed (enter the cost)"],["transactions","From transactions (production updates it)"]],def:"fixed"},{k:"cost",l:"Cost per storage unit (USD)",t:"number"},
+      {k:"storageUnit",l:"Storage unit",req:1,ph:"e.g. kg, box, gallon"},{k:"ingredientUnit",l:"Ingredient unit",req:1,ph:"e.g. g, ml, piece"},
+      {k:"factor",l:"Storage → ingredient factor",t:"number",req:1,ph:"e.g. 1000"},
+      {k:"costingMethod",l:"Costing method",t:"select",opts:()=>[["fixed","Fixed (enter the cost)"],["transactions","From transactions (production updates it)"]],def:"fixed"},{k:"cost",l:"Cost per storage unit (USD)",t:"number",req:1,when:{k:"costingMethod",is:"fixed"}},
       {k:"minLevel",l:"Minimum level",t:"number"},{k:"parLevel",l:"Par level",t:"number"},{k:"maxLevel",l:"Maximum level",t:"number"},{k:"barcode",l:"Barcode"}]
   },
   "inv-categories": {
@@ -1530,6 +1530,7 @@ function openCrud(key, id){
     <footer>${r ? (r.deleted ? `<button type="button" class="btn" id="cRestore" style="margin-right:auto">Restore</button>` : `<button type="button" class="btn danger" id="cDelete" style="margin-right:auto">Delete</button>`) : ""}
     <button type="button" class="btn" data-cclose>Close</button><button type="submit" class="btn pri">Save</button></footer>`;
   if(cfg.after){ const g = $("#crudBox .body") || $("#crudBox form"); if(g) g.insertAdjacentHTML("afterbegin", cfg.after(r)); }
+  crudWhen();
   $("#crudScrim").classList.add("show");
   if(cfg.fields.some(f=>f.t==="polygon")) setTimeout(()=>{ try{ zoneEditor(r?.polygon || [], r?.id); }catch(err){ console.error(err); const z = $("#zInfo"); if(z) z.textContent = "The map couldn't start: " + err.message; } }, 60);
   setTimeout(()=>$("#crudBox input, #crudBox select")?.focus(), 30);
@@ -1717,6 +1718,9 @@ document.addEventListener("click", e => { const t = e.target.closest("[data-role
   const set = t.dataset.roletpl ? ROLE_TPL[t.dataset.roletpl] : [], all = !set;
   document.querySelectorAll("#cf_permissions input[type=checkbox]").forEach(c => c.checked = all || set.includes(c.value));
   const n = $("#cf_name"); if(n && !n.value && t.dataset.roletpl) n.value = t.dataset.roletpl; });
+function crudWhen(){ const cfg = crudEdit && CRUD[crudEdit.key]; if(!cfg || !cfg.fields) return;
+  cfg.fields.filter(f=>f.when).forEach(f => { const el = $("#cf_"+f.k), w = el?.closest(".f"); if(w) w.style.display = ($("#cf_"+f.when.k)?.value || "") === f.when.is ? "" : "none"; }); }
+document.addEventListener("change", e => { if(e.target.id?.startsWith("cf_") && e.target.tagName==="SELECT") crudWhen(); });
 const closeCrud = () => { $("#crudScrim").classList.remove("show"); crudEdit = null; $("#crudBox").className = "modal"; };
 async function submitCrud(e){
   e.preventDefault();
@@ -1725,12 +1729,14 @@ async function submitCrud(e){
   const cfg = CRUD[crudEdit.key], data = {};
   for(const f of cfg.fields){
     const el = $("#cf_"+f.k);
+    if(f.when && ($("#cf_"+f.when.k)?.value || "") !== f.when.is) continue;   // hidden: not asked, not changed
     if(f.t==="polygon"){ data[f.k] = zonePts.map(p=>[+p[0].toFixed(6), +p[1].toFixed(6)]); if(data[f.k].length < 3){ $("#cErr").textContent = "Draw the zone on the map (at least 3 points)."; return; } continue; }
     if(f.t==="chk") data[f.k] = el.checked;
     else if(f.t==="multi") data[f.k] = [...el.querySelectorAll("input:checked")].map(i=>i.value);
     else if(f.t==="number") data[f.k] = el.value==="" ? null : +el.value;
     else data[f.k] = el.value.trim();
     if(f.req && (data[f.k]===""||data[f.k]===null)){ $("#cErr").textContent = f.l + " is required."; el.focus(); return; }
+    if(f.k==="factor" && !(data.factor > 0)){ $("#cErr").textContent = "The factor must be more than 0 (how many ingredient units are in one storage unit)."; el.focus(); return; }
   }
   if(cfg.prep){ const msg = await cfg.prep(data, crudEdit.id); if(msg){ $("#cErr").textContent = msg; return; } }
   if(cfg.fields.some(f=>f.k==="sku") && data.sku && S[cfg.col].some(r=>r.id!==crudEdit.id && live(r) && r.sku===data.sku)){ $("#cErr").textContent = "That SKU is already used."; return; }
