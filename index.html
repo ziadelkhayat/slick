@@ -822,6 +822,7 @@ function scopeBar(withBranch){
   const bl = brandList(), act = activeBranches();
   return `${bl.length ? `<select class="sel" data-scope="brand" aria-label="Brand"><option value="all">All brands (${bl.length})</option>${bl.map(b=>`<option value="${esc(b.id)}" ${state.brand===b.id?"selected":""}>${esc(b.name)}</option>`).join("")}</select>` : ""}${withBranch ? `<select class="sel" data-scope="branch" aria-label="Branch"><option value="all">All branches (${act.length})</option>${act.map(b=>`<option value="${esc(b.id)}" ${state.branch===b.id?"selected":""}>${esc(b.name)}</option>`).join("")}</select>` : ""}`;
 }
+document.addEventListener("change", e => { if(e.target.id==="invCat"){ state.invCat = e.target.value; state.page["inv-items"] = 1; return render(); } });
 document.addEventListener("change", e => { if(e.target.id==="prodCat"){ state.catFilter = e.target.value; state.page.products = 1; return render(); } });
 document.addEventListener("change", e => { const t = e.target.closest("[data-scope]"); if(!t) return;
   if(t.dataset.scope==="brand"){ state.brand = t.value; state.branch = "all"; } else state.branch = t.value; render(); });
@@ -1326,6 +1327,7 @@ const CRUD = {
     tabs:[["all","All",live],["deleted","Deleted",r=>r.deleted]],
     sort:(a,b)=>(b.sku||"").localeCompare(a.sku||"",undefined,{numeric:true}),
     search:r=>r.name+" "+(r.sku||"")+" "+(r.category||""),
+    filter:r=>!state.invCat || r.category===state.invCat,
     cols:[["Name",r=>`<b>${esc(r.name)}</b>`],["Sku",r=>`<span class="code">${esc(r.sku||"")}</span>`],["Category",r=>esc(r.category||"—")]],
     fields:[{k:"name",l:"Name",req:1},{k:"nameAr",l:"Name (Arabic)"},{k:"sku",l:"SKU",auto:()=>nextSku("inv_items")},
       {k:"category",l:"Category",t:"select",opts:()=>invCatNames().map(n=>[n,n])},
@@ -1341,7 +1343,7 @@ const CRUD = {
     sort:(a,b)=>a.name.localeCompare(b.name),
     search:r=>r.name+" "+(r.reference||""),
     cols:[["Name",r=>`<b>${esc(r.name)}</b>${r.nameAr?` <span class="note">${esc(r.nameAr)}</span>`:""}`],["Reference",r=>esc(r.reference||"—")],
-      ["Items",r=>S.inv_items.filter(i=>live(i)&&i.category===r.name).length,"num"],["Created",r=>fmtDate(r.createdAt)]],
+      ["Items",r=>`<a class="lnk" href="#inv-items" data-invcat="${esc(r.name)}">${S.inv_items.filter(i=>live(i)&&i.category===r.name).length} item(s)</a>`,"num"],["Created",r=>fmtDate(r.createdAt)]],
     fields:[{k:"name",l:"Name",req:1},{k:"nameAr",l:"Name (Arabic)"},{k:"reference",l:"Reference"}],
     unique:"name",
     async after(old, data){   // keep items attached when a category is renamed
@@ -1437,6 +1439,7 @@ function crudView(key){
   if(key==="delivery-zones") h += `<div class="card" style="padding:0;overflow:hidden;margin-bottom:16px"><div id="zonesMap" style="height:380px"></div><div id="zonesLegend" class="legend"></div></div>`;
   h += `<div class="card tbl"><div class="ttop"><div class="ttabs">${cfg.tabs.map(t=>`<a href="#${key}" data-tab="${key}:${t[0]}" class="${tab===t[0]?"on":""}">${t[1]}</a>`).join("")}</div>
     ${key==="modifier-options"&&state.modFilter?`<span class="chip">Modifier: ${esc(modName(state.modFilter))} <button data-clearmod aria-label="Clear">×</button></span>`:""}
+    ${key==="inv-items" ? `<select class="sel" id="invCat" aria-label="Category"><option value="">All categories</option>${invCatNames().map(n=>`<option ${state.invCat===n?"selected":""}>${esc(n)}</option>`).join("")}</select>` : ""}
     ${key==="products" ? `<select class="sel" id="prodCat" aria-label="Category"><option value="">All categories</option>${S.categories.filter(c=>live(c)&&brandFilter(c)).sort(bySort).map(c=>`<option value="${esc(c.id)}" ${state.catFilter===c.id?"selected":""}>${state.brand==="all"&&brandList().length>1?esc(brandName(c.brandId))+" · ":""}${esc(c.name)}</option>`).join("")}</select>` : ""}
     <div class="sp"></div>${scopeHere ? scopeBar(false) : ""}<input class="sel search" data-search="${key}" placeholder="Search" value="${esc(state.q[key]||"")}" aria-label="Search ${cfg.title}"></div>`;
   if(!shown.length) h += `<div class="empty">${S[cfg.col].length ? "Nothing matches." : `No ${cfg.title.toLowerCase()} yet.`}</div>`;
@@ -2707,7 +2710,7 @@ function resetPageFilters(){
   Object.assign(ORD, { tab:"all", range:"week", q:"", from:"", to:"", channel:"", type:"", pay:"", source:"", brand:"", branch:"", page:1, key:"", open:null });
   Object.assign(CUS, { filter:"all", q:"", sort:"last", page:1, key:"" });
   Object.assign(BM, { q:"", draft:{} });
-  state.tabs = {}; state.q = {}; state.page = {}; state.catFilter = ""; state.modFilter = "";
+  state.tabs = {}; state.q = {}; state.page = {}; state.catFilter = ""; state.modFilter = ""; state.invCat = "";
   Object.assign(IC, { q:"", cat:"", sheet:"" });
   DOC.tab = {}; DOC.q = {}; DOC.open = null; DOC.edit = null;
   closeDetail();
@@ -3535,7 +3538,10 @@ $("#view").addEventListener("click", async e => {
   const cr = t.closest("[data-create]"); if(cr) return openCrud(cr.dataset.create);
   const op = t.closest("[data-open]"); if(op && !t.closest("a")){ const i = op.dataset.open.indexOf(":"), k = op.dataset.open.slice(0,i), id = op.dataset.open.slice(i+1); return CRUD[k].detail ? openDetail(k, id) : openCrud(k, id); }
   const pg = t.closest("[data-page]"); if(pg){ const [k,v] = pg.dataset.page.split(":"); state.page[k] = +v; render(); window.scrollTo(0,0); return; }
-  const cf = t.closest("[data-catfilter]"); if(cf){ state.catFilter = cf.dataset.catfilter; state.tabs.products = "all"; state.page.products = 1; setTimeout(render, 30); return; }
+  const cf = t.closest("[data-catfilter]"); if(cf){ e.preventDefault(); const id = cf.dataset.catfilter, c = S.categories.find(x=>x.id===id); location.hash = "products";
+    setTimeout(() => { if(c && state.brand!=="all" && c.brandId!==state.brand) state.brand = "all"; state.catFilter = id; state.tabs.products = "all"; state.page.products = 1; render(); }, 60); return; }
+  const ic = t.closest("[data-invcat]"); if(ic){ e.preventDefault(); const n = ic.dataset.invcat; location.hash = "inv-items";
+    setTimeout(() => { state.invCat = n; state.tabs["inv-items"] = "all"; state.page["inv-items"] = 1; render(); }, 60); return; }
   if(t.closest("[data-clearcat]")){ state.catFilter = ""; render(); return; }
   if(t.closest("#ccNew")) return openOrder();
   const oc = t.closest("[data-order]"); if(oc) return openOrder(oc.dataset.order);
