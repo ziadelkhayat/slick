@@ -718,7 +718,7 @@ async function dashReturns(pr){
   return { n: full.length + part.length, v: full.reduce((s,o)=>s+(+o.total||0),0) + part.reduce((s,o)=>s+(+o.refund_total||0),0),
     tax: full.reduce((s,o)=>s+(+o.tax||0),0) + part.reduce((s,o)=>s+(+o.total ? (+o.tax||0)*(+o.refund_total||0)/(+o.total) : 0),0) };
 }
-function dashKind(){ return state.dashTab==="kitchen" ? "kitchen" : state.dashTab==="inventory" ? "inventory" : "sales"; }
+function dashKind(){ if(state.dashTab==="kitchen") state.dashTab = "general"; return state.dashTab==="inventory" ? "inventory" : "sales"; }
 const mins = v => v==null ? "—" : (+v).toFixed(1) + " min";
 function dashSoon(){ clearTimeout(DASH.t); DASH.t = setTimeout(() => loadDash(true), 1500); }   // new/changed orders → refresh
 setInterval(() => { if((location.hash.slice(1)||"dashboard")==="dashboard" && !document.hidden && state.date===todayStr()) loadDash(true); }, 60000);
@@ -811,7 +811,7 @@ document.addEventListener("change", e => { const t = e.target.closest("[data-sco
 function viewDashboard(){
   const act = activeBranches();
   const list = state.branch==="all" ? act : act.filter(b=>b.id===state.branch);
-  const tabs = [["general","General"],["branches","Branches"],["inventory","Inventory"],["call-center","Call Center"],["kitchen","Kitchen"]];
+  const tabs = [["general","General"],["branches","Branches"],["inventory","Inventory"],["call-center","Call Center"]];
   let h = `<h1>Welcome, ${esc(state.userName||"Admin")}</h1><p class="subt">${state.branch==="all" ? `All ${act.length} active branches` : esc(list[0]?.name||"")}</p>
     <div class="tabs">${tabs.map(([k,t])=>`<a href="#dashboard" data-dt="${k}" class="${state.dashTab===k?"on":""}">${t}${k==="kitchen"?' <span class="new">New!</span>':""}</a>`).join("")}</div>`;
   if(!act.length) return h + `<div class="card empty">No active branches yet.<br><br><a class="btn pri" href="#branches">Add your first branch</a></div>`;
