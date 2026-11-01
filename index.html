@@ -385,7 +385,7 @@ a.btn{text-decoration:none}
       <button class="menuBtn" id="menuBtn" type="button" aria-label="Open menu"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
       <select class="sel" id="brandSel" aria-label="Brand filter"></select>
       <select class="sel" id="branchSel" aria-label="Branch filter"></select>
-      <span class="pill" id="syncPill" hidden>Connecting…</span>
+      <span id="syncPill" style="display:none"></span>
       <div class="sp"></div>
       <div class="acct"><button type="button" class="acctbtn" id="acctBtn" aria-haspopup="menu" aria-expanded="false"><span class="avatar" id="avatar" aria-hidden="true">S</span><span id="who"></span><span class="chev" aria-hidden="true">▾</span></button>
         <div class="acctmenu" id="acctMenu" role="menu" hidden>
@@ -746,7 +746,7 @@ function barList(rows, fmt){ // horizontal bars, single measure
 const hourLbl = i => String(i%12||12).padStart(2,"0") + ":00 " + (i<12?"AM":"PM");
 function filterBar(){
   return `<div class="row fbar"><div class="seg" id="rangeSeg">${["day","week","month"].map(r=>`<button data-r="${r}" class="${state.range===r?"on":""}">${r[0].toUpperCase()+r.slice(1)}</button>`).join("")}</div>
-    <input type="date" class="sel" id="datePick" value="${state.date}" max="${todayStr()}" aria-label="Date">
+    <input type="date" class="sel" id="datePick" value="${state.date}" max="${todayStr()}" aria-label="Date">${scopeBar(true)}
     <label class="toggle"><input type="checkbox" id="cmpToggle" ${state.compare?"checked":""}><span class="trk"></span>Compare</label>
     <span class="sp"></span><span class="note">${DASH.loading ? "Updating…" : DASH.at ? "Live · updated " + new Date(DASH.at).toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"}) : ""}</span>
     <button class="btn" id="dashRefresh" title="Refresh now">↻ Refresh</button></div>`;
@@ -773,7 +773,7 @@ function viewDashboard(){
   const act = activeBranches();
   const list = state.branch==="all" ? act : act.filter(b=>b.id===state.branch);
   const tabs = [["general","General"],["branches","Branches"],["inventory","Inventory"],["call-center","Call Center"],["kitchen","Kitchen"]];
-  let h = `<div class="phead"><h1>Welcome, ${esc(state.userName||"Admin")}</h1><div class="sp"></div>${scopeBar(true)}</div><p class="subt">${state.branch==="all" ? `All ${act.length} active branches` : esc(list[0]?.name||"")}</p>
+  let h = `<h1>Welcome, ${esc(state.userName||"Admin")}</h1><p class="subt">${state.branch==="all" ? `All ${act.length} active branches` : esc(list[0]?.name||"")}</p>
     <div class="tabs">${tabs.map(([k,t])=>`<a href="#dashboard" data-dt="${k}" class="${state.dashTab===k?"on":""}">${t}${k==="kitchen"?' <span class="new">New!</span>':""}</a>`).join("")}</div>`;
   if(!act.length) return h + `<div class="card empty">No active branches yet.<br><br><a class="btn pri" href="#branches">Add your first branch</a></div>`;
   if(storeMode!=="db") return h + placeholder("Dashboard", "Sign in to see live sales.");
@@ -1339,12 +1339,12 @@ function crudView(key){
   if(storeMode==="local") h += `<div class="banner">Preview mode: changes won't be saved.</div>`;
   if(cfg.note) h += `<p class="subt" style="margin-top:-6px">${esc(cfg.note)}</p>`;
   if(cfg.top) h += cfg.top();
-  if(cfg.filter===brandFilter || ["products","delivery-zones"].includes(key)){ const sb = scopeBar(false); if(sb) h = h.replace('<div class="sp"></div>', '<div class="sp"></div>' + sb); }
+  const scopeHere = cfg.filter===brandFilter || ["products","delivery-zones"].includes(key);
   if(key==="delivery-zones") h += `<div class="card" style="padding:0;overflow:hidden;margin-bottom:16px"><div id="zonesMap" style="height:380px"></div><div id="zonesLegend" class="legend"></div></div>`;
   h += `<div class="card tbl"><div class="ttop"><div class="ttabs">${cfg.tabs.map(t=>`<a href="#${key}" data-tab="${key}:${t[0]}" class="${tab===t[0]?"on":""}">${t[1]}</a>`).join("")}</div>
     ${key==="modifier-options"&&state.modFilter?`<span class="chip">Modifier: ${esc(modName(state.modFilter))} <button data-clearmod aria-label="Clear">×</button></span>`:""}
     ${key==="products"&&state.catFilter?`<span class="chip">Category: ${esc(catName(state.catFilter))} <button data-clearcat aria-label="Clear">×</button></span>`:""}
-    <div class="sp"></div><input class="sel search" data-search="${key}" placeholder="Search" value="${esc(state.q[key]||"")}" aria-label="Search ${cfg.title}"></div>`;
+    <div class="sp"></div>${scopeHere ? scopeBar(false) : ""}<input class="sel search" data-search="${key}" placeholder="Search" value="${esc(state.q[key]||"")}" aria-label="Search ${cfg.title}"></div>`;
   if(!shown.length) h += `<div class="empty">${S[cfg.col].length ? "Nothing matches." : `No ${cfg.title.toLowerCase()} yet.`}</div>`;
   else h += `<table><thead><tr>${cfg.cols.map(c=>`<th class="${c[2]||""}">${c[0]}</th>`).join("")}</tr></thead><tbody>${
     shown.map(r=>`<tr class="click" data-open="${key}:${esc(r.id)}">${cfg.cols.map(c=>`<td class="${c[2]||""}">${c[1](r)}</td>`).join("")}</tr>`).join("")}</tbody></table>`;
@@ -1660,14 +1660,16 @@ function viewDevices(){
   <div class="card setup"><div><h3>Set up a POS tablet</h3><ol class="steps"><li>Download the <b>Slick POS</b> APK on the Android tablet and install it (allow "install from this source" when asked).</li><li>Create a device here and choose its branch and type.</li><li>Open the app, sign in with a staff account, then enter the device's 6-digit activation code.</li><li>The tablet downloads its branch, menu, prices and printers, then it's ready to take orders.</li></ol></div>
   <div class="apk"><a class="btn pri" href="the-wok-pos.apk" download>⬇ Download POS APK</a><a class="lnk" href="pos.html" target="_blank" rel="noopener">or open POS in a browser</a></div></div><div style="height:16px"></div>`;
   if(storeMode==="local") h += `<div class="banner">Preview mode: devices won't be saved.</div>`;
-  h += `<div class="card tbl">${list.length ? `<table><thead><tr><th>Name</th><th>Type</th><th>Branch</th><th>Activation code</th><th>Status</th><th>Last seen</th><th></th></tr></thead><tbody>${list.map(d=>`<tr>
-    <td><b>${esc(d.name)}</b>${d.reference?` <span class="note">${esc(d.reference)}</span>`:""}${devSummary(d)}</td><td>${esc((DEV_TYPES.find(t=>t[0]===d.type)||[,d.type])[1])}</td><td>${esc(branchName(d.branchId))}</td>
+  h += `<div class="card tbl">${list.length ? `<table><thead><tr><th>Name</th><th>Type</th><th>Brand</th><th>Branch</th><th>Activation code</th><th>Status</th><th>Last seen</th><th></th></tr></thead><tbody>${list.map(d=>`<tr>
+    <td><b>${esc(d.name)}</b>${d.reference?` <span class="note">${esc(d.reference)}</span>`:""}${devSummary(d)}</td><td>${esc((DEV_TYPES.find(t=>t[0]===d.type)||[,d.type])[1])}</td><td>${esc(brandName(branches.find(b=>b.id===d.branchId)?.brandId))}</td><td>${esc(branchName(d.branchId))}</td>
     <td><span class="acode">${esc(d.code)}</span></td><td>${d.activatedAt?'<span class="tag on"><span class="dot"></span>Active</span>':'<span class="tag off">Waiting for activation</span>'}</td>
     <td>${d.lastSeen?ago(d.lastSeen):"—"}</td><td class="num"><button class="btn sm" data-devset="${esc(d.id)}">Settings</button> <button class="btn sm" data-devcode="${esc(d.id)}">New code</button> <button class="btn sm danger" data-devdel="${esc(d.id)}">Remove</button></td></tr>`).join("")}</tbody></table>`
     : `<div class="empty">No devices yet. Create one for each tablet, kitchen screen or printer station.</div>`}</div>`;
   return h;
 }
 const newCode = () => String(Math.floor(100000 + Math.random()*900000));
+const devBranchOpts = (brandId, sel) => `<option value="">${brandId ? "Choose…" : "Pick the brand first"}</option>` + branches.filter(b => b.brandId===brandId && (b.active!==false || b.id===sel)).map(b=>`<option value="${esc(b.id)}" ${b.id===sel?"selected":""}>${esc(b.name)}</option>`).join("");
+document.addEventListener("change", e => { if(e.target.id==="dBrand") $("#dBranch").innerHTML = devBranchOpts(e.target.value, ""); if(e.target.id==="ds_brand") $("#ds_branch").innerHTML = devBranchOpts(e.target.value, ""); });
 /* ---------- device settings (Foodics-style, per tablet) ---------- */
 const OT3 = [["dinein","Dine-in"],["takeaway","Takeaway"],["delivery","Delivery"]];
 function devSummary(d){ const s = d.settings || {}, bits = [];
@@ -1682,7 +1684,8 @@ function openDeviceSettings(id){
     <div class="f"><label for="ds_name">Device name *</label><input id="ds_name" value="${esc(d.name)}"></div>
     <div class="f"><label for="ds_reference">Reference</label><input id="ds_reference" value="${esc(d.reference||"")}" placeholder="e.g. C1"></div>
     <div class="f"><label for="ds_type">Type</label>${sel("type", d.type, DEV_TYPES)}</div>
-    <div class="f"><label for="ds_branch">Branch</label>${sel("branch", d.branchId, branches.filter(b=>b.active!==false || b.id===d.branchId).map(b=>[b.id,(brandList().length>1?brandName(b.brandId)+" · ":"")+b.name]))}<div class="note">Moving a tablet to another branch needs a new activation code.</div></div>
+    <div class="f"><label for="ds_brand">Brand</label>${sel("brand", br?.brandId || "", brandList().map(b=>[b.id,b.name]))}</div>
+    <div class="f"><label for="ds_branch">Branch</label><select id="ds_branch" class="sel">${devBranchOpts(br?.brandId || "", d.branchId)}</select><div class="note">Moving a tablet to another branch needs a new activation code.</div></div>
     <h4 class="fsec">Orders</h4>
     <div class="f full"><label>Order types on this device</label><div class="multi" id="ds_types">${OT3.map(([k,t])=>`<label class="chk"><input type="checkbox" value="${k}" ${types.includes(k)?"checked":""} ${brTypes.includes(k)?"":"disabled"}> ${t}${brTypes.includes(k)?"":" (off for this branch)"}</label>`).join("")}</div></div>
     <div class="f"><label for="ds_defaultType">Default order type</label>${sel("defaultType", s.defaultType || types[0] || "dinein", OT3)}</div>
@@ -1711,6 +1714,7 @@ async function saveDeviceSettings(){
   const settings = { ...(d.settings||{}), orderTypes, defaultType, tables: +v("tables") || 0, autoAccept: ck("autoAccept"), receipt: v("receipt"), copies: Math.max(1, +v("copies") || 1),
     kitchenPrinter: v("kitchenPrinter"), receiptPrinter: v("receiptPrinter"), cashDrawer: ck("cashDrawer"), lockMinutes: Math.max(0, +v("lockMinutes") || 0), lockAfterSale: ck("lockAfterSale") };
   const ch = { name, reference: v("reference"), type: v("type"), settings };
+  if(!v("branch")){ $("#cErr").textContent = "Pick the branch."; return; }
   if(v("branch") !== d.branchId){ if(!confirm("Move this device to another branch? It will need a new activation code.")) return; ch.branchId = v("branch"); ch.code = newCode(); ch.activatedAt = null; }
   try{ await put("devices", id, ch); toast(ch.code ? `Device moved · new activation code ${ch.code}` : "Device settings saved"); closeCrud(); }
   catch(err){ console.error(err); $("#cErr").textContent = "Couldn't save. Only the owner or an admin can change devices."; }
@@ -1720,7 +1724,8 @@ function openDevice(){
   $("#crudBox").innerHTML = `<header><h2>Create Device</h2><button type="button" class="x" data-cclose aria-label="Close">×</button></header>
   <div class="body"><div class="f full"><label for="dName">Device name *</label><input id="dName" placeholder="e.g. Kaslik Cashier 1"></div>
   <div class="f"><label for="dType">Type</label><select id="dType">${DEV_TYPES.map(([k,t])=>`<option value="${k}">${t}</option>`).join("")}</select></div>
-  <div class="f"><label for="dBranch">Branch *</label><select id="dBranch"><option value="">Choose…</option>${activeBranches().map(b=>`<option value="${esc(b.id)}">${esc(b.name)}</option>`).join("")}</select></div>
+  <div class="f"><label for="dBrand">Brand *</label><select id="dBrand"><option value="">Choose…</option>${brandList().filter(b=>b.active!==false).map(b=>`<option value="${esc(b.id)}" ${brandList().length===1?"selected":""}>${esc(b.name)}</option>`).join("")}</select></div>
+  <div class="f"><label for="dBranch">Branch *</label><select id="dBranch">${devBranchOpts(brandList().length===1 ? brandList()[0].id : "", "")}</select></div>
   <div class="err" id="cErr"></div></div><footer><button type="button" class="btn" data-cclose>Cancel</button><button type="button" class="btn pri" id="dSave">Create &amp; get code</button></footer>`;
   crudEdit = { key:"device" }; $("#crudScrim").classList.add("show"); setTimeout(()=>$("#dName").focus(),30);
 }
@@ -1910,7 +1915,7 @@ function viewOrders(){
   <div class="row fbar" style="flex-wrap:wrap">
     <label class="note">From <input type="date" class="sel" id="ordFrom" value="${ORD.from}" max="${todayStr()}"></label>
     <label class="note">To <input type="date" class="sel" id="ordTo" value="${ORD.to}" max="${todayStr()}"></label>
-    ${brandList().length>1 ? sel("ordBrand", ORD.brand, [["","All brands"], ...brandList().map(b=>[b.id,esc(b.name)])]) : ""}
+    ${sel("ordBrand", ORD.brand, [["","All brands"], ...brandList().map(b=>[b.id,esc(b.name)])])}
     ${sel("ordBranch", ORD.branch, [["","All branches"], ...branches.filter(b=>!ORD.brand || b.brandId===ORD.brand).map(b=>[b.id,esc(b.name)])])}
     ${sel("ordChannel", ORD.channel, [["","All channels"],["pos","POS"],["callcenter","Call center"],["online","Online ordering"]])}
     ${sel("ordSource", ORD.source, [["","All sources"], ...ordSources().map(x=>[esc(x),esc(x)])])}

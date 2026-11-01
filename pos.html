@@ -375,8 +375,8 @@ function totals(){ const sub = cart.reduce((a,i)=>a+i.price*i.qty,0), disc = +(s
 function renderCart(){
   document.querySelectorAll("#otype button").forEach(b => b.classList.toggle("on", b.dataset.t===otype));
   $("#extra").innerHTML = otype==="dinein" ? (+devSet().tables ? `<select id="tbl" aria-label="Table"><option value="">Choose table…</option>${Array.from({length:+devSet().tables},(_,i)=>`<option ${String(i+1)===String(tableNo)?"selected":""}>${i+1}</option>`).join("")}</select>` : `<input id="tbl" placeholder="Table number" value="${esc(tableNo)}" inputmode="numeric">`)
-    : otype==="delivery" ? `<input id="cPhone" placeholder="Customer phone" value="${esc(cust.phone)}"><input id="cName" placeholder="Customer name" value="${esc(cust.name)}"><input id="cAddr" placeholder="Address" value="${esc(cust.address)}">`
-    : `<input id="cName" placeholder="Customer name (optional)" value="${esc(cust.name)}">`;
+    : otype==="delivery" ? `<input id="cPhone" placeholder="Customer phone *" inputmode="tel" value="${esc(cust.phone)}"><input id="cName" placeholder="Customer name *" value="${esc(cust.name)}"><input id="cAddr" placeholder="Address: area, street, building, floor *" value="${esc(cust.address)}">`
+    : `<input id="cPhone" placeholder="Customer phone *" inputmode="tel" value="${esc(cust.phone)}"><input id="cName" placeholder="Customer name *" value="${esc(cust.name)}">`;
   $("#lines").innerHTML = cart.length ? cart.map((i,ix)=>`<div class="line"><span class="n">${esc(i.name)}${i.mods?`<small class="mut" style="display:block;font-size:12px">${esc(i.mods)}</small>`:""}</span><span class="p">${usd(i.price*i.qty)}</span>
     <span class="qty"><button data-q="${ix}:-1" aria-label="Less">−</button>${i.qty}<button data-q="${ix}:1" aria-label="More">+</button></span><span class="p mut">${usd(i.price)} each</span></div>`).join("") : `<div class="empty">Tap items to start an order</div>`;
   const t = totals();
@@ -444,7 +444,11 @@ let payMethod = null;
 $("#payBtn").addEventListener("click", () => {
   const blk = saleBlock(); if(blk){ modal("blocked", `<div class="mh"><h2>Can't take sales yet</h2><button class="x" data-close aria-label="Close">×</button></div><div class="mb"><p>${esc(blk)}</p></div><div class="mf"><button class="btn" data-close>OK</button><button class="btn pri" id="goDayEnd">End day</button></div>`); return; }
   if(!openShift()){ toast("Open a shift before taking payments"); return; }
-  if(otype==="delivery" && !cust.phone.trim()){ toast("Enter the customer's phone for delivery"); return; }
+  if(otype!=="dinein"){   // takeaway and delivery need who it's for; delivery also needs where
+    const need = []; if(!cust.name.trim()) need.push("name"); if(cust.phone.replace(/[^0-9]/g,"").length < 6) need.push("phone number");
+    if(otype==="delivery" && cust.address.trim().length < 6) need.push("full delivery address");
+    if(need.length){ toast("Enter the customer's " + need.join(", ").replace(/, ([^,]*)$/, " and $1")); const f = !cust.phone.trim() ? "#cPhone" : !cust.name.trim() ? "#cName" : "#cAddr"; $(f)?.focus(); return; }
+  }
   const t = totals(), pms = payMethods(); payMethod = pms[0];
   const q = [t.total, Math.ceil(t.total/5)*5, Math.ceil(t.total/10)*10, Math.ceil(t.total/20)*20].filter((v,i,a)=>a.indexOf(v)===i);
   modal("pay", `<div class="mh"><h2>Payment</h2><button class="x" data-close aria-label="Close">×</button></div><div class="mb">
