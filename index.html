@@ -1248,8 +1248,9 @@ const CRUD = {
   },
   categories: {
     col:"categories", title:"Categories", one:"Category",
+    note:"Set the order of categories and their items in Menu → Menus: that order is used by the POS, call center and online ordering.",
     tabs:[["all","All",live],["deleted","Deleted",r=>r.deleted]],
-    sort:(a,b)=>(a.sort??999)-(b.sort??999) || a.name.localeCompare(b.name),
+    sort:(a,b)=>a.name.localeCompare(b.name),
     search:r=>r.name+" "+(r.reference||""),
     filter:brandFilter,
     cols:[["Name",r=>`<b>${esc(r.name)}</b>`],["Brand",r=>esc(brandName(r.brandId))],["Reference",r=>esc(r.reference||"—")],
@@ -1443,7 +1444,6 @@ function crudView(key){
 /* ---------- Sort: drag items into the order every screen should show them ---------- */
 const PM_TYPES = [["cash","Cash"],["card","Card"],["other","Other"]];
 const SORTABLE = {
-  categories: { col:"categories", scope: () => brandList().length > 1 ? ["Brand", brandList().map(b=>[b.id,b.name]), r => r.brandId] : null, def: () => state.brand!=="all" ? state.brand : brandList()[0]?.id },
   "payment-methods": { col:"payment_methods", scope: () => null },
   "order-sources": { col:"order_sources", scope: () => null },
   "modifier-options": { col:"modifier_options", inside:true, scope: () => ["Modifier", S.modifiers.filter(live).sort(bySort).map(m=>[m.id,m.name]), r => r.modifierId], def: () => state.modFilter || S.modifiers.filter(live).sort(bySort)[0]?.id }
@@ -1924,7 +1924,7 @@ function ccPrice(p){ const b = $("#oBranch")?.value, c = b && (p.customPrices||{
 function renderOrderMenu(){
   const box = $("#oProducts"); if(!box) return;
   const q = ($("#oSearch").value||"").trim().toLowerCase(), prods = availableProducts();
-  const cats = S.categories.filter(c => live(c) && prods.some(p=>p.categoryId===c.id)).sort(CRUD.categories.sort);
+  const cats = S.categories.filter(c => live(c) && prods.some(p=>p.categoryId===c.id)).sort(bySort);   // the order set in Menu → Menus
   if(state.oCat && !cats.some(c=>c.id===state.oCat)) state.oCat = "";
   if(!state.oCat && !q && cats.length) state.oCat = cats[0].id;            // open on the first category, not a wall of products
   const n = id => prods.filter(p=>p.categoryId===id).length;
@@ -2109,7 +2109,7 @@ const BM = { branch:"", kind:"products", q:"", draft:{} };
 function bmItems(){
   const br = branches.find(b=>b.id===BM.branch); if(!br) return [];
   if(BM.kind==="options") return S.modifier_options.filter(o=>live(o)&&o.active!==false).sort((a,b)=>modName(a.modifierId).localeCompare(modName(b.modifierId))||bySort(a,b));
-  return S.products.filter(p=>live(p)&&p.active!==false&&(!br.brandId||!p.brandId||p.brandId===br.brandId)).sort((a,b)=>catRank(a.categoryId)-catRank(b.categoryId) || String(a.categoryId).localeCompare(String(b.categoryId)) || bySort(a,b));
+  return S.products.filter(p=>live(p)&&p.active!==false&&(!br.brandId||!p.brandId||p.brandId===br.brandId)).sort((a,b)=>{ const ca = S.categories.find(c=>c.id===a.categoryId)||{}, cb = S.categories.find(c=>c.id===b.categoryId)||{}; return bySort(ca, cb) || String(a.categoryId).localeCompare(String(b.categoryId)) || bySort(a,b); });   // same order as every channel
 }
 function bmState(r){
   const b = BM.branch, d = BM.draft[r.id] || {};
@@ -2151,11 +2151,14 @@ function viewBranchMenu(){
 let bmDrag = null;
 document.addEventListener("dragstart", e => { const t = e.target.closest?.("[data-bmdrag]"); if(!t) return; bmDrag = { key:t.dataset.bmdrag, cat:t.dataset.bmcatof }; e.dataTransfer.effectAllowed = "move"; try{ e.dataTransfer.setData("text/plain", bmDrag.key); }catch(_){} t.classList.add("dragging"); });
 document.addEventListener("dragend", e => { document.querySelectorAll(".dragging,.dropto").forEach(x => x.classList.remove("dragging","dropto")); });
-const bmDropOk = t => { if(!bmDrag || !t) return false; const k = t.dataset.bmdrag; if(!k || k===bmDrag.key) return false;
-  return bmDrag.key.startsWith("c:") ? k.startsWith("c:") : (k.startsWith("p:") && t.dataset.bmcatof===bmDrag.cat); };
+// a category can be dropped on any row of another category (its header or its items)
+const bmTarget = t => { if(!t || !bmDrag) return null; const k = t.dataset.bmdrag; if(!k) return null;
+  if(bmDrag.key.startsWith("c:")){ const c = k.startsWith("c:") ? k.slice(2) : t.dataset.bmcatof; return c && "c:"+c !== bmDrag.key ? "c:"+c : null; }
+  return k.startsWith("p:") && k!==bmDrag.key && t.dataset.bmcatof===bmDrag.cat ? k : null; };
+const bmDropOk = t => !!bmTarget(t);
 document.addEventListener("dragover", e => { const t = e.target.closest?.("[data-bmdrag]"); if(!bmDropOk(t)) return; e.preventDefault(); document.querySelectorAll(".dropto").forEach(x => x.classList.remove("dropto")); t.classList.add("dropto"); });
 document.addEventListener("drop", async e => { const t = e.target.closest?.("[data-bmdrag]"); if(!bmDropOk(t)) return; e.preventDefault();
-  const from = bmDrag.key.slice(2), to = t.dataset.bmdrag.slice(2), isCat = bmDrag.key.startsWith("c:"); bmDrag = null;
+  const from = bmDrag.key.slice(2), to = bmTarget(t).slice(2), isCat = bmDrag.key.startsWith("c:"); bmDrag = null;
   const br = branches.find(b=>b.id===BM.branch);
   const list = isCat ? S.categories.filter(c => live(c) && (!br?.brandId || c.brandId===br.brandId)).sort(bySort)
                      : S.products.filter(p => live(p) && p.categoryId===S.products.find(x=>x.id===from)?.categoryId).sort(bySort);
