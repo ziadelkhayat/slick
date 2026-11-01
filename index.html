@@ -677,12 +677,23 @@ async function loadDash(force){
   try{
     const calls = [WOK.sb.rpc(fn, cur)];
     if(state.compare && kind!=="inventory") calls.push(WOK.sb.rpc(fn, dashParams(1)));
-    const res = await Promise.all(calls);
+    const rets = kind==="sales" ? [dashReturns(dashParams(0)), state.compare ? dashReturns(dashParams(1)) : null] : [];
+    const res = await Promise.all(calls), rr = await Promise.all(rets);
     if(DASH.key!==key) return;                       // filters changed meanwhile
     const bad = res.find(r => r.error); if(bad) throw bad.error;
     DASH.cur = res[0].data; DASH.prev = res[1]?.data || null; DASH.at = Date.now();
+    if(DASH.cur && rr[0]) DASH.cur.returns = rr[0]; if(DASH.prev && rr[1]) DASH.prev.returns = rr[1];
   }catch(e){ console.error("dashboard", e); if(DASH.key===key) DASH.err = e.message || "Couldn't load the numbers"; }
   finally{ if(DASH.key===key){ DASH.loading = false; if((location.hash.slice(1)||"dashboard")==="dashboard") render(); } }
+}
+// returned (voided) orders in the period: count, amount and the tax inside them
+async function dashReturns(pr){
+  const end = new Date(pr.p_day + "T12:00:00"), start = new Date(end); start.setDate(end.getDate() - (pr.p_days - 1));
+  const [t0, t1] = dayBounds(start.toISOString().slice(0,10), pr.p_day);
+  let q = WOK.sb.from("orders").select("total,tax").eq("status", "void").gte("created_at", t0.toISOString()).lt("created_at", t1.toISOString()).limit(5000);
+  if(pr.p_branches) q = q.in("branch_id", pr.p_branches); if(pr.p_brand) q = q.eq("brand_id", pr.p_brand);
+  const { data, error } = await q; if(error){ console.error("returns", error); return { n:0, v:0, tax:0 }; }
+  return { n: data.length, v: data.reduce((a,o)=>a+(+o.total||0),0), tax: data.reduce((a,o)=>a+(+o.tax||0),0) };
 }
 function dashKind(){ return state.dashTab==="kitchen" ? "kitchen" : state.dashTab==="inventory" ? "inventory" : "sales"; }
 const mins = v => v==null ? "—" : (+v).toFixed(1) + " min";
@@ -765,7 +776,7 @@ function kpiCard(title, value, series, fmt, cur, prev, labels){
 /* brand / branch filter shown inside the pages that need it */
 function scopeBar(withBranch){
   const bl = brandList(), act = activeBranches();
-  return `${bl.length>1 ? `<select class="sel" data-scope="brand" aria-label="Brand"><option value="all">All brands (${bl.length})</option>${bl.map(b=>`<option value="${esc(b.id)}" ${state.brand===b.id?"selected":""}>${esc(b.name)}</option>`).join("")}</select>` : ""}${withBranch ? `<select class="sel" data-scope="branch" aria-label="Branch"><option value="all">All branches (${act.length})</option>${act.map(b=>`<option value="${esc(b.id)}" ${state.branch===b.id?"selected":""}>${esc(b.name)}</option>`).join("")}</select>` : ""}`;
+  return `${bl.length ? `<select class="sel" data-scope="brand" aria-label="Brand"><option value="all">All brands (${bl.length})</option>${bl.map(b=>`<option value="${esc(b.id)}" ${state.brand===b.id?"selected":""}>${esc(b.name)}</option>`).join("")}</select>` : ""}${withBranch ? `<select class="sel" data-scope="branch" aria-label="Branch"><option value="all">All branches (${act.length})</option>${act.map(b=>`<option value="${esc(b.id)}" ${state.branch===b.id?"selected":""}>${esc(b.name)}</option>`).join("")}</select>` : ""}`;
 }
 document.addEventListener("change", e => { const t = e.target.closest("[data-scope]"); if(!t) return;
   if(t.dataset.scope==="brand"){ state.brand = t.value; state.branch = "all"; } else state.branch = t.value; render(); });
@@ -792,6 +803,9 @@ function viewDashboard(){
       ${kpiCard("Net Payments", money(+D.payments), hPay, "m", +D.payments, P&&+P.payments)}
       ${kpiCard("Discount Amount", money(+D.discount), hDisc, "m", +D.discount, P&&+P.discount)}
       ${kpiCard("Average Ticket", money(avg(D)), hN.map((o,i)=>o?hNet[i]/o:0), "m", avg(D), P&&avg(P))}
+      <div class="card kpi"><div class="kh"><h3>Tax Amount</h3></div><div class="v">${money(+D.tax||0)}</div>${delta(+D.tax||0, P&&(+P.tax||0))}<div class="d">Included in sales (prices include tax)</div></div>
+      <div class="card kpi"><div class="kh"><h3>Return Amount</h3></div><div class="v">${money(D.returns?.v||0)}</div><div class="d">${D.returns?.n||0} returned (voided) order${D.returns?.n===1?"":"s"}${D.returns?.tax ? ` · incl. tax ${money(D.returns.tax)}` : ""}</div>
+        ${state.compare && P ? `<div class="d">Previous ${state.range}: ${money(P.returns?.v||0)}</div>` : ""}</div>
       <div class="card kpi"><div class="kh"><h3>Declined orders</h3></div><div class="v">${D.declined.n}</div><div class="d">${money(+D.declined.v)} not sold · ${D.open} order${D.open===1?"":"s"} still open</div>
         ${state.compare && P ? `<div class="d">Previous ${state.range}: ${P.declined.n}</div>` : ""}</div>
     </div>`;
