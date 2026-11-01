@@ -566,7 +566,14 @@ async function deleteBranch(id){
 }
 
 /* ---------- live dashboard data (summed in Supabase by slick_dashboard) ---------- */
-const todayStr = () => { const d = new Date(); return new Date(d - d.getTimezoneOffset()*60000).toISOString().slice(0,10); };
+/* business day: runs from the day's start to its end time (Company → Business day); orders after midnight but before
+   the end time still belong to the day that started */
+const dayCut = () => { const m = /^(\d{1,2}):(\d{2})/.exec((S.settings.find(x=>x.id==="company")||{}).dayEnd || ""); return m ? Math.min(719, (+m[1])*60 + (+m[2])) : 0; };
+const dayStartH = () => Math.floor(dayCut()/60);
+const bizDate = (t = new Date()) => { const d = new Date(+new Date(t) - dayCut()*60000); return new Date(d - d.getTimezoneOffset()*60000).toISOString().slice(0,10); };
+const dayBounds = (from, to) => { const c = dayCut(), t0 = new Date(from+"T00:00:00"), t1 = new Date((to||from)+"T00:00:00"); t1.setDate(t1.getDate()+1); t0.setMinutes(c); t1.setMinutes(c); return [t0, t1]; };
+const todayStr = () => bizDate();
+window.SlickDay = { dayCut, dayStartH, bizDate, dayBounds };
 const rangeDays = () => state.range==="day"?1:state.range==="week"?7:30;
 const DASH = { key:"", cur:null, prev:null, loading:false, err:"", at:0, t:null };
 function dashParams(offset){
@@ -574,7 +581,7 @@ function dashParams(offset){
   const act = activeBranches();
   return { p_day: d.toISOString().slice(0,10), p_days: n,
     p_branches: state.branch!=="all" ? [state.branch] : (act.length ? act.map(b=>b.id) : null),
-    p_brand: state.brand==="all" ? null : state.brand };
+    p_brand: state.brand==="all" ? null : state.brand, ...(dayCut() ? { p_cut: dayCut() } : {}) };
 }
 async function loadDash(force){
   if(!window.WOK || storeMode!=="db") return;
@@ -598,7 +605,7 @@ function dashKind(){ return state.dashTab==="kitchen" ? "kitchen" : state.dashTa
 const mins = v => v==null ? "—" : (+v).toFixed(1) + " min";
 function dashSoon(){ clearTimeout(DASH.t); DASH.t = setTimeout(() => loadDash(true), 1500); }   // new/changed orders → refresh
 setInterval(() => { if((location.hash.slice(1)||"dashboard")==="dashboard" && !document.hidden && state.date===todayStr()) loadDash(true); }, 60000);
-const hours24 = (rows, f) => { const a = Array(24).fill(0); (rows||[]).forEach(r => a[r.h] = +r[f]||0); return a; };
+const hours24 = (rows, f) => { const a = Array(24).fill(0), sh = dayStartH(); (rows||[]).forEach(r => a[(r.h - sh + 24) % 24] = +r[f]||0); return a; };   // starts at the business day's first hour
 const TYPE_LBL = { dinein:"Dine-in", pickup:"Takeaway", takeaway:"Takeaway", delivery:"Delivery", other:"Other" };
 const CH_LBL = { pos:"POS", online:"Online ordering", callcenter:"Call center", other:"Other" };
 const PAY_LBL = { cash:"Cash", card:"Card", other:"Other", "on delivery":"Pay on delivery" };
@@ -616,7 +623,7 @@ function lineChart(values, opt = {}){
     g += ticks.map(t => `<line x1="${L}" x2="${W-R}" y1="${y(t)}" y2="${y(t)}" stroke="#ecebf0"/><text x="${L-6}" y="${y(t)+4}" text-anchor="end" font-size="${opt.fs||10}" fill="#8d8c98">${Math.round(t).toLocaleString()}</text>`).join("");
   } else g += `<line x1="${L}" x2="${W-R}" y1="${y(0)}" y2="${y(0)}" stroke="#ecebf0"/>`;
   const step = opt.labelStep || 3;
-  const lab = i => opt.labels ? opt.labels[i] : hourLbl(i);
+  const lab = i => opt.labels ? opt.labels[i] : hourLbl((i + dayStartH()) % 24);
   g += values.map((v,i)=> i%step===0 ? `<text x="${x(i)}" y="${H-10}" text-anchor="${opt.labels&&i===n-1?"end":opt.labels&&i===0?"start":"middle"}" font-size="${opt.axis===false?16:(opt.fs||10)}" fill="#8d8c98">${esc(lab(i))}</text>` : "").join("");
   const dots = opt.dots ? values.map((v,i)=>`<circle cx="${x(i)}" cy="${y(v)}" r="${opt.axis===false?4:3}" fill="var(--chart)"/>`).join("") : "";
   const area = `${L},${y(0)} ${pts} ${W-R},${y(0)}`;
@@ -636,7 +643,7 @@ function wireLine(el){
     const i = Math.max(0, Math.min(n-1, Math.round((sx-L)/((W-L-R)/(n-1)))));
     xh.setAttribute("x1",x(i)); xh.setAttribute("x2",x(i)); xh.setAttribute("visibility","visible");
     mk.setAttribute("cx",x(i)); mk.setAttribute("cy",y(vals[i])); mk.setAttribute("visibility","visible");
-    tip.innerHTML = `${esc(labs ? labs[i] : hourLbl(i))}<br><b>${fmt(vals[i])}</b>`;
+    tip.innerHTML = `${esc(labs ? labs[i] : hourLbl((i + dayStartH()) % 24))}<br><b>${fmt(vals[i])}</b>`;
     tip.style.left = (x(i)*r.width/W)+"px"; tip.style.top = (y(vals[i])*r.height/H)+"px"; tip.style.opacity = 1;
   });
   hit.addEventListener("mouseleave", () => { xh.setAttribute("visibility","hidden"); mk.setAttribute("visibility","hidden"); tip.style.opacity = 0; });
@@ -813,6 +820,7 @@ function viewBranches(){
 function render(){
   const route = (location.hash.slice(1) || "dashboard");
   renderNav(route);
+  if(!state.dateSet) state.date = todayStr();   // follows the business day (end time comes from Company settings)
   // branch selector
   const bl = brandList();
   if(state.brand!=="all" && !bl.some(b=>b.id===state.brand)) state.brand = "all";
@@ -841,7 +849,7 @@ $("#menuBtn").addEventListener("click", e => { e.stopPropagation(); document.bod
 document.addEventListener("click", e => { if(document.body.classList.contains("navopen") && (!e.target.closest(".side") || e.target.closest(".side a"))) document.body.classList.remove("navopen"); });
 window.addEventListener("hashchange", () => { const r = location.hash.slice(1) || "dashboard"; if(r !== lastRoute){ resetPageFilters(); lastRoute = r; } render(); window.scrollTo(0,0); });
 $("#view").addEventListener("change", e => {
-  if(e.target.id==="datePick" && e.target.value){ state.date = e.target.value; render(); }
+  if(e.target.id==="datePick" && e.target.value){ state.date = e.target.value; state.dateSet = state.date !== todayStr(); render(); }
   if(e.target.id==="cmpToggle"){ state.compare = e.target.checked; render(); }
 });
 $("#branchSel").addEventListener("change", e => { state.branch = e.target.value; render(); });
@@ -1395,11 +1403,11 @@ function moduleRoute(route){
 /* ---------- Orders: every order from every channel, any date range ---------- */
 const ORD_TABS = [["all","All"],["pending","Pending"],["active","Active"],["closed","Closed"],["declined","Declined"],["void","Void"],["draft","Draft"]];
 const ORD_ST = { draft:"Draft", pending:"Pending", active:"Active", closed:"Closed", declined:"Declined", void:"Void" };
-const daysAgo = n => { const d = new Date(); d.setDate(d.getDate()-n); return new Date(d - d.getTimezoneOffset()*60000).toISOString().slice(0,10); };
+const daysAgo = n => { const d = new Date(bizDate()+"T12:00:00"); d.setDate(d.getDate()-n); return new Date(d - d.getTimezoneOffset()*60000).toISOString().slice(0,10); };
 const ORD = { tab:"all", q:"", from:"", to:"", channel:"", type:"", pay:"", page:1, per:50, rows:[], count:0, counts:{}, loading:false, err:"", key:"", t:null, open:null };
 const ordTypeLbl = t => TYPE_LBL[t] || cap(t||"—");
 function ordQuery(sel, opts, withStatus){
-  const sb = WOK.sb, t0 = new Date(ORD.from+"T00:00:00"), t1 = new Date(ORD.to+"T00:00:00"); t1.setDate(t1.getDate()+1);
+  const sb = WOK.sb, [t0, t1] = dayBounds(ORD.from, ORD.to);
   let q = sb.from("orders").select(sel, opts).gte("created_at", t0.toISOString()).lt("created_at", t1.toISOString());
   const act = activeBranches();
   if(state.branch!=="all") q = q.eq("branch_id", state.branch);
@@ -1714,13 +1722,26 @@ function viewCompany(){
         ${f("phone","Phone")}${f("email","Email","","email")}
         ${f("address","Address","","",1)}${f("logoUrl","Logo image link (optional)","https://…","url",1)}
       </div><div class="err" id="coErr"></div></div>
+    <div class="card" style="margin-bottom:16px"><h3 style="margin:0 0 8px;font-size:15px">Business day</h3>
+      <p class="note" style="margin:0 0 12px">Reports cover one business day, from its start to its end. If you close after midnight, set the end time (e.g. 03:00): orders until then still count on the day that started. The next day starts right after.</p>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px">
+        <div class="f"><label for="co_dayEnd">Day ends at</label><input id="co_dayEnd" class="sel" type="time" value="${esc(c.dayEnd||"00:00")}" ${admin?"":"disabled"}></div>
+        <div class="f"><label>Example</label><div class="note" style="padding-top:8px" id="coDayEx">${dayExample(c.dayEnd||"00:00")}</div></div>
+      </div></div>
     <div class="card"><h3 style="margin:0 0 8px;font-size:15px">Structure</h3>
       <p class="note" style="margin:0 0 10px">Company → Brands → Branches. Manage them under Manage → Brands and Manage → Branches.</p>
       <div style="font-size:14px"><b>${esc(c.name||"Your company")}</b>${brandList().map(b=>`<div style="margin:6px 0 0 16px">↳ ${esc(b.name)} <span class="note">· ${branches.filter(x=>x.brandId===b.id).map(x=>esc(x.name)).join(", ") || "no branches yet"}</span></div>`).join("") || `<div class="note" style="margin:6px 0 0 16px">No brands yet</div>`}</div></div>`;
 }
+function dayExample(v){
+  const m = /^(\d{1,2}):(\d{2})/.exec(v||""), c = m ? (+m[1])*60 + (+m[2]) : 0, t = `${String(Math.floor(c/60)).padStart(2,"0")}:${String(c%60).padStart(2,"0")}`;
+  if(c > 719) return "Pick a time between 00:00 and 11:59.";
+  return c ? `Monday's report runs from Monday ${t} to Tuesday ${t}.` : "Monday's report runs from Monday 00:00 to midnight.";
+}
+document.addEventListener("input", e => { if(e.target.id==="co_dayEnd" && $("#coDayEx")) $("#coDayEx").textContent = dayExample(e.target.value); });
 async function saveCompany(){
   const v = k => ($("#co_"+k)?.value || "").trim();
-  const data = { name:v("name"), legalName:v("legalName"), taxNumber:v("taxNumber"), crNumber:v("crNumber"), currency:v("currency")||"USD", vatRate: v("vatRate")==="" ? null : +v("vatRate"), phone:v("phone"), email:v("email"), address:v("address"), logoUrl:v("logoUrl") };
+  const data = { name:v("name"), legalName:v("legalName"), taxNumber:v("taxNumber"), crNumber:v("crNumber"), currency:v("currency")||"USD", vatRate: v("vatRate")==="" ? null : +v("vatRate"), phone:v("phone"), email:v("email"), address:v("address"), logoUrl:v("logoUrl"), dayEnd: v("dayEnd") || "00:00" };
+  if(/^(\d{1,2})/.test(data.dayEnd) && +data.dayEnd.split(":")[0] >= 12){ $("#coErr").textContent = "The day must end between 00:00 and 11:59."; $("#co_dayEnd").focus(); return; }
   if(!data.name){ $("#coErr").textContent = "Company name is required."; $("#co_name").focus(); return; }
   try{ await put("settings", "company", data); toast("Company saved"); }
   catch(e){ console.error(e); $("#coErr").textContent = "Couldn't save. Only the owner or an admin can change this."; }
@@ -1729,7 +1750,7 @@ document.addEventListener("click", e => { if(e.target.closest("#coSave")) saveCo
 
 /* filters belong to the page: leaving a page puts its filters back to the defaults */
 function resetPageFilters(){
-  Object.assign(state, { range:"day", date:todayStr(), compare:false, dashTab:"general", branch:"all" }); DASH.key = "";
+  Object.assign(state, { range:"day", date:todayStr(), dateSet:false, compare:false, dashTab:"general", branch:"all" }); DASH.key = "";
   Object.assign(ORD, { tab:"all", q:"", from:"", to:"", channel:"", type:"", pay:"", page:1, key:"", open:null });
   Object.assign(CUS, { filter:"all", q:"", sort:"last", page:1, key:"" });
   state.tabs = {}; state.q = {}; state.page = {}; state.catFilter = ""; state.modFilter = "";
@@ -2470,7 +2491,7 @@ $("#view").addEventListener("click", e => {
 /* ---------- KPI breakdown ("View Report") ---------- */
 function openReport(title){
   const D = DASH.cur; if(!D) return;
-  const hr = Array.from({length:24}, (_,h) => D.hours.find(x=>x.h===h) || { h, n:0, net:0, pay:0, disc:0 }).filter(x => x.n);
+  const hr = Array.from({length:24}, (_,h) => D.hours.find(x=>x.h===h) || { h, n:0, net:0, pay:0, disc:0 }).filter(x => x.n).sort((a,b) => (a.h-dayStartH()+24)%24 - (b.h-dayStartH()+24)%24);
   const period = state.range==="day" ? new Date(state.date+"T12:00:00").toLocaleDateString("en-GB",{weekday:"short",day:"numeric",month:"short",year:"numeric"}) : `${rangeDays()} days to ${new Date(state.date+"T12:00:00").toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"})}`;
   const scope = state.branch==="all" ? (state.brand==="all" ? "All branches" : brandName(state.brand)) : (branches.find(b=>b.id===state.branch)?.name || "");
   const rowH = x => [hourLbl(x.h), x.n, (+x.net).toFixed(2), (+x.pay).toFixed(2), (+x.disc).toFixed(2), (x.n ? x.net/x.n : 0).toFixed(2)];
