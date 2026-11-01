@@ -353,11 +353,12 @@ body[data-route="call-center"] .ocard{padding:10px 12px;gap:5px;font-size:13px}
 tr.grp td{background:var(--bg,#f6f6fa);font-size:13px;padding-top:12px}
 tr.off td:first-child b{color:var(--ink3,#8d8c98);text-decoration:line-through}
 tr.chg td:first-child{box-shadow:inset 3px 0 0 var(--accent)}
+.multi .mhead{grid-column:1/-1;flex-basis:100%;width:100%;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink3,#8d8c98);margin:8px 0 2px}
 </style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="wokdb.js?v=14"></script>
+<script src="wokdb.js?v=15"></script>
 <script src="modpick.js?v=2"></script>
 </head>
 <body>
@@ -544,7 +545,9 @@ new MutationObserver(() => { clearTimeout(decorate.t); decorate.t = setTimeout((
 
 
 function renderNav(route){
+  if(route==="tax-groups") route = "taxes";
   $("#nav").innerHTML = NAV.map((n,gi) => {
+    if(!canOpen(n.id || n.kids.find(k=>!k[0].startsWith("@"))?.[0])) return "";
     if(n.id) return `<a href="#${n.id}" class="${route===n.id?"on":""}">${svgIco(n.i)}${n.t}</a>`;
     const open = n.kids.some(k => k[0]===route);
     return `<div class="grp ${open?"open":""}" data-g="${gi}"><button type="button">${svgIco(n.i)}${n.t}<span class="chev">›</span></button><div class="sub">${
@@ -581,7 +584,7 @@ async function initStore(){
     if(!window.claude || !window.claude.use) { clearTimeout(timer); return fallback(); }
     db = await window.claude.use("db");
     if(!db){ clearTimeout(timer); return fallback(); }
-    try{ const user = await window.claude.use("user"); if(user){ const n = await user.name?.(); if(n){ $("#who").textContent = n; $("#avatar").textContent = String(n).trim().split(/\s+/).map(w=>w[0]).join("").slice(0,2).toUpperCase(); state.userName = String(n).split(" ")[0]; } state.role = await user.role?.(); state.fullName = n || ""; } }catch(e){}
+    try{ const user = await window.claude.use("user"); if(user){ const n = await user.name?.(); if(n){ $("#who").textContent = n; $("#avatar").textContent = String(n).trim().split(/\s+/).map(w=>w[0]).join("").slice(0,2).toUpperCase(); state.userName = String(n).split(" ")[0]; } state.role = await user.role?.(); state.userId = await user.id?.(); state.fullName = n || ""; } }catch(e){}
     col = db.collection("branches");
     subscribeAll();
     col.onSnapshot(snap => {
@@ -886,6 +889,7 @@ function render(){
   paintCompany();
   const v = $("#view");
   if(storeMode==="loading"){ v.innerHTML = `<div class="ph"><div>Loading…</div></div>`; return; }
+  if(!canOpen(route)){ v.innerHTML = `<h1>${esc(TITLES[route]||"")}</h1>` + placeholder("No access", "Your role doesn't include this area. Ask the owner to change your role under Manage → Roles."); return; }
   if(route==="dashboard") v.innerHTML = viewDashboard();
   else if(route==="branches") v.innerHTML = viewBranches();
   else if(moduleRoute(route) !== null) v.innerHTML = moduleRoute(route);
@@ -965,7 +969,7 @@ $("#cYes").addEventListener("click", async () => {
 let tt; function toast(m){ const t = $("#toast"); t.textContent = m; t.classList.add("show"); clearTimeout(tt); tt = setTimeout(()=>t.classList.remove("show"), 2200); }
 
 /* ---------- generic collections (menu, inventory, devices, call center, online ordering) ---------- */
-const COLS = ["brands","categories","products","inv_items","devices","orders","zones","settings","order_sources","inv_categories","warehouses","inv_docs","modifiers","modifier_options","suppliers"];
+const COLS = ["brands","categories","products","inv_items","devices","orders","zones","settings","order_sources","inv_categories","warehouses","inv_docs","modifiers","modifier_options","suppliers","taxes","tax_groups","payment_methods","roles","users"];
 const S = {}; COLS.forEach(c => S[c] = []);
 function subscribeAll(){
   COLS.forEach(c => db.collection(c).onSnapshot(snap => {
@@ -995,6 +999,34 @@ async function put(col, id, data){
 }
 const live = r => !r.deleted;
 const catName = id => S.categories.find(c => c.id===id)?.name || "—";
+/* ---------- taxes ---------- */
+const taxRate = g => (g?.taxIds||[]).reduce((a,id) => { const t = S.taxes.find(x=>x.id===id && live(x)); return a + (t ? +t.rate||0 : 0); }, 0);
+const tgName = id => { if(!id) return "No tax"; const g = S.tax_groups.find(x=>x.id===id); return g ? `${g.name} (${+taxRate(g).toFixed(2)}%)` : (id==="TAX" ? "VAT" : id); };
+const taxGroupOpts = () => S.tax_groups.filter(live).map(g=>[g.id, `${g.name} (${+taxRate(g).toFixed(2)}%)`]);
+const taxTabs = on => `<div class="tabs" style="margin-bottom:14px"><a href="#taxes" class="${on==="taxes"?"on":""}">Taxes</a><a href="#tax-groups" class="${on==="tax-groups"?"on":""}">Tax Groups</a></div>
+  <p class="subt" style="margin-top:-4px">Menu prices include tax. Receipts and reports show the tax inside each sale; net sales leave it out.</p>`;
+
+/* ---------- users & roles ---------- */
+const PERMS = [["@Back office"],["bo_dashboard","Dashboard"],["bo_orders","Orders"],["bo_callcenter","Call center"],["bo_customers","Customers"],["bo_reports","Reports"],["bo_inventory","Inventory"],["bo_menu","Menu"],["bo_manage","Manage (settings, users, branches) — full admin"],["bo_marketing","Marketing"],
+  ["@POS app"],["pos_access","Use the POS (sign in with PIN)"],["pos_discount","Give discounts"],["pos_shift","Open and close shifts"],["pos_incoming","Accept / decline call-center and online orders"],["pos_open_price","Sell open-price items"],["pos_settings","Device settings"]];
+const PERM_KEYS = PERMS.filter(p=>!p[0].startsWith("@")).map(p=>p[0]);
+const roleName = id => S.roles.find(r=>r.id===id)?.name || "—";
+async function pinHash(id, pin){ const b = await crypto.subtle.digest("SHA-256", new TextEncoder().encode("slick:" + id + ":" + pin)); return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,"0")).join(""); }
+const newUserId = () => "usr_" + Date.now().toString(36) + Math.random().toString(36).slice(2,8);
+// what the signed-in person may open in the back office (the owner and legacy admins see everything)
+function myPerms(){
+  if(storeMode!=="db" || !state.role || state.role==="owner") return null;
+  const u = S.users.find(x => live(x) && x.userId && x.userId===state.userId), r = u && S.roles.find(x=>x.id===u.roleId && live(x));
+  if(!r) return state.role==="admin" ? null : ["bo_dashboard","bo_orders","bo_callcenter","bo_customers"];
+  return r.permissions || [];
+}
+const NAV_PERM = { "dashboard":"bo_dashboard", "orders":"bo_orders", "call-center":"bo_callcenter", "customers":"bo_customers", "Reports":"bo_reports", "Inventory":"bo_inventory", "Menu":"bo_menu", "Manage":"bo_manage", "Marketing":"bo_marketing" };
+function canOpen(route){
+  const p = myPerms(); if(!p) return true; if(route==="tax-groups") route = "taxes";
+  const n = NAV.find(x => x.id===route || (x.kids||[]).some(k=>k[0]===route)); if(!n) return true;
+  const need = NAV_PERM[n.id || n.t]; return !need || p.includes(need);
+}
+
 /* one sort order everywhere: back office, POS, call center and online ordering all read the same "sort" field */
 const bySort = (a,b) => (a.sort??9999)-(b.sort??9999) || String(a.name||"").localeCompare(String(b.name||""));
 const catRank = id => S.categories.find(c => c.id===id)?.sort ?? 9999;
@@ -1009,6 +1041,76 @@ const CHANNELS = [["pos","POS"],["callcenter","Call center"],["delivery","Online
 const brandFilter = r => state.brand==="all" || r.brandId===state.brand;
 const brandField = {k:"brandId",l:"Brand",t:"select",req:1,opts:()=>brandList().map(b=>[b.id,b.name]),auto:()=>defaultBrand()};
 const CRUD = {
+  taxes: {
+    col:"taxes", title:"Taxes & Groups", one:"Tax", top: () => taxTabs("taxes"),
+    tabs:[["all","All",live],["deleted","Deleted",r=>r.deleted]],
+    sort:(a,b)=>a.name.localeCompare(b.name), search:r=>r.name,
+    cols:[["Name",r=>`<b>${esc(r.name)}</b>${r.nameAr?` <span class="note">${esc(r.nameAr)}</span>`:""}`],["Rate",r=>(+r.rate||0)+" %","num"],
+      ["Used in groups",r=>S.tax_groups.filter(g=>live(g)&&(g.taxIds||[]).includes(r.id)).map(g=>esc(g.name)).join(", ")||'<span class="note">—</span>'],["Created",r=>fmtDate(r.createdAt)]],
+    fields:[{k:"name",l:"Name",req:1,ph:"e.g. VAT"},{k:"nameAr",l:"Name (Arabic)"},{k:"rate",l:"Rate (%)",t:"number",req:1}],
+    unique:"name"
+  },
+  "tax-groups": {
+    col:"tax_groups", title:"Taxes & Groups", one:"Tax Group", top: () => taxTabs("tax-groups"),
+    tabs:[["all","All",live],["deleted","Deleted",r=>r.deleted]],
+    sort:(a,b)=>a.name.localeCompare(b.name), search:r=>r.name+" "+(r.reference||""),
+    cols:[["Name",r=>`<b>${esc(r.name)}</b>`],["Reference",r=>esc(r.reference||"—")],["Taxes",r=>(r.taxIds||[]).map(id=>esc(S.taxes.find(t=>t.id===id)?.name||"?")).join(" + ")||'<span class="note">None</span>'],
+      ["Total rate",r=>+taxRate(r).toFixed(2)+" %","num"],["Products",r=>S.products.filter(p=>live(p)&&p.taxGroup===r.id).length,"num"]],
+    fields:[{k:"name",l:"Name",req:1},{k:"nameAr",l:"Name (Arabic)"},{k:"reference",l:"Reference"},
+      {k:"taxIds",l:"Taxes in this group",t:"multi",opts:()=>S.taxes.filter(live).map(t=>[t.id,`${t.name} (${+t.rate||0}%)`])}],
+    unique:"name", note:"Give each product a tax group (Menu → Products). Its taxes add up, e.g. VAT 11%."
+  },
+  "payment-methods": {
+    col:"payment_methods", title:"Payment Methods", one:"Payment Method",
+    tabs:[["all","All",live],["active","Active",r=>live(r)&&r.active!==false],["inactive","Inactive",r=>live(r)&&r.active===false],["deleted","Deleted",r=>r.deleted]],
+    sort:bySort, search:r=>r.name+" "+(r.code||""),
+    cols:[["Name",r=>`<b>${esc(r.name)}</b>${r.nameAr?` <span class="note">${esc(r.nameAr)}</span>`:""}`],["Type",r=>esc(PM_TYPES.find(t=>t[0]===r.type)?.[1]||"Other")],["Code",r=>esc(r.code||"—")],
+      ["Opens cash drawer",r=>r.openDrawer?"Yes":"No"],["Active",r=>r.active===false?'<span class="tag off">Inactive</span>':'<span class="tag on">Active</span>']],
+    fields:[{k:"name",l:"Name",req:1,ph:"e.g. Cash, Visa, OMT"},{k:"nameAr",l:"Name (Arabic)"},{k:"type",l:"Type",t:"select",req:1,opts:()=>PM_TYPES,def:"cash"},{k:"code",l:"Code / reference"},
+      {k:"openDrawer",l:"Open the cash drawer when used",t:"chk",def:false},{k:"active",l:"Active",t:"chk",def:true}],
+    unique:"name", note:"These are the buttons the cashier sees on the POS payment screen, in the order you sort them. Cash lets the cashier enter the amount received and gives change."
+  },
+  roles: {
+    col:"roles", title:"Roles", one:"Role",
+    tabs:[["all","All",live],["deleted","Deleted",r=>r.deleted]],
+    sort:(a,b)=>a.name.localeCompare(b.name), search:r=>r.name,
+    cols:[["Name",r=>`<b>${esc(r.name)}</b>${r.description?`<div class="note">${esc(r.description)}</div>`:""}`],
+      ["Back office",r=>{ const n = (r.permissions||[]).filter(p=>p.startsWith("bo_")).length; return n ? (r.permissions.includes("bo_manage") ? '<span class="tag on">Full admin</span>' : n+" areas") : '<span class="note">No access</span>'; }],
+      ["POS",r=>{ const n = (r.permissions||[]).filter(p=>p.startsWith("pos_")).length; return n ? n+" permissions" : '<span class="note">No access</span>'; }],
+      ["Users",r=>S.users.filter(u=>live(u)&&u.roleId===r.id).length,"num"]],
+    fields:[{k:"name",l:"Name",req:1,ph:"e.g. Cashier, Branch manager, Call center agent"},{k:"description",l:"Description"},
+      {k:"permissions",l:"Permissions",t:"multi",opts:()=>PERMS,note:"Back-office areas decide which menus a user sees. \"Manage\" also allows changing menus, prices and settings."}],
+    unique:"name"
+  },
+  users: {
+    col:"users", title:"Users", one:"User",
+    tabs:[["all","All",live],["active","Active",r=>live(r)&&r.active!==false],["inactive","Inactive",r=>live(r)&&r.active===false],["deleted","Deleted",r=>r.deleted]],
+    sort:(a,b)=>a.name.localeCompare(b.name), search:r=>r.name+" "+(r.email||"")+" "+(r.phone||"")+" "+(r.employeeNo||""),
+    cols:[["Name",r=>`<b>${esc(r.name)}</b>${r.employeeNo?` <span class="note">#${esc(r.employeeNo)}</span>`:""}`],["Role",r=>esc(roleName(r.roleId))],
+      ["Branches",r=>(r.branchIds||[]).length ? r.branchIds.map(id=>esc(branchName(id))).join(", ") : '<span class="note">All</span>'],
+      ["POS PIN",r=>r.pinHash?'<span class="tag on">Set</span>':'<span class="note">—</span>'],
+      ["Back-office login",r=>r.email ? (r.userId ? `<span class="tag on">Linked</span> <span class="note">${esc(r.email)}</span>` : `<span class="tag off">Waiting for first sign-in</span> <span class="note">${esc(r.email)}</span>`) : '<span class="note">—</span>'],
+      ["Active",r=>r.active===false?'<span class="tag off">Inactive</span>':'<span class="tag on">Active</span>']],
+    fields:[{k:"name",l:"Name",req:1},{k:"employeeNo",l:"Employee number"},{k:"phone",l:"Phone"},
+      {k:"roleId",l:"Role",t:"select",req:1,opts:()=>S.roles.filter(live).map(r=>[r.id,r.name])},
+      {k:"pin",l:"POS PIN",t:"pin",note:"4 digits the user types to sign in on POS tablets. Must be unique."},
+      {k:"email",l:"Back-office email (optional)",ph:"name@company.com"},
+      {k:"branchIds",l:"Branches (leave all unticked = every branch)",t:"multi",opts:()=>branches.filter(b=>b.active!==false).map(b=>[b.id,(brandList().length>1?brandName(b.brandId)+" · ":"")+b.name])},
+      {k:"active",l:"Active",t:"chk",def:true}],
+    note:"POS users sign in on the tablet with their PIN. For back-office access, add their email here, then create a login with that same email in Supabase (Authentication → Add user); the first time they sign in, it links automatically.",
+    prep: async (data, id) => {
+      const pin = data.pin; delete data.pin;
+      if(data.email) data.email = data.email.toLowerCase();
+      if(data.email && S.users.some(u=>u.id!==id && live(u) && (u.email||"").toLowerCase()===data.email)) return "Another user already has this email.";
+      if(!id) data.id = newUserId();
+      if(pin){ if(!/^\d{4}$/.test(pin)) return "The PIN must be exactly 4 digits.";
+        const myId = id || data.id;
+        for(const u of S.users.filter(u=>live(u) && u.id!==myId && u.pinHash)){ if(await pinHash(u.id, pin)===u.pinHash) return "Another user already uses this PIN. Pick a different one."; }
+        data.pinHash = await pinHash(myId, pin); }
+      if(id) delete data.id;
+      return "";
+    }
+  },
   brands: {
     col:"brands", title:"Brands", one:"Brand",
     tabs:[["all","All",live],["deleted","Deleted",r=>r.deleted]],
@@ -1037,12 +1139,12 @@ const CRUD = {
     search:r=>r.name+" "+(r.sku||"")+" "+catName(r.categoryId),
     filter:r=>brandFilter(r) && (!state.catFilter || r.categoryId===state.catFilter),
     cols:[["Name",r=>`<b>${esc(r.name)}</b>`],["Brand",r=>esc(brandName(r.brandId))],["SKU",r=>`<span class="code">${esc(r.sku||"")}</span>`],["Category",r=>esc(catName(r.categoryId))],
-      ["Price",r=>r.pricingMethod==="open"?"Open":usd(r.price)],["Cost %",r=>{ const c = productCost(r); return +r.price && c ? (c/r.price*100).toFixed(1)+" %" : '<span class="note">—</span>'; },"num"],["Tax Group",r=>esc(r.taxGroup||"—")],
+      ["Price",r=>r.pricingMethod==="open"?"Open":usd(r.price)],["Cost %",r=>{ const c = productCost(r); return +r.price && c ? (c/r.price*100).toFixed(1)+" %" : '<span class="note">—</span>'; },"num"],["Tax Group",r=>esc(tgName(r.taxGroup))],
       ["Channels",r=>chanTags(r)],["Active",r=>r.active===false?'<span class="tag off">Inactive</span>':'<span class="tag on">Active</span>']],
     fields:[{k:"name",l:"Name",req:1},{k:"nameAr",l:"Name (Arabic)"},brandField,{k:"sku",l:"SKU",auto:()=>nextSku("products")},
       {k:"categoryId",l:"Category",t:"select",req:1,opts:()=>S.categories.filter(c=>live(c)&&brandFilter(c)).map(c=>[c.id,(state.brand==="all"?brandName(c.brandId)+" · ":"")+c.name])},
       {k:"pricingMethod",l:"Pricing method",t:"select",opts:()=>[["fixed","Fixed price"],["open","Open price (cashier enters it)"]],def:"fixed"},
-      {k:"price",l:"Price (USD)",t:"number",req:1},{k:"taxGroup",l:"Tax group",t:"select",opts:()=>[["TAX","TAX"],["No tax","No tax"]],def:"TAX"},
+      {k:"price",l:"Price (USD)",t:"number",req:1},{k:"taxGroup",l:"Tax group",t:"select",opts:()=>taxGroupOpts(),def:"tg_vat",ph:"No tax"},
       {k:"costingMethod",l:"Costing method",t:"select",opts:()=>[["ingredients","From ingredients"],["fixed","Fixed cost"]],def:"ingredients"},{k:"cost",l:"Fixed cost (USD, if fixed)",t:"number"},
       {k:"sellingMethod",l:"Selling method",t:"select",opts:()=>[["unit","Unit"],["weight","Weight"]],def:"unit"},{k:"barcode",l:"Barcode"},
       {k:"prepTime",l:"Preparation time (minutes)",t:"number"},{k:"calories",l:"Calories (kCal)",t:"number"},
@@ -1072,7 +1174,7 @@ const CRUD = {
       ["Cost",r=>{ const c = productCost(r); return c ? fmtCost(c) : "—"; },"num"],["Active",r=>r.active===false?'<span class="tag off">Inactive</span>':'<span class="tag on">Active</span>']],
     fields:[{k:"name",l:"Name",req:1},{k:"nameAr",l:"Name (Arabic)"},
       {k:"modifierId",l:"Modifier",t:"select",req:1,opts:()=>S.modifiers.filter(live).sort((a,b)=>a.name.localeCompare(b.name)).map(m=>[m.id,m.name]),auto:()=>state.newOptMod||state.modFilter||""},
-      {k:"sku",l:"SKU",auto:()=>nextSku("modifier_options")},{k:"price",l:"Price (USD)",t:"number",def:0},{k:"taxGroup",l:"Tax group",t:"select",opts:()=>[["TAX","TAX"],["No tax","No tax"]],def:"TAX"},
+      {k:"sku",l:"SKU",auto:()=>nextSku("modifier_options")},{k:"price",l:"Price (USD)",t:"number",def:0},{k:"taxGroup",l:"Tax group",t:"select",opts:()=>taxGroupOpts(),def:"tg_vat",ph:"No tax"},
       {k:"costingMethod",l:"Costing method",t:"select",opts:()=>[["ingredients","From ingredients"],["fixed","Fixed cost"]],def:"ingredients"},{k:"cost",l:"Fixed cost (USD, if fixed)",t:"number"},
       {k:"calories",l:"Calories (kCal)",t:"number"},{k:"active",l:"Active",t:"chk",def:true}]
   },
@@ -1166,6 +1268,7 @@ function crudView(key){
   let h = `<div class="phead"><h1>${cfg.title}</h1><div class="sp"></div>${SORTABLE[key] ? `<button class="btn" data-sorter="${key}">${svgIco("sort")} Sort</button>` : ""}<button class="btn pri" data-create="${key}">Create ${cfg.one}</button></div>`;
   if(storeMode==="local") h += `<div class="banner">Preview mode: changes won't be saved.</div>`;
   if(cfg.note) h += `<p class="subt" style="margin-top:-6px">${esc(cfg.note)}</p>`;
+  if(cfg.top) h += cfg.top();
   if(key==="delivery-zones") h += `<div class="card" style="padding:0;overflow:hidden;margin-bottom:16px"><div id="zonesMap" style="height:380px"></div><div id="zonesLegend" class="legend"></div></div>`;
   h += `<div class="card tbl"><div class="ttop"><div class="ttabs">${cfg.tabs.map(t=>`<a href="#${key}" data-tab="${key}:${t[0]}" class="${tab===t[0]?"on":""}">${t[1]}</a>`).join("")}</div>
     ${key==="modifier-options"&&state.modFilter?`<span class="chip">Modifier: ${esc(modName(state.modFilter))} <button data-clearmod aria-label="Clear">×</button></span>`:""}
@@ -1180,10 +1283,12 @@ function crudView(key){
 }
 
 /* ---------- Sort: drag items into the order every screen should show them ---------- */
+const PM_TYPES = [["cash","Cash"],["card","Card"],["other","Other"]];
 const SORTABLE = {
   categories: { col:"categories", scope: () => brandList().length > 1 ? ["Brand", brandList().map(b=>[b.id,b.name]), r => r.brandId] : null, def: () => state.brand!=="all" ? state.brand : brandList()[0]?.id },
   products: { col:"products", scope: () => ["Category", S.categories.filter(c=>live(c)&&brandFilter(c)).sort(bySort).map(c=>[c.id,(state.brand==="all"&&brandList().length>1?brandName(c.brandId)+" · ":"")+c.name]), r => r.categoryId], def: () => state.catFilter || S.categories.filter(c=>live(c)&&brandFilter(c)).sort(bySort)[0]?.id },
   modifiers: { col:"modifiers", scope: () => null },
+  "payment-methods": { col:"payment_methods", scope: () => null },
   "order-sources": { col:"order_sources", scope: () => null },
   "modifier-options": { col:"modifier_options", scope: () => ["Modifier", S.modifiers.filter(live).sort(bySort).map(m=>[m.id,m.name]), r => r.modifierId], def: () => state.modFilter || S.modifiers.filter(live).sort(bySort)[0]?.id }
 };
@@ -1254,8 +1359,9 @@ function openCrud(key, id){
     const v = val(f), idA = "cf_"+f.k, full = f.full||f.t==="textarea"||f.t==="multi" ? " full" : "";
     if(f.t==="polygon") return `<div class="f full"><label>${f.l}</label><div class="note">Click the map to add corners around the area this branch delivers to. Drag a corner to adjust it.</div><div id="zoneMap" class="zmap"></div><div class="row" style="margin:8px 0 0"><button type="button" class="btn sm" id="zUndo">Undo last point</button><button type="button" class="btn sm" id="zClear">Clear</button><span class="note" id="zInfo"></span></div></div>`;
     if(f.t==="chk") return `<div class="f full"><label class="chk"><input type="checkbox" id="${idA}" ${v!==false&&v!==undefined?"checked":""}> ${f.l}</label></div>`;
-    if(f.t==="select") return `<div class="f${full}"><label for="${idA}">${f.l}${f.req?" *":""}</label><select id="${idA}"><option value="">Choose…</option>${f.opts().map(([k,t])=>`<option value="${esc(k)}" ${k===v?"selected":""}>${esc(t)}</option>`).join("")}</select></div>`;
-    if(f.t==="multi"){ const set = new Set(v||[]); return `<div class="f full"><label>${f.l}</label><div class="multi" id="${idA}">${f.opts().map(([k,t])=>`<label class="chk"><input type="checkbox" value="${esc(k)}" ${set.has(k)?"checked":""}> ${esc(t)}</label>`).join("")}</div></div>`; }
+    if(f.t==="select") return `<div class="f${full}"><label for="${idA}">${f.l}${f.req?" *":""}</label><select id="${idA}"><option value="">${esc(f.ph||"Choose…")}</option>${f.opts().map(([k,t])=>`<option value="${esc(k)}" ${k===v?"selected":""}>${esc(t)}</option>`).join("")}</select></div>`;
+    if(f.t==="multi"){ const set = new Set(v||[]); return `<div class="f full"><label>${f.l}</label><div class="multi" id="${idA}">${f.opts().map(([k,t])=>k.startsWith("@") ? `<div class="mhead">${esc(k.slice(1))}</div>` : `<label class="chk"><input type="checkbox" value="${esc(k)}" ${set.has(k)?"checked":""}> ${esc(t)}</label>`).join("")}</div>${f.note?`<div class="note">${esc(f.note)}</div>`:""}</div>`; }
+    if(f.t==="pin") return `<div class="f"><label for="${idA}">${f.l}</label><input id="${idA}" type="password" inputmode="numeric" maxlength="4" autocomplete="new-password" placeholder="${r?.pinHash?"•••• (set; type to change)":"4 digits"}"><div class="note">${esc(f.note||"")}</div></div>`;
     if(f.t==="textarea") return `<div class="f full"><label for="${idA}">${f.l}</label><textarea id="${idA}" rows="3">${esc(v||"")}</textarea></div>`;
     const list = f.t==="list" ? `<datalist id="${idA}_dl">${f.opts().map(o=>`<option value="${esc(o)}">`).join("")}</datalist>` : "";
     return `<div class="f${full}"><label for="${idA}">${f.l}${f.req?" *":""}</label><input id="${idA}" ${f.t==="number"?'type="number" step="any" min="0"':""} ${f.t==="list"?`list="${idA}_dl"`:""} value="${esc(v??"")}" placeholder="${esc(f.ph||"")}">${list}</div>`;
@@ -1281,10 +1387,12 @@ async function submitCrud(e){
     else data[f.k] = el.value.trim();
     if(f.req && (data[f.k]===""||data[f.k]===null)){ $("#cErr").textContent = f.l + " is required."; el.focus(); return; }
   }
+  if(cfg.prep){ const msg = await cfg.prep(data, crudEdit.id); if(msg){ $("#cErr").textContent = msg; return; } }
   if(cfg.fields.some(f=>f.k==="sku") && data.sku && S[cfg.col].some(r=>r.id!==crudEdit.id && live(r) && r.sku===data.sku)){ $("#cErr").textContent = "That SKU is already used."; return; }
   if(cfg.unique && S[cfg.col].some(r=>r.id!==crudEdit.id && live(r) && String(r[cfg.unique]||"").toLowerCase()===String(data[cfg.unique]||"").toLowerCase())){ $("#cErr").textContent = `That ${cfg.unique} is already used by another ${cfg.one.toLowerCase()}.`; return; }
   const old = crudEdit.id ? { ...S[cfg.col].find(r=>r.id===crudEdit.id) } : null;
-  try{ await put(cfg.col, crudEdit.id, data); if(cfg.after) await cfg.after(old, data); toast(cfg.one + " saved"); closeCrud(); }
+  const newId = !crudEdit.id && data.id ? data.id : null; delete data.id;
+  try{ await put(cfg.col, crudEdit.id || newId, data); if(cfg.after) await cfg.after(old, data); toast(cfg.one + " saved"); closeCrud(); }
   catch(err){ console.error(err); $("#cErr").textContent = "Couldn't save. You may not have edit access."; }
 }
 async function softDelete(flag){
@@ -1938,7 +2046,6 @@ function viewCompany(){
         ${f("name","Company name *","e.g. Wok Group SAL")}${f("legalName","Legal name","As on the commercial register")}
         ${f("taxNumber","Tax (VAT) number")}${f("crNumber","Commercial register number")}
         <div class="f"><label for="co_currency">Currency</label><select id="co_currency" class="sel" ${admin?"":"disabled"}>${CURRENCIES.map(([k,t])=>`<option value="${k}" ${(c.currency||"USD")===k?"selected":""}>${t}</option>`).join("")}</select></div>
-        ${f("vatRate","VAT rate (%)","e.g. 11","number")}
         ${f("phone","Phone")}${f("email","Email","","email")}
         ${f("address","Address","","",1)}${f("logoUrl","Logo image link (optional)","https://…","url",1)}
       </div><div class="err" id="coErr"></div></div>
@@ -1960,7 +2067,7 @@ function dayExample(v){
 document.addEventListener("input", e => { if(e.target.id==="co_dayEnd" && $("#coDayEx")) $("#coDayEx").textContent = dayExample(e.target.value); });
 async function saveCompany(){
   const v = k => ($("#co_"+k)?.value || "").trim();
-  const data = { name:v("name"), legalName:v("legalName"), taxNumber:v("taxNumber"), crNumber:v("crNumber"), currency:v("currency")||"USD", vatRate: v("vatRate")==="" ? null : +v("vatRate"), phone:v("phone"), email:v("email"), address:v("address"), logoUrl:v("logoUrl"), dayEnd: v("dayEnd") || "00:00" };
+  const data = { name:v("name"), legalName:v("legalName"), taxNumber:v("taxNumber"), crNumber:v("crNumber"), currency:v("currency")||"USD", phone:v("phone"), email:v("email"), address:v("address"), logoUrl:v("logoUrl"), dayEnd: v("dayEnd") || "00:00" };
   if(/^(\d{1,2})/.test(data.dayEnd) && +data.dayEnd.split(":")[0] >= 12){ $("#coErr").textContent = "The day must end between 00:00 and 11:59."; $("#co_dayEnd").focus(); return; }
   if(!data.name){ $("#coErr").textContent = "Company name is required."; $("#co_name").focus(); return; }
   try{ await put("settings", "company", data); toast("Company saved"); }
@@ -2036,7 +2143,7 @@ function productDetail(p){
     ${p.active===false?'<span class="tag off" style="margin-left:8px">Inactive</span>':'<span class="tag on" style="margin-left:8px">Active</span>'}<div class="sp"></div>
     <button class="btn" data-dettoggle>${p.active===false?"Activate Product":"Deactivate Product"}</button><button class="btn pri" data-detedit>Edit Product</button></div>`;
   h += infoGrid([info("Name", esc(p.name)), info("Name Localized", esc(p.nameAr||"—")), info("Brand", esc(brandName(p.brandId))), info("Category", esc(catName(p.categoryId))),
-    info("SKU", `<span class="code">${esc(p.sku||"—")}</span>`), info("Barcode", esc(p.barcode||"—")), info("Tax Group", esc(p.taxGroup||"—")),
+    info("SKU", `<span class="code">${esc(p.sku||"—")}</span>`), info("Barcode", esc(p.barcode||"—")), info("Tax Group", esc(tgName(p.taxGroup))),
     info("Pricing Method", p.pricingMethod==="open"?"Open Price":"Fixed Price"), info("Selling Method", p.sellingMethod==="weight"?"Weight":"Unit"),
     info("Costing Method", p.costingMethod==="fixed"?"Fixed Cost":"From Ingredients"), info("Preparation Time", p.prepTime ? esc(p.prepTime)+" min" : "—"),
     info("Price", p.pricingMethod==="open" ? "Open" : usd(price)), info(p.costingMethod==="fixed"?"Fixed Cost":"Ingredients Cost", fmtCost(cost)),
@@ -2161,7 +2268,7 @@ function optionDetail(o){
     <button class="btn" data-dettoggle>${o.active===false?"Activate Option":"Deactivate Option"}</button><button class="btn pri" data-detedit>Edit Option</button></div>`;
   h += infoGrid([info("Name", esc(o.name)), info("Name Localized", esc(o.nameAr||"—")),
     info("Modifier", o.modifierId ? `<a href="#modifiers" class="lnk" data-detopen="modifiers:${esc(o.modifierId)}">${esc(modName(o.modifierId))}</a>` : "—"),
-    info("SKU", `<span class="code">${esc(o.sku||"—")}</span>`), info("Price", price ? usd(price) : "Free"), info("Tax Group", esc(o.taxGroup||"—")),
+    info("SKU", `<span class="code">${esc(o.sku||"—")}</span>`), info("Price", price ? usd(price) : "Free"), info("Tax Group", esc(tgName(o.taxGroup))),
     info("Costing Method", o.costingMethod==="fixed"?"Fixed Cost":"From Ingredients"), info(o.costingMethod==="fixed"?"Fixed Cost":"Ingredients Cost", fmtCost(cost)),
     info("Cost %", price && cost ? (cost/price*100).toFixed(1)+" %" : "—"), info("Calories", o.calories ? esc(o.calories)+" kCal" : "—")]);
   h += ingEditor("modifier-options", o);

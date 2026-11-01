@@ -121,11 +121,14 @@ body{-webkit-font-smoothing:antialiased}
 .icard{border-radius:16px;box-shadow:0 1px 2px rgba(21,19,31,.04),0 4px 14px rgba(21,19,31,.05);border-color:transparent}
 .toast{border-radius:12px}
 .stats div{border-radius:14px}
+.pindots{display:flex;gap:14px;justify-content:center;margin:6px 0 8px}.pindots i{width:16px;height:16px;border-radius:50%;border:2px solid var(--acc);display:block}.pindots i.on{background:var(--acc)}
+.pinpad{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:6px}.pinpad button{height:62px;border-radius:14px;border:1px solid #e4e1ef;background:#fff;font:inherit;font-size:22px;font-weight:600;cursor:pointer}
+.pinpad button:active{background:#efeaff}
 </style>
 <script>window.SLICK_OFFLINE = true;</script>
 <script src="supabase.js"></script>
 <script>if(!window.supabase) document.write('<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"><\/script>');</script>
-<script src="wokdb.js?v=14"></script>
+<script src="wokdb.js?v=15"></script>
 <script src="modpick.js?v=2"></script>
 </head>
 <body>
@@ -140,6 +143,11 @@ body{-webkit-font-smoothing:antialiased}
   <a href="index.html#devices" style="color:#5b2bc4;font-size:14px">← Back office</a>
 </form></div>
 
+<div id="lock" class="center hide" style="position:fixed;inset:0;z-index:50;background:var(--bg,#f4f3f8)"><div class="panel">
+  <div class="logo">S</div><h1 id="lockTitle">Enter your PIN</h1><p id="lockSub">Type your 4-digit PIN to start.</p>
+  <div class="pindots" id="pinDots"><i></i><i></i><i></i><i></i></div><div class="err" id="pinErr" style="min-height:20px;color:#b42318"></div>
+  <div class="pinpad"><button data-pin="1">1</button><button data-pin="2">2</button><button data-pin="3">3</button><button data-pin="4">4</button><button data-pin="5">5</button><button data-pin="6">6</button><button data-pin="7">7</button><button data-pin="8">8</button><button data-pin="9">9</button><button data-pin="c" aria-label="Clear">C</button><button data-pin="0">0</button><button data-pin="b" aria-label="Delete">⌫</button></div>
+</div></div>
 <div id="app" class="app hide">
   <div class="top">
     <div class="logo">S</div><div><b id="tBranch">—</b><div class="mut" id="tDevice">—</div></div>
@@ -148,6 +156,7 @@ body{-webkit-font-smoothing:antialiased}
     <div class="sp"></div>
     <button class="tbtn" id="incomingBtn">Incoming orders <span class="badge hide" id="incBadge">0</span></button>
     <button class="tbtn" id="shiftBtn">Open shift</button>
+    <button class="tbtn hide" id="lockBtn" title="Lock the register and switch cashier">🔒 <span id="cashierName"></span></button>
     <button class="tbtn" id="menuBtn" aria-label="More">⋯</button>
   </div>
   <div class="main">
@@ -176,7 +185,7 @@ let tt; const toast = m => { const t=$("#toast"); t.textContent=m; t.classList.a
 const store = { get(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } }, set(k,v){ try{ v==null?localStorage.removeItem(k):localStorage.setItem(k,v); }catch(e){} } };
 
 let db = null;
-const S = { brands:[], devices:[], branches:[], categories:[], products:[], orders:[], shifts:[], modifiers:[], modifier_options:[] };
+const S = { brands:[], devices:[], branches:[], categories:[], products:[], orders:[], shifts:[], modifiers:[], modifier_options:[], taxes:[], tax_groups:[], payment_methods:[], roles:[], users:[] };
 let device = null, branch = null, cat = "", otype = "dinein", cart = [], discount = 0, tableNo = "", cust = { name:"", phone:"", address:"" };
 
 /* ---------- boot ---------- */
@@ -194,6 +203,7 @@ function onData(c){
   device = S.devices.find(d => d.id===device.id) || device;
   if(device.deleted){ store.set("wokDevice", null); location.reload(); return; }
   branch = S.branches.find(b => b.id===device.branchId) || branch;
+  if(c==="users" || c==="roles"){ if(cashier){ cashier = S.users.find(u=>u.id===cashier.id && live(u) && u.active!==false) || null; } lockIfNeeded(); }
   renderAll();
 }
 
@@ -235,7 +245,7 @@ $("#actForm").addEventListener("submit", async e => {
 });
 function startApp(id){
   device = S.devices.find(d => d.id===id); branch = S.branches.find(b => b.id===device.branchId);
-  show("app"); renderAll();
+  show("app"); renderAll(); lockIfNeeded();
   setInterval(() => db.collection("devices").doc(device.id).update({ lastSeen:new Date().toISOString() }).catch(()=>{}), 5*60*1000);
 }
 
@@ -244,6 +254,37 @@ const live = r => !r.deleted;
 const prodPrice = p => { const c = (p.customPrices||{})[device.branchId]; return c!=null && c!=="" ? +c : +p.price||0; };
 const products = () => S.products.filter(p => live(p) && p.active!==false && !(p.inactiveBranchIds||[]).includes(device.branchId) && (!p.brandId || !branch?.brandId || p.brandId===branch.brandId) && (!p.channels || p.channels.includes("pos")) && (!p.branchIds?.length || p.branchIds.includes(device.branchId)));
 const openShift = () => S.shifts.find(s => s.deviceId===device.id && !s.closedAt);
+/* ---------- cashiers: PIN sign-in and what each role may do ---------- */
+let cashier = null, pinBuf = "";
+const posUsers = () => S.users.filter(u => live(u) && u.active!==false && u.pinHash && (!(u.branchIds||[]).length || u.branchIds.includes(device.branchId)));
+const usePins = () => S.users.some(u => live(u) && u.pinHash);           // no PIN users yet = the register stays open, as before
+const can = perm => { if(!usePins()) return true; if(!cashier) return false; const r = S.roles.find(x => x.id===cashier.roleId && live(x)); return !!r && (r.permissions||[]).includes(perm); };
+async function pinHash(id, pin){ const b = await crypto.subtle.digest("SHA-256", new TextEncoder().encode("slick:" + id + ":" + pin)); return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,"0")).join(""); }
+function lockIfNeeded(){ if(usePins() && !cashier) lock(); paintCashier(); }
+function lock(){ cashier = null; pinBuf = ""; paintPin(); $("#pinErr").textContent = ""; $("#lock").classList.remove("hide"); paintCashier(); }
+function paintPin(){ document.querySelectorAll("#pinDots i").forEach((d,i) => d.classList.toggle("on", i < pinBuf.length)); }
+function paintCashier(){ $("#lockBtn").classList.toggle("hide", !usePins()); $("#cashierName").textContent = cashier ? cashier.name : ""; }
+async function tryPin(){
+  const pin = pinBuf; pinBuf = ""; paintPin();
+  for(const u of posUsers()){ if(await pinHash(u.id, pin) === u.pinHash){
+    const r = S.roles.find(x => x.id===u.roleId && live(x));
+    if(!r || !(r.permissions||[]).includes("pos_access")){ $("#pinErr").textContent = "Your role doesn't allow using the POS."; return; }
+    cashier = u; $("#lock").classList.add("hide"); paintCashier(); toast("Signed in as " + u.name); return; } }
+  $("#pinErr").textContent = "Wrong PIN. Try again.";
+}
+$("#lock").addEventListener("click", e => { const b = e.target.closest("[data-pin]"); if(!b) return; const k = b.dataset.pin;
+  if(k==="c") pinBuf = ""; else if(k==="b") pinBuf = pinBuf.slice(0,-1); else if(pinBuf.length < 4) pinBuf += k;
+  $("#pinErr").textContent = ""; paintPin(); if(pinBuf.length===4) tryPin(); });
+document.addEventListener("keydown", e => { if($("#lock").classList.contains("hide")) return; if(/^\d$/.test(e.key) && pinBuf.length < 4){ pinBuf += e.key; paintPin(); if(pinBuf.length===4) tryPin(); } else if(e.key==="Backspace"){ pinBuf = pinBuf.slice(0,-1); paintPin(); } });
+$("#lockBtn").addEventListener("click", () => lock());
+let idleT; ["pointerdown","keydown"].forEach(ev => document.addEventListener(ev, () => { clearTimeout(idleT); idleT = setTimeout(() => { if(usePins() && cashier) lock(); }, 10*60*1000); }));
+const deny = what => { toast(`${cashier ? cashier.name + ", your" : "Your"} role doesn't allow ${what}.`); return true; };
+/* ---------- tax (prices include it) ---------- */
+const prodTaxRate = id => { const p = S.products.find(x=>x.id===id), g = p && S.tax_groups.find(x=>x.id===p.taxGroup && live(x)); return g ? (g.taxIds||[]).reduce((a,t) => { const x = S.taxes.find(y=>y.id===t && live(y)); return a + (x ? +x.rate||0 : 0); }, 0)/100 : 0; };
+function orderTax(items, disc){ let g = 0, t = 0; (items||[]).forEach(i => { const l = (+i.price||0)*(+i.qty||1), r = prodTaxRate(i.productId); g += l; t += l*r/(1+r); }); if(g>0 && disc>0) t *= 1 - Math.min(disc,g)/g; return +t.toFixed(2); }
+/* ---------- payment methods (Manage → Payment Methods; Cash / Card / Other until some are added) ---------- */
+const payMethods = () => { const l = S.payment_methods.filter(m => live(m) && m.active!==false).sort((a,b)=>(a.sort??999)-(b.sort??999)||a.name.localeCompare(b.name));
+  return l.length ? l.map(m => ({ id:m.id, name:m.name, type:m.type||"other" })) : [{ id:"cash", name:"Cash", type:"cash" },{ id:"card", name:"Card", type:"card" },{ id:"other", name:"Other", type:"other" }]; };
 const incoming = () => S.orders.filter(o => o.branchId===device.branchId && o.channel!=="pos" && (o.status==="pending" || o.status==="active"));
 
 /* ---------- render ---------- */
@@ -296,7 +337,7 @@ function modData(p){
 }
 async function addProduct(p){
   let price = prodPrice(p);
-  if(p.pricingMethod==="open"){ const v = prompt("Price for " + p.name, price || ""); if(v===null || v==="" || isNaN(+v) || +v<0) return; price = +v; }
+  if(p.pricingMethod==="open"){ if(!can("pos_open_price")){ deny("open-price items"); return; } const v = prompt("Price for " + p.name, price || ""); if(v===null || v==="" || isNaN(+v) || +v<0) return; price = +v; }
   let options = [], mods = "";
   if((p.modifiers||[]).length && window.SlickMods){ const r = await SlickMods.pick({ name:p.name, basePrice:price, ...modData(p), money:usd }); if(!r) return; options = r.options; mods = r.mods; price = r.unitPrice; }
   const k = SlickMods ? SlickMods.key(p.id, options) : p.id;
@@ -318,14 +359,15 @@ function closeModal(){ $("#scrim").classList.remove("show"); modalKind = null; }
 $("#scrim").addEventListener("click", e => { if(e.target.id==="scrim" || e.target.closest("[data-close]")) closeModal(); });
 
 $("#discBtn").addEventListener("click", () => {
+  if(!can("pos_discount")) return deny("discounts");
   modal("disc", `<div class="mh"><h2>Discount</h2><button class="x" data-close aria-label="Close">×</button></div><div class="mb"><div class="quick">${[0,5,10,15,20,25,50,100].map(p=>`<button data-disc="${p}">${p?p+"%":"None"}</button>`).join("")}</div></div>`);
 });
 $("#modal").addEventListener("click", async e => {
   const d = e.target.closest("[data-disc]"); if(d){ discount = +d.dataset.disc; closeModal(); renderCart(); return; }
-  const pm = e.target.closest("[data-pm]"); if(pm){ payMethod = pm.dataset.pm; document.querySelectorAll("[data-pm]").forEach(b=>b.classList.toggle("on", b===pm)); $("#cashBox").classList.toggle("hide", payMethod!=="cash"); updChange(); return; }
+  const pm = e.target.closest("[data-pm]"); if(pm){ payMethod = payMethods().find(m=>m.id===pm.dataset.pm); document.querySelectorAll("[data-pm]").forEach(b=>b.classList.toggle("on", b===pm)); $("#cashBox").style.display = payMethod?.type==="cash" ? "" : "none"; updChange(); return; }
   const qk = e.target.closest("[data-qk]"); if(qk){ $("#tender").value = qk.dataset.qk; updChange(); return; }
   if(e.target.closest("#confirmPay")) return completeSale();
-  const ia = e.target.closest("[data-inc]"); if(ia){ const [id,s] = ia.dataset.inc.split(":"); try{ await db.collection("orders").doc(id).update({ status:s, updatedAt:new Date().toISOString(), handledBy:device.name }); toast(s==="active"?"Order accepted · sent to kitchen":s==="declined"?"Order declined":"Order completed"); }catch(err){ console.error(err); toast("Couldn't update the order"); } return; }
+  const ia = e.target.closest("[data-inc]"); if(ia){ if(!can("pos_incoming")) return deny("handling incoming orders"); const [id,s] = ia.dataset.inc.split(":"); try{ await db.collection("orders").doc(id).update({ status:s, updatedAt:new Date().toISOString(), handledBy:cashier?.name || device.name }); toast(s==="active"?"Order accepted · sent to kitchen":s==="declined"?"Order declined":"Order completed"); }catch(err){ console.error(err); toast("Couldn't update the order"); } return; }
   if(e.target.closest("#doOpenShift")) return doOpenShift();
   if(e.target.closest("#doCloseShift")) return doCloseShift();
   if(e.target.closest("#deact")){ store.set("wokDevice", null); location.reload(); }
@@ -333,28 +375,28 @@ $("#modal").addEventListener("click", async e => {
 $("#modal").addEventListener("input", e => { if(e.target.id==="tender") updChange(); });
 
 /* payment */
-let payMethod = "cash";
+let payMethod = null;
 $("#payBtn").addEventListener("click", () => {
   if(!openShift()){ toast("Open a shift before taking payments"); return; }
   if(otype==="delivery" && !cust.phone.trim()){ toast("Enter the customer's phone for delivery"); return; }
-  const t = totals(); payMethod = "cash";
+  const t = totals(), pms = payMethods(); payMethod = pms[0];
   const q = [t.total, Math.ceil(t.total/5)*5, Math.ceil(t.total/10)*10, Math.ceil(t.total/20)*20].filter((v,i,a)=>a.indexOf(v)===i);
   modal("pay", `<div class="mh"><h2>Payment</h2><button class="x" data-close aria-label="Close">×</button></div><div class="mb">
     <div class="due">${usd(t.total)}</div>
-    <div class="paym"><button data-pm="cash" class="on">Cash</button><button data-pm="card">Card</button><button data-pm="other">Other</button></div>
-    <div id="cashBox"><input class="tender" id="tender" inputmode="decimal" value="${t.total.toFixed(2)}" aria-label="Amount received">
+    <div class="paym">${pms.map((m,i)=>`<button data-pm="${esc(m.id)}" class="${i?"":"on"}">${esc(m.name)}</button>`).join("")}</div>
+    <div id="cashBox" ${pms[0].type==="cash"?"":'style="display:none"'}><input class="tender" id="tender" inputmode="decimal" value="${t.total.toFixed(2)}" aria-label="Amount received">
     <div class="quick">${q.map(v=>`<button data-qk="${v}">${usd(v)}</button>`).join("")}</div>
     <div class="change"><span>Change</span><b id="chg">USD 0.00</b></div></div></div>
     <div class="mf"><button class="btn" data-close>Cancel</button><button class="btn pri" id="confirmPay">Complete sale</button></div>`);
 });
-function updChange(){ const t = totals().total, v = +$("#tender")?.value || 0; if($("#chg")) $("#chg").textContent = payMethod==="cash" ? usd(Math.max(0, v-t)) : "—"; if($("#confirmPay")) $("#confirmPay").disabled = payMethod==="cash" && v < t; }
+function updChange(){ const t = totals().total, v = +$("#tender")?.value || 0; if($("#chg")) $("#chg").textContent = payMethod?.type==="cash" ? usd(Math.max(0, v-t)) : "—"; if($("#confirmPay")) $("#confirmPay").disabled = payMethod?.type==="cash" && v < t; }
 async function completeSale(){
-  const t = totals(), now = new Date().toISOString(), tender = payMethod==="cash" ? +$("#tender").value : t.total;
+  const t = totals(), now = new Date().toISOString(), tender = payMethod?.type==="cash" ? +$("#tender").value : t.total;
   const no = String(Math.max(1000, +store.get("slickLastNo")||0, ...S.orders.map(o=>+o.no||0)) + 1); store.set("slickLastNo", no);
   const order = { no, channel:"pos", source:"POS", type: otype==="dinein"?"dinein":otype==="takeaway"?"pickup":"delivery", table: otype==="dinein"?tableNo:"",
     customerName:cust.name.trim(), phone:cust.phone.trim(), address: otype==="delivery"?cust.address.trim():"",
-    brandId:branch?.brandId || null, branchId:device.branchId, deviceId:device.id, shiftId:openShift().id, agent:device.name, items:cart, subtotal:+t.sub.toFixed(2), discountPct:discount, discount:t.disc, total:t.total,
-    payment:{ method:payMethod, tendered:tender, change:+Math.max(0,tender-t.total).toFixed(2) }, status:"closed", createdAt:now, updatedAt:now };
+    brandId:branch?.brandId || null, branchId:device.branchId, deviceId:device.id, shiftId:openShift().id, agent:cashier?.name || device.name, items:cart, subtotal:+t.sub.toFixed(2), discountPct:discount, discount:t.disc, total:t.total,
+    tax:orderTax(cart, t.disc), payment:{ method:payMethod.name, type:payMethod.type, methodId:payMethod.id, tendered:tender, change:+Math.max(0,tender-t.total).toFixed(2) }, status:"closed", createdAt:now, updatedAt:now };
   $("#confirmPay").disabled = true;
   try{
     const id = "pos_" + Date.now().toString(36) + Math.random().toString(36).slice(2,5);
@@ -367,7 +409,9 @@ function receiptText(o){
   const lines = [ (()=>{ const n = (S.brands.find(b=>b.id===branch?.brandId)?.name || "Slick").toUpperCase(); return n.padStart((w+n.length)/2); })(), (branch?.name||"").padStart((w+(branch?.name||"").length)/2), "", row("Order #"+o.no, o.type==="dinein"?"Dine-in"+(o.table?" T"+o.table:""):o.type==="pickup"?"Takeaway":"Delivery"),
     new Date(o.createdAt).toLocaleString("en-GB"), "-".repeat(w), ...o.items.flatMap(i => [row(i.qty+" x "+i.name, (i.price*i.qty).toFixed(2)), ...(i.mods ? ["  + " + i.mods] : [])]), "-".repeat(w), row("Subtotal", o.subtotal.toFixed(2)) ];
   if(o.discount) lines.push(row("Discount "+o.discountPct+"%", "-"+o.discount.toFixed(2)));
-  lines.push(row("TOTAL USD", o.total.toFixed(2)), row("Paid ("+o.payment.method+")", o.payment.tendered.toFixed(2)));
+  lines.push(row("TOTAL USD", o.total.toFixed(2)));
+  if(o.tax) lines.push(row("  incl. tax", o.tax.toFixed(2)));
+  lines.push(row("Paid ("+o.payment.method+")", o.payment.tendered.toFixed(2)));
   if(o.payment.change) lines.push(row("Change", o.payment.change.toFixed(2)));
   lines.push("", "Thank you!".padStart((w+10)/2));
   return lines.join("\n");
@@ -393,13 +437,14 @@ function openIncoming(){
 
 /* shifts */
 $("#shiftBtn").addEventListener("click", () => {
+  if(!can("pos_shift")) return deny("opening or closing shifts");
   const sh = openShift();
   if(!sh) return modal("shift", `<div class="mh"><h2>Open shift</h2><button class="x" data-close aria-label="Close">×</button></div><div class="mb">
-    <div class="f"><label for="sName">Cashier name</label><input id="sName" placeholder="Who is working this register?"></div>
+    <div class="f"><label for="sName">Cashier name</label><input id="sName" placeholder="Who is working this register?" value="${esc(cashier?.name||"")}"></div>
     <div class="f"><label for="sCash">Starting cash in drawer (USD)</label><input id="sCash" inputmode="decimal" value="0"></div></div>
     <div class="mf"><button class="btn" data-close>Cancel</button><button class="btn pri" id="doOpenShift">Open shift</button></div>`);
   const sales = S.orders.filter(o => o.shiftId===sh.id && o.status==="closed");
-  const by = m => sales.filter(o=>o.payment?.method===m).reduce((a,o)=>a+o.total,0);
+  const by = m => sales.filter(o=>(o.payment?.type || o.payment?.method)===m).reduce((a,o)=>a+o.total,0);
   const expected = (+sh.openingCash||0) + by("cash");
   modal("shift", `<div class="mh"><h2>Close shift</h2><button class="x" data-close aria-label="Close">×</button></div><div class="mb">
     <p class="mut">Opened by ${esc(sh.cashier||"—")} at ${new Date(sh.openedAt).toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"})}</p>
@@ -421,9 +466,10 @@ async function doCloseShift(){
     closeModal(); toast(Math.abs(counted-expected)<0.01 ? "Shift closed · drawer balanced" : `Shift closed · difference ${usd(counted-expected)}`); }
   catch(err){ console.error(err); toast("Couldn't close the shift"); }
 }
-$("#menuBtn").addEventListener("click", () => modal("more", `<div class="mh"><h2>Device</h2><button class="x" data-close aria-label="Close">×</button></div><div class="mb">
+$("#menuBtn").addEventListener("click", () => can("pos_settings") ? openMore() : deny("device settings"));
+const openMore = () => modal("more", `<div class="mh"><h2>Device</h2><button class="x" data-close aria-label="Close">×</button></div><div class="mb">
   <p><b>${esc(device.name)}</b><br><span class="mut">${esc(branch?.name||"")}</span></p><p class="mut">To move this tablet to another branch, generate a new code in the back office and activate again.</p></div>
-  <div class="mf"><a class="btn" href="index.html#devices" style="margin-right:auto;text-decoration:none">Back office</a><button class="btn bad" id="deact">Deactivate on this tablet</button><button class="btn" data-close>Close</button></div>`));
+  <div class="mf"><a class="btn" href="index.html#devices" style="margin-right:auto;text-decoration:none">Back office</a><button class="btn bad" id="deact">Deactivate on this tablet</button><button class="btn" data-close>Close</button></div>`);
 })();
 if("serviceWorker" in navigator && !window.Capacitor && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(()=>{});
 </script>

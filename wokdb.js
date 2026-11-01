@@ -7,7 +7,7 @@
   const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: true, autoRefreshToken: true } });
 
   // app collection -> table, and which columns each table accepts
-  const TABLE = { inv_items: "inventory_items", zones: "delivery_zones", inv_categories: "inventory_categories", inv_docs: "inventory_docs" };
+  const TABLE = { inv_items: "inventory_items", zones: "delivery_zones", inv_categories: "inventory_categories", inv_docs: "inventory_docs", users: "staff_users" };
   const COLS = {
     brands: "id name name_ar active deleted created_at",
     branches: "id brand_id name code address city phone open_time close_time active call_center production created_at",
@@ -23,8 +23,13 @@
     inventory_docs: "id kind ref name location_id reason direction status business_date items notes created_by submitted_by submitted_at deleted created_at consumed supplier_id dest_id linked_id received_at received_by",
     suppliers: "id name code contact_name phone email address notes deleted created_at",
     modifiers: "id name name_ar reference sort deleted created_at",
+    taxes: "id name name_ar rate deleted created_at",
+    tax_groups: "id name name_ar reference tax_ids deleted created_at",
+    payment_methods: "id name name_ar type code open_drawer active sort deleted created_at",
+    roles: "id name description permissions deleted created_at",
+    staff_users: "id name email phone employee_no role_id branch_ids pin_hash active user_id deleted created_at",
     modifier_options: "id modifier_id name name_ar sku price tax_group costing_method cost calories ingredients custom_prices inactive_branch_ids out_of_stock_branch_ids sort active deleted created_at",
-    orders: "id brand_id no channel source type status branch_id device_id shift_id zone_id customer_name phone address lat lng table_no notes items subtotal discount_pct discount delivery_fee total payment agent handled_by accepted_at done_at void_reason voided_at voided_by created_at",
+    orders: "id brand_id no channel source type status branch_id device_id shift_id zone_id customer_name phone address lat lng table_no notes items subtotal discount_pct discount delivery_fee tax total payment agent handled_by accepted_at done_at void_reason voided_at voided_by created_at",
   };
   Object.keys(COLS).forEach(k => COLS[k] = new Set(COLS[k].split(" ")));
   const RENAME = { open: "open_time", close: "close_time", table: "table_no" };
@@ -228,8 +233,9 @@
     try{ const r = await sb.auth.getUser(); user = r.data?.user; if(r.error && isNet(r.error) && cached){ online = false; status(); return useStaff(cached); } }
     catch(e){ if(cached && isNet(e)) return useStaff(cached); }
     if(!user) return gate();
-    const { data, error } = await sb.from("staff").select("*").eq("user_id", user.id).maybeSingle();
+    let { data, error } = await sb.from("staff").select("*").eq("user_id", user.id).maybeSingle();
     if(error && isNet(error) && cached && cached.user_id === user.id) return useStaff(cached);
+    if(!data && !error){ const c = await sb.rpc("slick_claim_login"); if(c.data) ({ data } = await sb.from("staff").select("*").eq("user_id", user.id).maybeSingle()); }   // first sign-in of a user added under Manage → Users
     if(!data){ await sb.auth.signOut(); return gate("This login isn't set up as staff yet. Ask the owner to add you."); }
     useStaff({ ...data, email: user.email });
   }
