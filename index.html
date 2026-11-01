@@ -376,11 +376,13 @@ a.btn{text-decoration:none}
 .cins{border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin:2px 0 8px;background:var(--bg,#f8f7fc)}.cins-h{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:6px;font-size:13px}
 .cins-g{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}.cins-g div{display:flex;flex-direction:column;font-size:11.5px;color:var(--ink2)}.cins-g b{font-size:14px;color:var(--ink)}
 #zonesMap,.zmap{position:relative;z-index:0;isolation:isolate}
+tr.grp .toggle{vertical-align:middle}
+.spill.s-refund{background:#fde8e8;color:#9e0c24}
 </style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="wokdb.js?v=21"></script>
+<script src="wokdb.js?v=22"></script>
 <script src="modpick.js?v=4"></script>
 </head>
 <body>
@@ -463,7 +465,12 @@ const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt
   P.toLocaleString = function(l, o){ return ls.call(this, l || "en-GB", { hour12:true, ...(o||{}) }); };
   P.toLocaleTimeString = function(l, o){ return lt.call(this, l || "en-GB", { hour12:true, ...(o||{}) }); }; })();
 const t12 = v => { const m = /^(\d{1,2}):(\d{2})/.exec(v||""); if(!m) return v||""; const h = +m[1]; return `${h%12||12}:${m[2]} ${h<12?"AM":"PM"}`; };
-const money = n => "USD " + n.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});
+const coSet = () => { try{ return S.settings.find(x=>x.id==="company") || {}; }catch(e){ return {}; } };
+const DEC = () => { const d = coSet().priceDecimals; return d===0||d==="0" ? 0 : +d || 2; };
+const CUR = () => coSet().currency || "USD";
+const money = n => CUR() + " " + (+n||0).toLocaleString("en-US",{minimumFractionDigits:DEC(),maximumFractionDigits:DEC()});
+// the same amount in the second currency (e.g. LBP at the day's rate), or "" when none is set
+const money2 = n => { const c = coSet(); if(!c.currency2 || !(+c.rate2)) return ""; const d = +c.decimals2 || 0; return c.currency2 + " " + ((+n||0) * +c.rate2).toLocaleString("en-US",{minimumFractionDigits:d,maximumFractionDigits:d}); };
 
 /* ---------- navigation map (mirrors the Foodics structure) ---------- */
 const I = {
@@ -678,7 +685,7 @@ function dashParams(offset){
   const act = activeBranches();
   return { p_day: d.toISOString().slice(0,10), p_days: n,
     p_branches: state.branch!=="all" ? [state.branch] : (act.length ? act.map(b=>b.id) : null),
-    p_brand: state.brand==="all" ? null : state.brand, ...(dayCut() ? { p_cut: dayCut() } : {}) };
+    p_brand: state.brand==="all" ? null : state.brand, p_tz: coSet().timeZone || "Asia/Beirut", ...(dayCut() ? { p_cut: dayCut() } : {}) };
 }
 async function loadDash(force){
   if(!window.WOK || storeMode!=="db") return;
@@ -691,12 +698,11 @@ async function loadDash(force){
   try{
     const calls = [WOK.sb.rpc(fn, cur)];
     if(state.compare && kind!=="inventory") calls.push(WOK.sb.rpc(fn, dashParams(1)));
-    const rets = kind==="sales" ? [dashReturns(dashParams(0)), state.compare ? dashReturns(dashParams(1)) : null] : [];
-    const res = await Promise.all(calls), rr = await Promise.all(rets);
+    const res = await Promise.all(calls), rr = [];
     if(DASH.key!==key) return;                       // filters changed meanwhile
     const bad = res.find(r => r.error); if(bad) throw bad.error;
     DASH.cur = res[0].data; DASH.prev = res[1]?.data || null; DASH.at = Date.now();
-    if(DASH.cur && rr[0]) DASH.cur.returns = rr[0]; if(DASH.prev && rr[1]) DASH.prev.returns = rr[1];
+    [DASH.cur, DASH.prev].forEach(D => { if(D && D.refunds) D.returns = D.refunds; });
   }catch(e){ console.error("dashboard", e); if(DASH.key===key) DASH.err = e.message || "Couldn't load the numbers"; }
   finally{ if(DASH.key===key){ DASH.loading = false; if((location.hash.slice(1)||"dashboard")==="dashboard") render(); } }
 }
@@ -799,6 +805,7 @@ function scopeBar(withBranch){
   const bl = brandList(), act = activeBranches();
   return `${bl.length ? `<select class="sel" data-scope="brand" aria-label="Brand"><option value="all">All brands (${bl.length})</option>${bl.map(b=>`<option value="${esc(b.id)}" ${state.brand===b.id?"selected":""}>${esc(b.name)}</option>`).join("")}</select>` : ""}${withBranch ? `<select class="sel" data-scope="branch" aria-label="Branch"><option value="all">All branches (${act.length})</option>${act.map(b=>`<option value="${esc(b.id)}" ${state.branch===b.id?"selected":""}>${esc(b.name)}</option>`).join("")}</select>` : ""}`;
 }
+document.addEventListener("change", e => { if(e.target.id==="prodCat"){ state.catFilter = e.target.value; state.page.products = 1; return render(); } });
 document.addEventListener("change", e => { const t = e.target.closest("[data-scope]"); if(!t) return;
   if(t.dataset.scope==="brand"){ state.brand = t.value; state.branch = "all"; } else state.branch = t.value; render(); });
 function viewDashboard(){
@@ -825,7 +832,7 @@ function viewDashboard(){
       ${kpiCard("Discount Amount", money(+D.discount), hDisc, "m", +D.discount, P&&+P.discount)}
       ${kpiCard("Average Ticket", money(avg(D)), hN.map((o,i)=>o?hNet[i]/o:0), "m", avg(D), P&&avg(P))}
       <div class="card kpi"><div class="kh"><h3>Tax Amount</h3></div><div class="v">${money(+D.tax||0)}</div>${delta(+D.tax||0, P&&(+P.tax||0))}<div class="d">Included in sales (prices include tax)</div></div>
-      <div class="card kpi"><div class="kh"><h3>Return Amount</h3></div><div class="v">${money(D.returns?.v||0)}</div><div class="d">${D.returns?.n||0} returned order${D.returns?.n===1?"":"s"}${D.returns?.tax ? ` · incl. tax ${money(D.returns.tax)}` : ""}</div>
+      <div class="card kpi"><div class="kh"><h3>Return Amount</h3></div><div class="v">${money(D.returns?.v||0)}</div><div class="d">${D.returns?.n||0} refund ticket${D.returns?.n===1?"":"s"}${D.returns?.tax ? ` · incl. tax ${money(D.returns.tax)}` : ""}</div>
         ${state.compare && P ? `<div class="d">${cap(cmpLbl())}: ${money(P.returns?.v||0)}</div>` : ""}</div>
       <div class="card kpi"><div class="kh"><h3>Declined orders</h3></div><div class="v">${D.declined.n}</div><div class="d">${money(+D.declined.v)} not sold · ${D.open} order${D.open===1?"":"s"} still open</div>
         ${state.compare && P ? `<div class="d">${cap(cmpLbl())}: ${P.declined.n}</div>` : ""}</div>
@@ -936,7 +943,7 @@ function viewBranches(){
       <td>${(() => { const d = b.settings?.hours?.[DAYS[(new Date().getDay()+6)%7][0]]; return d ? (d.closed ? '<span class="note">Closed today</span>' : `${esc(t12(d.open))} – ${esc(t12(d.close))}`) : `${esc(b.open||"")}${b.open||b.close?"–":""}${esc(b.close||"")}`; })()}</td>
       <td>${esc(b.phone)||'<span class="note">—</span>'}</td>
       <td><span class="tag ${b.active!==false?"on":"off"}"><span class="dot"></span>${b.active!==false?"Active":"Inactive"}</span>${b.callCenter?` <span class="tag cc">Call center</span>`:""}</td>
-      <td class="num"><button class="btn sm" data-edit="${esc(b.id)}">Edit</button></td></tr>`).join("")
+      <td class="num"><a class="btn sm" href="#branch-menu" data-brmenu="${esc(b.id)}" style="text-decoration:none">Menu</a> <button class="btn sm" data-edit="${esc(b.id)}">Edit</button></td></tr>`).join("")
   }</tbody></table></div>
   <p class="note" style="margin-top:12px">Inactive branches stay in your history but are hidden from dashboards, filters and call-center routing.</p>`;
   return h;
@@ -1137,7 +1144,7 @@ const modRank = id => S.modifiers.find(m => m.id===id)?.sort ?? 9999;
 const branchName = id => branches.find(b => b.id===id)?.name || "—";
 const fmtDate = s => s ? new Date(s).toLocaleString("en-GB",{year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit"}).replace(",","") : "—";
 const ago = s => { const m = Math.round((Date.now() - new Date(s))/60000); if(m<1) return "just now"; if(m<60) return m + " minute" + (m>1?"s":"") + " ago"; const h = Math.round(m/60); if(h<24) return (h===1?"an":h) + " hour" + (h>1?"s":"") + " ago"; return Math.round(h/24) + " days ago"; };
-const usd = n => "USD " + (+n||0).toLocaleString("en-US",{maximumFractionDigits:2});
+const usd = n => CUR() + " " + (+n||0).toLocaleString("en-US",{minimumFractionDigits:DEC(),maximumFractionDigits:DEC()});
 
 /* ---------- CRUD screens, Foodics-style ---------- */
 const CHANNELS = [["pos","POS"],["callcenter","Call center"],["delivery","Online delivery"],["takeaway","Online pickup"],["dinein","Dine-in QR"]];
@@ -1239,7 +1246,7 @@ const CRUD = {
   products: {
     col:"products", title:"Products", one:"Product", detail: r => productDetail(r),
     tabs:[["all","All",live],["active","Active",r=>live(r)&&r.active!==false],["inactive","Inactive",r=>live(r)&&r.active===false],["deleted","Deleted",r=>r.deleted]],
-    sort:(a,b)=>catRank(a.categoryId)-catRank(b.categoryId) || String(a.categoryId).localeCompare(String(b.categoryId)) || bySort(a,b),
+    sort:(a,b)=>String(a.name||"").localeCompare(String(b.name||"")),
     search:r=>r.name+" "+(r.sku||"")+" "+catName(r.categoryId),
     filter:r=>brandFilter(r) && (!state.catFilter || r.categoryId===state.catFilter),
     cols:[["Name",r=>`<span class="pname">${r.imageUrl?`<img class="pthumb" src="${esc(r.imageUrl)}" alt="" loading="lazy">`:`<span class="pthumb none"></span>`}<b>${esc(r.name)}</b></span>`],["Brand",r=>esc(brandName(r.brandId))],["SKU",r=>`<span class="code">${esc(r.sku||"")}</span>`],["Category",r=>esc(catName(r.categoryId))],
@@ -1255,7 +1262,6 @@ const CRUD = {
       {k:"imageUrl",l:"Image",t:"image",full:1},
       {k:"description",l:"Description",t:"textarea",full:1},
       {k:"channels",l:"Sell on (menu zoning by channel)",t:"multi",full:1,opts:()=>CHANNELS,def:CHANNELS.map(c=>c[0])},
-      {k:"branchIds",l:"Available in branches (leave all unticked = every branch of the brand)",t:"multi",full:1,opts:()=>branches.filter(brandFilter).map(b=>[b.id,(state.brand==="all"?brandName(b.brandId)+" · ":"")+b.name])},
       {k:"active",l:"Active",t:"chk",def:true}]
   },
   modifiers: {
@@ -1412,7 +1418,7 @@ function crudView(key){
   if(key==="delivery-zones") h += `<div class="card" style="padding:0;overflow:hidden;margin-bottom:16px"><div id="zonesMap" style="height:380px"></div><div id="zonesLegend" class="legend"></div></div>`;
   h += `<div class="card tbl"><div class="ttop"><div class="ttabs">${cfg.tabs.map(t=>`<a href="#${key}" data-tab="${key}:${t[0]}" class="${tab===t[0]?"on":""}">${t[1]}</a>`).join("")}</div>
     ${key==="modifier-options"&&state.modFilter?`<span class="chip">Modifier: ${esc(modName(state.modFilter))} <button data-clearmod aria-label="Clear">×</button></span>`:""}
-    ${key==="products"&&state.catFilter?`<span class="chip">Category: ${esc(catName(state.catFilter))} <button data-clearcat aria-label="Clear">×</button></span>`:""}
+    ${key==="products" ? `<select class="sel" id="prodCat" aria-label="Category"><option value="">All categories</option>${S.categories.filter(c=>live(c)&&brandFilter(c)).sort(bySort).map(c=>`<option value="${esc(c.id)}" ${state.catFilter===c.id?"selected":""}>${state.brand==="all"&&brandList().length>1?esc(brandName(c.brandId))+" · ":""}${esc(c.name)}</option>`).join("")}</select>` : ""}
     <div class="sp"></div>${scopeHere ? scopeBar(false) : ""}<input class="sel search" data-search="${key}" placeholder="Search" value="${esc(state.q[key]||"")}" aria-label="Search ${cfg.title}"></div>`;
   if(!shown.length) h += `<div class="empty">${S[cfg.col].length ? "Nothing matches." : `No ${cfg.title.toLowerCase()} yet.`}</div>`;
   else h += `<table><thead><tr>${cfg.cols.map(c=>`<th class="${c[2]||""}">${c[0]}</th>`).join("")}</tr></thead><tbody>${
@@ -1426,7 +1432,6 @@ function crudView(key){
 const PM_TYPES = [["cash","Cash"],["card","Card"],["other","Other"]];
 const SORTABLE = {
   categories: { col:"categories", scope: () => brandList().length > 1 ? ["Brand", brandList().map(b=>[b.id,b.name]), r => r.brandId] : null, def: () => state.brand!=="all" ? state.brand : brandList()[0]?.id },
-  products: { col:"products", scope: () => ["Category", S.categories.filter(c=>live(c)&&brandFilter(c)).sort(bySort).map(c=>[c.id,(state.brand==="all"&&brandList().length>1?brandName(c.brandId)+" · ":"")+c.name]), r => r.categoryId], def: () => state.catFilter || S.categories.filter(c=>live(c)&&brandFilter(c)).sort(bySort)[0]?.id },
   "payment-methods": { col:"payment_methods", scope: () => null },
   "order-sources": { col:"order_sources", scope: () => null },
   "modifier-options": { col:"modifier_options", inside:true, scope: () => ["Modifier", S.modifiers.filter(live).sort(bySort).map(m=>[m.id,m.name]), r => r.modifierId], def: () => state.modFilter || S.modifiers.filter(live).sort(bySort)[0]?.id }
@@ -1695,6 +1700,8 @@ function customerImport(){
     };
   });
 }
+document.addEventListener("click", e => { const m = e.target.closest("[data-brmenu]"); if(!m) return; e.preventDefault(); const b = branches.find(x=>x.id===m.dataset.brmenu);
+  location.hash = "branch-menu"; setTimeout(() => { if(b){ state.brand = brandList().length ? (b.brandId || "all") : "all"; BM.branch = b.id; BM.kind = "products"; BM.draft = {}; } render(); }, 60); });
 document.addEventListener("click", e => { const t = e.target.closest("[data-roletpl]"); if(!t) return; e.preventDefault();
   const set = t.dataset.roletpl ? ROLE_TPL[t.dataset.roletpl] : [], all = !set;
   document.querySelectorAll("#cf_permissions input[type=checkbox]").forEach(c => c.checked = all || set.includes(c.value));
@@ -1798,7 +1805,7 @@ function viewCallCenter(){
   return h;
 }
 // order number comes from the POS that bills the order; until then call-center / online orders go by invoice number
-const ordRef = o => o.no ? "#" + o.no : "Inv " + (o.invoiceNo || o.invoice_no || "—");
+const ordRef = o => o.status==="refund" ? "RET-" + String(o.returnNo || o.return_no || "…").padStart(6,"0") : o.no ? "#" + o.no : "Inv " + (o.invoiceNo || o.invoice_no || "—");
 const ccTime = t => { if(!t) return "—"; const d = new Date(t), today = bizDate()===bizDate(d); return d.toLocaleString("en-GB", today ? { hour:"2-digit", minute:"2-digit" } : { day:"numeric", month:"short", hour:"2-digit", minute:"2-digit" }); };
 const ccCard = o => `<button class="ocard" data-order="${esc(o.id)}"><div class="orow"><b>${esc(ordRef(o))}</b><span class="spill s-${o.status}">${CC_SUB[o.status]}</span></div>
   <div class="oline">${svgIco("users")}<span>${esc(o.customerName||"Guest")}<br><span class="note">${esc(o.phone||"")}</span></span></div>
@@ -1898,7 +1905,7 @@ function fillOrderBranches(sel){
 function availableProducts(){
   const br = $("#oBranch")?.value, bd = $("#oBrand")?.value;
   if(brandList().length && !bd) return [];
-  return S.products.filter(p => live(p) && p.active!==false && (!bd || p.brandId===bd) && (!p.channels || p.channels.includes("callcenter")) && (!br || ((!p.branchIds?.length || p.branchIds.includes(br)) && !(p.inactiveBranchIds||[]).includes(br))));
+  return S.products.filter(p => live(p) && p.active!==false && (!bd || p.brandId===bd) && (!p.channels || p.channels.includes("callcenter")) && (!br || (!(p.inactiveBranchIds||[]).includes(br) && !(S.categories.find(c=>c.id===p.categoryId)?.inactiveBranchIds||[]).includes(br))));
 }
 const prodRate = id => { const p = S.products.find(x=>x.id===id), g = p && S.tax_groups.find(x=>x.id===p.taxGroup && live(x)); return g ? taxRate(g)/100 : 0; };
 const ccTax = items => +(items||[]).reduce((a,i) => { const l = (+i.price||0)*(+i.qty||1), r = prodRate(i.productId); return a + l*r/(1+r); }, 0).toFixed(2);
@@ -1917,7 +1924,7 @@ function renderOrderMenu(){
     : prods.filter(p => state.oCat==="_none" ? !cats.some(c=>c.id===p.categoryId) : p.categoryId===state.oCat);
   $("#oCatTitle").textContent = q ? `${list.length} result${list.length===1?"":"s"} for “${q}”` : (cats.find(c=>c.id===state.oCat)?.name || (state.oCat==="_none" ? "Other" : ""));
   const inCart = id => cart.filter(i=>i.productId===id).reduce((a,i)=>a+i.qty,0);
-  box.innerHTML = list.length ? list.sort((a,b)=>(q ? catRank(a.categoryId)-catRank(b.categoryId) : 0) || bySort(a,b)).map(p=>{ const c = inCart(p.id), oos = (p.outOfStockBranchIds||[]).includes($("#oBranch")?.value);
+  box.innerHTML = list.length ? list.sort((a,b)=>String(a.name).localeCompare(String(b.name))).map(p=>{ const c = inCart(p.id), oos = (p.outOfStockBranchIds||[]).includes($("#oBranch")?.value);
     return `<button type="button" class="pbtn${c?" sel":""}" data-add="${esc(p.id)}" ${oos?"disabled title=\"Out of stock at this branch\"":""}>${c?`<em>${c}</em>`:""}${p.imageUrl?`<img class="ccimg" src="${esc(p.imageUrl)}" alt="" loading="lazy">`:""}<span>${esc(p.name)}</span><b>${oos?"Out of stock":usd(ccPrice(p))}</b>${(p.modifiers||[]).length?`<small>Options</small>`:""}</button>`; }).join("")
     : `<div class="note" style="padding:12px">${S.products.length ? (q ? "No products match." : $("#oBrand")?.value ? "No products in this category." : "Choose a brand to see its menu.") : "No products yet. Add them under Menu → Products."}</div>`;
 }
@@ -1927,7 +1934,7 @@ function renderCart(ro){
     (cart.length ? cart.map((i,ix)=>`<div class="citem"><span class="cname">${ro ? esc(i.name) : `<a href="#call-center" class="lnk" data-cedit="${ix}" title="Edit item: options, note, discount">${esc(i.name)}</a>`}${i.mods?`<div class="note">${esc(i.mods)}</div>`:""}${+i.disc?`<div class="note" style="color:var(--accent-ink)">Discount −${usd(i.disc)}</div>`:""}</span>${ro?`<span>× ${i.qty}</span>`:`<span class="qty"><button type="button" data-q="${ix}:-1" aria-label="Less">−</button>${i.qty}<button type="button" data-q="${ix}:1" aria-label="More">+</button></span>`}<span class="num">${usd(lineNet(i))}</span></div>`).join("") : `<div class="note" style="padding:18px 0;text-align:center">${ro?"No items.":"Pick a category, then tap products to add them."}</div>`) +
     `</div>${ch.list.length ? `<div class="cchg">${ch.list.map(x => `<label class="chk"><input type="checkbox" data-ochg="${esc(x.id)}" ${ch.picked.includes(x) ? "checked" : ""} ${ro?"disabled":""}> ${esc(x.name)} <span class="note">${x.type==="percent" ? (+x.value)+"%" : usd(x.value)}</span></label>`).join("")}</div>` : ""}
     ${c.charges.filter(x=>x.amount).map(x => `<div class="ctot sub"><span>${esc(x.name)}</span><span>${usd(x.amount)}</span></div>`).join("")}
-    <div class="ctot sub"><span>Subtotal</span><span>${usd(c.subtotal)}</span></div><div class="ctot sub"><span>Tax${taxIncl() ? " (included)" : ""}</span><span>${usd(c.tax)}</span></div><div class="ctot"><span>Total</span><b>${usd(c.total)}</b></div>`;
+    <div class="ctot sub"><span>Subtotal</span><span>${usd(c.subtotal)}</span></div><div class="ctot sub"><span>Tax${taxIncl() ? " (included)" : ""}</span><span>${usd(c.tax)}</span></div><div class="ctot"><span>Total</span><b>${usd(c.total)}</b></div>${money2(c.total) ? `<div class="ctot sub"><span></span><span>≈ ${money2(c.total)}</span></div>` : ""}`;
   if(!ro && $("#oProducts")) renderOrderMenu();
 }
 async function saveOrder(status){
@@ -2090,7 +2097,7 @@ const BM = { branch:"", kind:"products", q:"", draft:{} };
 function bmItems(){
   const br = branches.find(b=>b.id===BM.branch); if(!br) return [];
   if(BM.kind==="options") return S.modifier_options.filter(o=>live(o)&&o.active!==false).sort((a,b)=>modName(a.modifierId).localeCompare(modName(b.modifierId))||bySort(a,b));
-  return S.products.filter(p=>live(p)&&p.active!==false&&(!br.brandId||!p.brandId||p.brandId===br.brandId)).sort(CRUD.products.sort);
+  return S.products.filter(p=>live(p)&&p.active!==false&&(!br.brandId||!p.brandId||p.brandId===br.brandId)).sort((a,b)=>catRank(a.categoryId)-catRank(b.categoryId) || String(a.categoryId).localeCompare(String(b.categoryId)) || String(a.name).localeCompare(String(b.name)));
 }
 function bmState(r){
   const b = BM.branch, d = BM.draft[r.id] || {};
@@ -2104,7 +2111,7 @@ function viewBranchMenu(){
   if(!list.some(b=>b.id===BM.branch)) BM.branch = (state.branch!=="all" && list.some(b=>b.id===state.branch)) ? state.branch : list[0]?.id || "";
   const br = branches.find(b=>b.id===BM.branch), dirty = Object.keys(BM.draft).length;
   let h = `<div class="phead"><h1>Menus</h1><div class="sp"></div>${scopeBar(false)}<button class="btn pri" id="bmSave" ${dirty?"":"disabled"}>Save${dirty?` (${dirty})`:""}</button></div>
-    <p class="subt" style="margin-top:-6px">Each brand has its own menu; each branch can switch items off, set its own price, or mark them out of stock. The POS, call center and online ordering follow this.</p>`;
+    <p class="subt" style="margin-top:-6px">Each branch has its own menu, built from the brand's categories and their products: switch a whole category or single products on or off, set the branch's own prices, or mark items out of stock. The POS, call center and online ordering of that branch follow it.</p>`;
   if(!br) return h + `<div class="card empty">No branches yet. Add them under Manage → Branches.</div>`;
   const q = BM.q.trim().toLowerCase(), items = bmItems().filter(r => !q || r.name.toLowerCase().includes(q));
   const grp = r => BM.kind==="options" ? modName(r.modifierId) : catName(r.categoryId);
@@ -2118,7 +2125,9 @@ function viewBranchMenu(){
   let last = null;
   h += `<table><thead><tr><th>${BM.kind==="options"?"Option":"Product"}</th><th class="num">Base price</th><th class="num">Price at ${esc(br.name)}</th><th>On the menu</th><th>In stock</th></tr></thead><tbody>`;
   items.forEach(r => { const g = grp(r), st = bmState(r);
-    if(g!==last){ last = g; h += `<tr class="grp"><td colspan="5"><b>${esc(g)}</b> <a href="#branch-menu" class="lnk" data-bmall="${esc(g)}:1">All on</a> · <a href="#branch-menu" class="lnk" data-bmall="${esc(g)}:0">All off</a></td></tr>`; }
+    const cOn = BM.kind==="options" || bmCatOn(r.categoryId);
+    if(g!==last){ last = g; h += `<tr class="grp"><td colspan="5">${BM.kind!=="options" ? `<label class="toggle" style="margin-right:8px" title="Category on the menu at ${esc(br.name)}"><input type="checkbox" data-bmcat="${esc(r.categoryId)}" ${cOn?"checked":""}><span class="trk"></span></label>` : ""}<b>${esc(g)}</b>${cOn ? ` <a href="#branch-menu" class="lnk" data-bmall="${esc(g)}:1">All on</a> · <a href="#branch-menu" class="lnk" data-bmall="${esc(g)}:0">All off</a>` : ` <span class="tag off">Category off at this branch</span>`}</td></tr>`; }
+    if(!cOn) return;
     h += `<tr class="${st.on?"":"off"}${BM.draft[r.id]?" chg":""}"><td><b>${esc(r.name)}</b></td><td class="num">${usd(+r.price||0)}</td>
       <td class="num"><input type="number" min="0" step="any" class="sel" style="width:96px;text-align:right" data-bmprice="${esc(r.id)}" value="${esc(st.price)}" placeholder="${esc(String(+r.price||0))}" aria-label="Price of ${esc(r.name)} at ${esc(br.name)}"></td>
       <td><label class="toggle"><input type="checkbox" data-bmon="${esc(r.id)}" ${st.on?"checked":""}><span class="trk"></span></label></td>
@@ -2126,11 +2135,13 @@ function viewBranchMenu(){
   return h + `</tbody></table></div>`;
 }
 function bmSet(id, k, v){ const d = BM.draft[id] ||= {}; d[k] = v; }
+const bmCatOn = id => { const d = BM.draft["cat:"+id]; if(d && d.on!=null) return d.on; return !(S.categories.find(c=>c.id===id)?.inactiveBranchIds||[]).includes(BM.branch); };
 async function saveBranchMenu(){
   const b = BM.branch, col = BM.kind==="options" ? "modifier_options" : "products"; let n = 0;
   $("#bmSave").disabled = true; $("#bmSave").textContent = "Saving…";
   try{
     for(const [id, d] of Object.entries(BM.draft)){
+      if(id.startsWith("cat:")){ const c = S.categories.find(x=>x.id===id.slice(4)); if(!c) continue; const ia = new Set(c.inactiveBranchIds||[]); d.on ? ia.delete(b) : ia.add(b); await put("categories", c.id, { inactiveBranchIds:[...ia] }); n++; continue; }
       const r = S[col].find(x=>x.id===id); if(!r) continue; const ch = {};
       if(d.on!=null){ const ia = new Set(r.inactiveBranchIds||[]);
         if(d.on){ ia.delete(b); if(r.branchIds?.length && !r.branchIds.includes(b)) ch.branchIds = [...r.branchIds, b]; } else ia.add(b);
@@ -2146,6 +2157,7 @@ $("#view").addEventListener("change", e => {
   const t = e.target;
   if(t.id==="bmBranch"){ if(Object.keys(BM.draft).length && !confirm("Discard unsaved changes for this branch?")){ t.value = BM.branch; return; } BM.branch = t.value; BM.draft = {}; return render(); }
   if(t.dataset.bmon){ bmSet(t.dataset.bmon, "on", t.checked); return render(); }
+  if(t.dataset.bmcat){ bmSet("cat:"+t.dataset.bmcat, "on", t.checked); return render(); }
   if(t.dataset.bmstock){ bmSet(t.dataset.bmstock, "stock", t.checked); return render(); }
   if(t.dataset.bmprice!=null && t.dataset.bmprice){ bmSet(t.dataset.bmprice, "price", t.value.trim()); return render(); }
 });
@@ -2177,8 +2189,8 @@ function moduleRoute(route){
 }
 
 /* ---------- Orders: every order from every channel, any date range ---------- */
-const ORD_TABS = [["all","All"],["draft","Draft"],["pending","Pending"],["active","Active"],["closed","Done"],["declined","Declined"],["void","Void"],["returned","Returned"]];
-const ORD_ST = { draft:"Draft", pending:"Pending", active:"Active", closed:"Done", declined:"Declined", void:"Void", returned:"Returned" };
+const ORD_TABS = [["all","All"],["draft","Draft"],["pending","Pending"],["active","Active"],["closed","Done"],["declined","Declined"],["void","Void"],["refund","Refunds"]];
+const ORD_ST = { draft:"Draft", pending:"Pending", active:"Active", closed:"Done", declined:"Declined", void:"Void", returned:"Returned", refund:"Refund" };
 const daysAgo = n => { const d = new Date(bizDate()+"T12:00:00"); d.setDate(d.getDate()-n); return new Date(d - d.getTimezoneOffset()*60000).toISOString().slice(0,10); };
 const ORD = { tab:"all", q:"", from:"", to:"", channel:"", type:"", pay:"", source:"", brand:"", branch:"", page:1, per:50, rows:[], count:0, counts:{}, loading:false, err:"", key:"", t:null, open:null };
 const ordTypeLbl = t => TYPE_LBL[t] || cap(t||"—");
@@ -2576,6 +2588,13 @@ function viewCompany(){
         ${f("country","Country","Lebanon")}${f("taxName","Tax registration name","Name on the VAT certificate")}
         ${f("address","Address","","",1)}${f("logoUrl","Logo image link (optional)","https://…","url",1)}
       </div><div class="err" id="coErr"></div></div>
+    <div class="card" style="margin-bottom:16px"><h3 style="margin:0 0 12px;font-size:15px">Prices & currencies</h3>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px">
+        <div class="f"><label for="co_priceDecimals">Price decimals</label><select id="co_priceDecimals" class="sel" ${admin?"":"disabled"}>${[0,1,2,3].map(n=>`<option value="${n}" ${String(c.priceDecimals ?? 2)===String(n)?"selected":""}>${n} (${(12.5).toFixed(n)})</option>`).join("")}</select></div>
+        <div class="f"><label for="co_currency2">Second currency</label><select id="co_currency2" class="sel" ${admin?"":"disabled"}><option value="">None</option>${CURRENCIES.map(([k,t])=>`<option value="${k}" ${c.currency2===k?"selected":""}>${t}</option>`).join("")}</select></div>
+        <div class="f"><label for="co_rate2">Exchange rate (1 ${esc(c.currency||"USD")} =)</label><input id="co_rate2" class="sel" type="number" min="0" step="any" value="${esc(c.rate2??"")}" placeholder="e.g. 89500" ${admin?"":"disabled"}></div>
+        <div class="f"><label for="co_decimals2">Second currency decimals</label><select id="co_decimals2" class="sel" ${admin?"":"disabled"}>${[0,1,2].map(n=>`<option value="${n}" ${String(c.decimals2 ?? 0)===String(n)?"selected":""}>${n}</option>`).join("")}</select></div>
+      </div><p class="note" style="margin:10px 0 0">The second currency is shown next to totals in the POS, on receipts, in the call center and online, at this rate.</p></div>
     <div class="card" style="margin-bottom:16px"><h3 style="margin:0 0 12px;font-size:15px">Time & tax</h3>
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px">
         <div class="f"><label for="co_timeZone">Time zone</label><select id="co_timeZone" class="sel" ${admin?"":"disabled"}>${TZS.map(z=>`<option value="${z}" ${(c.timeZone||"Asia/Beirut")===z?"selected":""}>${z.replace(/_/g," ")}</option>`).join("")}</select></div>
@@ -2601,7 +2620,7 @@ document.addEventListener("input", e => { if(e.target.id==="co_dayEnd" && $("#co
 async function saveCompany(){
   const v = k => ($("#co_"+k)?.value || "").trim();
   const data = { name:v("name"), legalName:v("legalName"), taxNumber:v("taxNumber"), crNumber:v("crNumber"), currency:v("currency")||"USD", phone:v("phone"), email:v("email"), address:v("address"), logoUrl:v("logoUrl"), dayEnd: v("dayEnd") || "00:00",
-    country:v("country"), taxName:v("taxName"), timeZone:v("timeZone") || "Asia/Beirut", taxInclusive: !!$("#co_taxInclusive")?.checked };
+    country:v("country"), taxName:v("taxName"), priceDecimals: +v("priceDecimals"), currency2: v("currency2"), rate2: v("rate2")==="" ? null : +v("rate2"), decimals2: +v("decimals2") || 0, timeZone:v("timeZone") || "Asia/Beirut", taxInclusive: !!$("#co_taxInclusive")?.checked };
   if(/^(\d{1,2})/.test(data.dayEnd) && +data.dayEnd.split(":")[0] >= 12){ $("#coErr").textContent = "The day must end between 12:00 AM and 11:59 AM."; $("#co_dayEnd").focus(); return; }
   if(!data.name){ $("#coErr").textContent = "Company name is required."; $("#co_name").focus(); return; }
   try{ await put("settings", "company", data); toast("Company saved"); }
@@ -3469,7 +3488,7 @@ $("#view").addEventListener("click", async e => {
   const cr = t.closest("[data-create]"); if(cr) return openCrud(cr.dataset.create);
   const op = t.closest("[data-open]"); if(op && !t.closest("a")){ const i = op.dataset.open.indexOf(":"), k = op.dataset.open.slice(0,i), id = op.dataset.open.slice(i+1); return CRUD[k].detail ? openDetail(k, id) : openCrud(k, id); }
   const pg = t.closest("[data-page]"); if(pg){ const [k,v] = pg.dataset.page.split(":"); state.page[k] = +v; render(); window.scrollTo(0,0); return; }
-  const cf = t.closest("[data-catfilter]"); if(cf){ state.catFilter = cf.dataset.catfilter; state.tabs.products = "all"; state.page.products = 1; return; }
+  const cf = t.closest("[data-catfilter]"); if(cf){ state.catFilter = cf.dataset.catfilter; state.tabs.products = "all"; state.page.products = 1; setTimeout(render, 30); return; }
   if(t.closest("[data-clearcat]")){ state.catFilter = ""; render(); return; }
   if(t.closest("#ccNew")) return openOrder();
   const oc = t.closest("[data-order]"); if(oc) return openOrder(oc.dataset.order);

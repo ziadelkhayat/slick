@@ -34,8 +34,9 @@ button{cursor:pointer}
 .sync::before{content:"";width:8px;height:8px;border-radius:50%;background:currentColor}
 .sync.off{background:var(--warns);color:var(--warn)}.sync.bad{background:#fde7ea;color:#9e0c24}
 .sync.busy::before{animation:pulse 1s infinite}@keyframes pulse{50%{opacity:.25}}
-.main{display:grid;grid-template-columns:170px 1fr 380px;min-height:0}
-@media(max-width:1000px){.main{grid-template-columns:130px 1fr 320px}}
+.main{display:grid;grid-template-columns:1fr 380px;min-height:0}
+@media(max-width:1000px){.main{grid-template-columns:1fr 320px}}
+#cats{display:none}
 .cats{background:var(--s);border-right:1px solid var(--line);overflow:auto;padding:8px}
 .cat{display:block;width:100%;text-align:left;border:0;background:none;padding:12px 10px;border-radius:10px;font-weight:500;color:var(--ink2);margin-bottom:2px}
 .cat.on{background:var(--accs);color:var(--acci)}
@@ -132,15 +133,18 @@ body{-webkit-font-smoothing:antialiased}
 .olist{display:flex;flex-direction:column;gap:8px;max-height:60vh;overflow:auto}.orow{display:flex;flex-direction:column;gap:4px;text-align:left;border:1px solid var(--line);background:var(--s);border-radius:12px;padding:10px 12px;cursor:pointer}
 .orow .r1,.orow .r2{display:flex;gap:10px;align-items:center}.orow .r1 .spill{margin-left:auto}.orow .r2 span{flex:1}.orow .r3{font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .vlines>div{display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px solid var(--line)}.vlines .qty{display:flex;align-items:center;gap:8px}.vlines .qty button{width:32px;height:32px;border-radius:50%;border:1px solid var(--line);background:var(--s);font-weight:700}
-.spill.s-void,.spill.s-returned{background:#fde8e8;color:#9e0c24}.spill.s-closed{background:#e7f6ec;color:#1f7a3f}
+.spill.s-void,.spill.s-returned,.spill.s-refund{background:#fde8e8;color:#9e0c24}.spill.s-closed{background:#e7f6ec;color:#1f7a3f}
 .apv{position:fixed;inset:0;background:rgba(20,16,40,.55);display:flex;align-items:center;justify-content:center;z-index:9999}.apvbox{background:#fff;border-radius:18px;padding:22px;width:min(340px,92vw);text-align:center}
 .apvbox .pindots{display:flex;justify-content:center;gap:12px;margin:14px 0 6px}.apvbox .pindots i{width:14px;height:14px;border-radius:50%;border:2px solid #5b2bc4}.apvbox .pindots i.on{background:#5b2bc4}
 .apvbox .pinpad{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.apvbox .pinpad button{padding:14px 0;font-size:20px;font-weight:600;border:1px solid var(--line);background:var(--s);border-radius:12px}
+.ctile{border:1px solid var(--line);background:var(--s);border-radius:16px;min-height:96px;padding:14px;font-size:16px;font-weight:700;text-align:left;display:flex;align-items:flex-end;box-shadow:0 2px 6px rgba(30,20,60,.05)}
+.ctile:hover{border-color:#5b2bc4;color:#5b2bc4}
+.cback{grid-column:1/-1;display:flex;align-items:center;gap:12px;padding:2px 0 4px}.cbtn{border:1px solid var(--line);background:var(--s);border-radius:999px;padding:8px 14px;font-weight:600;color:#5b2bc4}
 </style>
 <script>window.SLICK_OFFLINE = true;</script>
 <script src="supabase.js"></script>
 <script>if(!window.supabase) document.write('<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"><\/script>');</script>
-<script src="wokdb.js?v=21"></script>
+<script src="wokdb.js?v=22"></script>
 <script src="modpick.js?v=4"></script>
 </head>
 <body>
@@ -192,7 +196,10 @@ body{-webkit-font-smoothing:antialiased}
 (() => {
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-const usd = n => "USD " + (+n||0).toFixed(2);
+const coS = () => { try{ return S.settings.find(x=>x.id==="company") || {}; }catch(e){ return {}; } };
+const DEC = () => { const d = coS().priceDecimals; return d===0||d==="0" ? 0 : +d || 2; };
+const usd = n => (coS().currency || "USD") + " " + (+n||0).toLocaleString("en-US",{minimumFractionDigits:DEC(),maximumFractionDigits:DEC()});
+const usd2 = n => { const c = coS(); if(!c.currency2 || !(+c.rate2)) return ""; const d = +c.decimals2 || 0; return c.currency2 + " " + ((+n||0) * +c.rate2).toLocaleString("en-US",{minimumFractionDigits:d,maximumFractionDigits:d}); };
 (() => { const P = Date.prototype, ls = P.toLocaleString, lt = P.toLocaleTimeString;   // 12-hour clock on screen and receipts
   P.toLocaleString = function(l, o){ return ls.call(this, l || "en-GB", { hour12:true, ...(o||{}) }); };
   P.toLocaleTimeString = function(l, o){ return lt.call(this, l || "en-GB", { hour12:true, ...(o||{}) }); }; })();
@@ -273,7 +280,7 @@ function startApp(id){
 /* ---------- data helpers ---------- */
 const live = r => !r.deleted;
 const prodPrice = p => { const c = (p.customPrices||{})[device.branchId]; return c!=null && c!=="" ? +c : +p.price||0; };
-const products = () => S.products.filter(p => live(p) && p.active!==false && !(p.inactiveBranchIds||[]).includes(device.branchId) && (!p.brandId || !branch?.brandId || p.brandId===branch.brandId) && (!p.channels || p.channels.includes("pos")) && (!p.branchIds?.length || p.branchIds.includes(device.branchId)));
+const products = () => S.products.filter(p => live(p) && p.active!==false && !(p.inactiveBranchIds||[]).includes(device.branchId) && (!p.brandId || !branch?.brandId || p.brandId===branch.brandId) && (!p.channels || p.channels.includes("pos")));
 const openShift = () => S.shifts.find(s => s.deviceId===device.id && !s.closedAt);
 /* ---------- cashiers: PIN sign-in and what each role may do ---------- */
 let cashier = null, pinBuf = "";
@@ -353,7 +360,7 @@ function openDayEnd(){
   if(!can("pos_endday")) return deny("ending the day");
   const day = openDay(), act = S.orders.filter(o => o.branchId===device.branchId && ["pending","active"].includes(o.status));
   const shifts = S.shifts.filter(x => x.branchId===device.branchId && !x.closedAt);
-  const sales = S.orders.filter(o => liveOrder(o) && o.status==="closed" && bizDate(o.createdAt)===day);
+  const sales = S.orders.filter(o => liveOrder(o) && (o.status==="closed" || o.status==="refund") && bizDate(o.createdAt)===day);
   const blockers = [];
   if(act.length) blockers.push(`<p><b>${act.length} order${act.length===1?" is":"s are"} still active.</b> Finish, decline or void ${act.length===1?"it":"them"} first:</p><p class="mut">${act.slice(0,12).map(o => (o.no ? "#"+esc(o.no) : "Inv "+esc(o.invoiceNo||"")) + " · " + (o.status==="pending" ? "waiting" : "in kitchen")).join("<br>")}</p>`);
   if(shifts.length) blockers.push(`<p><b>${shifts.length} shift${shifts.length===1?" is":"s are"} still open.</b> Close ${shifts.length===1?"it":"them"} first:</p><p class="mut">${shifts.map(x => esc(S.devices.find(d=>d.id===x.deviceId)?.name || "Device") + " · " + esc(x.cashier||"")).join("<br>")}</p>`);
@@ -363,7 +370,7 @@ function openDayEnd(){
     <div class="mf"><button class="btn" data-close>${blockers.length ? "OK" : "Cancel"}</button>${blockers.length ? "" : `<button class="btn pri" id="doDayEnd" data-day="${day}">End day</button>`}</div>`);
 }
 async function doDayEnd(day){
-  const sales = S.orders.filter(o => liveOrder(o) && o.status==="closed" && bizDate(o.createdAt)===day);
+  const sales = S.orders.filter(o => liveOrder(o) && (o.status==="closed" || o.status==="refund") && bizDate(o.createdAt)===day);
   if(S.orders.some(o => o.branchId===device.branchId && ["pending","active"].includes(o.status)) || S.shifts.some(x => x.branchId===device.branchId && !x.closedAt)) return openDayEnd();
   try{ await db.collection("day_closes").doc("dc_" + device.branchId + "_" + day).set({ branchId:device.branchId, businessDate:day, closedAt:new Date().toISOString(), closedBy:cashier?.name || device.name, deviceId:device.id, orders:sales.length, sales:+sales.reduce((a,o)=>a+(+o.total||0),0).toFixed(2) });
     closeModal(); toast(`Day ended · ${fmtDay(day)}`); renderAll(); }
@@ -395,12 +402,18 @@ function renderAll(){
 const catRank = p => { const c = S.categories.find(x=>x.id===p.categoryId); return c?.sort ?? 999; };   // "All" follows the category order
 function renderMenu(){
   const prods = products();
-  const cats = S.categories.filter(c => live(c) && prods.some(p => p.categoryId===c.id)).sort((a,b)=>(a.sort??999)-(b.sort??999) || a.name.localeCompare(b.name));
+  const cats = S.categories.filter(c => live(c) && !(c.inactiveBranchIds||[]).includes(device.branchId) && prods.some(p => p.categoryId===c.id)).sort((a,b)=>(a.sort??999)-(b.sort??999) || a.name.localeCompare(b.name));
   if(cat && !cats.some(c=>c.id===cat)) cat = "";
-  $("#cats").innerHTML = `<button class="cat ${!cat?"on":""}" data-cat="">All</button>` + cats.map(c=>`<button class="cat ${cat===c.id?"on":""}" data-cat="${esc(c.id)}">${esc(c.name)}</button>`).join("");
-  const q = $("#q").value.toLowerCase();
-  const list = prods.filter(p => (!cat || p.categoryId===cat) && (!q || p.name.toLowerCase().includes(q))).sort((a,b)=>(cat || q ? 0 : catRank(a)-catRank(b) || String(a.categoryId).localeCompare(String(b.categoryId))) || (a.sort??999)-(b.sort??999) || a.name.localeCompare(b.name));
-  $("#grid").innerHTML = list.length ? list.map(p=>`<button class="prod${p.imageUrl?" hasimg":""}" data-add="${esc(p.id)}">${p.imageUrl?`<img src="${esc(p.imageUrl)}" alt="" loading="lazy">`:""}<span>${esc(p.name)}</span><b>${p.pricingMethod==="open"?"Open price":usd(prodPrice(p))}</b>${(p.outOfStockBranchIds||[]).includes(device.branchId)?'<small style="color:#b45309">Out of stock</small>':""}</button>`).join("") : `<div class="empty">No products${S.products.length?" here":". Add them in the back office"}.</div>`;
+  const q = $("#q").value.trim().toLowerCase();
+  const tile = p => `<button class="prod${p.imageUrl?" hasimg":""}" data-add="${esc(p.id)}">${p.imageUrl?`<img src="${esc(p.imageUrl)}" alt="" loading="lazy">`:""}<span>${esc(p.name)}</span><b>${p.pricingMethod==="open"?"Open price":usd(prodPrice(p))}</b>${(p.outOfStockBranchIds||[]).includes(device.branchId)?'<small style="color:#b45309">Out of stock</small>':""}</button>`;
+  const inCats = p => cats.some(c => c.id===p.categoryId);
+  if(q){   // searching looks through every category
+    const l = prods.filter(p => inCats(p) && p.name.toLowerCase().includes(q)).sort((a,b)=>a.name.localeCompare(b.name));
+    $("#grid").innerHTML = l.length ? l.map(tile).join("") : `<div class="empty">No items match.</div>`; return; }
+  if(!cat){   // the categories, as tabs to open
+    $("#grid").innerHTML = cats.length ? cats.map(c => `<button class="ctile" data-cat="${esc(c.id)}"><span>${esc(c.name)}</span></button>`).join("") : `<div class="empty">No menu for this branch yet. Set it up under Menu → Menus in the back office.</div>`; return; }
+  const c = cats.find(x=>x.id===cat), l = prods.filter(p => p.categoryId===cat).sort((a,b)=>a.name.localeCompare(b.name));
+  $("#grid").innerHTML = `<div class="cback"><button class="cbtn" data-cat="">← Categories</button><b>${esc(c?.name||"")}</b></div>` + l.map(tile).join("");
 }
 function totals(){
   const sub = cart.reduce((a,i)=>a+lineNet(i),0), disc = +(discType==="amt" ? Math.min(discount, sub) : sub*discount/100).toFixed(2);
@@ -421,12 +434,12 @@ function renderCart(){
   const cl = chargeList(otype);
   $("#totals").innerHTML = `${cl.length ? `<div class="chgs">${cl.map(c => { const on = pickedCharges().includes(c); return `<button type="button" class="chg${on?" on":""}" data-chg="${c.id}" title="${on?"Remove":"Add"} this charge">${on?"✓ ":"+ "}${esc(c.name)}</button>`; }).join("")}</div>` : ""}
     ${discount?`<div><span>${discLbl()}</span><span>−${usd(t.disc)}</span></div>`:""}${t.charges.filter(c=>c.amount).map(c=>`<div><span>${esc(c.name)}</span><span>${usd(c.amount)}</span></div>`).join("")}
-    <div><span>Subtotal</span><span>${usd(t.net)}</span></div><div class="mut" style="font-size:13px"><span>Tax${taxIncl()?" (included)":""}</span><span>${usd(t.tax)}</span></div><div class="g"><span>Total</span><span>${usd(t.total)}</span></div>`;
+    <div><span>Subtotal</span><span>${usd(t.net)}</span></div><div class="mut" style="font-size:13px"><span>Tax${taxIncl()?" (included)":""}</span><span>${usd(t.tax)}</span></div><div class="g"><span>Total</span><span>${usd(t.total)}</span></div>${usd2(t.total) ? `<div class="mut" style="font-size:13px"><span></span><span>≈ ${usd2(t.total)}</span></div>` : ""}`;
   $("#payBtn").disabled = !cart.length; $("#payBtn").textContent = cart.length ? `Pay ${usd(t.total)}` : "Pay";
 }
 
 /* ---------- events ---------- */
-$("#cats").addEventListener("click", e => { const b = e.target.closest("[data-cat]"); if(b){ cat = b.dataset.cat; renderMenu(); } });
+$("#grid").addEventListener("click", e => { const b = e.target.closest("[data-cat]"); if(b){ cat = b.dataset.cat; $("#q").value = ""; renderMenu(); $("#grid").scrollTop = 0; } });
 $("#q").addEventListener("input", renderMenu);
 // options of the product's modifiers that this branch sells, at this branch's price
 function modData(p){
@@ -503,7 +516,7 @@ $("#modal").addEventListener("click", async e => {
   if(e.target.closest("[data-ovback]")) return openIncoming();
   const ovo = e.target.closest("[data-ovopen]"); if(ovo) return openOrderView(ovo.dataset.ovopen);
   const vr = e.target.closest("[data-vr]"); if(vr){ const [k,m] = vr.dataset.vr.split(":"); return openVR(k, m); }
-  const vq = e.target.closest("[data-vq]"); if(vq){ const [ix,d] = vq.dataset.vq.split(":").map(Number), o = S.orders.find(x=>x.id===OV.open); window.__vq[ix] = Math.max(0, Math.min(+o.items[ix].qty, (window.__vq[ix]||0) + d)); $("#vq"+ix).textContent = window.__vq[ix]; return; }
+  const vq = e.target.closest("[data-vq]"); if(vq){ const [ix,d] = vq.dataset.vq.split(":").map(Number), o = S.orders.find(x=>x.id===OV.open); window.__vq[ix] = Math.max(0, Math.min(window.__vmax?.[ix] ?? +o.items[ix].qty, (window.__vq[ix]||0) + d)); $("#vq"+ix).textContent = window.__vq[ix]; return; }
   const stb = e.target.closest("[data-st]"); if(stb){ document.querySelectorAll("[data-st]").forEach(b => b.classList.toggle("on", b===stb)); return; }
   const vg = e.target.closest("#vrGo"); if(vg) return doVR(vg.dataset.kind, vg.dataset.mode);
   if(e.target.closest("[data-reprint]")){ if(!can("pos_reprint")) return deny("reprinting receipts"); const o = S.orders.find(x=>x.id===OV.open); if(o) modal("receipt", `<div class="mh"><h2>Receipt ${esc(ordRef(o))}</h2><button class="x" data-ovopen="${esc(o.id)}" aria-label="Back">←</button></div><div class="mb"><div class="receipt">${esc(receiptText(o))}</div></div><div class="mf"><button class="btn pri" data-ovopen="${esc(o.id)}">Done</button></div>`); return; }
@@ -531,7 +544,7 @@ $("#payBtn").addEventListener("click", () => {
   const t = totals(), pms = payMethods(); payMethod = pms[0];
   const q = [t.total, Math.ceil(t.total/5)*5, Math.ceil(t.total/10)*10, Math.ceil(t.total/20)*20].filter((v,i,a)=>a.indexOf(v)===i);
   modal("pay", `<div class="mh"><h2>Payment</h2><button class="x" data-close aria-label="Close">×</button></div><div class="mb">
-    <div class="due">${usd(t.total)}</div>
+    <div class="due">${usd(t.total)}</div>${usd2(t.total) ? `<div class="mut" style="text-align:center;margin:-6px 0 8px">≈ ${usd2(t.total)}</div>` : ""}
     <div class="paym">${pms.map((m,i)=>`<button data-pm="${esc(m.id)}" class="${i?"":"on"}">${esc(m.name)}</button>`).join("")}</div>
     <div id="cashBox" ${pms[0].type==="cash"?"":'style="display:none"'}><input class="tender" id="tender" inputmode="decimal" value="${t.total.toFixed(2)}" aria-label="Amount received">
     <div class="quick">${q.map(v=>`<button data-qk="${v}">${usd(v)}</button>`).join("")}</div>
@@ -566,7 +579,8 @@ function receiptText(o){
   const w = 32, row = (a,b) => a.slice(0, w-b.length-1).padEnd(w-b.length) + b, a = appSet(), net = (+o.total||0) - (+o.tax||0);
   const typ = o.type==="dinein" ? "Dine-in"+(o.table?" T"+o.table:"") : o.type==="pickup"||o.type==="takeaway" ? "Pickup" : "Delivery";
   const lines = [ (()=>{ const n = (S.brands.find(b=>b.id===branch?.brandId)?.name || "Slick").toUpperCase(); return n.padStart((w+n.length)/2); })(), (branch?.name||"").padStart((w+(branch?.name||"").length)/2), ...rcptHead(w), "",
-    row("Order #"+(o.no||"—"), typ), ...(a.rcptInvoice && o.invoiceNo ? ["Invoice " + o.invoiceNo] : []), ...(a.rcptSource && o.source ? ["Source: " + o.source] : []),
+    ...(o.status==="refund" ? ["*** REFUND ***".padStart((w+14)/2), row("Return " + ordRef(o), typ), ...(o.invoiceRef || S.orders.find(x=>x.id===o.refundOf)?.invoiceNo ? ["Original invoice " + (o.invoiceRef || S.orders.find(x=>x.id===o.refundOf)?.invoiceNo)] : []), ...(o.returnReason ? ["Reason: " + o.returnReason] : [])]
+      : [row("Order #"+(o.no||"—"), typ), ...(a.rcptInvoice && o.invoiceNo ? ["Invoice " + o.invoiceNo] : [])]), ...(a.rcptSource && o.source ? ["Source: " + o.source] : []),
     ...(a.rcptCustomer && (o.customerName || o.phone) ? [[o.customerName, o.phone].filter(Boolean).join(" · ")] : []),
     new Date(o.createdAt).toLocaleString("en-GB"), "-".repeat(w),
     ...o.items.flatMap(i => [row(i.qty+" x "+i.name, lineNet(i).toFixed(2)), ...(i.mods ? ["  + " + i.mods] : []), ...(+i.disc ? ["  discount -" + (+i.disc).toFixed(2)] : [])]), "-".repeat(w) ];
@@ -575,7 +589,8 @@ function receiptText(o){
   lines.push(row("Subtotal", net.toFixed(2)));
   if(a.rcptTax) lines.push(row(taxIncl() ? "Tax (incl.)" : "Tax", (+o.tax||0).toFixed(2)));
   lines.push(row("TOTAL USD", (+o.total).toFixed(2)));
-  if(o.payment){ lines.push(row("Paid ("+o.payment.method+")", (+o.payment.tendered).toFixed(2))); if(o.payment.change) lines.push(row("Change", (+o.payment.change).toFixed(2))); }
+  if(usd2(o.total)) lines.push(row("", "= " + usd2(o.total)));
+  if(o.payment){ lines.push(row((o.status==="refund" ? "Refunded (" : "Paid (")+o.payment.method+")", Math.abs(+o.payment.tendered).toFixed(2))); if(o.payment.change) lines.push(row("Change", (+o.payment.change).toFixed(2))); }
   if(+o.refundTotal) lines.push(row("Refunded", "-"+(+o.refundTotal).toFixed(2)));
   if(o.status==="void") lines.push("", "*** VOID ***".padStart((w+12)/2)); if(o.status==="returned") lines.push("", "*** RETURNED ***".padStart((w+16)/2));
   if(o.receiptNotes) lines.push("", ...o.receiptNotes.split("\n").map(l => l.trim().slice(0,w)).filter(Boolean));
@@ -613,15 +628,15 @@ function approve(perm, title){
 
 /* ---------- orders: list, delivery & pickup management, void (active) and return (closed) ---------- */
 let OV = { tab:"incoming", q:"", open:null };
-const stLbl = o => ({ pending:"Waiting for you", active:"In kitchen", closed:"Done", void:"Void", returned:"Returned", declined:"Declined", draft:"Draft" }[o.status] || o.status);
+const stLbl = o => o.status==="closed" && fullyBack(o) ? "Refunded" : ({ refund:"Refund", pending:"Waiting for you", active:"In kitchen", closed:"Done", void:"Void", returned:"Returned", declined:"Declined", draft:"Draft" }[o.status] || o.status);
 const typLbl = t => t==="dinein" ? "Dine-in" : t==="pickup"||t==="takeaway" ? "Pickup" : t==="delivery" ? "Delivery" : (t||"—");
-const ordRef = o => o.no ? "#" + o.no : o.invoiceNo ? "Inv " + o.invoiceNo : "—";
+const ordRef = o => o.status==="refund" ? "RET-" + String(o.returnNo || "…").padStart(6,"0") : o.no ? "#" + o.no : o.invoiceNo ? "Inv " + o.invoiceNo : "—";
 function ordersFor(tab){
   const mine = S.orders.filter(o => o.branchId===device.branchId), today = bizDate();
   const q = OV.q.trim().toLowerCase(), m = o => !q || [o.no, o.invoiceNo, o.customerName, o.phone, o.source].some(v => String(v||"").toLowerCase().includes(q));
   const l = tab==="incoming" ? mine.filter(o => o.channel!=="pos" && ["pending","active"].includes(o.status))
     : tab==="active" ? mine.filter(o => o.status==="active")
-    : tab==="closed" ? mine.filter(o => ["closed","void","returned"].includes(o.status) && bizDate(o.createdAt)===today)
+    : tab==="closed" ? mine.filter(o => ["closed","void","returned","refund"].includes(o.status) && bizDate(o.createdAt)===today)
     : mine.filter(o => bizDate(o.createdAt)===today && o.status!=="draft");
   return l.filter(m).sort((a,b)=>(a.status==="pending"?0:1)-(b.status==="pending"?0:1) || String(b.createdAt).localeCompare(String(a.createdAt)));
 }
@@ -641,7 +656,9 @@ function openOrderView(id){
   const acts = [];
   if(o.status==="pending") acts.push(`<button class="btn bad" data-inc="${esc(o.id)}:declined">Decline</button>`, `<button class="btn pri" data-inc="${esc(o.id)}:active">Accept</button>`);
   if(o.status==="active"){ acts.push(`<button class="btn bad" data-vr="void:all">Void order</button>`, `<button class="btn" data-vr="void:items">Void items</button>`); if(o.channel!=="pos") acts.push(`<button class="btn pri" data-inc="${esc(o.id)}:closed">Mark done</button>`); }
-  if(o.status==="closed") acts.push(`<button class="btn bad" data-vr="return:all">Return order</button>`, `<button class="btn" data-vr="return:items">Return items</button>`);
+  if(o.status==="closed" && !fullyBack(o)) acts.push(`<button class="btn bad" data-vr="return:all">${+o.refundTotal ? "Return the rest" : "Return order"}</button>`, `<button class="btn" data-vr="return:items">Return items</button>`);
+  const src = o.refundOf && S.orders.find(x=>x.id===o.refundOf);
+  if(o.status==="refund" && src) acts.push(`<button class="btn" data-ov="${esc(src.id)}">Open original order</button>`);
   modal("orderview", `<div class="mh"><h2>Order ${esc(ordRef(o))} <span class="spill s-${o.status}">${stLbl(o)}</span></h2><button class="x" data-ovback aria-label="Back">←</button></div><div class="mb">
     <p class="mut">${o.invoiceNo?`Invoice ${esc(o.invoiceNo)} · `:""}${esc(typLbl(o.type))}${o.table?" T"+esc(o.table):""} · ${esc(o.source || (o.channel==="pos"?"POS":"Call center"))} · ${new Date(o.createdAt).toLocaleString("en-GB",{day:"numeric",month:"short",hour:"numeric",minute:"2-digit"})}${o.agent?` · ${esc(o.agent)}`:""}</p>
     ${o.customerName||o.phone ? `<p><b>${esc(o.customerName||"")}</b> ${o.phone?`<a href="tel:${esc(o.phone)}" style="color:#5b2bc4">${esc(o.phone)}</a>`:""}${o.address?`<br><span class="mut">${esc(o.address)}</span>`:""}${o.lat?`<br><a href="https://www.google.com/maps?q=${o.lat},${o.lng}" target="_blank" rel="noopener" style="color:#5b2bc4">📍 Open pinned location</a>`:""}</p>` : ""}
@@ -655,32 +672,36 @@ function openOrderView(id){
     ${o.status==="returned"?`<p style="color:#b42318">Returned${o.returnedBy?" by "+esc(o.returnedBy):""}${o.approvedBy?", approved by "+esc(o.approvedBy):""}${o.returnReason?" — "+esc(o.returnReason):""}${o.stockAction?` · ${o.stockAction==="waste"?"wasted":"back to stock"}`:""}</p>`:""}</div>
     <div class="mf"><button class="btn" data-reprint style="margin-right:auto">Reprint</button>${acts.join("")}</div>`, true);
 }
+const retLeft = (o, ix) => Math.max(0, +((o.items||[])[ix]?.qty||0) - (o.returnedItems||[]).filter(r => r.ix===ix).reduce((s,r)=>s+(+r.qty||0),0));
+const fullyBack = o => +o.refundTotal && +o.refundTotal >= +o.total - 0.001;
 // void (active) or return (closed): which items, why, and where the food goes; then a manager's PIN
 function openVR(kind, mode){
   const o = S.orders.find(x=>x.id===OV.open); if(!o) return;
   const a = appSet(), reasons = String(kind==="void" ? a.voidReasons : a.returnReasons).split("\n").map(x=>x.trim()).filter(Boolean);
   const pick = mode==="items";
   modal("vr", `<div class="mh"><h2>${kind==="void"?"Void":"Return"} ${pick?"items":"order"} · ${esc(ordRef(o))}</h2><button class="x" data-ovopen="${esc(o.id)}" aria-label="Back">←</button></div><div class="mb">
-    ${pick ? `<p class="mut">How many of each item?</p><div class="vlines">${(o.items||[]).map((i,ix)=>`<div><span>${esc(i.name)}${i.mods?`<small class="mut" style="display:block">${esc(i.mods)}</small>`:""}</span><span class="qty"><button data-vq="${ix}:-1">−</button><b id="vq${ix}">0</b><button data-vq="${ix}:1">+</button> <span class="mut">of ${i.qty}</span></span></div>`).join("")}</div>`
+    ${pick ? `<p class="mut">How many of each item?</p><div class="vlines">${(o.items||[]).map((i,ix)=>`<div><span>${esc(i.name)}${i.mods?`<small class="mut" style="display:block">${esc(i.mods)}</small>`:""}</span><span class="qty"><button data-vq="${ix}:-1">−</button><b id="vq${ix}">0</b><button data-vq="${ix}:1">+</button> <span class="mut">of ${kind==="return" ? retLeft(o, ix) : i.qty}</span></span></div>`).join("")}</div>`
       : `<p>${kind==="void" ? "The whole order will be voided and removed from sales." : `The whole order will be returned and ${usd(o.total)} refunded.`}</p>`}
     <div class="f"><label for="vrReason">Reason${a.reasonRequired?" *":""}</label><select id="vrReason"><option value="">Choose…</option>${reasons.map(r=>`<option>${esc(r)}</option>`).join("")}<option value="_other">Other…</option></select><input id="vrOther" placeholder="Write the reason" style="display:none;margin-top:6px"></div>
     ${a.stockAction==="ask" ? `<div class="f"><label>The food goes</label><div class="dseg"><button type="button" data-st="stock" class="on">Back to stock</button><button type="button" data-st="waste">To waste</button></div></div>`
       : `<p class="mut">Items go ${a.stockAction==="waste"?"to waste":"back to stock"} (Manage → Settings).</p>`}
     <div class="err" id="vrErr" style="color:#b42318"></div></div>
     <div class="mf"><button class="btn" data-ovopen="${esc(o.id)}">Cancel</button><button class="btn bad" id="vrGo" data-kind="${kind}" data-mode="${mode}">Approve with manager PIN</button></div>`);
-  window.__vq = (o.items||[]).map(() => 0);
+  window.__vq = (o.items||[]).map(() => 0); window.__vmax = (o.items||[]).map((i,ix) => kind==="return" ? retLeft(o, ix) : +i.qty);
 }
 async function doVR(kind, mode){
   const o = S.orders.find(x=>x.id===OV.open); if(!o) return;
   const a = appSet(), sel = $("#vrReason").value, reason = sel==="_other" ? $("#vrOther").value.trim() : sel;
   if(a.reasonRequired && !reason){ $("#vrErr").textContent = "Pick a reason."; return; }
   const stock = a.stockAction==="ask" ? (document.querySelector("[data-st].on")?.dataset.st || "stock") : a.stockAction;
-  const qs = window.__vq || [], idx = [], chosen = (o.items||[]).map((i,ix) => { const q = mode==="items" ? (qs[ix]||0) : +i.qty; if(q > 0) idx.push(ix); return { ...i, qty:q, ...(+i.disc ? { disc: +(i.disc * q / i.qty).toFixed(2) } : {}) }; }).filter(i => i.qty > 0);
+  if(kind==="return" && !openShift()){ $("#vrErr").textContent = "Open a shift first: the refund is paid from this register."; return; }
+  const qs = window.__vq || [], idx = [], chosen = (o.items||[]).map((i,ix) => { const q = mode==="items" ? (qs[ix]||0) : (kind==="return" ? retLeft(o, ix) : +i.qty); if(q > 0) idx.push(ix); return { ...i, qty:q, ...(+i.disc ? { disc: +(i.disc * q / i.qty).toFixed(2) } : {}) }; }).filter(i => i.qty > 0);
   if(!chosen.length){ $("#vrErr").textContent = "Pick at least one item."; return; }
   if(!navigator.onLine){ $("#vrErr").textContent = "Voids and returns need the internet connection."; return; }
   const ok = await approve(kind==="void" ? "pos_void" : "pos_return", kind==="void" ? "Approve void" : "Approve return"); if(!ok) return;
   const now = new Date().toISOString(), by = cashier?.name || device.name, patch = { updatedAt: now, approvedBy: ok.name, stockAction: stock };
-  const full = mode!=="items" || (o.items||[]).every((i,ix) => (qs[ix]||0) >= +i.qty);
+  const full = mode!=="items" || (o.items||[]).every((i,ix) => (qs[ix]||0) >= (kind==="return" ? retLeft(o, ix) : +i.qty));
+  let ticket = null;
   if(kind==="void"){
     if(full) Object.assign(patch, { status:"void", voidReason: reason, voidedAt: now, voidedBy: by });
     else {
@@ -692,21 +713,30 @@ async function doVR(kind, mode){
         voidedItems: [...(o.voidedItems||[]), ...chosen.map(c => ({ ...c, reason, stock, voidedAt: now, voidedBy: by, approvedBy: ok.name }))] });
     }
   } else {
-    if(full) Object.assign(patch, { status:"returned", returnReason: reason, returnedAt: now, returnedBy: by, refundTotal: +o.total||0 });
-    else {
-      const gross = (o.items||[]).reduce((s,i)=>s+lineNet(i),0), share = gross ? 1 - Math.min(+o.discount||0, gross)/gross : 1;
-      const ret = chosen.map((c,k) => { const orig = o.items[idx[k]] || c, unit = lineNet(orig) / (+orig.qty||1);
-        return { ...c, refund: +(unit * c.qty * share).toFixed(2), reason, stock, returnedAt: now, returnedBy: by, approvedBy: ok.name }; });
-      Object.assign(patch, { returnedItems: [...(o.returnedItems||[]), ...ret], refundTotal: +((+o.refundTotal||0) + ret.reduce((s,r)=>s+r.refund,0)).toFixed(2) });
-    }
+    // the sale stays on its own day; the refund is a new ticket today (so an ended day is never changed)
+    const gross = (o.items||[]).reduce((s,i)=>s+lineNet(i),0), share = gross ? 1 - Math.min(+o.discount||0, gross)/gross : 1;
+    const ret = chosen.map((c,k) => { const orig = o.items[idx[k]] || c, unit = lineNet(orig) / (+orig.qty||1);
+      return { ...c, ix: idx[k], refund: +(unit * c.qty * share).toFixed(2), reason, stock, returnedAt: now, returnedBy: by, approvedBy: ok.name }; });
+    const left = +((+o.total||0) - (+o.refundTotal||0)).toFixed(2), allBack = (o.items||[]).every((i,ix) => retLeft(o, ix) - (ret.find(r=>r.ix===ix)?.qty||0) <= 0);
+    const refund = allBack ? left : Math.min(left, +ret.reduce((s,r)=>s+r.refund,0).toFixed(2));
+    const rgross = ret.reduce((s,r)=>s+lineNet(r),0), rdisc = +(rgross * (1 - share)).toFixed(2);
+    Object.assign(patch, { returnedItems: [...(o.returnedItems||[]), ...ret], refundTotal: +((+o.refundTotal||0) + refund).toFixed(2) });
+    delete patch.stockAction; delete patch.approvedBy;
+    ticket = { channel:o.channel, source:o.source, type:o.type, status:"refund", refundOf:o.id, brandId:o.brandId || branch?.brandId || null, branchId:device.branchId, deviceId:device.id, shiftId:openShift()?.id || null,
+      agent: by, customerName:o.customerName || "", phone:o.phone || "", items: ret.map(({ ix, refund, returnedAt, returnedBy, approvedBy, reason, stock, ...it }) => it),
+      subtotal: -(+rgross.toFixed(2)), discount: -rdisc, total: -refund, tax: -(+((+o.tax||0) * (o.total ? refund / o.total : 0)).toFixed(2)),
+      payment: { method: o.payment?.method || "Cash", type: o.payment?.type || "cash", methodId: o.payment?.methodId || null, tendered: -refund, change: 0 },
+      returnReason: reason, stockAction: stock, approvedBy: ok.name, returnedBy: by, invoiceRef: o.invoiceNo || null, createdAt: now, updatedAt: now };
   }
   try{
+    if(ticket){ const rid = "ref_" + Date.now().toString(36) + Math.random().toString(36).slice(2,6); await db.collection("orders").doc(rid).set(ticket); ticket.id = rid; }
     await db.collection("orders").doc(o.id).update(patch);
     // stock: a void before the sale used the food → waste takes it out; a return → back to stock puts it back
     const mv = kind==="void" ? (stock==="waste" ? "waste" : null) : (stock==="stock" ? "restock" : null);
-    if(mv && window.WOK?.sb){ try{ const r = await window.WOK.sb.rpc("slick_stock_items", { p_order:o.id, p_items:chosen, p_mode:mv }); if(r.error) throw r.error; }
+    if(mv && window.WOK?.sb){ try{ const r = await window.WOK.sb.rpc("slick_stock_items", { p_order:o.id, p_items:chosen.map(({ ix, ...it }) => it), p_mode:mv }); if(r.error) throw r.error; }
       catch(err){ console.error("stock", err); toast("Saved, but the stock couldn't be updated. Adjust it under Inventory → Quantity Adjustment."); } }
-    toast(`${kind==="void"?"Voided":"Returned"} · approved by ${ok.name}`); openOrderView(o.id);
+    toast(`${kind==="void"?"Voided":"Refund ticket created · "+usd(-ticket.total)} · approved by ${ok.name}`);
+    if(ticket) setTimeout(() => openOrderView(ticket.id), 400); else openOrderView(o.id);
   }catch(err){ console.error(err); $("#vrErr") && ($("#vrErr").textContent = "Couldn't save. Check the connection and try again."); }
 }
 
@@ -721,7 +751,7 @@ $("#shiftBtn").addEventListener("click", () => {
     <div class="f"><label for="sName">Cashier name</label><input id="sName" placeholder="Who is working this register?" value="${esc(cashier?.name||"")}"></div>
     <div class="f"><label for="sCash">Starting cash in drawer (USD)</label><input id="sCash" inputmode="decimal" value="0"></div></div>
     <div class="mf"><button class="btn" data-close>Cancel</button><button class="btn pri" id="doOpenShift">Open shift</button></div>`);
-  const sales = S.orders.filter(o => o.shiftId===sh.id && o.status==="closed");
+  const sales = S.orders.filter(o => o.shiftId===sh.id && (o.status==="closed" || o.status==="refund"));
   const by = m => sales.filter(o=>(o.payment?.type || o.payment?.method)===m).reduce((a,o)=>a+o.total,0);
   const expected = (+sh.openingCash||0) + by("cash");
   modal("shift", `<div class="mh"><h2>Close shift</h2><button class="x" data-close aria-label="Close">×</button></div><div class="mb">
@@ -737,10 +767,10 @@ async function doOpenShift(){
   catch(err){ console.error(err); toast("Couldn't open the shift"); }
 }
 async function doCloseShift(){
-  const sh = openShift(), sales = S.orders.filter(o => o.shiftId===sh.id && o.status==="closed");
-  const cash = sales.filter(o=>o.payment?.method==="cash").reduce((a,o)=>a+o.total,0), expected = (+sh.openingCash||0)+cash;
+  const sh = openShift(), sales = S.orders.filter(o => o.shiftId===sh.id && (o.status==="closed" || o.status==="refund"));
+  const cash = sales.filter(o=>(o.payment?.type || o.payment?.method)==="cash").reduce((a,o)=>a+o.total,0), expected = (+sh.openingCash||0)+cash;
   const counted = $("#sCount").value==="" ? expected : +$("#sCount").value;
-  try{ await db.collection("shifts").doc(sh.id).update({ closedAt:new Date().toISOString(), orders:sales.length, sales:+sales.reduce((a,o)=>a+o.total,0).toFixed(2), expectedCash:+expected.toFixed(2), countedCash:counted, difference:+(counted-expected).toFixed(2) });
+  try{ await db.collection("shifts").doc(sh.id).update({ closedAt:new Date().toISOString(), orders:sales.filter(o=>o.status==="closed").length, sales:+sales.reduce((a,o)=>a+o.total,0).toFixed(2), expectedCash:+expected.toFixed(2), countedCash:counted, difference:+(counted-expected).toFixed(2) });
     closeModal(); toast(Math.abs(counted-expected)<0.01 ? "Shift closed · drawer balanced" : `Shift closed · difference ${usd(counted-expected)}`); }
   catch(err){ console.error(err); toast("Couldn't close the shift"); }
 }
