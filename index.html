@@ -884,7 +884,7 @@ function viewDashboard(){
       ${kpi("Call center orders", ccOk.toLocaleString())}${kpi("Net sales", money(ccNet))}${kpi("Average ticket", money(ccOk?ccNet/ccOk:0))}
       ${kpi("Waiting for branch", (st.pending||0).toLocaleString())}${kpi("Active (in kitchen)", (st.active||0).toLocaleString())}${kpi("Declined", (st.declined||0).toLocaleString())}
     </div><div class="grid two">
-      <div class="card"><div class="kh"><h3>Orders by agent</h3></div><div style="height:12px"></div>${barList((cc.byAgent||[]).map(a=>({name:a.k, v:a.n, sub:money(+a.net)})), v=>v+" orders")}</div>
+      <div class="card"><div class="kh"><h3>Orders by user</h3></div><div style="height:12px"></div>${barList((cc.byAgent||[]).map(a=>({name:a.k, v:a.n, sub:money(+a.net)})), v=>v+" orders")}</div>
       <div class="card"><div class="kh"><h3>Orders by branch</h3></div><div style="height:12px"></div>${barList((cc.byBranch||[]).map(b=>({name:bname(b.id), v:b.n, sub:money(+b.net)})).sort((a,b)=>b.v-a.v), v=>v+" orders")}</div>
     </div>`;
   }
@@ -1136,7 +1136,7 @@ const ROLE_TPL = {
   "Cashier": ["pos_access","pos_orders","pos_incoming","pos_shift","pos_reprint"],
   "Supervisor": ["pos_access","pos_orders","pos_incoming","pos_shift","pos_reprint","pos_discount","pos_item_discount","pos_open_price","pos_charges","pos_void","pos_return","pos_endday"],
   "Branch manager": ["bo_dashboard","bo_orders","bo_customers","bo_reports","bo_inventory","pos_access","pos_orders","pos_incoming","pos_shift","pos_reprint","pos_discount","pos_item_discount","pos_open_price","pos_charges","pos_void","pos_return","pos_endday","pos_settings"],
-  "Call center agent": ["bo_callcenter","bo_customers","bo_cc_edit","bo_customers_edit"],
+  "Call center user": ["bo_callcenter","bo_customers","bo_cc_edit","bo_customers_edit"],
   "Admin": null };
 const PERM_KEYS = PERMS.filter(p=>!p[0].startsWith("@")).map(p=>p[0]);
 const roleName = id => S.roles.find(r=>r.id===id)?.name || "—";
@@ -1209,7 +1209,7 @@ const CRUD = {
       ["Back office",r=>{ const n = (r.permissions||[]).filter(p=>p.startsWith("bo_")).length; return n ? (r.permissions.includes("bo_manage") ? '<span class="tag on">Full admin</span>' : n+" areas") : '<span class="note">No access</span>'; }],
       ["POS",r=>{ const n = (r.permissions||[]).filter(p=>p.startsWith("pos_")).length; return n ? n+" permissions"+((r.permissions||[]).some(p=>p==="pos_void"||p==="pos_return") ? ' <span class="tag cc">Approves voids/returns</span>' : "") : '<span class="note">No access</span>'; }],
       ["Users",r=>S.users.filter(u=>live(u)&&u.roleId===r.id).length,"num"]],
-    fields:[{k:"name",l:"Name",req:1,ph:"e.g. Cashier, Branch manager, Call center agent"},{k:"description",l:"Description"},
+    fields:[{k:"name",l:"Name",req:1,ph:"e.g. Cashier, Branch manager, Call center user"},{k:"description",l:"Description"},
       {k:"permissions",l:"Permissions",t:"multi",opts:()=>PERMS,note:"Back-office screens decide which menus a user sees. \"Manage\" also allows changing menus, prices and settings. POS voids and returns are approved with the PIN of someone whose role allows them."}],
     after: () => `<div class="f full"><label>Start from a template</label><div class="row" style="gap:6px;flex-wrap:wrap">${Object.keys(ROLE_TPL).map(k=>`<button type="button" class="btn sm" data-roletpl="${esc(k)}">${esc(k)}</button>`).join("")}<button type="button" class="btn sm" data-roletpl="">Clear all</button></div></div>`,
     unique:"name"
@@ -1376,7 +1376,7 @@ const CRUD = {
   },
   charges: {
     col:"charges", title:"Charges", one:"Charge",
-    note:"Charges are added on top of the items, e.g. a delivery charge or a service charge. Automatic charges are added to matching orders in the POS and the call center; the cashier or agent can remove them.",
+    note:"Charges are added on top of the items, e.g. a delivery charge or a service charge. Automatic charges are added to matching orders in the POS and the call center; the cashier or user can remove them.",
     tabs:[["all","All",live],["active","Active",r=>live(r)&&r.active!==false],["inactive","Inactive",r=>live(r)&&r.active===false],["deleted","Deleted",r=>r.deleted]],
     sort:(a,b)=>bySort(a,b), search:r=>r.name+" "+(r.nameAr||""),
     cols:[["Name",r=>`<b>${esc(r.name)}</b>${r.nameAr?` <span class="note">${esc(r.nameAr)}</span>`:""}`],["Type",r=>r.type==="percent"?"Percentage":"Fixed amount"],["Value",r=>r.type==="percent"?(+r.value||0)+" %":usd(r.value),"num"],
@@ -1816,13 +1816,17 @@ const SOURCES_DEF = ["Phone","Toters","NokNok","Talabat","WhatsApp","Website","W
 function sourceList(cur){ const l = S.order_sources.filter(r=>live(r)&&r.active!==false).sort(CRUD["order-sources"].sort).map(r=>r.name); const out = l.length ? l : SOURCES_DEF; return cur && !out.includes(cur) ? [cur, ...out] : out; }
 state.ccBranch = "all"; state.ccAgent = "all"; state.ccTab = "today";
 function viewCallCenter(){
-  const agents = [...new Set(S.orders.map(o=>o.agent).filter(Boolean))];
+  // users who can use the call center (their role allows it, or they manage everything); the owner too
+  const ccUsers = S.users.filter(u => live(u) && u.active!==false && (() => { const r = S.roles.find(x=>x.id===u.roleId && live(x)); return r && ((r.permissions||[]).includes("bo_callcenter") || (r.permissions||[]).includes("bo_manage")); })()).map(u=>u.name);
+  if(state.fullName && !ccUsers.includes(state.fullName)) ccUsers.unshift(state.fullName);
+  const agents = [...new Set(ccUsers)].sort((a,b)=>a.localeCompare(b));
+  const byUser = (o, n) => o.agent===n || o.agent===String(n).split(/\s+/)[0];
   const list = S.orders.filter(o => o.channel!=="pos" && brandFilter(o) && (bizDate(o.createdAt)===todayStr() || ["draft","pending","active"].includes(o.status)))
-    .filter(o => state.ccBranch==="all" || o.branchId===state.ccBranch).filter(o => state.ccAgent==="all" || o.agent===state.ccAgent)
+    .filter(o => state.ccBranch==="all" || o.branchId===state.ccBranch).filter(o => state.ccAgent==="all" || byUser(o, state.ccAgent))
     .sort((a,b)=> b.createdAt.localeCompare(a.createdAt));
   let h = `<div class="phead"><h1>Call Center</h1><span class="note">Today's orders · open orders stay until closed</span><div class="sp"></div>
     ${scopeBar(false)}<select class="sel" id="ccBranch" aria-label="Branch"><option value="all">All Branches</option>${branches.filter(brandFilter).map(b=>`<option value="${esc(b.id)}" ${state.ccBranch===b.id?"selected":""}>${esc(b.name)}</option>`).join("")}</select>
-    <select class="sel" id="ccAgent" aria-label="Agent"><option value="all">All Agents</option>${agents.map(a=>`<option ${state.ccAgent===a?"selected":""}>${esc(a)}</option>`).join("")}</select>
+    <select class="sel" id="ccAgent" aria-label="User"><option value="all">All users</option>${agents.map(a=>`<option ${state.ccAgent===a?"selected":""}>${esc(a)}</option>`).join("")}</select>
     <button class="btn pri" id="ccNew">${svgIco("phone")} New Call Center Order</button></div>
 `;
   if(storeMode==="local") h += `<div class="banner">Preview mode: orders won't be saved.</div>`;
@@ -1992,7 +1996,7 @@ async function saveOrder(status){
     data = { brandId, phone, customerName:name, source:$("#oSource").value, type, address: type==="delivery" ? addrJoin(addr) : "",
       branchId, notes:$("#oNotes").value.trim(), receiptNotes:$("#oRNotes").value.trim(), items:cart, subtotal:c.gross, charges:c.charges, chargesTotal:c.chargesTotal, total:c.total, status };
   }
-  if(!ccEdit){ data.agent = state.userName || "Operator"; data.channel = "callcenter"; }
+  if(!ccEdit){ data.agent = state.fullName || state.userName || "Operator"; data.channel = "callcenter"; }
   try{ await put("orders", ccEdit, data); toast(o && o.status!=="draft" ? `Order ${ordRef(o)} updated · ${branchName(o.branchId)} sees the changes` : status==="pending" ? `Order sent to ${branchName(branchId)}` : "Draft saved"); $("#ccScrim").classList.remove("show"); }
   catch(err){ console.error(err); $("#oErr").textContent = "Couldn't save the order."; }
 }
@@ -2344,7 +2348,7 @@ async function openOrderDetail(id, quiet){
       <div><span>Placed</span>${dt(o.createdAt)}</div>
       ${o.acceptedAt?`<div><span>Accepted</span>${dt(o.acceptedAt)} <span class="note">(${mins(o.createdAt,o.acceptedAt)})</span></div>`:""}
       ${o.doneAt?`<div><span>${o.status==="declined"?"Declined":"Done"}</span>${dt(o.doneAt)} <span class="note">(${mins(o.createdAt,o.doneAt)} total)</span></div>`:""}
-      ${o.agent?`<div><span>${o.channel==="pos"?"Device":"Agent"}</span>${esc(o.agent)}</div>`:""}
+      ${o.agent?`<div><span>${o.channel==="pos"?"Device":"User"}</span>${esc(o.agent)}</div>`:""}
       ${o.handledBy?`<div><span>Handled by</span>${esc(o.handledBy)}</div>`:""}
     </div>
     ${o.customerName||o.phone||o.address ? `<div class="card" style="margin-bottom:14px"><b>Customer</b><div style="margin-top:6px">${esc(o.customerName||"")}${o.phone?` · <a class="lnk" href="tel:${esc(o.phone)}">${esc(o.phone)}</a>`:""}</div>${o.address?`<div class="note" style="margin-top:4px">${esc(o.address)}</div>`:""}${o.lat?`<div style="margin-top:6px">${mapLink(o)}</div>`:""}</div>` : ""}
@@ -2398,7 +2402,7 @@ async function exportOrders(){
   const { data, error } = await ordQuery("no,invoice_no,brand_id,created_at,branch_id,channel,source,type,table_no,status,customer_name,phone,address,subtotal,discount,delivery_fee,total,payment,agent,items", {}, true).order("created_at", { ascending:false }).range(0, 4999);
   if(error) return toast("Export failed: " + error.message);
   const q = v => { v = v==null ? "" : String(v); return /[",\n]/.test(v) ? `"${v.replace(/"/g,'""')}"` : v; };
-  const head = ["Order","Invoice","Brand","Date","Branch","Channel","Source","Type","Table","Status","Customer","Phone","Address","Items","Subtotal","Discount","Delivery fee","Total","Payment","Agent/Device"];
+  const head = ["Order","Invoice","Brand","Date","Branch","Channel","Source","Type","Table","Status","Customer","Phone","Address","Items","Subtotal","Discount","Delivery fee","Total","Payment","User/Device"];
   const rows = data.map(r => [r.no, r.invoice_no, brandName(r.brand_id), new Date(r.created_at).toLocaleString("en-GB"), branches.find(x=>x.id===r.branch_id)?.name||"", CH_LBL[r.channel]||r.channel, r.source, ordTypeLbl(r.type), r.table_no, ORD_ST[r.status]||r.status, r.customer_name, r.phone, r.address,
     (Array.isArray(r.items)?r.items:[]).map(i=>`${+i.qty||1}x ${i.name}${i.mods?" ("+i.mods+")":""}`).join("; "), r.subtotal, r.discount, r.delivery_fee, r.total, r.payment?.method, r.agent]);
   const blob = new Blob([[head, ...rows].map(l=>l.map(q).join(",")).join("\n")], { type:"text/csv" });
@@ -2450,12 +2454,6 @@ function viewCustomers(){
   loadCustomers();
   const S2 = CUS.summary, pages = Math.max(1, Math.ceil(CUS.count/CUS.per)), a = CUS.count ? (CUS.page-1)*CUS.per+1 : 0, b = Math.min(CUS.count, CUS.page*CUS.per);
   return `<div class="phead"><h1>Customers</h1><span class="sp"></span><button class="btn" id="cusImp">Import</button><button class="btn" id="cusCsv">Export CSV</button><button class="btn pri" id="cusAdd">+ Add customer</button></div>
-  ${S2 ? `<div class="grid kpis" style="margin-bottom:16px">
-    ${kpiX("Customers", (+S2.total).toLocaleString(), `${S2.withOrders} have ordered`)}
-    ${kpiX("New this month", (+S2.new30).toLocaleString(), "First order in the last 30 days")}
-    ${kpiX("Repeat customers", (+S2.repeat).toLocaleString(), S2.withOrders ? `${Math.round(S2.repeat/S2.withOrders*100)}% of customers who ordered` : "")}
-    ${kpiX("Average spend", money(+S2.avgSpend), "Lifetime, per customer")}
-  </div>` : ""}
   <div class="card tbl otbl"><div class="ttop"><div class="ttabs">${CUS_TABS.map(([k,t])=>`<a href="#customers" data-ctab="${k}" class="${CUS.filter===k?"on":""}">${t}</a>`).join("")}</div><span class="sp"></span>
     <input class="sel" id="cusQ" placeholder="Name, phone or email" value="${esc(CUS.q)}" style="min-width:200px">
     <select class="sel" id="cusSort">${[["last","Last order"],["spent","Total spent"],["orders","Most orders"],["new","Newest"],["name","Name A–Z"]].map(([v,t])=>`<option value="${v}" ${CUS.sort===v?"selected":""}>Sort: ${t}</option>`).join("")}</select></div>
@@ -2470,9 +2468,9 @@ async function openCustomer(id){
   let c = { id:null, phone:"", name:"", email:"", birthday:null, notes:"", tags:[], blacklisted:false, addresses:[] }, orders = [];
   if(id){
     const [r1, r2] = await Promise.all([WOK.sb.from("customers").select("*").eq("id", id).maybeSingle(),
-      WOK.sb.from("orders").select("id,no,invoice_no,created_at,branch_id,channel,type,status,total").eq("customer_id", id).order("created_at", { ascending:false }).limit(100)]);
+      WOK.sb.from("orders").select("id,no,invoice_no,created_at,branch_id,channel,type,status,total,address").eq("customer_id", id).order("created_at", { ascending:false }).limit(100)]);
     if(r1.error || !r1.data) return toast("Couldn't open this customer");
-    c = r1.data; orders = r2.data || [];
+    c = r1.data; orders = r2.data || []; c.__orders = orders;
   }
   const ok = orders.filter(o => ["pending","active","closed"].includes(o.status)), spent = ok.reduce((a,o)=>a+(+o.total||0),0);
   const dt = t => new Date(t).toLocaleString("en-GB",{day:"numeric",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"});
@@ -2487,10 +2485,13 @@ async function openCustomer(id){
       <div class="f"><label for="cuEmail">Email</label><input id="cuEmail" type="email" value="${esc(c.email||"")}"></div>
       <div class="f"><label for="cuBday">Birthday</label><input id="cuBday" type="date" value="${esc(c.birthday||"")}"></div>
       <div class="f"><label for="cuTags">Tags</label><input id="cuTags" value="${esc((c.tags||[]).join(", "))}" placeholder="e.g. VIP, corporate"></div>
-      <div class="f"><label><input type="checkbox" id="cuBlack" ${c.blacklisted?"checked":""}> Blacklisted (warn agents and branches)</label></div>
+      <div class="f"><label><input type="checkbox" id="cuBlack" ${c.blacklisted?"checked":""}> Blacklisted (warn users and branches)</label></div>
       <div class="f" style="grid-column:1/-1"><label for="cuNotes">Notes</label><textarea id="cuNotes" rows="2" placeholder="Allergies, preferences, gate code…">${esc(c.notes||"")}</textarea></div>
     </div>
-    ${(c.addresses||[]).length ? `<h3 style="font-size:14px;margin:0 0 6px">Saved addresses</h3>${c.addresses.map((a,i)=>`<div class="note" style="margin-bottom:4px">${esc(a.address)} ${a.lat?mapLink(a):""} <a href="#customers" class="lnk" data-deladdr="${i}">Remove</a></div>`).join("")}` : ""}
+    <h3 style="font-size:14px;margin:0 0 6px">Addresses</h3><div id="cuAddrs">${cuAddrList(c)}</div>
+    <details style="margin:6px 0 4px"><summary class="lnk" style="cursor:pointer;font-size:13px">+ Add address</summary>
+      <div class="body" style="padding:8px 0 0">${[["label","Label","Home, Work…"],["street","Area / street",""],["building","Building",""],["floor","Floor",""],["extra","Directions / info",""]].map(([k,l,ph])=>`<div class="f"><label for="cuA_${k}">${l}</label><input id="cuA_${k}" placeholder="${ph}"></div>`).join("")}
+      <div class="f" style="align-self:end"><button type="button" class="btn" id="cuAddAddr">Add</button></div></div></details>
     ${id ? `<h3 style="font-size:14px;margin:14px 0 6px">Order history</h3><div class="card tbl otbl"><table><thead><tr><th>Order</th><th>Date</th><th>Branch</th><th>Channel</th><th>Status</th><th class="num">Total</th></tr></thead><tbody>${
       orders.length ? orders.map(o=>`<tr class="clk" data-coid="${esc(o.id)}"><td><b>${esc(ordRef(o))}</b></td><td>${dt(o.created_at)}</td><td>${esc(branchName(o.branch_id) || "—")}</td><td>${esc(CH_LBL[o.channel]||cap(o.channel))}</td><td><span class="spill s-${o.status}">${ORD_ST[o.status]||o.status}</span></td><td class="num">${money(+o.total||0)}</td></tr>`).join("")
       : `<tr><td colspan="6" class="note">No orders yet.</td></tr>`}</tbody></table></div>` : ""}
@@ -2499,6 +2500,15 @@ async function openCustomer(id){
   <footer>${id && ["owner","admin"].includes(state.role) ? `<button type="button" class="btn bad" id="cuDel">Delete</button>` : ""}<span style="flex:1"></span><button type="button" class="btn" data-ccclose>Cancel</button><button type="button" class="btn pri" id="cuSave">${id?"Save":"Add customer"}</button></footer>`;
   window.__cus = c;
   $("#ccScrim").classList.add("show");
+}
+// a customer's addresses: the saved ones, plus any delivery address used on their orders that isn't saved yet
+function cuAddrList(c){
+  const seen = new Set((c.addresses||[]).map(a => String(a.address||"").trim()));
+  (c.__orders||[]).forEach(o => { const v = String(o.address||"").trim(); if(v && !seen.has(v)){ seen.add(v); (c.__used = c.__used || []).push(v); } });
+  const show = v => { const a = addrSplit(v); return `${a.label?`<b>${esc(a.label)}</b> · `:""}${esc([a.street, a.building && "Bldg " + a.building, a.floor && "Floor " + a.floor, a.extra].filter(Boolean).join(" · ") || v)}`; };
+  const saved = (c.addresses||[]).map((a,i)=>`<div class="note" style="margin-bottom:4px;color:inherit">${show(a.address)} ${a.lat?mapLink(a):""} <a href="#customers" class="lnk" data-deladdr="${i}">Remove</a></div>`).join("");
+  const used = (c.__used||[]).map((v,i)=>`<div class="note" style="margin-bottom:4px">${show(v)} <span class="tag">from orders</span> <a href="#customers" class="lnk" data-saveaddr="${i}">Save</a></div>`).join("");
+  return saved + used || `<div class="note">No addresses yet.</div>`;
 }
 async function saveCustomer(){
   const c = window.__cus, phone = normPhone($("#cuPhone").value);
@@ -2552,7 +2562,7 @@ async function ccLookup(view){
   if(normPhone($("#oPhone")?.value) !== ph) return;
   if(!view){ if($("#oName") && !$("#oName").value && data.name) $("#oName").value = data.name;
     if($("#oA_street") && !ADDR_K.some(k => $("#oA_"+k)?.value) && data.addresses?.[0]?.address) ccAddrSet(data.addresses[0].address); }
-  hint.innerHTML = `${data.blacklisted ? '<b style="color:#9e0c24">⚠ Blacklisted customer.</b> ' : ""}${(data.tags||[]).map(t=>`<span class="tag">${esc(t)}</span>`).join(" ")}${data.notes ? ` <i>${esc(data.notes)}</i>` : ""}${!view && (data.addresses||[]).length>1 ? `<br>${data.addresses.slice(0,4).map((a,i)=>`<a href="#call-center" class="lnk" data-useaddr="${i}">${esc((addrSplit(a.address).label || a.address).slice(0,40))}</a>`).join(" · ")}` : ""}`;
+  hint.innerHTML = `${data.blacklisted ? '<b style="color:#9e0c24">⚠ Blacklisted customer.</b> ' : ""}${(data.tags||[]).map(t=>`<span class="tag">${esc(t)}</span>`).join(" ")}${data.notes ? ` <i>${esc(data.notes)}</i>` : ""}${!view && (data.addresses||[]).length ? `<br><span class="note">Addresses (${data.addresses.length}):</span> ${data.addresses.slice(0,10).map((a,i)=>{ const p = addrSplit(a.address); return `<a href="#call-center" class="lnk" data-useaddr="${i}" title="${esc(a.address)}">${esc(((p.label ? p.label + ": " : "") + (p.street || a.address)).slice(0,50))}</a>`; }).join(" · ")}` : ""}`;
   window.__ccCust = data; window.__ccPast = past || [];
   const ok = (past||[]).filter(o => ["pending","active","closed"].includes(o.status)), spent = ok.reduce((a,o)=>a+(+o.total||0),0);
   const fav = {}; ok.forEach(o => (o.items||[]).forEach(i => fav[i.name] = (fav[i.name]||0) + (+i.qty||1)));
@@ -2574,7 +2584,12 @@ document.addEventListener("click", e => {
     (lo.items||[]).forEach(i => { const p = S.products.find(x=>x.id===i.productId); if(!p || !okIds.has(p.id)){ miss.push(i.name); return; } cart.push({ ...i }); });
     renderCart(false); toast(miss.length ? `Added the last order · not available now: ${miss.join(", ")}` : "Last order added to the cart"); return; }
   const ua = e.target.closest("[data-useaddr]"); if(ua){ e.preventDefault(); const a = window.__ccCust?.addresses?.[+ua.dataset.useaddr]; if(a) ccAddrSet(a.address); return; }
-  const da = e.target.closest("[data-deladdr]"); if(da){ e.preventDefault(); window.__cus.addresses.splice(+da.dataset.deladdr, 1); da.parentElement.remove(); return; }
+  const da = e.target.closest("[data-deladdr]"); if(da){ e.preventDefault(); window.__cus.addresses.splice(+da.dataset.deladdr, 1); window.__cus.__used = null; $("#cuAddrs").innerHTML = cuAddrList(window.__cus); return; }
+  const sa = e.target.closest("[data-saveaddr]"); if(sa){ e.preventDefault(); const c = window.__cus, v = c.__used?.[+sa.dataset.saveaddr]; if(v){ c.addresses = [...(c.addresses||[]), { address:v }]; c.__used = null; $("#cuAddrs").innerHTML = cuAddrList(c); } return; }
+  if(e.target.id==="cuAddAddr"){ const a = {}; ["label","street","building","floor","extra"].forEach(k => a[k] = $("#cuA_"+k).value.trim());
+    if(!a.street){ $("#cuA_street").focus(); return toast("Enter the area / street"); }
+    const c = window.__cus; c.addresses = [...(c.addresses||[]), { address: addrJoin(a) }]; c.__used = null; $("#cuAddrs").innerHTML = cuAddrList(c);
+    ["label","street","building","floor","extra"].forEach(k => $("#cuA_"+k).value = ""); toast("Address added — press Save to keep it"); return; }
   if(e.target.id==="cuSave") return saveCustomer();
   if(e.target.id==="cuDel") return deleteCustomer();
   const co = e.target.closest("tr[data-coid]"); if(co) return openOrderDetail(co.dataset.coid);
@@ -2703,8 +2718,8 @@ function viewSettings(route){
     ${card("Cashier app (POS)", chk("requireCustPickup","Pickup orders need the customer's name and phone") + chk("requireCustDelivery","Delivery orders need the customer's name, phone and address") + chk("requireTable","Dine-in orders need a table number")
       + chk("reasonRequired","Voids and returns need a reason") + chk("discountApproval","Discounts need a manager's PIN","Someone whose role allows discounts types their PIN to approve.")
       + `<div class="f"><label for="as_stockAction">After a void or return, the items go</label><select id="as_stockAction" class="sel" ${dis}>${[["ask","Ask every time"],["stock","Back to stock"],["waste","To waste"]].map(([k,t])=>`<option value="${k}" ${a.stockAction===k?"selected":""}>${t}</option>`).join("")}</select></div>`)}
-    ${card("Call center", `<div class="f"><label for="as_ccDefaultSource">Suggested source for new orders</label><select id="as_ccDefaultSource" class="sel" ${dis}><option value="">None (agent must pick)</option>${sourceList().map(x=>`<option ${a.ccDefaultSource===x?"selected":""}>${esc(x)}</option>`).join("")}</select></div>`
-      + `<div class="f full note">Agents can edit a placed order's source, type and items until the branch closes it. Item discounts need the "Give item discounts in the call center" permission.</div>`)}
+    ${card("Call center", `<div class="f"><label for="as_ccDefaultSource">Suggested source for new orders</label><select id="as_ccDefaultSource" class="sel" ${dis}><option value="">None (user must pick)</option>${sourceList().map(x=>`<option ${a.ccDefaultSource===x?"selected":""}>${esc(x)}</option>`).join("")}</select></div>`
+      + `<div class="f full note">Call center users can edit a placed order's source, type and items until the branch closes it. Item discounts need the "Give item discounts in the call center" permission.</div>`)}
     ${card("Receipt", chk("rcptInvoice","Show the invoice number") + chk("rcptCustomer","Show the customer's name and phone") + chk("rcptTax","Show the tax line") + chk("rcptSource","Show the order source"))}
     <div class="card" id="reasons" style="margin-bottom:16px"><h3 style="margin:0 0 6px;font-size:15px">Reasons</h3><p class="note" style="margin:0 0 12px">The choices the cashier picks from. One per line.</p>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px"><div class="f"><label for="as_voidReasons">Void reasons</label><textarea id="as_voidReasons" rows="6" ${dis}>${esc(a.voidReasons)}</textarea></div>
