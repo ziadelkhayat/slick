@@ -345,12 +345,11 @@ body[data-route="call-center"] .ocard{padding:10px 12px;gap:5px;font-size:13px}
   body[data-route="call-center"] .board{grid-template-columns:repeat(5,minmax(220px,1fr));overflow-x:auto;height:auto}}
 .sortbody{padding:16px 22px;max-height:66vh;overflow:auto}
 .sortl{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
-.sortl li{display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:7px 10px;cursor:grab;user-select:none}
-.sortl li.drag{opacity:.5;border-style:dashed;border-color:var(--accent)}
+.sortl li{display:flex;align-items:center;gap:12px;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:11px 12px;cursor:grab;user-select:none;touch-action:none;transition:box-shadow .12s}
+.sortl li:hover{border-color:#d9d0ff}
+.sortl li.drag{cursor:grabbing;border-color:var(--accent);box-shadow:0 8px 22px rgba(91,43,196,.18);background:var(--chart-soft,#f3efff);position:relative;z-index:2}
 .sortl .grip{color:var(--ink3,#8d8c98);letter-spacing:-2px;font-weight:700}
-.sortl .sn{min-width:26px;font-size:12px;color:var(--ink3,#8d8c98);font-variant-numeric:tabular-nums}
 .sortl .st{flex:1;font-weight:500}
-.sortl .btn.sm{padding:3px 9px}
 </style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -1025,8 +1024,8 @@ const CRUD = {
     filter:brandFilter,
     cols:[["Name",r=>`<b>${esc(r.name)}</b>`],["Brand",r=>esc(brandName(r.brandId))],["Reference",r=>esc(r.reference||"—")],
       ["Products",r=>`<a class="lnk" href="#products" data-catfilter="${esc(r.id)}">Products (${S.products.filter(p=>live(p)&&p.categoryId===r.id).length})</a>`],
-      ["Sort",r=>r.sort??"—","num"],["Created",r=>fmtDate(r.createdAt)]],
-    fields:[{k:"name",l:"Name",req:1},{k:"nameAr",l:"Name (Arabic)"},brandField,{k:"reference",l:"Reference"},{k:"sort",l:"Sort order",t:"number"}]
+      ["Created",r=>fmtDate(r.createdAt)]],
+    fields:[{k:"name",l:"Name",req:1},{k:"nameAr",l:"Name (Arabic)"},brandField,{k:"reference",l:"Reference"}]
   },
   products: {
     col:"products", title:"Products", one:"Product", detail: r => productDetail(r),
@@ -1072,7 +1071,7 @@ const CRUD = {
       {k:"modifierId",l:"Modifier",t:"select",req:1,opts:()=>S.modifiers.filter(live).sort((a,b)=>a.name.localeCompare(b.name)).map(m=>[m.id,m.name]),auto:()=>state.newOptMod||state.modFilter||""},
       {k:"sku",l:"SKU",auto:()=>nextSku("modifier_options")},{k:"price",l:"Price (USD)",t:"number",def:0},{k:"taxGroup",l:"Tax group",t:"select",opts:()=>[["TAX","TAX"],["No tax","No tax"]],def:"TAX"},
       {k:"costingMethod",l:"Costing method",t:"select",opts:()=>[["ingredients","From ingredients"],["fixed","Fixed cost"]],def:"ingredients"},{k:"cost",l:"Fixed cost (USD, if fixed)",t:"number"},
-      {k:"calories",l:"Calories (kCal)",t:"number"},{k:"sort",l:"Sort order",t:"number"},{k:"active",l:"Active",t:"chk",def:true}]
+      {k:"calories",l:"Calories (kCal)",t:"number"},{k:"active",l:"Active",t:"chk",def:true}]
   },
   suppliers: {
     col:"suppliers", title:"Suppliers", one:"Supplier",
@@ -1132,8 +1131,8 @@ const CRUD = {
     sort:(a,b)=>(a.sort??999)-(b.sort??999) || a.name.localeCompare(b.name),
     search:r=>r.name+" "+(r.reference||""),
     cols:[["Name",r=>`<b>${esc(r.name)}</b>${r.nameAr?` <span class="note">${esc(r.nameAr)}</span>`:""}`],["Reference",r=>esc(r.reference||"—")],
-      ["Sort",r=>r.sort??"—","num"],["Status",r=>r.active===false?'<span class="tag off">Inactive</span>':'<span class="tag on">Active</span>']],
-    fields:[{k:"name",l:"Name",req:1},{k:"nameAr",l:"Name (Arabic)"},{k:"reference",l:"Reference"},{k:"sort",l:"Sort order",t:"number",auto:()=>S.order_sources.filter(live).length+1},
+      ["Status",r=>r.active===false?'<span class="tag off">Inactive</span>':'<span class="tag on">Active</span>']],
+    fields:[{k:"name",l:"Name",req:1},{k:"nameAr",l:"Name (Arabic)"},{k:"reference",l:"Reference"},
       {k:"active",l:"Show in the call center",t:"chk",def:true}],
     unique:"name",
     note:"These are the choices in the call center's Source list (where the order came from). Inactive sources are hidden from new orders but kept on old ones."
@@ -1182,6 +1181,7 @@ const SORTABLE = {
   categories: { col:"categories", scope: () => brandList().length > 1 ? ["Brand", brandList().map(b=>[b.id,b.name]), r => r.brandId] : null, def: () => state.brand!=="all" ? state.brand : brandList()[0]?.id },
   products: { col:"products", scope: () => ["Category", S.categories.filter(c=>live(c)&&brandFilter(c)).sort(bySort).map(c=>[c.id,(state.brand==="all"&&brandList().length>1?brandName(c.brandId)+" · ":"")+c.name]), r => r.categoryId], def: () => state.catFilter || S.categories.filter(c=>live(c)&&brandFilter(c)).sort(bySort)[0]?.id },
   modifiers: { col:"modifiers", scope: () => null },
+  "order-sources": { col:"order_sources", scope: () => null },
   "modifier-options": { col:"modifier_options", scope: () => ["Modifier", S.modifiers.filter(live).sort(bySort).map(m=>[m.id,m.name]), r => r.modifierId], def: () => state.modFilter || S.modifiers.filter(live).sort(bySort)[0]?.id }
 };
 let SORTER = null;
@@ -1197,10 +1197,9 @@ function paintSorter(){
   const one = CRUD[key].title.toLowerCase();
   $("#crudBox").innerHTML = `<header><h2>Sort ${esc(CRUD[key].title)}</h2><button type="button" class="x" data-cclose aria-label="Close">×</button></header>
     <div class="sortbody">
-      <p class="note" style="margin:0 0 10px">Drag ${esc(one)} into place (or use the arrows). The POS, call center and online ordering show them in this order.</p>
+      <p class="note" style="margin:0 0 10px">Drag ${esc(one)} up or down into place. The POS, call center and online ordering show them in this order.</p>
       ${sc ? `<div class="f" style="margin-bottom:10px"><label for="srtScope">${sc[0]}</label><select id="srtScope" class="sel">${sc[1].map(([k,t])=>`<option value="${esc(k)}" ${k===v?"selected":""}>${esc(t)}</option>`).join("")}</select></div>` : ""}
-      ${ids.length ? `<ol class="sortl" id="srtList">${ids.map((id,i)=>`<li draggable="true" data-sid="${esc(id)}"><span class="grip" aria-hidden="true">⋮⋮</span><span class="sn">${i+1}</span><span class="st">${esc(name(id))}</span>
-        <button type="button" class="btn sm" data-smove="${i}:-1" ${i===0?"disabled":""} aria-label="Move up">↑</button><button type="button" class="btn sm" data-smove="${i}:1" ${i===ids.length-1?"disabled":""} aria-label="Move down">↓</button></li>`).join("")}</ol>`
+      ${ids.length ? `<ol class="sortl" id="srtList">${ids.map((id,i)=>`<li data-sid="${esc(id)}" tabindex="0" aria-label="${esc(name(id))}. Drag to move, or use the arrow keys"><span class="grip" aria-hidden="true">⋮⋮</span><span class="st">${esc(name(id))}</span></li>`).join("")}</ol>`
         : `<div class="empty">Nothing to sort here.</div>`}
       <div class="err" id="cErr"></div>
     </div>
@@ -1208,11 +1207,23 @@ function paintSorter(){
   wireSortDrag();
 }
 function wireSortDrag(){
-  const ol = $("#srtList"); if(!ol) return; let drag = null;
-  ol.addEventListener("dragstart", e => { drag = e.target.closest("li"); if(!drag) return; drag.classList.add("drag"); e.dataTransfer.effectAllowed = "move"; try{ e.dataTransfer.setData("text/plain", drag.dataset.sid); }catch(err){} });
-  ol.addEventListener("dragover", e => { if(!drag) return; e.preventDefault(); const over = e.target.closest("li"); if(!over || over===drag) return;
-    const r = over.getBoundingClientRect(); ol.insertBefore(drag, e.clientY > r.top + r.height/2 ? over.nextSibling : over); });
-  ol.addEventListener("dragend", () => { if(!drag) return; drag.classList.remove("drag"); drag = null; SORTER.ids = [...ol.querySelectorAll("li")].map(li=>li.dataset.sid); paintSorter(); });
+  // pointer-based drag: works with a mouse and on touch screens (tablets)
+  const ol = $("#srtList"); if(!ol) return;
+  const box = ol.closest(".sortbody"); let drag = null, scrollT = null;
+  const done = () => { if(!drag) return; drag.classList.remove("drag"); drag = null; clearInterval(scrollT); SORTER.ids = [...ol.querySelectorAll("li")].map(li=>li.dataset.sid); };
+  ol.addEventListener("pointerdown", e => { const li = e.target.closest("li"); if(!li || e.button>0) return; e.preventDefault(); drag = li; li.classList.add("drag"); li.setPointerCapture(e.pointerId); });
+  ol.addEventListener("pointermove", e => {
+    if(!drag) return;
+    const r = box.getBoundingClientRect(); clearInterval(scrollT);
+    if(e.clientY < r.top + 40) scrollT = setInterval(() => box.scrollTop -= 12, 16); else if(e.clientY > r.bottom - 40) scrollT = setInterval(() => box.scrollTop += 12, 16);
+    const over = [...ol.children].find(li => { if(li===drag) return false; const b = li.getBoundingClientRect(); return e.clientY >= b.top && e.clientY <= b.bottom; });
+    if(!over) return; const b = over.getBoundingClientRect();
+    ol.insertBefore(drag, e.clientY > b.top + b.height/2 ? over.nextSibling : over);
+  });
+  ol.addEventListener("pointerup", done); ol.addEventListener("pointercancel", done);
+  ol.addEventListener("keydown", e => { const li = e.target.closest("li"); if(!li || !["ArrowUp","ArrowDown"].includes(e.key)) return; e.preventDefault();
+    if(e.key==="ArrowUp" && li.previousElementSibling) ol.insertBefore(li, li.previousElementSibling); else if(e.key==="ArrowDown" && li.nextElementSibling) ol.insertBefore(li.nextElementSibling, li);
+    li.focus(); SORTER.ids = [...ol.querySelectorAll("li")].map(x=>x.dataset.sid); });
 }
 async function saveSorter(){
   const { key, ids } = SORTER, cfg = SORTABLE[key], col = S[cfg.col];
@@ -1225,7 +1236,6 @@ async function saveSorter(){
 document.addEventListener("click", e => {
   const b = e.target.closest("[data-sorter]"); if(b) return openSorter(b.dataset.sorter);
   if(!SORTER || !e.target.closest("#crudBox") || crudEdit?.key!=="sorter") return;
-  const mv = e.target.closest("[data-smove]"); if(mv){ const [i,d] = mv.dataset.smove.split(":").map(Number), a = SORTER.ids; [a[i], a[i+d]] = [a[i+d], a[i]]; return paintSorter(); }
   if(e.target.closest("#srtAZ")){ const col = S[SORTABLE[SORTER.key].col]; SORTER.ids.sort((x,y)=>(col.find(r=>r.id===x)?.name||"").localeCompare(col.find(r=>r.id===y)?.name||"")); return paintSorter(); }
   if(e.target.closest("#srtSave")) return saveSorter();
 });
