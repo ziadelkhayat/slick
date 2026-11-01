@@ -698,15 +698,26 @@ async function loadDash(force){
   try{
     const calls = [WOK.sb.rpc(fn, cur)];
     if(state.compare && kind!=="inventory") calls.push(WOK.sb.rpc(fn, dashParams(1)));
-    const res = await Promise.all(calls), rr = [];
+    const act = kind==="sales" ? [dashActive(dashParams(0))] : [];
+    const res = await Promise.all(calls), rr = await Promise.all(act);
     if(DASH.key!==key) return;                       // filters changed meanwhile
     const bad = res.find(r => r.error); if(bad) throw bad.error;
     DASH.cur = res[0].data; DASH.prev = res[1]?.data || null; DASH.at = Date.now();
     [DASH.cur, DASH.prev].forEach(D => { if(D && D.refunds) D.returns = D.refunds; });
+    if(DASH.cur && rr[0]) DASH.cur.active = rr[0];
   }catch(e){ console.error("dashboard", e); if(DASH.key===key) DASH.err = e.message || "Couldn't load the numbers"; }
   finally{ if(DASH.key===key){ DASH.loading = false; if((location.hash.slice(1)||"dashboard")==="dashboard") render(); } }
 }
 // returned (voided) orders in the period: count, amount and the tax inside them
+// orders not closed yet (waiting for the branch or in the kitchen) in the period: how many and how much
+async function dashActive(pr){
+  const end = new Date(pr.p_day + "T12:00:00"), start = new Date(end); start.setDate(end.getDate() - (pr.p_days - 1));
+  const [t0, t1] = dayBounds(start.toISOString().slice(0,10), pr.p_day);
+  let q = WOK.sb.from("orders").select("total,status").in("status", ["pending","active"]).gte("created_at", t0.toISOString()).lt("created_at", t1.toISOString()).limit(5000);
+  if(pr.p_branches) q = q.in("branch_id", pr.p_branches); if(pr.p_brand) q = q.eq("brand_id", pr.p_brand);
+  const { data, error } = await q; if(error){ console.error("active", error); return null; }
+  return { n: data.length, v: data.reduce((a,o)=>a+(+o.total||0),0), pending: data.filter(o=>o.status==="pending").length };
+}
 async function dashReturns(pr){
   const end = new Date(pr.p_day + "T12:00:00"), start = new Date(end); start.setDate(end.getDate() - (pr.p_days - 1));
   const [t0, t1] = dayBounds(start.toISOString().slice(0,10), pr.p_day);
@@ -834,7 +845,8 @@ function viewDashboard(){
       <div class="card kpi"><div class="kh"><h3>Tax Amount</h3></div><div class="v">${money(+D.tax||0)}</div>${delta(+D.tax||0, P&&(+P.tax||0))}<div class="d">Included in sales (prices include tax)</div></div>
       <div class="card kpi"><div class="kh"><h3>Return Amount</h3></div><div class="v">${money(D.returns?.v||0)}</div><div class="d">${D.returns?.n||0} refund ticket${D.returns?.n===1?"":"s"}${D.returns?.tax ? ` · incl. tax ${money(D.returns.tax)}` : ""}</div>
         ${state.compare && P ? `<div class="d">${cap(cmpLbl())}: ${money(P.returns?.v||0)}</div>` : ""}</div>
-      <div class="card kpi"><div class="kh"><h3>Declined orders</h3></div><div class="v">${D.declined.n}</div><div class="d">${money(+D.declined.v)} not sold · ${D.open} order${D.open===1?"":"s"} still open</div>
+      <div class="card kpi"><div class="kh"><h3>Active orders</h3></div><div class="v">${D.active ? D.active.n : D.open}</div><div class="d">${D.active ? money(D.active.v) + " not closed yet" : "Not closed yet"}${D.active?.pending ? ` · ${D.active.pending} waiting for the branch` : ""}</div><div class="d">Counted in sales once the branch closes them on its POS.</div></div>
+      <div class="card kpi"><div class="kh"><h3>Declined orders</h3></div><div class="v">${D.declined.n}</div><div class="d">${money(+D.declined.v)} not sold</div>
         ${state.compare && P ? `<div class="d">${cap(cmpLbl())}: ${P.declined.n}</div>` : ""}</div>
     </div>`;
     if(rangeDays()>1){
