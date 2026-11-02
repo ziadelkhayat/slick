@@ -89,7 +89,8 @@ button{cursor:pointer}
 .cins-g{display:grid;grid-template-columns:1fr 1fr;gap:8px}.cins-g div{display:flex;flex-direction:column;font-size:12px;color:var(--mut,#6b6880);background:#fff;border-radius:10px;padding:7px 9px}.cins-g b{font-size:16px;color:inherit;color:#15131f}
 .ctags{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:12.5px}.ctags .tag{background:#efeafe;color:#5b3fd6;border-radius:999px;padding:3px 9px;font-weight:600}.ctags .tag.bad{background:#fde8e8;color:#b42318}
 .cmix{font-size:12.5px;color:#6b6880}.cfav{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:12.5px}.cfav span{color:#6b6880;width:100%}.cfav b{background:#fff;border:1px solid var(--line);border-radius:999px;padding:3px 10px;font-weight:600}.cfav small{color:#6b6880}
-.cpast{display:flex;flex-direction:column;gap:6px;font-size:13px}.cpo{display:grid;grid-template-columns:1fr auto;gap:2px 8px;align-items:center;border:1px solid var(--line);border-radius:12px;padding:9px 11px}.cpo .mut{font-size:12px}
+.cpast{display:flex;flex-direction:column;gap:6px;font-size:13px;max-height:340px;overflow-y:auto}.cpo{display:grid;grid-template-columns:1fr auto auto;gap:8px;align-items:center;border:1px solid var(--line);border-radius:12px;padding:11px 12px;background:#fff;font:inherit;font-size:13px;color:inherit;text-align:left;cursor:pointer;min-height:46px}.cpo i{font-style:normal;color:#9a97ab;font-size:18px}.cpo:active{background:#f3efff}
+.cdet{border:1px solid var(--line);border-radius:14px;padding:10px 12px;display:flex;flex-direction:column;gap:6px;font-size:13px}.cdl{display:flex;justify-content:space-between;gap:10px}.cdl span{display:flex;flex-direction:column}.cdl small{color:#6b6880;font-size:11.5px}.cdl.vd{text-decoration:line-through;color:#9a97ab}.cdl.tot{border-top:1px solid var(--line);padding-top:6px;font-weight:700}
 .acards{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px}
 .acard{display:flex;flex-direction:column;gap:3px;text-align:left;border:1px solid var(--line);background:#fff;border-radius:12px;padding:10px 12px;cursor:pointer;font:inherit;font-size:13px;color:inherit;min-height:56px}
 .acard span{color:#6b6880;font-size:12px}.acard.on{border-color:#6a4cf5;background:#f3efff}.acard.new{border-style:dashed}
@@ -809,6 +810,7 @@ $("#modal").addEventListener("click", async e => {
   const pnt = e.target.closest("[data-pdnewt]"); if(pnt){ PD = null; return openPDNew(); }
   const pdt = e.target.closest("[data-pdt]"); if(pdt){ pdKeep(); PD.type = pdt.dataset.pdt; return openPDNew(); }
   const pda = e.target.closest("[data-pdaddr]"); if(pda){ pdKeep(); const a = (PD.cust?.addresses||[]).filter(x => x.address)[+pda.dataset.pdaddr]; if(a) PD.addr = addrParts(a.address); return openPDNew(); }
+  const pdd = e.target.closest("[data-pddet]"); if(pdd){ pdKeep(); PD.det = pdd.dataset.pddet || null; return openPDNew(); }
   if(e.target.closest("[data-pdnewaddr]")){ pdKeep(); PD.addr = {}; openPDNew(); return $("#pdA_label")?.focus(); }
   if(e.target.closest("[data-pdcancel]")) return pdCancel();
   if(e.target.closest("#pdGo")) return pdContinue();
@@ -1277,7 +1279,7 @@ async function pdLookup(){
     if(normPhone($("#pdPhone")?.value) !== ph || modalKind!=="pdnew") return;
     PD.past = data ? await pdPast(data.id, ph) : [];
     if(normPhone($("#pdPhone")?.value) !== ph || modalKind!=="pdnew") return;
-    pdKeep(); PD.cust = data || null;
+    pdKeep(); PD.cust = data || null; PD.det = null;
     if(data){ if(!PD.name && data.name) PD.name = data.name; if(PD.type==="delivery" && !ADDR_K.some(k => PD.addr[k]) && data.addresses?.[0]?.address) PD.addr = addrParts(data.addresses[0].address); openPDNew(); const i = $("#pdPhone"); i.focus(); i.setSelectionRange(i.value.length, i.value.length); }
     else { if($(".pdside")){ openPDNew(); const i = $("#pdPhone"); i.focus(); i.setSelectionRange(i.value.length, i.value.length); } $("#pdHint").innerHTML = "New customer · enter their name"; }
   }catch(e){ console.warn(e); }
@@ -1285,11 +1287,13 @@ async function pdLookup(){
 // previous orders of this customer: the call center links them by customer, the POS by phone
 async function pdPast(id, ph){
   let rows = [];
-  try{ const { data } = await window.WOK.sb.from("orders").select("id,no,invoice_no,status,type,total,items,branch_id,created_at")
+  try{ const { data } = await window.WOK.sb.from("orders").select("id,no,invoice_no,status,type,total,items,branch_id,created_at,discount,delivery_fee,charges,address,payment,source")
       .or(`customer_id.eq.${id},phone.eq.${ph}`).order("created_at", { ascending:false }).limit(100);
-    rows = (data || []).map(o => ({ id:o.id, no:o.no, inv:o.invoice_no, status:o.status, type:o.type, total:+o.total||0, items:o.items||[], branchId:o.branch_id, at:o.created_at })); }catch(e){ console.warn(e); }
+    rows = (data || []).map(o => ({ id:o.id, no:o.no, inv:o.invoice_no, status:o.status, type:o.type, total:+o.total||0, items:o.items||[], branchId:o.branch_id, at:o.created_at,
+      discount:+o.discount||0, fee:+o.delivery_fee||0, charges:o.charges||[], address:o.address||"", payment:o.payment||null, source:o.source||"" })); }catch(e){ console.warn(e); }
   const seen = new Set(rows.map(o => o.id));
-  S.orders.filter(o => !seen.has(o.id) && normPhone(o.phone)===ph).forEach(o => rows.push({ id:o.id, no:o.no, inv:o.invoiceNo, status:o.status, type:o.type, total:+o.total||0, items:o.items||[], branchId:o.branchId, at:o.createdAt }));
+  S.orders.filter(o => !seen.has(o.id) && normPhone(o.phone)===ph).forEach(o => rows.push({ id:o.id, no:o.no, inv:o.invoiceNo, status:o.status, type:o.type, total:+o.total||0, items:o.items||[], branchId:o.branchId, at:o.createdAt,
+    discount:+o.discount||0, fee:+o.deliveryFee||0, charges:o.charges||[], address:o.address||"", payment:o.payment||null, source:o.source||"" }));
   return rows.filter(o => ["pending","active","closed"].includes(o.status)).sort((a,b) => String(b.at).localeCompare(String(a.at)));
 }
 function pdSide(){
@@ -1297,14 +1301,22 @@ function pdSide(){
   const nType = k => ok.filter(o => o.type===k).length;
   const d = x => x ? new Date(x).toLocaleDateString("en-GB", { day:"numeric", month:"short", year:"numeric" }) : "—";
   const since = d(c.created_at || ok[ok.length-1]?.at);
-  const tl = { delivery:"Delivery", takeaway:"Pickup", dinein:"Dine-in", fast:"Fast sale" };
+  const tl = { delivery:"Delivery", takeaway:"Pickup", pickup:"Pickup", dinein:"Dine-in", fast:"Fast sale" };
+  const sel = PD.det && ok.find(o => o.id===PD.det);
+  if(sel){ const brn = S.branches?.find(b => b.id===sel.branchId)?.name || "";
+    return `<div class="pdside"><button type="button" class="btn" data-pddet="" style="align-self:flex-start">← Previous orders</button>
+    <div class="cins"><div class="cins-h"><b>${sel.inv ? esc(invNo(sel.inv)) : "#" + esc(sel.no || "—")}</b><span class="mut">${esc(stLbl(sel))}</span></div>
+      <div class="mut">Order #${esc(sel.no || "—")} · ${tl[sel.type] || esc(sel.type||"")} · ${new Date(sel.at).toLocaleString("en-GB", { day:"numeric", month:"short", year:"numeric", hour:"2-digit", minute:"2-digit" })}${brn ? " · " + esc(brn) : ""}${sel.source ? " · " + esc(sel.source) : ""}</div>
+      ${sel.address ? `<div class="mut">📍 ${esc(sel.address)}</div>` : ""}</div>
+    <div class="cdet">${(sel.items||[]).map(i => `<div class="cdl${i.voided ? " vd" : ""}"><span>${+i.qty||1}× ${esc(i.name)}${modLines(i).length ? `<small>${modLines(i).map(esc).join(", ")}</small>` : ""}</span><b>${usd(lineNet(i))}</b></div>`).join("")}
+      ${sel.discount ? `<div class="cdl"><span>Discount</span><b>-${usd(sel.discount)}</b></div>` : ""}${(sel.charges||[]).filter(c => +c.amount).map(c => `<div class="cdl"><span>${esc(c.name)}</span><b>${usd(+c.amount)}</b></div>`).join("")}${sel.fee ? `<div class="cdl"><span>Delivery fee</span><b>${usd(sel.fee)}</b></div>` : ""}
+      <div class="cdl tot"><span>Total</span><b>${usd(sel.total)}</b></div>${sel.payment?.method ? `<div class="mut">Paid by ${esc(sel.payment.method)}</div>` : ""}</div></div>`; }
   return `<div class="pdside"><div class="cins"><div class="cins-h"><b>${esc(c.name || "Customer")}</b><span class="mut">Since ${since}</span></div>
     ${c.blacklisted || (c.tags||[]).length || c.notes ? `<div class="ctags">${c.blacklisted ? '<span class="tag bad">⚠ Blacklisted</span>' : ""}${(c.tags||[]).map(x => `<span class="tag">${esc(x)}</span>`).join("")}${c.notes ? `<i>${esc(c.notes)}</i>` : ""}</div>` : ""}
     <div class="cins-g"><div><span>Orders</span><b>${ok.length}</b></div><div><span>Total spent</span><b>${usd(spent)}</b></div><div><span>Avg. order</span><b>${usd(ok.length ? spent/ok.length : 0)}</b></div><div><span>Last order</span><b>${ok[0] ? d(ok[0].at) : "—"}</b></div></div>
     ${ok.length ? `<div class="cmix">${nType("delivery")} delivery · ${nType("takeaway")} pickup${nType("dinein")+nType("fast") ? ` · ${nType("dinein")+nType("fast")} in store` : ""}</div>` : ""}
 </div>
-    <div class="cpast"><b>Previous orders</b>${ok.length ? ok.slice(0,8).map(o => `<div class="cpo"><div><span>${o.inv ? esc(invNo(o.inv)) : "#" + esc(o.no || "—")} · ${d(o.at)} · ${tl[o.type] || esc(o.type||"")}</span>
-      <div class="mut">${(o.items||[]).filter(i => !i.voided).slice(0,3).map(i => `${+i.qty||1}× ${esc(i.name)}`).join(", ")}${(o.items||[]).length > 3 ? "…" : ""}</div></div><b>${usd(o.total)}</b></div>`).join("") : '<div class="mut">No orders yet</div>'}</div></div>`;
+    <div class="cpast"><b>Previous orders</b>${ok.length ? ok.slice(0,20).map(o => `<button type="button" class="cpo" data-pddet="${esc(o.id)}"><span>${o.inv ? esc(invNo(o.inv)) : "#" + esc(o.no || "—")} · ${d(o.at)} · ${tl[o.type] || esc(o.type||"")}</span><b>${usd(o.total)}</b><i>›</i></button>`).join("") : '<div class="mut">No orders yet</div>'}</div></div>`;
 }
 function pdCancel(){ const ed = PD?.edit; PD = null; if(ed) return closeModal(); openBoard(); }
 // keeps the customer's details and every new delivery address on their record
