@@ -360,6 +360,8 @@ body[data-route="call-center"] .ocard{padding:10px 12px;gap:5px;font-size:13px}
 #oCatBack[hidden]{display:none}
 .ccside .cins-g{grid-template-columns:1fr 1fr}
 .bmexp{border:0;background:none;cursor:pointer;font-size:13px;width:22px;color:var(--ink2);padding:0}.bmg{cursor:pointer}
+.items{display:flex;flex-direction:column;gap:6px;margin-bottom:6px}.itemrow{display:flex;gap:6px;align-items:center}.itemrow input{flex:1}
+.itemadd{display:flex;gap:6px}.itemadd input{flex:1}
 .ccsteps{display:flex;align-items:center;gap:6px;margin-right:auto}
 .ccsteps button{display:inline-flex;align-items:center;gap:7px;border:0;background:none;padding:6px 12px;border-radius:999px;font:inherit;font-weight:600;color:var(--ink2);cursor:pointer}
 .ccsteps button i{font-style:normal;width:22px;height:22px;border-radius:50%;display:grid;place-items:center;background:var(--line);font-size:12px}
@@ -1361,12 +1363,15 @@ const CRUD = {
     cols:[["Name",r=>`<b>${esc(r.name)}</b>${r.nameAr?` <span class="note">${esc(r.nameAr)}</span>`:""}`],["Variants",r=>(r.options||[]).map(o=>`<span class="tag">${esc(o)}</span>`).join(" ") || "—"],
       ["Products",r=>S.products.filter(p=>live(p)&&p.variantSetId===r.id).length,"num"]],
     fields:[{k:"name",l:"Name",req:1,ph:"e.g. Size"},{k:"nameAr",l:"Name (Arabic)"},
-      {k:"options",l:"Variants",t:"textarea",req:1,rows:5,ph:"Small\nMedium\nLarge",note:"One per line. Then open a product and pick this set under Variants: each variant becomes its own product."}],
+      {k:"options",l:"Variants",t:"items",req:1,ph:"e.g. Small",note:"Add each variant one by one (Small, then Medium, then Large). Then open a product and pick this set under Variants: each variant becomes its own product."}],
     unique:"name",
+    canDelete: r => { const used = S.products.filter(p => live(p) && p.variantSetId===r.id); return used.length ? `This variant set is used by ${used.length} product${used.length===1?"":"s"} (${used.slice(0,3).map(p=>p.name).join(", ")}${used.length>3?"…":""}). Remove it from those products first.` : ""; },
     prep: async (data, id) => {
-      const list = String(data.options||"").split(/[\n,]/).map(x => x.trim()).filter(Boolean);
-      if(list.length < 2) return "Add at least two variants, one per line.";
+      const list = (Array.isArray(data.options) ? data.options : String(data.options||"").split(/[\n,]/)).map(x => String(x).trim()).filter(Boolean);
+      if(list.length < 2) return "Add at least two variants.";
       if(new Set(list.map(x=>x.toLowerCase())).size !== list.length) return "Each variant name must be different.";
+      if(id){ const used = S.products.filter(p => live(p) && p.variantSetId===id), gone = (S.variant_sets.find(x=>x.id===id)?.options||[]).filter(n => !list.includes(n) && used.some(p => (p.variants||[]).some(v => v.name===n && v.productId)));
+        if(gone.length) return `${gone.join(", ")} can't be removed or renamed: it's used by ${used.filter(p => (p.variants||[]).some(v => gone.includes(v.name))).map(p=>p.name).slice(0,3).join(", ")}. Remove the variants from those products first.`; }
       data.options = list;
     },
     note:"A variant set is a choice the customer must make, like Size: Small, Medium, Large. A product using it gets one full product per variant (own price, SKU, barcode, cost, recipe, tax and channel switches). The POS, call center and web ordering show the main product and ask which variant."
@@ -1590,6 +1595,17 @@ document.addEventListener("click", e => {
 document.addEventListener("change", e => { if(e.target.id==="srtScope" && SORTER){ if(SORTER.ids.join(",")!==SORTER.orig && !confirm("Discard the order you changed here?")) { e.target.value = SORTER.v; return; } openSorter(SORTER.key, e.target.value); } });
 
 /* generic modal */
+// "items" field: values added one by one, each its own row (rename in place, remove with ×, reorder with the arrows)
+const itemRow = v => `<div class="itemrow"><input value="${esc(v)}" data-item aria-label="Variant"><button type="button" class="btn sm" data-itemup aria-label="Move up">↑</button><button type="button" class="btn sm" data-itemrm aria-label="Remove">×</button></div>`;
+function itemAdd(id){ const inp = $("#"+id+"_new"), v = (inp?.value || "").trim(); if(!v) return inp?.focus();
+  const box = $("#"+id); if([...box.querySelectorAll("[data-item]")].some(i => i.value.trim().toLowerCase()===v.toLowerCase())){ $("#cErr").textContent = `"${v}" is already in the list.`; return; }
+  box.insertAdjacentHTML("beforeend", itemRow(v)); inp.value = ""; inp.focus(); $("#cErr").textContent = ""; }
+document.addEventListener("click", e => {
+  const a = e.target.closest("[data-itemadd]"); if(a){ e.preventDefault(); return itemAdd(a.dataset.itemadd); }
+  const rm = e.target.closest("[data-itemrm]"); if(rm){ e.preventDefault(); rm.closest(".itemrow").remove(); return; }
+  const up = e.target.closest("[data-itemup]"); if(up){ e.preventDefault(); const r = up.closest(".itemrow"); if(r.previousElementSibling) r.parentNode.insertBefore(r, r.previousElementSibling); }
+});
+document.addEventListener("keydown", e => { const n = e.target.closest?.("[data-itemnew]"); if(n && e.key==="Enter"){ e.preventDefault(); itemAdd(n.dataset.itemnew); } });
 let crudEdit = null;
 function openCrud(key, id){
   const cfg = CRUD[key], r = id ? S[cfg.col].find(x=>x.id===id) : null;
@@ -1604,6 +1620,8 @@ function openCrud(key, id){
     if(f.t==="image") return `<div class="f full"><label>${f.l}</label><div class="imgf"><div class="imgprev" id="${idA}_prev">${v ? `<img src="${esc(v)}" alt="">` : '<span class="note">No image</span>'}</div>
       <div><input type="file" accept="image/*" id="${idA}_file"><input type="hidden" id="${idA}" value="${esc(v||"")}"><div class="note" id="${idA}_st">JPG or PNG. It's resized automatically for the POS, call center and web menu.</div>${v ? `<button type="button" class="btn sm" data-imgclear="${idA}" style="margin-top:6px">Remove image</button>` : ""}</div></div></div>`;
     if(f.t==="pin") return `<div class="f"><label for="${idA}">${f.l}</label><input id="${idA}" type="password" inputmode="numeric" maxlength="4" autocomplete="new-password" placeholder="${r?.pinHash?"•••• (set; type to change)":"4 digits"}"><div class="note">${esc(f.note||"")}</div></div>`;
+    if(f.t==="items") return `<div class="f full"><label for="${idA}_new">${f.l}${f.req?" *":""}</label><div class="items" id="${idA}">${(Array.isArray(v) ? v : []).map(x => itemRow(x)).join("")}</div>
+      <div class="itemadd"><input id="${idA}_new" placeholder="${esc(f.ph||"")}" data-itemnew="${idA}"><button type="button" class="btn sm" data-itemadd="${idA}">+ Add</button></div>${f.note?`<div class="note">${esc(f.note)}</div>`:""}</div>`;
     if(f.t==="textarea") return `<div class="f full"><label for="${idA}">${f.l}${f.req?" *":""}</label><textarea id="${idA}" rows="${f.rows||3}" ${f.ph?`placeholder="${esc(f.ph)}"`:""}>${esc(Array.isArray(v) ? v.join("\n") : (v||""))}</textarea>${f.note?`<div class="note">${esc(f.note)}</div>`:""}</div>`;
     const list = f.t==="list" ? `<datalist id="${idA}_dl">${f.opts().map(o=>`<option value="${esc(o)}">`).join("")}</datalist>` : "";
     return `<div class="f${full}"><label for="${idA}">${f.l}${f.req?" *":""}</label><input id="${idA}" ${f.t==="number"?'type="number" step="any" min="0"':""} ${f.t==="list"?`list="${idA}_dl"`:""} value="${esc(v??"")}" placeholder="${esc(f.ph||"")}">${list}</div>`;
@@ -1816,6 +1834,7 @@ async function submitCrud(e){
     if(f.t==="polygon"){ data[f.k] = zonePts.map(p=>[+p[0].toFixed(6), +p[1].toFixed(6)]); if(data[f.k].length < 3){ $("#cErr").textContent = "Draw the zone on the map (at least 3 points)."; return; } continue; }
     if(f.t==="chk") data[f.k] = el.checked;
     else if(f.t==="multi") data[f.k] = [...el.querySelectorAll("input:checked")].map(i=>i.value);
+    else if(f.t==="items"){ const pending = ($("#cf_"+f.k+"_new")?.value || "").trim(); data[f.k] = [...el.querySelectorAll("[data-item]")].map(i => i.value.trim()).filter(Boolean); if(pending) data[f.k].push(pending); if(f.req && !data[f.k].length){ $("#cErr").textContent = f.l + " is required."; return; } continue; }
     else if(f.t==="number") data[f.k] = el.value==="" ? null : +el.value;
     else data[f.k] = el.value.trim();
     if(f.req && (data[f.k]===""||data[f.k]===null)){ $("#cErr").textContent = f.l + " is required."; el.focus(); return; }
@@ -1831,6 +1850,7 @@ async function submitCrud(e){
 }
 async function softDelete(flag){
   const cfg = CRUD[crudEdit.key];
+  if(flag && cfg.canDelete){ const msg = cfg.canDelete(S[cfg.col].find(r=>r.id===crudEdit.id) || {}); if(msg){ $("#cErr").textContent = msg; return; } }
   try{ await put(cfg.col, crudEdit.id, { deleted: flag }); toast(flag ? cfg.one + " moved to Deleted" : cfg.one + " restored"); closeCrud(); }
   catch(err){ console.error(err); $("#cErr").textContent = "Couldn't update."; }
 }
@@ -3011,7 +3031,8 @@ function productDetail(p){
     info("Cost %", price ? `<span style="${pct>40?"color:var(--accent-ink);font-weight:600":""}">${pct.toFixed(1)} %</span>` : "—"), info("Calories", p.calories ? esc(p.calories)+" kCal" : "—")]);
   if(p.imageUrl || p.description) h += `<div class="card" style="margin-bottom:16px;display:flex;gap:16px;align-items:flex-start">${p.imageUrl?`<img src="${esc(p.imageUrl)}" alt="" style="width:160px;height:160px;object-fit:cover;border-radius:12px">`:""}<div>${p.description?`<div class="note">Description</div>${esc(p.description)}`:'<span class="note">No description</span>'}</div></div>`;
   h += variantCard(p);
-  h += ingEditor("products", p);
+  // a product with variants isn't sold itself: each variant product has its own recipe
+  h += (p.variants||[]).some(v => v.productId) ? `<div class="card" style="margin-bottom:16px"><b>Ingredients</b> <span class="note">This product has variants, so it has no recipe of its own. Each variant is the product that's sold: open it from Variants above to set its ingredients.</span></div>` : ingEditor("products", p);
   h += modLinks(p);
   return h;
 }
@@ -3106,7 +3127,8 @@ async function saveVariants(){
           inactiveBranchIds:[...(p.inactiveBranchIds||[])], customPrices:{ ...(p.customPrices||{}) }, sort:p.sort ?? null, active:true };
         await put("products", id, copy); links.push({ name:n, productId:id });
       } }
-    await put("products", DET.id, { variantSetId: set ? set.id : null, variants: links }); Object.assign(p, { variantSetId: set ? set.id : null, variants: links });
+    const upd = { variantSetId: set ? set.id : null, variants: links, ...(links.length ? { ingredients: [] } : {}) };   // the variants carry the recipes now
+    await put("products", DET.id, upd); Object.assign(p, upd);
     toast(set ? "Variants saved · open each one to set its price and details" : "Variants removed · the variant products stay as normal products");
   }catch(e){ console.error(e); toast("Couldn't save variants"); }
   finally{ DET.saving = false; render(); }
@@ -3130,7 +3152,7 @@ document.addEventListener("click", e => {
   if(t.closest("[data-detback]")){ e.preventDefault(); if((DET.dirtyIng||DET.dirtyBr||DET.dirtyMods) && !confirm("Leave without saving your changes?")) return; closeDetail(); return render(); }
   if(t.closest("[data-detedit]")) return openCrud(DET.key, DET.id);
   if(t.closest("[data-dettoggle]")){ const col = CRUD[DET.key].col, r = S[col].find(x=>x.id===DET.id); return put(col, DET.id, { active: r.active===false }).then(()=>toast(r.active===false?"Activated":"Deactivated")).catch(()=>toast("Couldn't update")); }
-  if(t.closest("[data-ingsave]")) return saveIngredients();
+  if(t.closest("[data-ingsave]")){ const pp = DET.key==="products" && S.products.find(x=>x.id===DET.id); if(pp && (pp.variants||[]).some(v=>v.productId)) return toast("This product has variants: set the recipe on each variant"); return saveIngredients(); }
   if(t.closest("[data-pvsave]")) return saveVariants();
   if(t.closest("[data-brsave]")) return saveBranchSettings();
   const rm = t.closest("[data-ingrm]"); if(rm){ DET.ing.splice(+rm.dataset.ingrm, 1); DET.dirtyIng = true; return render(); }
