@@ -136,6 +136,9 @@ const curBranch = () => mode === "delivery" ? (zones.find(z=>z.id===zoneId)?.bra
 const chan = () => mode === "delivery" ? "delivery" : mode === "takeaway" ? "takeaway" : "dinein";
 const visible = () => products.filter(p => p.pricing_method!=="open" && (!curBranch() || (!(p.inactive_branch_ids||[]).includes(curBranch()) && !(p.inactive_branch_ids||[]).includes(curBranch() + ":online") && !(cats.find(c=>c.id===p.category_id)?.inactive_branch_ids||[]).includes(curBranch()))));
 const priceOf = p => { const c = curBranch() && (p.custom_prices||{})[curBranch()]; return c!=null && c!=="" && c!==false ? +c : +p.price; };
+// variants are full products linked from their parent (variants = [{ name, productId }]); only the parent is listed and it asks for the variant
+const kidIds = () => new Set(products.flatMap(p => (p.variants||[]).map(v => v.productId).filter(Boolean)));
+const kidsOf = p => { const ok = visible(); return (p.variants||[]).map(v => ({ name:v.name, p: ok.find(x => x.id===v.productId) })).filter(x => x.p && !oos(x.p)); };
 const oos = p => false;   // products have no out-of-stock switch; switch them off per channel in Menus
 
 /* point-in-polygon (ray casting) — polygon is [[lat,lng],...] */
@@ -201,7 +204,7 @@ function renderWhere(){
   if(mode==="delivery" && !qrBranch && zoneList().length){ initMap(); locate(); if(!pin) useLocation(); }
 }
 function renderMenu(){
-  const vis = visible(), vcats = cats.filter(c => vis.some(p=>p.category_id===c.id));
+  const kids = kidIds(), vis = visible().filter(p => !kids.has(p.id)), vcats = cats.filter(c => vis.some(p=>p.category_id===c.id));
   let h = `<nav class="cats">${vcats.map(c=>`<button data-cat="${esc(c.id)}">${esc(c.name)}</button>`).join("")}</nav><div class="wrap">`;
   h += vcats.map(c => `<section id="c_${esc(c.id)}"><h2>${esc(c.name)}</h2><div class="items">${vis.filter(p=>p.category_id===c.id).sort((a,b)=>(a.sort??9999)-(b.sort??9999) || a.name.localeCompare(b.name)).map(itemCard).join("")}</div></section>`).join("");
   h += `</div>`;
@@ -220,17 +223,17 @@ function modData(p){
 const hasMods = p => (p.modifiers||[]).some(l => mgroups[l.modifierId]);
 async function addItem(p){
   if(oos(p)) return;
-  let options = [], mods = "", price = priceOf(p), variant = null;
-  const vars = (p.variants||[]).filter(v => v && v.name);
-  if(vars.length && SlickMods.variant){ variant = await SlickMods.variant({ name:p.name, variants:vars, money:usd }); if(!variant) return; price = +variant.price||0; }
-  const base = price, nm = variant ? p.name + " (" + variant.name + ")" : p.name;
+  const kids = kidsOf(p);
+  if(kids.length && SlickMods.variant){ const v = await SlickMods.variant({ name:p.name, variants: kids.map(k => ({ name:k.name, price:priceOf(k.p), id:k.p.id })), money:usd }); if(!v) return; return addItem(kids.find(k => k.p.id===v.id).p); }
+  let options = [], mods = "", price = priceOf(p);
+  const base = price, nm = p.name;
   if(hasMods(p)){ const r = await SlickMods.pick({ name:nm, basePrice:price, ...modData(p), money:usd }); if(!r) return; options = r.options; mods = r.mods; price = r.unitPrice; }
-  const k = SlickMods.key(p.id, options), ex = cart.find(i => SlickMods.key(i.productId, i.options) === k && (i.variant||"") === (variant?.name||""));
-  if(ex) ex.qty++; else cart.push({ productId:p.id, name:nm, price, qty:1, ...(variant ? { variant: variant.name } : {}), ...(options.length ? { options, mods, optPrice: +(price - base).toFixed(2) } : {}) });
+  const k = SlickMods.key(p.id, options), ex = cart.find(i => SlickMods.key(i.productId, i.options) === k);
+  if(ex) ex.qty++; else cart.push({ productId:p.id, name:nm, price, qty:1, ...(options.length ? { options, mods, optPrice: +(price - base).toFixed(2) } : {}) });
   const y = scrollY; renderMenu(); scrollTo(0,y);
 }
 function itemCard(p){ const q = cart.filter(i=>i.productId===p.id).reduce((a,i)=>a+i.qty,0);
-  return `<div class="item">${p.image_url?`<img class="pimg" src="${esc(p.image_url)}" alt="" loading="lazy">`:""}<div><b>${esc(p.name)}</b>${p.description?`<small>${esc(p.description)}</small>`:""}<div class="pr">${usd(priceOf(p))}</div></div>${oos(p) ? `<span class="pr" style="color:#b45309">Out of stock</span>` : q ? `<span class="qtyc"><button data-q="${esc(p.id)}:-1" aria-label="Remove one">−</button>${q}<button data-q="${esc(p.id)}:1" aria-label="Add one">+</button></span>` : `<button class="add" data-q="${esc(p.id)}:1" aria-label="Add ${esc(p.name)}">+</button>`}</div>`; }
+  return `<div class="item">${p.image_url?`<img class="pimg" src="${esc(p.image_url)}" alt="" loading="lazy">`:""}<div><b>${esc(p.name)}</b>${p.description?`<small>${esc(p.description)}</small>`:""}<div class="pr">${kidsOf(p).length ? "From " + usd(Math.min(...kidsOf(p).map(k => priceOf(k.p)))) : usd(priceOf(p))}</div></div>${oos(p) ? `<span class="pr" style="color:#b45309">Out of stock</span>` : q ? `<span class="qtyc"><button data-q="${esc(p.id)}:-1" aria-label="Remove one">−</button>${q}<button data-q="${esc(p.id)}:1" aria-label="Add one">+</button></span>` : `<button class="add" data-q="${esc(p.id)}:1" aria-label="Add ${esc(p.name)}">+</button>`}</div>`; }
 const sub = () => cart.reduce((a,i)=>a+i.price*i.qty,0);
 const fee = () => mode==="delivery" ? (+zones.find(z=>z.id===zoneId)?.fee||0) : 0;
 function renderBar(){ const n = cart.reduce((a,i)=>a+i.qty,0); $("#bar").hidden = !n; $("#cartCount").textContent = `View order · ${n} item${n>1?"s":""}`; $("#cartTotal").textContent = usd(sub()); }

@@ -557,7 +557,7 @@ const NAV = [
   {id:"customers",t:"Customers",i:"users"},
   {t:"Reports",i:"chart",kids:[["sales-reports","Sales Reports"],["inventory-reports","Inventory Reports"],["business-reports","Business Reports"],["analysis-reports","Analysis Reports"]]},
   {t:"Inventory",i:"box",tabs:1,kids:[["inv-categories","Inventory Categories"],["inv-items","Items"],["warehouses","Locations"],["suppliers","Suppliers"],["purchase-orders","Purchase Orders"],["transfer-orders","Transfer Orders"],["transfers","Transfers"],["inventory-count","Inventory Count"],["production","Production"],["quantity-adjustments","Quantity Adjustment"],["cost-adjustments","Cost Adjustment"],["spot-check","Inventory Spot Check"],["count-sheets","Count Sheet"]]},
-  {t:"Menu",i:"book",tabs:1,kids:[["@Menu Builder"],["categories","Categories"],["products","Products"],["modifiers","Modifiers"],["variants","Variants"],["branch-menu","Menus"],["combos","Combos"],["groups","Groups"],["@Menu Settings"],["price-tags","Price Tags"],["allergens","Allergens"]]},
+  {t:"Menu",i:"book",tabs:1,kids:[["@Menu Builder"],["categories","Categories"],["products","Products"],["modifiers","Modifiers"],["variants","Variants"],["branch-menu","Channels"],["combos","Combos"],["groups","Groups"],["@Menu Settings"],["price-tags","Price Tags"],["allergens","Allergens"]]},
   {t:"Manage",i:"gear",kids:[["users","Users"],["roles","Roles"],["brands","Brands"],["branches","Branches"],["devices","Devices"],["taxes","Taxes & Groups"],["payment-methods","Payment Methods"],["order-sources","Order Sources"],["charges","Charges"],["delivery-zones","Delivery Zones"],["online-ordering","Online Ordering"],["kitchen-flows","Kitchen Flows"],["reasons","Reasons"],["settings","Settings"]]},
   {t:"Marketing",i:"tag",kids:[["loyalty","Loyalty"],["gift-cards","Gift Cards"],["discounts","Discounts"],["promotions","Promotions"],["coupons","Coupons"]]}
 ];
@@ -1314,7 +1314,7 @@ const CRUD = {
   },
   categories: {
     col:"categories", title:"Categories", one:"Category",
-    note:"Set the order of categories and their items in Menu → Menus: that order is used by the POS, call center and online ordering.",
+    note:"Set the order of categories and their items in Menu → Channels: that order is used by the POS, call center and online ordering.",
     tabs:[["all","All",live],["deleted","Deleted",r=>r.deleted]],
     sort:(a,b)=>a.name.localeCompare(b.name),
     search:r=>r.name+" "+(r.reference||""),
@@ -1361,7 +1361,7 @@ const CRUD = {
     cols:[["Name",r=>`<b>${esc(r.name)}</b>${r.nameAr?` <span class="note">${esc(r.nameAr)}</span>`:""}`],["Variants",r=>(r.options||[]).map(o=>`<span class="tag">${esc(o)}</span>`).join(" ") || "—"],
       ["Products",r=>S.products.filter(p=>live(p)&&p.variantSetId===r.id).length,"num"]],
     fields:[{k:"name",l:"Name",req:1,ph:"e.g. Size"},{k:"nameAr",l:"Name (Arabic)"},
-      {k:"options",l:"Variants",t:"textarea",req:1,rows:5,ph:"Small\nMedium\nLarge",note:"One per line. Then open a product and pick this set under Variants to give each one its price, SKU and recipe."}],
+      {k:"options",l:"Variants",t:"textarea",req:1,rows:5,ph:"Small\nMedium\nLarge",note:"One per line. Then open a product and pick this set under Variants: each variant becomes its own product."}],
     unique:"name",
     prep: async (data, id) => {
       const list = String(data.options||"").split(/[\n,]/).map(x => x.trim()).filter(Boolean);
@@ -1369,7 +1369,7 @@ const CRUD = {
       if(new Set(list.map(x=>x.toLowerCase())).size !== list.length) return "Each variant name must be different.";
       data.options = list;
     },
-    note:"A variant set is a choice the customer must make, like Size: Small, Medium, Large. Each product using it gets its own price, SKU and recipe per variant, and the POS, call center and online ordering ask which one."
+    note:"A variant set is a choice the customer must make, like Size: Small, Medium, Large. A product using it gets one full product per variant (own price, SKU, barcode, cost, recipe, tax and channel switches). The POS, call center and online ordering show the main product and ask which variant."
   },
   "modifier-options": {
     col:"modifier_options", title:"Modifier Options", one:"Modifier Option", detail: r => optionDetail(r),
@@ -2064,7 +2064,7 @@ const ccTax = items => +(items||[]).reduce((a,i) => { const l = (+i.price||0)*(+
 function ccPrice(p){ const b = $("#oBranch")?.value, c = b && (p.customPrices||{})[b]; return c!=null && c!=="" ? +c : +p.price||0; }
 function renderOrderMenu(){
   const box = $("#oProducts"); if(!box) return;
-  const q = ($("#oSearch").value||"").trim().toLowerCase(), prods = availableProducts();
+  const kidIds = varChildIds(), q = ($("#oSearch").value||"").trim().toLowerCase(), prods = availableProducts().filter(p => !kidIds.has(p.id));
   const cats = S.categories.filter(c => live(c) && prods.some(p=>p.categoryId===c.id)).sort(bySort);   // the order set in Menu → Menus
   if(state.oCat && !cats.some(c=>c.id===state.oCat)) state.oCat = "";
   const n = id => prods.filter(p=>id==="_none" ? !cats.some(c=>c.id===p.categoryId) : p.categoryId===id).length;
@@ -2232,7 +2232,7 @@ function viewOnline(){
   </div>
   <div class="card"><h3 class="ct">Order types</h3><p class="note">Turn each type on for the whole page. Fine-tune per branch below.</p>
     ${modes.map(([k,t])=>`<label class="chk" style="margin:8px 0"><input type="checkbox" id="olm_${k}" ${(c.modes||{})[k]!==false?"checked":""}> ${t}</label>`).join("")}
-    <p class="note" style="margin-top:12px">Which products appear online at each branch is set in <a class="lnk" href="#branch-menu">Menu → Menus</a> (the Online column). Delivery fees and areas are set in <a class="lnk" href="#delivery-zones">Delivery Zones</a>.</p></div></div>
+    <p class="note" style="margin-top:12px">Which products appear online at each branch is set in <a class="lnk" href="#branch-menu">Menu → Channels</a> (the Online column). Delivery fees and areas are set in <a class="lnk" href="#delivery-zones">Delivery Zones</a>.</p></div></div>
   <div style="height:16px"></div><div class="card tbl"><div class="ttop"><h3 class="ct">Locations</h3></div><table><thead><tr><th>Branch</th>${modes.map(m=>`<th>${m[1]}</th>`).join("")}<th class="num">Tables (for QR)</th><th>Table QR links</th><th>Delivery zones</th></tr></thead><tbody>${
     (branches.some(b=>b.active!==false && b.brandId===olBrand()) ? "" : `<tr><td colspan="7" class="note" style="padding:16px">This brand has no branches yet. Add them under Manage → Branches.</td></tr>`) + branches.filter(b=>b.active!==false && b.brandId===olBrand()).map(b=>{ const x = bc[b.id] || {}; const z = S.zones.filter(zz=>live(zz)&&zz.branchId===b.id&&zz.active!==false).length;
       return `<tr><td><b>${esc(b.name)}</b><br><span class="note">${b.open||b.close ? esc(t12(b.open)) + " – " + esc(t12(b.close)) : ""}</span></td>${modes.map(([k])=>`<td><label class="toggle"><input type="checkbox" data-olb="${esc(b.id)}:${k}" ${x[k]!==false?"checked":""}><span class="trk"></span></label></td>`).join("")}
@@ -2273,7 +2273,7 @@ function viewBranchMenu(){
   const list = branches.filter(b=>b.active!==false && brandFilter(b));
   if(!list.some(b=>b.id===BM.branch)) BM.branch = (state.branch!=="all" && list.some(b=>b.id===state.branch)) ? state.branch : list[0]?.id || "";
   const br = branches.find(b=>b.id===BM.branch), dirty = Object.keys(BM.draft).length;
-  let h = `<div class="phead"><h1>Menus</h1><div class="sp"></div>${scopeBar(false)}<span class="note" id="bmStat">${BM.stat || "Changes save automatically"}</span></div>
+  let h = `<div class="phead"><h1>Channels</h1><div class="sp"></div>${scopeBar(false)}<span class="note" id="bmStat">${BM.stat || "Changes save automatically"}</span></div>
     <p class="subt" style="margin-top:-6px">Drag categories and items (⋮⋮) to set their order in the POS, call center and online menu. Each branch has its own menu, built from the brand's categories and their products: switch a whole category or single products on or off, set the branch's own prices, or mark items out of stock. The POS, call center and online ordering of that branch follow it.</p>`;
   if(!br) return h + `<div class="card empty">No branches yet. Add them under Manage → Branches.</div>`;
   const q = BM.q.trim().toLowerCase(), items = bmItems().filter(r => !q || r.name.toLowerCase().includes(q));
@@ -2938,7 +2938,7 @@ const fmtCost = n => "USD " + (+n||0).toLocaleString("en-US",{maximumFractionDig
 
 function openDetail(key, id){
   const r = S[CRUD[key].col].find(x=>x.id===id); if(!r) return;
-  DET.key = key; DET.id = id; DET.dirtyIng = false; DET.dirtyBr = false;
+  DET.key = key; DET.id = id; DET.dirtyIng = false; DET.dirtyBr = false; DET.var = null; DET.ingFor = "";
   DET.ing = JSON.parse(JSON.stringify(Array.isArray(r.ingredients) ? r.ingredients : []));
   DET.br = { customPrices: { ...(r.customPrices||{}) }, inactive: [...(r.inactiveBranchIds||[])], oos: [...(r.outOfStockBranchIds||[])] };
   DET.mods = JSON.parse(JSON.stringify(Array.isArray(r.modifiers) ? r.modifiers : [])); DET.dirtyMods = false;
@@ -2993,20 +2993,23 @@ function productDetail(p){
   h += branchSettings(p, brs, price);
   return h;
 }
-// variants: the product picks a variant set; each variant gets a price, SKU and its own recipe (the Ingredients card below edits it)
+// variants: each variant is a full product; the main product keeps the links (variants = [{ name, productId }]) and the menus show only the main one
+const varParent = id => S.products.find(x => live(x) && (x.variants||[]).some(v => v.productId===id));
+const varChildIds = () => new Set(S.products.filter(live).flatMap(x => (x.variants||[]).map(v => v.productId).filter(Boolean)));
 function variantCard(p){
-  const V = DET.var || (DET.var = { setId: p.variantSetId || "", rows: JSON.parse(JSON.stringify(p.variants || [])) });
-  const sets = S.variant_sets.filter(r => live(r) || r.id===V.setId).sort((a,b)=>a.name.localeCompare(b.name));
-  const rec = p.variantRecipes || {};
-  return `<div class="card tbl" style="margin-bottom:16px"><div class="ttop"><b>Variants</b><span class="note" style="margin-left:8px">${V.setId ? "Each variant has its own price, SKU and recipe. Click Recipe to edit its ingredients below." : "Sold in sizes or versions? Pick a variant set (create sets under Menu → Variants)."}</span><div class="sp"></div>
+  const par = varParent(p.id);
+  if(par){ const v = par.variants.find(x => x.productId===p.id);
+    return `<div class="card" style="margin-bottom:16px;display:flex;align-items:center;gap:10px"><b>Variant</b><span>${esc(v?.name||"")} of <a href="#products" class="lnk" data-detopen="products:${esc(par.id)}">${esc(par.name)}</a></span><span class="note">This product is sold through ${esc(par.name)}: the POS, call center and online ordering show ${esc(par.name)} and ask which variant.</span></div>`; }
+  const V = DET.var || (DET.var = { setId: p.variantSetId || "" });
+  const sets = S.variant_sets.filter(r => live(r) || r.id===V.setId).sort((a,b)=>a.name.localeCompare(b.name)), set = sets.find(x => x.id===V.setId);
+  const link = n => (p.variants||[]).find(v => v.name===n), kid = n => { const l = link(n); return l && S.products.find(x => x.id===l.productId && live(x)); };
+  const missing = set ? (set.options||[]).filter(n => !kid(n)).length : 0, changed = V.setId !== (p.variantSetId || "");
+  return `<div class="card tbl" style="margin-bottom:16px"><div class="ttop"><b>Variants</b><span class="note" style="margin-left:8px">${set ? "Each variant is its own product: open it to set its price, SKU, barcode, cost, recipe and tax. Switch each one on or off in Channels." : "Sold in sizes or versions? Pick a variant set (create sets under Menu → Variants)."}</span><div class="sp"></div>
       <select class="sel" id="pvSet" aria-label="Variant set"><option value="">No variants</option>${sets.map(x=>`<option value="${esc(x.id)}" ${x.id===V.setId?"selected":""}>${esc(x.name)} (${(x.options||[]).join(", ")})</option>`).join("")}</select>
-      <button class="btn pri sm" data-pvsave ${DET.dirtyVar && !DET.saving ? "" : "disabled"}>Save variants</button></div>
-    ${V.setId ? `<table><thead><tr><th>Variant</th><th class="num">Price (USD)</th><th>SKU</th><th>Recipe</th><th class="num">Cost</th><th class="num">Cost %</th></tr></thead><tbody>${V.rows.map((v,ix) => { const ing = rec[v.name], c = ing ? recipeCost(ing) : productCost(p), pr = +v.price||0;
-      return `<tr${DET.ingFor===v.name?' class="chg"':""}><td><b>${esc(v.name)}</b></td>
-      <td class="num"><input type="number" min="0" step="any" class="sel" data-pvp="${ix}" value="${esc(v.price ?? "")}" style="width:110px;text-align:right" aria-label="Price of ${esc(v.name)}"></td>
-      <td><input class="sel" data-pvs="${ix}" value="${esc(v.sku || "")}" style="width:140px" aria-label="SKU of ${esc(v.name)}"></td>
-      <td><button class="btn sm" data-pvrec="${esc(v.name)}">${ing ? `Recipe · ${ing.length} item${ing.length===1?"":"s"}` : "Recipe · same as product"}</button></td>
-      <td class="num">${fmtCost(c)}</td><td class="num">${pr ? (c/pr*100).toFixed(1) + " %" : "—"}</td></tr>`; }).join("")}</tbody></table>` : ""}</div>`;
+      <button class="btn pri sm" data-pvsave ${(changed || missing) && !DET.saving ? "" : "disabled"}>${missing ? `Create ${missing} variant product${missing===1?"":"s"}` : "Save"}</button></div>
+    ${set ? `<table><thead><tr><th>Variant</th><th>Product</th><th>SKU</th><th class="num">Price</th><th class="num">Cost</th><th></th></tr></thead><tbody>${(set.options||[]).map(n => { const k = kid(n);
+      return `<tr><td><b>${esc(n)}</b></td>${k ? `<td>${esc(k.name)}</td><td><span class="code">${esc(k.sku||"")}</span></td><td class="num">${usd(+k.price||0)}</td><td class="num">${fmtCost(productCost(k))}</td><td><a href="#products" class="btn sm" data-detopen="products:${esc(k.id)}" style="text-decoration:none">Open</a></td>`
+        : `<td colspan="5" class="note">Not created yet: it will copy ${esc(p.name)} (price, category, tax, recipe, modifiers) so you only change what differs.</td>`}</tr>`; }).join("")}</tbody></table>` : ""}</div>`;
 }
 function branchSettings(p, brs, price){
   const B = DET.br, yes = (arr, id) => arr.includes(id);
@@ -3066,21 +3069,28 @@ async function saveIngredients(){
 }
 async function saveVariants(){
   const V = DET.var, p = S.products.find(x=>x.id===DET.id); if(!V || !p) return;
-  if(V.setId && V.rows.some(v => v.price==="" || v.price==null || isNaN(+v.price))){ toast("Enter a price for every variant"); return; }
-  const rows = V.setId ? V.rows.map(v => ({ name:v.name, price:+v.price, ...(v.sku ? { sku:String(v.sku).trim() } : {}) })) : [];
+  const set = S.variant_sets.find(x => x.id===V.setId);
   DET.saving = true; render();
-  try{ await put("products", DET.id, { variantSetId: V.setId || null, variants: rows }); Object.assign(p, { variantSetId: V.setId || null, variants: rows }); DET.dirtyVar = false; if(!V.setId) DET.ingFor = ""; toast("Variants saved"); }
-  catch(e){ console.error(e); toast("Couldn't save variants"); }
+  try{
+    const links = [];
+    if(set){ const used = S.products.filter(live).map(x=>x.sku).filter(Boolean);
+      for(const n of set.options||[]){
+        const old = (p.variants||[]).find(v => v.name===n), have = old && S.products.find(x => x.id===old.productId && live(x));
+        if(have){ links.push({ name:n, productId:have.id }); continue; }
+        const id = uid("prd"), sku = nextSku("products", used); used.push(sku);
+        const copy = { name: `${p.name} (${n})`, sku, brandId:p.brandId||null, categoryId:p.categoryId||null, price:+p.price||0, taxGroup:p.taxGroup||null, pricingMethod:p.pricingMethod||"fixed",
+          costingMethod:p.costingMethod||"ingredients", cost:p.cost??null, sellingMethod:p.sellingMethod||"unit", prepTime:p.prepTime??null, calories:p.calories??null, description:p.description||"",
+          imageUrl:p.imageUrl||"", ingredients: JSON.parse(JSON.stringify(p.ingredients||[])), modifiers: JSON.parse(JSON.stringify(p.modifiers||[])),
+          inactiveBranchIds:[...(p.inactiveBranchIds||[])], customPrices:{ ...(p.customPrices||{}) }, sort:p.sort ?? null, active:true };
+        await put("products", id, copy); links.push({ name:n, productId:id });
+      } }
+    await put("products", DET.id, { variantSetId: set ? set.id : null, variants: links }); Object.assign(p, { variantSetId: set ? set.id : null, variants: links });
+    toast(set ? "Variants saved · open each one to set its price and details" : "Variants removed · the variant products stay as normal products");
+  }catch(e){ console.error(e); toast("Couldn't save variants"); }
   finally{ DET.saving = false; render(); }
 }
 document.addEventListener("change", e => {
-  if(e.target.id==="pvSet" && DET.var){ const p = S.products.find(x=>x.id===DET.id), set = S.variant_sets.find(x=>x.id===e.target.value), old = DET.var.rows;
-    DET.var.setId = e.target.value; DET.var.rows = set ? (set.options||[]).map(n => old.find(v=>v.name===n) || { name:n, price: +p?.price||0, sku: "" }) : [];
-    DET.dirtyVar = true; render(); }
-});
-document.addEventListener("input", e => {
-  const pp = e.target.closest?.("[data-pvp]"), ps = e.target.closest?.("[data-pvs]");
-  if((pp || ps) && DET.var){ const ix = +(pp||ps).dataset[pp?"pvp":"pvs"]; DET.var.rows[ix][pp?"price":"sku"] = e.target.value; DET.dirtyVar = true; const b = $("[data-pvsave]"); if(b) b.disabled = false; }
+  if(e.target.id==="pvSet" && DET.var){ DET.var.setId = e.target.value; render(); }
 });
 async function saveBranchSettings(){
   const B = DET.br, cp = {};
@@ -3100,12 +3110,6 @@ document.addEventListener("click", e => {
   if(t.closest("[data-dettoggle]")){ const col = CRUD[DET.key].col, r = S[col].find(x=>x.id===DET.id); return put(col, DET.id, { active: r.active===false }).then(()=>toast(r.active===false?"Activated":"Deactivated")).catch(()=>toast("Couldn't update")); }
   if(t.closest("[data-ingsave]")) return saveIngredients();
   if(t.closest("[data-pvsave]")) return saveVariants();
-  const pvr = t.closest("[data-pvrec]"); if(pvr){ const name = pvr.dataset.pvrec, p = S.products.find(x=>x.id===DET.id); if(!p) return;
-    if(DET.dirtyIng && !confirm("Discard unsaved ingredient changes?")) return;
-    if(name && !(p.variants||[]).some(v=>v.name===name)) return toast("Save the variants first");
-    const own = name && (p.variantRecipes||{})[name];
-    DET.ingFor = name; DET.ing = JSON.parse(JSON.stringify(own || p.ingredients || [])); DET.dirtyIng = !!name && !own;   // a new variant recipe starts from the product's
-    render(); setTimeout(() => $("#ingCard")?.scrollIntoView({ behavior:"smooth", block:"start" }), 50); return; }
   if(t.closest("[data-brsave]")) return saveBranchSettings();
   const rm = t.closest("[data-ingrm]"); if(rm){ DET.ing.splice(+rm.dataset.ingrm, 1); DET.dirtyIng = true; return render(); }
 });
@@ -3222,16 +3226,16 @@ async function ccEditItem(ix){
   renderCart(false);
 }
 async function ccAdd(p){
-  let price = ccPrice(p), options = [], mods = "", variant = null;
-  const vars = (p.variants||[]).filter(v => v && v.name);
-  if(vars.length && window.SlickMods?.variant){ variant = await SlickMods.variant({ name:p.name, setName:S.variant_sets.find(x=>x.id===p.variantSetId)?.name, variants:vars, money:usd }); if(!variant) return; price = +variant.price||0; }
-  const nm = variant ? p.name + " (" + variant.name + ")" : p.name;
+  const ok = availableProducts(), kids = (p.variants||[]).map(v => ({ name:v.name, p: ok.find(x => x.id===v.productId) })).filter(x => x.p);
+  if(kids.length && window.SlickMods?.variant){ const v = await SlickMods.variant({ name:p.name, setName:S.variant_sets.find(x=>x.id===p.variantSetId)?.name, variants: kids.map(k => ({ name:k.name, price:ccPrice(k.p), id:k.p.id })), money:usd }); if(!v) return; return ccAdd(kids.find(k => k.p.id===v.id).p); }
+  let price = ccPrice(p), options = [], mods = "";
+  const nm = p.name;
   if((p.modifiers||[]).length && window.SlickMods){
     const r = await SlickMods.pick({ name:nm, basePrice:price, ...ccModData(p), money:usd }); if(!r) return;
     options = r.options; mods = r.mods; price = r.unitPrice;
   }
-  const k = window.SlickMods ? SlickMods.key(p.id, options) : p.id, ex = cart.find(i => !i.note && (window.SlickMods ? SlickMods.key(i.productId, i.options) : i.productId) === k && (i.variant||"") === (variant?.name||""));
-  if(ex) ex.qty++; else cart.push({ productId:p.id, name:nm, price, qty:1, ...(variant ? { variant: variant.name } : {}), ...(options.length ? { options, mods } : {}) });
+  const k = window.SlickMods ? SlickMods.key(p.id, options) : p.id, ex = cart.find(i => !i.note && (window.SlickMods ? SlickMods.key(i.productId, i.options) : i.productId) === k);
+  if(ex) ex.qty++; else cart.push({ productId:p.id, name:nm, price, qty:1, ...(options.length ? { options, mods } : {}) });
   renderCart(false);
 }
 

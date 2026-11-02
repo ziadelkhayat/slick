@@ -285,6 +285,10 @@ function startApp(id){
 /* ---------- data helpers ---------- */
 const live = r => !r.deleted;
 const prodPrice = p => { const c = (p.customPrices||{})[device.branchId]; return c!=null && c!=="" ? +c : +p.price||0; };
+// variants are full products linked from their parent (parent.variants = [{ name, productId }]); the menu shows the parent, which asks for the variant
+const kidIds = () => new Set(S.products.flatMap(p => (p.variants||[]).map(v => v.productId).filter(Boolean)));
+const kidsOf = p => { const ok = products(); return (p.variants||[]).map(v => ({ name:v.name, p: ok.find(x => x.id===v.productId) })).filter(x => x.p); };
+const tilePrice = p => { const k = kidsOf(p); return k.length ? Math.min(...k.map(x => prodPrice(x.p))) : prodPrice(p); };
 const products = () => S.products.filter(p => live(p) && !(p.inactiveBranchIds||[]).includes(device.branchId) && !(p.inactiveBranchIds||[]).includes(device.branchId + ":pos") && (!p.brandId || !branch?.brandId || p.brandId===branch.brandId)); // which channels sell it is set per branch in Menus
 const openShift = () => S.shifts.find(s => s.deviceId===device.id && !s.closedAt);
 /* ---------- cashiers: PIN sign-in and what each role may do ---------- */
@@ -406,11 +410,11 @@ function renderAll(){
 }
 const catRank = p => { const c = S.categories.find(x=>x.id===p.categoryId); return c?.sort ?? 999; };   // "All" follows the category order
 function renderMenu(){
-  const prods = products();
+  const kids = kidIds(), prods = products().filter(p => !kids.has(p.id));
   const cats = S.categories.filter(c => live(c) && !(c.inactiveBranchIds||[]).includes(device.branchId) && prods.some(p => p.categoryId===c.id)).sort((a,b)=>(a.sort??999)-(b.sort??999) || a.name.localeCompare(b.name));
   if(cat && !cats.some(c=>c.id===cat)) cat = "";
   const q = $("#q").value.trim().toLowerCase();
-  const tile = p => `<button class="prod${p.imageUrl?" hasimg":""}" data-add="${esc(p.id)}">${p.imageUrl?`<img src="${esc(p.imageUrl)}" alt="" loading="lazy">`:""}<span>${esc(p.name)}</span><b>${p.pricingMethod==="open"?"Open price":usd(prodPrice(p))}</b></button>`;
+  const tile = p => `<button class="prod${p.imageUrl?" hasimg":""}" data-add="${esc(p.id)}">${p.imageUrl?`<img src="${esc(p.imageUrl)}" alt="" loading="lazy">`:""}<span>${esc(p.name)}</span><b>${p.pricingMethod==="open"?"Open price":(kidsOf(p).length?"From ":"")+usd(tilePrice(p))}</b></button>`;
   const inCats = p => cats.some(c => c.id===p.categoryId);
   if(q){   // searching looks through every category
     const l = prods.filter(p => inCats(p) && p.name.toLowerCase().includes(q)).sort((a,b)=>a.name.localeCompare(b.name));
@@ -458,13 +462,13 @@ function modData(p){
 async function addProduct(p){
   let price = prodPrice(p);
   if(p.pricingMethod==="open"){ if(!can("pos_open_price")){ deny("open-price items"); return; } const v = prompt("Price for " + p.name, price || ""); if(v===null || v==="" || isNaN(+v) || +v<0) return; price = +v; }
-  let options = [], mods = "", variant = null;
-  const vars = (p.variants||[]).filter(v => v && v.name);
-  if(vars.length && window.SlickMods?.variant){ variant = await SlickMods.variant({ name:p.name, setName:(S.variant_sets||[]).find(x=>x.id===p.variantSetId)?.name, variants:vars, money:usd }); if(!variant) return; price = +variant.price||0; }
-  if((p.modifiers||[]).length && window.SlickMods){ const r = await SlickMods.pick({ name: variant ? p.name + " (" + variant.name + ")" : p.name, basePrice:price, ...modData(p), money:usd }); if(!r) return; options = r.options; mods = r.mods; price = r.unitPrice; }
+  const kids = kidsOf(p);
+  if(kids.length && window.SlickMods?.variant){ const v = await SlickMods.variant({ name:p.name, variants: kids.map(k => ({ name:k.name, price:prodPrice(k.p), id:k.p.id })), money:usd }); if(!v) return; return addProduct(kids.find(k => k.p.id===v.id).p); }
+  let options = [], mods = "";
+  if((p.modifiers||[]).length && window.SlickMods){ const r = await SlickMods.pick({ name:p.name, basePrice:price, ...modData(p), money:usd }); if(!r) return; options = r.options; mods = r.mods; price = r.unitPrice; }
   const k = SlickMods ? SlickMods.key(p.id, options) : p.id;
-  const ex = cart.find(i => !i.note && (window.SlickMods ? SlickMods.key(i.productId, i.options) : i.productId) === k && i.price === price && (i.variant||"") === (variant?.name||""));
-  if(ex) ex.qty++; else cart.push({ productId:p.id, name: variant ? p.name + " (" + variant.name + ")" : p.name, price, qty:1, ...(variant ? { variant: variant.name } : {}), ...(options.length ? { options, mods } : {}) });
+  const ex = cart.find(i => !i.note && (window.SlickMods ? SlickMods.key(i.productId, i.options) : i.productId) === k && i.price === price);
+  if(ex) ex.qty++; else cart.push({ productId:p.id, name:p.name, price, qty:1, ...(options.length ? { options, mods } : {}) });
   renderCart();
 }
 $("#grid").addEventListener("click", e => { const b = e.target.closest("[data-add]"); if(!b) return; const p = S.products.find(x=>x.id===b.dataset.add); if(p) addProduct(p); });
