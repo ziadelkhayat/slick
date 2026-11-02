@@ -794,6 +794,7 @@ $("#modal").addEventListener("click", async e => {
   const nq = e.target.closest("[data-nq]"); if(nq){ const ta = $("#noteTxt"); ta.value = (ta.value.trim() ? ta.value.trim() + ", " : "") + nq.dataset.nq; ta.focus(); return; }
   if(e.target.closest("#diagReload")) return location.reload();
   if(e.target.closest("[data-pdnew]")){ PD = null; return openPDNew(); }
+  const pnt = e.target.closest("[data-pdnewt]"); if(pnt){ PD = { type: pnt.dataset.pdnewt, phone:"", name:"", addr:{}, cust:null }; return openPDNew(); }
   const pdt = e.target.closest("[data-pdt]"); if(pdt){ pdKeep(); PD.type = pdt.dataset.pdt; return openPDNew(); }
   const pda = e.target.closest("[data-pdaddr]"); if(pda){ pdKeep(); const a = (PD.cust?.addresses||[])[+pda.dataset.pdaddr]; if(a) PD.addr = addrParts(a.address); return openPDNew(); }
   if(e.target.closest("#pdGo")) return pdContinue();
@@ -1226,7 +1227,7 @@ function openBoard(){
   const q = OV.q; OV.q = BQ;
   const PD_COLS = [...OV_COLS.slice(0,3), ["declined","Declined","Declined today"]];   // pickup & delivery: no void / returns column
   const cols = PD_COLS.map(([k,title,tip]) => [k, title, tip, boardOrders(k, true)]); OV.q = q;
-  modal("board", `<div class="ohdr"><button class="hbtn" data-close>Back</button><b style="font-size:18px;letter-spacing:.03em">PICKUP & DELIVERY</b><span class="sp"></span><button class="hbtn ghost" data-osync>Sync</button></div>
+  modal("board", `<div class="ohdr"><button class="hbtn" data-close>Back</button><b style="font-size:18px;letter-spacing:.03em">PICKUP & DELIVERY</b><span class="sp"></span>${allowedTypes().includes("takeaway") ? `<button class="hbtn" data-pdnewt="takeaway">+ Pickup</button>` : ""}${allowedTypes().includes("delivery") ? `<button class="hbtn" data-pdnewt="delivery">+ Delivery</button>` : ""}<button class="hbtn ghost" data-osync>Sync</button></div>
     <div class="mb"><div class="oboard">${cols.map(([k,title,tip,l]) => `<div class="ocol"><div class="ochead" title="${esc(tip)}"><b>${title}</b><span class="cnt">${l.length}</span></div>${l.length ? l.map(card).join("") : `<div class="oempty">You don't have ${title.toLowerCase()} orders</div>`}</div>`).join("")}</div></div>`, true);
   $("#modal").classList.add("full"); $("#scrim").classList.add("fullscr"); withNav();
 }
