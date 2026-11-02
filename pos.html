@@ -84,7 +84,9 @@ button{cursor:pointer}
 .modal{background:var(--s);border-radius:16px;width:min(520px,100%);max-height:92vh;overflow:auto}
 .modal.wide{width:min(860px,100%)}
 .pdcols{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:18px;align-items:start}@media (max-width:760px){.pdcols{grid-template-columns:1fr}}
-.pdside{display:flex;flex-direction:column;gap:10px}#modal:has(.pdform) .mf{position:sticky;bottom:0;background:var(--s);z-index:2}
+.pdside{display:flex;flex-direction:column;gap:10px}
+.custpg{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.2fr);gap:20px;align-items:start;max-width:1100px;width:100%;margin:0 auto}@media (max-width:820px){.custpg{grid-template-columns:1fr}}
+.custcol{display:flex;flex-direction:column;gap:12px}.custpg .cpast{max-height:none}.kv{display:flex;justify-content:space-between;gap:12px;font-size:14px;padding:6px 0;border-top:1px solid var(--line)}.kv span{color:#6b6880}.kv b{text-align:right;font-weight:600}#modal:has(.pdform) .mf{position:sticky;bottom:0;background:var(--s);z-index:2}
 .cins{border:1px solid var(--line);border-radius:14px;padding:12px;background:#f8f7fc;display:flex;flex-direction:column;gap:8px}.cins-h{display:flex;justify-content:space-between;align-items:baseline;gap:8px;font-size:14px}
 .cins-g{display:grid;grid-template-columns:1fr 1fr;gap:8px}.cins-g div{display:flex;flex-direction:column;font-size:12px;color:var(--mut,#6b6880);background:#fff;border-radius:10px;padding:7px 9px}.cins-g b{font-size:16px;color:inherit;color:#15131f}
 .ctags{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:12.5px}.ctags .tag{background:#efeafe;color:#5b3fd6;border-radius:999px;padding:3px 9px;font-weight:600}.ctags .tag.bad{background:#fde8e8;color:#b42318}
@@ -598,7 +600,7 @@ function renderCart(){
   const rf = eo0 && eo0.status==="refund" ? eo0 : null, rfInv = rf && invNo(rf.invoiceRef || S.orders.find(x => x.id===rf.refundOf)?.invoiceNo);
   const ctx = rf ? `<div class="ctx"><span class="ci">↩️</span><div><b>RETURN</b><small>${rfInv ? "Original invoice " + esc(rfInv) : esc(typLbl(rf.type))}</small></div><span class="sp"></span></div>`
     : otype==="dinein" ? `<div class="ctx"><span class="ci">🍽</span><div><b>${esc(tblLbl(tableNo || "—"))}</b><small>Dine-in${GUESTS ? ` · ${GUESTS} guest${GUESTS===1?"":"s"}` : ""}</small></div><span class="sp"></span>${canSwitch ? `<button data-ctx="table">Change table</button><button data-ctx="fast">Remove table</button>` : ""}</div>`
-    : otype==="takeaway" || otype==="delivery" ? `<div class="ctx"><span class="ci">${otype==="delivery" ? "🛵" : "🛍"}</span><div><b>${otype==="delivery" ? "Delivery" : "Pickup"}</b><small>${esc(cust.name || "")}</small></div><span class="sp"></span>${canSwitch ? `<button data-ctx="pddetails">Details</button>` : ""}</div>`
+    : otype==="takeaway" || otype==="delivery" ? `<div class="ctx"><span class="ci">${otype==="delivery" ? "🛵" : "🛍"}</span><div><b>${otype==="delivery" ? "Delivery" : "Pickup"}</b><small>${esc(cust.name || "")}</small></div><span class="sp"></span>${cust.phone || cust.name ? `<button data-ctx="custpage">Customer details</button>` : ""}${canSwitch ? `<button data-ctx="pddetails">Details</button>` : ""}</div>`
     : `<div class="ctx"><span class="ci ci-svg"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12v18l-2-1.5L14 21l-2-1.5L10 21l-2-1.5L6 21z"/><path d="M9 8h6M9 12h6M9 16h3"/></svg></span><div><b>FAST SALE</b></div><span class="sp"></span></div>`;
   const held = device ? heldList() : [];
   const htabs = held.length ? `<div class="htabs" role="tablist" aria-label="Held orders">${held.map(h => `<button type="button" class="htab" data-hgettab="${esc(h.id)}" title="Retrieve held order H${h.n}"><b>H${h.n}</b><span>${usd(h.total)}</span></button>`).join("")}</div>` : "";
@@ -618,7 +620,7 @@ function renderCart(){
   const cl = chargeList(otype);
   $("#totals").innerHTML = `${cl.length ? `<div class="chgs">${cl.map(c => { const on = pickedCharges().includes(c); return `<button type="button" class="chg${on?" on":""}" data-chg="${c.id}" title="${on?"Remove":"Add"} this charge">${on?"✓ ":"+ "}${esc(c.name)}</button>`; }).join("")}</div>` : ""}
     ${discount?`<div><span>${discLbl()}</span><span>−${usd(t.disc)}</span></div>`:""}${t.charges.filter(c=>c.amount).map(c=>`<div><span>${esc(c.name)}</span><span>${usd(c.amount)}</span></div>`).join("")}
-    <div><span>Subtotal</span><span>${usd(t.net)}</span></div><div class="mut" style="font-size:13px"><span>Tax${taxIncl()?" (included)":""}</span><span>${usd(t.tax)}</span></div><div class="g"><span>Total</span><span>${usd(t.total)}</span></div>${usd2(t.total) ? `<div class="mut" style="font-size:13px"><span></span><span>≈ ${usd2(t.total)}</span></div>` : ""}`;
+    <div><span>Subtotal</span><span>${usd(t.net)}</span></div><div class="mut" style="font-size:13px"><span>Tax</span><span>${usd(t.tax)}</span></div><div class="g"><span>Total</span><span>${usd(t.total)}</span></div>${usd2(t.total) ? `<div class="mut" style="font-size:13px"><span></span><span>≈ ${usd2(t.total)}</span></div>` : ""}`;
   // actions: new order / open order / closed order
   const acts = $("#acts"), unsent = cart.some(i => i.qty > (i.saved||0));
   let b;
@@ -733,6 +735,7 @@ $("#extra").addEventListener("click", e => { const ht = e.target.closest("[data-
   if(e.target.closest("[data-clearcart]")){ Promise.resolve(true).then(() => { const keepT = otype==="dinein" ? tableNo : "", keepO = otype; resetOrder(); if(keepO==="dinein" && keepT){ otype = "dinein"; tableNo = keepT; renderCart(); } }); return; }
   const cx = e.target.closest("[data-ctx]");
   if(cx && cx.dataset.ctx==="table") return openTables();
+  if(cx && cx.dataset.ctx==="custpage") return openCustPage();
   if(cx && cx.dataset.ctx==="pddetails"){ PD = { type: otype==="delivery" ? "delivery" : "takeaway", phone: cust.phone, name: cust.name, addr: { ...(cust.addr||{}) }, cust:null, edit:true }; return openPDNew(); }
   if(cx && cx.dataset.ctx==="fast"){ const go = () => { otype = "fast"; tableNo = ""; cust = { name:"", phone:"", addr:{} }; posChg = null; renderCart(); renderMenu(); };
     if((otype==="takeaway" || otype==="delivery") && (cust.name || cust.phone)) askYes("Make this a fast sale? The customer details are removed.", "Fast sale").then(y => y && go()); else go(); return; }
@@ -810,6 +813,7 @@ $("#modal").addEventListener("click", async e => {
   const pnt = e.target.closest("[data-pdnewt]"); if(pnt){ PD = null; return openPDNew(); }
   const pdt = e.target.closest("[data-pdt]"); if(pdt){ pdKeep(); PD.type = pdt.dataset.pdt; return openPDNew(); }
   const pda = e.target.closest("[data-pdaddr]"); if(pda){ pdKeep(); const a = (PD.cust?.addresses||[]).filter(x => x.address)[+pda.dataset.pdaddr]; if(a) PD.addr = addrParts(a.address); return openPDNew(); }
+  const cvd = e.target.closest("[data-cvdet]"); if(cvd){ CV.det = cvd.dataset.cvdet || null; return drawCust(); }
   const pdd = e.target.closest("[data-pddet]"); if(pdd){ pdKeep(); PD.det = pdd.dataset.pddet || null; return openPDNew(); }
   if(e.target.closest("[data-pdnewaddr]")){ pdKeep(); PD.addr = {}; openPDNew(); return $("#pdA_label")?.focus(); }
   if(e.target.closest("[data-pdcancel]")) return pdCancel();
@@ -1299,15 +1303,16 @@ async function pdPast(id, ph){
     discount:+o.discount||0, fee:+o.deliveryFee||0, charges:o.charges||[], address:o.address||"", payment:o.payment||null, source:o.source||"" }));
   return rows.filter(o => ["pending","active","closed"].includes(o.status)).sort((a,b) => String(b.at).localeCompare(String(a.at)));
 }
-function pdSide(){
-  const c = PD.cust, ok = PD.past || [], spent = ok.reduce((s,o) => s + o.total, 0);
+// customer card: insights + previous orders (tap one for its details); used by the new-order form and the customer page
+function custPanel(c, ok, det, key){
+  ok = ok || []; const spent = ok.reduce((s,o) => s + o.total, 0);
   const nType = k => ok.filter(o => o.type===k).length;
   const d = x => x ? new Date(x).toLocaleDateString("en-GB", { day:"numeric", month:"short", year:"numeric" }) : "—";
   const since = d(c.created_at || ok[ok.length-1]?.at);
   const tl = { delivery:"Delivery", takeaway:"Pickup", pickup:"Pickup", dinein:"Dine-in", fast:"Fast sale" };
-  const sel = PD.det && ok.find(o => o.id===PD.det);
+  const sel = det && ok.find(o => o.id===det);
   if(sel){ const brn = S.branches?.find(b => b.id===sel.branchId)?.name || "";
-    return `<div class="pdside"><button type="button" class="btn" data-pddet="" style="align-self:flex-start">← Previous orders</button>
+    return `<div class="pdside"><button type="button" class="btn" data-${key}="" style="align-self:flex-start">← Previous orders</button>
     <div class="cins"><div class="cins-h"><b>${sel.inv ? esc(invNo(sel.inv)) : "#" + esc(sel.no || "—")}</b><span class="mut">${esc(stLbl(sel))}</span></div>
       <div class="mut">Order #${esc(sel.no || "—")} · ${tl[sel.type] || esc(sel.type||"")} · ${new Date(sel.at).toLocaleString("en-GB", { day:"numeric", month:"short", year:"numeric", hour:"2-digit", minute:"2-digit" })}${brn ? " · " + esc(brn) : ""}${sel.source ? " · " + esc(sel.source) : ""}</div>
       ${sel.address ? `<div class="mut">📍 ${esc(sel.address)}</div>` : ""}</div>
@@ -1319,7 +1324,32 @@ function pdSide(){
     <div class="cins-g"><div><span>Orders</span><b>${ok.length}</b></div><div><span>Total spent</span><b>${usd(spent)}</b></div><div><span>Avg. order</span><b>${usd(ok.length ? spent/ok.length : 0)}</b></div><div><span>Last order</span><b>${ok[0] ? d(ok[0].at) : "—"}</b></div></div>
     ${ok.length ? `<div class="cmix">${nType("delivery")} delivery · ${nType("takeaway")} pickup${nType("dinein")+nType("fast") ? ` · ${nType("dinein")+nType("fast")} in store` : ""}</div>` : ""}
 </div>
-    <div class="cpast"><b>Previous orders</b>${ok.length ? ok.slice(0,20).map(o => `<button type="button" class="cpo" data-pddet="${esc(o.id)}"><span>${o.inv ? esc(invNo(o.inv)) : "#" + esc(o.no || "—")} · ${d(o.at)} · ${tl[o.type] || esc(o.type||"")}</span><b>${usd(o.total)}</b><i>›</i></button>`).join("") : '<div class="mut">No orders yet</div>'}</div></div>`;
+    <div class="cpast"><b>Previous orders</b>${ok.length ? ok.slice(0,20).map(o => `<button type="button" class="cpo" data-${key}="${esc(o.id)}"><span>${o.inv ? esc(invNo(o.inv)) : "#" + esc(o.no || "—")} · ${d(o.at)} · ${tl[o.type] || esc(o.type||"")}</span><b>${usd(o.total)}</b><i>›</i></button>`).join("") : '<div class="mut">No orders yet</div>'}</div></div>`;
+}
+const pdSide = () => custPanel(PD.cust, PD.past, PD.det, "pddet");
+// Customer details page for the pickup/delivery order in the cart
+let CV = null;
+async function openCustPage(det){
+  if(det===undefined) CV = null;
+  const ph = normPhone(cust.phone), eo = editOrder(), addr = otype==="delivery" ? (eo?.address || addrJoin(cust.addr||{})) : "";
+  if(!CV || CV.ph!==ph){ CV = { ph, c:null, past:[], loading:true }; drawCust(); 
+    if(ph.length >= 6 && window.WOK?.sb && navigator.onLine){ try{ const { data } = await window.WOK.sb.from("customers").select("id,name,addresses,blacklisted,notes,tags,created_at").eq("phone", ph).maybeSingle(); CV.c = data || null; CV.past = await pdPast(data?.id || "00000000-0000-0000-0000-000000000000", ph); }catch(e){ console.warn(e); } }
+    else CV.past = S.orders.filter(o => ph && normPhone(o.phone)===ph && ["pending","active","closed"].includes(o.status)).map(o => ({ id:o.id, no:o.no, inv:o.invoiceNo, status:o.status, type:o.type, total:+o.total||0, items:o.items||[], branchId:o.branchId, at:o.createdAt, discount:+o.discount||0, fee:+o.deliveryFee||0, charges:o.charges||[], address:o.address||"", payment:o.payment||null, source:o.source||"" }));
+    CV.loading = false; if(modalKind!=="custpage") return; }
+  CV.det = det || null; CV.addr = addr; drawCust();
+}
+function drawCust(){
+  const c = CV.c || { name: cust.name }, saved = (CV.c?.addresses || []).filter(a => a.address);
+  modal("custpage", `<div class="ohdr"><button class="hbtn" data-close>Back</button><b style="font-size:18px">CUSTOMER DETAILS</b><span class="sp"></span></div>
+    <div class="mb"><div class="custpg">
+      <div class="custcol"><div class="cins"><div class="cins-h"><b style="font-size:18px">${esc(c.name || cust.name || "Customer")}</b>${CV.c ? "" : `<span class="mut">${CV.loading ? "Loading…" : "Not saved as a customer yet"}</span>`}</div>
+        <div class="kv"><span>Phone</span><b>${esc(cust.phone || "—")}</b></div>
+        <div class="kv"><span>This order</span><b>${otype==="delivery" ? "Delivery" : "Pickup"}</b></div>
+        ${CV.addr ? `<div class="kv"><span>Delivering to</span><b>📍 ${esc(CV.addr)}</b></div>` : ""}</div>
+        ${saved.length ? `<div class="cpast"><b>Saved addresses · ${saved.length}</b>${saved.map((a,i) => { const p = addrParts(a.address); return `<div class="acard" style="cursor:default"><b>${esc(p.label || "Address " + (i+1))}</b><span>${esc([p.street, p.building && "Bldg " + p.building, p.floor && "Floor " + p.floor, p.extra].filter(Boolean).join(" · ") || a.address)}</span></div>`; }).join("")}</div>` : ""}</div>
+      <div class="custcol">${CV.loading ? '<div class="mut">Loading orders…</div>' : custPanel(c, CV.past, CV.det, "cvdet")}</div>
+    </div></div>`);
+  $("#modal").classList.add("full"); $("#scrim").classList.add("fullscr"); withNav();
 }
 function pdCancel(){ const ed = PD?.edit; PD = null; if(ed) return closeModal(); openBoard(); }
 // keeps the customer's details and every new delivery address on their record
