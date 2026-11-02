@@ -362,6 +362,7 @@ body[data-route="call-center"] .ocard{padding:10px 12px;gap:5px;font-size:13px}
 .bmexp{border:0;background:none;cursor:pointer;font-size:13px;width:22px;color:var(--ink2);padding:0}.bmg{cursor:pointer}
 .items{display:flex;flex-direction:column;gap:6px;margin-bottom:6px}.itemrow{display:flex;gap:6px;align-items:center}.itemrow input{flex:1}
 .itemadd{display:flex;gap:6px}.itemadd input{flex:1}
+.vchild{padding-left:14px;color:var(--ink2)}.vchild b{color:var(--ink)}
 .ccsteps{display:flex;align-items:center;gap:6px;margin-right:auto}
 .ccsteps button{display:inline-flex;align-items:center;gap:7px;border:0;background:none;padding:6px 12px;border-radius:999px;font:inherit;font-weight:600;color:var(--ink2);cursor:pointer}
 .ccsteps button i{font-style:normal;width:22px;height:22px;border-radius:50%;display:grid;place-items:center;background:var(--line);font-size:12px}
@@ -1329,10 +1330,15 @@ const CRUD = {
   products: {
     col:"products", title:"Products", one:"Product", detail: r => productDetail(r),
     tabs:[["all","All",live],["deleted","Deleted",r=>r.deleted]],
-    sort:(a,b)=>String(a.name||"").localeCompare(String(b.name||"")),
-    search:r=>r.name+" "+(r.sku||"")+" "+catName(r.categoryId),
+    // variants sit right under their product, in the set's order
+    sort:(a,b)=>{ const pa = varParent(a.id), pb = varParent(b.id), ka = (pa||a).name||"", kb = (pb||b).name||"";
+      if(ka !== kb || (pa||a).id !== (pb||b).id) return String(ka).localeCompare(String(kb)) || String((pa||a).id).localeCompare(String((pb||b).id));
+      if(!pa) return -1; if(!pb) return 1; return pa.variants.findIndex(v=>v.productId===a.id) - pa.variants.findIndex(v=>v.productId===b.id); },
+    search:r=>r.name+" "+(r.sku||"")+" "+catName(r.categoryId)+" "+(varParent(r.id)?.name||""),
     filter:r=>brandFilter(r) && (!state.catFilter || r.categoryId===state.catFilter),
-    cols:[["Name",r=>`<span class="pname">${r.imageUrl?`<img class="pthumb" src="${esc(r.imageUrl)}" alt="" loading="lazy">`:`<span class="pthumb none"></span>`}<b>${esc(r.name)}</b></span>`],["Brand",r=>esc(brandName(r.brandId))],["SKU",r=>`<span class="code">${esc(r.sku||"")}</span>`],["Category",r=>esc(catName(r.categoryId))],
+    cols:[["Name",r=>`<span class="pname">${r.imageUrl?`<img class="pthumb" src="${esc(r.imageUrl)}" alt="" loading="lazy">`:`<span class="pthumb none"></span>`}${(() => { const par = varParent(r.id), n = (r.variants||[]).filter(v=>v.productId).length;
+      return par ? `<span class="vchild">↳ <b>${esc(r.name)}</b> <span class="tag">Variant · ${esc(par.variants.find(v=>v.productId===r.id)?.name||"")}</span></span>`
+        : `<b>${esc(r.name)}</b>${n ? ` <span class="tag cc">${n} variant${n===1?"":"s"}</span>` : ""}`; })()}</span>`],["Brand",r=>esc(brandName(r.brandId))],["SKU",r=>`<span class="code">${esc(r.sku||"")}</span>`],["Category",r=>esc(catName(r.categoryId))],
       ["Price",r=>r.pricingMethod==="open"?"Open":usd(r.price)],["Cost %",r=>{ const c = productCost(r); return +r.price && c ? (c/r.price*100).toFixed(1)+" %" : '<span class="note">—</span>'; },"num"],["Tax Group",r=>esc(tgName(r.taxGroup))]],
     fields:[{k:"name",l:"Name",req:1},{k:"nameAr",l:"Name (Arabic)"},brandField,{k:"sku",l:"SKU",auto:()=>nextSku("products")},
       {k:"categoryId",l:"Category",t:"select",req:1,opts:()=>S.categories.filter(c=>live(c)&&brandFilter(c)).map(c=>[c.id,(state.brand==="all"?brandName(c.brandId)+" · ":"")+c.name])},
@@ -3051,9 +3057,9 @@ function variantCard(p){
   return `<div class="card tbl" style="margin-bottom:16px"><div class="ttop"><b>Variants</b><span class="note" style="margin-left:8px">${set ? "Each variant is its own product: open it to set its price, SKU, barcode, cost, recipe and tax. Switch each one on or off in Channels." : "Sold in sizes or versions? Pick a variant set (create sets under Menu → Variants)."}</span><div class="sp"></div>
       <select class="sel" id="pvSet" aria-label="Variant set"><option value="">No variants</option>${sets.map(x=>`<option value="${esc(x.id)}" ${x.id===V.setId?"selected":""}>${esc(x.name)} (${(x.options||[]).join(", ")})</option>`).join("")}</select>
       <button class="btn pri sm" data-pvsave ${(changed || missing) && !DET.saving ? "" : "disabled"}>${missing ? `Create ${missing} variant product${missing===1?"":"s"}` : "Save"}</button></div>
-    ${set ? `<table><thead><tr><th>Variant</th><th>Product</th><th>SKU</th><th class="num">Price</th><th class="num">Cost</th><th></th></tr></thead><tbody>${(set.options||[]).map(n => { const k = kid(n);
-      return `<tr><td><b>${esc(n)}</b></td>${k ? `<td>${esc(k.name)}</td><td><span class="code">${esc(k.sku||"")}</span></td><td class="num">${usd(+k.price||0)}</td><td class="num">${fmtCost(productCost(k))}</td><td><a href="#products" class="btn sm" data-detopen="products:${esc(k.id)}" style="text-decoration:none">Open</a></td>`
-        : `<td colspan="5" class="note">Not created yet: it will copy ${esc(p.name)} (price, category, tax, recipe, modifiers) so you only change what differs.</td>`}</tr>`; }).join("")}</tbody></table>` : ""}</div>`;
+    ${set ? `<table><thead><tr><th>Variant</th><th>Product</th><th>SKU</th><th class="num">Price</th><th class="num">Cost</th></tr></thead><tbody>${(set.options||[]).map(n => { const k = kid(n);
+      return `<tr${k ? ` class="clk" data-detopen="products:${esc(k.id)}" title="Open ${esc(k.name)}"` : ""}><td><b>${esc(n)}</b></td>${k ? `<td><a href="#products" class="lnk" data-detopen="products:${esc(k.id)}">${esc(k.name)}</a></td><td><span class="code">${esc(k.sku||"")}</span></td><td class="num">${usd(+k.price||0)}</td><td class="num">${fmtCost(productCost(k))}</td>`
+        : `<td colspan="4" class="note">Not created yet: it will copy ${esc(p.name)} (price, category, tax, recipe, modifiers) so you only change what differs.</td>`}</tr>`; }).join("")}</tbody></table>` : ""}</div>`;
 }
 function branchSettings(p, brs, price){
   const B = DET.br, yes = (arr, id) => arr.includes(id);
