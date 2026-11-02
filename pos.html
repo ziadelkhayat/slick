@@ -609,8 +609,8 @@ function renderCart(){
   // actions: new order / open order / closed order
   const acts = $("#acts"), unsent = cart.some(i => i.qty > (i.saved||0));
   let b;
-  if(!eo) b = [...(otype==="fast" ? [] : [`<button data-act="send" ${cart.length?"":"disabled"}>Save</button>`]), `<button class="pay" data-act="pay" ${cart.length?"":"disabled"}>${cart.length ? `Total ${usd(t.total)}` : "Total"}</button>`];
-  else if(isOpenOrd(eo)) b = [...(otype==="fast" ? [] : [`<button data-act="send" ${unsent?"":"disabled"}>Save</button>`]), `<button class="pay" data-act="pay" ${cart.length?"":"disabled"}>Total ${usd(t.total)}</button>`];
+  if(!eo) b = [...(otype==="fast" ? [] : [`<button data-act="send" ${cart.length?"":"disabled"}>Save</button>`]), `<button class="pay" data-act="pay" ${cart.length?"":"disabled"}>${cart.length ? "TOTAL" : "TOTAL"}</button>`];
+  else if(isOpenOrd(eo)) b = [...(otype==="fast" ? [] : [`<button data-act="send" ${unsent?"":"disabled"}>Save</button>`]), `<button class="pay" data-act="pay" ${cart.length?"":"disabled"}>TOTAL</button>`];
   else b = [];
   acts.style.setProperty("--n", b.length + 1); acts.innerHTML = b.join(""); acts.classList.toggle("hide", !b.length);
   if(orderNote) $("#lines").insertAdjacentHTML("afterbegin", `<div class="onote"><span data-onote title="${ro?"":"Tap to edit"}">📝 ${esc(orderNote)}</span>${ro ? "" : `<button class="onx" data-onotex aria-label="Remove note">×</button>`}</div>`);
@@ -800,7 +800,7 @@ $("#modal").addEventListener("click", async e => {
   const hg = e.target.closest("[data-hget]"); if(hg) return retrieveHeld(hg.dataset.hget);
   const hd = e.target.closest("[data-hdel]"); if(hd){ if(!(await askYes("Delete this held order?", "Delete", true))) return; heldSave(heldList().filter(x => x.id!==hd.dataset.hdel)); return openHeld(); }
   const ov = e.target.closest("[data-ov]"); if(ov){ const o = S.orders.find(x=>x.id===ov.dataset.ov); if(!o) return; if(o.status==="pending") return toast(isMaster() ? "Accept or decline this order first" : "This order is accepted on the master POS"); return loadOrder(o.id); }
-  if(e.target.closest("[data-ovback]")) return openIncoming();
+  if(e.target.closest("[data-ovback]")) return closeModal();   // every Back returns to the cart
   const ovo = e.target.closest("[data-ovopen]"); if(ovo) return closeModal();
   const vr = e.target.closest("[data-vr]"); if(vr){ const [k,m] = vr.dataset.vr.split(":"); return openVR(k, m); }
   const vq = e.target.closest("[data-vq]"); if(vq){ const [ix,d] = vq.dataset.vq.split(":").map(Number), o = S.orders.find(x=>x.id===OV.open); window.__vq[ix] = Math.max(0, Math.min(window.__vmax?.[ix] ?? +o.items[ix].qty, (window.__vq[ix]||0) + d)); $("#vq"+ix).textContent = window.__vq[ix]; return; }
