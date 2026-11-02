@@ -700,7 +700,8 @@ const bizDate = (t = new Date()) => { const d = new Date(+new Date(t) - dayCut()
 const dayBounds = (from, to) => { const c = dayCut(), t0 = new Date(from+"T00:00:00"), t1 = new Date((to||from)+"T00:00:00"); t1.setDate(t1.getDate()+1); t0.setMinutes(c); t1.setMinutes(c); return [t0, t1]; };
 const todayStr = () => bizDate();
 window.SlickDay = { dayCut, dayStartH, bizDate, dayBounds };
-const rangeDays = () => state.range==="day"?1:state.range==="week"?7:30;
+const rangeDays = () => Math.max(1, state.days || 1);
+const dashFrom = () => { const d = new Date(state.date+"T12:00:00"); d.setDate(d.getDate() - rangeDays() + 1); return new Date(d - d.getTimezoneOffset()*60000).toISOString().slice(0,10); };
 const DASH = { key:"", cur:null, prev:null, loading:false, err:"", at:0, t:null };
 function dashParams(offset){
   const n = rangeDays(), d = new Date((offset && state.cmpDate ? state.cmpDate : state.date)+"T12:00:00"); if(offset && !state.cmpDate) d.setDate(d.getDate() - offset*n);
@@ -812,16 +813,15 @@ function barList(rows, fmt){ // horizontal bars, single measure
 /* ---------- views ---------- */
 const hourLbl = i => String(i%12||12).padStart(2,"0") + ":00 " + (i<12?"AM":"PM");
 function filterBar(){
-  return `<div class="row fbar"><div class="seg" id="rangeSeg">${["day","week","month"].map(r=>`<button data-r="${r}" class="${state.range===r?"on":""}">${r[0].toUpperCase()+r.slice(1)}</button>`).join("")}</div>
-    <input type="date" class="sel" id="datePick" value="${state.date}" max="${todayStr()}" aria-label="Date">${scopeBar(true)}
+  return `<div class="row fbar"><button type="button" class="sel drpbtn" id="dashRange" aria-haspopup="dialog">${svgIco("calendar")}<span>${esc(drpLabel(dashFrom(), state.date))}</span></button>${scopeBar(true)}
     <label class="toggle"><input type="checkbox" id="cmpToggle" ${state.compare?"checked":""}><span class="trk"></span>Compare</label>
-    ${state.compare ? `<label class="note">with <input type="date" class="sel" id="cmpDate" value="${state.cmpDate || cmpDefault()}" max="${todayStr()}" aria-label="Compare with business date" title="Business date to compare with${state.range!=="day" ? " (the " + state.range + " ending on it)" : ""}"></label>` : ""}
+    ${state.compare ? `<label class="note">with <input type="date" class="sel" id="cmpDate" value="${state.cmpDate || cmpDefault()}" max="${todayStr()}" aria-label="Compare with business date" title="Business date to compare with${rangeDays()>1 ? " (the " + rangeDays() + " days ending on it)" : ""}"></label>` : ""}
     <span class="sp"></span><span class="note">${DASH.loading ? "Updating…" : DASH.at ? "Live · updated " + new Date(DASH.at).toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"}) : ""}</span>
     <button class="btn" id="dashRefresh" title="Refresh now">↻ Refresh</button></div>`;
 }
 // what the numbers are compared with: the previous period, or the business date picked
 function cmpDefault(){ const d = new Date(state.date+"T12:00:00"); d.setDate(d.getDate() - rangeDays()); return d.toISOString().slice(0,10); }
-function cmpLbl(){ if(!state.cmpDate) return "previous " + state.range; const f = new Date(state.cmpDate+"T12:00:00").toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"}); return state.range==="day" ? f : `${state.range} to ${f}`; }
+function cmpLbl(){ if(!state.cmpDate) return rangeDays()===1 ? "previous day" : "previous " + rangeDays() + " days"; const f = new Date(state.cmpDate+"T12:00:00").toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"}); return rangeDays()===1 ? f : `${rangeDays()} days to ${f}`; }
 function delta(cur, prev){
   if(!state.compare) return "";
   if(!prev) return `<div class="d">No data for previous period</div>`;
@@ -1026,7 +1026,7 @@ $("#brandSel").addEventListener("change", e => { state.brand = e.target.value; s
 $("#view").addEventListener("click", e => {
   if(e.target.closest("#dashRefresh")){ loadDash(true); render(); return; }
   const rp = e.target.closest("[data-report]"); if(rp){ e.preventDefault(); openReport(rp.dataset.report); return; }
-  const r = e.target.closest("[data-r]"); if(r){ state.range = r.dataset.r; render(); return; }
+  const dr = e.target.closest("#dashRange"); if(dr){ if(DRP.el) return drpClose(); drpOpen(dr, dashFrom(), state.date, (f, t) => { state.date = t; state.days = Math.round((new Date(t+"T12:00:00") - new Date(f+"T12:00:00")) / 86400000) + 1; state.dateSet = t !== todayStr(); state.cmpDate = ""; render(); }); return; }
   const t2 = e.target.closest("[data-dt2]"); if(t2){ e.preventDefault(); state.dashTab = t2.dataset.dt2; render(); return; }
   const t = e.target.closest("[data-dt]"); if(t){ e.preventDefault(); state.dashTab = t.dataset.dt; render(); return; }
   if(e.target.closest("#addBranch")) openForm();
@@ -2786,7 +2786,7 @@ document.addEventListener("click", async e => { if(!e.target.closest("#asSave"))
 
 /* filters belong to the page: leaving a page puts its filters back to the defaults */
 function resetPageFilters(){
-  Object.assign(state, { range:"day", date:todayStr(), dateSet:false, compare:false, cmpDate:"", dashTab:"general", branch:"all", brand:"all" }); DASH.key = "";
+  Object.assign(state, { range:"day", days:1, date:todayStr(), dateSet:false, compare:false, cmpDate:"", dashTab:"general", branch:"all", brand:"all" }); DASH.key = "";
   Object.assign(ORD, { tab:"all", range:"week", q:"", from:"", to:"", channel:"", type:"", pay:"", source:"", brand:"", branch:"", page:1, key:"", open:null });
   Object.assign(CUS, { filter:"all", q:"", sort:"last", page:1, key:"" });
   Object.assign(BM, { q:"", draft:{} });
@@ -3554,7 +3554,7 @@ $("#view").addEventListener("click", e => {
 function openReport(title){
   const D = DASH.cur; if(!D) return;
   const hr = Array.from({length:24}, (_,h) => D.hours.find(x=>x.h===h) || { h, n:0, net:0, pay:0, disc:0 }).filter(x => x.n).sort((a,b) => (a.h-dayStartH()+24)%24 - (b.h-dayStartH()+24)%24);
-  const period = state.range==="day" ? new Date(state.date+"T12:00:00").toLocaleDateString("en-GB",{weekday:"short",day:"numeric",month:"short",year:"numeric"}) : `${rangeDays()} days to ${new Date(state.date+"T12:00:00").toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"})}`;
+  const period = rangeDays()===1 ? new Date(state.date+"T12:00:00").toLocaleDateString("en-GB",{weekday:"short",day:"numeric",month:"short",year:"numeric"}) : `${rangeDays()} days to ${new Date(state.date+"T12:00:00").toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"})}`;
   const scope = state.branch==="all" ? (state.brand==="all" ? "All branches" : brandName(state.brand)) : (branches.find(b=>b.id===state.branch)?.name || "");
   const rowH = x => [hourLbl(x.h), x.n, (+x.net).toFixed(2), (+x.pay).toFixed(2), (+x.disc).toFixed(2), (x.n ? x.net/x.n : 0).toFixed(2)];
   const days = (D.days||[]).map(x => [x.d, x.n, (+x.net).toFixed(2)]);
@@ -3576,7 +3576,7 @@ function downloadReportCsv(){
   const lines = [[`Slick sales report`], [r.scope], [r.period], [], ["Hour","Orders","Net sales (USD)","Net payments (USD)","Discounts (USD)","Avg ticket (USD)"], ...r.hr];
   if(r.days.length > 1) lines.push([], ["Date","Orders","Net sales (USD)"], ...r.days);
   const blob = new Blob([lines.map(l => l.map(q).join(",")).join("\n")], { type:"text/csv" });
-  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `slick-sales-${state.date}-${state.range}.csv`; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href), 2000);
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `slick-sales-${dashFrom()}-to-${state.date}.csv`; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href), 2000);
 }
 document.body.insertAdjacentHTML("beforeend", `<div class="scrim" id="crudScrim"><form class="modal" id="crudBox" autocomplete="off"></form></div>
   <div class="scrim" id="ccScrim"><div class="modal wide" id="ccBox"></div></div>`);
