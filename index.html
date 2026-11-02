@@ -3033,7 +3033,7 @@ function productDetail(p){
   h += variantCard(p);
   // a product with variants isn't sold itself: each variant product has its own recipe
   h += (p.variants||[]).some(v => v.productId) ? `<div class="card" style="margin-bottom:16px"><b>Ingredients</b> <span class="note">This product has variants, so it has no recipe of its own. Each variant is the product that's sold: open it from Variants above to set its ingredients.</span></div>` : ingEditor("products", p);
-  h += modLinks(p);
+  h += (p.variants||[]).some(v => v.productId) ? `<div class="card" style="margin-bottom:16px"><b>Modifiers</b> <span class="note">This product has variants, so modifiers are set on each variant: open it from Variants above.</span></div>` : modLinks(p);
   return h;
 }
 // variants: each variant is a full product; the main product keeps the links (variants = [{ name, productId }]) and the menus show only the main one
@@ -3127,7 +3127,7 @@ async function saveVariants(){
           inactiveBranchIds:[...(p.inactiveBranchIds||[])], customPrices:{ ...(p.customPrices||{}) }, sort:p.sort ?? null, active:true };
         await put("products", id, copy); links.push({ name:n, productId:id });
       } }
-    const upd = { variantSetId: set ? set.id : null, variants: links, ...(links.length ? { ingredients: [] } : {}) };   // the variants carry the recipes now
+    const upd = { variantSetId: set ? set.id : null, variants: links, ...(links.length ? { ingredients: [], modifiers: [] } : {}) };   // the variants carry the recipes and modifiers now
     await put("products", DET.id, upd); Object.assign(p, upd);
     toast(set ? "Variants saved · open each one to set its price and details" : "Variants removed · the variant products stay as normal products");
   }catch(e){ console.error(e); toast("Couldn't save variants"); }
@@ -3242,7 +3242,7 @@ document.addEventListener("click", e => {
   const al = t.closest("[data-modallopts]"); if(al){ e.preventDefault(); const id = al.dataset.modallopts; location.hash = "modifier-options"; setTimeout(() => { state.modFilter = id; render(); }, 60); return; }
   const cm = t.closest("[data-clearmod]"); if(cm){ state.modFilter = ""; return render(); }
   if(!DET.id || DET.key!=="products") return;
-  if(t.closest("[data-modsave]")) return saveModLinks();
+  if(t.closest("[data-modsave]")){ const pp = DET.key==="products" && S.products.find(x=>x.id===DET.id); if(pp && (pp.variants||[]).some(v=>v.productId)) return toast("This product has variants: set modifiers on each variant"); return saveModLinks(); }
   const rm = t.closest("[data-modrm]"); if(rm){ DET.mods.splice(+rm.dataset.modrm, 1); DET.dirtyMods = true; return render(); }
   const mv = t.closest("[data-modmv]"); if(mv){ const [ix, d] = mv.dataset.modmv.split(":").map(Number), j = ix + d; [DET.mods[ix], DET.mods[j]] = [DET.mods[j], DET.mods[ix]]; DET.dirtyMods = true; return render(); }
 });
