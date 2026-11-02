@@ -582,7 +582,9 @@ function renderCart(){
   document.querySelectorAll("#otype button").forEach(b => b.classList.toggle("on", b.dataset.t===otype || (b.dataset.t==="pd" && (otype==="takeaway" || otype==="delivery"))));
   const pdb = $("#otype [data-t=pd]"); pdb.classList.toggle("hide", otype!=="takeaway" && otype!=="delivery"); pdb.textContent = otype==="delivery" ? "Delivery" : "Pickup";
   const eo0 = editOrder(), canSwitch = !eo0;
-  const ctx = otype==="dinein" ? `<div class="ctx"><span class="ci">🍽</span><div><b>${esc(tblLbl(tableNo || "—"))}</b><small>Dine-in${GUESTS ? ` · ${GUESTS} guest${GUESTS===1?"":"s"}` : ""}</small></div><span class="sp"></span>${canSwitch ? `<button data-ctx="table">Change table</button><button data-ctx="fast">Remove table</button>` : ""}</div>`
+  const rf = eo0 && eo0.status==="refund" ? eo0 : null, rfInv = rf && invNo(rf.invoiceRef || S.orders.find(x => x.id===rf.refundOf)?.invoiceNo);
+  const ctx = rf ? `<div class="ctx"><span class="ci">↩️</span><div><b>RETURN</b><small>${rfInv ? "Original invoice " + esc(rfInv) : esc(typLbl(rf.type))}</small></div><span class="sp"></span></div>`
+    : otype==="dinein" ? `<div class="ctx"><span class="ci">🍽</span><div><b>${esc(tblLbl(tableNo || "—"))}</b><small>Dine-in${GUESTS ? ` · ${GUESTS} guest${GUESTS===1?"":"s"}` : ""}</small></div><span class="sp"></span>${canSwitch ? `<button data-ctx="table">Change table</button><button data-ctx="fast">Remove table</button>` : ""}</div>`
     : otype==="takeaway" || otype==="delivery" ? `<div class="ctx"><span class="ci">${otype==="delivery" ? "🛵" : "🛍"}</span><div><b>${otype==="delivery" ? "Delivery" : "Pickup"}</b><small>${esc(cust.name || "")}</small></div><span class="sp"></span>${canSwitch ? `<button data-ctx="pddetails">Details</button>` : ""}</div>`
     : `<div class="ctx"><span class="ci ci-svg"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12v18l-2-1.5L14 21l-2-1.5L10 21l-2-1.5L6 21z"/><path d="M9 8h6M9 12h6M9 16h3"/></svg></span><div><b>FAST SALE</b></div><span class="sp"></span></div>`;
   const held = device ? heldList() : [];
@@ -590,7 +592,7 @@ function renderCart(){
   const clr = !eo0 && cart.length ? `<button type="button" class="clrc" data-clearcart>🗑 Clear cart</button>` : "";
   $("#extra").innerHTML = ctx.replace('<span class="sp"></span>', '<span class="sp"></span>' + clr);
   const eo = editOrder(), ro = eo && !isOpenOrd(eo);
-  if(eo) $("#extra").insertAdjacentHTML("afterbegin", `<div class="obar"><b>Order ${esc(ordRef(eo))}</b>${eo.invoiceNo && eo.no ? `<span class="mut" style="font-size:13px">${esc(invNo(eo.invoiceNo))}</span>` : ""}<span class="spill s-${eo.status}">${stLbl(eo)}</span><span class="sp"></span></div>`);
+  if(eo) $("#extra").insertAdjacentHTML("afterbegin", `<div class="obar"><b>${eo.status==="refund" ? "Returned order" : "Order"} ${esc(ordRef(eo))}</b>${eo.invoiceNo && eo.no ? `<span class="mut" style="font-size:13px">${esc(invNo(eo.invoiceNo))}</span>` : ""}<span class="spill s-${eo.status}">${stLbl(eo)}</span><span class="sp"></span></div>`);
   if(ro) $("#extra").querySelectorAll("input,select").forEach(x => x.disabled = true);
   $("#lines").innerHTML = cart.length ? cart.map((i,ix)=>`<div class="line"><span class="n" data-edit="${ix}" title="${ro?"":"Tap to edit"}" style="cursor:pointer">${esc(i.name)}${i.saved?`<span class="sent">${ro ? "" : `${i.saved} sent to kitchen`}</span>`:""}${modList(i)}${+i.disc?`<small style="display:block;font-size:12px;color:#b45309">Discount −${usd(i.disc)}</small>`:""}</span><span class="p">${usd(lineNet(i))}</span>
     <span class="qty">${ro ? `× ${i.qty}` : `<button data-q="${ix}:-1" aria-label="${i.qty > (i.saved||0) ? "Less" : "Void"}">−</button>${i.qty}<button data-q="${ix}:1" aria-label="More">+</button>`}</span><span class="p mut">${usd(i.price)} each</span></div>`).join("") : `<div class="empty">Tap items to start an order</div>`;
@@ -658,7 +660,7 @@ async function sendOrder(){
   if(!orderInfoOk()) return;
   const t = totals(), now = new Date().toISOString(), eo = editOrder();
   try{
-    if(eo){ await db.collection("orders").doc(eo.id).update({ ...orderFields(t), updatedAt: now }); toast(`Sent to the kitchen · order ${ordRef(eo)}`); loadOrder(eo.id); }
+    if(eo){ await db.collection("orders").doc(eo.id).update({ ...orderFields(t), updatedAt: now }); toast(`Saved · order ${ordRef(eo)}`); unloadOrder(); }
     else { const id = "pos_" + Date.now().toString(36) + Math.random().toString(36).slice(2,5), no = nextOrderNo();
       await db.collection("orders").doc(id).set({ no, channel:"pos", source:"POS", brandId:branch?.brandId || null, branchId:device.branchId, deviceId:device.id, shiftId:openShift()?.id || null, agent:cashier?.name || device.name, ...orderFields(t), status:"active", createdAt:now, updatedAt:now });
       toast(`Order #${no} sent to the kitchen · open it from Orders to add items or bill it`); resetOrder(); }
@@ -927,7 +929,7 @@ function approve(perm, title){
 
 /* ---------- orders: list, delivery & pickup management, void (active) and return (closed) ---------- */
 let OV = { tab:"all", q:"", open:null, view:"list", filt:false, ft:"", fc:"" };
-const stLbl = o => ({ refund:"Refund", pending:"Waiting for you", active:"In kitchen", closed:"Done", void:"Void", returned:"Returned", declined:"Declined", draft:"Draft" }[o.status] || o.status);
+const stLbl = o => ({ refund:"Returned", pending:"Waiting for you", active:"In kitchen", closed:"Done", void:"Void", returned:"Returned", declined:"Declined", draft:"Draft" }[o.status] || o.status);
 const typLbl = t => t==="fast" ? "Fast sale" : t==="dinein" ? "Dine-in" : t==="pickup"||t==="takeaway" ? "Pickup" : t==="delivery" ? "Delivery" : (t||"—");
 const invNo = n => n ? "INV-" + String(n).padStart(6,"0") : "";   // invoice number as shown and printed
 const ordRef = o => o.status==="refund" ? "RET-" + String(o.returnNo || "…").padStart(6,"0") : o.no ? "#" + o.no : o.invoiceNo ? invNo(o.invoiceNo) : "—";
