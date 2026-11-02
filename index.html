@@ -3032,8 +3032,9 @@ function productDetail(p){
   if(p.imageUrl || p.description) h += `<div class="card" style="margin-bottom:16px;display:flex;gap:16px;align-items:flex-start">${p.imageUrl?`<img src="${esc(p.imageUrl)}" alt="" style="width:160px;height:160px;object-fit:cover;border-radius:12px">`:""}<div>${p.description?`<div class="note">Description</div>${esc(p.description)}`:'<span class="note">No description</span>'}</div></div>`;
   h += variantCard(p);
   // a product with variants isn't sold itself: each variant product has its own recipe
-  h += (p.variants||[]).some(v => v.productId) ? `<div class="card" style="margin-bottom:16px"><b>Ingredients</b> <span class="note">This product has variants, so it has no recipe of its own. Each variant is the product that's sold: open it from Variants above to set its ingredients.</span></div>` : ingEditor("products", p);
-  h += (p.variants||[]).some(v => v.productId) ? `<div class="card" style="margin-bottom:16px"><b>Modifiers</b> <span class="note">This product has variants, so modifiers are set on each variant: open it from Variants above.</span></div>` : modLinks(p);
+  const hasVar = (p.variants||[]).some(v => v.productId);
+  if(!hasVar) h += ingEditor("products", p);
+  if(!hasVar) h += modLinks(p);
   return h;
 }
 // variants: each variant is a full product; the main product keeps the links (variants = [{ name, productId }]) and the menus show only the main one
