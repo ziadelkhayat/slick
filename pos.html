@@ -215,6 +215,7 @@ body{-webkit-font-smoothing:antialiased}
 .extra:empty{display:none}
 @keyframes ring{0%,100%{transform:none}20%{transform:rotate(-6deg) scale(1.06)}40%{transform:rotate(6deg) scale(1.06)}60%{transform:rotate(-4deg)}80%{transform:rotate(4deg)}}.bnav button.ring{animation:ring 1s 3;background:#fff4e8}
 .gpad{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}.gpad button{min-height:60px;border:1px solid var(--line);background:var(--s);border-radius:14px;font-size:20px;font-weight:700}.gpad button.on{border-color:var(--acc);background:var(--accs);color:var(--acci)}.gpad button:active{transform:scale(.95)}
+.ocacts{display:flex;gap:8px;margin-top:4px}.ocacts .btn{flex:1;min-height:48px}.ocard[role=button]{cursor:pointer}
 .clrc{border:1px solid #f1c4c9!important;background:#fff5f6!important;color:#b42318;font-weight:600}
 .htabs{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px;-webkit-overflow-scrolling:touch}.htab{flex:none;display:flex;flex-direction:column;align-items:flex-start;gap:1px;border:1px dashed #b9a9f5;background:#fbf9ff;border-radius:10px;padding:6px 12px;min-height:44px;font-size:12px;color:#5b5a66}.htab b{font-size:14px;color:var(--acci)}.htab:active{background:var(--accs)}
 .ctx{display:flex;align-items:center;flex-wrap:wrap;gap:8px 10px;background:#f6f2ff;border-radius:12px;padding:8px 8px 8px 12px}.ctx .ci{font-size:22px}.ctx .ci-svg{display:grid;place-items:center;width:34px;height:34px;border-radius:10px;background:var(--acc);color:#fff}.ctx .ci-svg svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linejoin:round;stroke-linecap:round}.ctx b{display:block;font-size:16px}.ctx small{color:#6b6a75;font-size:12.5px}.ctx .sp{flex:1}.ctx button{border:1px solid var(--line);background:var(--s);border-radius:10px;padding:8px 12px;font-weight:600;font-size:13px;min-height:44px}
@@ -549,7 +550,6 @@ function renderAll(){
     if(window.__ordLoaded) SEEN_READY = true; }
   renderMenu(); renderCart();
   if(modalKind==="incoming" && document.activeElement?.id!=="ovQ") openIncoming();
-  if(modalKind==="orderview" && OV.open) openOrderView(OV.open);
   if(modalKind==="tables") openTables();
   if(modalKind==="board" && document.activeElement?.id!=="bdQ") openBoard();
   if(modalKind==="devices") openDevices();
@@ -590,7 +590,7 @@ function renderCart(){
   const clr = !eo0 && cart.length ? `<button type="button" class="clrc" data-clearcart>🗑 Clear cart</button>` : "";
   $("#extra").innerHTML = ctx.replace('<span class="sp"></span>', '<span class="sp"></span>' + clr);
   const eo = editOrder(), ro = eo && !isOpenOrd(eo);
-  if(eo) $("#extra").insertAdjacentHTML("afterbegin", `<div class="obar"><b>Order ${esc(ordRef(eo))}</b>${eo.invoiceNo && eo.no ? `<span class="mut" style="font-size:13px">${esc(invNo(eo.invoiceNo))}</span>` : ""}<span class="spill s-${eo.status}">${stLbl(eo)}</span><span class="sp"></span><button data-ovd>Details</button></div>`);
+  if(eo) $("#extra").insertAdjacentHTML("afterbegin", `<div class="obar"><b>Order ${esc(ordRef(eo))}</b>${eo.invoiceNo && eo.no ? `<span class="mut" style="font-size:13px">${esc(invNo(eo.invoiceNo))}</span>` : ""}<span class="spill s-${eo.status}">${stLbl(eo)}</span><span class="sp"></span></div>`);
   if(ro) $("#extra").querySelectorAll("input,select").forEach(x => x.disabled = true);
   $("#lines").innerHTML = cart.length ? cart.map((i,ix)=>`<div class="line"><span class="n" data-edit="${ix}" title="${ro?"":"Tap to edit"}" style="cursor:pointer">${esc(i.name)}${i.saved?`<span class="sent">${ro ? "" : `${i.saved} sent to kitchen`}</span>`:""}${modList(i)}${+i.disc?`<small style="display:block;font-size:12px;color:#b45309">Discount −${usd(i.disc)}</small>`:""}</span><span class="p">${usd(lineNet(i))}</span>
     <span class="qty">${ro ? `× ${i.qty}` : `<button data-q="${ix}:-1" aria-label="${i.qty > (i.saved||0) ? "Less" : "Void"}">−</button>${i.qty}<button data-q="${ix}:1" aria-label="More">+</button>`}</span><span class="p mut">${usd(i.price)} each</span></div>`).join("") : `<div class="empty">Tap items to start an order</div>`;
@@ -721,7 +721,7 @@ $("#extra").addEventListener("click", e => { const ht = e.target.closest("[data-
   if(cx && cx.dataset.ctx==="pddetails"){ PD = { type: otype==="delivery" ? "delivery" : "takeaway", phone: cust.phone, name: cust.name, addr: { ...(cust.addr||{}) }, cust:null, edit:true }; return openPDNew(); }
   if(cx && cx.dataset.ctx==="fast"){ const go = () => { otype = "fast"; tableNo = ""; cust = { name:"", phone:"", addr:{} }; posChg = null; renderCart(); renderMenu(); };
     if((otype==="takeaway" || otype==="delivery") && (cust.name || cust.phone)) askYes("Make this a fast sale? The customer details are removed.", "Fast sale").then(y => y && go()); else go(); return; }
-  if(e.target.closest("[data-unload]")) return unloadOrder(); if(e.target.closest("[data-ovd]") && EDIT) return openOrderView(EDIT.id); });
+  if(e.target.closest("[data-unload]")) return unloadOrder(); });
 $("#acts").addEventListener("click", e => { const b = e.target.closest("[data-act]"); if(!b || b.disabled) return; const a = b.dataset.act, eo = editOrder();
   if(a==="clear") return resetOrder();
   if(a==="disc") return openDiscount();
@@ -775,7 +775,7 @@ $("#modal").addEventListener("click", async e => {
   const qk = e.target.closest("[data-qk]"); if(qk){ $("#tender").value = qk.dataset.qk; updChange(); return; }
   if(e.target.closest("#confirmPay")) return completeSale();
   const ia = e.target.closest("[data-inc]"); if(ia){ if(!can("pos_incoming")) return deny("handling incoming orders"); const [id,s] = ia.dataset.inc.split(":"); try{ const o = S.orders.find(x=>x.id===id), bill = (s==="active" || s==="closed") && o && !o.no ? { no: nextOrderNo(), deviceId: device.id } : {};   // this register bills it, so it numbers it
-    await db.collection("orders").doc(id).update({ status:s, updatedAt:new Date().toISOString(), handledBy:cashier?.name || device.name, ...bill }); toast(s==="active"?(bill.no ? "Order #"+bill.no+" accepted · sent to kitchen" : "Order accepted · sent to kitchen"):s==="declined"?"Order declined":"Order completed"); setTimeout(() => modalKind==="orderview" ? openOrderView(id) : null, 50); }catch(err){ console.error(err); toast("Couldn't update the order"); } return; }
+    await db.collection("orders").doc(id).update({ status:s, updatedAt:new Date().toISOString(), handledBy:cashier?.name || device.name, ...bill }); toast(s==="active"?(bill.no ? "Order #"+bill.no+" accepted · sent to kitchen" : "Order accepted · sent to kitchen"):s==="declined"?"Order declined":"Order completed"); }catch(err){ console.error(err); toast("Couldn't update the order"); } return; }
   const ovt = e.target.closest("[data-ovtab]"); if(ovt){ OV.tab = ovt.dataset.ovtab; return openIncoming(); }
   if(e.target.closest("[data-ofilt]")){ OV.filt = !OV.filt; return openIncoming(); }
   const od = e.target.closest("[data-odate]"); if(od && !od.disabled){ OV.date = od.dataset.odate >= bizDate() ? "" : od.dataset.odate; return openIncoming(); }
@@ -797,9 +797,9 @@ $("#modal").addEventListener("click", async e => {
   if(e.target.closest("#pdGo")) return pdContinue();
   const hg = e.target.closest("[data-hget]"); if(hg) return retrieveHeld(hg.dataset.hget);
   const hd = e.target.closest("[data-hdel]"); if(hd){ if(!(await askYes("Delete this held order?", "Delete", true))) return; heldSave(heldList().filter(x => x.id!==hd.dataset.hdel)); return openHeld(); }
-  const ov = e.target.closest("[data-ov]"); if(ov){ const o = S.orders.find(x=>x.id===ov.dataset.ov); if(["incoming","tables","board"].includes(modalKind) && o && !["pending","declined","refund"].includes(o.status)) return loadOrder(o.id); return openOrderView(ov.dataset.ov); }
+  const ov = e.target.closest("[data-ov]"); if(ov){ const o = S.orders.find(x=>x.id===ov.dataset.ov); if(!o) return; if(o.status==="pending") return toast(isMaster() ? "Accept or decline this order first" : "This order is accepted on the master POS"); return loadOrder(o.id); }
   if(e.target.closest("[data-ovback]")) return openIncoming();
-  const ovo = e.target.closest("[data-ovopen]"); if(ovo) return openOrderView(ovo.dataset.ovopen);
+  const ovo = e.target.closest("[data-ovopen]"); if(ovo) return closeModal();
   const vr = e.target.closest("[data-vr]"); if(vr){ const [k,m] = vr.dataset.vr.split(":"); return openVR(k, m); }
   const vq = e.target.closest("[data-vq]"); if(vq){ const [ix,d] = vq.dataset.vq.split(":").map(Number), o = S.orders.find(x=>x.id===OV.open); window.__vq[ix] = Math.max(0, Math.min(window.__vmax?.[ix] ?? +o.items[ix].qty, (window.__vq[ix]||0) + d)); $("#vq"+ix).textContent = window.__vq[ix]; return; }
   const stb = e.target.closest("[data-st]"); if(stb){ document.querySelectorAll("[data-st]").forEach(b => b.classList.toggle("on", b===stb)); return; }
@@ -850,7 +850,7 @@ async function completeSale(){
     const id = "pos_" + Date.now().toString(36) + Math.random().toString(36).slice(2,5);
     await db.collection("orders").doc(id).set(order);
     }
-    if(devSet().receipt==="none"){ closeModal(); toast(`Sale complete · ${usd(order.total)}${order.payment.change ? " · change " + usd(order.payment.change) : ""}`); } else showReceipt(order);
+    closeModal(); toast(`Sale complete · ${usd(order.total)}${order.payment.change ? " · change " + usd(order.payment.change) : ""}`);   // no receipt preview on screen
     resetOrder(); if(devSet().lockAfterSale && usePins()) lock(); if(!syncSt.online) toast("Saved on this tablet · will sync when online");
   }catch(err){ console.error(err); toast("Couldn't save the sale. Try again."); $("#confirmPay").disabled = false; }
 }
@@ -1078,7 +1078,7 @@ async function doVR(kind, mode){
     toast(`${kind==="void"?"Voided":"Refund ticket created · "+usd(-ticket.total)} · approved by ${ok.name}`);
     if(EDIT && EDIT.id===o.id && kind==="void"){ const keep = window.__keep; window.__keep = null; setTimeout(() => { const n = S.orders.find(x=>x.id===o.id); if(n && isOpenOrd(n)) loadOrder(o.id, keep); else { closeModal(); unloadOrder(); } }, 400); }
     else if(EDIT && EDIT.id===o.id){ setTimeout(() => { closeModal(); loadOrder(o.id); }, 400); }
-    else if(ticket) setTimeout(() => openOrderView(ticket.id), 400); else openOrderView(o.id);
+    else closeModal();
   }catch(err){ console.error(err); $("#vrErr") && ($("#vrErr").textContent = "Couldn't save. Check the connection and try again."); }
 }
 
@@ -1214,13 +1214,13 @@ function openBoard(){
   if(!can("pos_orders") && !can("pos_incoming")) return deny("seeing orders");
   const t = v => v ? new Date(v).toLocaleTimeString("en-GB",{hour:"numeric",minute:"2-digit"}) : "";
   const chn = o => o.channel==="pos" ? "POS" : o.channel==="callcenter" ? "Call center" : "Web";
-  const card = o => `<button class="ocard" data-ov="${esc(o.id)}"><span class="oc1"><b>${esc(o.no ? "#" + o.no : ordRef(o))}</b><span class="spill s-${o.status}">${stLbl(o)}</span></span>
+  const card = o => `<div class="ocard" role="button" tabindex="0" data-ov="${esc(o.id)}"><span class="oc1"><b>${esc(o.no ? "#" + o.no : ordRef(o))}</b><span class="spill s-${o.status}">${stLbl(o)}</span></span>
     ${o.invoiceNo && o.no ? `<span class="mut oc-s">${esc(invNo(o.invoiceNo))}</span>` : ""}
     ${o.customerName || o.phone ? `<span class="oc2">👤 ${esc(o.customerName||"")}<small>${esc(o.phone||"")}</small></span>` : ""}
     ${o.type==="delivery" && o.address ? `<span class="oc2 mut">📍 ${esc(o.address)}</span>` : ""}
     <span class="oc2 mut">🕒 Created ${t(o.createdAt)}${o.updatedAt && o.updatedAt!==o.createdAt ? `<small>Modified ${t(o.updatedAt)}</small>` : ""}</span>
     <span class="oc2">${o.channel==="pos" ? "🧾" : o.channel==="callcenter" ? "🎧" : "🌐"} ${esc(o.source || chn(o))} · ${esc(typLbl(o.type))}<small>${esc(o.agent || "")}</small></span>
-    <b class="oc-t">${usd(o.total)}</b></button>`;
+    <b class="oc-t">${usd(o.total)}</b>${o.status==="pending" ? (isMaster() ? `<span class="ocacts"><button class="btn bad" data-inc="${esc(o.id)}:declined">Decline</button><button class="btn pri" data-inc="${esc(o.id)}:active">Accept</button></span>` : `<span class="mut oc-s">Accepted on the master POS</span>`) : ""}</div>`;
   const q = OV.q; OV.q = BQ;
   const PD_COLS = [...OV_COLS.slice(0,3), ["declined","Declined","Declined today"]];   // pickup & delivery: no void / returns column
   const cols = PD_COLS.map(([k,title,tip]) => [k, title, tip, boardOrders(k, true)]); OV.q = q;
