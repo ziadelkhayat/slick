@@ -263,7 +263,7 @@ input,select,textarea{font-size:16px!important}                /* iOS doesn't zo
 /* pressed feedback instead of hover */
 .prod:active,.ctile:active,.ttile:active,.ocard:active{transform:scale(.97);filter:brightness(.97)}
 .abtn:active,.acts button:active,.btn:active,.hbtn:active,.otype button:active,.qty button:active,.chg:active,.chip:active,.cbtn:active{transform:scale(.95);filter:brightness(.94)}
-.bnav button:active,.mitem:active,.lrow:active{background:var(--accs)}
+.bnav button:active,.mitem:active,.lrow:active,.line[data-edit]:active{background:var(--accs)}
 @media (hover:none){.ctile:hover{border-color:transparent!important;color:inherit!important}.lrow:hover{background:none}.ocard:hover{border-color:transparent}.mitem:hover{background:none}}
 /* iPad portrait and small tablets */
 @media (max-width:900px){
@@ -607,7 +607,7 @@ function renderCart(){
   const eo = editOrder(), ro = eo && !isOpenOrd(eo);
   if(eo) $("#extra").insertAdjacentHTML("afterbegin", `<div class="obar"><b>${eo.status==="refund" ? "Returned order" : "Order"} ${esc(ordRef(eo))}</b>${eo.invoiceNo && eo.no ? `<span class="mut" style="font-size:13px">${esc(invNo(eo.invoiceNo))}</span>` : ""}<span class="spill s-${eo.status}">${stLbl(eo)}</span><span class="sp"></span></div>`);
   if(ro) $("#extra").querySelectorAll("input,select").forEach(x => x.disabled = true);
-  $("#lines").innerHTML = cart.length ? cart.map((i,ix)=>`<div class="line"><span class="n" data-edit="${ix}" title="${ro?"":"Tap to edit"}" style="cursor:pointer">${esc(i.name)}${i.saved?`<span class="sent">${ro ? "" : `${i.saved} sent to kitchen`}</span>`:""}${modList(i)}${+i.disc?`<small style="display:block;font-size:12px;color:#b45309">Discount −${usd(i.disc)}</small>`:""}</span><span class="p">${usd(lineNet(i))}</span>
+  $("#lines").innerHTML = cart.length ? cart.map((i,ix)=>`<div class="line" data-edit="${ix}" title="${ro?"":"Tap to edit"}" style="cursor:pointer"><span class="n">${esc(i.name)}${i.saved?`<span class="sent">${ro ? "" : `${i.saved} sent to kitchen`}</span>`:""}${modList(i)}${+i.disc?`<small style="display:block;font-size:12px;color:#b45309">Discount −${usd(i.disc)}</small>`:""}</span><span class="p">${usd(lineNet(i))}</span>
     <span class="qty">${ro ? `× ${i.qty}` : `<button data-q="${ix}:-1" aria-label="${i.qty > (i.saved||0) ? "Less" : "Void"}">−</button>${i.qty}<button data-q="${ix}:1" aria-label="More">+</button>`}</span><span class="p mut">${usd(i.price)} each</span></div>`).join("") : `<div class="empty">Tap items to start an order</div>`;
   // voided items stay on the order, struck out
   if(eo){ const vd = eo.status==="void" ? [] : (eo.voidedItems||[]);
@@ -725,7 +725,7 @@ async function editLine(ix){
 $("#lines").addEventListener("click", e => { if(e.target.closest("[data-onotex]")){ orderNote = ""; renderCart(); if(EDIT && isOpenOrd(editOrder()||{})) toast("Note removed · press Save to keep the change"); return; }
   if(e.target.closest("[data-onote]")) return openNotes();
   const eo = editOrder(), ro = eo && !isOpenOrd(eo);
-  const ed = e.target.closest("[data-edit]"); if(ed){ if(ro) return; const i = cart[+ed.dataset.edit]; if(i?.saved) return toast("This item was sent to the kitchen: void it with − instead of changing it"); return editLine(+ed.dataset.edit); }
+  const ed = !e.target.closest("button, input, a") && e.target.closest("[data-edit]"); if(ed){ if(ro) return; const i = cart[+ed.dataset.edit]; if(i?.saved) return toast("This item was sent to the kitchen: void it with − instead of changing it"); return editLine(+ed.dataset.edit); }
   const b = e.target.closest("[data-q]"); if(!b || ro) return; const [ix,d] = b.dataset.q.split(":").map(Number), i = cart[ix];
   if(d < 0 && i.qty <= (i.saved||0)) return voidSent(ix);           // already sent: void with a manager's PIN
   i.qty += d; if(i.qty<=0) cart.splice(ix,1); renderCart(); });
