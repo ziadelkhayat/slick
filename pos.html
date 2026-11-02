@@ -349,6 +349,8 @@ button,input,select,textarea{font-family:var(--f-ui)}
 .cback .cbtn{display:inline-flex!important;align-items:center;gap:4px;height:46px;padding:0 16px 0 10px!important;border:0!important;border-radius:12px!important;background:var(--ink)!important;color:var(--s)!important;font-weight:800!important;letter-spacing:.06em;box-shadow:var(--sh)}
 .cback .cbtn svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
 .cback b{font-family:var(--f-num);font-size:17px}
+.vrtot{display:flex;justify-content:space-between;align-items:baseline;padding:12px 14px;border-radius:14px;background:var(--accs);margin:12px 0;font-weight:700}.vrtot b{font-family:var(--f-num);font-size:20px;color:var(--acci)}
+.vlines>div{align-items:center}.vlines .qty button{width:44px!important;height:44px!important;border-radius:12px!important;background:var(--sunk)!important;border:0!important;font-size:20px}
 /* bottom bar */
 .bnav:not(.bnav-m){margin:0!important}.bnav{border-radius:20px!important;box-shadow:var(--sh)!important;padding:6px!important}
 .bnav button{font-weight:700!important;letter-spacing:.06em!important;color:var(--mut)!important;border-radius:14px!important}
@@ -994,7 +996,8 @@ $("#modal").addEventListener("click", async e => {
   if(e.target.closest("[data-ovback]")) return closeModal();   // every Back returns to the cart
   const ovo = e.target.closest("[data-ovopen]"); if(ovo) return closeModal();
   const vr = e.target.closest("[data-vr]"); if(vr){ const [k,m] = vr.dataset.vr.split(":"); return openVR(k, m); }
-  const vq = e.target.closest("[data-vq]"); if(vq){ const [ix,d] = vq.dataset.vq.split(":").map(Number), o = S.orders.find(x=>x.id===OV.open); window.__vq[ix] = Math.max(0, Math.min(window.__vmax?.[ix] ?? +o.items[ix].qty, (window.__vq[ix]||0) + d)); $("#vq"+ix).textContent = window.__vq[ix]; return; }
+  const vq = e.target.closest("[data-vq]"); if(vq){ const [ix,d] = vq.dataset.vq.split(":").map(Number), o = S.orders.find(x=>x.id===OV.open); window.__vq[ix] = Math.max(0, Math.min(window.__vmax?.[ix] ?? +o.items[ix].qty, (window.__vq[ix]||0) + d)); $("#vq"+ix).textContent = window.__vq[ix]; if($("#vrAmt")) $("#vrAmt").textContent = usd(retAmt(o, window.__vq)); return; }
+  const vm = e.target.closest("[data-vrmode]"); if(vm){ const [k,m] = vm.dataset.vrmode.split(":"); return openVR(k, m); }
   const stb = e.target.closest("[data-st]"); if(stb){ document.querySelectorAll("[data-st]").forEach(b => b.classList.toggle("on", b===stb)); return; }
   const vg = e.target.closest("#vrGo"); if(vg) return doVR(vg.dataset.kind, vg.dataset.mode);
   if(e.target.closest("[data-kticket]")){ const o = S.orders.find(x=>x.id===OV.open); if(o) modal("receipt", `<div class="mh"><h2>Kitchen ticket ${esc(ordRef(o))}</h2><button class="x" data-ovopen="${esc(o.id)}" aria-label="Back">←</button></div><div class="mb"><div class="receipt">${esc(kitchenText(o))}</div></div>`); return; }
@@ -1212,6 +1215,10 @@ function openOrderView(id){
     <div class="mf"><button class="btn" data-reprint>Reprint</button><button class="btn" data-kticket style="margin-right:auto">Kitchen ticket</button>${acts.join("")}</div>`, true);
 }
 const retLeft = (o, ix) => Math.max(0, +((o.items||[])[ix]?.qty||0) - (o.returnedItems||[]).filter(r => r.ix===ix).reduce((s,r)=>s+(+r.qty||0),0));
+// refund for the picked quantities: each item's price after the order discount, never more than what's left to refund
+const retAmt = (o, qs) => { const gross = (o.items||[]).reduce((s,i)=>s+lineNet(i),0), share = gross ? 1 - Math.min(+o.discount||0, gross)/gross : 1;
+  const left = +((+o.total||0) - (+o.refundTotal||0)).toFixed(2), all = (o.items||[]).every((i,ix) => (qs[ix]||0) >= retLeft(o, ix));
+  return all ? left : Math.min(left, +(o.items||[]).reduce((s,i,ix) => s + lineNet(i) / (+i.qty||1) * (qs[ix]||0) * share, 0).toFixed(2)); };
 const fullyBack = o => +o.refundTotal && +o.refundTotal >= +o.total - 0.001;
 // void (active) or return (closed): which items, why, and where the food goes; then a manager's PIN
 function openVR(kind, mode){
@@ -1219,8 +1226,10 @@ function openVR(kind, mode){
   const a = appSet(), reasons = String(kind==="void" ? a.voidReasons : a.returnReasons).split("\n").map(x=>x.trim()).filter(Boolean);
   const pick = mode==="items";
   modal("vr", `<div class="mh"><h2>${kind==="void"?"Void":"Return"} ${pick?"items":"order"} · ${esc(ordRef(o))}</h2><button class="x" data-ovopen="${esc(o.id)}" aria-label="Back">←</button></div><div class="mb">
+    <div class="dseg vrmode" style="margin-bottom:14px"><button type="button" data-vrmode="${kind}:all" class="${pick?"":"on"}">Whole order</button><button type="button" data-vrmode="${kind}:items" class="${pick?"on":""}">Choose items</button></div>
     ${pick ? `<p class="mut">How many of each item?</p><div class="vlines">${(o.items||[]).map((i,ix)=>`<div><span>${esc(i.name)}${modList(i)}</span><span class="qty"><button data-vq="${ix}:-1">−</button><b id="vq${ix}">0</b><button data-vq="${ix}:1">+</button> <span class="mut">of ${kind==="return" ? retLeft(o, ix) : i.qty}</span></span></div>`).join("")}</div>`
       : `<p>${kind==="void" ? "The whole order will be voided and removed from sales." : `The whole order will be returned and ${usd(o.total)} refunded.`}</p>`}
+    ${pick && kind==="return" ? `<div class="vrtot"><span>Refund</span><b id="vrAmt">${usd(0)}</b></div>` : ""}
     <div class="f"><label for="vrReason">Reason${a.reasonRequired?" *":""}</label><select id="vrReason"><option value="">Choose…</option>${reasons.map(r=>`<option>${esc(r)}</option>`).join("")}<option value="_other">Other…</option></select><input id="vrOther" placeholder="Write the reason" style="display:none;margin-top:6px"></div>
     ${a.stockAction==="ask" ? `<div class="f"><label>The food goes</label><div class="dseg"><button type="button" data-st="stock" class="on">Back to stock</button><button type="button" data-st="waste">To waste</button></div></div>`
       : `<p class="mut">Items go ${a.stockAction==="waste"?"to waste":"back to stock"} (Manage → Settings).</p>`}
