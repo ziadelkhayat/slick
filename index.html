@@ -442,7 +442,8 @@ tr[draggable="true"].dragging{opacity:.45}tr.dropto td{box-shadow:inset 0 2px 0 
 .ptabs a .ico{width:16px;height:16px;margin-right:6px;vertical-align:-3px}.ptabs a{flex:none;padding:7px 13px;border-radius:999px;font-size:13.5px;font-weight:500;color:var(--ink2);text-decoration:none;border:1px solid transparent;white-space:nowrap}
 .ptabs a:hover{background:var(--bg,#f4f3f8)}.ptabs a.on{background:#efe9fb;color:#5b2bc4;border-color:#d9ccf7;font-weight:600}
 .mlist{margin:3px 0 0;padding:0 0 0 16px;font-size:12px;line-height:1.45;color:#6b6a75;list-style:disc;text-align:left}.mlist li.mn{list-style:none;margin-left:-16px;font-style:italic}
-.tbadd{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;margin-top:10px}.tbadd label{display:flex;flex-direction:column;gap:4px;font-size:12.5px;color:#5b5a66;font-weight:500}.tbadd .sel{min-width:110px}
+.tblg{display:grid!important;grid-template-columns:repeat(auto-fill,minmax(170px,1fr))!important;gap:10px!important}.tblc{display:flex!important;align-items:center;gap:8px;border:1px solid var(--line,#e8e8f0);border-radius:12px;padding:10px 10px 10px 12px;min-height:72px;flex-wrap:wrap;background:#fbfaff}
+.tbn{border:0;background:none;font:inherit;font-weight:700;font-size:15px;color:inherit;cursor:pointer;padding:0;flex:1 1 100%;text-align:left}.tbn:hover{color:#5b2bc4}.tblc label{display:flex;align-items:center;gap:6px}.tblc .ts{width:60px}.tblc .x{margin-left:auto}
 .tblg{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px}.tblc{display:grid;grid-template-columns:auto 1fr auto;gap:8px;align-items:center;border:1px solid var(--line,#e8e8f0);border-radius:12px;padding:10px}.tblc .sel{width:100%;min-width:0}.tblc .tn{grid-column:1/3;font-weight:700;font-size:15px}.tblc .x{grid-column:3;grid-row:1}.tblc label{display:flex;align-items:center;gap:6px;grid-column:1;white-space:nowrap}.tblc .ts{width:64px}.tblc select{grid-column:2/4}
 </style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
@@ -2465,45 +2466,52 @@ function moduleRoute(route){
   return null;
 }
 
-/* ---------- Manage → Tables: dine-in tables per branch (the POS Tables screen) ---------- */
-// stored in settings "tables" as { [branchId]: [{ id, name, section, seats }] }
+/* ---------- Manage → Tables: sections, and the tables inside each section (the POS Tables screen) ---------- */
+// stored in settings "tables": { [branchId]: [{ id, name, section, seats }], [branchId + "__sections"]: ["Indoor", …] }
 const tblCfg = () => S.settings.find(s => s.id==="tables") || {};
 const tblBranchId = () => { const l = branches.filter(b => b.active!==false); if(!l.some(b => b.id===state.tblBranch)) state.tblBranch = l[0]?.id || ""; return state.tblBranch; };
 const tblList = b => (tblCfg()[b] || []).slice();
-async function tblSave(b, list){ try{ await put("settings", "tables", { [b]: list }); }catch(err){ console.error(err); toast("Couldn't save. Only the owner or an admin can change tables."); } }
+const tblSecs = b => { const l = tblList(b), s = [...(tblCfg()[b + "__sections"] || [])]; l.forEach(t => { if(!s.includes(t.section || "")) s.push(t.section || ""); }); return s.filter((x,i,a) => a.indexOf(x)===i && (x || l.some(t => !t.section))); };
+const tblLbl = n => /^\d+$/.test(String(n).trim()) ? "Table " + String(n).trim() : String(n);
+async function tblSave(b, list, secs){ try{ await put("settings", "tables", { [b]: list, ...(secs ? { [b + "__sections"]: secs } : {}) }); }catch(err){ console.error(err); toast("Couldn't save. Only the owner or an admin can change tables."); } }
+const tblNextNo = l => l.reduce((m,t) => Math.max(m, /^\d+$/.test(String(t.name)) ? +t.name : 0), 0) + 1;
 function viewTables(){
-  const b = tblBranchId(), list = tblList(b), secs = [...new Set(list.map(t => t.section || ""))];
-  const card = t => `<div class="tblc"><input class="sel tn" data-tbf="${esc(t.id)}:name" value="${esc(t.name)}" aria-label="Table name"><label class="note">Seats <input class="sel ts" data-tbf="${esc(t.id)}:seats" type="number" min="0" max="50" value="${esc(t.seats ?? "")}"></label>
-    <select class="sel" data-tbf="${esc(t.id)}:section" aria-label="Section">${[...new Set([...secs, t.section || ""])].map(s => `<option value="${esc(s)}" ${s===(t.section||"")?"selected":""}>${esc(s || "No section")}</option>`).join("")}</select><button class="x" data-tbdel="${esc(t.id)}" title="Remove table" aria-label="Remove table">×</button></div>`;
+  const b = tblBranchId(), list = tblList(b), secs = tblSecs(b);
+  const chip = t => `<div class="tblc"><button class="tbn" data-tbren="${esc(t.id)}" title="Rename">${esc(tblLbl(t.name))}</button><label class="note">Seats <input class="sel ts" data-tbf="${esc(t.id)}:seats" type="number" min="0" max="50" value="${esc(t.seats ?? "")}"></label><button class="x" data-tbdel="${esc(t.id)}" title="Remove table" aria-label="Remove ${esc(tblLbl(t.name))}">×</button></div>`;
+  const secCard = sc => { const l = list.filter(t => (t.section||"")===sc);
+    return `<div class="card" style="padding:16px;margin-bottom:12px"><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px"><b style="font-size:16px">${esc(sc || "No section")}</b><span class="note">${l.length} tables · ${l.reduce((a,t) => a + (+t.seats||0), 0)} seats</span><div style="flex:1"></div>
+      <span class="note">Add</span><input class="sel" type="number" min="1" max="100" value="1" id="tbN_${esc(sc)}" style="width:70px"><span class="note">tables with</span><input class="sel" type="number" min="0" max="50" value="4" id="tbS_${esc(sc)}" style="width:70px"><span class="note">seats</span><button class="btn pri" data-tbadd="${esc(sc)}">Add tables</button>
+      ${sc ? `<button class="btn" data-tbrensec="${esc(sc)}">Rename</button><button class="btn" data-tbdelsec="${esc(sc)}" style="color:#9e0c24">Delete section</button>` : ""}</div>
+      ${l.length ? `<div class="tblg">${l.map(chip).join("")}</div>` : `<div class="note">No tables in this section yet.</div>`}</div>`; };
   return `<div class="phead"><h1>Tables</h1><div class="sp"></div></div>
-    <p class="subt">Dine-in tables of each branch. The POS shows them on its Tables screen, grouped by section; a cashier taps a table to start its order.</p>
+    <p class="subt">Dine-in tables of each branch, grouped in sections. The POS shows them on its Tables screen; the cashier taps a table, enters the number of guests and takes the order.</p>
     ${branches.filter(x => x.active!==false).length > 1 ? `<div class="tabs" style="margin-bottom:16px">${branches.filter(x => x.active!==false).map(x => `<button class="tab ${x.id===b?"on":""}" data-tbbr="${esc(x.id)}">${esc(x.name)} <span class="note">${tblList(x.id).length}</span></button>`).join("")}</div>` : ""}
-    <div class="card" style="padding:16px;margin-bottom:16px"><b>Add tables</b>
-      <div class="tbadd"><label>Section<input class="sel" id="tbSec" list="tbSecs" placeholder="e.g. Indoor, Terrace"></label><datalist id="tbSecs">${secs.filter(Boolean).map(s => `<option value="${esc(s)}">`).join("")}</datalist>
-      <label>From no.<input class="sel" id="tbFrom" type="number" min="1" value="${list.length + 1}"></label><label>To no.<input class="sel" id="tbTo" type="number" min="1" value="${list.length + 1}"></label>
-      <label>Name prefix<input class="sel" id="tbPre" placeholder="optional, e.g. T"></label><label>Seats<input class="sel" id="tbSeats" type="number" min="0" value="4"></label>
-      <button class="btn pri" id="tbAdd">Add</button></div><div class="note" id="tbErr"></div></div>
-    ${list.length ? secs.map(s => `<div class="card" style="padding:16px;margin-bottom:12px"><div style="display:flex;align-items:center;gap:8px;margin-bottom:10px"><b>${esc(s || "No section")}</b><span class="note">${list.filter(t => (t.section||"")===s).length} tables · ${list.filter(t => (t.section||"")===s).reduce((a,t) => a + (+t.seats||0), 0)} seats</span>
-        <div class="sp" style="flex:1"></div>${s ? `<button class="btn" data-tbrensec="${esc(s)}">Rename section</button>` : ""}</div>
-      <div class="tblg">${list.filter(t => (t.section||"")===s).map(card).join("")}</div></div>`).join("")
-      : `<div class="empty">No tables for this branch yet. Add them above, e.g. from 1 to 12.</div>`}`;
+    <div class="card" style="padding:16px;margin-bottom:16px;display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap"><label style="display:flex;flex-direction:column;gap:4px;font-size:12.5px;color:#5b5a66;font-weight:500">New section<input class="sel" id="tbSecNew" placeholder="e.g. Indoor, Terrace" style="min-width:240px"></label><button class="btn pri" id="tbSecAdd">Add section</button><div class="note" id="tbErr"></div></div>
+    ${secs.length ? secs.map(secCard).join("") : `<div class="empty">No sections yet. Add a section (e.g. Indoor), then add its tables.</div>`}`;
 }
 document.addEventListener("click", async e => {
   const t = e.target; if(!t.closest || !t.closest("#view")) return;
   const br = t.closest("[data-tbbr]"); if(br){ state.tblBranch = br.dataset.tbbr; render(); return; }
-  if(t.closest("#tbAdd")){ const b = tblBranchId(), list = tblList(b), from = +$("#tbFrom").value, to = +$("#tbTo").value || from, pre = $("#tbPre").value.trim(), sec = $("#tbSec").value.trim(), seats = +$("#tbSeats").value || 0;
-    if(!(from >= 1) || to < from || to - from > 200){ $("#tbErr").textContent = "Enter a valid range (at most 200 tables at once)."; return; }
-    const names = new Set(list.map(x => String(x.name).toLowerCase())), add = [];
-    for(let n = from; n <= to; n++){ const name = pre + n; if(names.has(name.toLowerCase())) continue; add.push({ id: uid("tb"), name, section: sec, seats }); }
-    if(!add.length){ $("#tbErr").textContent = "Those tables already exist."; return; }
-    await tblSave(b, [...list, ...add]); toast(add.length + (add.length===1 ? " table" : " tables") + " added"); return; }
-  const del = t.closest("[data-tbdel]"); if(del){ const b = tblBranchId(), x = tblList(b).find(y => y.id===del.dataset.tbdel); if(!x || !confirm(`Remove table ${x.name}?`)) return; await tblSave(b, tblList(b).filter(y => y.id!==x.id)); toast("Table removed"); return; }
-  const rs = t.closest("[data-tbrensec]"); if(rs){ const old = rs.dataset.tbrensec, nn = (prompt("Section name", old) || "").trim(); if(!nn || nn===old) return; const b = tblBranchId(); await tblSave(b, tblList(b).map(y => (y.section||"")===old ? { ...y, section: nn } : y)); toast("Section renamed"); return; }
+  if(t.closest("#tbSecAdd")){ const b = tblBranchId(), n = $("#tbSecNew").value.trim(), secs = tblSecs(b); if(!n){ $("#tbSecNew").focus(); return; }
+    if(secs.some(x => x.toLowerCase()===n.toLowerCase())){ $("#tbErr").textContent = "That section already exists."; return; }
+    await tblSave(b, tblList(b), [...secs.filter(Boolean), n]); toast("Section added"); return; }
+  const ad = t.closest("[data-tbadd]"); if(ad){ const b = tblBranchId(), sc = ad.dataset.tbadd, list = tblList(b), n = Math.min(100, +document.getElementById("tbN_" + sc).value || 0), seats = +document.getElementById("tbS_" + sc).value || 0;
+    if(!(n >= 1)) return; let k = tblNextNo(list); const add = []; for(let i = 0; i < n; i++) add.push({ id: uid("tb"), name: String(k++), section: sc, seats });
+    await tblSave(b, [...list, ...add], tblSecs(b).filter(Boolean)); toast(n + (n===1 ? " table" : " tables") + " added to " + (sc || "the branch")); return; }
+  const del = t.closest("[data-tbdel]"); if(del){ const b = tblBranchId(), x = tblList(b).find(y => y.id===del.dataset.tbdel); if(!x || !confirm(`Remove ${tblLbl(x.name)}?`)) return; await tblSave(b, tblList(b).filter(y => y.id!==x.id)); toast("Table removed"); return; }
+  const rn = t.closest("[data-tbren]"); if(rn){ const b = tblBranchId(), list = tblList(b), x = list.find(y => y.id===rn.dataset.tbren); if(!x) return;
+    const v = (prompt("Table number or name", x.name) || "").trim(); if(!v || v===x.name) return;
+    if(list.some(y => y.id!==x.id && String(y.name).toLowerCase()===v.toLowerCase())) return toast("Another table already has that name");
+    await tblSave(b, list.map(y => y.id===x.id ? { ...y, name: v } : y)); toast("Saved"); return; }
+  const rs = t.closest("[data-tbrensec]"); if(rs){ const old = rs.dataset.tbrensec, nn = (prompt("Section name", old) || "").trim(); if(!nn || nn===old) return; const b = tblBranchId();
+    await tblSave(b, tblList(b).map(y => (y.section||"")===old ? { ...y, section: nn } : y), tblSecs(b).filter(Boolean).map(x => x===old ? nn : x)); toast("Section renamed"); return; }
+  const ds = t.closest("[data-tbdelsec]"); if(ds){ const sc = ds.dataset.tbdelsec, b = tblBranchId(), n = tblList(b).filter(y => (y.section||"")===sc).length;
+    if(!confirm(n ? `Delete the section ${sc} and its ${n} tables?` : `Delete the section ${sc}?`)) return;
+    await tblSave(b, tblList(b).filter(y => (y.section||"")!==sc), tblSecs(b).filter(x => x && x!==sc)); toast("Section deleted"); return; }
 });
 document.addEventListener("change", async e => { const f = e.target.closest && e.target.closest("[data-tbf]"); if(!f) return;
   const [id, k] = f.dataset.tbf.split(":"), b = tblBranchId(), list = tblList(b), x = list.find(y => y.id===id); if(!x) return;
-  let v = f.value.trim(); if(k==="seats") v = Math.max(0, +v || 0);
-  if(k==="name"){ if(!v){ f.value = x.name; return; } if(list.some(y => y.id!==id && String(y.name).toLowerCase()===v.toLowerCase())){ toast("Another table already has that name"); f.value = x.name; return; } }
+  const v = k==="seats" ? Math.max(0, +f.value || 0) : f.value.trim();
   await tblSave(b, list.map(y => y.id===id ? { ...y, [k]: v } : y)); toast("Saved"); });
 
 /* ---------- Orders: every order from every channel, any date range ---------- */
