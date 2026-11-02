@@ -463,7 +463,7 @@ async function addProduct(p){
   let price = prodPrice(p);
   if(p.pricingMethod==="open"){ if(!can("pos_open_price")){ deny("open-price items"); return; } const v = prompt("Price for " + p.name, price || ""); if(v===null || v==="" || isNaN(+v) || +v<0) return; price = +v; }
   const kids = kidsOf(p);
-  if(kids.length && window.SlickMods?.variant){ const v = await SlickMods.variant({ name:p.name, variants: kids.map(k => ({ name:k.name, price:prodPrice(k.p), id:k.p.id })), money:usd }); if(!v) return; return addProduct(kids.find(k => k.p.id===v.id).p); }
+  if(kids.length && window.SlickMods?.variant){ const v = await SlickMods.variant({ name:p.name, setName:(p.variants||[]).find(v=>v.group)?.group, variants: kids.map(k => ({ name:k.name, price:prodPrice(k.p), id:k.p.id })), money:usd }); if(!v) return; return addProduct(kids.find(k => k.p.id===v.id).p); }
   let options = [], mods = "";
   if((p.modifiers||[]).length && window.SlickMods){ const r = await SlickMods.pick({ name:p.name, basePrice:price, ...modData(p), money:usd }); if(!r) return; options = r.options; mods = r.mods; price = r.unitPrice; }
   const k = SlickMods ? SlickMods.key(p.id, options) : p.id;
