@@ -794,7 +794,7 @@ $("#modal").addEventListener("click", async e => {
   const nq = e.target.closest("[data-nq]"); if(nq){ const ta = $("#noteTxt"); ta.value = (ta.value.trim() ? ta.value.trim() + ", " : "") + nq.dataset.nq; ta.focus(); return; }
   if(e.target.closest("#diagReload")) return location.reload();
   if(e.target.closest("[data-pdnew]")){ PD = null; return openPDNew(); }
-  const pnt = e.target.closest("[data-pdnewt]"); if(pnt){ PD = { type: pnt.dataset.pdnewt, phone:"", name:"", addr:{}, cust:null }; return openPDNew(); }
+  const pnt = e.target.closest("[data-pdnewt]"); if(pnt){ PD = null; return openPDNew(); }
   const pdt = e.target.closest("[data-pdt]"); if(pdt){ pdKeep(); PD.type = pdt.dataset.pdt; return openPDNew(); }
   const pda = e.target.closest("[data-pdaddr]"); if(pda){ pdKeep(); const a = (PD.cust?.addresses||[])[+pda.dataset.pdaddr]; if(a) PD.addr = addrParts(a.address); return openPDNew(); }
   if(e.target.closest("#pdGo")) return pdContinue();
@@ -980,7 +980,7 @@ function openIncoming(){
   if(!TABS.some(x => x[0]===OV.tab)) OV.tab = "all";
   const chip = (k, v, l) => `<button class="chip${OV[k]===v?" on":""}" data-of="${k}:${v}">${l}</button>`;
   const head = `<div class="ohdr"><button class="hbtn" data-close>Back</button><input class="search" id="ovQ" placeholder="Search orders: order no., invoice no., customer, phone, table" value="${esc(OV.q)}" style="flex:1;min-width:220px;margin:0">
-    <button class="hbtn${OV.filt ? "" : " ghost"}" data-ofilt>Filter${(OV.date && OV.date!==bizDate()) || OV.ft || OV.fc ? ` <span class="fdot">${[(OV.date && OV.date!==bizDate()), OV.ft, OV.fc].filter(Boolean).length}</span>` : ""}</button><button class="hbtn ghost" data-osync>Sync</button></div>`;
+    <button class="hbtn${OV.filt ? "" : " ghost"}" data-ofilt>Filter${(OV.date && OV.date!==bizDate()) || OV.ft || OV.fc ? ` <span class="fdot">${[(OV.date && OV.date!==bizDate()), OV.ft, OV.fc].filter(Boolean).length}</span>` : ""}</button></div>`;
   const day = OV.date || bizDate(), shift = n => { const d = new Date(day + "T12:00:00"); d.setDate(d.getDate() + n); return d.toISOString().slice(0,10); };
   const filt = !OV.filt ? "" : `<div class="ofilt"><b style="font-size:13px">Date</b><button class="chip" data-odate="${shift(-1)}" aria-label="Previous day">‹</button><input type="date" id="ovDate" value="${day}" max="${bizDate()}" style="padding:6px 10px;border:1px solid var(--line);border-radius:999px;font-weight:600"><button class="chip" data-odate="${shift(1)}" aria-label="Next day" ${day >= bizDate() ? "disabled" : ""}>›</button>${day!==bizDate() ? `<button class="chip on" data-odate="">Today</button>` : ""}<span style="width:14px"></span><b style="font-size:13px">Type</b>${chip("ft","","All")}${chip("ft","dinein","Dine-in")}${chip("ft","pickup","Pickup")}${chip("ft","delivery","Delivery")}${chip("ft","fast","Fast sale")}<span style="width:14px"></span><b style="font-size:13px">Channel</b>${chip("fc","","All")}${chip("fc","pos","POS")}${chip("fc","callcenter","Call center")}${chip("fc","web","Web")}</div>`;
   let body;
@@ -1227,7 +1227,7 @@ function openBoard(){
   const q = OV.q; OV.q = BQ;
   const PD_COLS = [...OV_COLS.slice(0,3), ["declined","Declined","Declined today"]];   // pickup & delivery: no void / returns column
   const cols = PD_COLS.map(([k,title,tip]) => [k, title, tip, boardOrders(k, true)]); OV.q = q;
-  modal("board", `<div class="ohdr"><button class="hbtn" data-close>Back</button><b style="font-size:18px;letter-spacing:.03em">PICKUP & DELIVERY</b><span class="sp"></span>${allowedTypes().includes("takeaway") ? `<button class="hbtn" data-pdnewt="takeaway">+ Pickup</button>` : ""}${allowedTypes().includes("delivery") ? `<button class="hbtn" data-pdnewt="delivery">+ Delivery</button>` : ""}<button class="hbtn ghost" data-osync>Sync</button></div>
+  modal("board", `<div class="ohdr"><button class="hbtn" data-close>Back</button><b style="font-size:18px;letter-spacing:.03em">PICKUP & DELIVERY</b><span class="sp"></span>${allowedTypes().some(t => t==="takeaway"||t==="delivery") ? `<button class="hbtn" data-pdnewt>PLACE ORDER</button>` : ""}</div>
     <div class="mb"><div class="oboard">${cols.map(([k,title,tip,l]) => `<div class="ocol"><div class="ochead" title="${esc(tip)}"><b>${title}</b><span class="cnt">${l.length}</span></div>${l.length ? l.map(card).join("") : `<div class="oempty">You don't have ${title.toLowerCase()} orders</div>`}</div>`).join("")}</div></div>`, true);
   $("#modal").classList.add("full"); $("#scrim").classList.add("fullscr"); withNav();
 }
