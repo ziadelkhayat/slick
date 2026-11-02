@@ -394,7 +394,7 @@ body[data-route="call-center"] .ocard{padding:10px 12px;gap:5px;font-size:13px}
 .ccmenu{grid-template-columns:1fr!important}
 .ccbar{display:flex;align-items:center;gap:10px;margin-bottom:10px}.ccbar .cchead{flex:1;margin:0}.ccbar .search{max-width:260px}
 .pgrid.cats{grid-template-columns:repeat(auto-fill,minmax(160px,1fr))}
-.ctile{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;min-height:120px;border:1px solid var(--line);background:var(--surface);border-radius:14px;padding:12px;cursor:pointer;font:inherit;color:inherit;text-align:center}
+.ctile{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;min-height:84px;border:1px solid var(--line);background:var(--surface);border-radius:14px;padding:12px;cursor:pointer;font:inherit;color:inherit;text-align:center}
 .ctile:hover{border-color:var(--accent);box-shadow:var(--shadow)}
 .ctile img{width:56px;height:56px;object-fit:cover;border-radius:12px}.ctile .ci{width:48px;height:48px;border-radius:12px;display:grid;place-items:center;background:var(--chart-soft,#f3efff);color:var(--accent-ink);font-size:20px;font-weight:700}
 .ctile small{color:var(--ink3,#8d8c98)}
@@ -2027,6 +2027,7 @@ function ccStep1Err(){
 }
 function ccStep(n, force){
   const x = $("#ccX"); if(!x) return;
+  if(n===1 && !force && x.classList.contains("s2") && !confirm("Go back to Customer & delivery? The items in the cart stay.")) return;
   if(n===2 && !force){ const e = ccStep1Err(); if(e){ $("#oErr1").textContent = e[0]; if(e[1]) $("#"+e[1])?.focus(); return; } }
   $("#oErr1") && ($("#oErr1").textContent = "");
   x.classList.toggle("s1", n===1); x.classList.toggle("s2", n===2);
@@ -2038,8 +2039,7 @@ function ccSide(){
   const type = $("#oType .on")?.dataset.ot || "", c = window.__ccCust, a = addrSplit(addrJoin(ccAddrGet()));
   const bits = [type ? ordTypeLbl(type) : "", branchName($("#oBranch").value), type==="delivery" ? (a.label ? a.label + ": " : "") + [a.street, a.building && "Bldg " + a.building, a.floor && "Floor " + a.floor].filter(Boolean).join(", ") : ""].filter(Boolean);
   el.innerHTML = `<b>${esc($("#oName").value.trim() || "New customer")}</b><span class="note">${esc($("#oPhone").value.trim())}</span>${c?.blacklisted ? `<span class="tag" style="background:#fde8eb;color:#9e0c24">⚠ Blacklisted</span>` : ""}
-    ${bits.map(x => `<span class="dot">·</span><span class="cs-b" title="${esc(x)}">${esc(x)}</span>`).join("")}
-    <button type="button" class="lnk" data-ccstep="1">Edit</button>`;
+    ${bits.map(x => `<span class="dot">·</span><span class="cs-b" title="${esc(x)}">${esc(x)}</span>`).join("")}`;
 }
 function ccAddrCards(){
   const box = $("#oAddrCards"); if(!box) return;
@@ -2113,7 +2113,7 @@ function renderOrderMenu(){
     const tiles = [...cats.map(c => [c.id, c.name, c.imageUrl]), ...(n("_none") ? [["_none","Other",""]] : [])];
     $("#oCatTitle").textContent = "Categories";
     box.className = "pgrid cats";
-    box.innerHTML = tiles.length ? tiles.map(([id, nm, img]) => `<button type="button" class="ctile" data-ocat="${esc(id)}">${img?`<img src="${esc(img)}" alt="" loading="lazy">`:`<span class="ci">${esc(nm.slice(0,1).toUpperCase())}</span>`}<b>${esc(nm)}</b><small>${n(id)} item${n(id)===1?"":"s"}</small></button>`).join("")
+    box.innerHTML = tiles.length ? tiles.map(([id, nm, img]) => `<button type="button" class="ctile" data-ocat="${esc(id)}">${img?`<img src="${esc(img)}" alt="" loading="lazy">`:""}<b>${esc(nm)}</b></button>`).join("")
       : `<div class="note" style="padding:12px">${S.products.length ? ($("#oBrand")?.value || !brandList().length ? "No products available at this branch." : "Choose a brand to see its menu.") : "No products yet. Add them under Menu → Products."}</div>`;
     return;
   }
@@ -2195,6 +2195,7 @@ document.addEventListener("change", e => { if(e.target.id==="dBrand") $("#dBranc
 /* ---------- device settings (Foodics-style, per tablet) ---------- */
 const OT3 = [["dinein","Dine-in"],["takeaway","Pickup"],["delivery","Delivery"]];
 function devSummary(d){ const s = d.settings || {}, bits = [];
+  if(d.type==="cashier" && S.devices.some(x => live(x) && x.branchId===d.branchId && x.settings?.master)) bits.push(s.master ? "Master POS" : "Sub-POS");
   if(s.autoAccept) bits.push("Auto-accepts orders"); if(+s.lockMinutes) bits.push(`Locks after ${s.lockMinutes} min`); if(+s.tables) bits.push(`${s.tables} tables`); if(s.kitchenPrinter) bits.push("Kitchen printer");
   return bits.length ? `<div class="note">${bits.map(esc).join(" · ")}</div>` : ""; }
 function openDeviceSettings(id){
@@ -2212,6 +2213,7 @@ function openDeviceSettings(id){
     <div class="f full"><label>Order types on this device</label><div class="multi" id="ds_types">${OT3.map(([k,t])=>`<label class="chk"><input type="checkbox" value="${k}" ${types.includes(k)?"checked":""} ${brTypes.includes(k)?"":"disabled"}> ${t}${brTypes.includes(k)?"":" (off for this branch)"}</label>`).join("")}</div></div>
     <div class="f"><label for="ds_defaultType">Default order type</label>${sel("defaultType", s.defaultType || types[0] || "dinein", OT3)}</div>
     <div class="f"><label for="ds_tables">Dine-in tables</label><input id="ds_tables" type="number" min="0" max="200" value="${esc(s.tables ?? "")}" placeholder="0 = type the table number"></div>
+    <div class="f full"><label class="chk"><input type="checkbox" id="ds_master" ${s.master?"checked":""}> Master POS for this branch</label><div class="note">One per branch. The master POS accepts call-center and web orders and ends the day; every other cashier device is a sub-POS that sells, sends and bills orders.</div></div>
     <div class="f full"><label class="chk"><input type="checkbox" id="ds_autoAccept" ${s.autoAccept?"checked":""}> Auto-accept call-center and web orders for this branch (sends them straight to the kitchen and gives them this device's order number)</label></div>
     <h4 class="fsec">Printing &amp; hardware</h4>
     <div class="f"><label for="ds_receipt">After each sale</label>${sel("receipt", s.receipt || "show", [["show","Show the receipt"],["print","Print the receipt automatically"],["none","Don't show or print"]])}</div>
@@ -2233,12 +2235,14 @@ async function saveDeviceSettings(){
   const orderTypes = [...document.querySelectorAll("#ds_types input:checked")].map(i=>i.value);
   if(!orderTypes.length){ $("#cErr").textContent = "Pick at least one order type."; return; }
   const defaultType = orderTypes.includes(v("defaultType")) ? v("defaultType") : orderTypes[0];
-  const settings = { ...(d.settings||{}), orderTypes, defaultType, tables: +v("tables") || 0, autoAccept: ck("autoAccept"), receipt: v("receipt"), copies: Math.max(1, +v("copies") || 1),
+  const settings = { ...(d.settings||{}), orderTypes, defaultType, tables: +v("tables") || 0, autoAccept: ck("autoAccept"), master: ck("master") && v("type")==="cashier", receipt: v("receipt"), copies: Math.max(1, +v("copies") || 1),
     kitchenPrinter: v("kitchenPrinter"), receiptPrinter: v("receiptPrinter"), cashDrawer: ck("cashDrawer"), lockMinutes: Math.max(0, +v("lockMinutes") || 0), lockAfterSale: ck("lockAfterSale") };
   const ch = { name, reference: v("reference"), type: v("type"), settings };
   if(!v("branch")){ $("#cErr").textContent = "Pick the branch."; return; }
   if(v("branch") !== d.branchId){ if(!confirm("Move this device to another branch? It will need a new activation code.")) return; ch.branchId = v("branch"); ch.code = newCode(); ch.activatedAt = null; }
-  try{ await put("devices", id, ch); toast(ch.code ? `Device moved · new activation code ${ch.code}` : "Device settings saved"); closeCrud(); }
+  try{
+    if(settings.master) for(const o of S.devices.filter(x => live(x) && x.id!==id && x.branchId===(ch.branchId || d.branchId) && x.settings?.master)) await put("devices", o.id, { settings: { ...o.settings, master:false } });   // one master per branch
+    await put("devices", id, ch); toast(ch.code ? `Device moved · new activation code ${ch.code}` : "Device settings saved"); closeCrud(); }
   catch(err){ console.error(err); $("#cErr").textContent = "Couldn't save. Only the owner or an admin can change devices."; }
 }
 document.addEventListener("click", e => { const b = e.target.closest("[data-devset]"); if(b) return openDeviceSettings(b.dataset.devset); if(e.target.closest("#dsSave")) saveDeviceSettings(); });

@@ -60,7 +60,18 @@ button{cursor:pointer}
 .empty{color:var(--mut);text-align:center;padding:40px 10px}
 .totals{padding:12px;border-top:1px solid var(--line);display:grid;gap:6px;font-variant-numeric:tabular-nums}
 .totals div{display:flex;justify-content:space-between}.totals .g{font-size:20px;font-weight:700}
-.acts{display:grid;grid-template-columns:1fr 1fr 2fr;gap:8px;padding:0 12px 12px}
+.acts{display:grid;grid-template-columns:repeat(var(--n,3),1fr);gap:8px;padding:0 12px 12px}.acts .pay{grid-column:span 2}
+.obar{display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid var(--line);background:#f6f2ff}.obar b{font-size:15px}.obar .sp{flex:1}.obar button{border:1px solid var(--line);background:var(--s);border-radius:10px;padding:6px 10px;font-weight:600;font-size:13px}
+.line .sent{display:block;font-size:11.5px;color:#5b5a66}
+#modal.full{width:100vw!important;height:100vh;max-width:none;max-height:none;border-radius:0;display:flex;flex-direction:column}.scrim.fullscr{padding:0!important}.modal.full .mb{flex:1;overflow:auto}
+.modal.full{background:#f3f3f9}.modal.full .mh{background:var(--s)}
+.oboard{display:grid;grid-template-columns:repeat(4,minmax(240px,1fr));gap:14px;align-items:start;min-height:100%}
+.ocol{display:flex;flex-direction:column;gap:10px}.ochead{display:flex;align-items:center;gap:8px;background:var(--s);border-radius:14px;padding:12px 16px;box-shadow:0 1px 3px rgba(21,19,31,.06)}.ochead b{font-size:16px}.ochead .cnt{background:#ececf3;border-radius:999px;padding:1px 9px;font-size:13px}
+.oempty{background:#e9e8f1;border-radius:14px;padding:30px 14px;text-align:center;color:#5b5a66}
+.ocard{display:flex;flex-direction:column;gap:7px;text-align:left;background:var(--s);border:1px solid transparent;border-radius:14px;padding:14px;box-shadow:0 1px 3px rgba(21,19,31,.08);font:inherit;color:inherit;cursor:pointer}
+.ocard:hover{border-color:var(--acc)}.ocard .oc1{display:flex;align-items:center;gap:8px}.ocard .oc1 b{font-size:17px}.ocard .oc1 .spill{margin-left:auto}
+.ocard .oc2{display:flex;flex-direction:column;font-size:14px}.ocard .oc2 small{color:#8d8c98;font-size:12.5px;padding-left:22px}.ocard .oc-s{font-size:12.5px}.ocard .oc-t{font-size:17px}
+@media(max-width:900px){.oboard{grid-template-columns:1fr}}
 .acts button{border:1px solid var(--line);background:var(--s);border-radius:12px;padding:14px 6px;font-weight:600}
 .acts .pay{background:var(--acc);border-color:var(--acc);color:#fff;font-size:16px}
 .acts button:disabled{opacity:.45}
@@ -185,7 +196,7 @@ body{-webkit-font-smoothing:antialiased}
       <div class="extra" id="extra"></div>
       <div class="lines" id="lines"></div>
       <div class="totals" id="totals"></div>
-      <div class="acts"><button id="clearBtn">Clear</button><button id="discBtn">Discount</button><button class="pay" id="payBtn">Pay</button></div>
+      <div class="acts" id="acts"></div>
     </aside>
   </div>
 </div>
@@ -218,6 +229,7 @@ const store = { get(k){ try{ return localStorage.getItem(k); }catch(e){ return n
 let db = null;
 const S = { brands:[], devices:[], branches:[], categories:[], products:[], orders:[], shifts:[], modifiers:[], modifier_options:[], taxes:[], tax_groups:[], payment_methods:[], roles:[], users:[], settings:[], day_closes:[], charges:[] };
 let posChg = null;   // null = the charges that apply automatically; otherwise the ids the cashier kept
+let EDIT = null;   // an order opened from the Orders list into the billing section: { id }
 let device = null, branch = null, cat = "", otype = "dinein", cart = [], discount = 0, discType = "pct", tableNo = "", cust = { name:"", phone:"", addr:{} };
 
 /* ---------- boot ---------- */
@@ -346,7 +358,10 @@ const incoming = () => S.orders.filter(o => o.branchId===device.branchId && o.ch
 
 /* ---------- render ---------- */
 const autoDone = new Set();
+// one master POS per branch takes the call-center and web orders and ends the day; sub-POS sell and bill. No master set = every POS can
+const isMaster = () => { const m = (S.devices||[]).filter(d => !d.deleted && d.branchId===device?.branchId && d.settings?.master); return !m.length || m.some(d => d.id===device.id); };
 async function autoAccept(){
+  if(!isMaster()) return;
   for(const o of S.orders.filter(o => o.branchId===device.branchId && o.channel!=="pos" && o.status==="pending" && !autoDone.has(o.id))){
     autoDone.add(o.id);
     try{ await db.collection("orders").doc(o.id).update({ status:"active", updatedAt:new Date().toISOString(), handledBy:(cashier?.name || device.name) + " (auto)", ...(o.no ? {} : { no: nextOrderNo(), deviceId: device.id }) });
@@ -366,6 +381,7 @@ function saleBlock(){
 }
 const fmtDay = d => new Date(d + "T12:00:00").toLocaleDateString("en-GB", { weekday:"short", day:"numeric", month:"short" });
 function openDayEnd(){
+  if(!isMaster()) return toast("The day is ended on the master POS");
   if(!can("pos_endday")) return deny("ending the day");
   const day = openDay(), act = S.orders.filter(o => o.branchId===device.branchId && ["pending","active"].includes(o.status));
   const shifts = S.shifts.filter(x => x.branchId===device.branchId && !x.closedAt);
@@ -397,12 +413,13 @@ function renderAll(){
   applyTypes();
   const bn = S.brands.find(b=>b.id===branch?.brandId)?.name;
   $("#tBranch").textContent = (bn ? bn + " · " : "") + (branch?.name || "Unknown branch");
-  $("#tDevice").textContent = device.name;
+  $("#tDevice").textContent = device.name + ((S.devices||[]).some(d => !d.deleted && d.branchId===device.branchId && d.settings?.master) ? (isMaster() ? " · Master POS" : " · Sub-POS") : "");
+  $("#dayBtn").style.display = isMaster() ? "" : "none";
   const sh = openShift();
   $("#shiftPill").textContent = sh ? "Shift open" : "Shift closed"; $("#shiftPill").classList.toggle("off", !sh);
   const blk = saleBlock(); $("#dayBtn").textContent = blk && openDay() < bizDate() ? "⚠ End day" : "End day"; $("#dayBtn").title = blk || "End the business day for this branch";
   $("#shiftBtn").textContent = sh ? "Close shift" : "Open shift";
-  const inc = incoming(), pend = inc.filter(o=>o.status==="pending").length;
+  const inc = incoming(), pend = isMaster() ? inc.filter(o=>o.status==="pending").length : 0;
   $("#incBadge").textContent = pend; $("#incBadge").classList.toggle("hide", !pend);
   renderMenu(); renderCart();
   if(modalKind==="incoming" && document.activeElement?.id!=="ovQ") openIncoming();
@@ -437,14 +454,81 @@ function renderCart(){
   $("#extra").innerHTML = otype==="dinein" ? (+devSet().tables ? `<select id="tbl" aria-label="Table"><option value="">Choose table…</option>${Array.from({length:+devSet().tables},(_,i)=>`<option ${String(i+1)===String(tableNo)?"selected":""}>${i+1}</option>`).join("")}</select>` : `<input id="tbl" placeholder="Table number" value="${esc(tableNo)}" inputmode="numeric">`)
     : otype==="delivery" ? `<input id="cPhone" placeholder="Customer phone *" inputmode="tel" value="${esc(cust.phone)}"><input id="cName" placeholder="Customer name *" value="${esc(cust.name)}"><div class="addrg">${[["label","Address name (Home, Work…)"],["street","Area / street *"],["building","Building name / no. *"],["floor","Floor *"],["extra","Additional info"]].map(([k,ph])=>`<input id="cA_${k}" placeholder="${ph}" value="${esc(cust.addr[k]||"")}"${k==="extra"||k==="label"?' class="wide"':""}>`).join("")}</div>`
     : `<input id="cPhone" placeholder="Customer phone *" inputmode="tel" value="${esc(cust.phone)}"><input id="cName" placeholder="Customer name *" value="${esc(cust.name)}">`;
-  $("#lines").innerHTML = cart.length ? cart.map((i,ix)=>`<div class="line"><span class="n" data-edit="${ix}" title="Tap to edit" style="cursor:pointer">${esc(i.name)}${modList(i)}${+i.disc?`<small style="display:block;font-size:12px;color:#b45309">Discount −${usd(i.disc)}</small>`:""}</span><span class="p">${usd(lineNet(i))}</span>
-    <span class="qty"><button data-q="${ix}:-1" aria-label="Less">−</button>${i.qty}<button data-q="${ix}:1" aria-label="More">+</button></span><span class="p mut">${usd(i.price)} each</span></div>`).join("") : `<div class="empty">Tap items to start an order</div>`;
+  const eo = editOrder(), ro = eo && !isOpenOrd(eo);
+  if(eo) $("#extra").insertAdjacentHTML("afterbegin", `<div class="obar"><b>Order ${esc(ordRef(eo))}</b><span class="spill s-${eo.status}">${stLbl(eo)}</span><span class="sp"></span><button data-ovd>Details</button><button data-unload>New order</button></div>`);
+  if(ro) $("#extra").querySelectorAll("input,select").forEach(x => x.disabled = true);
+  $("#lines").innerHTML = cart.length ? cart.map((i,ix)=>`<div class="line"><span class="n" data-edit="${ix}" title="${ro?"":"Tap to edit"}" style="cursor:pointer">${esc(i.name)}${i.saved?`<span class="sent">${ro ? "" : `${i.saved} sent to kitchen`}</span>`:""}${modList(i)}${+i.disc?`<small style="display:block;font-size:12px;color:#b45309">Discount −${usd(i.disc)}</small>`:""}</span><span class="p">${usd(lineNet(i))}</span>
+    <span class="qty">${ro ? `× ${i.qty}` : `<button data-q="${ix}:-1" aria-label="${i.qty > (i.saved||0) ? "Less" : "Void"}">−</button>${i.qty}<button data-q="${ix}:1" aria-label="More">+</button>`}</span><span class="p mut">${usd(i.price)} each</span></div>`).join("") : `<div class="empty">Tap items to start an order</div>`;
   const t = totals();
   const cl = chargeList(otype);
   $("#totals").innerHTML = `${cl.length ? `<div class="chgs">${cl.map(c => { const on = pickedCharges().includes(c); return `<button type="button" class="chg${on?" on":""}" data-chg="${c.id}" title="${on?"Remove":"Add"} this charge">${on?"✓ ":"+ "}${esc(c.name)}</button>`; }).join("")}</div>` : ""}
     ${discount?`<div><span>${discLbl()}</span><span>−${usd(t.disc)}</span></div>`:""}${t.charges.filter(c=>c.amount).map(c=>`<div><span>${esc(c.name)}</span><span>${usd(c.amount)}</span></div>`).join("")}
     <div><span>Subtotal</span><span>${usd(t.net)}</span></div><div class="mut" style="font-size:13px"><span>Tax${taxIncl()?" (included)":""}</span><span>${usd(t.tax)}</span></div><div class="g"><span>Total</span><span>${usd(t.total)}</span></div>${usd2(t.total) ? `<div class="mut" style="font-size:13px"><span></span><span>≈ ${usd2(t.total)}</span></div>` : ""}`;
-  $("#payBtn").disabled = !cart.length; $("#payBtn").textContent = cart.length ? `Pay ${usd(t.total)}` : "Pay";
+  // actions: new order / open order / closed order
+  const acts = $("#acts"), unsent = cart.some(i => i.qty > (i.saved||0));
+  let b;
+  if(!eo) b = [`<button data-act="clear">Clear</button>`, `<button data-act="disc">Discount</button>`, `<button data-act="send" ${cart.length?"":"disabled"}>Send</button>`, `<button class="pay" data-act="pay" ${cart.length?"":"disabled"}>${cart.length ? `Pay ${usd(t.total)}` : "Pay"}</button>`];
+  else if(isOpenOrd(eo)) b = [`<button data-act="voidall" style="color:#b42318">Void order</button>`, `<button data-act="disc">Discount</button>`, `<button data-act="send" ${unsent?"":"disabled"}>Send</button>`, `<button class="pay" data-act="pay" ${cart.length?"":"disabled"}>Pay ${usd(t.total)}</button>`];
+  else if(eo.status==="closed" && !fullyBack(eo)) b = [`<button data-act="reprint">Reprint</button>`, `<button data-act="retitems">Return items</button>`, `<button class="pay" data-act="retall" style="background:#b42318;border-color:#b42318">Return invoice</button>`];
+  else b = [`<button data-act="reprint">Reprint</button>`, `<button class="pay" data-act="unload">New order</button>`];
+  acts.style.setProperty("--n", b.length + 1); acts.innerHTML = b.join("");
+  if(ro){ const T = eo; $("#totals").innerHTML = `${+T.discount?`<div><span>Discount</span><span>−${usd(T.discount)}</span></div>`:""}${(T.charges||[]).filter(c=>+c.amount).map(c=>`<div><span>${esc(c.name)}</span><span>${usd(c.amount)}</span></div>`).join("")}
+    <div><span>Subtotal</span><span>${usd((+T.total||0)-(+T.tax||0))}</span></div><div class="mut" style="font-size:13px"><span>Tax</span><span>${usd(T.tax)}</span></div><div class="g"><span>Total</span><span>${usd(T.total)}</span></div>${+T.refundTotal?`<div style="color:#b42318"><span>Refunded</span><span>−${usd(T.refundTotal)}</span></div>`:""}`; }
+}
+
+/* ---------- an order opened into the billing section ---------- */
+// "[Home] Hamra · Bldg: 4 · Floor: 2 · Info: …" back into its fields
+const addrParts = v => { const a = { label:"", street:"", building:"", floor:"", extra:"" }; let s = String(v||"").trim(); const m = /^\[(.*?)\]\s*/.exec(s); if(m){ a.label = m[1]; s = s.slice(m[0].length); }
+  s.split(" · ").filter(Boolean).forEach(p => { const k = /^(Bldg|Floor|Info):\s*(.*)$/.exec(p); if(k) a[{ Bldg:"building", Floor:"floor", Info:"extra" }[k[1]]] = k[2]; else a.street = a.street ? a.street + ", " + p : p; }); return a; };
+const editOrder = () => EDIT && S.orders.find(o => o.id===EDIT.id);
+const isOpenOrd = o => ["active","pending","draft"].includes(o.status);
+const cleanItem = ({ saved, oix, ...i }) => i;
+function loadOrder(id, keep){
+  const o = S.orders.find(x=>x.id===id); if(!o) return;
+  EDIT = { id }; OV.open = id;
+  cart = (o.items||[]).map((i,ix) => ({ ...i, saved: +i.qty, oix: ix }));
+  if(keep) keep.forEach(k => cart.push(k));                          // items added here but not sent yet
+  otype = o.type==="pickup" || o.type==="takeaway" ? "takeaway" : (o.type || "dinein"); tableNo = o.table || "";
+  cust = { name:o.customerName||"", phone:o.phone||"", addr: addrParts(o.address) };
+  discType = o.discountType || "pct"; discount = discType==="amt" ? +o.discount||0 : +o.discountPct||0;
+  posChg = new Set((o.charges||[]).map(c=>c.id));
+  closeModal(); renderCart(); renderMenu();
+}
+function unloadOrder(){ EDIT = null; resetOrder(); renderMenu(); }
+const unsentItems = () => cart.flatMap(i => { const n = i.qty - (i.saved||0); if(n <= 0) return []; return [{ ...cleanItem(i), qty:n, ...(+i.disc && i.qty ? { disc: +(i.disc * n / i.qty).toFixed(2) } : {}) }]; });
+// what this register needs before sending or billing an order (table, customer, address)
+function orderInfoOk(){
+  if(otype==="dinein" && appSet().requireTable && !String(tableNo).trim()){ toast("Enter the table number"); $("#tbl")?.focus(); return false; }
+  if(otype==="takeaway" ? appSet().requireCustPickup : otype==="delivery" ? appSet().requireCustDelivery : false){
+    const need = []; if(!cust.name.trim()) need.push("name"); if(cust.phone.replace(/[^0-9]/g,"").length < 6) need.push("phone number");
+    const am = otype==="delivery" ? [["street","area / street"],["building","building"],["floor","floor"]].filter(([k]) => !(cust.addr[k]||"").trim()) : [];
+    am.forEach(x => need.push(x[1]));
+    if(need.length){ toast("Enter the customer's " + need.join(", ").replace(/, ([^,]*)$/, " and $1")); const f = !cust.phone.trim() ? "#cPhone" : !cust.name.trim() ? "#cName" : am.length ? "#cA_" + am[0][0] : ""; if(f) $(f)?.focus(); return false; }
+  }
+  return true;
+}
+function orderFields(t){
+  return { type: otype==="dinein"?"dinein":otype==="takeaway"?"pickup":"delivery", table: otype==="dinein"?tableNo:"", customerName:cust.name.trim(), phone:cust.phone.trim(), address: otype==="delivery"?addrJoin(cust.addr):"",
+    items: cart.map(cleanItem), subtotal:+t.sub.toFixed(2), charges:t.charges, chargesTotal:t.chT, discountPct: discType==="pct" ? discount : (t.sub ? +(t.disc/t.sub*100).toFixed(2) : 0), discountType: discType, discount:t.disc, total:t.total, tax:t.tax };
+}
+// Send: save the order as open (to the kitchen) without payment; on an open order, send what was added
+async function sendOrder(){
+  if(!cart.length) return; const blk = saleBlock(); if(blk) return toast(blk);
+  if(!orderInfoOk()) return;
+  const t = totals(), now = new Date().toISOString(), eo = editOrder();
+  try{
+    if(eo){ await db.collection("orders").doc(eo.id).update({ ...orderFields(t), updatedAt: now }); toast(`Sent to the kitchen · order ${ordRef(eo)}`); loadOrder(eo.id); }
+    else { const id = "pos_" + Date.now().toString(36) + Math.random().toString(36).slice(2,5), no = nextOrderNo();
+      await db.collection("orders").doc(id).set({ no, channel:"pos", source:"POS", brandId:branch?.brandId || null, branchId:device.branchId, deviceId:device.id, shiftId:openShift()?.id || null, agent:cashier?.name || device.name, ...orderFields(t), status:"active", createdAt:now, updatedAt:now });
+      toast(`Order #${no} sent to the kitchen · open it from Orders to add items or bill it`); resetOrder(); }
+  }catch(err){ console.error(err); toast("Couldn't send the order. Try again."); }
+}
+// "−" on an item already sent to the kitchen voids it (manager PIN); on a closed order the item can be returned
+function voidSent(ix){
+  const i = cart[ix], eo = editOrder(); if(!i || !eo) return;
+  const keep = unsentItems(); window.__keep = keep;
+  OV.open = eo.id; openVR(isOpenOrd(eo) ? "void" : "return", "items");
+  if(i.oix!=null && window.__vq){ window.__vq[i.oix] = 1; const el = $("#vq" + i.oix); if(el) el.textContent = 1; }
 }
 
 /* ---------- events ---------- */
@@ -482,22 +566,38 @@ async function editLine(ix){
   if(!i.options.length) delete i.options; if(!i.note) delete i.note; if(!i.mods) delete i.mods; if(!+i.disc){ delete i.disc; delete i.discType; delete i.discValue; }
   renderCart();
 }
-$("#lines").addEventListener("click", e => { const ed = e.target.closest("[data-edit]"); if(ed) return editLine(+ed.dataset.edit); const b = e.target.closest("[data-q]"); if(!b) return; const [ix,d] = b.dataset.q.split(":").map(Number); cart[ix].qty += d; if(cart[ix].qty<=0) cart.splice(ix,1); renderCart(); });
+$("#lines").addEventListener("click", e => {
+  const eo = editOrder(), ro = eo && !isOpenOrd(eo);
+  const ed = e.target.closest("[data-edit]"); if(ed){ if(ro) return; const i = cart[+ed.dataset.edit]; if(i?.saved) return toast("This item was sent to the kitchen: void it with − instead of changing it"); return editLine(+ed.dataset.edit); }
+  const b = e.target.closest("[data-q]"); if(!b || ro) return; const [ix,d] = b.dataset.q.split(":").map(Number), i = cart[ix];
+  if(d < 0 && i.qty <= (i.saved||0)) return voidSent(ix);           // already sent: void with a manager's PIN
+  i.qty += d; if(i.qty<=0) cart.splice(ix,1); renderCart(); });
+$("#extra").addEventListener("click", e => { if(e.target.closest("[data-unload]")) return unloadOrder(); if(e.target.closest("[data-ovd]") && EDIT) return openOrderView(EDIT.id); });
+$("#acts").addEventListener("click", e => { const b = e.target.closest("[data-act]"); if(!b || b.disabled) return; const a = b.dataset.act, eo = editOrder();
+  if(a==="clear") return resetOrder();
+  if(a==="disc") return openDiscount();
+  if(a==="pay") return openPay();
+  if(a==="send") return sendOrder();
+  if(a==="unload") return unloadOrder();
+  if(a==="voidall"){ OV.open = eo.id; window.__keep = null; return openVR("void", "all"); }
+  if(a==="retitems"){ OV.open = eo.id; return openVR("return", "items"); }
+  if(a==="retall"){ OV.open = eo.id; return openVR("return", "all"); }
+  if(a==="reprint"){ if(!can("pos_reprint")) return deny("reprinting receipts"); return modal("receipt", `<div class="mh"><h2>Receipt ${esc(ordRef(eo))}</h2><button class="x" data-close aria-label="Close">×</button></div><div class="mb"><div class="receipt">${esc(receiptText(eo))}</div></div><div class="mf"><button class="btn pri" data-close>Done</button></div>`); }
+});
 $("#otype").addEventListener("click", e => { const b = e.target.closest("[data-t]"); if(b){ otype = b.dataset.t; posChg = null; renderCart(); renderMenu(); } });   // the menu can differ per order type
 $("#totals").addEventListener("click", e => { const b = e.target.closest("[data-chg]"); if(!b) return; if(!can("pos_charges")) return deny("changing charges");
   if(!posChg) posChg = new Set(pickedCharges().map(c=>c.id)); posChg.has(b.dataset.chg) ? posChg.delete(b.dataset.chg) : posChg.add(b.dataset.chg); renderCart(); });
 $("#extra").addEventListener("change", e => { if(e.target.id==="tbl") tableNo = e.target.value; });
 $("#extra").addEventListener("input", e => { if(e.target.id==="tbl") tableNo = e.target.value; if(e.target.id==="cPhone") cust.phone = e.target.value; if(e.target.id==="cName") cust.name = e.target.value; if(e.target.id.startsWith("cA_")) cust.addr[e.target.id.slice(3)] = e.target.value; });
-$("#clearBtn").addEventListener("click", () => { resetOrder(); });
-function resetOrder(){ otype = defaultType(); cart = []; discount = 0; discType = "pct"; posChg = null; tableNo = ""; cust = { name:"", phone:"", addr:{} }; renderCart(); }
+function resetOrder(){ EDIT = null; otype = defaultType(); cart = []; discount = 0; discType = "pct"; posChg = null; tableNo = ""; cust = { name:"", phone:"", addr:{} }; renderCart(); }
 
 /* ---------- modals ---------- */
 let modalKind = null;
-function modal(kind, html, wide){ modalKind = kind; $("#modal").className = "modal" + (wide?" wide":""); $("#modal").innerHTML = html; $("#scrim").classList.add("show"); }
+function modal(kind, html, wide){ modalKind = kind; $("#scrim").classList.remove("fullscr"); $("#modal").className = "modal" + (wide?" wide":""); $("#modal").innerHTML = html; $("#scrim").classList.add("show"); }
 function closeModal(){ $("#scrim").classList.remove("show"); modalKind = null; }
 $("#scrim").addEventListener("click", e => { if(e.target.id==="scrim" || e.target.closest("[data-close]")) closeModal(); });
 
-$("#discBtn").addEventListener("click", () => {
+function openDiscount(){
   if(!can("pos_discount")) return deny("discounts");
   const sub = totals().sub;
   modal("disc", `<div class="mh"><h2>Discount</h2><button class="x" data-close aria-label="Close">×</button></div><div class="mb">
@@ -507,7 +607,7 @@ $("#discBtn").addEventListener("click", () => {
     <div style="display:flex;gap:8px;margin-top:10px"><input id="discVal" inputmode="decimal" placeholder="${discType==="amt"?"Amount in USD":"Percent"}" value="${discount && ![5,10,15,20,25,50,100].includes(discount) || discType==="amt" && discount ? discount : ""}" style="flex:1"><button class="pay" id="discApply" style="flex:none;padding:0 22px">Apply</button></div>
     <div class="mut" id="discNote" style="font-size:13px;margin-top:6px">Order subtotal ${usd(sub)}</div></div>`);
   setTimeout(() => $("#discVal")?.focus(), 30);
-});
+}
 $("#modal").addEventListener("click", async e => {
   const d = e.target.closest("[data-disc]"); if(d){ if(+d.dataset.disc > 0 && appSet().discountApproval && !(await approve("pos_discount", "Approve discount"))) return; discount = +d.dataset.disc; discType = "pct"; closeModal(); renderCart(); return; }
   const dt = e.target.closest("[data-dt]"); if(dt){ document.querySelectorAll("[data-dt]").forEach(b => b.classList.toggle("on", b===dt)); $("#discVal").placeholder = dt.dataset.dt==="amt" ? "Amount in USD" : "Percent"; $("#discVal").focus(); return; }
@@ -523,7 +623,7 @@ $("#modal").addEventListener("click", async e => {
   const ia = e.target.closest("[data-inc]"); if(ia){ if(!can("pos_incoming")) return deny("handling incoming orders"); const [id,s] = ia.dataset.inc.split(":"); try{ const o = S.orders.find(x=>x.id===id), bill = (s==="active" || s==="closed") && o && !o.no ? { no: nextOrderNo(), deviceId: device.id } : {};   // this register bills it, so it numbers it
     await db.collection("orders").doc(id).update({ status:s, updatedAt:new Date().toISOString(), handledBy:cashier?.name || device.name, ...bill }); toast(s==="active"?(bill.no ? "Order #"+bill.no+" accepted · sent to kitchen" : "Order accepted · sent to kitchen"):s==="declined"?"Order declined":"Order completed"); setTimeout(() => modalKind==="orderview" ? openOrderView(id) : null, 50); }catch(err){ console.error(err); toast("Couldn't update the order"); } return; }
   const ovt = e.target.closest("[data-ovtab]"); if(ovt){ OV.tab = ovt.dataset.ovtab; return openIncoming(); }
-  const ov = e.target.closest("[data-ov]"); if(ov) return openOrderView(ov.dataset.ov);
+  const ov = e.target.closest("[data-ov]"); if(ov){ const o = S.orders.find(x=>x.id===ov.dataset.ov); if(modalKind==="incoming" && o && !["pending","declined","refund"].includes(o.status)) return loadOrder(o.id); return openOrderView(ov.dataset.ov); }
   if(e.target.closest("[data-ovback]")) return openIncoming();
   const ovo = e.target.closest("[data-ovopen]"); if(ovo) return openOrderView(ovo.dataset.ovopen);
   const vr = e.target.closest("[data-vr]"); if(vr){ const [k,m] = vr.dataset.vr.split(":"); return openVR(k, m); }
@@ -543,16 +643,10 @@ $("#modal").addEventListener("change", e => { if(e.target.id==="vrReason") $("#v
 
 /* payment */
 let payMethod = null;
-$("#payBtn").addEventListener("click", () => {
+function openPay(){
   const blk = saleBlock(); if(blk){ modal("blocked", `<div class="mh"><h2>Can't take sales yet</h2><button class="x" data-close aria-label="Close">×</button></div><div class="mb"><p>${esc(blk)}</p></div><div class="mf"><button class="btn" data-close>OK</button><button class="btn pri" id="goDayEnd">End day</button></div>`); return; }
   if(!openShift()){ toast("Open a shift before taking payments"); return; }
-  if(otype==="dinein" && appSet().requireTable && !String(tableNo).trim()){ toast("Enter the table number"); $("#tbl")?.focus(); return; }
-  if(otype==="takeaway" ? appSet().requireCustPickup : otype==="delivery" ? appSet().requireCustDelivery : false){   // who it's for; delivery also needs where
-    const need = []; if(!cust.name.trim()) need.push("name"); if(cust.phone.replace(/[^0-9]/g,"").length < 6) need.push("phone number");
-    const am = otype==="delivery" ? [["street","area / street"],["building","building"],["floor","floor"]].filter(([k]) => !(cust.addr[k]||"").trim()) : [];
-    am.forEach(x => need.push(x[1]));
-    if(need.length){ toast("Enter the customer's " + need.join(", ").replace(/, ([^,]*)$/, " and $1")); const f = !cust.phone.trim() ? "#cPhone" : !cust.name.trim() ? "#cName" : am.length ? "#cA_" + am[0][0] : ""; if(f) $(f)?.focus(); return; }
-  }
+  if(!orderInfoOk()) return;
   const t = totals(), pms = payMethods(); payMethod = pms[0];
   const q = [t.total, Math.ceil(t.total/5)*5, Math.ceil(t.total/10)*10, Math.ceil(t.total/20)*20].filter((v,i,a)=>a.indexOf(v)===i);
   modal("pay", `<div class="mh"><h2>Payment</h2><button class="x" data-close aria-label="Close">×</button></div><div class="mb">
@@ -562,7 +656,7 @@ $("#payBtn").addEventListener("click", () => {
     <div class="quick">${q.map(v=>`<button data-qk="${v}">${usd(v)}</button>`).join("")}</div>
     <div class="change"><span>Change</span><b id="chg">USD 0.00</b></div></div></div>
     <div class="mf"><button class="btn" data-close>Cancel</button><button class="btn pri" id="confirmPay">Complete sale</button></div>`);
-});
+}
 function updChange(){ const t = totals().total, v = +$("#tender")?.value || 0; if($("#chg")) $("#chg").textContent = payMethod?.type==="cash" ? usd(Math.max(0, v-t)) : "—"; if($("#confirmPay")) $("#confirmPay").disabled = payMethod?.type==="cash" && v < t; }
 async function completeSale(){
   const t = totals(), now = new Date().toISOString(), tender = payMethod?.type==="cash" ? +$("#tender").value : t.total;
@@ -573,8 +667,15 @@ async function completeSale(){
     tax:t.tax, payment:{ method:payMethod.name, type:payMethod.type, methodId:payMethod.id, tendered:tender, change:+Math.max(0,tender-t.total).toFixed(2) }, status:"closed", createdAt:now, updatedAt:now };
   $("#confirmPay").disabled = true;
   try{
+    const eo = editOrder();
+    if(eo){   // billing an open order: it keeps its number, channel and customer; this register bills it
+      Object.assign(order, { no: eo.no || no, channel: eo.channel, source: eo.source, createdAt: eo.createdAt, brandId: eo.brandId || order.brandId, items: cart.map(cleanItem),
+        ...(eo.channel!=="pos" ? { agent: eo.agent, customerName: eo.customerName || order.customerName, phone: eo.phone || order.phone, address: eo.address || order.address } : {}), handledBy: cashier?.name || device.name });
+      await db.collection("orders").doc(eo.id).update(order); EDIT = null;
+    } else {
     const id = "pos_" + Date.now().toString(36) + Math.random().toString(36).slice(2,5);
     await db.collection("orders").doc(id).set(order);
+    }
     if(devSet().receipt==="none"){ closeModal(); toast(`Sale complete · ${usd(order.total)}${order.payment.change ? " · change " + usd(order.payment.change) : ""}`); } else showReceipt(order);
     resetOrder(); if(devSet().lockAfterSale && usePins()) lock(); if(!syncSt.online) toast("Saved on this tablet · will sync when online");
   }catch(err){ console.error(err); toast("Couldn't save the sale. Try again."); $("#confirmPay").disabled = false; }
@@ -664,21 +765,34 @@ function ordersFor(tab){
     : mine.filter(o => bizDate(o.createdAt)===today && o.status!=="draft");
   return l.filter(m).sort((a,b)=>(a.status==="pending"?0:1)-(b.status==="pending"?0:1) || String(b.createdAt).localeCompare(String(a.createdAt)));
 }
+// Orders: full-screen board, one column per state (like the call center). Tap an order to open it in the billing section
+const OV_COLS = [["pending","Pending","Waiting for this branch to accept"],["active","Active","Open orders: add or void items, then bill"],["closed","Closed","Billed today: return items or the invoice"],["void","Void & returns","Voided, declined, returned or refunded today"]];
+function boardOrders(col){
+  const mine = S.orders.filter(o => o.branchId===device.branchId), today = bizDate();
+  const q = OV.q.trim().toLowerCase(), m = o => !q || [o.no, o.ref, o.invoiceNo, o.customerName, o.phone, o.source, o.table].some(v => String(v||"").toLowerCase().includes(q));
+  const l = col==="pending" ? mine.filter(o => o.status==="pending") : col==="active" ? mine.filter(o => o.status==="active")
+    : col==="closed" ? mine.filter(o => o.status==="closed" && bizDate(o.createdAt)===today)
+    : mine.filter(o => ["void","declined","returned","refund"].includes(o.status) && bizDate(o.updatedAt || o.createdAt)===today);
+  return l.filter(m).sort((a,b) => String(b.createdAt).localeCompare(String(a.createdAt)));
+}
 function openIncoming(){
   if(!can("pos_orders") && !can("pos_incoming")) return deny("seeing orders");
-  const tabs = [["incoming","Delivery & pickup"],["active","Active"],["closed","Closed today"],["all","All today"]], list = ordersFor(OV.tab);
-  modal("incoming", `<div class="mh"><h2>Orders · ${esc(branch?.name||"")}</h2><button class="x" data-close aria-label="Close">×</button></div><div class="mb">
-    <div class="otabs">${tabs.map(([k,t])=>`<button data-ovtab="${k}" class="${OV.tab===k?"on":""}">${t} <span class="mut">${ordersFor(k).length}</span></button>`).join("")}</div>
-    <input class="search" id="ovQ" placeholder="Search order #, invoice, customer, phone" value="${esc(OV.q)}" style="margin:8px 0">
-    <div class="olist">${list.length ? list.map(o => `<button class="orow" data-ov="${esc(o.id)}"><span class="r1"><b>${esc(ordRef(o))}</b><span class="mut">${o.invoiceNo?"Inv "+esc(o.invoiceNo)+" · ":""}${new Date(o.createdAt).toLocaleTimeString("en-GB",{hour:"numeric",minute:"2-digit"})}</span><span class="spill s-${o.status}">${stLbl(o)}</span></span>
-      <span class="r2"><span>${esc(typLbl(o.type))}${o.table?" T"+esc(o.table):""} · ${esc(o.source || (o.channel==="pos"?"POS":"Call center"))}${o.customerName?" · "+esc(o.customerName):""}${o.phone?" · "+esc(o.phone):""}</span><b>${usd(o.total)}</b></span>
-      <span class="r3 mut">${(o.items||[]).map(i=>`${i.qty}× ${esc(i.name)}`).join(", ")}</span></button>`).join("")
-      : `<div class="empty">No orders here.</div>`}</div></div>`, true);
+  const t = v => v ? new Date(v).toLocaleTimeString("en-GB",{hour:"numeric",minute:"2-digit"}) : "";
+  const card = o => `<button class="ocard" data-ov="${esc(o.id)}"><span class="oc1"><b>${esc(o.no ? "#" + o.no : ordRef(o))}</b><span class="spill s-${o.status}">${stLbl(o)}</span></span>
+    ${o.ref ? `<span class="mut oc-s">${esc(o.ref)}${o.invoiceNo ? " · Inv " + esc(o.invoiceNo) : ""}</span>` : ""}
+    ${o.customerName || o.phone ? `<span class="oc2">👤 ${esc(o.customerName||"")}<small>${esc(o.phone||"")}</small></span>` : ""}
+    <span class="oc2 mut">🕒 Created ${t(o.createdAt)}${o.updatedAt && o.updatedAt!==o.createdAt ? `<small>Modified ${t(o.updatedAt)}</small>` : ""}</span>
+    <span class="oc2">${o.channel==="pos" ? "🧾" : o.channel==="callcenter" ? "🎧" : "🌐"} ${esc(o.source || (o.channel==="pos" ? "POS" : "Call center"))} · ${esc(typLbl(o.type))}${o.table ? " · T" + esc(o.table) : ""}<small>${esc(o.agent || "")}</small></span>
+    <b class="oc-t">${usd(o.total)}</b></button>`;
+  modal("incoming", `<div class="mh"><h2>Orders · ${esc(branch?.name||"")}</h2><input class="search" id="ovQ" placeholder="Search order #, reference, invoice, customer, phone, table" value="${esc(OV.q)}" style="margin:0 12px;max-width:420px"><button class="x" data-close aria-label="Close">×</button></div>
+    <div class="mb"><div class="oboard">${OV_COLS.map(([k,title,tip]) => { const l = boardOrders(k);
+      return `<div class="ocol"><div class="ochead" title="${esc(tip)}"><b>${title}</b><span class="cnt">${l.length}</span></div>${l.length ? l.map(card).join("") : `<div class="oempty">You don't have ${title.toLowerCase()} orders</div>`}</div>`; }).join("")}</div></div>`, true);
+  $("#modal").classList.add("full"); $("#scrim").classList.add("fullscr");
 }
 function openOrderView(id){
   const o = S.orders.find(x=>x.id===id); if(!o) return; OV.open = id; const t = (+o.total||0) - (+o.tax||0);
   const acts = [];
-  if(o.status==="pending") acts.push(`<button class="btn bad" data-inc="${esc(o.id)}:declined">Decline</button>`, `<button class="btn pri" data-inc="${esc(o.id)}:active">Accept</button>`);
+  if(o.status==="pending") acts.push(isMaster() ? `<button class="btn bad" data-inc="${esc(o.id)}:declined">Decline</button><button class="btn pri" data-inc="${esc(o.id)}:active">Accept</button>` : `<span class="mut">Accepted on the master POS</span>`);
   if(o.status==="active"){ acts.push(`<button class="btn bad" data-vr="void:all">Void order</button>`, `<button class="btn" data-vr="void:items">Void items</button>`); if(o.channel!=="pos") acts.push(`<button class="btn pri" data-inc="${esc(o.id)}:closed">Mark done</button>`); }
   if(o.status==="closed" && !fullyBack(o)) acts.push(`<button class="btn bad" data-vr="return:all">${+o.refundTotal ? "Return the rest" : "Return order"}</button>`, `<button class="btn" data-vr="return:items">Return items</button>`);
   const src = o.refundOf && S.orders.find(x=>x.id===o.refundOf);
@@ -760,12 +874,14 @@ async function doVR(kind, mode){
     if(mv && window.WOK?.sb){ try{ const r = await window.WOK.sb.rpc("slick_stock_items", { p_order:o.id, p_items:chosen.map(({ ix, ...it }) => it), p_mode:mv }); if(r.error) throw r.error; }
       catch(err){ console.error("stock", err); toast("Saved, but the stock couldn't be updated. Adjust it under Inventory → Quantity Adjustment."); } }
     toast(`${kind==="void"?"Voided":"Refund ticket created · "+usd(-ticket.total)} · approved by ${ok.name}`);
-    if(ticket) setTimeout(() => openOrderView(ticket.id), 400); else openOrderView(o.id);
+    if(EDIT && EDIT.id===o.id && kind==="void"){ const keep = window.__keep; window.__keep = null; setTimeout(() => { const n = S.orders.find(x=>x.id===o.id); if(n && isOpenOrd(n)) loadOrder(o.id, keep); else { closeModal(); unloadOrder(); } }, 400); }
+    else if(EDIT && EDIT.id===o.id){ setTimeout(() => { closeModal(); loadOrder(o.id); }, 400); }
+    else if(ticket) setTimeout(() => openOrderView(ticket.id), 400); else openOrderView(o.id);
   }catch(err){ console.error(err); $("#vrErr") && ($("#vrErr").textContent = "Couldn't save. Check the connection and try again."); }
 }
 
 /* incoming call-center / web orders */
-$("#incomingBtn").addEventListener("click", () => { OV.tab = incoming().some(o=>o.status==="pending") || incoming().length ? "incoming" : "all"; openIncoming(); });
+$("#incomingBtn").addEventListener("click", () => openIncoming());
 
 /* shifts *//* shifts */
 $("#shiftBtn").addEventListener("click", () => {
