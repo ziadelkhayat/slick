@@ -180,6 +180,7 @@ body{-webkit-font-smoothing:antialiased}
 .mitem{display:flex;align-items:center;gap:14px;width:100%;border:0;border-bottom:1px solid var(--line);background:none;padding:14px 18px;font-size:16px;text-align:left;color:#3d3a4f}
 .mitem:last-child{border-bottom:0}.mitem:hover{background:var(--accs)}.mitem svg{width:22px;height:22px;color:var(--acc)}
 .line.vd .n,.line.vd .p,.line.vd .qty{text-decoration:line-through;color:#a3a1ad}.line.vd .sent{text-decoration:none;color:#b42318;display:inline-block;width:100%}.line.vd .mlist{text-decoration:line-through}
+.onote{display:flex;align-items:center;gap:8px}.onote [data-onote]{flex:1;cursor:pointer}.onx{flex:none;width:36px;height:36px;border:0;border-radius:10px;background:#fde8c9;color:#8a5a00;font-size:20px;line-height:1}
 .onote{margin:8px 0 2px;padding:8px 10px;border-radius:10px;background:#fff8e6;color:#8a5a00;font-size:13px;cursor:pointer}
 /* orders list (Foodics style) */
 .ohdr{display:flex;align-items:center;gap:10px;padding:14px 20px;background:var(--s);border-bottom:1px solid var(--line);flex-wrap:wrap}
@@ -192,6 +193,7 @@ body{-webkit-font-smoothing:antialiased}
 .olist2{background:var(--s);border-radius:12px;box-shadow:0 1px 3px rgba(21,19,31,.06);overflow:hidden}
 .lrow{display:grid;grid-template-columns:110px 1.2fr 1.2fr 140px;gap:12px;align-items:center;width:100%;border:0;border-bottom:1px solid var(--line);background:none;padding:14px 20px;text-align:left;font:inherit;color:inherit;cursor:pointer}
 .lrow:hover{background:#faf9fe}.lrow:last-child{border-bottom:0}.lrow .lno{font-size:17px;font-weight:600}.lrow .lc{display:flex;flex-direction:column;gap:3px;color:#5b5a66;font-size:14px}.lrow .lc b{color:var(--ink);font-weight:500;text-transform:uppercase;font-size:13.5px;letter-spacing:.02em}.lrow .lr{text-align:right;display:flex;flex-direction:column;gap:4px;align-items:flex-end}.lrow .lr b{text-transform:uppercase;font-size:13.5px;letter-spacing:.03em}
+.modal.full .mb>*{flex-shrink:0}.otabs2{flex-shrink:0;overflow-x:auto;overflow-y:hidden}.otabs2 button{min-height:52px}.fdot{display:inline-grid;place-items:center;min-width:18px;height:18px;border-radius:9px;background:#fff;color:var(--acci);font-size:11px;margin-left:4px;padding:0 4px}.hbtn.ghost .fdot{background:var(--acc);color:#fff}
 .lrow.ol5{grid-template-columns:1fr 1fr 1.4fr 1fr}.lrow.lhead{cursor:default;padding-top:10px;padding-bottom:10px;font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:#8d8c98}.lrow.lhead:hover{background:none}
 
 .lst-pending{color:#2c5fb8}.lst-active{color:var(--warn)}.lst-closed{color:var(--good)}.lst-void,.lst-refund,.lst-declined,.lst-returned{color:var(--bad)}
@@ -566,7 +568,7 @@ function renderMenu(){
   if(!cat){   // the categories, as tabs to open
     $("#grid").innerHTML = cats.length ? cats.map(c => `<button class="ctile" data-cat="${esc(c.id)}"><span>${esc(c.name)}</span></button>`).join("") : `<div class="empty">No menu for this branch yet. Set it up under Menu → Menus in the back office.</div>`; return; }
   const c = cats.find(x=>x.id===cat), l = prods.filter(p => p.categoryId===cat).sort((a,b)=>(a.sort??9999)-(b.sort??9999) || a.name.localeCompare(b.name));   // order set in Menu → Menus
-  $("#grid").innerHTML = `<div class="cback"><button class="cbtn" data-cat="">← Categories</button><b>${esc(c?.name||"")}</b></div>` + l.map(tile).join("");
+  $("#grid").innerHTML = `<div class="cback"><button class="cbtn" data-cat="">← BACK</button></div>` + l.map(tile).join("");
 }
 function totals(){
   const sub = cart.reduce((a,i)=>a+lineNet(i),0), disc = +(discType==="amt" ? Math.min(discount, sub) : sub*discount/100).toFixed(2);
@@ -609,7 +611,7 @@ function renderCart(){
   else if(isOpenOrd(eo)) b = [...(otype==="fast" ? [] : [`<button data-act="send" ${unsent?"":"disabled"}>Save</button>`]), `<button class="pay" data-act="pay" ${cart.length?"":"disabled"}>Total ${usd(t.total)}</button>`];
   else b = [];
   acts.style.setProperty("--n", b.length + 1); acts.innerHTML = b.join(""); acts.classList.toggle("hide", !b.length);
-  if(orderNote) $("#lines").insertAdjacentHTML("afterbegin", `<div class="onote" data-onote title="${ro?"":"Tap to edit"}">📝 ${esc(orderNote)}</div>`);
+  if(orderNote) $("#lines").insertAdjacentHTML("afterbegin", `<div class="onote"><span data-onote title="${ro?"":"Tap to edit"}">📝 ${esc(orderNote)}</span>${ro ? "" : `<button class="onx" data-onotex aria-label="Remove note">×</button>`}</div>`);
   paintAbar();
   if(ro){ const T = eo; $("#totals").innerHTML = `${+T.discount?`<div><span>Discount</span><span>−${usd(T.discount)}</span></div>`:""}${(T.charges||[]).filter(c=>+c.amount).map(c=>`<div><span>${esc(c.name)}</span><span>${usd(c.amount)}</span></div>`).join("")}
     <div><span>Subtotal</span><span>${usd((+T.total||0)-(+T.tax||0))}</span></div><div class="mut" style="font-size:13px"><span>Tax</span><span>${usd(T.tax)}</span></div><div class="g"><span>Total</span><span>${usd(T.total)}</span></div>`; }
@@ -705,7 +707,8 @@ async function editLine(ix){
   if(!i.options.length) delete i.options; if(!i.note) delete i.note; if(!i.mods) delete i.mods; if(!+i.disc){ delete i.disc; delete i.discType; delete i.discValue; }
   renderCart();
 }
-$("#lines").addEventListener("click", e => { if(e.target.closest("[data-onote]")) return openNotes();
+$("#lines").addEventListener("click", e => { if(e.target.closest("[data-onotex]")){ orderNote = ""; renderCart(); if(EDIT && isOpenOrd(editOrder()||{})) toast("Note removed · press Save to keep the change"); return; }
+  if(e.target.closest("[data-onote]")) return openNotes();
   const eo = editOrder(), ro = eo && !isOpenOrd(eo);
   const ed = e.target.closest("[data-edit]"); if(ed){ if(ro) return; const i = cart[+ed.dataset.edit]; if(i?.saved) return toast("This item was sent to the kitchen: void it with − instead of changing it"); return editLine(+ed.dataset.edit); }
   const b = e.target.closest("[data-q]"); if(!b || ro) return; const [ix,d] = b.dataset.q.split(":").map(Number), i = cart[ix];
@@ -774,6 +777,7 @@ $("#modal").addEventListener("click", async e => {
   const ia = e.target.closest("[data-inc]"); if(ia){ if(!can("pos_incoming")) return deny("handling incoming orders"); const [id,s] = ia.dataset.inc.split(":"); try{ const o = S.orders.find(x=>x.id===id), bill = (s==="active" || s==="closed") && o && !o.no ? { no: nextOrderNo(), deviceId: device.id } : {};   // this register bills it, so it numbers it
     await db.collection("orders").doc(id).update({ status:s, updatedAt:new Date().toISOString(), handledBy:cashier?.name || device.name, ...bill }); toast(s==="active"?(bill.no ? "Order #"+bill.no+" accepted · sent to kitchen" : "Order accepted · sent to kitchen"):s==="declined"?"Order declined":"Order completed"); setTimeout(() => modalKind==="orderview" ? openOrderView(id) : null, 50); }catch(err){ console.error(err); toast("Couldn't update the order"); } return; }
   const ovt = e.target.closest("[data-ovtab]"); if(ovt){ OV.tab = ovt.dataset.ovtab; return openIncoming(); }
+  if(e.target.closest("[data-ofilt]")){ OV.filt = !OV.filt; return openIncoming(); }
   const od = e.target.closest("[data-odate]"); if(od && !od.disabled){ OV.date = od.dataset.odate >= bizDate() ? "" : od.dataset.odate; return openIncoming(); }
   const of = e.target.closest("[data-of]"); if(of){ const [k,v] = of.dataset.of.split(":"); OV[k] = v; return openIncoming(); }
 
@@ -973,9 +977,9 @@ function openIncoming(){
   if(!TABS.some(x => x[0]===OV.tab)) OV.tab = "all";
   const chip = (k, v, l) => `<button class="chip${OV[k]===v?" on":""}" data-of="${k}:${v}">${l}</button>`;
   const head = `<div class="ohdr"><button class="hbtn" data-close>Back</button><input class="search" id="ovQ" placeholder="Search orders: order no., invoice no., customer, phone, table" value="${esc(OV.q)}" style="flex:1;min-width:220px;margin:0">
-    <button class="hbtn ghost" data-osync>Sync</button></div>`;
+    <button class="hbtn${OV.filt ? "" : " ghost"}" data-ofilt>Filter${(OV.date && OV.date!==bizDate()) || OV.ft || OV.fc ? ` <span class="fdot">${[(OV.date && OV.date!==bizDate()), OV.ft, OV.fc].filter(Boolean).length}</span>` : ""}</button><button class="hbtn ghost" data-osync>Sync</button></div>`;
   const day = OV.date || bizDate(), shift = n => { const d = new Date(day + "T12:00:00"); d.setDate(d.getDate() + n); return d.toISOString().slice(0,10); };
-  const filt = `<div class="ofilt"><b style="font-size:13px">Date</b><button class="chip" data-odate="${shift(-1)}" aria-label="Previous day">‹</button><input type="date" id="ovDate" value="${day}" max="${bizDate()}" style="padding:6px 10px;border:1px solid var(--line);border-radius:999px;font-weight:600"><button class="chip" data-odate="${shift(1)}" aria-label="Next day" ${day >= bizDate() ? "disabled" : ""}>›</button>${day!==bizDate() ? `<button class="chip on" data-odate="">Today</button>` : ""}<span style="width:14px"></span><b style="font-size:13px">Type</b>${chip("ft","","All")}${chip("ft","dinein","Dine-in")}${chip("ft","pickup","Pickup")}${chip("ft","delivery","Delivery")}${chip("ft","fast","Fast sale")}<span style="width:14px"></span><b style="font-size:13px">Channel</b>${chip("fc","","All")}${chip("fc","pos","POS")}${chip("fc","callcenter","Call center")}${chip("fc","web","Web")}</div>`;
+  const filt = !OV.filt ? "" : `<div class="ofilt"><b style="font-size:13px">Date</b><button class="chip" data-odate="${shift(-1)}" aria-label="Previous day">‹</button><input type="date" id="ovDate" value="${day}" max="${bizDate()}" style="padding:6px 10px;border:1px solid var(--line);border-radius:999px;font-weight:600"><button class="chip" data-odate="${shift(1)}" aria-label="Next day" ${day >= bizDate() ? "disabled" : ""}>›</button>${day!==bizDate() ? `<button class="chip on" data-odate="">Today</button>` : ""}<span style="width:14px"></span><b style="font-size:13px">Type</b>${chip("ft","","All")}${chip("ft","dinein","Dine-in")}${chip("ft","pickup","Pickup")}${chip("ft","delivery","Delivery")}${chip("ft","fast","Fast sale")}<span style="width:14px"></span><b style="font-size:13px">Channel</b>${chip("fc","","All")}${chip("fc","pos","POS")}${chip("fc","callcenter","Call center")}${chip("fc","web","Web")}</div>`;
   let body;
   if(false) body = `<div class="oboard">${OV_COLS.map(([k,title,tip]) => { const l = boardOrders(k);
       return `<div class="ocol"><div class="ochead" title="${esc(tip)}"><b>${title}</b><span class="cnt">${l.length}</span></div>${l.length ? l.map(card).join("") : `<div class="oempty">You don't have ${title.toLowerCase()} orders</div>`}</div>`; }).join("")}</div>`;
