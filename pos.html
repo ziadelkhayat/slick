@@ -189,6 +189,8 @@ body{-webkit-font-smoothing:antialiased}
 .olist2{background:var(--s);border-radius:12px;box-shadow:0 1px 3px rgba(21,19,31,.06);overflow:hidden}
 .lrow{display:grid;grid-template-columns:110px 1.2fr 1.2fr 140px;gap:12px;align-items:center;width:100%;border:0;border-bottom:1px solid var(--line);background:none;padding:14px 20px;text-align:left;font:inherit;color:inherit;cursor:pointer}
 .lrow:hover{background:#faf9fe}.lrow:last-child{border-bottom:0}.lrow .lno{font-size:17px;font-weight:600}.lrow .lc{display:flex;flex-direction:column;gap:3px;color:#5b5a66;font-size:14px}.lrow .lc b{color:var(--ink);font-weight:500;text-transform:uppercase;font-size:13.5px;letter-spacing:.02em}.lrow .lr{text-align:right;display:flex;flex-direction:column;gap:4px;align-items:flex-end}.lrow .lr b{text-transform:uppercase;font-size:13.5px;letter-spacing:.03em}
+.lrow.ol5{grid-template-columns:1fr 1fr 1.4fr 1fr}.lrow.lhead{cursor:default;padding-top:10px;padding-bottom:10px;font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:#8d8c98}.lrow.lhead:hover{background:none}
+
 .lst-pending{color:#2c5fb8}.lst-active{color:var(--warn)}.lst-closed{color:var(--good)}.lst-void,.lst-refund,.lst-declined,.lst-returned{color:var(--bad)}
 @media(max-width:800px){.lrow{grid-template-columns:80px 1fr 110px}.lrow .lc2{display:none}}
 /* tables */
@@ -883,14 +885,18 @@ function openIncoming(){
     <span class="oc2">${o.channel==="pos" ? "🧾" : o.channel==="callcenter" ? "🎧" : "🌐"} ${esc(o.source || chn(o))} · ${esc(typLbl(o.type))}${o.table ? " · T" + esc(o.table) : ""}<small>${esc(o.agent || "")}</small></span>
     <b class="oc-t">${usd(o.total)}</b></button>`;
   // one row per order: number · type (table) + time · customer / source + phone · status + total
-  const row = o => `<button class="lrow" data-ov="${esc(o.id)}"><span class="lc"><b class="lno" style="text-transform:none">${esc(o.no ? "#" + o.no : ordRef(o))}</b><span>${o.invoiceNo && o.no ? esc(invNo(o.invoiceNo)) : o.status==="pending" ? "Not accepted yet" : ""}</span></span>
-    <span class="lc"><b>${esc(typLbl(o.type))}${o.table ? " (T" + esc(o.table) + ")" : ""}</b><span>${t(o.createdAt)}</span></span>
-    <span class="lc lc2"><b>${esc(o.customerName || (o.channel!=="pos" ? o.source || chn(o) : ""))}</b><span>${esc(o.phone || (o.customerName && o.channel!=="pos" ? o.source || chn(o) : ""))}</span></span>
-    <span class="lr"><b class="lst-${o.status}">${stLbl(o)}</b><span>${usd(o.total)}</span></span></button>`;
+  // order (call) number and invoice number side by side; a return ticket shows its RET- number and the invoice it returns
+  const invOf = o => o.status==="refund" ? invNo(o.invoiceRef || S.orders.find(x => x.id===o.refundOf)?.invoiceNo) : invNo(o.invoiceNo);
+  // columns: order no. · invoice no. · customer · total (dine-in and fast orders have no customer: "-")
+  const custOf = o => o.type==="dinein" || o.type==="fast" ? "" : o.customerName || o.phone || "";
+  const row = o => `<button class="lrow ol5" data-ov="${esc(o.id)}"><span class="lc"><b class="lno" style="text-transform:none">${esc(o.status==="refund" ? ordRef(o) : o.no ? "#" + o.no : "—")}</b><span class="lst-${o.status}" style="font-size:12px;font-weight:600">${esc(stLbl(o))}</span></span>
+    <span class="lc"><b style="text-transform:none">${esc(invOf(o)) || `<span class="mut">${o.status==="pending" ? "Not accepted yet" : "—"}</span>`}</b></span>
+    <span class="lc"><b style="text-transform:none">${esc(custOf(o) ? (o.customerName || o.phone) : "-")}</b>${custOf(o) && o.customerName && o.phone ? `<span>${esc(o.phone)}</span>` : ""}</span>
+    <span class="lr"><b style="text-transform:none;font-size:15px">${usd(o.total)}</b></span></button>`;
   const TABS = [["all","All"],["active","Active"],["pending","Pending"],["closed","Closed"],["void","Void & returns"]];
   if(!TABS.some(x => x[0]===OV.tab)) OV.tab = "all";
   const chip = (k, v, l) => `<button class="chip${OV[k]===v?" on":""}" data-of="${k}:${v}">${l}</button>`;
-  const head = `<div class="ohdr"><button class="hbtn" data-close>Back</button><input class="search" id="ovQ" placeholder="Search orders: number, reference, invoice, customer, phone, table" value="${esc(OV.q)}" style="flex:1;min-width:220px;margin:0">
+  const head = `<div class="ohdr"><button class="hbtn" data-close>Back</button><input class="search" id="ovQ" placeholder="Search orders: order no., invoice no., customer, phone, table" value="${esc(OV.q)}" style="flex:1;min-width:220px;margin:0">
     <button class="hbtn ghost" data-osync>Sync</button></div>`;
   const day = OV.date || bizDate(), shift = n => { const d = new Date(day + "T12:00:00"); d.setDate(d.getDate() + n); return d.toISOString().slice(0,10); };
   const filt = `<div class="ofilt"><b style="font-size:13px">Date</b><button class="chip" data-odate="${shift(-1)}" aria-label="Previous day">‹</button><input type="date" id="ovDate" value="${day}" max="${bizDate()}" style="padding:6px 10px;border:1px solid var(--line);border-radius:999px;font-weight:600"><button class="chip" data-odate="${shift(1)}" aria-label="Next day" ${day >= bizDate() ? "disabled" : ""}>›</button>${day!==bizDate() ? `<button class="chip on" data-odate="">Today</button>` : ""}<span style="width:14px"></span><b style="font-size:13px">Type</b>${chip("ft","","All")}${chip("ft","dinein","Dine-in")}${chip("ft","pickup","Pickup")}${chip("ft","delivery","Delivery")}${chip("ft","fast","Fast order")}<span style="width:14px"></span><b style="font-size:13px">Channel</b>${chip("fc","","All")}${chip("fc","pos","POS")}${chip("fc","callcenter","Call center")}${chip("fc","web","Web")}</div>`;
@@ -899,7 +905,7 @@ function openIncoming(){
       return `<div class="ocol"><div class="ochead" title="${esc(tip)}"><b>${title}</b><span class="cnt">${l.length}</span></div>${l.length ? l.map(card).join("") : `<div class="oempty">You don't have ${title.toLowerCase()} orders</div>`}</div>`; }).join("")}</div>`;
   else { const l = boardOrders(OV.tab);
     body = `<div class="otabs2">${TABS.map(([k,l2]) => `<button data-ovtab="${k}" class="${OV.tab===k?"on":""}">${l2}${k==="all" || boardOrders(k).length ? ` (${boardOrders(k).length})` : ""}</button>`).join("")}</div>
-      <div class="olist2">${l.length ? l.map(row).join("") : `<div class="oempty" style="border-radius:0">No orders here</div>`}</div>`; }
+      <div class="olist2">${l.length ? `<div class="lrow ol5 lhead"><span>Order no.</span><span>Invoice no.</span><span>Customer</span><span style="text-align:right">Total</span></div>` + l.map(row).join("") : `<div class="oempty" style="border-radius:0">No orders here</div>`}</div>`; }
   modal("incoming", `${head}<div class="mb" style="display:flex;flex-direction:column;gap:12px">${filt}${body}<p class="mut" style="margin:0">${(OV.date||bizDate())===bizDate() ? `Today's business day (${bizDate()}) plus open orders from earlier days.` : `Business day ${OV.date}.`} Tap an order to open it in the billing section.</p></div>`, true);
   $("#modal").classList.add("full"); $("#scrim").classList.add("fullscr");
   const q = $("#ovQ"); if(q && document.activeElement?.id!=="ovQ" && OV.q){ /* keep the list where it was */ }
