@@ -245,7 +245,7 @@ body{-webkit-font-smoothing:antialiased}
     <section class="rside">
       <div class="abar" id="abar"><button class="abtn" data-a="print"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 9V3h10v6"/><rect x="3" y="9" width="18" height="8" rx="2"/><path d="M7 14h10v7H7z"/></svg><span>Print</span></button><button class="abtn" data-a="kitchen"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 14a4 4 0 0 1-1-7.9A5 5 0 0 1 12 3a5 5 0 0 1 7 3.1A4 4 0 0 1 18 14"/><path d="M6 14h12v6H6z"/><path d="M10 14v3M14 14v3"/></svg><span>Kitchen</span></button><button class="abtn" data-a="void"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M5.6 18.4 18.4 5.6"/></svg><span>Void</span></button><button class="abtn" data-a="disc"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5l2.4 1.8 3-.2.9 2.9 2.5 1.7-1 2.8 1 2.8-2.5 1.7-.9 2.9-3-.2L12 21.5l-2.4-1.8-3 .2-.9-2.9-2.5-1.7 1-2.8-1-2.8 2.5-1.7.9-2.9 3 .2z"/><path d="M9 15l6-6"/><circle cx="9.5" cy="9.5" r=".8"/><circle cx="14.5" cy="14.5" r=".8"/></svg><span>Discount</span></button><button class="abtn" data-a="notes"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3h14v12l-6 6H5z"/><path d="M13 21v-6h6"/></svg><span>Notes</span></button><button class="abtn" data-a="more" id="menuBtn" aria-haspopup="menu"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg><span>More</span></button></div>
       <section class="menu"><div class="qwrap"><input class="search" id="q" placeholder="Search products" aria-label="Search products"></div><div class="grid" id="grid"></div></section>
-      <nav class="bnav" id="bnav"><button data-nav="home" class="on"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11 12 4l9 7"/><path d="M5 10v10h14V10"/></svg><span>Home</span></button><button data-nav="orders" id="incomingBtn"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span>Orders</span><span class="badge hide" id="incBadge">0</span></button><button data-nav="tables" id="tablesBtn"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h7M4 12h7M4 18h7M14 6h6M14 12h6M14 18h6"/></svg><span>Tables</span></button><button data-nav="new"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>New</span></button></nav>
+      <nav class="bnav" id="bnav"><button data-nav="home" class="on"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11 12 4l9 7"/><path d="M5 10v10h14V10"/></svg><span>Home</span></button><button data-nav="orders" id="incomingBtn"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span>Orders</span><span class="badge hide" id="incBadge">0</span></button><button data-nav="board" id="boardBtn"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="5" height="16" rx="1.5"/><rect x="10" y="4" width="5" height="11" rx="1.5"/><rect x="17" y="4" width="4" height="7" rx="1.5"/></svg><span>Board</span></button><button data-nav="new"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>New</span></button></nav>
     </section>
   </div>
   <div class="morepop hide" id="morePop" role="menu">
@@ -478,6 +478,7 @@ function renderAll(){
   if(modalKind==="incoming" && document.activeElement?.id!=="ovQ") openIncoming();
   if(modalKind==="orderview" && OV.open) openOrderView(OV.open);
   if(modalKind==="tables") openTables();
+  if(modalKind==="board" && document.activeElement?.id!=="bdQ") openBoard();
   if(modalKind==="devices") openDevices();
 }
 const catRank = p => { const c = S.categories.find(x=>x.id===p.categoryId); return c?.sort ?? 999; };   // "All" follows the category order
@@ -530,7 +531,7 @@ function renderCart(){
   if(orderNote) $("#lines").insertAdjacentHTML("afterbegin", `<div class="onote" data-onote title="${ro?"":"Tap to edit"}">📝 ${esc(orderNote)}</div>`);
   paintAbar();
   if(ro){ const T = eo; $("#totals").innerHTML = `${+T.discount?`<div><span>Discount</span><span>−${usd(T.discount)}</span></div>`:""}${(T.charges||[]).filter(c=>+c.amount).map(c=>`<div><span>${esc(c.name)}</span><span>${usd(c.amount)}</span></div>`).join("")}
-    <div><span>Subtotal</span><span>${usd((+T.total||0)-(+T.tax||0))}</span></div><div class="mut" style="font-size:13px"><span>Tax</span><span>${usd(T.tax)}</span></div><div class="g"><span>Total</span><span>${usd(T.total)}</span></div>${+T.refundTotal?`<div style="color:#b42318"><span>Refunded</span><span>−${usd(T.refundTotal)}</span></div>`:""}`; }
+    <div><span>Subtotal</span><span>${usd((+T.total||0)-(+T.tax||0))}</span></div><div class="mut" style="font-size:13px"><span>Tax</span><span>${usd(T.tax)}</span></div><div class="g"><span>Total</span><span>${usd(T.total)}</span></div>`; }
 }
 
 /* ---------- an order opened into the billing section ---------- */
@@ -680,9 +681,9 @@ $("#modal").addEventListener("click", async e => {
   const ia = e.target.closest("[data-inc]"); if(ia){ if(!can("pos_incoming")) return deny("handling incoming orders"); const [id,s] = ia.dataset.inc.split(":"); try{ const o = S.orders.find(x=>x.id===id), bill = (s==="active" || s==="closed") && o && !o.no ? { no: nextOrderNo(), deviceId: device.id } : {};   // this register bills it, so it numbers it
     await db.collection("orders").doc(id).update({ status:s, updatedAt:new Date().toISOString(), handledBy:cashier?.name || device.name, ...bill }); toast(s==="active"?(bill.no ? "Order #"+bill.no+" accepted · sent to kitchen" : "Order accepted · sent to kitchen"):s==="declined"?"Order declined":"Order completed"); setTimeout(() => modalKind==="orderview" ? openOrderView(id) : null, 50); }catch(err){ console.error(err); toast("Couldn't update the order"); } return; }
   const ovt = e.target.closest("[data-ovtab]"); if(ovt){ OV.tab = ovt.dataset.ovtab; return openIncoming(); }
-  if(e.target.closest("[data-ofilt]")){ OV.filt = !OV.filt; return openIncoming(); }
+  const od = e.target.closest("[data-odate]"); if(od && !od.disabled){ OV.date = od.dataset.odate >= bizDate() ? "" : od.dataset.odate; return openIncoming(); }
   const of = e.target.closest("[data-of]"); if(of){ const [k,v] = of.dataset.of.split(":"); OV[k] = v; return openIncoming(); }
-  if(e.target.closest("[data-oview]")){ OV.view = OV.view==="list" ? "board" : "list"; return openIncoming(); }
+
   if(e.target.closest("[data-osync]")){ window.WOK?.sync?.flush?.(); return toast(navigator.onLine ? "Syncing…" : "Offline · will sync when the connection is back"); }
   const tb = e.target.closest("[data-tbl]"); if(tb) return pickTable(tb.dataset.tbl);
   if(e.target.closest("#tblGo")){ const v = $("#tblNo").value.trim(); if(v) return pickTable(v); return; }
@@ -692,7 +693,7 @@ $("#modal").addEventListener("click", async e => {
   if(e.target.closest("#notesSave")){ orderNote = $("#noteTxt").value.trim(); closeModal(); renderCart(); if(EDIT && isOpenOrd(editOrder()||{})) toast("Note added · press Send to send it to the kitchen"); return; }
   const nq = e.target.closest("[data-nq]"); if(nq){ const ta = $("#noteTxt"); ta.value = (ta.value.trim() ? ta.value.trim() + ", " : "") + nq.dataset.nq; ta.focus(); return; }
   if(e.target.closest("#diagReload")) return location.reload();
-  const ov = e.target.closest("[data-ov]"); if(ov){ const o = S.orders.find(x=>x.id===ov.dataset.ov); if((modalKind==="incoming" || modalKind==="tables") && o && !["pending","declined","refund"].includes(o.status)) return loadOrder(o.id); return openOrderView(ov.dataset.ov); }
+  const ov = e.target.closest("[data-ov]"); if(ov){ const o = S.orders.find(x=>x.id===ov.dataset.ov); if(["incoming","tables","board"].includes(modalKind) && o && !["pending","declined","refund"].includes(o.status)) return loadOrder(o.id); return openOrderView(ov.dataset.ov); }
   if(e.target.closest("[data-ovback]")) return openIncoming();
   const ovo = e.target.closest("[data-ovopen]"); if(ovo) return openOrderView(ovo.dataset.ovopen);
   const vr = e.target.closest("[data-vr]"); if(vr){ const [k,m] = vr.dataset.vr.split(":"); return openVR(k, m); }
@@ -707,8 +708,8 @@ $("#modal").addEventListener("click", async e => {
   if(e.target.closest("#doCloseShift")) return doCloseShift();
   if(e.target.closest("#deact")){ store.set("wokDevice", null); location.reload(); }
 });
-$("#modal").addEventListener("input", e => { if(e.target.id==="tender") updChange(); if(e.target.id==="ovQ"){ OV.q = e.target.value; const pos = e.target.selectionStart; openIncoming(); const q = $("#ovQ"); q.focus(); q.setSelectionRange(pos, pos); } });
-$("#modal").addEventListener("change", e => { if(e.target.id==="vrReason") $("#vrOther").style.display = e.target.value==="_other" ? "" : "none"; });
+$("#modal").addEventListener("input", e => { if(e.target.id==="tender") updChange(); if(e.target.id==="bdQ"){ BQ = e.target.value; const pos = e.target.selectionStart; openBoard(); const q = $("#bdQ"); q.focus(); q.setSelectionRange(pos, pos); return; } if(e.target.id==="ovQ"){ OV.q = e.target.value; const pos = e.target.selectionStart; openIncoming(); const q = $("#ovQ"); q.focus(); q.setSelectionRange(pos, pos); } });
+$("#modal").addEventListener("change", e => { if(e.target.id==="ovDate"){ const v = e.target.value; OV.date = !v || v >= bizDate() ? "" : v; return openIncoming(); } if(e.target.id==="vrReason") $("#vrOther").style.display = e.target.value==="_other" ? "" : "none"; });
 
 /* payment */
 let payMethod = null;
@@ -773,7 +774,6 @@ function receiptText(o){
   lines.push(row("TOTAL USD", (+o.total).toFixed(2)));
   if(usd2(o.total)) lines.push(row("", "= " + usd2(o.total)));
   if(o.payment){ lines.push(row((o.status==="refund" ? "Refunded (" : "Paid (")+o.payment.method+")", Math.abs(+o.payment.tendered).toFixed(2))); if(o.payment.change) lines.push(row("Change", (+o.payment.change).toFixed(2))); }
-  if(+o.refundTotal) lines.push(row("Refunded", "-"+(+o.refundTotal).toFixed(2)));
   if(o.status==="void") lines.push("", "*** VOID ***".padStart((w+12)/2)); if(o.status==="returned") lines.push("", "*** RETURNED ***".padStart((w+16)/2));
   if(o.receiptNotes) lines.push("", ...o.receiptNotes.split("\n").map(l => l.trim().slice(0,w)).filter(Boolean));
   const foot = (brSet().receiptFooter || "Thank you!").split("\n").map(l => l.trim()).filter(Boolean);
@@ -822,7 +822,7 @@ function approve(perm, title){
 
 /* ---------- orders: list, delivery & pickup management, void (active) and return (closed) ---------- */
 let OV = { tab:"all", q:"", open:null, view:"list", filt:false, ft:"", fc:"" };
-const stLbl = o => o.status==="closed" && fullyBack(o) ? "Refunded" : ({ refund:"Refund", pending:"Waiting for you", active:"In kitchen", closed:"Done", void:"Void", returned:"Returned", declined:"Declined", draft:"Draft" }[o.status] || o.status);
+const stLbl = o => ({ refund:"Refund", pending:"Waiting for you", active:"In kitchen", closed:"Done", void:"Void", returned:"Returned", declined:"Declined", draft:"Draft" }[o.status] || o.status);
 const typLbl = t => t==="dinein" ? "Dine-in" : t==="pickup"||t==="takeaway" ? "Pickup" : t==="delivery" ? "Delivery" : (t||"—");
 const ordRef = o => o.status==="refund" ? "RET-" + String(o.returnNo || "…").padStart(6,"0") : o.no ? "#" + o.no : o.ref || (o.invoiceNo ? "Inv " + o.invoiceNo : "—");
 function ordersFor(tab){
@@ -836,14 +836,15 @@ function ordersFor(tab){
 }
 // Orders: full-screen board, one column per state (like the call center). Tap an order to open it in the billing section
 const OV_COLS = [["pending","Pending","Waiting for this branch to accept"],["active","Active","Open orders: add or void items, then bill"],["closed","Closed","Billed today: return items or the invoice"],["void","Void & returns","Voided, declined, returned or refunded today"]];
-function boardOrders(col){
-  const mine = S.orders.filter(o => o.branchId===device.branchId), today = bizDate();
+function boardOrders(col, pd){
+  const today = bizDate(), day = !pd && OV.date ? OV.date : today, anyDay = day===today;   // the Orders list can look at another business day
+  const mine = S.orders.filter(o => o.branchId===device.branchId), onDay = o => anyDay || bizDate(o.createdAt)===day;
   const q = OV.q.trim().toLowerCase(), m = o => (!q || [o.no, o.ref, o.invoiceNo, o.customerName, o.phone, o.source, o.table].some(v => String(v||"").toLowerCase().includes(q)))
-    && (!OV.ft || (OV.ft==="pickup" ? ["pickup","takeaway"].includes(o.type) : o.type===OV.ft)) && (!OV.fc || (OV.fc==="pos" ? o.channel==="pos" : OV.fc==="callcenter" ? o.channel==="callcenter" : !["pos","callcenter"].includes(o.channel)));
-  if(col==="all") return ["pending","active","closed","void"].flatMap(boardOrders).sort((a,b) => String(b.createdAt).localeCompare(String(a.createdAt)));
-  const l = col==="pending" ? mine.filter(o => o.status==="pending") : col==="active" ? mine.filter(o => o.status==="active")
-    : col==="closed" ? mine.filter(o => o.status==="closed" && bizDate(o.createdAt)===today)
-    : mine.filter(o => ["void","declined","returned","refund"].includes(o.status) && bizDate(o.updatedAt || o.createdAt)===today);
+    && (!pd || ["pickup","takeaway","delivery"].includes(o.type)) && (pd || !OV.ft || (OV.ft==="pickup" ? ["pickup","takeaway"].includes(o.type) : o.type===OV.ft)) && (pd || !OV.fc || (OV.fc==="pos" ? o.channel==="pos" : OV.fc==="callcenter" ? o.channel==="callcenter" : !["pos","callcenter"].includes(o.channel)));
+  if(col==="all") return ["pending","active","closed","void"].flatMap(k => boardOrders(k, pd)).sort((a,b) => String(b.createdAt).localeCompare(String(a.createdAt)));
+  const l = col==="pending" ? mine.filter(o => o.status==="pending" && onDay(o)) : col==="active" ? mine.filter(o => o.status==="active" && onDay(o))
+    : col==="closed" ? mine.filter(o => o.status==="closed" && bizDate(o.createdAt)===day)
+    : mine.filter(o => ["void","declined","returned","refund"].includes(o.status) && bizDate(anyDay ? (o.updatedAt || o.createdAt) : o.createdAt)===day);
   return l.filter(m).sort((a,b) => String(b.createdAt).localeCompare(String(a.createdAt)));
 }
 function openIncoming(){
@@ -865,15 +866,16 @@ function openIncoming(){
   if(!TABS.some(x => x[0]===OV.tab)) OV.tab = "all";
   const chip = (k, v, l) => `<button class="chip${OV[k]===v?" on":""}" data-of="${k}:${v}">${l}</button>`;
   const head = `<div class="ohdr"><button class="hbtn" data-close>Back</button><input class="search" id="ovQ" placeholder="Search orders: number, reference, invoice, customer, phone, table" value="${esc(OV.q)}" style="flex:1;min-width:220px;margin:0">
-    <button class="hbtn${OV.filt || OV.ft || OV.fc ? "" : " ghost"}" data-ofilt>Filter${OV.ft || OV.fc ? " •" : ""}</button><button class="hbtn ghost" data-osync>Sync</button><button class="hbtn ghost" data-oview>${OV.view==="list" ? "Board" : "List"}</button></div>`;
-  const filt = OV.filt ? `<div class="ofilt"><b style="font-size:13px">Type</b>${chip("ft","","All")}${chip("ft","dinein","Dine-in")}${chip("ft","pickup","Pickup")}${chip("ft","delivery","Delivery")}<span style="width:14px"></span><b style="font-size:13px">Channel</b>${chip("fc","","All")}${chip("fc","pos","POS")}${chip("fc","callcenter","Call center")}${chip("fc","web","Web")}</div>` : "";
+    <button class="hbtn ghost" data-osync>Sync</button></div>`;
+  const day = OV.date || bizDate(), shift = n => { const d = new Date(day + "T12:00:00"); d.setDate(d.getDate() + n); return d.toISOString().slice(0,10); };
+  const filt = `<div class="ofilt"><b style="font-size:13px">Date</b><button class="chip" data-odate="${shift(-1)}" aria-label="Previous day">‹</button><input type="date" id="ovDate" value="${day}" max="${bizDate()}" style="padding:6px 10px;border:1px solid var(--line);border-radius:999px;font-weight:600"><button class="chip" data-odate="${shift(1)}" aria-label="Next day" ${day >= bizDate() ? "disabled" : ""}>›</button>${day!==bizDate() ? `<button class="chip on" data-odate="">Today</button>` : ""}<span style="width:14px"></span><b style="font-size:13px">Type</b>${chip("ft","","All")}${chip("ft","dinein","Dine-in")}${chip("ft","pickup","Pickup")}${chip("ft","delivery","Delivery")}<span style="width:14px"></span><b style="font-size:13px">Channel</b>${chip("fc","","All")}${chip("fc","pos","POS")}${chip("fc","callcenter","Call center")}${chip("fc","web","Web")}</div>`;
   let body;
-  if(OV.view==="board") body = `<div class="oboard">${OV_COLS.map(([k,title,tip]) => { const l = boardOrders(k);
+  if(false) body = `<div class="oboard">${OV_COLS.map(([k,title,tip]) => { const l = boardOrders(k);
       return `<div class="ocol"><div class="ochead" title="${esc(tip)}"><b>${title}</b><span class="cnt">${l.length}</span></div>${l.length ? l.map(card).join("") : `<div class="oempty">You don't have ${title.toLowerCase()} orders</div>`}</div>`; }).join("")}</div>`;
   else { const l = boardOrders(OV.tab);
     body = `<div class="otabs2">${TABS.map(([k,l2]) => `<button data-ovtab="${k}" class="${OV.tab===k?"on":""}">${l2}${k==="all" || boardOrders(k).length ? ` (${boardOrders(k).length})` : ""}</button>`).join("")}</div>
       <div class="olist2">${l.length ? l.map(row).join("") : `<div class="oempty" style="border-radius:0">No orders here</div>`}</div>`; }
-  modal("incoming", `${head}<div class="mb" style="display:flex;flex-direction:column;gap:12px">${filt}${body}<p class="mut" style="margin:0">Open orders from any day, closed and voided orders of today's business day (${bizDate()}). Tap an order to open it in the billing section.</p></div>`, true);
+  modal("incoming", `${head}<div class="mb" style="display:flex;flex-direction:column;gap:12px">${filt}${body}<p class="mut" style="margin:0">${(OV.date||bizDate())===bizDate() ? `Today's business day (${bizDate()}) plus open orders from earlier days.` : `Business day ${OV.date}.`} Tap an order to open it in the billing section.</p></div>`, true);
   $("#modal").classList.add("full"); $("#scrim").classList.add("fullscr");
   const q = $("#ovQ"); if(q && document.activeElement?.id!=="ovQ" && OV.q){ /* keep the list where it was */ }
 }
@@ -884,6 +886,7 @@ function openOrderView(id){
   if(o.status==="active"){ acts.push(`<button class="btn bad" data-vr="void:all">Void order</button>`, `<button class="btn" data-vr="void:items">Void items</button>`); if(o.channel!=="pos") acts.push(`<button class="btn pri" data-inc="${esc(o.id)}:closed">Mark done</button>`); }
   if(o.status==="closed" && !fullyBack(o)) acts.push(`<button class="btn bad" data-vr="return:all">${+o.refundTotal ? "Return the rest" : "Return order"}</button>`, `<button class="btn" data-vr="return:items">Return items</button>`);
   const src = o.refundOf && S.orders.find(x=>x.id===o.refundOf);
+  S.orders.filter(x => x.refundOf===o.id).forEach(x => acts.push(`<button class="btn" data-ov="${esc(x.id)}">Return ${esc(ordRef(x))}</button>`));
   if(o.status==="refund" && src) acts.push(`<button class="btn" data-ov="${esc(src.id)}">Open original order</button>`);
   modal("orderview", `<div class="mh"><h2>Order ${esc(ordRef(o))} <span class="spill s-${o.status}">${stLbl(o)}</span></h2><button class="x" data-ovback aria-label="Back">←</button></div><div class="mb">
     <p class="mut">${o.ref?`${esc(o.ref)} · `:""}${o.invoiceNo?`Invoice ${esc(o.invoiceNo)} · `:""}${esc(typLbl(o.type))}${o.table?" T"+esc(o.table):""} · ${esc(o.source || (o.channel==="pos"?"POS":"Call center"))} · ${new Date(o.createdAt).toLocaleString("en-GB",{day:"numeric",month:"short",hour:"numeric",minute:"2-digit"})}${o.agent?` · ${esc(o.agent)}`:""}</p>
@@ -892,7 +895,7 @@ function openOrderView(id){
       ${(o.voidedItems||[]).map(i=>`<div class="mut"><span><s>${i.qty} × ${esc(i.name)}</s> · voided${i.reason?" ("+esc(i.reason)+")":""}</span><s>${usd((+i.price||0)*(+i.qty||1))}</s></div>`).join("")}
       ${(o.returnedItems||[]).map(i=>`<div class="mut"><span>${i.qty} × ${esc(i.name)} · returned${i.stock==="waste"?" (waste)":" (to stock)"}</span><span>−${usd(i.refund)}</span></div>`).join("")}</div>
     <div class="totals" style="border:0;padding:8px 0">${+o.discount?`<div><span>Discount</span><span>−${usd(o.discount)}</span></div>`:""}${(o.charges||[]).filter(c=>+c.amount).map(c=>`<div><span>${esc(c.name)}</span><span>${usd(c.amount)}</span></div>`).join("")}
-      <div><span>Subtotal</span><span>${usd(t)}</span></div><div class="mut"><span>Tax</span><span>${usd(o.tax)}</span></div><div class="g"><span>Total</span><span>${usd(o.total)}</span></div>${+o.refundTotal?`<div style="color:#b42318"><span>Refunded</span><span>−${usd(o.refundTotal)}</span></div>`:""}</div>
+      <div><span>Subtotal</span><span>${usd(t)}</span></div><div class="mut"><span>Tax</span><span>${usd(o.tax)}</span></div><div class="g"><span>Total</span><span>${usd(o.total)}</span></div></div>
     ${o.notes?`<p class="mut">Kitchen: ${esc(o.notes)}</p>`:""}${o.receiptNotes?`<p class="mut">Receipt: ${esc(o.receiptNotes)}</p>`:""}
     ${o.status==="void"?`<p style="color:#b42318">Voided${o.voidedBy?" by "+esc(o.voidedBy):""}${o.approvedBy?", approved by "+esc(o.approvedBy):""}${o.voidReason?" — "+esc(o.voidReason):""}${o.stockAction?` · ${o.stockAction==="waste"?"wasted":"back to stock"}`:""}</p>`:""}
     ${o.status==="returned"?`<p style="color:#b42318">Returned${o.returnedBy?" by "+esc(o.returnedBy):""}${o.approvedBy?", approved by "+esc(o.approvedBy):""}${o.returnReason?" — "+esc(o.returnReason):""}${o.stockAction?` · ${o.stockAction==="waste"?"wasted":"back to stock"}`:""}</p>`:""}</div>
@@ -1009,7 +1012,7 @@ const openMore = () => modal("more", `<div class="mh"><h2>Device</h2><button cla
 
 /* ---------- Foodics-style frame: top actions, More menu, bottom navigation ---------- */
 const hideMore = () => $("#morePop").classList.add("hide");
-function paintNav(){ const k = modalKind==="incoming" || modalKind==="orderview" ? "orders" : modalKind==="tables" ? "tables" : modalKind ? "" : "home";
+function paintNav(){ const k = modalKind==="incoming" || modalKind==="orderview" ? "orders" : modalKind==="tables" ? "tables" : modalKind==="board" ? "board" : modalKind ? "" : "home";
   document.querySelectorAll("#bnav [data-nav]").forEach(b => b.classList.toggle("on", b.dataset.nav===k)); }
 function paintAbar(){ const eo = editOrder(), open = eo && isOpenOrd(eo), closed = eo && !open, off = (a, v) => document.querySelector(`#abar [data-a="${a}"]`)?.classList.toggle("off", !!v);
   off("print", !eo); off("kitchen", !eo && !cart.length); off("void", eo ? (closed && (eo.status!=="closed" || fullyBack(eo))) : !cart.length); off("disc", closed || !cart.length); off("notes", closed); }
@@ -1041,6 +1044,7 @@ $("#bnav").addEventListener("click", e => { const b = e.target.closest("[data-na
   if(k==="new"){ closeModal(); unloadOrder(); cat = ""; $("#q").value = ""; renderMenu(); return toast("New order"); }
   if(k==="orders") return openIncoming();
   if(k==="tables") return openTables();
+  if(k==="board") return openBoard();
 });
 function openNotes(){
   const quick = ["No onion","Extra spicy","Not spicy","Allergy","Cutlery","Urgent","Serve together"];
@@ -1050,6 +1054,26 @@ function openNotes(){
     <div class="mf"><button class="btn" data-close>Cancel</button><button class="btn pri" id="notesSave">Save note</button></div>`);
   setTimeout(() => $("#noteTxt")?.focus(), 30);
 }
+
+/* ---------- board: pickup & delivery orders in columns (like the call center) ---------- */
+function openBoard(){
+  if(!can("pos_orders") && !can("pos_incoming")) return deny("seeing orders");
+  const t = v => v ? new Date(v).toLocaleTimeString("en-GB",{hour:"numeric",minute:"2-digit"}) : "";
+  const chn = o => o.channel==="pos" ? "POS" : o.channel==="callcenter" ? "Call center" : "Web";
+  const card = o => `<button class="ocard" data-ov="${esc(o.id)}"><span class="oc1"><b>${esc(o.no ? "#" + o.no : ordRef(o))}</b><span class="spill s-${o.status}">${stLbl(o)}</span></span>
+    ${o.ref ? `<span class="mut oc-s">${esc(o.ref)}${o.invoiceNo ? " · Inv " + esc(o.invoiceNo) : ""}</span>` : ""}
+    ${o.customerName || o.phone ? `<span class="oc2">👤 ${esc(o.customerName||"")}<small>${esc(o.phone||"")}</small></span>` : ""}
+    ${o.type==="delivery" && o.address ? `<span class="oc2 mut">📍 ${esc(o.address)}</span>` : ""}
+    <span class="oc2 mut">🕒 Created ${t(o.createdAt)}${o.updatedAt && o.updatedAt!==o.createdAt ? `<small>Modified ${t(o.updatedAt)}</small>` : ""}</span>
+    <span class="oc2">${o.channel==="pos" ? "🧾" : o.channel==="callcenter" ? "🎧" : "🌐"} ${esc(o.source || chn(o))} · ${esc(typLbl(o.type))}<small>${esc(o.agent || "")}</small></span>
+    <b class="oc-t">${usd(o.total)}</b></button>`;
+  const q = OV.q; OV.q = BQ;
+  const cols = OV_COLS.map(([k,title,tip]) => [k, title, tip, boardOrders(k, true)]); OV.q = q;
+  modal("board", `<div class="ohdr"><button class="hbtn" data-close>Back</button><b style="font-size:18px">Pickup & delivery</b><input class="search" id="bdQ" placeholder="Search order #, reference, customer, phone" value="${esc(BQ)}" style="flex:1;min-width:220px;margin:0"><button class="hbtn ghost" data-osync>Sync</button></div>
+    <div class="mb"><div class="oboard">${cols.map(([k,title,tip,l]) => `<div class="ocol"><div class="ochead" title="${esc(tip)}"><b>${title}</b><span class="cnt">${l.length}</span></div>${l.length ? l.map(card).join("") : `<div class="oempty">You don't have ${title.toLowerCase()} orders</div>`}</div>`).join("")}</div></div>`, true);
+  $("#modal").classList.add("full"); $("#scrim").classList.add("fullscr");
+}
+let BQ = "";
 
 /* ---------- tables ---------- */
 const tableCount = () => +devSet().tables || Math.max(0, ...(S.devices||[]).filter(d => !d.deleted && d.branchId===device.branchId).map(d => +d.settings?.tables || 0));
