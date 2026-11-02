@@ -560,7 +560,7 @@ const NAV = [
   {id:"customers",t:"Customers",i:"users"},
   {t:"Reports",i:"chart",kids:[["sales-reports","Sales Reports"],["inventory-reports","Inventory Reports"],["business-reports","Business Reports"],["analysis-reports","Analysis Reports"]]},
   {t:"Inventory",i:"box",tabs:1,kids:[["inv-categories","Inventory Categories"],["inv-items","Items"],["warehouses","Locations"],["suppliers","Suppliers"],["purchase-orders","Purchase Orders"],["transfer-orders","Transfer Orders"],["transfers","Transfers"],["inventory-count","Inventory Count"],["production","Production"],["quantity-adjustments","Quantity Adjustment"],["cost-adjustments","Cost Adjustment"],["spot-check","Inventory Spot Check"],["count-sheets","Count Sheet"]]},
-  {t:"Menu",i:"book",tabs:1,kids:[["@Menu Builder"],["categories","Categories"],["products","Products"],["modifiers","Modifiers"],["variants","Variants"],["branch-menu","Channels"],["combos","Combos"],["groups","Groups"],["@Menu Settings"],["price-tags","Price Tags"],["allergens","Allergens"]]},
+  {t:"Menu",i:"book",tabs:1,kids:[["@Menu Builder"],["categories","Categories"],["products","Products"],["modifiers","Modifiers"],["branch-menu","Channels"],["combos","Combos"],["groups","Groups"],["@Menu Settings"],["price-tags","Price Tags"],["allergens","Allergens"]]},
   {t:"Manage",i:"gear",kids:[["users","Users"],["roles","Roles"],["brands","Brands"],["branches","Branches"],["devices","Devices"],["taxes","Taxes & Groups"],["payment-methods","Payment Methods"],["order-sources","Order Sources"],["charges","Charges"],["delivery-zones","Delivery Zones"],["online-ordering","Web Ordering"],["kitchen-flows","Kitchen Flows"],["reasons","Reasons"],["settings","Settings"]]},
   {t:"Marketing",i:"tag",kids:[["loyalty","Loyalty"],["gift-cards","Gift Cards"],["discounts","Discounts"],["promotions","Promotions"],["coupons","Coupons"]]}
 ];
@@ -1339,12 +1339,14 @@ const CRUD = {
     cols:[["Name",r=>`<span class="pname">${r.imageUrl?`<img class="pthumb" src="${esc(r.imageUrl)}" alt="" loading="lazy">`:`<span class="pthumb none"></span>`}${(() => { const par = varParent(r.id), n = (r.variants||[]).filter(v=>v.productId).length;
       return par ? `<span class="vchild">↳ <b>${esc(r.name)}</b> <span class="tag">Variant · ${esc(par.variants.find(v=>v.productId===r.id)?.name||"")}</span></span>`
         : `<b>${esc(r.name)}</b>${n ? ` <span class="tag cc">${n} variant${n===1?"":"s"}</span>` : ""}`; })()}</span>`],["Brand",r=>esc(brandName(r.brandId))],["SKU",r=>`<span class="code">${esc(r.sku||"")}</span>`],["Category",r=>esc(catName(r.categoryId))],
-      ["Price",r=>r.pricingMethod==="open"?"Open":usd(r.price)],["Cost %",r=>{ const c = productCost(r); return +r.price && c ? (c/r.price*100).toFixed(1)+" %" : '<span class="note">—</span>'; },"num"],["Tax Group",r=>esc(tgName(r.taxGroup))]],
+      ["Price",r=>{ const k = varKids(r); return k.length ? "From " + usd(Math.min(...k.map(x=>+x.price||0))) : r.pricingMethod==="open"?"Open":usd(r.price); }],
+      ["Cost %",r=>{ if(varKids(r).length) return '<span class="note">—</span>'; const c = productCost(r); return +r.price && c ? (c/r.price*100).toFixed(1)+" %" : '<span class="note">—</span>'; },"num"],
+      ["Tax Group",r=>varKids(r).length ? '<span class="note">Per variant</span>' : esc(tgName(r.taxGroup))]],
     fields:[{k:"name",l:"Name",req:1},{k:"nameAr",l:"Name (Arabic)"},brandField,{k:"sku",l:"SKU",auto:()=>nextSku("products")},
       {k:"categoryId",l:"Category",t:"select",req:1,opts:()=>S.categories.filter(c=>live(c)&&brandFilter(c)).map(c=>[c.id,(state.brand==="all"?brandName(c.brandId)+" · ":"")+c.name])},
-      {k:"pricingMethod",l:"Pricing method",t:"select",opts:()=>[["fixed","Fixed price"],["open","Open price (cashier enters it)"]],def:"fixed"},
-      {k:"price",l:"Price (USD)",t:"number",req:1},{k:"taxGroup",l:"Tax group",t:"select",opts:()=>taxGroupOpts(),def:"tg_vat",ph:"No tax"},
-      {k:"costingMethod",l:"Costing method",t:"select",opts:()=>[["ingredients","From ingredients"],["fixed","Fixed cost"]],def:"ingredients"},{k:"cost",l:"Fixed cost (USD)",t:"number",req:1,when:{k:"costingMethod",is:"fixed"}},
+      {k:"pricingMethod",l:"Pricing method",t:"select",opts:()=>[["fixed","Fixed price"],["open","Open price (cashier enters it)"]],def:"fixed",hideIf:r=>varKids(r).length},
+      {k:"price",l:"Price (USD)",t:"number",req:1,hideIf:r=>varKids(r).length},{k:"taxGroup",l:"Tax group",t:"select",opts:()=>taxGroupOpts(),def:"tg_vat",ph:"No tax",hideIf:r=>varKids(r).length},
+      {k:"costingMethod",l:"Costing method",t:"select",opts:()=>[["ingredients","From ingredients"],["fixed","Fixed cost"]],def:"ingredients",hideIf:r=>varKids(r).length},{k:"cost",l:"Fixed cost (USD)",t:"number",req:1,when:{k:"costingMethod",is:"fixed"},hideIf:r=>varKids(r).length},
       {k:"sellingMethod",l:"Selling method",t:"select",opts:()=>[["unit","Unit"],["weight","Weight"]],def:"unit"},{k:"barcode",l:"Barcode"},
       {k:"prepTime",l:"Preparation time (minutes)",t:"number"},{k:"calories",l:"Calories (kCal)",t:"number"},
       {k:"imageUrl",l:"Image",t:"image",full:1},
@@ -1611,13 +1613,14 @@ document.addEventListener("click", e => {
   const rm = e.target.closest("[data-itemrm]"); if(rm){ e.preventDefault(); rm.closest(".itemrow").remove(); return; }
   const up = e.target.closest("[data-itemup]"); if(up){ e.preventDefault(); const r = up.closest(".itemrow"); if(r.previousElementSibling) r.parentNode.insertBefore(r, r.previousElementSibling); }
 });
-document.addEventListener("keydown", e => { const n = e.target.closest?.("[data-itemnew]"); if(n && e.key==="Enter"){ e.preventDefault(); itemAdd(n.dataset.itemnew); } });
+document.addEventListener("keydown", e => { if(e.target.id==="pvNew" && e.key==="Enter"){ e.preventDefault(); addVariant(); return; } const n = e.target.closest?.("[data-itemnew]"); if(n && e.key==="Enter"){ e.preventDefault(); itemAdd(n.dataset.itemnew); } });
 let crudEdit = null;
 function openCrud(key, id){
   const cfg = CRUD[key], r = id ? S[cfg.col].find(x=>x.id===id) : null;
   crudEdit = { key, id: r?.id || null };
   const val = f => r ? r[f.k] : (f.auto ? f.auto() : f.def);
   const field = f => {
+    if(f.hideIf && r && f.hideIf(r)) return "";   // e.g. price and tax of a product with variants: each variant has its own
     const v = val(f), idA = "cf_"+f.k, full = f.full||f.t==="textarea"||f.t==="multi" ? " full" : "";
     if(f.t==="polygon") return `<div class="f full"><label>${f.l}</label><div class="note">Click the map to add corners around the area this branch delivers to. Drag a corner to adjust it.</div><div id="zoneMap" class="zmap"></div><div class="row" style="margin:8px 0 0"><button type="button" class="btn sm" id="zUndo">Undo last point</button><button type="button" class="btn sm" id="zClear">Clear</button><span class="note" id="zInfo"></span></div></div>`;
     if(f.t==="chk") return `<div class="f full"><label class="chk"><input type="checkbox" id="${idA}" ${v!==false&&v!==undefined?"checked":""}> ${f.l}</label></div>`;
@@ -1836,6 +1839,7 @@ async function submitCrud(e){
   const cfg = CRUD[crudEdit.key], data = {};
   for(const f of cfg.fields){
     const el = $("#cf_"+f.k);
+    if(!el && f.t!=="polygon") continue;   // not shown on this form
     if(f.when && ($("#cf_"+f.when.k)?.value || "") !== f.when.is) continue;   // hidden: not asked, not changed
     if(f.t==="polygon"){ data[f.k] = zonePts.map(p=>[+p[0].toFixed(6), +p[1].toFixed(6)]); if(data[f.k].length < 3){ $("#cErr").textContent = "Draw the zone on the map (at least 3 points)."; return; } continue; }
     if(f.t==="chk") data[f.k] = el.checked;
@@ -2090,7 +2094,8 @@ const ccTax = items => +(items||[]).reduce((a,i) => { const l = (+i.price||0)*(+
 function ccPrice(p){ const b = $("#oBranch")?.value, c = b && (p.customPrices||{})[b]; return c!=null && c!=="" ? +c : +p.price||0; }
 function renderOrderMenu(){
   const box = $("#oProducts"); if(!box) return;
-  const kidIds = varChildIds(), q = ($("#oSearch").value||"").trim().toLowerCase(), prods = availableProducts().filter(p => !kidIds.has(p.id));
+  const kidIds = varChildIds(), q = ($("#oSearch").value||"").trim().toLowerCase(), okIds = new Set(availableProducts().map(x=>x.id)),
+    prods = availableProducts().filter(p => !kidIds.has(p.id) && (!(p.variants||[]).some(v => v.productId) || p.variants.some(v => okIds.has(v.productId))));   // a product with variants shows only when one of them is available
   const cats = S.categories.filter(c => live(c) && prods.some(p=>p.categoryId===c.id)).sort(bySort);   // the order set in Menu → Menus
   if(state.oCat && !cats.some(c=>c.id===state.oCat)) state.oCat = "";
   const n = id => prods.filter(p=>id==="_none" ? !cats.some(c=>c.id===p.categoryId) : p.categoryId===id).length;
@@ -2282,7 +2287,7 @@ const BM = { branch:"", kind:"products", q:"", draft:{} };
 function bmItems(){
   const br = branches.find(b=>b.id===BM.branch); if(!br) return [];
   if(BM.kind==="options") return S.modifier_options.filter(o=>live(o)&&o.active!==false).sort((a,b)=>modName(a.modifierId).localeCompare(modName(b.modifierId))||bySort(a,b));
-  return S.products.filter(p=>live(p)&&(!br.brandId||!p.brandId||p.brandId===br.brandId)).sort((a,b)=>{ const ca = S.categories.find(c=>c.id===a.categoryId)||{}, cb = S.categories.find(c=>c.id===b.categoryId)||{}; return bySort(ca, cb) || String(a.categoryId).localeCompare(String(b.categoryId)) || bySort(a,b); });   // same order as every channel
+  return S.products.filter(p=>live(p)&&!varKids(p).length&&(!br.brandId||!p.brandId||p.brandId===br.brandId)).sort((a,b)=>{ const ca = S.categories.find(c=>c.id===a.categoryId)||{}, cb = S.categories.find(c=>c.id===b.categoryId)||{}; return bySort(ca, cb) || String(a.categoryId).localeCompare(String(b.categoryId)) || bySort(a,b); });   // same order as every channel
 }
 // an item can be switched off per channel at a branch: inactiveBranchIds holds "branch" (off everywhere) or "branch:pos" / "branch:callcenter" / "branch:online"
 // each channel has its own menu per branch: "POS & Call center" and "Web ordering". Prices: customPrices[branch] (POS & call center), customPrices["branch:online"] (web)
@@ -3030,10 +3035,10 @@ function productDetail(p){
     ${p.active===false?'<span class="tag off" style="margin-left:8px">Inactive</span>':'<span class="tag on" style="margin-left:8px">Active</span>'}<div class="sp"></div>
     <button class="btn" data-dettoggle>${p.active===false?"Activate Product":"Deactivate Product"}</button><button class="btn pri" data-detedit>Edit Product</button></div>`;
   h += infoGrid([info("Name", esc(p.name)), info("Name Localized", esc(p.nameAr||"—")), info("Brand", esc(brandName(p.brandId))), info("Category", esc(catName(p.categoryId))),
-    info("SKU", `<span class="code">${esc(p.sku||"—")}</span>`), info("Barcode", esc(p.barcode||"—")), info("Tax Group", esc(tgName(p.taxGroup))),
+    info("SKU", `<span class="code">${esc(p.sku||"—")}</span>`), info("Barcode", esc(p.barcode||"—")), info("Tax Group", varKids(p).length ? "Set on each variant" : esc(tgName(p.taxGroup))),
     info("Pricing Method", p.pricingMethod==="open"?"Open Price":"Fixed Price"), info("Selling Method", p.sellingMethod==="weight"?"Weight":"Unit"),
     info("Costing Method", p.costingMethod==="fixed"?"Fixed Cost":"From Ingredients"), info("Preparation Time", p.prepTime ? esc(p.prepTime)+" min" : "—"),
-    info("Price", p.pricingMethod==="open" ? "Open" : usd(price)), info(p.costingMethod==="fixed"?"Fixed Cost":"Ingredients Cost", fmtCost(cost)),
+    info("Price", varKids(p).length ? "Set on each variant" : p.pricingMethod==="open" ? "Open" : usd(price)), info(p.costingMethod==="fixed"?"Fixed Cost":"Ingredients Cost", fmtCost(cost)),
     info("Cost %", price ? `<span style="${pct>40?"color:var(--accent-ink);font-weight:600":""}">${pct.toFixed(1)} %</span>` : "—"), info("Calories", p.calories ? esc(p.calories)+" kCal" : "—")]);
   if(p.imageUrl || p.description) h += `<div class="card" style="margin-bottom:16px;display:flex;gap:16px;align-items:flex-start">${p.imageUrl?`<img src="${esc(p.imageUrl)}" alt="" style="width:160px;height:160px;object-fit:cover;border-radius:12px">`:""}<div>${p.description?`<div class="note">Description</div>${esc(p.description)}`:'<span class="note">No description</span>'}</div></div>`;
   h += variantCard(p);
@@ -3043,23 +3048,42 @@ function productDetail(p){
   if(!hasVar) h += modLinks(p);
   return h;
 }
-// variants: each variant is a full product; the main product keeps the links (variants = [{ name, productId }]) and the menus show only the main one
+// variants: each variant is a full product (own price, tax, SKU, recipe, modifiers); the main product keeps the links (variants = [{ name, productId }])
+// and is only a name on the menus: its own price and tax are no longer used
 const varParent = id => S.products.find(x => live(x) && (x.variants||[]).some(v => v.productId===id));
 const varChildIds = () => new Set(S.products.filter(live).flatMap(x => (x.variants||[]).map(v => v.productId).filter(Boolean)));
+const varKids = p => (p?.variants||[]).map(v => S.products.find(x => x.id===v.productId && live(x))).filter(Boolean);
 function variantCard(p){
   const par = varParent(p.id);
   if(par){ const v = par.variants.find(x => x.productId===p.id);
-    return `<div class="card" style="margin-bottom:16px;display:flex;align-items:center;gap:10px"><b>Variant</b><span>${esc(v?.name||"")} of <a href="#products" class="lnk" data-detopen="products:${esc(par.id)}">${esc(par.name)}</a></span><span class="note">This product is sold through ${esc(par.name)}: the POS, call center and web ordering show ${esc(par.name)} and ask which variant.</span></div>`; }
-  const V = DET.var || (DET.var = { setId: p.variantSetId || "" });
-  const sets = S.variant_sets.filter(r => live(r) || r.id===V.setId).sort((a,b)=>a.name.localeCompare(b.name)), set = sets.find(x => x.id===V.setId);
-  const link = n => (p.variants||[]).find(v => v.name===n), kid = n => { const l = link(n); return l && S.products.find(x => x.id===l.productId && live(x)); };
-  const missing = set ? (set.options||[]).filter(n => !kid(n)).length : 0, changed = V.setId !== (p.variantSetId || "");
-  return `<div class="card tbl" style="margin-bottom:16px"><div class="ttop"><b>Variants</b><span class="note" style="margin-left:8px">${set ? "Each variant is its own product: open it to set its price, SKU, barcode, cost, recipe and tax. Switch each one on or off in Channels." : "Sold in sizes or versions? Pick a variant set (create sets under Menu → Variants)."}</span><div class="sp"></div>
-      <select class="sel" id="pvSet" aria-label="Variant set"><option value="">No variants</option>${sets.map(x=>`<option value="${esc(x.id)}" ${x.id===V.setId?"selected":""}>${esc(x.name)} (${(x.options||[]).join(", ")})</option>`).join("")}</select>
-      <button class="btn pri sm" data-pvsave ${(changed || missing) && !DET.saving ? "" : "disabled"}>${missing ? `Create ${missing} variant product${missing===1?"":"s"}` : "Save"}</button></div>
-    ${set ? `<table><thead><tr><th>Variant</th><th>Product</th><th>SKU</th><th class="num">Price</th><th class="num">Cost</th></tr></thead><tbody>${(set.options||[]).map(n => { const k = kid(n);
-      return `<tr${k ? ` class="clk" data-detopen="products:${esc(k.id)}" title="Open ${esc(k.name)}"` : ""}><td><b>${esc(n)}</b></td>${k ? `<td><a href="#products" class="lnk" data-detopen="products:${esc(k.id)}">${esc(k.name)}</a></td><td><span class="code">${esc(k.sku||"")}</span></td><td class="num">${usd(+k.price||0)}</td><td class="num">${fmtCost(productCost(k))}</td>`
-        : `<td colspan="4" class="note">Not created yet: it will copy ${esc(p.name)} (price, category, tax, recipe, modifiers) so you only change what differs.</td>`}</tr>`; }).join("")}</tbody></table>` : ""}</div>`;
+    return `<div class="card" style="margin-bottom:16px;display:flex;align-items:center;gap:10px"><b>Variant</b><span>${esc(v?.name||"")} of <a href="#products" class="lnk" data-detopen="products:${esc(par.id)}">${esc(par.name)}</a></span><span class="note">The POS, call center and web ordering show ${esc(par.name)} and ask which variant; this product is what's sold.</span></div>`; }
+  const rows = (p.variants||[]).map(v => ({ v, k: S.products.find(x => x.id===v.productId && live(x)) })).filter(x => x.k);
+  return `<div class="card tbl" style="margin-bottom:16px"><div class="ttop" style="flex-wrap:wrap;gap:8px"><b>Variants</b><span class="note">${rows.length ? "Each variant is sold as its own product with its own price, tax, SKU, recipe and modifiers. This product's price and tax aren't used." : "Sold in sizes or versions? Add each variant (e.g. Small, then Medium, then Large)."}</span><div class="sp"></div>
+      <input class="sel" id="pvNew" placeholder="Variant name, e.g. Large" style="min-width:200px" aria-label="New variant name"><button class="btn pri sm" data-pvadd ${DET.saving?"disabled":""}>+ Add variant</button></div>
+    ${rows.length ? `<table><thead><tr><th>Variant</th><th>Product</th><th>SKU</th><th class="num">Price</th><th>Tax</th><th class="num">Cost</th><th></th></tr></thead><tbody>${rows.map(({v,k}) => `<tr class="clk" data-detopen="products:${esc(k.id)}" title="Open ${esc(k.name)}"><td><b>${esc(v.name)}</b></td><td><a href="#products" class="lnk" data-detopen="products:${esc(k.id)}">${esc(k.name)}</a></td><td><span class="code">${esc(k.sku||"")}</span></td><td class="num">${usd(+k.price||0)}</td><td>${esc(tgName(k.taxGroup))}</td><td class="num">${fmtCost(productCost(k))}</td><td><button class="btn sm" data-pvrm="${esc(k.id)}" aria-label="Remove ${esc(v.name)}">×</button></td></tr>`).join("")}</tbody></table>` : ""}</div>`;
+}
+async function addVariant(){
+  const p = S.products.find(x=>x.id===DET.id), name = ($("#pvNew")?.value || "").trim(); if(!p) return;
+  if(!name){ $("#pvNew")?.focus(); return toast("Type the variant name"); }
+  if((p.variants||[]).some(v => v.name.toLowerCase()===name.toLowerCase() && S.products.some(x=>x.id===v.productId && live(x)))) return toast(`${name} is already a variant`);
+  const sib = varKids(p)[0], src = sib || p;                     // a new variant starts from an existing one (or from this product)
+  const used = S.products.filter(live).map(x=>x.sku).filter(Boolean), id = uid("prd"), sku = nextSku("products", used);
+  const copy = { name: `${p.name} (${name})`, sku, brandId:p.brandId||null, categoryId:p.categoryId||null, price:+src.price||0, taxGroup:src.taxGroup||null, pricingMethod:src.pricingMethod||"fixed",
+    costingMethod:src.costingMethod||"ingredients", cost:src.cost??null, sellingMethod:src.sellingMethod||"unit", prepTime:src.prepTime??null, calories:src.calories??null, description:p.description||"",
+    imageUrl:p.imageUrl||"", ingredients: JSON.parse(JSON.stringify(src.ingredients||[])), modifiers: JSON.parse(JSON.stringify(src.modifiers||[])),
+    inactiveBranchIds:[...(src.inactiveBranchIds||[])], customPrices:{ ...(src.customPrices||{}) }, sort:p.sort ?? null, active:true };
+  DET.saving = true; render();
+  try{ await put("products", id, copy);
+    const upd = { variants: [...(p.variants||[]).filter(v => S.products.some(x=>x.id===v.productId && live(x))), { name, productId:id }], ingredients: [], modifiers: [] };   // the variants carry recipes and modifiers
+    await put("products", p.id, upd); Object.assign(p, upd); toast(`${name} added · open it to set its price and details`); }
+  catch(e){ console.error(e); toast("Couldn't add the variant"); }
+  finally{ DET.saving = false; render(); setTimeout(() => $("#pvNew")?.focus(), 30); }
+}
+async function removeVariant(kid){
+  const p = S.products.find(x=>x.id===DET.id), k = S.products.find(x=>x.id===kid); if(!p || !k) return;
+  if(!confirm(`Remove the variant ${k.name}? Its product moves to Deleted.`)) return;
+  try{ await put("products", kid, { deleted:true }); const upd = { variants: (p.variants||[]).filter(v => v.productId!==kid) }; await put("products", p.id, upd); Object.assign(p, upd); toast("Variant removed"); render(); }
+  catch(e){ console.error(e); toast("Couldn't remove the variant"); }
 }
 function branchSettings(p, brs, price){
   const B = DET.br, yes = (arr, id) => arr.includes(id);
@@ -3153,6 +3177,7 @@ async function saveBranchSettings(){
 }
 document.addEventListener("click", e => {
   const t = e.target;
+  const pvx = t.closest("[data-pvrm]"); if(pvx){ e.preventDefault(); return removeVariant(pvx.dataset.pvrm); }
   const dop = t.closest("[data-detopen]"); if(dop){ e.preventDefault(); const [k, id] = dop.dataset.detopen.split(":"), rt = k==="modifier-options" ? "modifiers" : k; if(location.hash.slice(1)!==rt){ location.hash = rt; setTimeout(()=>openDetail(k, id), 60); } else openDetail(k, id); return; }
   const np = t.closest("[data-newprod]"); if(np){ e.preventDefault(); const id = np.dataset.newprod; location.hash = "production"; setTimeout(() => { newDoc("production"); docAddItems([id]); render(); }, 60); return; }
   if(!DET.id) return;
@@ -3160,7 +3185,8 @@ document.addEventListener("click", e => {
   if(t.closest("[data-detedit]")) return openCrud(DET.key, DET.id);
   if(t.closest("[data-dettoggle]")){ const col = CRUD[DET.key].col, r = S[col].find(x=>x.id===DET.id); return put(col, DET.id, { active: r.active===false }).then(()=>toast(r.active===false?"Activated":"Deactivated")).catch(()=>toast("Couldn't update")); }
   if(t.closest("[data-ingsave]")){ const pp = DET.key==="products" && S.products.find(x=>x.id===DET.id); if(pp && (pp.variants||[]).some(v=>v.productId)) return toast("This product has variants: set the recipe on each variant"); return saveIngredients(); }
-  if(t.closest("[data-pvsave]")) return saveVariants();
+  if(t.closest("[data-pvadd]")) return addVariant();
+
   if(t.closest("[data-brsave]")) return saveBranchSettings();
   const rm = t.closest("[data-ingrm]"); if(rm){ DET.ing.splice(+rm.dataset.ingrm, 1); DET.dirtyIng = true; return render(); }
 });
