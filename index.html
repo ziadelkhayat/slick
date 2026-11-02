@@ -442,6 +442,8 @@ tr[draggable="true"].dragging{opacity:.45}tr.dropto td{box-shadow:inset 0 2px 0 
 .ptabs a .ico{width:16px;height:16px;margin-right:6px;vertical-align:-3px}.ptabs a{flex:none;padding:7px 13px;border-radius:999px;font-size:13.5px;font-weight:500;color:var(--ink2);text-decoration:none;border:1px solid transparent;white-space:nowrap}
 .ptabs a:hover{background:var(--bg,#f4f3f8)}.ptabs a.on{background:#efe9fb;color:#5b2bc4;border-color:#d9ccf7;font-weight:600}
 .mlist{margin:3px 0 0;padding:0 0 0 16px;font-size:12px;line-height:1.45;color:#6b6a75;list-style:disc;text-align:left}.mlist li.mn{list-style:none;margin-left:-16px;font-style:italic}
+.tbadd{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;margin-top:10px}.tbadd label{display:flex;flex-direction:column;gap:4px;font-size:12.5px;color:#5b5a66;font-weight:500}.tbadd .sel{min-width:110px}
+.tblg{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px}.tblc{display:grid;grid-template-columns:auto 1fr auto;gap:8px;align-items:center;border:1px solid var(--line,#e8e8f0);border-radius:12px;padding:10px}.tblc .sel{width:100%;min-width:0}.tblc .tn{grid-column:1/3;font-weight:700;font-size:15px}.tblc .x{grid-column:3;grid-row:1}.tblc label{display:flex;align-items:center;gap:6px;grid-column:1;white-space:nowrap}.tblc .ts{width:64px}.tblc select{grid-column:2/4}
 </style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -562,7 +564,7 @@ const NAV = [
   {t:"Reports",i:"chart",kids:[["sales-reports","Sales Reports"],["inventory-reports","Inventory Reports"],["business-reports","Business Reports"],["analysis-reports","Analysis Reports"]]},
   {t:"Inventory",i:"box",tabs:1,kids:[["inv-categories","Inventory Categories"],["inv-items","Items"],["warehouses","Locations"],["suppliers","Suppliers"],["purchase-orders","Purchase Orders"],["transfer-orders","Transfer Orders"],["transfers","Transfers"],["inventory-count","Inventory Count"],["production","Production"],["quantity-adjustments","Quantity Adjustment"],["cost-adjustments","Cost Adjustment"],["spot-check","Inventory Spot Check"],["count-sheets","Count Sheet"]]},
   {t:"Menu",i:"book",tabs:1,kids:[["@Menu Builder"],["categories","Categories"],["products","Products"],["modifiers","Modifiers"],["branch-menu","Channels"],["combos","Combos"],["groups","Groups"],["@Menu Settings"],["price-tags","Price Tags"],["allergens","Allergens"]]},
-  {t:"Manage",i:"gear",kids:[["users","Users"],["roles","Roles"],["brands","Brands"],["branches","Branches"],["devices","Devices"],["taxes","Taxes & Groups"],["payment-methods","Payment Methods"],["order-sources","Order Sources"],["charges","Charges"],["delivery-zones","Delivery Zones"],["online-ordering","Web Ordering"],["kitchen-flows","Kitchen Flows"],["reasons","Reasons"],["settings","Settings"]]},
+  {t:"Manage",i:"gear",kids:[["users","Users"],["roles","Roles"],["brands","Brands"],["branches","Branches"],["devices","Devices"],["tables","Tables"],["taxes","Taxes & Groups"],["payment-methods","Payment Methods"],["order-sources","Order Sources"],["charges","Charges"],["delivery-zones","Delivery Zones"],["online-ordering","Web Ordering"],["kitchen-flows","Kitchen Flows"],["reasons","Reasons"],["settings","Settings"]]},
   {t:"Marketing",i:"tag",kids:[["loyalty","Loyalty"],["gift-cards","Gift Cards"],["discounts","Discounts"],["promotions","Promotions"],["coupons","Coupons"]]}
 ];
 const TITLES = { account:"Account settings" };
@@ -633,7 +635,7 @@ const SUBI = {
   "inv-items":"box","suppliers":"truck","purchase-orders":"cart","transfer-orders":"clipboard","transfers":"swap","inventory-count":"sheet","production":"factory",
   "quantity-adjustments":"sliders","cost-adjustments":"dollar","order-transactions":"receipt","inv-categories":"folder","warehouses":"warehouse","spot-check":"search","count-sheets":"list",
   "categories":"grid","products":"utensils","modifiers":"layers","variants":"sliders","modifier-options":"list","branch-menu":"store","combos":"combo","groups":"folder","price-tags":"pricetag","allergens":"alert",
-  "company":"building","users":"user","roles":"shield","brands":"store","branches":"map","devices":"tablet","taxes":"percent","payment-methods":"card","order-sources":"source",
+  "company":"building","users":"user","roles":"shield","brands":"store","branches":"map","devices":"tablet","tables":"grid","taxes":"percent","payment-methods":"card","order-sources":"source",
   "charges":"plusc","delivery-zones":"globe","online-ordering":"globe","kitchen-flows":"flow","reasons":"message","settings":"gear",
   "loyalty":"heart","gift-cards":"gift","discounts":"percent","promotions":"megaphone","coupons":"ticket",
   "dashboard":"dash","orders":"orders","call-center":"phone","customers":"users"
@@ -804,7 +806,7 @@ const mins = v => v==null ? "—" : (+v).toFixed(1) + " min";
 function dashSoon(){ clearTimeout(DASH.t); DASH.t = setTimeout(() => loadDash(true), 1500); }   // new/changed orders → refresh
 setInterval(() => { if((location.hash.slice(1)||"dashboard")==="dashboard" && !document.hidden && state.date===todayStr()) loadDash(true); }, 60000);
 const hours24 = (rows, f) => { const a = Array(24).fill(0), sh = dayStartH(); (rows||[]).forEach(r => a[(r.h - sh + 24) % 24] = +r[f]||0); return a; };   // starts at the business day's first hour
-const TYPE_LBL = { dinein:"Dine-in", pickup:"Pickup", takeaway:"Pickup", delivery:"Delivery", fast:"Fast order", other:"Other" };
+const TYPE_LBL = { dinein:"Dine-in", pickup:"Pickup", takeaway:"Pickup", delivery:"Delivery", fast:"Fast sale", other:"Other" };
 const CH_LBL = { pos:"POS", online:"Web ordering", callcenter:"Call center", other:"Other" };
 const PAY_LBL = { cash:"Cash", card:"Card", other:"Other", "on delivery":"Pay on delivery" };
 const cap = s => String(s||"").charAt(0).toUpperCase() + String(s||"").slice(1);
@@ -1472,7 +1474,7 @@ const CRUD = {
       ["Applies",r=>r.auto===false?'<span class="tag off">When picked</span>':'<span class="tag on">Automatically</span>'],["Status",r=>r.active===false?'<span class="tag off">Inactive</span>':'<span class="tag on">Active</span>']],
     fields:[{k:"name",l:"Name",req:1,ph:"e.g. Delivery charge, Service charge"},{k:"nameAr",l:"Name (Arabic)"},
       {k:"type",l:"Type",t:"select",req:1,opts:()=>[["fixed","Fixed amount (USD)"],["percent","Percentage of the order"]],def:"fixed"},{k:"value",l:"Value",t:"number",req:1,ph:"e.g. 2 or 10"},
-      {k:"orderTypes",l:"Order types it applies to",t:"multi",full:1,opts:()=>[["dinein","Dine-in"],["fast","Fast order"],["pickup","Pickup"],["delivery","Delivery"]],def:["delivery"]},
+      {k:"orderTypes",l:"Order types it applies to",t:"multi",full:1,opts:()=>[["dinein","Dine-in"],["fast","Fast sale"],["pickup","Pickup"],["delivery","Delivery"]],def:["delivery"]},
       {k:"auto",l:"Add automatically to matching orders",t:"chk",def:true},
       {k:"brandIds",l:"Brands (none ticked = every brand)",t:"multi",full:1,opts:()=>brandList().map(b=>[b.id,b.name])},
       {k:"branchIds",l:"Branches (none ticked = every branch)",t:"multi",full:1,opts:()=>branches.filter(b=>b.active!==false).map(b=>[b.id,(brandList().length>1?brandName(b.brandId)+" · ":"")+b.name])},
@@ -1954,7 +1956,7 @@ const ccTime = t => { if(!t) return "—"; const d = new Date(t), today = bizDat
 const ccCard = o => `<button class="ocard" data-order="${esc(o.id)}"><div class="orow"><b>${esc(ordRef(o))}</b><span class="spill s-${o.status}">${CC_SUB[o.status]}</span></div>
   <div class="oline">${svgIco("users")}<span>${esc(o.customerName||"Guest")}<br><span class="note">${esc(o.phone||"")}</span></span></div>
   <div class="oline">${svgIco("dash")}<span class="note">Created ${ccTime(o.createdAt)}<br>Modified ${ccTime(o.updatedAt||o.createdAt)}</span></div>
-  <div class="oline">${svgIco("phone")}<span>${esc(o.source||"Phone")} · ${o.type==="pickup"?"Pickup":o.type==="dinein"?"Dine-in":o.type==="fast"?"Fast order":"Delivery"}<br><span class="note">${esc(o.agent||"Operator")}</span></span></div>
+  <div class="oline">${svgIco("phone")}<span>${esc(o.source||"Phone")} · ${o.type==="pickup"?"Pickup":o.type==="dinein"?"Dine-in":o.type==="fast"?"Fast sale":"Delivery"}<br><span class="note">${esc(o.agent||"Operator")}</span></span></div>
   <div class="ototal">${usd(o.total)}</div>${o.lat?`<div class="oline">${mapLink(o)}</div>`:""}<div class="oline">${svgIco("box")}<span>${esc(brandName(o.brandId))} · ${esc(branchName(o.branchId))}${""}</span></div></button>`;
 
 let ccEdit = null, cart = [];
@@ -2197,7 +2199,7 @@ document.addEventListener("change", e => { if(e.target.id==="dBrand") $("#dBranc
 const OT3 = [["dinein","Dine-in"],["takeaway","Pickup"],["delivery","Delivery"]];
 function devSummary(d){ const s = d.settings || {}, bits = [];
   if(d.type==="cashier" && S.devices.some(x => live(x) && x.branchId===d.branchId && x.settings?.master)) bits.push(s.master ? "Master POS" : "Sub-POS");
-  if(s.autoAccept) bits.push("Auto-accepts orders"); if(+s.lockMinutes) bits.push(`Locks after ${s.lockMinutes} min`); if(+s.tables) bits.push(`${s.tables} tables`); if(s.kitchenPrinter) bits.push("Kitchen printer");
+  if(s.autoAccept) bits.push("Auto-accepts orders"); if(+s.lockMinutes) bits.push(`Locks after ${s.lockMinutes} min`); if(s.kitchenPrinter) bits.push("Kitchen printer");
   return bits.length ? `<div class="note">${bits.map(esc).join(" · ")}</div>` : ""; }
 function openDeviceSettings(id){
   const d = S.devices.find(x=>x.id===id); if(!d) return; const s = d.settings || {}, br = branches.find(b=>b.id===d.branchId), brTypes = br?.settings?.orderTypes || OT3.map(x=>x[0]);
@@ -2212,8 +2214,8 @@ function openDeviceSettings(id){
     <div class="f"><label for="ds_branch">Branch</label><select id="ds_branch" class="sel">${devBranchOpts(br?.brandId || "", d.branchId)}</select><div class="note">Moving a tablet to another branch needs a new activation code.</div></div>
     <h4 class="fsec">Orders</h4>
     <div class="f full"><label>Order types on this device</label><div class="multi" id="ds_types">${OT3.map(([k,t])=>`<label class="chk"><input type="checkbox" value="${k}" ${types.includes(k)?"checked":""} ${brTypes.includes(k)?"":"disabled"}> ${t}${brTypes.includes(k)?"":" (off for this branch)"}</label>`).join("")}</div></div>
-    <div class="f"><label for="ds_defaultType">Default order type</label>${sel("defaultType", s.defaultType==="dinein" ? "dinein" : s.defaultType ? "fast" : (types[0]==="dinein" ? "dinein" : "fast"), [["dinein","Dine-in"],["fast","Fast order"]])}</div>
-    <div class="f"><label for="ds_tables">Dine-in tables</label><input id="ds_tables" type="number" min="0" max="200" value="${esc(s.tables ?? "")}" placeholder="0 = type the table number"></div>
+    <div class="f"><label for="ds_defaultType">Default order type</label>${sel("defaultType", s.defaultType==="dinein" ? "dinein" : s.defaultType ? "fast" : (types[0]==="dinein" ? "dinein" : "fast"), [["dinein","Dine-in"],["fast","Fast sale"]])}</div>
+    
     <div class="f full"><label class="chk"><input type="checkbox" id="ds_master" ${s.master?"checked":""}> Master POS for this branch</label><div class="note">One per branch. The master POS accepts call-center and web orders and ends the day; every other cashier device is a sub-POS that sells, sends and bills orders.</div></div>
     <div class="f full"><label class="chk"><input type="checkbox" id="ds_autoAccept" ${s.autoAccept?"checked":""}> Auto-accept call-center and web orders for this branch (sends them straight to the kitchen and gives them this device's order number)</label></div>
     <h4 class="fsec">Printing &amp; hardware</h4>
@@ -2236,7 +2238,7 @@ async function saveDeviceSettings(){
   const orderTypes = [...document.querySelectorAll("#ds_types input:checked")].map(i=>i.value);
   if(!orderTypes.length){ $("#cErr").textContent = "Pick at least one order type."; return; }
   const defaultType = orderTypes.includes(v("defaultType")) ? v("defaultType") : orderTypes[0];
-  const settings = { ...(d.settings||{}), orderTypes, defaultType, tables: +v("tables") || 0, autoAccept: ck("autoAccept"), master: ck("master") && v("type")==="cashier", receipt: v("receipt"), copies: Math.max(1, +v("copies") || 1),
+  const settings = { ...(d.settings||{}), orderTypes, defaultType, autoAccept: ck("autoAccept"), master: ck("master") && v("type")==="cashier", receipt: v("receipt"), copies: Math.max(1, +v("copies") || 1),
     kitchenPrinter: v("kitchenPrinter"), receiptPrinter: v("receiptPrinter"), cashDrawer: ck("cashDrawer"), lockMinutes: Math.max(0, +v("lockMinutes") || 0), lockAfterSale: ck("lockAfterSale") };
   const ch = { name, reference: v("reference"), type: v("type"), settings };
   if(!v("branch")){ $("#cErr").textContent = "Pick the branch."; return; }
@@ -2448,6 +2450,7 @@ function moduleRoute(route){
   if(CRUD[route]) return crudView(route);
   if(route==="call-center") return viewCallCenter();
   if(route==="devices") return viewDevices();
+  if(route==="tables") return viewTables();
   if(route==="online-ordering") return viewOnline();
   if(route==="account") return viewAccount();
   if(route==="branch-menu") return viewBranchMenu();
@@ -2461,6 +2464,47 @@ function moduleRoute(route){
   if(route==="__old_order_tx") return `<h1>Order Transactions</h1><p class="subt">Consumption, returns and waste created automatically from sales.</p>` + placeholder("Starts with recipes", "Each sold product will deduct its recipe ingredients from the branch stock and show up here (Consumption, Return, Waste). It turns on next, now that products have ingredients (open a product under Menu → Products).");
   return null;
 }
+
+/* ---------- Manage → Tables: dine-in tables per branch (the POS Tables screen) ---------- */
+// stored in settings "tables" as { [branchId]: [{ id, name, section, seats }] }
+const tblCfg = () => S.settings.find(s => s.id==="tables") || {};
+const tblBranchId = () => { const l = branches.filter(b => b.active!==false); if(!l.some(b => b.id===state.tblBranch)) state.tblBranch = l[0]?.id || ""; return state.tblBranch; };
+const tblList = b => (tblCfg()[b] || []).slice();
+async function tblSave(b, list){ try{ await put("settings", "tables", { [b]: list }); }catch(err){ console.error(err); toast("Couldn't save. Only the owner or an admin can change tables."); } }
+function viewTables(){
+  const b = tblBranchId(), list = tblList(b), secs = [...new Set(list.map(t => t.section || ""))];
+  const card = t => `<div class="tblc"><input class="sel tn" data-tbf="${esc(t.id)}:name" value="${esc(t.name)}" aria-label="Table name"><label class="note">Seats <input class="sel ts" data-tbf="${esc(t.id)}:seats" type="number" min="0" max="50" value="${esc(t.seats ?? "")}"></label>
+    <select class="sel" data-tbf="${esc(t.id)}:section" aria-label="Section">${[...new Set([...secs, t.section || ""])].map(s => `<option value="${esc(s)}" ${s===(t.section||"")?"selected":""}>${esc(s || "No section")}</option>`).join("")}</select><button class="x" data-tbdel="${esc(t.id)}" title="Remove table" aria-label="Remove table">×</button></div>`;
+  return `<div class="phead"><h1>Tables</h1><div class="sp"></div></div>
+    <p class="subt">Dine-in tables of each branch. The POS shows them on its Tables screen, grouped by section; a cashier taps a table to start its order.</p>
+    ${branches.filter(x => x.active!==false).length > 1 ? `<div class="tabs" style="margin-bottom:16px">${branches.filter(x => x.active!==false).map(x => `<button class="tab ${x.id===b?"on":""}" data-tbbr="${esc(x.id)}">${esc(x.name)} <span class="note">${tblList(x.id).length}</span></button>`).join("")}</div>` : ""}
+    <div class="card" style="padding:16px;margin-bottom:16px"><b>Add tables</b>
+      <div class="tbadd"><label>Section<input class="sel" id="tbSec" list="tbSecs" placeholder="e.g. Indoor, Terrace"></label><datalist id="tbSecs">${secs.filter(Boolean).map(s => `<option value="${esc(s)}">`).join("")}</datalist>
+      <label>From no.<input class="sel" id="tbFrom" type="number" min="1" value="${list.length + 1}"></label><label>To no.<input class="sel" id="tbTo" type="number" min="1" value="${list.length + 1}"></label>
+      <label>Name prefix<input class="sel" id="tbPre" placeholder="optional, e.g. T"></label><label>Seats<input class="sel" id="tbSeats" type="number" min="0" value="4"></label>
+      <button class="btn pri" id="tbAdd">Add</button></div><div class="note" id="tbErr"></div></div>
+    ${list.length ? secs.map(s => `<div class="card" style="padding:16px;margin-bottom:12px"><div style="display:flex;align-items:center;gap:8px;margin-bottom:10px"><b>${esc(s || "No section")}</b><span class="note">${list.filter(t => (t.section||"")===s).length} tables · ${list.filter(t => (t.section||"")===s).reduce((a,t) => a + (+t.seats||0), 0)} seats</span>
+        <div class="sp" style="flex:1"></div>${s ? `<button class="btn" data-tbrensec="${esc(s)}">Rename section</button>` : ""}</div>
+      <div class="tblg">${list.filter(t => (t.section||"")===s).map(card).join("")}</div></div>`).join("")
+      : `<div class="empty">No tables for this branch yet. Add them above, e.g. from 1 to 12.</div>`}`;
+}
+document.addEventListener("click", async e => {
+  const t = e.target; if(!t.closest || !t.closest("#view")) return;
+  const br = t.closest("[data-tbbr]"); if(br){ state.tblBranch = br.dataset.tbbr; render(); return; }
+  if(t.closest("#tbAdd")){ const b = tblBranchId(), list = tblList(b), from = +$("#tbFrom").value, to = +$("#tbTo").value || from, pre = $("#tbPre").value.trim(), sec = $("#tbSec").value.trim(), seats = +$("#tbSeats").value || 0;
+    if(!(from >= 1) || to < from || to - from > 200){ $("#tbErr").textContent = "Enter a valid range (at most 200 tables at once)."; return; }
+    const names = new Set(list.map(x => String(x.name).toLowerCase())), add = [];
+    for(let n = from; n <= to; n++){ const name = pre + n; if(names.has(name.toLowerCase())) continue; add.push({ id: uid("tb"), name, section: sec, seats }); }
+    if(!add.length){ $("#tbErr").textContent = "Those tables already exist."; return; }
+    await tblSave(b, [...list, ...add]); toast(add.length + (add.length===1 ? " table" : " tables") + " added"); return; }
+  const del = t.closest("[data-tbdel]"); if(del){ const b = tblBranchId(), x = tblList(b).find(y => y.id===del.dataset.tbdel); if(!x || !confirm(`Remove table ${x.name}?`)) return; await tblSave(b, tblList(b).filter(y => y.id!==x.id)); toast("Table removed"); return; }
+  const rs = t.closest("[data-tbrensec]"); if(rs){ const old = rs.dataset.tbrensec, nn = (prompt("Section name", old) || "").trim(); if(!nn || nn===old) return; const b = tblBranchId(); await tblSave(b, tblList(b).map(y => (y.section||"")===old ? { ...y, section: nn } : y)); toast("Section renamed"); return; }
+});
+document.addEventListener("change", async e => { const f = e.target.closest && e.target.closest("[data-tbf]"); if(!f) return;
+  const [id, k] = f.dataset.tbf.split(":"), b = tblBranchId(), list = tblList(b), x = list.find(y => y.id===id); if(!x) return;
+  let v = f.value.trim(); if(k==="seats") v = Math.max(0, +v || 0);
+  if(k==="name"){ if(!v){ f.value = x.name; return; } if(list.some(y => y.id!==id && String(y.name).toLowerCase()===v.toLowerCase())){ toast("Another table already has that name"); f.value = x.name; return; } }
+  await tblSave(b, list.map(y => y.id===id ? { ...y, [k]: v } : y)); toast("Saved"); });
 
 /* ---------- Orders: every order from every channel, any date range ---------- */
 const ORD_TABS = [["all","All"],["draft","Draft"],["pending","Pending"],["active","Active"],["closed","Done"],["declined","Declined"],["void","Void"],["refund","Refunds"]];
@@ -2521,7 +2565,7 @@ function viewOrders(){
     ${sel("ordBranch", ORD.branch, [["","All branches"], ...branches.filter(b=>!ORD.brand || b.brandId===ORD.brand).map(b=>[b.id,esc(b.name)])])}
     ${sel("ordChannel", ORD.channel, [["","All channels"],["pos","POS"],["callcenter","Call center"],["online","Web ordering"]])}
     ${sel("ordSource", ORD.source, [["","All sources"], ...ordSources().map(x=>[esc(x),esc(x)])])}
-    ${sel("ordType", ORD.type, [["","All types"],["dinein","Dine-in"],["fast","Fast order"],["pickup","Pickup"],["delivery","Delivery"]])}
+    ${sel("ordType", ORD.type, [["","All types"],["dinein","Dine-in"],["fast","Fast sale"],["pickup","Pickup"],["delivery","Delivery"]])}
     ${sel("ordPay", ORD.pay, [["","All payments"], ...ordPays().map(x=>[esc(x),esc(x)])])}
     <input class="sel" id="ordQ" placeholder="Reference, order #, invoice #, customer, phone" value="${esc(ORD.q)}" style="min-width:210px">
   </div>
