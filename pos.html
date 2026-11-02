@@ -83,6 +83,16 @@ button{cursor:pointer}
 .scrim.show{display:flex}
 .modal{background:var(--s);border-radius:16px;width:min(520px,100%);max-height:92vh;overflow:auto}
 .modal.wide{width:min(860px,100%)}
+.pdcols{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:18px;align-items:start}@media (max-width:760px){.pdcols{grid-template-columns:1fr}}
+.pdside{display:flex;flex-direction:column;gap:10px}#modal:has(.pdform) .mf{position:sticky;bottom:0;background:var(--s);z-index:2}
+.cins{border:1px solid var(--line);border-radius:14px;padding:12px;background:#f8f7fc;display:flex;flex-direction:column;gap:8px}.cins-h{display:flex;justify-content:space-between;align-items:baseline;gap:8px;font-size:14px}
+.cins-g{display:grid;grid-template-columns:1fr 1fr;gap:8px}.cins-g div{display:flex;flex-direction:column;font-size:12px;color:var(--mut,#6b6880);background:#fff;border-radius:10px;padding:7px 9px}.cins-g b{font-size:16px;color:inherit;color:#15131f}
+.ctags{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:12.5px}.ctags .tag{background:#efeafe;color:#5b3fd6;border-radius:999px;padding:3px 9px;font-weight:600}.ctags .tag.bad{background:#fde8e8;color:#b42318}
+.cmix{font-size:12.5px;color:#6b6880}.cfav{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:12.5px}.cfav span{color:#6b6880;width:100%}.cfav b{background:#fff;border:1px solid var(--line);border-radius:999px;padding:3px 10px;font-weight:600}.cfav small{color:#6b6880}
+.cpast{display:flex;flex-direction:column;gap:6px;font-size:13px}.cpo{display:grid;grid-template-columns:1fr auto;gap:2px 8px;align-items:center;border:1px solid var(--line);border-radius:12px;padding:9px 11px}.cpo .mut{font-size:12px}
+.acards{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px}
+.acard{display:flex;flex-direction:column;gap:3px;text-align:left;border:1px solid var(--line);background:#fff;border-radius:12px;padding:10px 12px;cursor:pointer;font:inherit;font-size:13px;color:inherit;min-height:56px}
+.acard span{color:#6b6880;font-size:12px}.acard.on{border-color:#6a4cf5;background:#f3efff}.acard.new{border-style:dashed}
 .mh{display:flex;align-items:center;padding:16px 20px;border-bottom:1px solid var(--line)}.mh h2{margin:0;font-size:18px;flex:1}
 .x{border:0;background:none;font-size:24px;color:var(--mut)}
 .mb{padding:18px 20px}
@@ -751,7 +761,7 @@ function resetOrder(){ EDIT = null; orderNote = ""; GUESTS = 0; otype = defaultT
 let modalKind = null;
 function modal(kind, html, wide){ modalKind = kind; hideMore(); paintNav(); $("#scrim").classList.remove("fullscr"); $("#modal").className = "modal" + (wide?" wide":""); $("#modal").innerHTML = html; $("#scrim").classList.add("show"); }
 function closeModal(){ $("#scrim").classList.remove("show"); modalKind = null; paintNav(); }
-$("#scrim").addEventListener("click", e => { if(e.target.id==="scrim" || e.target.closest("[data-close]")) closeModal(); });
+$("#scrim").addEventListener("click", e => { if(e.target.id==="scrim" && modalKind==="pdnew") return pdCancel(); if(e.target.id==="scrim" || e.target.closest("[data-close]")) closeModal(); });
 
 function openDiscount(){
   if(!can("pos_discount")) return deny("discounts");
@@ -796,7 +806,9 @@ $("#modal").addEventListener("click", async e => {
   if(e.target.closest("[data-pdnew]")){ PD = null; return openPDNew(); }
   const pnt = e.target.closest("[data-pdnewt]"); if(pnt){ PD = null; return openPDNew(); }
   const pdt = e.target.closest("[data-pdt]"); if(pdt){ pdKeep(); PD.type = pdt.dataset.pdt; return openPDNew(); }
-  const pda = e.target.closest("[data-pdaddr]"); if(pda){ pdKeep(); const a = (PD.cust?.addresses||[])[+pda.dataset.pdaddr]; if(a) PD.addr = addrParts(a.address); return openPDNew(); }
+  const pda = e.target.closest("[data-pdaddr]"); if(pda){ pdKeep(); const a = (PD.cust?.addresses||[]).filter(x => x.address)[+pda.dataset.pdaddr]; if(a) PD.addr = addrParts(a.address); return openPDNew(); }
+  if(e.target.closest("[data-pdnewaddr]")){ pdKeep(); PD.addr = {}; openPDNew(); return $("#pdA_label")?.focus(); }
+  if(e.target.closest("[data-pdcancel]")) return pdCancel();
   if(e.target.closest("#pdGo")) return pdContinue();
   const hg = e.target.closest("[data-hget]"); if(hg) return retrieveHeld(hg.dataset.hget);
   const hd = e.target.closest("[data-hdel]"); if(hd){ if(!(await askYes("Delete this held order?", "Delete", true))) return; heldSave(heldList().filter(x => x.id!==hd.dataset.hdel)); return openHeld(); }
@@ -1199,7 +1211,6 @@ $("#devicesBtn").addEventListener("click", () => { hideMore(); openDevices(); })
 $("#diagBtn").addEventListener("click", () => { hideMore(); openDiag(); });
 $("#bnav").addEventListener("click", e => { const b = e.target.closest("[data-nav]"); if(!b) return; const k = b.dataset.nav; hideMore();
   if(k==="home"){ closeModal(); cat = ""; $("#q").value = ""; renderMenu(); return; }
-  if(k==="new" && modalKind==="board"){ PD = null; return openPDNew(); }
   if(k==="new"){ closeModal(); unloadOrder(); cat = ""; $("#q").value = ""; renderMenu(); return toast("New order"); }
   if(k==="orders") return openIncoming();
   if(k==="tables") return openTables();
@@ -1242,26 +1253,70 @@ function openPDNew(){
   if(!types.includes(PD.type)) PD.type = types[0];
   const A = [["label","Address name (Home, Work…)"],["street","Area / street *"],["building","Building name / no. *"],["floor","Floor *"],["extra","Additional info"]];
   const saved = (PD.cust?.addresses || []).filter(a => a.address);
-  modal("pdnew", `<div class="mh"><h2>${PD.edit ? "Customer & delivery" : "New order · Customer & delivery"}</h2><button class="x" data-close aria-label="Close">×</button></div><div class="mb">
+  const side = PD.cust ? pdSide() : "";
+  modal("pdnew", `<div class="mh"><h2>${PD.edit ? "Customer & delivery" : "New order · Customer & delivery"}</h2></div><div class="mb${side ? " pdcols" : ""}"><div class="pdform">
     <div class="dseg" style="margin-bottom:14px">${types.map(t => `<button type="button" data-pdt="${t}" class="${PD.type===t?"on":""}">${t==="delivery" ? "Delivery" : "Pickup"}</button>`).join("")}</div>
-    <div class="f"><label for="pdPhone">Customer phone *</label><input id="pdPhone" inputmode="tel" value="${esc(PD.phone)}" placeholder="e.g. 70123456" autocomplete="off"><div class="mut" id="pdHint" style="min-height:18px">${PD.cust ? pdHint(PD.cust) : ""}</div></div>
+    <div class="f"><label for="pdPhone">Customer phone *</label><input id="pdPhone" inputmode="tel" value="${esc(PD.phone)}" placeholder="e.g. 70123456" autocomplete="off"><div class="mut" id="pdHint" style="min-height:18px">${PD.cust && !side ? pdHint(PD.cust) : ""}</div></div>
     <div class="f"><label for="pdName">Customer name *</label><input id="pdName" value="${esc(PD.name)}"></div>
-    ${PD.type==="delivery" ? `${saved.length ? `<div class="f"><label>Saved addresses</label><div class="chgs">${saved.map((a,i) => `<button type="button" class="chg${addrJoin(PD.addr)===a.address?" on":""}" data-pdaddr="${i}">📍 ${esc(a.address)}</button>`).join("")}</div></div>` : ""}
+    ${PD.type==="delivery" ? `${saved.length ? `<div class="f"><label>Saved addresses · ${saved.length}</label><div class="acards">${saved.map((a,i) => { const p = addrParts(a.address);
+        return `<button type="button" class="acard${addrJoin(PD.addr)===addrJoin(p)?" on":""}" data-pdaddr="${i}"><b>${esc(p.label || "Address " + (i+1))}</b><span>${esc([p.street, p.building && "Bldg " + p.building, p.floor && "Floor " + p.floor].filter(Boolean).join(" · ") || a.address)}</span></button>`; }).join("")}
+        <button type="button" class="acard new${saved.some(a => addrJoin(PD.addr)===addrJoin(addrParts(a.address))) ? "" : " on"}" data-pdnewaddr><b>+ New address</b><span>Type it below · it's saved to the customer</span></button></div></div>` : ""}
       <div class="f"><label>Delivery address</label><div class="addrg">${A.map(([k,ph]) => `<input id="pdA_${k}" placeholder="${ph}" value="${esc(PD.addr[k]||"")}"${k==="extra"||k==="label"?' class="wide"':""}>`).join("")}</div></div>` : ""}
-    <div class="err" id="pdErr"></div></div>
-    <div class="mf"><button class="btn" data-close>Cancel</button><button class="btn pri" id="pdGo">${PD.edit ? "Save details" : "Continue"}</button></div>`);
+    <div class="err" id="pdErr"></div></div>${side}</div>
+    <div class="mf"><button class="btn" data-pdcancel>Cancel</button><button class="btn pri" id="pdGo">${PD.edit ? "Save details" : "Continue"}</button></div>`, !!side);
   setTimeout(() => (PD.phone ? $("#pdName") : $("#pdPhone"))?.focus(), 30);
 }
 const pdHint = c => `${c.blacklisted ? '<b style="color:#b42318">⚠ Blacklisted customer.</b> ' : "Returning customer. "}${(c.tags||[]).map(t => esc(t)).join(", ")}${c.notes ? ` · <i>${esc(c.notes)}</i>` : ""}`;
 async function pdLookup(){
   const ph = normPhone($("#pdPhone")?.value); if(!PD) return;
-  if(ph.length < 6 || !window.WOK?.sb || !navigator.onLine){ PD.cust = null; if($("#pdHint")) $("#pdHint").innerHTML = ""; return; }
-  try{ const { data } = await window.WOK.sb.from("customers").select("id,name,addresses,blacklisted,notes,tags").eq("phone", ph).maybeSingle();
+  if(ph.length < 6 || !window.WOK?.sb || !navigator.onLine){ const had = !!PD.cust; PD.cust = null; PD.past = []; if(had && modalKind==="pdnew"){ pdKeep(); PD.cust = null; openPDNew(); const i = $("#pdPhone"); i.focus(); i.setSelectionRange(i.value.length, i.value.length); } if($("#pdHint")) $("#pdHint").innerHTML = ""; return; }
+  try{ const { data } = await window.WOK.sb.from("customers").select("id,name,addresses,blacklisted,notes,tags,created_at").eq("phone", ph).maybeSingle();
+    if(normPhone($("#pdPhone")?.value) !== ph || modalKind!=="pdnew") return;
+    PD.past = data ? await pdPast(data.id, ph) : [];
     if(normPhone($("#pdPhone")?.value) !== ph || modalKind!=="pdnew") return;
     pdKeep(); PD.cust = data || null;
     if(data){ if(!PD.name && data.name) PD.name = data.name; if(PD.type==="delivery" && !ADDR_K.some(k => PD.addr[k]) && data.addresses?.[0]?.address) PD.addr = addrParts(data.addresses[0].address); openPDNew(); const i = $("#pdPhone"); i.focus(); i.setSelectionRange(i.value.length, i.value.length); }
-    else $("#pdHint").innerHTML = "New customer · enter their name";
+    else { if($(".pdside")){ openPDNew(); const i = $("#pdPhone"); i.focus(); i.setSelectionRange(i.value.length, i.value.length); } $("#pdHint").innerHTML = "New customer · enter their name"; }
   }catch(e){ console.warn(e); }
+}
+// previous orders of this customer: the call center links them by customer, the POS by phone
+async function pdPast(id, ph){
+  let rows = [];
+  try{ const { data } = await window.WOK.sb.from("orders").select("id,no,invoice_no,status,type,total,items,branch_id,created_at")
+      .or(`customer_id.eq.${id},phone.eq.${ph}`).order("created_at", { ascending:false }).limit(100);
+    rows = (data || []).map(o => ({ id:o.id, no:o.no, inv:o.invoice_no, status:o.status, type:o.type, total:+o.total||0, items:o.items||[], branchId:o.branch_id, at:o.created_at })); }catch(e){ console.warn(e); }
+  const seen = new Set(rows.map(o => o.id));
+  S.orders.filter(o => !seen.has(o.id) && normPhone(o.phone)===ph).forEach(o => rows.push({ id:o.id, no:o.no, inv:o.invoiceNo, status:o.status, type:o.type, total:+o.total||0, items:o.items||[], branchId:o.branchId, at:o.createdAt }));
+  return rows.filter(o => ["pending","active","closed"].includes(o.status)).sort((a,b) => String(b.at).localeCompare(String(a.at)));
+}
+function pdSide(){
+  const c = PD.cust, ok = PD.past || [], spent = ok.reduce((s,o) => s + o.total, 0);
+  const fav = {}; ok.forEach(o => (o.items||[]).forEach(i => { if(!i.voided) fav[i.name] = (fav[i.name]||0) + (+i.qty||1); }));
+  const top = Object.entries(fav).sort((a,b) => b[1]-a[1]).slice(0,3);
+  const nType = k => ok.filter(o => o.type===k).length;
+  const d = x => x ? new Date(x).toLocaleDateString("en-GB", { day:"numeric", month:"short", year:"numeric" }) : "—";
+  const since = d(c.created_at || ok[ok.length-1]?.at);
+  const tl = { delivery:"Delivery", takeaway:"Pickup", dinein:"Dine-in", fast:"Fast sale" };
+  return `<div class="pdside"><div class="cins"><div class="cins-h"><b>${esc(c.name || "Customer")}</b><span class="mut">Since ${since}</span></div>
+    ${c.blacklisted || (c.tags||[]).length || c.notes ? `<div class="ctags">${c.blacklisted ? '<span class="tag bad">⚠ Blacklisted</span>' : ""}${(c.tags||[]).map(x => `<span class="tag">${esc(x)}</span>`).join("")}${c.notes ? `<i>${esc(c.notes)}</i>` : ""}</div>` : ""}
+    <div class="cins-g"><div><span>Orders</span><b>${ok.length}</b></div><div><span>Total spent</span><b>${usd(spent)}</b></div><div><span>Avg. order</span><b>${usd(ok.length ? spent/ok.length : 0)}</b></div><div><span>Last order</span><b>${ok[0] ? d(ok[0].at) : "—"}</b></div></div>
+    ${ok.length ? `<div class="cmix">${nType("delivery")} delivery · ${nType("takeaway")} pickup${nType("dinein")+nType("fast") ? ` · ${nType("dinein")+nType("fast")} in store` : ""}</div>` : ""}
+    ${top.length ? `<div class="cfav"><span>Usually orders</span>${top.map(([n,q]) => `<b>${esc(n)} <small>×${q}</small></b>`).join("")}</div>` : ""}</div>
+    <div class="cpast"><b>Previous orders</b>${ok.length ? ok.slice(0,8).map(o => `<div class="cpo"><div><span>${o.inv ? esc(invNo(o.inv)) : "#" + esc(o.no || "—")} · ${d(o.at)} · ${tl[o.type] || esc(o.type||"")}</span>
+      <div class="mut">${(o.items||[]).filter(i => !i.voided).slice(0,3).map(i => `${+i.qty||1}× ${esc(i.name)}`).join(", ")}${(o.items||[]).length > 3 ? "…" : ""}</div></div><b>${usd(o.total)}</b></div>`).join("") : '<div class="mut">No orders yet</div>'}</div></div>`;
+}
+function pdCancel(){ const ed = PD?.edit; PD = null; if(ed) return closeModal(); openBoard(); }
+// keeps the customer's details and every new delivery address on their record
+async function pdSaveCust(){
+  if(!window.WOK?.sb || !navigator.onLine) return;
+  const ph = normPhone(PD.phone), name = PD.name.trim(), a = PD.type==="delivery" ? addrJoin(PD.addr) : "";
+  try{
+    if(PD.cust?.id){ const list = PD.cust.addresses || [], row = {};
+      if(a && !list.some(x => addrJoin(addrParts(x.address))===a)) row.addresses = [...list, { address:a }];
+      if(name && !PD.cust.name) row.name = name;
+      if(Object.keys(row).length) await window.WOK.sb.from("customers").update({ ...row, updated_at:new Date().toISOString() }).eq("id", PD.cust.id);
+    } else if(ph.length >= 6 && name) await window.WOK.sb.from("customers").insert({ phone:ph, name, addresses: a ? [{ address:a }] : [] });
+  }catch(e){ console.warn("customer not saved", e); }
 }
 function pdKeep(){ if(!PD || modalKind!=="pdnew") return; PD.phone = $("#pdPhone")?.value || ""; PD.name = $("#pdName")?.value || ""; ADDR_K.forEach(k => { const el = $("#pdA_" + k); if(el) PD.addr[k] = el.value; }); }
 async function pdContinue(){
@@ -1269,7 +1324,8 @@ async function pdContinue(){
   if(normPhone(PD.phone).length < 6) need.push("phone number"); if(!PD.name.trim()) need.push("name");
   if(PD.type==="delivery") [["street","area / street"],["building","building"],["floor","floor"]].forEach(([k,l]) => { if(!String(PD.addr[k]||"").trim()) need.push(l); });
   if(need.length){ $("#pdErr").textContent = "Enter the customer's " + need.join(", ").replace(/, ([^,]*)$/, " and $1") + "."; return; }
-  if(PD.edit){ otype = PD.type==="delivery" ? "delivery" : "takeaway"; cust = { name: PD.name.trim(), phone: PD.phone.trim(), addr: PD.type==="delivery" ? { ...PD.addr } : {} }; PD = null; closeModal(); renderCart(); renderMenu(); return toast("Customer details saved"); }
+  if(PD.edit){ pdSaveCust(); otype = PD.type==="delivery" ? "delivery" : "takeaway"; cust = { name: PD.name.trim(), phone: PD.phone.trim(), addr: PD.type==="delivery" ? { ...PD.addr } : {} }; PD = null; closeModal(); renderCart(); renderMenu(); return toast("Customer details saved"); }
+  pdSaveCust();
   if(PD.cust?.blacklisted && !(await askYes("This customer is blacklisted. Take the order anyway?", "Take order", true))) return;
   if(EDIT) unloadOrder();
   if(cart.length && !(await askYes("Hold the order that's in the cart and start this one?", "Hold & continue"))) return;
