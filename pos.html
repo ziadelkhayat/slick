@@ -936,6 +936,7 @@ function boardOrders(col, pd){
   if(col==="all") return ["pending","active","closed","void"].flatMap(k => boardOrders(k, pd)).sort((a,b) => String(b.createdAt).localeCompare(String(a.createdAt)));
   const l = col==="pending" ? mine.filter(o => o.status==="pending" && onDay(o)) : col==="active" ? mine.filter(o => o.status==="active" && onDay(o))
     : col==="closed" ? mine.filter(o => o.status==="closed" && bizDate(o.createdAt)===day)
+    : col==="declined" ? mine.filter(o => o.status==="declined" && bizDate(o.updatedAt || o.createdAt)===day)
     : mine.filter(o => ["void","declined","returned","refund"].includes(o.status) && bizDate(anyDay ? (o.updatedAt || o.createdAt) : o.createdAt)===day);
   return l.filter(m).sort((a,b) => String(b.createdAt).localeCompare(String(a.createdAt)));
 }
@@ -1196,7 +1197,8 @@ function openBoard(){
     <span class="oc2">${o.channel==="pos" ? "🧾" : o.channel==="callcenter" ? "🎧" : "🌐"} ${esc(o.source || chn(o))} · ${esc(typLbl(o.type))}<small>${esc(o.agent || "")}</small></span>
     <b class="oc-t">${usd(o.total)}</b></button>`;
   const q = OV.q; OV.q = BQ;
-  const cols = OV_COLS.map(([k,title,tip]) => [k, title, tip, boardOrders(k, true)]); OV.q = q;
+  const PD_COLS = [...OV_COLS.slice(0,3), ["declined","Declined","Declined today"]];   // pickup & delivery: no void / returns column
+  const cols = PD_COLS.map(([k,title,tip]) => [k, title, tip, boardOrders(k, true)]); OV.q = q;
   modal("board", `<div class="ohdr"><button class="hbtn" data-close>Back</button><b style="font-size:18px">Pickup & delivery</b><button class="hbtn" data-pdnew>+ New order</button><input class="search" id="bdQ" placeholder="Search order #, invoice, customer, phone" value="${esc(BQ)}" style="flex:1;min-width:220px;margin:0"><button class="hbtn ghost" data-osync>Sync</button></div>
     <div class="mb"><div class="oboard">${cols.map(([k,title,tip,l]) => `<div class="ocol"><div class="ochead" title="${esc(tip)}"><b>${title}</b><span class="cnt">${l.length}</span></div>${l.length ? l.map(card).join("") : `<div class="oempty">You don't have ${title.toLowerCase()} orders</div>`}</div>`).join("")}</div></div>`, true);
   $("#modal").classList.add("full"); $("#scrim").classList.add("fullscr");
