@@ -411,7 +411,7 @@ function renderAll(){
 const catRank = p => { const c = S.categories.find(x=>x.id===p.categoryId); return c?.sort ?? 999; };   // "All" follows the category order
 function renderMenu(){
   const kids = kidIds(), prods = products().filter(p => !kids.has(p.id));
-  const cats = S.categories.filter(c => live(c) && !(c.inactiveBranchIds||[]).includes(device.branchId) && prods.some(p => p.categoryId===c.id)).sort((a,b)=>(a.sort??999)-(b.sort??999) || a.name.localeCompare(b.name));
+  const cats = S.categories.filter(c => live(c) && !(c.inactiveBranchIds||[]).includes(device.branchId) && !(c.inactiveBranchIds||[]).includes(device.branchId + ":pos") && prods.some(p => p.categoryId===c.id)).sort((a,b)=>(a.sort??999)-(b.sort??999) || a.name.localeCompare(b.name));
   if(cat && !cats.some(c=>c.id===cat)) cat = "";
   const q = $("#q").value.trim().toLowerCase();
   const tile = p => `<button class="prod${p.imageUrl?" hasimg":""}" data-add="${esc(p.id)}">${p.imageUrl?`<img src="${esc(p.imageUrl)}" alt="" loading="lazy">`:""}<span>${esc(p.name)}</span><b>${p.pricingMethod==="open"?"Open price":(kidsOf(p).length?"From ":"")+usd(tilePrice(p))}</b></button>`;
@@ -764,7 +764,7 @@ async function doVR(kind, mode){
   }catch(err){ console.error(err); $("#vrErr") && ($("#vrErr").textContent = "Couldn't save. Check the connection and try again."); }
 }
 
-/* incoming call-center / online orders */
+/* incoming call-center / web orders */
 $("#incomingBtn").addEventListener("click", () => { OV.tab = incoming().some(o=>o.status==="pending") || incoming().length ? "incoming" : "all"; openIncoming(); });
 
 /* shifts *//* shifts */

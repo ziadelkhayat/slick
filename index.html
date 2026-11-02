@@ -558,7 +558,7 @@ const NAV = [
   {t:"Reports",i:"chart",kids:[["sales-reports","Sales Reports"],["inventory-reports","Inventory Reports"],["business-reports","Business Reports"],["analysis-reports","Analysis Reports"]]},
   {t:"Inventory",i:"box",tabs:1,kids:[["inv-categories","Inventory Categories"],["inv-items","Items"],["warehouses","Locations"],["suppliers","Suppliers"],["purchase-orders","Purchase Orders"],["transfer-orders","Transfer Orders"],["transfers","Transfers"],["inventory-count","Inventory Count"],["production","Production"],["quantity-adjustments","Quantity Adjustment"],["cost-adjustments","Cost Adjustment"],["spot-check","Inventory Spot Check"],["count-sheets","Count Sheet"]]},
   {t:"Menu",i:"book",tabs:1,kids:[["@Menu Builder"],["categories","Categories"],["products","Products"],["modifiers","Modifiers"],["variants","Variants"],["branch-menu","Channels"],["combos","Combos"],["groups","Groups"],["@Menu Settings"],["price-tags","Price Tags"],["allergens","Allergens"]]},
-  {t:"Manage",i:"gear",kids:[["users","Users"],["roles","Roles"],["brands","Brands"],["branches","Branches"],["devices","Devices"],["taxes","Taxes & Groups"],["payment-methods","Payment Methods"],["order-sources","Order Sources"],["charges","Charges"],["delivery-zones","Delivery Zones"],["online-ordering","Online Ordering"],["kitchen-flows","Kitchen Flows"],["reasons","Reasons"],["settings","Settings"]]},
+  {t:"Manage",i:"gear",kids:[["users","Users"],["roles","Roles"],["brands","Brands"],["branches","Branches"],["devices","Devices"],["taxes","Taxes & Groups"],["payment-methods","Payment Methods"],["order-sources","Order Sources"],["charges","Charges"],["delivery-zones","Delivery Zones"],["online-ordering","Web Ordering"],["kitchen-flows","Kitchen Flows"],["reasons","Reasons"],["settings","Settings"]]},
   {t:"Marketing",i:"tag",kids:[["loyalty","Loyalty"],["gift-cards","Gift Cards"],["discounts","Discounts"],["promotions","Promotions"],["coupons","Coupons"]]}
 ];
 const TITLES = { account:"Account settings" };
@@ -801,7 +801,7 @@ function dashSoon(){ clearTimeout(DASH.t); DASH.t = setTimeout(() => loadDash(tr
 setInterval(() => { if((location.hash.slice(1)||"dashboard")==="dashboard" && !document.hidden && state.date===todayStr()) loadDash(true); }, 60000);
 const hours24 = (rows, f) => { const a = Array(24).fill(0), sh = dayStartH(); (rows||[]).forEach(r => a[(r.h - sh + 24) % 24] = +r[f]||0); return a; };   // starts at the business day's first hour
 const TYPE_LBL = { dinein:"Dine-in", pickup:"Pickup", takeaway:"Pickup", delivery:"Delivery", other:"Other" };
-const CH_LBL = { pos:"POS", online:"Online ordering", callcenter:"Call center", other:"Other" };
+const CH_LBL = { pos:"POS", online:"Web ordering", callcenter:"Call center", other:"Other" };
 const PAY_LBL = { cash:"Cash", card:"Card", other:"Other", "on delivery":"Pay on delivery" };
 const cap = s => String(s||"").charAt(0).toUpperCase() + String(s||"").slice(1);
 
@@ -959,22 +959,22 @@ const kpiX = (t, v, sub, extra) => `<div class="card kpi"><div class="kh"><h3>${
 function viewKitchenDash(K, P, bname){
   const q = K.queue || [], qp = q.reduce((a,x)=>a+x.pending,0), qa = q.reduce((a,x)=>a+x.active,0);
   const late = v => v!=null && v>5 ? ` style="color:var(--accent-ink);font-weight:600"` : "";
-  let h = `<div class="card" style="margin-bottom:16px"><div class="kh"><h3>Live kitchen queue</h3><span class="note">Right now · online & call center orders</span></div>
+  let h = `<div class="card" style="margin-bottom:16px"><div class="kh"><h3>Live kitchen queue</h3><span class="note">Right now · web & call center orders</span></div>
     ${q.length ? `<div class="tbl" style="margin-top:10px"><table><thead><tr><th>Branch</th><th class="num">Waiting to accept</th><th class="num">Oldest waiting</th><th class="num">In the kitchen</th><th class="num">Longest in kitchen</th></tr></thead><tbody>${
       q.sort((a,b)=>(b.pending+b.active)-(a.pending+a.active)).map(x=>`<tr><td>${esc(bname(x.id))}</td><td class="num">${x.pending}</td><td class="num"${late(x.oldest_pending)}>${x.oldest_pending!=null?x.oldest_pending+" min":"—"}</td><td class="num">${x.active}</td><td class="num"${x.oldest_active>30?late(99):""}>${x.oldest_active!=null?x.oldest_active+" min":"—"}</td></tr>`).join("")
     }</tbody></table></div>` : `<p class="note" style="margin:10px 0 0">No orders waiting. All caught up.</p>`}</div>`;
   h += `<div class="grid kpis">
     ${kpiX("Kitchen tickets", (+K.tickets).toLocaleString(), "All orders sent to the kitchen, including POS", prevLine(+K.tickets, P&&+P.tickets, v=>(+v).toLocaleString()))}
-    ${kpiX("Online & call center orders", (+K.incoming).toLocaleString(), `${K.accepted} accepted · ${K.declined} declined`, prevLine(+K.incoming, P&&+P.incoming, v=>(+v).toLocaleString()))}
+    ${kpiX("Web & call center orders", (+K.incoming).toLocaleString(), `${K.accepted} accepted · ${K.declined} declined`, prevLine(+K.incoming, P&&+P.incoming, v=>(+v).toLocaleString()))}
     ${kpiX("Avg. time to accept", mins(K.avgAccept), `${K.slowAccept} took more than 5 min`, prevLine(K.avgAccept, P?.avgAccept, mins, true))}
     ${kpiX("Avg. preparation time", mins(K.avgPrep), "From accepted to done", prevLine(K.avgPrep, P?.avgPrep, mins, true))}
     ${kpiX("Avg. order to done", mins(K.avgTotal), "From the order coming in to done", prevLine(K.avgTotal, P?.avgTotal, mins, true))}
     ${kpiX("Late orders", (+K.late).toLocaleString(), "Took more than 45 min from order to done", prevLine(+K.late, P&&+P.late, v=>(+v).toLocaleString(), true))}
   </div>
   <div class="card" style="margin-bottom:16px"><div class="kh"><h3>Kitchen tickets by hour</h3></div>${lineChart(hours24(K.hours,"n"), {w:1400, h:260, fs:13, dots:true, label:"Kitchen tickets by hour"})}</div>
-  <div class="card tbl"><table><thead><tr><th>Branch</th><th class="num">Online & call center</th><th class="num">Avg. to accept</th><th class="num">Avg. prep</th><th class="num">Late</th><th class="num">Declined</th></tr></thead><tbody>${
+  <div class="card tbl"><table><thead><tr><th>Branch</th><th class="num">Web & call center</th><th class="num">Avg. to accept</th><th class="num">Avg. prep</th><th class="num">Late</th><th class="num">Declined</th></tr></thead><tbody>${
     (K.branches||[]).length ? K.branches.sort((a,b)=>b.n-a.n).map(b=>`<tr><td>${esc(bname(b.id))}</td><td class="num">${b.n}</td><td class="num">${mins(b.acc)}</td><td class="num">${mins(b.prep)}</td><td class="num">${b.late}</td><td class="num">${b.declined}</td></tr>`).join("")
-    : `<tr><td colspan="6" class="note">No online or call center orders in this period.</td></tr>`
+    : `<tr><td colspan="6" class="note">No web or call center orders in this period.</td></tr>`
   }</tbody></table></div>
   <p class="note" style="margin-top:10px">Times are recorded when a branch taps Accept and Mark done on the POS (or the order is closed from Call Center). POS sales count as tickets but aren't timed. Orders from before this update have no times.</p>`;
   return h;
@@ -1146,7 +1146,7 @@ $("#cYes").addEventListener("click", async () => {
 });
 let tt; function toast(m){ const t = $("#toast"); t.textContent = m; t.classList.add("show"); clearTimeout(tt); tt = setTimeout(()=>t.classList.remove("show"), 2200); }
 
-/* ---------- generic collections (menu, inventory, devices, call center, online ordering) ---------- */
+/* ---------- generic collections (menu, inventory, devices, call center, web ordering) ---------- */
 const COLS = ["brands","categories","products","inv_items","devices","orders","zones","settings","order_sources","inv_categories","warehouses","inv_docs","modifiers","modifier_options","suppliers","taxes","tax_groups","payment_methods","roles","users","charges","variant_sets"];
 const S = {}; COLS.forEach(c => S[c] = []);
 function subscribeAll(){
@@ -1188,7 +1188,7 @@ const taxTabs = on => `<div class="tabs" style="margin-bottom:14px"><a href="#ta
 const PERMS = [["@Back office · screens"],["bo_dashboard","Dashboard"],["bo_orders","Orders"],["bo_callcenter","Call center"],["bo_customers","Customers"],["bo_reports","Reports"],["bo_inventory","Inventory"],["bo_menu","Menu"],["bo_manage","Manage (settings, users, branches) — full admin"],["bo_marketing","Marketing"],
   ["@Back office · actions"],["bo_cc_discount","Give item discounts in the call center"],["bo_cc_edit","Edit placed call-center orders (source, type, items)"],["bo_import","Import and export lists (products, customers…)"],["bo_customers_edit","Add, edit and delete customers"],
   ["@POS app · selling"],["pos_access","Use the POS (sign in with PIN)"],["pos_discount","Give order discounts"],["pos_item_discount","Give item discounts"],["pos_open_price","Sell open-price items"],["pos_charges","Remove or add charges on an order"],
-  ["@POS app · orders"],["pos_orders","See the orders list"],["pos_incoming","Accept / decline / complete call-center and online orders"],["pos_void","Approve voids (active orders and items)"],["pos_return","Approve returns (closed orders and items)"],["pos_reprint","Reprint receipts"],
+  ["@POS app · orders"],["pos_orders","See the orders list"],["pos_incoming","Accept / decline / complete call-center and web orders"],["pos_void","Approve voids (active orders and items)"],["pos_return","Approve returns (closed orders and items)"],["pos_reprint","Reprint receipts"],
   ["@POS app · register"],["pos_shift","Open and close shifts"],["pos_endday","End the business day"],["pos_settings","Device settings"]];
 // ready-made starting points for a new role (tick or untick anything after)
 const ROLE_TPL = {
@@ -1217,7 +1217,7 @@ function canOpen(route){
   const need = NAV_PERM[n.id || n.t]; return !need || p.includes(need);
 }
 
-/* one sort order everywhere: back office, POS, call center and online ordering all read the same "sort" field */
+/* one sort order everywhere: back office, POS, call center and web ordering all read the same "sort" field */
 const bySort = (a,b) => (a.sort??9999)-(b.sort??9999) || String(a.name||"").localeCompare(String(b.name||""));
 const catRank = id => S.categories.find(c => c.id===id)?.sort ?? 9999;
 const modRank = id => S.modifiers.find(m => m.id===id)?.sort ?? 9999;
@@ -1227,7 +1227,7 @@ const ago = s => { const m = Math.round((Date.now() - new Date(s))/60000); if(m<
 const usd = n => CUR() + " " + (+n||0).toLocaleString("en-US",{minimumFractionDigits:DEC(),maximumFractionDigits:DEC()});
 
 /* ---------- CRUD screens, Foodics-style ---------- */
-const CHANNELS = [["pos","POS"],["callcenter","Call center"],["delivery","Online delivery"],["takeaway","Online pickup"],["dinein","Dine-in QR"]];
+const CHANNELS = [["pos","POS"],["callcenter","Call center"],["delivery","Web delivery"],["takeaway","Web pickup"],["dinein","Dine-in QR"]];
 const brandFilter = r => state.brand==="all" || r.brandId===state.brand;
 const brandField = {k:"brandId",l:"Brand",t:"select",req:1,opts:()=>brandList().map(b=>[b.id,b.name]),auto:()=>defaultBrand()};
 const CRUD = {
@@ -1314,7 +1314,7 @@ const CRUD = {
   },
   categories: {
     col:"categories", title:"Categories", one:"Category",
-    note:"Set the order of categories and their items in Menu → Channels: that order is used by the POS, call center and online ordering.",
+    note:"Set the order of categories and their items in Menu → Channels: that order is used by the POS, call center and web ordering.",
     tabs:[["all","All",live],["deleted","Deleted",r=>r.deleted]],
     sort:(a,b)=>a.name.localeCompare(b.name),
     search:r=>r.name+" "+(r.reference||""),
@@ -1369,7 +1369,7 @@ const CRUD = {
       if(new Set(list.map(x=>x.toLowerCase())).size !== list.length) return "Each variant name must be different.";
       data.options = list;
     },
-    note:"A variant set is a choice the customer must make, like Size: Small, Medium, Large. A product using it gets one full product per variant (own price, SKU, barcode, cost, recipe, tax and channel switches). The POS, call center and online ordering show the main product and ask which variant."
+    note:"A variant set is a choice the customer must make, like Size: Small, Medium, Large. A product using it gets one full product per variant (own price, SKU, barcode, cost, recipe, tax and channel switches). The POS, call center and web ordering show the main product and ask which variant."
   },
   "modifier-options": {
     col:"modifier_options", title:"Modifier Options", one:"Modifier Option", detail: r => optionDetail(r),
@@ -1544,7 +1544,7 @@ function paintSorter(){
   const one = CRUD[key].title.toLowerCase();
   $("#crudBox").innerHTML = `<header><h2>Sort ${esc(CRUD[key].title)}</h2><button type="button" class="x" data-cclose aria-label="Close">×</button></header>
     <div class="sortbody">
-      <p class="note" style="margin:0 0 10px">Drag ${esc(one)} up or down into place. The POS, call center and online ordering show them in this order.</p>
+      <p class="note" style="margin:0 0 10px">Drag ${esc(one)} up or down into place. The POS, call center and web ordering show them in this order.</p>
       ${sc && cfg.inside ? `<p style="margin:0 0 10px"><b>${esc(sc[0])}:</b> ${esc((sc[1].find(x=>x[0]===v)||[,""])[1])}</p>` : ""}${sc && !cfg.inside ? `<div class="f" style="margin-bottom:10px"><label for="srtScope">${sc[0]}</label><select id="srtScope" class="sel">${sc[1].map(([k,t])=>`<option value="${esc(k)}" ${k===v?"selected":""}>${esc(t)}</option>`).join("")}</select></div>` : ""}
       ${ids.length ? `<ol class="sortl" id="srtList">${ids.map((id,i)=>`<li data-sid="${esc(id)}" tabindex="0" aria-label="${esc(name(id))}. Drag to move, or use the arrow keys"><span class="grip" aria-hidden="true">⋮⋮</span><span class="st">${esc(name(id))}</span></li>`).join("")}</ol>`
         : `<div class="empty">Nothing to sort here.</div>`}
@@ -1602,7 +1602,7 @@ function openCrud(key, id){
     if(f.t==="select") return `<div class="f${full}"><label for="${idA}">${f.l}${f.req?" *":""}</label><select id="${idA}"><option value="">${esc(f.ph||"Choose…")}</option>${f.opts().map(([k,t])=>`<option value="${esc(k)}" ${k===v?"selected":""}>${esc(t)}</option>`).join("")}</select></div>`;
     if(f.t==="multi"){ const set = new Set(v||[]); return `<div class="f full"><label>${f.l}</label><div class="multi" id="${idA}">${f.opts().map(([k,t])=>k.startsWith("@") ? `<div class="mhead">${esc(k.slice(1))}</div>` : `<label class="chk"><input type="checkbox" value="${esc(k)}" ${set.has(k)?"checked":""}> ${esc(t)}</label>`).join("")}</div>${f.note?`<div class="note">${esc(f.note)}</div>`:""}</div>`; }
     if(f.t==="image") return `<div class="f full"><label>${f.l}</label><div class="imgf"><div class="imgprev" id="${idA}_prev">${v ? `<img src="${esc(v)}" alt="">` : '<span class="note">No image</span>'}</div>
-      <div><input type="file" accept="image/*" id="${idA}_file"><input type="hidden" id="${idA}" value="${esc(v||"")}"><div class="note" id="${idA}_st">JPG or PNG. It's resized automatically for the POS, call center and online menu.</div>${v ? `<button type="button" class="btn sm" data-imgclear="${idA}" style="margin-top:6px">Remove image</button>` : ""}</div></div></div>`;
+      <div><input type="file" accept="image/*" id="${idA}_file"><input type="hidden" id="${idA}" value="${esc(v||"")}"><div class="note" id="${idA}_st">JPG or PNG. It's resized automatically for the POS, call center and web menu.</div>${v ? `<button type="button" class="btn sm" data-imgclear="${idA}" style="margin-top:6px">Remove image</button>` : ""}</div></div></div>`;
     if(f.t==="pin") return `<div class="f"><label for="${idA}">${f.l}</label><input id="${idA}" type="password" inputmode="numeric" maxlength="4" autocomplete="new-password" placeholder="${r?.pinHash?"•••• (set; type to change)":"4 digits"}"><div class="note">${esc(f.note||"")}</div></div>`;
     if(f.t==="textarea") return `<div class="f full"><label for="${idA}">${f.l}${f.req?" *":""}</label><textarea id="${idA}" rows="${f.rows||3}" ${f.ph?`placeholder="${esc(f.ph)}"`:""}>${esc(Array.isArray(v) ? v.join("\n") : (v||""))}</textarea>${f.note?`<div class="note">${esc(f.note)}</div>`:""}</div>`;
     const list = f.t==="list" ? `<datalist id="${idA}_dl">${f.opts().map(o=>`<option value="${esc(o)}">`).join("")}</datalist>` : "";
@@ -1908,7 +1908,7 @@ function viewCallCenter(){
     ${col.length ? col.map(ccCard).join("") : `<div class="bempty">You don't have ${t} orders</div>`}</div>`; }).join("")}</div>`;
   return h;
 }
-// order number comes from the POS that bills the order; until then call-center / online orders go by invoice number
+// order number comes from the POS that bills the order; until then call-center / web orders go by invoice number
 const ordRef = o => o.status==="refund" ? "RET-" + String(o.returnNo || o.return_no || "…").padStart(6,"0") : o.no ? "#" + o.no : (o.ref || (o.invoiceNo || o.invoice_no ? "Inv " + (o.invoiceNo || o.invoice_no) : "—"));
 const ccTime = t => { if(!t) return "—"; const d = new Date(t), today = bizDate()===bizDate(d); return d.toLocaleString("en-GB", today ? { hour:"2-digit", minute:"2-digit" } : { day:"numeric", month:"short", hour:"2-digit", minute:"2-digit" }); };
 const ccCard = o => `<button class="ocard" data-order="${esc(o.id)}"><div class="orow"><b>${esc(ordRef(o))}</b><span class="spill s-${o.status}">${CC_SUB[o.status]}</span></div>
@@ -2057,7 +2057,7 @@ function fillOrderBranches(sel){
 function availableProducts(){
   const br = $("#oBranch")?.value, bd = $("#oBrand")?.value;
   if(brandList().length && !bd) return [];
-  return S.products.filter(p => live(p) && (!bd || p.brandId===bd) && (!br || (!offAt(p.inactiveBranchIds, br, "callcenter") && !(S.categories.find(c=>c.id===p.categoryId)?.inactiveBranchIds||[]).includes(br))));
+  return S.products.filter(p => live(p) && (!bd || p.brandId===bd) && (!br || (!offAt(p.inactiveBranchIds, br, "callcenter") && !offAt(S.categories.find(c=>c.id===p.categoryId)?.inactiveBranchIds, br, "callcenter"))));
 }
 const prodRate = id => { const p = S.products.find(x=>x.id===id), g = p && S.tax_groups.find(x=>x.id===p.taxGroup && live(x)); return g ? taxRate(g)/100 : 0; };
 const ccTax = items => +(items||[]).reduce((a,i) => { const l = (+i.price||0)*(+i.qty||1), r = prodRate(i.productId); return a + l*r/(1+r); }, 0).toFixed(2);
@@ -2172,7 +2172,7 @@ function openDeviceSettings(id){
     <div class="f full"><label>Order types on this device</label><div class="multi" id="ds_types">${OT3.map(([k,t])=>`<label class="chk"><input type="checkbox" value="${k}" ${types.includes(k)?"checked":""} ${brTypes.includes(k)?"":"disabled"}> ${t}${brTypes.includes(k)?"":" (off for this branch)"}</label>`).join("")}</div></div>
     <div class="f"><label for="ds_defaultType">Default order type</label>${sel("defaultType", s.defaultType || types[0] || "dinein", OT3)}</div>
     <div class="f"><label for="ds_tables">Dine-in tables</label><input id="ds_tables" type="number" min="0" max="200" value="${esc(s.tables ?? "")}" placeholder="0 = type the table number"></div>
-    <div class="f full"><label class="chk"><input type="checkbox" id="ds_autoAccept" ${s.autoAccept?"checked":""}> Auto-accept call-center and online orders for this branch (sends them straight to the kitchen and gives them this device's order number)</label></div>
+    <div class="f full"><label class="chk"><input type="checkbox" id="ds_autoAccept" ${s.autoAccept?"checked":""}> Auto-accept call-center and web orders for this branch (sends them straight to the kitchen and gives them this device's order number)</label></div>
     <h4 class="fsec">Printing &amp; hardware</h4>
     <div class="f"><label for="ds_receipt">After each sale</label>${sel("receipt", s.receipt || "show", [["show","Show the receipt"],["print","Print the receipt automatically"],["none","Don't show or print"]])}</div>
     <div class="f"><label for="ds_copies">Receipt copies</label><input id="ds_copies" type="number" min="1" max="5" value="${esc(s.copies || 1)}"></div>
@@ -2212,27 +2212,27 @@ function openDevice(){
   crudEdit = { key:"device" }; $("#crudScrim").classList.add("show"); setTimeout(()=>$("#dName").focus(),30);
 }
 
-/* ---------- Online Ordering (link for delivery, pickup, dine-in) ---------- */
+/* ---------- Web Ordering (link for delivery, pickup, dine-in) ---------- */
 function olBrand(){ const l = brandList().filter(b=>b.active!==false); if(state.olBrand && l.some(b=>b.id===state.olBrand)) return state.olBrand; return defaultBrand() || l[0]?.id || ""; }
 function onlineCfg(){ const id = "online_" + olBrand(); return S.settings.find(s=>s.id===id) || { id }; }
 function viewOnline(){
-  if(!olBrand()) return `<div class="phead"><h1>Online Ordering</h1></div><div class="card empty">Each brand has its own ordering page.<br>Choose a brand in the selector at the top${brandList().length?"":", or create one in Manage → Brands"}.</div>`;
+  if(!olBrand()) return `<div class="phead"><h1>Web Ordering</h1></div><div class="card empty">Each brand has its own ordering page.<br>Choose a brand in the selector at the top${brandList().length?"":", or create one in Manage → Brands"}.</div>`;
   const c = onlineCfg(), bc = c.branches || {}, link = new URL("order.html?brand=" + encodeURIComponent(olBrand()), location.href.split("#")[0]).href;
   const modes = [["delivery","Delivery"],["takeaway","Pickup"],["dinein","Dine-in (table QR)"]];
-  let h = `<div class="phead"><h1>Online Ordering</h1><div class="sp"></div><button class="btn pri" id="olSave">Save changes</button></div>
+  let h = `<div class="phead"><h1>Web Ordering</h1><div class="sp"></div><button class="btn pri" id="olSave">Save changes</button></div>
     <p class="subt" style="margin-top:-6px">Every brand has its own ordering page, link, menu and settings.</p>
     ${brandList().filter(b=>b.active!==false).length > 1 ? `<div class="tabs" style="margin-bottom:16px">${brandList().filter(b=>b.active!==false).map(b=>`<a href="#online-ordering" data-olbrand="${esc(b.id)}" class="${b.id===olBrand()?"on":""}">${esc(b.name)}${(S.settings.find(x=>x.id==="online_"+b.id)||{}).enabled?' <span class="tag on" style="margin-left:4px">Live</span>':""}</a>`).join("")}</div>` : ""}`;
   if(storeMode==="local") h += `<div class="banner">Preview mode: settings won't be saved.</div>`;
   h += `<div class="grid" style="grid-template-columns:1fr 1fr;gap:16px">
   <div class="card"><h3 class="ct">Ordering page</h3>
-    <label class="chk" style="margin:10px 0"><input type="checkbox" id="olOn" ${c.enabled?"checked":""}> Accept online orders</label>
+    <label class="chk" style="margin:10px 0"><input type="checkbox" id="olOn" ${c.enabled?"checked":""}> Accept web orders</label>
     <div class="f"><label for="olName">Brand name on page</label><input id="olName" value="${esc(c.brandName||brandName(olBrand()))}"></div>
     <div class="f" style="margin-top:10px"><label>Ordering link</label><div class="linkbox"><a class="lnk" href="${esc(link)}" target="_blank" rel="noopener">${esc(link)}</a></div></div>
     <div class="f" style="margin-top:10px"><label for="olMsg">Announcement banner</label><input id="olMsg" value="${esc(c.banner||"")}" placeholder="e.g. Free delivery on orders over USD 30"></div>
   </div>
   <div class="card"><h3 class="ct">Order types</h3><p class="note">Turn each type on for the whole page. Fine-tune per branch below.</p>
     ${modes.map(([k,t])=>`<label class="chk" style="margin:8px 0"><input type="checkbox" id="olm_${k}" ${(c.modes||{})[k]!==false?"checked":""}> ${t}</label>`).join("")}
-    <p class="note" style="margin-top:12px">Which products appear online at each branch is set in <a class="lnk" href="#branch-menu">Menu → Channels</a> (the Online column). Delivery fees and areas are set in <a class="lnk" href="#delivery-zones">Delivery Zones</a>.</p></div></div>
+    <p class="note" style="margin-top:12px">Which products appear on the web at each branch is set in <a class="lnk" href="#branch-menu">Menu → Channels</a> (the Online column). Delivery fees and areas are set in <a class="lnk" href="#delivery-zones">Delivery Zones</a>.</p></div></div>
   <div style="height:16px"></div><div class="card tbl"><div class="ttop"><h3 class="ct">Locations</h3></div><table><thead><tr><th>Branch</th>${modes.map(m=>`<th>${m[1]}</th>`).join("")}<th class="num">Tables (for QR)</th><th>Table QR links</th><th>Delivery zones</th></tr></thead><tbody>${
     (branches.some(b=>b.active!==false && b.brandId===olBrand()) ? "" : `<tr><td colspan="7" class="note" style="padding:16px">This brand has no branches yet. Add them under Manage → Branches.</td></tr>`) + branches.filter(b=>b.active!==false && b.brandId===olBrand()).map(b=>{ const x = bc[b.id] || {}; const z = S.zones.filter(zz=>live(zz)&&zz.branchId===b.id&&zz.active!==false).length;
       return `<tr><td><b>${esc(b.name)}</b><br><span class="note">${b.open||b.close ? esc(t12(b.open)) + " – " + esc(t12(b.close)) : ""}</span></td>${modes.map(([k])=>`<td><label class="toggle"><input type="checkbox" data-olb="${esc(b.id)}:${k}" ${x[k]!==false?"checked":""}><span class="trk"></span></label></td>`).join("")}
@@ -2246,7 +2246,7 @@ async function saveOnline(){
   document.querySelectorAll("[data-oltables]").forEach(i => { const b = i.dataset.oltables; (bc[b] ||= {}).tables = i.value==="" ? null : +i.value; });
   const data = { enabled:$("#olOn").checked, brandName:$("#olName").value.trim(), banner:$("#olMsg").value.trim(),
     modes:{ delivery:$("#olm_delivery").checked, takeaway:$("#olm_takeaway").checked, dinein:$("#olm_dinein").checked }, branches: bc };
-  try{ await put("settings", "online_" + olBrand(), data); toast("Online ordering saved"); } catch(err){ console.error(err); toast("Couldn't save settings"); }
+  try{ await put("settings", "online_" + olBrand(), data); toast("Web ordering saved"); } catch(err){ console.error(err); toast("Couldn't save settings"); }
 }
 
 document.addEventListener("click", e => { const t = e.target.closest("[data-olbrand]"); if(t){ e.preventDefault(); state.olBrand = t.dataset.olbrand; render(); } });
@@ -2259,50 +2259,57 @@ function bmItems(){
   return S.products.filter(p=>live(p)&&(!br.brandId||!p.brandId||p.brandId===br.brandId)).sort((a,b)=>{ const ca = S.categories.find(c=>c.id===a.categoryId)||{}, cb = S.categories.find(c=>c.id===b.categoryId)||{}; return bySort(ca, cb) || String(a.categoryId).localeCompare(String(b.categoryId)) || bySort(a,b); });   // same order as every channel
 }
 // an item can be switched off per channel at a branch: inactiveBranchIds holds "branch" (off everywhere) or "branch:pos" / "branch:callcenter" / "branch:online"
-const BM_CH = [["pos","POS"],["callcenter","Call center"],["online","Online"]];
+// each channel has its own menu per branch: "POS & Call center" and "Web ordering". Prices: customPrices[branch] (POS & call center), customPrices["branch:online"] (web)
+const BM_MENUS = [["pos","POS & Call center",["pos","callcenter"]],["online","Web ordering",["online"]]];
+const ALL_CH = ["pos","callcenter","online"];
 const offAt = (arr, b, ch) => !!b && ((arr||[]).includes(b) || (arr||[]).includes(b + ":" + ch));
+const offSetOf = (ia, b) => new Set(ALL_CH.filter(c => offAt(ia, b, c)));
+const chList = (ia, b, off) => { const rest = (ia||[]).filter(x => x!==b && !x.startsWith(b + ":")); return off.size===ALL_CH.length ? [...rest, b] : [...rest, ...ALL_CH.filter(c => off.has(c)).map(c => b + ":" + c)]; };
+const bmMenu = () => BM_MENUS.find(m => m[0]===BM.menu) || BM_MENUS[0];
+const bmPriceKey = b => BM.menu==="online" ? b + ":online" : b;
 function bmState(r){
   const b = BM.branch, d = { ...(BM.saving?.[r.id]||{}), ...(BM.draft[r.id]||{}) }, ia = r.inactiveBranchIds||[], inB = !r.branchIds?.length || r.branchIds.includes(b);
-  const chs = Object.fromEntries(BM_CH.map(([c]) => [c, d["ch_"+c] ?? (inB && !offAt(ia, b, c))]));
-  const on = Object.values(chs).some(Boolean);
+  const on = d.on ?? (inB && !offAt(ia, b, bmMenu()[2][0]));
   const stock = d.stock ?? !(r.outOfStockBranchIds||[]).includes(b);
-  const cp = (r.customPrices||{})[b], price = d.price ?? (cp!=null && cp!=="" ? String(cp) : "");
-  return { on, chs, stock, price };
+  const cps = r.customPrices||{}, cp = cps[bmPriceKey(b)], price = d.price ?? (cp!=null && cp!=="" ? String(cp) : "");
+  const fallback = BM.menu==="online" && cps[b]!=null && cps[b]!=="" ? +cps[b] : +r.price||0;   // web uses the POS price until it gets its own
+  return { on, stock, price, fallback };
 }
 function viewBranchMenu(){
   const list = branches.filter(b=>b.active!==false && brandFilter(b));
   if(!list.some(b=>b.id===BM.branch)) BM.branch = (state.branch!=="all" && list.some(b=>b.id===state.branch)) ? state.branch : list[0]?.id || "";
   const br = branches.find(b=>b.id===BM.branch), dirty = Object.keys(BM.draft).length;
   let h = `<div class="phead"><h1>Channels</h1><div class="sp"></div>${scopeBar(false)}<span class="note" id="bmStat">${BM.stat || "Changes save automatically"}</span></div>
-    <p class="subt" style="margin-top:-6px">Drag categories and items (⋮⋮) to set their order in the POS, call center and online menu. Each branch has its own menu, built from the brand's categories and their products: switch a whole category or single products on or off, set the branch's own prices, or mark items out of stock. The POS, call center and online ordering of that branch follow it.</p>`;
+    <p class="subt" style="margin-top:-6px">Each channel has its own menu per branch: <b>POS &amp; Call center</b> (one menu for both) and <b>Web ordering</b>. Switch categories or single products on or off and set the channel's own prices. Drag categories and items (⋮⋮) to set the order, which is the same in every channel.</p>`;
   if(!br) return h + `<div class="card empty">No branches yet. Add them under Manage → Branches.</div>`;
   const q = BM.q.trim().toLowerCase(), items = bmItems().filter(r => !q || r.name.toLowerCase().includes(q));
   const grp = r => BM.kind==="options" ? modName(r.modifierId) : catName(r.categoryId);
   const all = bmItems(), offN = all.filter(r=>!bmState(r).on).length, oosN = all.filter(r=>bmState(r).on && !bmState(r).stock).length;
   h += `<div class="card tbl"><div class="ttop" style="flex-wrap:wrap;gap:10px">
+      <div class="seg" role="tablist" aria-label="Channel">${BM_MENUS.map(([k,t]) => `<button type="button" data-bmmenu="${k}" class="${bmMenu()[0]===k?"on":""}">${t}</button>`).join("")}</div>
       <select class="sel" id="bmBranch" aria-label="Branch">${list.map(b=>`<option value="${esc(b.id)}" ${b.id===BM.branch?"selected":""}>${brandList().length>1?esc(brandName(b.brandId))+" · ":""}${esc(b.name)}</option>`).join("")}</select>
       <div class="ttabs"><a href="#branch-menu" data-bmkind="products" class="${BM.kind==="products"?"on":""}">Products</a><a href="#branch-menu" data-bmkind="options" class="${BM.kind==="options"?"on":""}">Modifier options</a></div>
       <span class="note">${all.length-offN} on the menu · ${offN} off${BM.kind==="options" ? ` · ${oosN} out of stock` : ""}</span><div class="sp"></div>
       <input class="sel search" id="bmQ" placeholder="Search" value="${esc(BM.q)}" aria-label="Search"></div>`;
   if(!items.length) return h + `<div class="empty">${all.length ? "Nothing matches." : "Nothing on this brand's menu yet."}</div></div>`;
   let last = null;
-  h += `<table><thead><tr><th>${BM.kind==="options"?"Option":"Product"}</th><th class="num">Base price</th><th class="num">Price at ${esc(br.name)}</th>${BM_CH.map(([,t])=>`<th>${t}</th>`).join("")}${BM.kind==="options" ? "<th>In stock</th>" : ""}</tr></thead><tbody>`;
+  h += `<table><thead><tr><th>${BM.kind==="options"?"Option":"Product"}</th><th class="num">Base price</th><th class="num">Price at ${esc(br.name)}</th><th>On the menu</th>${BM.kind==="options" ? "<th>In stock</th>" : ""}</tr></thead><tbody>`;
   BM.open ||= new Set();
   const cnt = {}; items.forEach(r => { const g = grp(r); cnt[g] = (cnt[g]||0) + 1; });
   items.forEach(r => { const g = grp(r), st = bmState(r), open = !!q || BM.open.has(g);
     const cOn = BM.kind==="options" || bmCatOn(r.categoryId);
     const drag = BM.kind!=="options" && !q;
-    if(g!==last){ last = g; h += `<tr class="grp"${drag ? ` draggable="true" data-bmdrag="c:${esc(r.categoryId)}" title="Drag to move this category"` : ""}><td colspan="${BM.kind==="options" ? 7 : 6}">${drag ? '<span class="bmgrip" aria-hidden="true">⋮⋮</span>' : ""}<button type="button" class="bmexp" data-bmexp="${esc(g)}" aria-expanded="${open}" title="${open?"Collapse":"Show items"}">${open?"▾":"▸"}</button>${BM.kind!=="options" ? `<label class="toggle" style="margin-right:8px" title="Category on the menu at ${esc(br.name)}"><input type="checkbox" data-bmcat="${esc(r.categoryId)}" ${cOn?"checked":""}><span class="trk"></span></label>` : ""}<b class="bmg" data-bmexp="${esc(g)}">${esc(g)}</b> <span class="note">${cnt[g]} item${cnt[g]===1?"":"s"}</span>${cOn ? "" : ` <span class="tag off">Category off at this branch</span>`}</td></tr>`; }
+    if(g!==last){ last = g; h += `<tr class="grp"${drag ? ` draggable="true" data-bmdrag="c:${esc(r.categoryId)}" title="Drag to move this category"` : ""}><td colspan="${BM.kind==="options" ? 5 : 4}">${drag ? '<span class="bmgrip" aria-hidden="true">⋮⋮</span>' : ""}<button type="button" class="bmexp" data-bmexp="${esc(g)}" aria-expanded="${open}" title="${open?"Collapse":"Show items"}">${open?"▾":"▸"}</button>${BM.kind!=="options" ? `<label class="toggle" style="margin-right:8px" title="Category on the ${esc(bmMenu()[1])} menu at ${esc(br.name)}"><input type="checkbox" data-bmcat="${esc(r.categoryId)}" ${cOn?"checked":""}><span class="trk"></span></label>` : ""}<b class="bmg" data-bmexp="${esc(g)}">${esc(g)}</b> <span class="note">${cnt[g]} item${cnt[g]===1?"":"s"}</span>${cOn ? "" : ` <span class="tag off">Category off on this menu</span>`}</td></tr>`; }
     if(!cOn || !open) return;
     h += `<tr class="${st.on?"":"off"}${BM.draft[r.id]?" chg":""}"${drag ? ` draggable="true" data-bmdrag="p:${esc(r.id)}" data-bmcatof="${esc(r.categoryId)}"` : ""}><td>${drag ? '<span class="bmgrip" aria-hidden="true" title="Drag to move">⋮⋮</span>' : ""}<b>${esc(r.name)}</b></td><td class="num">${usd(+r.price||0)}</td>
-      <td class="num"><input type="number" min="0" step="any" class="sel" style="width:96px;text-align:right" data-bmprice="${esc(r.id)}" value="${esc(st.price)}" placeholder="${esc(String(+r.price||0))}" aria-label="Price of ${esc(r.name)} at ${esc(br.name)}"></td>
-      ${BM_CH.map(([c,t]) => `<td><label class="toggle" title="${t} at ${esc(br.name)}"><input type="checkbox" data-bmch="${esc(r.id)}|${c}" ${st.chs[c]?"checked":""} aria-label="${esc(r.name)} on ${t}"><span class="trk"></span></label></td>`).join("")}
+      <td class="num"><input type="number" min="0" step="any" class="sel" style="width:96px;text-align:right" data-bmprice="${esc(r.id)}" value="${esc(st.price)}" placeholder="${esc(String(st.fallback))}" aria-label="Price of ${esc(r.name)} at ${esc(br.name)}"></td>
+      <td><label class="toggle"><input type="checkbox" data-bmon="${esc(r.id)}" ${st.on?"checked":""} aria-label="${esc(r.name)} on the ${esc(bmMenu()[1])} menu"><span class="trk"></span></label></td>
       ${BM.kind==="options" ? `<td><label class="toggle"><input type="checkbox" data-bmstock="${esc(r.id)}" ${st.stock?"checked":""} ${st.on?"":"disabled"}><span class="trk"></span></label></td>` : ""}</tr>`; });
   return h + `</tbody></table></div>`;
 }
-/* drag to order categories and their products; the order is the same in the POS, call center and online menu */
+/* drag to order categories and their products; the order is the same in the POS, call center and web menu */
 let bmDrag = null, optDrag = null;
-// modifier options: drag rows inside the modifier to set their order (POS, call center, online)
+// modifier options: drag rows inside the modifier to set their order (POS, call center, web)
 document.addEventListener("dragstart", e => { const t = e.target.closest?.("[data-optdrag]"); if(!t) return; optDrag = t.dataset.optdrag; e.dataTransfer.effectAllowed = "move"; try{ e.dataTransfer.setData("text/plain", optDrag); }catch(_){} t.classList.add("dragging"); });
 document.addEventListener("dragover", e => { const t = e.target.closest?.("[data-optdrag]"); if(!t || !optDrag || t.dataset.optdrag===optDrag) return; e.preventDefault(); document.querySelectorAll(".dropto").forEach(x => x.classList.remove("dropto")); t.classList.add("dropto"); });
 document.addEventListener("drop", async e => { const t = e.target.closest?.("[data-optdrag]"); if(!t || !optDrag) return; e.preventDefault();
@@ -2333,7 +2340,7 @@ document.addEventListener("drop", async e => { const t = e.target.closest?.("[da
     toast(isCat ? "Category order saved for every channel" : "Item order saved for every channel"); render(); }
   catch(err){ console.error(err); toast("Couldn't save the new order"); } });
 function bmSet(id, k, v){ const d = BM.draft[id] ||= {}; d[k] = v; }
-const bmCatOn = id => { const d = BM.draft["cat:"+id] || BM.saving?.["cat:"+id]; if(d && d.on!=null) return d.on; return !(S.categories.find(c=>c.id===id)?.inactiveBranchIds||[]).includes(BM.branch); };
+const bmCatOn = id => { const d = BM.draft["cat:"+id] || BM.saving?.["cat:"+id]; if(d && d.on!=null) return d.on; return !offAt(S.categories.find(c=>c.id===id)?.inactiveBranchIds, BM.branch, bmMenu()[2][0]); };
 // every change in Menus saves on its own: toggles right away, prices when the field is left
 let bmQueue = Promise.resolve();
 const bmStat = t => { BM.stat = t; const el = $("#bmStat"); if(el) el.textContent = t; };
@@ -2341,19 +2348,20 @@ function bmAuto(){ bmQueue = bmQueue.then(saveBranchMenu, saveBranchMenu); }
 async function saveBranchMenu(){
   const work = BM.draft; if(!Object.keys(work).length) return;
   BM.draft = {}; BM.saving = work;
-  const b = BM.branch, col = BM.kind==="options" ? "modifier_options" : "products";
+  const b = BM.branch, col = BM.kind==="options" ? "modifier_options" : "products", mchs = bmMenu()[2], pk = bmPriceKey(b);
   bmStat("Saving…");
   try{
     for(const [id, d] of Object.entries(work)){
-      if(id.startsWith("cat:")){ const c = S.categories.find(x=>x.id===id.slice(4)); if(!c) continue; const ia = new Set(c.inactiveBranchIds||[]); if(d.on === !ia.has(b)) continue; d.on ? ia.delete(b) : ia.add(b); await put("categories", c.id, { inactiveBranchIds:[...ia] }); c.inactiveBranchIds = [...ia]; continue; }
+      if(id.startsWith("cat:")){ const c = S.categories.find(x=>x.id===id.slice(4)); if(!c) continue;
+        const off = offSetOf(c.inactiveBranchIds, b); mchs.forEach(x => d.on ? off.delete(x) : off.add(x)); const next = chList(c.inactiveBranchIds, b, off);
+        if(JSON.stringify(next) !== JSON.stringify(c.inactiveBranchIds||[])){ await put("categories", c.id, { inactiveBranchIds:next }); c.inactiveBranchIds = next; } continue; }
       const r = S[col].find(x=>x.id===id); if(!r) continue; const ch = {};
-      if(BM_CH.some(([c]) => d["ch_"+c]!=null)){
-        const cur = bmState(r).chs, ia = (r.inactiveBranchIds||[]).filter(x => x!==b && !x.startsWith(b + ":")), off = BM_CH.map(([c])=>c).filter(c => !cur[c]);
-        const next = off.length===BM_CH.length ? [...ia, b] : [...ia, ...off.map(c => b + ":" + c)];
+      if(d.on!=null){
+        const off = offSetOf(r.inactiveBranchIds, b); mchs.forEach(x => d.on ? off.delete(x) : off.add(x)); const next = chList(r.inactiveBranchIds, b, off);
         if(JSON.stringify(next) !== JSON.stringify(r.inactiveBranchIds||[])) ch.inactiveBranchIds = next;
-        if(off.length < BM_CH.length && r.branchIds?.length && !r.branchIds.includes(b)) ch.branchIds = [...r.branchIds, b]; }
+        if(d.on && r.branchIds?.length && !r.branchIds.includes(b)) ch.branchIds = [...r.branchIds, b]; }
       if(d.stock!=null){ const os = new Set(r.outOfStockBranchIds||[]); if(d.stock === os.has(b)){ d.stock ? os.delete(b) : os.add(b); ch.outOfStockBranchIds = [...os]; } }
-      if(d.price!=null){ const cp = { ...(r.customPrices||{}) }, was = cp[b]; if(d.price==="" || +d.price===+r.price) delete cp[b]; else cp[b] = +d.price; if(cp[b] !== was) ch.customPrices = cp; }
+      if(d.price!=null){ const k = pk, cp = { ...(r.customPrices||{}) }, was = cp[k]; if(d.price==="") delete cp[k]; else cp[k] = +d.price; if(cp[k] !== was) ch.customPrices = cp; }
       if(Object.keys(ch).length){ await put(col, id, ch); Object.assign(r, ch); }   // keep the local copy current until the refresh arrives
     }
     BM.saving = null; bmStat("All changes saved"); render();
@@ -2362,7 +2370,7 @@ async function saveBranchMenu(){
 $("#view").addEventListener("change", e => {
   const t = e.target;
   if(t.id==="bmBranch"){ if(Object.keys(BM.draft).length && !confirm("Discard unsaved changes for this branch?")){ t.value = BM.branch; return; } BM.branch = t.value; BM.draft = {}; return render(); }
-  if(t.dataset.bmch){ const [id, c] = t.dataset.bmch.split("|"); bmSet(id, "ch_"+c, t.checked); render(); return bmAuto(); }
+  if(t.dataset.bmon){ bmSet(t.dataset.bmon, "on", t.checked); render(); return bmAuto(); }
   if(t.dataset.bmcat){ bmSet("cat:"+t.dataset.bmcat, "on", t.checked); render(); return bmAuto(); }
   if(t.dataset.bmstock){ bmSet(t.dataset.bmstock, "stock", t.checked); render(); return bmAuto(); }
   if(t.dataset.bmprice!=null && t.dataset.bmprice){ bmSet(t.dataset.bmprice, "price", t.value.trim()); render(); return bmAuto(); }
@@ -2370,6 +2378,7 @@ $("#view").addEventListener("change", e => {
 let bmQT; $("#view").addEventListener("input", e => { if(e.target.id==="bmQ"){ clearTimeout(bmQT); const v = e.target.value; bmQT = setTimeout(() => { BM.q = v; render(); const el = $("#bmQ"); if(el){ el.focus(); el.setSelectionRange(v.length, v.length); } }, 300); } });
 $("#view").addEventListener("click", e => {
   const k = e.target.closest("[data-bmkind]"); if(k){ e.preventDefault(); if(Object.keys(BM.draft).length && !confirm("Discard unsaved changes?")) return; BM.kind = k.dataset.bmkind; BM.draft = {}; return render(); }
+  const mn = e.target.closest("[data-bmmenu]"); if(mn){ e.preventDefault(); BM.menu = mn.dataset.bmmenu; BM.draft = {}; return render(); }
   const ex = e.target.closest("[data-bmexp]"); if(ex){ e.preventDefault(); const g = ex.dataset.bmexp; BM.open ||= new Set(); BM.open.has(g) ? BM.open.delete(g) : BM.open.add(g); return render(); }
   const a = e.target.closest("[data-bmall]"); if(a){ e.preventDefault(); const i = a.dataset.bmall.lastIndexOf(":"), g = a.dataset.bmall.slice(0,i), on = a.dataset.bmall.slice(i+1)==="1";
     bmItems().filter(r => (BM.kind==="options" ? modName(r.modifierId) : catName(r.categoryId))===g).forEach(r => bmSet(r.id, "on", on)); render(); return bmAuto(); }
@@ -2451,7 +2460,7 @@ function viewOrders(){
     <button type="button" class="sel drpbtn" id="ordRange" aria-haspopup="dialog">${svgIco("calendar")}<span>${esc(drpLabel(ORD.from, ORD.to))}</span></button>
     ${sel("ordBrand", ORD.brand, [["","All brands"], ...brandList().map(b=>[b.id,esc(b.name)])])}
     ${sel("ordBranch", ORD.branch, [["","All branches"], ...branches.filter(b=>!ORD.brand || b.brandId===ORD.brand).map(b=>[b.id,esc(b.name)])])}
-    ${sel("ordChannel", ORD.channel, [["","All channels"],["pos","POS"],["callcenter","Call center"],["online","Online ordering"]])}
+    ${sel("ordChannel", ORD.channel, [["","All channels"],["pos","POS"],["callcenter","Call center"],["online","Web ordering"]])}
     ${sel("ordSource", ORD.source, [["","All sources"], ...ordSources().map(x=>[esc(x),esc(x)])])}
     ${sel("ordType", ORD.type, [["","All types"],["dinein","Dine-in"],["pickup","Pickup"],["delivery","Delivery"]])}
     ${sel("ordPay", ORD.pay, [["","All payments"], ...ordPays().map(x=>[esc(x),esc(x)])])}
@@ -2999,7 +3008,7 @@ const varChildIds = () => new Set(S.products.filter(live).flatMap(x => (x.varian
 function variantCard(p){
   const par = varParent(p.id);
   if(par){ const v = par.variants.find(x => x.productId===p.id);
-    return `<div class="card" style="margin-bottom:16px;display:flex;align-items:center;gap:10px"><b>Variant</b><span>${esc(v?.name||"")} of <a href="#products" class="lnk" data-detopen="products:${esc(par.id)}">${esc(par.name)}</a></span><span class="note">This product is sold through ${esc(par.name)}: the POS, call center and online ordering show ${esc(par.name)} and ask which variant.</span></div>`; }
+    return `<div class="card" style="margin-bottom:16px;display:flex;align-items:center;gap:10px"><b>Variant</b><span>${esc(v?.name||"")} of <a href="#products" class="lnk" data-detopen="products:${esc(par.id)}">${esc(par.name)}</a></span><span class="note">This product is sold through ${esc(par.name)}: the POS, call center and web ordering show ${esc(par.name)} and ask which variant.</span></div>`; }
   const V = DET.var || (DET.var = { setId: p.variantSetId || "" });
   const sets = S.variant_sets.filter(r => live(r) || r.id===V.setId).sort((a,b)=>a.name.localeCompare(b.name)), set = sets.find(x => x.id===V.setId);
   const link = n => (p.variants||[]).find(v => v.name===n), kid = n => { const l = link(n); return l && S.products.find(x => x.id===l.productId && live(x)); };

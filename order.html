@@ -56,7 +56,7 @@ h2{font-size:17px;margin:20px 0 10px}
 .locbtn{border:1px solid var(--acc);background:var(--accs);color:var(--acci);border-radius:10px;padding:9px 14px;font-weight:600}
 .locbtn:disabled{opacity:.6}.ok2{color:#1f8a4c}
 .tblin{width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:10px}
-/* ===== Slick modern theme (online ordering) ===== */
+/* ===== Slick modern theme (web ordering) ===== */
 :root{--bg:#f4f5fa;--line:#e8e8f0;--acc:#6c47ff;--accs:#f0ecff;--acci:#5130e8}
 body{-webkit-font-smoothing:antialiased}
 .hero{background:linear-gradient(135deg,#6c47ff,#8b5cf6 60%,#a855f7);padding:26px 18px 22px}
@@ -99,7 +99,7 @@ if(bl.error){ $("#main").innerHTML = `<div class="closed">We couldn't load the m
 if(!brandId && bl.data.length === 1) brandId = bl.data[0].id;
 if(!brandId){ $("#main").innerHTML = `<div class="wrap"><h2>Choose a restaurant</h2><div class="items">${bl.data.map(b=>`<a class="item" style="text-decoration:none;color:inherit" href="?brand=${encodeURIComponent(b.id)}"><b>${esc(b.name)}</b><span class="add" style="display:grid;place-items:center">›</span></a>`).join("")}</div></div>`; return; }
 const brand = bl.data.find(b => b.id === brandId);
-if(!brand){ $("#main").innerHTML = `<div class="closed">This restaurant isn't taking online orders.</div>`; return; }
+if(!brand){ $("#main").innerHTML = `<div class="closed">This restaurant isn't taking web orders.</div>`; return; }
 $("#brand").textContent = brand.name; $("#logo").textContent = brand.name.trim()[0].toUpperCase(); document.title = brand.name + " – Order Online";
 
 PUB = await sb.rpc("slick_public_settings").then(r => (!r.error && r.data) ? { ...PUB, ...r.data, decimals: r.data.decimals ?? 2 } : PUB, () => PUB);
@@ -127,15 +127,16 @@ const bcfg = id => (cfg.branches||{})[id] || {};
 const modeOn = (m, b) => (cfg.modes||{})[m] !== false && (!b || bcfg(b)[m] !== false);
 if(cfg.brandName){ $("#brand").textContent = cfg.brandName; document.title = cfg.brandName + " – Order Online"; }
 if(cfg.banner){ $("#banner").textContent = cfg.banner; $("#banner").hidden = false; }
-if(!cfg.enabled){ $("#main").innerHTML = `<div class="closed"><b>Online ordering is closed right now.</b><br>Please call us or try again later.</div>`; return; }
+if(!cfg.enabled){ $("#main").innerHTML = `<div class="closed"><b>Web ordering is closed right now.</b><br>Please call us or try again later.</div>`; return; }
 
 let mode = qrBranch ? "dinein" : (modeOn("delivery") ? "delivery" : "takeaway");
 let zoneId = "", branchId = qrBranch || "", tableNo = qrTable || "", cat = "", cart = [], pin = null, map = null, marker = null;
 const zoneList = () => zones.filter(z => modeOn("delivery", z.branch_id) && Array.isArray(z.polygon) && z.polygon.length >= 3);
 const curBranch = () => mode === "delivery" ? (zones.find(z=>z.id===zoneId)?.branch_id || "") : branchId;
 const chan = () => mode === "delivery" ? "delivery" : mode === "takeaway" ? "takeaway" : "dinein";
-const visible = () => products.filter(p => p.pricing_method!=="open" && (!curBranch() || (!(p.inactive_branch_ids||[]).includes(curBranch()) && !(p.inactive_branch_ids||[]).includes(curBranch() + ":online") && !(cats.find(c=>c.id===p.category_id)?.inactive_branch_ids||[]).includes(curBranch()))));
-const priceOf = p => { const c = curBranch() && (p.custom_prices||{})[curBranch()]; return c!=null && c!=="" && c!==false ? +c : +p.price; };
+const visible = () => products.filter(p => p.pricing_method!=="open" && (!curBranch() || (!(p.inactive_branch_ids||[]).includes(curBranch()) && !(p.inactive_branch_ids||[]).includes(curBranch() + ":online") && !(cats.find(c=>c.id===p.category_id)?.inactive_branch_ids||[]).includes(curBranch()) && !(cats.find(c=>c.id===p.category_id)?.inactive_branch_ids||[]).includes(curBranch() + ":online"))));
+const priceOf = p => { const b = curBranch(), cp = p.custom_prices||{}, w = b && cp[b + ":online"], c = b && cp[b];   // the web menu's own price, else the branch price
+  return w!=null && w!=="" && w!==false ? +w : c!=null && c!=="" && c!==false ? +c : +p.price; };
 // variants are full products linked from their parent (variants = [{ name, productId }]); only the parent is listed and it asks for the variant
 const kidIds = () => new Set(products.flatMap(p => (p.variants||[]).map(v => v.productId).filter(Boolean)));
 const kidsOf = p => { const ok = visible(); return (p.variants||[]).map(v => ({ name:v.name, p: ok.find(x => x.id===v.productId) })).filter(x => x.p && !oos(x.p)); };
@@ -217,7 +218,7 @@ function modData(p){
   const ids = new Set((p.modifiers||[]).map(l=>l.modifierId)), b = curBranch();
   const options = mopts.filter(o => ids.has(o.modifier_id) && !(b && ((o.inactive_branch_ids||[]).includes(b) || (o.inactive_branch_ids||[]).includes(b + ":online"))) && !(b && (o.out_of_stock_branch_ids||[]).includes(b)))
     .sort((x,y)=>(x.sort??999)-(y.sort??999) || x.name.localeCompare(y.name))
-    .map(o => { const c = b && (o.custom_prices||{})[b]; return { id:o.id, modifierId:o.modifier_id, name:o.name, price: c!=null && c!=="" && c!==false ? +c : +o.price||0 }; });
+    .map(o => { const c = b && ((o.custom_prices||{})[b + ":online"] ?? (o.custom_prices||{})[b]); return { id:o.id, modifierId:o.modifier_id, name:o.name, price: c!=null && c!=="" && c!==false ? +c : +o.price||0 }; });
   return { links:(p.modifiers||[]).filter(l => mgroups[l.modifierId]), groups:mgroups, options };
 }
 const hasMods = p => (p.modifiers||[]).some(l => mgroups[l.modifierId]);

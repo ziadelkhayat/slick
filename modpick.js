@@ -1,4 +1,4 @@
-/* Slick: modifier picker shared by the POS, the call center and online ordering.
+/* Slick: modifier picker shared by the POS, the call center and web ordering.
    SlickMods.pick({ name, basePrice, links, groups, options, money }) -> Promise<null | { options, unitPrice, mods }>
    SlickMods.variant({ name, setName, variants:[{ name, price }], money }) -> Promise<null | { name, price }>
    links:   [{ modifierId, min, max, free, multi }] in display order (from the product)
