@@ -376,8 +376,11 @@ body[data-route="call-center"] .ocard{padding:10px 12px;gap:5px;font-size:13px}
 .acards{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px}
 .acard{display:flex;flex-direction:column;gap:3px;text-align:left;border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:9px 11px;cursor:pointer;font:inherit;font-size:12.5px;color:inherit}
 .acard span{color:var(--ink2)}.acard.on{border-color:var(--accent);background:var(--chart-soft,#f3efff)}.acard.new{border-style:dashed}.acard:disabled{opacity:.5;cursor:default}
-.ccx.s2{grid-template-columns:270px minmax(0,1fr) 340px}.ccx.s2 .ccleft{display:none}
-.ccside{overflow-y:auto;padding:14px 16px;border-right:1px solid var(--line);background:var(--bg,#f6f6fa);display:flex;flex-direction:column;gap:10px}
+.ccx.s2{grid-template-columns:minmax(0,1fr) 340px;grid-template-rows:auto minmax(0,1fr)}.ccx.s2 .ccleft{display:none}
+.ccx.s2 .ccside{grid-column:1/-1}.ccx.s2 .cccart.wide{grid-column:1/-1}
+.ccside{display:flex!important;flex-direction:row!important;align-items:center;gap:8px;flex-wrap:wrap;min-height:0;padding:9px 20px;border-bottom:1px solid var(--line);background:var(--bg,#f6f6fa);font-size:13.5px}
+.ccside .cs-b{max-width:340px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.ccside .dot{color:var(--ink3,#8d8c98)}
+.ccside .lnk{border:0;background:none;cursor:pointer;font:inherit;font-weight:600;margin-left:auto;padding:2px 6px}
 .cside-h{display:flex;gap:10px;align-items:center}.cside-h .av{width:38px;height:38px;border-radius:50%;background:var(--accent);color:#fff;display:grid;place-items:center;font-weight:700}
 .cside-d{display:grid;grid-template-columns:auto 1fr;gap:4px 10px;margin:0;font-size:13px}.cside-d dt{color:var(--ink3,#8d8c98)}.cside-d dd{margin:0}
 .cpast{display:flex;flex-direction:column;gap:6px;margin-top:4px;font-size:13px}
@@ -1973,13 +1976,10 @@ function ccStep(n, force){
 function ccSide(){
   const el = $("#oSide"); if(!el) return;
   const type = $("#oType .on")?.dataset.ot || "", c = window.__ccCust, a = addrSplit(addrJoin(ccAddrGet()));
-  el.innerHTML = `<div class="cside-h"><div class="av">${esc(($("#oName").value.trim() || "?").slice(0,1).toUpperCase())}</div><div><b>${esc($("#oName").value.trim() || "New customer")}</b><div class="note">${esc($("#oPhone").value.trim())}</div></div></div>
-    ${c?.blacklisted ? `<div class="tag" style="background:#fde8eb;color:#9e0c24">⚠ Blacklisted</div>` : ""}${c?.notes ? `<div class="note"><i>${esc(c.notes)}</i></div>` : ""}
-    <dl class="cside-d"><dt>Type</dt><dd>${esc(type ? ordTypeLbl(type) : "—")}</dd><dt>Branch</dt><dd>${esc(branchName($("#oBranch").value) || "—")}</dd><dt>Source</dt><dd>${esc($("#oSource").value || "—")}</dd>
-    ${type==="delivery" ? `<dt>Address</dt><dd>${a.label?`<b>${esc(a.label)}</b> · `:""}${esc([a.street, a.building && "Bldg " + a.building, a.floor && "Floor " + a.floor, a.extra].filter(Boolean).join(" · ") || "—")}</dd>` : ""}
-    ${$("#oNotes").value.trim() ? `<dt>Kitchen</dt><dd>${esc($("#oNotes").value.trim())}</dd>` : ""}</dl>
-    <button type="button" class="btn sm" data-ccstep="1">✎ Edit customer & delivery</button>
-    ${$("#oInsights")?.innerHTML || ""}`;
+  const bits = [type ? ordTypeLbl(type) : "", branchName($("#oBranch").value), type==="delivery" ? (a.label ? a.label + ": " : "") + [a.street, a.building && "Bldg " + a.building, a.floor && "Floor " + a.floor].filter(Boolean).join(", ") : ""].filter(Boolean);
+  el.innerHTML = `<b>${esc($("#oName").value.trim() || "New customer")}</b><span class="note">${esc($("#oPhone").value.trim())}</span>${c?.blacklisted ? `<span class="tag" style="background:#fde8eb;color:#9e0c24">⚠ Blacklisted</span>` : ""}
+    ${bits.map(x => `<span class="dot">·</span><span class="cs-b" title="${esc(x)}">${esc(x)}</span>`).join("")}
+    <button type="button" class="lnk" data-ccstep="1">Edit</button>`;
 }
 function ccAddrCards(){
   const box = $("#oAddrCards"); if(!box) return;
@@ -2720,7 +2720,7 @@ async function ccLookup(view){
       ${!view ? `<button type="button" class="btn sm" data-reorder="${esc(last.id)}" style="margin-top:6px">Repeat last order</button>` : ""}` : ""}
     ${(past||[]).filter(o=>o.status==="declined").length ? `<div class="note" style="margin-top:4px;color:#9e0c24">${past.filter(o=>o.status==="declined").length} declined order(s)</div>` : ""}</div>
     ${ok.length > 1 ? `<div class="cpast"><b>Previous orders</b>${ok.slice(0,6).map(o => `<div class="cpo"><div><span>${esc(o.ref || ordRef(o))} · ${d(o.created_at)}</span><div class="note">${esc(branchName(o.branch_id))} · ${(o.items||[]).slice(0,3).map(i=>`${i.qty}× ${esc(i.name)}`).join(", ")}${(o.items||[]).length>3?"…":""}</div></div><b>${usd(+o.total||0)}</b>${!view ? `<button type="button" class="btn sm" data-reorder="${esc(o.id)}">Reorder</button>` : ""}</div>`).join("")}</div>` : ""}`;
-  if($("#ccX")?.classList.contains("s2")) ccSide();
+  if($("#ccX")?.classList.contains("s2")) ccSide();   // blacklisted flag
 }
 document.addEventListener("input", e => { if(e.target.id==="oPhone"){ clearTimeout(ccLookT); ccLookT = setTimeout(ccLookup, 450); } });
 document.addEventListener("click", e => {
