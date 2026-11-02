@@ -436,6 +436,7 @@ tr[draggable="true"].dragging{opacity:.45}tr.dropto td{box-shadow:inset 0 2px 0 
 .ptabs{display:flex;gap:6px;overflow-x:auto;padding:2px 0 12px;margin-bottom:6px;border-bottom:1px solid var(--line);scrollbar-width:thin}
 .ptabs a .ico{width:16px;height:16px;margin-right:6px;vertical-align:-3px}.ptabs a{flex:none;padding:7px 13px;border-radius:999px;font-size:13.5px;font-weight:500;color:var(--ink2);text-decoration:none;border:1px solid transparent;white-space:nowrap}
 .ptabs a:hover{background:var(--bg,#f4f3f8)}.ptabs a.on{background:#efe9fb;color:#5b2bc4;border-color:#d9ccf7;font-weight:600}
+.mlist{margin:3px 0 0;padding:0 0 0 16px;font-size:12px;line-height:1.45;color:#6b6a75;list-style:disc;text-align:left}.mlist li.mn{list-style:none;margin-left:-16px;font-style:italic}
 </style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -518,6 +519,10 @@ tr[draggable="true"].dragging{opacity:.45}tr.dropto td{box-shadow:inset 0 2px 0 
 (() => {
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+// modifiers shown as a list under the product: one line per option ("2× Cheese"), then the item note
+const modLines = i => { if(Array.isArray(i.options) && i.options.length){ const t = []; i.options.forEach(x => { const f = t.find(y => y.name===x.name); if(f) f.n++; else t.push({ name:x.name, n:1 }); }); return [...t.map(x => (x.n > 1 ? x.n + "× " : "") + x.name), ...(i.note ? ["Note: " + i.note] : [])]; }
+  return String(i.mods||"").split(" · ").flatMap(p => p.startsWith("Note: ") ? [p] : p.split(", ")).map(x => x.trim()).filter(Boolean); };
+const modList = i => { const l = modLines(i); return l.length ? `<ul class="mlist">${l.map(x => `<li${x.startsWith("Note: ") ? ' class="mn"' : ""}>${esc(x)}</li>`).join("")}</ul>` : ""; };
 // every date-with-time on screen, receipt or export uses the 12-hour clock
 (() => { const P = Date.prototype, ls = P.toLocaleString, lt = P.toLocaleTimeString;
   P.toLocaleString = function(l, o){ return ls.call(this, l || "en-GB", { hour12:true, ...(o||{}) }); };
@@ -2068,7 +2073,7 @@ function renderOrderMenu(){
 function renderCart(ro){
   const ch = ccCharges(), c = orderCalc(cart, 0, ch.picked), qty = cart.reduce((a,i)=>a+i.qty,0);
   $("#oCart").innerHTML = `<div class="kh"><h3>Order items</h3><span class="note">${qty} item${qty===1?"":"s"}</span></div><div class="clist">` +
-    (cart.length ? cart.map((i,ix)=>`<div class="citem"><span class="cname">${ro ? esc(i.name) : `<a href="#call-center" class="lnk" data-cedit="${ix}" title="Edit item: options, note, discount">${esc(i.name)}</a>`}${i.mods?`<div class="note">${esc(i.mods)}</div>`:""}${+i.disc?`<div class="note" style="color:var(--accent-ink)">Discount −${usd(i.disc)}</div>`:""}</span>${ro?`<span>× ${i.qty}</span>`:`<span class="qty"><button type="button" data-q="${ix}:-1" aria-label="Less">−</button>${i.qty}<button type="button" data-q="${ix}:1" aria-label="More">+</button></span>`}<span class="num">${usd(lineNet(i))}</span></div>`).join("") : `<div class="note" style="padding:18px 0;text-align:center">${ro?"No items.":"Pick a category, then tap products to add them."}</div>`) +
+    (cart.length ? cart.map((i,ix)=>`<div class="citem"><span class="cname">${ro ? esc(i.name) : `<a href="#call-center" class="lnk" data-cedit="${ix}" title="Edit item: options, note, discount">${esc(i.name)}</a>`}${modList(i)}${+i.disc?`<div class="note" style="color:var(--accent-ink)">Discount −${usd(i.disc)}</div>`:""}</span>${ro?`<span>× ${i.qty}</span>`:`<span class="qty"><button type="button" data-q="${ix}:-1" aria-label="Less">−</button>${i.qty}<button type="button" data-q="${ix}:1" aria-label="More">+</button></span>`}<span class="num">${usd(lineNet(i))}</span></div>`).join("") : `<div class="note" style="padding:18px 0;text-align:center">${ro?"No items.":"Pick a category, then tap products to add them."}</div>`) +
     `</div>${ch.list.length ? `<div class="cchg">${ch.list.map(x => `<label class="chk"><input type="checkbox" data-ochg="${esc(x.id)}" ${ch.picked.includes(x) ? "checked" : ""} ${ro?"disabled":""}> ${esc(x.name)} <span class="note">${x.type==="percent" ? (+x.value)+"%" : usd(x.value)}</span></label>`).join("")}</div>` : ""}
     ${c.charges.filter(x=>x.amount).map(x => `<div class="ctot sub"><span>${esc(x.name)}</span><span>${usd(x.amount)}</span></div>`).join("")}
     <div class="ctot sub"><span>Subtotal</span><span>${usd(c.subtotal)}</span></div><div class="ctot sub"><span>Tax${taxIncl() ? " (included)" : ""}</span><span>${usd(c.tax)}</span></div><div class="ctot"><span>Total</span><b>${usd(c.total)}</b></div>${money2(c.total) ? `<div class="ctot sub"><span></span><span>≈ ${money2(c.total)}</span></div>` : ""}`;
@@ -2459,7 +2464,7 @@ async function openOrderDetail(id, quiet){
     </div>
     ${o.customerName||o.phone||o.address ? `<div class="card" style="margin-bottom:14px"><b>Customer</b><div style="margin-top:6px">${esc(o.customerName||"")}${o.phone?` · <a class="lnk" href="tel:${esc(o.phone)}">${esc(o.phone)}</a>`:""}</div>${o.address?`<div class="note" style="margin-top:4px">${esc(o.address)}</div>`:""}${o.lat?`<div style="margin-top:6px">${mapLink(o)}</div>`:""}</div>` : ""}
     <div class="card tbl" style="margin-bottom:14px"><table><thead><tr><th>Item</th><th class="num">Qty</th><th class="num">Price</th><th class="num">Total</th></tr></thead><tbody>${
-      items.map(i=>`<tr><td>${esc(i.name)}${i.mods?`<div class="note">${esc(i.mods)}</div>`:""}${+i.disc?`<div class="note">Item discount −${money(+i.disc)}</div>`:""}</td><td class="num">${+i.qty||1}</td><td class="num">${money(+i.price||0)}</td><td class="num">${money(Math.max(0,(+i.qty||1)*(+i.price||0)-(+i.disc||0)))}</td></tr>`).join("")
+      items.map(i=>`<tr><td>${esc(i.name)}${modList(i)}${+i.disc?`<div class="note">Item discount −${money(+i.disc)}</div>`:""}</td><td class="num">${+i.qty||1}</td><td class="num">${money(+i.price||0)}</td><td class="num">${money(Math.max(0,(+i.qty||1)*(+i.price||0)-(+i.disc||0)))}</td></tr>`).join("")
     }${(o.voidedItems||[]).map(i=>`<tr class="note"><td><s>${esc(i.name)}</s> <span class="tag off">Voided</span>${i.voidedBy?` <span class="note">by ${esc(i.voidedBy)}</span>`:""}</td><td class="num">${+i.qty||1}</td><td></td><td class="num"><s>${money((+i.qty||1)*(+i.price||0))}</s></td></tr>`).join("")}
     ${(o.returnedItems||[]).map(i=>`<tr class="note"><td>${esc(i.name)} <span class="tag off">Returned</span>${i.stock?` <span class="note">${i.stock==="waste"?"wasted":"back to stock"}</span>`:""}</td><td class="num">${+i.qty||1}</td><td></td><td class="num">−${money(+i.refund||0)}</td></tr>`).join("")}
     ${+o.discount?`<tr><td colspan="3">Discount${o.discountPct?` (${o.discountPct}%)`:""}</td><td class="num">−${money(+o.discount)}</td></tr>`:""}
@@ -2498,7 +2503,7 @@ function printOrder(){
   w.document.write(`<!doctype html><title>Order ${esc(ordRef(o))}</title><style>body{font:13px/1.4 monospace;width:72mm;margin:0 auto;padding:8px}h2,p.c{text-align:center;margin:4px 0}table{width:100%;border-collapse:collapse}td{padding:2px 0}td.r{text-align:right}hr{border:0;border-top:1px dashed #000}</style>
     <h2>${esc((brandName(o.brandId)!=="—"?brandName(o.brandId):"Slick").toUpperCase())}</h2><p class="c">${esc(b?.name||"")}</p><hr>
     <p>Order ${esc(ordRef(o))} · ${esc(ordTypeLbl(o.type))}${o.table?" T"+esc(o.table):""}<br>${new Date(o.createdAt).toLocaleString("en-GB")}${o.customerName?"<br>"+esc(o.customerName):""}${o.phone?" · "+esc(o.phone):""}${o.address?"<br>"+esc(o.address):""}</p><hr>
-    <table>${items.map(i=>`<tr><td>${+i.qty||1} x ${esc(i.name)}${i.mods?`<br>&nbsp;&nbsp;+ ${esc(i.mods)}`:""}</td><td class="r">${((+i.qty||1)*(+i.price||0)).toFixed(2)}</td></tr>`).join("")}</table><hr>
+    <table>${items.map(i=>`<tr><td>${+i.qty||1} x ${esc(i.name)}${modLines(i).map(m => `<br>&nbsp;&nbsp;&nbsp;- ${esc(m)}`).join("")}</td><td class="r">${((+i.qty||1)*(+i.price||0)).toFixed(2)}</td></tr>`).join("")}</table><hr>
     <table>${+o.discount?`<tr><td>Discount</td><td class="r">-${(+o.discount).toFixed(2)}</td></tr>`:""}${(o.charges||[]).filter(c=>+c.amount).map(c=>`<tr><td>${esc(c.name)}</td><td class="r">${(+c.amount).toFixed(2)}</td></tr>`).join("")}${+o.deliveryFee?`<tr><td>Delivery</td><td class="r">${(+o.deliveryFee).toFixed(2)}</td></tr>`:""}<tr><td>Subtotal</td><td class="r">${((+o.total||0)-(+o.tax||0)).toFixed(2)}</td></tr><tr><td>Tax</td><td class="r">${(+o.tax||0).toFixed(2)}</td></tr><tr><td><b>TOTAL USD</b></td><td class="r"><b>${(+o.total||0).toFixed(2)}</b></td></tr>${o.payment?`<tr><td>Paid (${esc(o.payment.method)})</td><td class="r">${(+o.payment.tendered||+o.total||0).toFixed(2)}</td></tr>`:""}</table>
     ${o.receiptNotes?`<p class="c">${esc(o.receiptNotes)}</p>`:""}${o.status==="void"?"<h2>*** VOID ***</h2>":o.status==="returned"?"<h2>*** RETURNED ***</h2>":""}<hr><p class="c">Thank you!</p><script>window.onload=()=>{window.print();}<\/script>`);
   w.document.close();

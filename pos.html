@@ -140,6 +140,7 @@ body{-webkit-font-smoothing:antialiased}
 .ctile{border:1px solid var(--line);background:var(--s);border-radius:16px;min-height:96px;padding:14px;font-size:16px;font-weight:700;text-align:left;display:flex;align-items:flex-end;box-shadow:0 2px 6px rgba(30,20,60,.05)}
 .ctile:hover{border-color:#5b2bc4;color:#5b2bc4}
 .cback{grid-column:1/-1;display:flex;align-items:center;gap:12px;padding:2px 0 4px}.cbtn{border:1px solid var(--line);background:var(--s);border-radius:999px;padding:8px 14px;font-weight:600;color:#5b2bc4}
+.mlist{margin:3px 0 0;padding:0 0 0 16px;font-size:12px;line-height:1.45;color:#6b6a75;list-style:disc;text-align:left}.mlist li.mn{list-style:none;margin-left:-16px;font-style:italic}
 </style>
 <script>window.SLICK_OFFLINE = true;</script>
 <script src="supabase.js"></script>
@@ -196,6 +197,10 @@ body{-webkit-font-smoothing:antialiased}
 (() => {
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+// modifiers shown as a list under the product: one line per option ("2× Cheese"), then the item note
+const modLines = i => { if(Array.isArray(i.options) && i.options.length){ const t = []; i.options.forEach(x => { const f = t.find(y => y.name===x.name); if(f) f.n++; else t.push({ name:x.name, n:1 }); }); return [...t.map(x => (x.n > 1 ? x.n + "× " : "") + x.name), ...(i.note ? ["Note: " + i.note] : [])]; }
+  return String(i.mods||"").split(" · ").flatMap(p => p.startsWith("Note: ") ? [p] : p.split(", ")).map(x => x.trim()).filter(Boolean); };
+const modList = i => { const l = modLines(i); return l.length ? `<ul class="mlist">${l.map(x => `<li${x.startsWith("Note: ") ? ' class="mn"' : ""}>${esc(x)}</li>`).join("")}</ul>` : ""; };
 const coS = () => { try{ return S.settings.find(x=>x.id==="company") || {}; }catch(e){ return {}; } };
 const DEC = () => { const d = coS().priceDecimals; return d===0||d==="0" ? 0 : +d || 2; };
 const usd = n => (coS().currency || "USD") + " " + (+n||0).toLocaleString("en-US",{minimumFractionDigits:DEC(),maximumFractionDigits:DEC()});
@@ -428,7 +433,7 @@ function renderCart(){
   $("#extra").innerHTML = otype==="dinein" ? (+devSet().tables ? `<select id="tbl" aria-label="Table"><option value="">Choose table…</option>${Array.from({length:+devSet().tables},(_,i)=>`<option ${String(i+1)===String(tableNo)?"selected":""}>${i+1}</option>`).join("")}</select>` : `<input id="tbl" placeholder="Table number" value="${esc(tableNo)}" inputmode="numeric">`)
     : otype==="delivery" ? `<input id="cPhone" placeholder="Customer phone *" inputmode="tel" value="${esc(cust.phone)}"><input id="cName" placeholder="Customer name *" value="${esc(cust.name)}"><div class="addrg">${[["label","Address name (Home, Work…)"],["street","Area / street *"],["building","Building name / no. *"],["floor","Floor *"],["extra","Additional info"]].map(([k,ph])=>`<input id="cA_${k}" placeholder="${ph}" value="${esc(cust.addr[k]||"")}"${k==="extra"||k==="label"?' class="wide"':""}>`).join("")}</div>`
     : `<input id="cPhone" placeholder="Customer phone *" inputmode="tel" value="${esc(cust.phone)}"><input id="cName" placeholder="Customer name *" value="${esc(cust.name)}">`;
-  $("#lines").innerHTML = cart.length ? cart.map((i,ix)=>`<div class="line"><span class="n" data-edit="${ix}" title="Tap to edit" style="cursor:pointer">${esc(i.name)}${i.mods?`<small class="mut" style="display:block;font-size:12px">${esc(i.mods)}</small>`:""}${+i.disc?`<small style="display:block;font-size:12px;color:#b45309">Discount −${usd(i.disc)}</small>`:""}</span><span class="p">${usd(lineNet(i))}</span>
+  $("#lines").innerHTML = cart.length ? cart.map((i,ix)=>`<div class="line"><span class="n" data-edit="${ix}" title="Tap to edit" style="cursor:pointer">${esc(i.name)}${modList(i)}${+i.disc?`<small style="display:block;font-size:12px;color:#b45309">Discount −${usd(i.disc)}</small>`:""}</span><span class="p">${usd(lineNet(i))}</span>
     <span class="qty"><button data-q="${ix}:-1" aria-label="Less">−</button>${i.qty}<button data-q="${ix}:1" aria-label="More">+</button></span><span class="p mut">${usd(i.price)} each</span></div>`).join("") : `<div class="empty">Tap items to start an order</div>`;
   const t = totals();
   const cl = chargeList(otype);
@@ -519,6 +524,7 @@ $("#modal").addEventListener("click", async e => {
   const vq = e.target.closest("[data-vq]"); if(vq){ const [ix,d] = vq.dataset.vq.split(":").map(Number), o = S.orders.find(x=>x.id===OV.open); window.__vq[ix] = Math.max(0, Math.min(window.__vmax?.[ix] ?? +o.items[ix].qty, (window.__vq[ix]||0) + d)); $("#vq"+ix).textContent = window.__vq[ix]; return; }
   const stb = e.target.closest("[data-st]"); if(stb){ document.querySelectorAll("[data-st]").forEach(b => b.classList.toggle("on", b===stb)); return; }
   const vg = e.target.closest("#vrGo"); if(vg) return doVR(vg.dataset.kind, vg.dataset.mode);
+  if(e.target.closest("[data-kticket]")){ const o = S.orders.find(x=>x.id===OV.open); if(o) modal("receipt", `<div class="mh"><h2>Kitchen ticket ${esc(ordRef(o))}</h2><button class="x" data-ovopen="${esc(o.id)}" aria-label="Back">←</button></div><div class="mb"><div class="receipt">${esc(kitchenText(o))}</div></div>`); return; }
   if(e.target.closest("[data-reprint]")){ if(!can("pos_reprint")) return deny("reprinting receipts"); const o = S.orders.find(x=>x.id===OV.open); if(o) modal("receipt", `<div class="mh"><h2>Receipt ${esc(ordRef(o))}</h2><button class="x" data-ovopen="${esc(o.id)}" aria-label="Back">←</button></div><div class="mb"><div class="receipt">${esc(receiptText(o))}</div></div><div class="mf"><button class="btn pri" data-ovopen="${esc(o.id)}">Done</button></div>`); return; }
   if(e.target.closest("#doOpenShift")) return doOpenShift();
   const de = e.target.closest("#doDayEnd"); if(de) return doDayEnd(de.dataset.day);
@@ -583,7 +589,7 @@ function receiptText(o){
       : [row("Order #"+(o.no||"—"), typ), ...(o.ref ? ["Ref " + o.ref] : []), ...(a.rcptInvoice && o.invoiceNo ? ["Invoice " + o.invoiceNo] : [])]), ...(a.rcptSource && o.source ? ["Source: " + o.source] : []),
     ...(a.rcptCustomer && (o.customerName || o.phone) ? [[o.customerName, o.phone].filter(Boolean).join(" · ")] : []),
     new Date(o.createdAt).toLocaleString("en-GB"), "-".repeat(w),
-    ...o.items.flatMap(i => [row(i.qty+" x "+i.name, lineNet(i).toFixed(2)), ...(i.mods ? ["  + " + i.mods] : []), ...(+i.disc ? ["  discount -" + (+i.disc).toFixed(2)] : [])]), "-".repeat(w) ];
+    ...o.items.flatMap(i => [row(i.qty+" x "+i.name, lineNet(i).toFixed(2)), ...modLines(i).map(m => ("   - " + m).slice(0, w)), ...(+i.disc ? ["  discount -" + (+i.disc).toFixed(2)] : [])]), "-".repeat(w) ];
   if(o.discount) lines.push(row(o.discountType==="amt" ? "Discount" : "Discount "+o.discountPct+"%", "-"+(+o.discount).toFixed(2)));
   (o.charges||[]).filter(c=>+c.amount).forEach(c => lines.push(row(c.name, (+c.amount).toFixed(2))));
   lines.push(row("Subtotal", net.toFixed(2)));
@@ -598,6 +604,18 @@ function receiptText(o){
   lines.push("", ...foot.map(l => l.slice(0,w).padStart((w + Math.min(w,l.length))/2)));
   return lines.join("\n");
 }
+// kitchen ticket: big order number, type, time, then each item with its modifiers listed under it (no prices)
+function kitchenText(o){
+  const w = 32, typ = o.type==="dinein" ? "DINE-IN"+(o.table?" T"+o.table:"") : o.type==="pickup"||o.type==="takeaway" ? "PICKUP" : "DELIVERY";
+  const ctr = t => t.padStart((w + t.length)/2);
+  const lines = [ctr("KITCHEN"), ctr("ORDER #" + (o.no || "—")), ctr(typ), ...(o.ref ? [ctr(o.ref)] : []), ...(o.source && o.channel!=="pos" ? [ctr(o.source)] : []),
+    new Date(o.createdAt).toLocaleString("en-GB"), "=".repeat(w)];
+  (o.items||[]).forEach(i => { lines.push((i.qty + " x " + i.name).slice(0, w)); modLines(i).forEach(m => lines.push(("   - " + m).slice(0, w))); });
+  lines.push("=".repeat(w));
+  if(o.notes) lines.push("NOTE: " + o.notes);
+  return lines.join("\n");
+}
+window.SlickKitchenText = kitchenText;
 function showReceipt(o){
   modal("receipt", `<div class="mh"><h2>Sale complete · ${usd(o.total)}</h2><button class="x" data-close aria-label="Close">×</button></div><div class="mb">
     ${o.payment.change ? `<div class="due" style="font-size:22px">Change: ${usd(o.payment.change)}</div>` : ""}
@@ -662,7 +680,7 @@ function openOrderView(id){
   modal("orderview", `<div class="mh"><h2>Order ${esc(ordRef(o))} <span class="spill s-${o.status}">${stLbl(o)}</span></h2><button class="x" data-ovback aria-label="Back">←</button></div><div class="mb">
     <p class="mut">${o.ref?`${esc(o.ref)} · `:""}${o.invoiceNo?`Invoice ${esc(o.invoiceNo)} · `:""}${esc(typLbl(o.type))}${o.table?" T"+esc(o.table):""} · ${esc(o.source || (o.channel==="pos"?"POS":"Call center"))} · ${new Date(o.createdAt).toLocaleString("en-GB",{day:"numeric",month:"short",hour:"numeric",minute:"2-digit"})}${o.agent?` · ${esc(o.agent)}`:""}</p>
     ${o.customerName||o.phone ? `<p><b>${esc(o.customerName||"")}</b> ${o.phone?`<a href="tel:${esc(o.phone)}" style="color:#5b2bc4">${esc(o.phone)}</a>`:""}${o.address?`<br><span class="mut">${esc(o.address)}</span>`:""}${o.lat?`<br><a href="https://www.google.com/maps?q=${o.lat},${o.lng}" target="_blank" rel="noopener" style="color:#5b2bc4">📍 Open pinned location</a>`:""}</p>` : ""}
-    <div class="vlines">${(o.items||[]).map(i=>`<div><span>${i.qty} × ${esc(i.name)}${i.mods?`<small class="mut" style="display:block">${esc(i.mods)}</small>`:""}${+i.disc?`<small style="display:block;color:#b45309">Discount −${usd(i.disc)}</small>`:""}</span><b>${usd(lineNet(i))}</b></div>`).join("")}
+    <div class="vlines">${(o.items||[]).map(i=>`<div><span>${i.qty} × ${esc(i.name)}${modList(i)}${+i.disc?`<small style="display:block;color:#b45309">Discount −${usd(i.disc)}</small>`:""}</span><b>${usd(lineNet(i))}</b></div>`).join("")}
       ${(o.voidedItems||[]).map(i=>`<div class="mut"><span><s>${i.qty} × ${esc(i.name)}</s> · voided${i.reason?" ("+esc(i.reason)+")":""}</span><s>${usd((+i.price||0)*(+i.qty||1))}</s></div>`).join("")}
       ${(o.returnedItems||[]).map(i=>`<div class="mut"><span>${i.qty} × ${esc(i.name)} · returned${i.stock==="waste"?" (waste)":" (to stock)"}</span><span>−${usd(i.refund)}</span></div>`).join("")}</div>
     <div class="totals" style="border:0;padding:8px 0">${+o.discount?`<div><span>Discount</span><span>−${usd(o.discount)}</span></div>`:""}${(o.charges||[]).filter(c=>+c.amount).map(c=>`<div><span>${esc(c.name)}</span><span>${usd(c.amount)}</span></div>`).join("")}
@@ -670,7 +688,7 @@ function openOrderView(id){
     ${o.notes?`<p class="mut">Kitchen: ${esc(o.notes)}</p>`:""}${o.receiptNotes?`<p class="mut">Receipt: ${esc(o.receiptNotes)}</p>`:""}
     ${o.status==="void"?`<p style="color:#b42318">Voided${o.voidedBy?" by "+esc(o.voidedBy):""}${o.approvedBy?", approved by "+esc(o.approvedBy):""}${o.voidReason?" — "+esc(o.voidReason):""}${o.stockAction?` · ${o.stockAction==="waste"?"wasted":"back to stock"}`:""}</p>`:""}
     ${o.status==="returned"?`<p style="color:#b42318">Returned${o.returnedBy?" by "+esc(o.returnedBy):""}${o.approvedBy?", approved by "+esc(o.approvedBy):""}${o.returnReason?" — "+esc(o.returnReason):""}${o.stockAction?` · ${o.stockAction==="waste"?"wasted":"back to stock"}`:""}</p>`:""}</div>
-    <div class="mf"><button class="btn" data-reprint style="margin-right:auto">Reprint</button>${acts.join("")}</div>`, true);
+    <div class="mf"><button class="btn" data-reprint>Reprint</button><button class="btn" data-kticket style="margin-right:auto">Kitchen ticket</button>${acts.join("")}</div>`, true);
 }
 const retLeft = (o, ix) => Math.max(0, +((o.items||[])[ix]?.qty||0) - (o.returnedItems||[]).filter(r => r.ix===ix).reduce((s,r)=>s+(+r.qty||0),0));
 const fullyBack = o => +o.refundTotal && +o.refundTotal >= +o.total - 0.001;
@@ -680,7 +698,7 @@ function openVR(kind, mode){
   const a = appSet(), reasons = String(kind==="void" ? a.voidReasons : a.returnReasons).split("\n").map(x=>x.trim()).filter(Boolean);
   const pick = mode==="items";
   modal("vr", `<div class="mh"><h2>${kind==="void"?"Void":"Return"} ${pick?"items":"order"} · ${esc(ordRef(o))}</h2><button class="x" data-ovopen="${esc(o.id)}" aria-label="Back">←</button></div><div class="mb">
-    ${pick ? `<p class="mut">How many of each item?</p><div class="vlines">${(o.items||[]).map((i,ix)=>`<div><span>${esc(i.name)}${i.mods?`<small class="mut" style="display:block">${esc(i.mods)}</small>`:""}</span><span class="qty"><button data-vq="${ix}:-1">−</button><b id="vq${ix}">0</b><button data-vq="${ix}:1">+</button> <span class="mut">of ${kind==="return" ? retLeft(o, ix) : i.qty}</span></span></div>`).join("")}</div>`
+    ${pick ? `<p class="mut">How many of each item?</p><div class="vlines">${(o.items||[]).map((i,ix)=>`<div><span>${esc(i.name)}${modList(i)}</span><span class="qty"><button data-vq="${ix}:-1">−</button><b id="vq${ix}">0</b><button data-vq="${ix}:1">+</button> <span class="mut">of ${kind==="return" ? retLeft(o, ix) : i.qty}</span></span></div>`).join("")}</div>`
       : `<p>${kind==="void" ? "The whole order will be voided and removed from sales." : `The whole order will be returned and ${usd(o.total)} refunded.`}</p>`}
     <div class="f"><label for="vrReason">Reason${a.reasonRequired?" *":""}</label><select id="vrReason"><option value="">Choose…</option>${reasons.map(r=>`<option>${esc(r)}</option>`).join("")}<option value="_other">Other…</option></select><input id="vrOther" placeholder="Write the reason" style="display:none;margin-top:6px"></div>
     ${a.stockAction==="ask" ? `<div class="f"><label>The food goes</label><div class="dseg"><button type="button" data-st="stock" class="on">Back to stock</button><button type="button" data-st="waste">To waste</button></div></div>`
