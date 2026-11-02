@@ -244,7 +244,7 @@ body{-webkit-font-smoothing:antialiased}
       <div class="acts" id="acts"></div>
     </aside>
     <section class="rside">
-      <div class="abar" id="abar"><button class="abtn" data-a="print"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 9V3h10v6"/><rect x="3" y="9" width="18" height="8" rx="2"/><path d="M7 14h10v7H7z"/></svg><span>Print</span></button><button class="abtn" data-a="kitchen"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 14a4 4 0 0 1-1-7.9A5 5 0 0 1 12 3a5 5 0 0 1 7 3.1A4 4 0 0 1 18 14"/><path d="M6 14h12v6H6z"/><path d="M10 14v3M14 14v3"/></svg><span>Kitchen</span></button><button class="abtn" data-a="void"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M5.6 18.4 18.4 5.6"/></svg><span>Void</span></button><button class="abtn" data-a="notes"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3h14v12l-6 6H5z"/><path d="M13 21v-6h6"/></svg><span>Notes</span></button><button class="abtn" data-a="more" id="menuBtn" aria-haspopup="menu"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg><span>More</span></button></div>
+      <div class="abar" id="abar"><button class="abtn" data-a="print"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 9V3h10v6"/><rect x="3" y="9" width="18" height="8" rx="2"/><path d="M7 14h10v7H7z"/></svg><span>Print</span></button><button class="abtn" data-a="kitchen"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 14a4 4 0 0 1-1-7.9A5 5 0 0 1 12 3a5 5 0 0 1 7 3.1A4 4 0 0 1 18 14"/><path d="M6 14h12v6H6z"/><path d="M10 14v3M14 14v3"/></svg><span>Kitchen</span></button><button class="abtn" data-a="void"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M5.6 18.4 18.4 5.6"/></svg><span>Void</span></button><button class="abtn" data-a="hold" style="position:relative"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg><span>Hold</span><span class="badge hide" id="holdBadge" style="position:absolute;top:6px;right:6px;background:#fff;color:var(--acci);border-radius:999px;font-size:11px;padding:0 6px;font-weight:700">0</span></button><button class="abtn" data-a="notes"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3h14v12l-6 6H5z"/><path d="M13 21v-6h6"/></svg><span>Notes</span></button><button class="abtn" data-a="more" id="menuBtn" aria-haspopup="menu"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg><span>More</span></button></div>
       <section class="menu"><div class="qwrap"><input class="search" id="q" placeholder="Search products" aria-label="Search products"></div><div class="grid" id="grid"></div></section>
       <nav class="bnav" id="bnav"><button data-nav="home" class="on"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11 12 4l9 7"/><path d="M5 10v10h14V10"/></svg><span>Home</span></button><button data-nav="orders" id="incomingBtn"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span>Orders</span><span class="badge hide" id="incBadge">0</span></button><button data-nav="board" id="boardBtn"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="5" height="16" rx="1.5"/><rect x="10" y="4" width="5" height="11" rx="1.5"/><rect x="17" y="4" width="4" height="7" rx="1.5"/></svg><span>Board</span></button><button data-nav="new"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>New</span></button></nav>
     </section>
@@ -699,6 +699,8 @@ $("#modal").addEventListener("click", async e => {
   if(e.target.closest("#notesSave")){ orderNote = $("#noteTxt").value.trim(); closeModal(); renderCart(); if(EDIT && isOpenOrd(editOrder()||{})) toast("Note added · press Send to send it to the kitchen"); return; }
   const nq = e.target.closest("[data-nq]"); if(nq){ const ta = $("#noteTxt"); ta.value = (ta.value.trim() ? ta.value.trim() + ", " : "") + nq.dataset.nq; ta.focus(); return; }
   if(e.target.closest("#diagReload")) return location.reload();
+  const hg = e.target.closest("[data-hget]"); if(hg) return retrieveHeld(hg.dataset.hget);
+  const hd = e.target.closest("[data-hdel]"); if(hd){ if(!confirm("Delete this held order?")) return; heldSave(heldList().filter(x => x.id!==hd.dataset.hdel)); return openHeld(); }
   const ov = e.target.closest("[data-ov]"); if(ov){ const o = S.orders.find(x=>x.id===ov.dataset.ov); if(["incoming","tables","board"].includes(modalKind) && o && !["pending","declined","refund"].includes(o.status)) return loadOrder(o.id); return openOrderView(ov.dataset.ov); }
   if(e.target.closest("[data-ovback]")) return openIncoming();
   const ovo = e.target.closest("[data-ovopen]"); if(ovo) return openOrderView(ovo.dataset.ovopen);
@@ -1020,8 +1022,37 @@ const openMore = () => modal("more", `<div class="mh"><h2>Device</h2><button cla
 const hideMore = () => $("#morePop").classList.add("hide");
 function paintNav(){ const k = modalKind==="incoming" || modalKind==="orderview" ? "orders" : modalKind==="tables" ? "tables" : modalKind==="board" ? "board" : modalKind ? "" : "home";
   document.querySelectorAll("#bnav [data-nav]").forEach(b => b.classList.toggle("on", b.dataset.nav===k)); }
-function paintAbar(){ const eo = editOrder(), open = eo && isOpenOrd(eo), closed = eo && !open, off = (a, v) => document.querySelector(`#abar [data-a="${a}"]`)?.classList.toggle("off", !!v);
-  off("print", !eo); off("kitchen", !eo && !cart.length); off("void", eo ? (closed && (eo.status!=="closed" || fullyBack(eo))) : !cart.length); off("notes", closed); }
+/* ---------- hold an unsent order on this register and pick it up later ---------- */
+const heldKey = () => "slickHeld:" + device.id;
+const heldList = () => { try{ return JSON.parse(store.get(heldKey()) || "[]"); }catch(e){ return []; } };
+const heldSave = l => { store.set(heldKey(), l.length ? JSON.stringify(l) : null); paintAbar(); };
+function holdOrder(silent){
+  if(!cart.length || EDIT) return;
+  const t = totals(), l = heldList(), n = (l.reduce((m,h) => Math.max(m, +h.n||0), 0)) + 1;
+  l.push({ id: "h" + Date.now().toString(36), n, at: new Date().toISOString(), by: cashier?.name || "", otype, cart: cart.map(cleanItem), discount, discType, posChg: posChg ? [...posChg] : null, tableNo, cust: JSON.parse(JSON.stringify(cust)), orderNote, total: t.total });
+  heldSave(l); resetOrder(); renderMenu(); if(!silent) toast(`Order held as H${n} · tap Hold to pick it up`);
+}
+function openHeld(){
+  const l = heldList(), t = v => new Date(v).toLocaleTimeString("en-GB",{hour:"numeric",minute:"2-digit"});
+  modal("held", `<div class="mh"><h2>Held orders</h2><button class="x" data-close aria-label="Close">×</button></div><div class="mb">
+    ${l.length ? `<div class="olist2">${l.map(h => `<div class="lrow" style="grid-template-columns:70px 1fr 1fr auto;cursor:default"><span class="lno">H${h.n}</span>
+      <span class="lc"><b>${esc(typLbl(h.otype==="takeaway" ? "pickup" : h.otype))}${h.tableNo ? " (T" + esc(h.tableNo) + ")" : ""}</b><span>${t(h.at)}${h.by ? " · " + esc(h.by) : ""}</span></span>
+      <span class="lc"><b>${h.cart.reduce((s,i) => s + (+i.qty||0), 0)} items · ${usd(h.total)}</b><span>${esc([h.cust?.name, h.cust?.phone].filter(Boolean).join(" · ") || h.cart.slice(0,3).map(i => i.name).join(", "))}</span></span>
+      <span style="display:flex;gap:6px"><button class="btn" data-hdel="${esc(h.id)}" style="color:#b42318">Delete</button><button class="btn pri" data-hget="${esc(h.id)}">Retrieve</button></span></div>`).join("")}</div>`
+      : `<div class="oempty">No held orders. Add items, then tap Hold to park the order and serve the next customer.</div>`}
+    <p class="mut" style="margin:10px 0 0">Held orders stay on this register until you retrieve them. Nothing is sent to the kitchen.</p></div>`, true);
+}
+function retrieveHeld(id){
+  const l = heldList(), h = l.find(x => x.id===id); if(!h) return;
+  if(EDIT) unloadOrder();
+  if(cart.length){ if(!confirm("Hold the current order and retrieve this one?")) return; holdOrder(true); }
+  const rest = heldList().filter(x => x.id!==id); heldSave(rest);
+  cart = h.cart; otype = h.otype; discount = +h.discount||0; discType = h.discType || "pct"; posChg = h.posChg ? new Set(h.posChg) : null; tableNo = h.tableNo || ""; cust = h.cust || { name:"", phone:"", addr:{} }; cust.addr = cust.addr || {}; orderNote = h.orderNote || "";
+  closeModal(); renderCart(); renderMenu(); toast(`Order H${h.n} retrieved`);
+}
+function paintAbar(){ const hb = document.getElementById("holdBadge"); if(hb && device){ const n = heldList().length; hb.textContent = n; hb.classList.toggle("hide", !n); }
+  const eo = editOrder(), open = eo && isOpenOrd(eo), closed = eo && !open, off = (a, v) => document.querySelector(`#abar [data-a="${a}"]`)?.classList.toggle("off", !!v);
+  off("print", !eo); off("hold", !!eo); off("kitchen", !eo && !cart.length); off("void", eo ? (closed && (eo.status!=="closed" || fullyBack(eo))) : !cart.length); off("notes", closed); }
 $("#abar").addEventListener("click", e => { const b = e.target.closest("[data-a]"); if(!b) return; const a = b.dataset.a, eo = editOrder();
   if(a==="more"){ e.stopPropagation(); return $("#morePop").classList.toggle("hide"); }
   hideMore();
@@ -1036,6 +1067,7 @@ $("#abar").addEventListener("click", e => { const b = e.target.closest("[data-a]
     if(!cart.length) return toast("Nothing to void");
     if(confirm("Clear this order? Nothing was sent to the kitchen yet.")) resetOrder(); return; }
   if(a==="disc"){ if(eo && !isOpenOrd(eo)) return toast("This order is closed"); if(!cart.length) return toast("Add items first"); return openDiscount(); }
+  if(a==="hold") return eo ? toast("This order was already sent: find it under Orders") : cart.length ? holdOrder() : openHeld();
   if(a==="notes"){ if(eo && !isOpenOrd(eo)) return toast("This order is closed"); return openNotes(); }
 });
 document.addEventListener("click", e => { if(!e.target.closest("#morePop") && !e.target.closest("#menuBtn")) hideMore(); });
