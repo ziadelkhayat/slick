@@ -385,11 +385,13 @@ const deny = what => { toast(`${cashier ? cashier.name + ", your" : "Your"} role
 /* ---------- order numbers: each tablet counts 1, 2, 3… and starts again every business day ---------- */
 const dayCut = () => { const m = /^(\d{1,2}):(\d{2})/.exec((S.settings.find(x=>x.id==="company")||{}).dayEnd || ""); return m ? Math.min(719, (+m[1])*60 + (+m[2])) : 0; };
 const bizDate = (t = new Date()) => { const d = new Date(+new Date(t) - dayCut()*60000); return new Date(d - d.getTimezoneOffset()*60000).toISOString().slice(0,10); };
+// call number: one sequence per branch (all registers), starting again at 1 after each end of day; the server fixes any clash
 function nextOrderNo(){
-  const day = bizDate(), key = "slickNo_" + device.id; let c = {}; try{ c = JSON.parse(store.get(key) || "{}"); }catch(e){}
-  let n = c.day===day ? +c.n||0 : 0;
-  S.orders.forEach(o => { if(o.deviceId===device.id && o.no && bizDate(o.createdAt)===day) n = Math.max(n, +o.no||0); });   // survives a reinstall
-  n++; store.set(key, JSON.stringify({ day, n })); return String(n);
+  const since = S.day_closes.filter(c => c.branchId===device.branchId).reduce((m,c) => Math.max(m, +new Date(c.closedAt) || 0), 0);
+  const key = "slickNo_" + device.branchId; let c = {}; try{ c = JSON.parse(store.get(key) || "{}"); }catch(e){}
+  let n = c.since===since ? +c.n||0 : 0;
+  S.orders.forEach(o => { if(o.branchId===device.branchId && o.no && o.status!=="refund" && +new Date(o.createdAt) > since) n = Math.max(n, parseInt(String(o.no).replace(/\D/g,""),10)||0); });
+  n++; store.set(key, JSON.stringify({ since, n })); return String(n);
 }
 /* ---------- company and app settings (Account settings, Manage → Settings) ---------- */
 const company = () => S.settings.find(x=>x.id==="company") || {};
