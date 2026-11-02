@@ -1948,7 +1948,8 @@ function viewCallCenter(){
   return h;
 }
 // order number comes from the POS that bills the order; until then call-center / web orders go by invoice number
-const ordRef = o => o.status==="refund" ? "RET-" + String(o.returnNo || o.return_no || "…").padStart(6,"0") : o.no ? "#" + o.no : (o.ref || (o.invoiceNo || o.invoice_no ? "Inv " + (o.invoiceNo || o.invoice_no) : "—"));
+const ordRef = o => o.status==="refund" ? "RET-" + String(o.returnNo || o.return_no || "…").padStart(6,"0") : o.no ? "#" + o.no : (o.ref || (o.invoiceNo || o.invoice_no ? invNo(o.invoiceNo || o.invoice_no) : "—"));
+const invNo = n => n ? "INV-" + String(n).padStart(6,"0") : "";   // invoice number as shown
 const ccTime = t => { if(!t) return "—"; const d = new Date(t), today = bizDate()===bizDate(d); return d.toLocaleString("en-GB", today ? { hour:"2-digit", minute:"2-digit" } : { day:"numeric", month:"short", hour:"2-digit", minute:"2-digit" }); };
 const ccCard = o => `<button class="ocard" data-order="${esc(o.id)}"><div class="orow"><b>${esc(ordRef(o))}</b><span class="spill s-${o.status}">${CC_SUB[o.status]}</span></div>
   <div class="oline">${svgIco("users")}<span>${esc(o.customerName||"Guest")}<br><span class="note">${esc(o.phone||"")}</span></span></div>
@@ -2526,7 +2527,7 @@ function viewOrders(){
   </div>
   <div class="card tbl otbl"><div class="ttop"><div class="ttabs">${ORD_TABS.map(([k,t])=>`<a href="#orders" data-otab="${k}" class="${ORD.tab===k?"on":""}">${t} <span class="note">${ORD.counts[k] ?? ""}</span></a>`).join("")}</div><span class="sp"></span><span class="note">${ORD.loading ? "Loading…" : ""}</span></div>
   ${ORD.err ? `<p class="note" style="padding:16px">Couldn't load orders: ${esc(ORD.err)}</p>` : `<table><thead><tr><th>Reference</th><th>Order #</th><th>Invoice #</th><th>Brand</th><th>Branch</th><th>Customer</th><th>Status</th><th>Channel</th><th>Source</th><th>Type</th><th>Opened at</th><th class="num">Total</th></tr></thead><tbody>${
-    ORD.rows.length ? ORD.rows.map(o => `<tr class="clk" data-oid="${esc(o.id)}"><td><b>${esc(o.ref || "—")}</b></td><td>${o.no ? `#${esc(o.no)}` : '<span class="note" title="Gets its number when a POS bills it">—</span>'}</td><td>${o.invoiceNo ? esc(o.invoiceNo) : '<span class="note" title="Gets its invoice number when a POS accepts it">—</span>'}</td>
+    ORD.rows.length ? ORD.rows.map(o => `<tr class="clk" data-oid="${esc(o.id)}"><td><b>${esc(o.ref || "—")}</b></td><td>${o.no ? `#${esc(o.no)}` : '<span class="note" title="Gets its number when a POS bills it">—</span>'}</td><td>${o.invoiceNo ? esc(invNo(o.invoiceNo)) : '<span class="note" title="Gets its invoice number when a POS accepts it">—</span>'}</td>
       <td>${esc(brandName(o.brandId) || "—")}</td><td>${esc(branches.find(x=>x.id===o.branchId)?.name || "—")}</td>
       <td>${esc(o.customerName || "—")}${o.phone?`<div class="note">${esc(o.phone)}</div>`:""}</td><td><span class="spill s-${o.status}">${ORD_ST[o.status]||o.status}</span></td>
       <td><span class="tag cc">${esc(CH_LBL[o.channel] || cap(o.channel))}</span></td><td>${esc(o.source || "—")}</td><td>${esc(ordTypeLbl(o.type))}${o.table?` · T${esc(o.table)}`:""}</td>
@@ -2548,7 +2549,7 @@ async function openOrderDetail(id, quiet){
   <div style="padding:18px 22px;max-height:72vh;overflow:auto">
     <div class="odet">
       <div><span>Reference</span>${esc(o.ref || "—")}</div>
-      <div><span>Invoice</span>${o.invoiceNo ? esc(o.invoiceNo) : (o.channel!=="pos" && ["pending","draft"].includes(o.status) ? '<span class="note">From the POS when accepted</span>' : "—")}</div>
+      <div><span>Invoice</span>${o.invoiceNo ? esc(invNo(o.invoiceNo)) : (o.channel!=="pos" && ["pending","draft"].includes(o.status) ? '<span class="note">From the POS when accepted</span>' : "—")}</div>
       <div><span>Brand</span>${esc(brandName(o.brandId) || "—")}</div>
       <div><span>Branch</span>${esc(branches.find(x=>x.id===o.branchId)?.name || "—")}</div>
       <div><span>Channel</span>${esc(CH_LBL[o.channel] || cap(o.channel))}${o.source && o.source!=="POS"?` · ${esc(o.source)}`:""}</div>

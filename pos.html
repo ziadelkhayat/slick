@@ -443,7 +443,7 @@ function openDayEnd(){
   const shifts = S.shifts.filter(x => x.branchId===device.branchId && !x.closedAt);
   const sales = S.orders.filter(o => liveOrder(o) && (o.status==="closed" || o.status==="refund") && bizDate(o.createdAt)===day);
   const blockers = [];
-  if(act.length) blockers.push(`<p><b>${act.length} order${act.length===1?" is":"s are"} still active.</b> Finish, decline or void ${act.length===1?"it":"them"} first:</p><p class="mut">${act.slice(0,12).map(o => (o.no ? "#"+esc(o.no) : "Inv "+esc(o.invoiceNo||"")) + " · " + (o.status==="pending" ? "waiting" : "in kitchen")).join("<br>")}</p>`);
+  if(act.length) blockers.push(`<p><b>${act.length} order${act.length===1?" is":"s are"} still active.</b> Finish, decline or void ${act.length===1?"it":"them"} first:</p><p class="mut">${act.slice(0,12).map(o => (o.no ? "#"+esc(o.no) : esc(invNo(o.invoiceNo))) + " · " + (o.status==="pending" ? "waiting" : "in kitchen")).join("<br>")}</p>`);
   if(shifts.length) blockers.push(`<p><b>${shifts.length} shift${shifts.length===1?" is":"s are"} still open.</b> Close ${shifts.length===1?"it":"them"} first:</p><p class="mut">${shifts.map(x => esc(S.devices.find(d=>d.id===x.deviceId)?.name || "Device") + " · " + esc(x.cashier||"")).join("<br>")}</p>`);
   modal("dayend", `<div class="mh"><h2>End day · ${esc(fmtDay(day))}</h2><button class="x" data-close aria-label="Close">×</button></div><div class="mb">
     ${blockers.length ? blockers.join("") : `<div class="stats"><div>Orders<b>${sales.length}</b></div><div>Net sales<b>${usd(sales.reduce((a,o)=>a+(+o.total||0)-(+o.tax||0),0))}</b></div><div>Payments<b>${usd(sales.reduce((a,o)=>a+(+o.total||0),0))}</b></div></div>
@@ -514,7 +514,7 @@ function renderCart(){
     : otype==="delivery" ? `<input id="cPhone" placeholder="Customer phone *" inputmode="tel" value="${esc(cust.phone)}"><input id="cName" placeholder="Customer name *" value="${esc(cust.name)}"><div class="addrg">${[["label","Address name (Home, Work…)"],["street","Area / street *"],["building","Building name / no. *"],["floor","Floor *"],["extra","Additional info"]].map(([k,ph])=>`<input id="cA_${k}" placeholder="${ph}" value="${esc(cust.addr[k]||"")}"${k==="extra"||k==="label"?' class="wide"':""}>`).join("")}</div>`
     : `<input id="cPhone" placeholder="Customer phone *" inputmode="tel" value="${esc(cust.phone)}"><input id="cName" placeholder="Customer name *" value="${esc(cust.name)}">`;
   const eo = editOrder(), ro = eo && !isOpenOrd(eo);
-  if(eo) $("#extra").insertAdjacentHTML("afterbegin", `<div class="obar"><b>Order ${esc(ordRef(eo))}</b>${eo.invoiceNo && eo.no ? `<span class="mut" style="font-size:13px">Inv ${esc(eo.invoiceNo)}</span>` : ""}<span class="spill s-${eo.status}">${stLbl(eo)}</span><span class="sp"></span><button data-ovd>Details</button></div>`);
+  if(eo) $("#extra").insertAdjacentHTML("afterbegin", `<div class="obar"><b>Order ${esc(ordRef(eo))}</b>${eo.invoiceNo && eo.no ? `<span class="mut" style="font-size:13px">${esc(invNo(eo.invoiceNo))}</span>` : ""}<span class="spill s-${eo.status}">${stLbl(eo)}</span><span class="sp"></span><button data-ovd>Details</button></div>`);
   if(ro) $("#extra").querySelectorAll("input,select").forEach(x => x.disabled = true);
   $("#lines").innerHTML = cart.length ? cart.map((i,ix)=>`<div class="line"><span class="n" data-edit="${ix}" title="${ro?"":"Tap to edit"}" style="cursor:pointer">${esc(i.name)}${i.saved?`<span class="sent">${ro ? "" : `${i.saved} sent to kitchen`}</span>`:""}${modList(i)}${+i.disc?`<small style="display:block;font-size:12px;color:#b45309">Discount −${usd(i.disc)}</small>`:""}</span><span class="p">${usd(lineNet(i))}</span>
     <span class="qty">${ro ? `× ${i.qty}` : `<button data-q="${ix}:-1" aria-label="${i.qty > (i.saved||0) ? "Less" : "Void"}">−</button>${i.qty}<button data-q="${ix}:1" aria-label="More">+</button>`}</span><span class="p mut">${usd(i.price)} each</span></div>`).join("") : `<div class="empty">Tap items to start an order</div>`;
@@ -772,8 +772,8 @@ function receiptText(o){
   const w = 32, row = (a,b) => a.slice(0, w-b.length-1).padEnd(w-b.length) + b, a = appSet(), net = (+o.total||0) - (+o.tax||0);
   const typ = o.type==="dinein" ? "Dine-in"+(o.table?" T"+o.table:"") : o.type==="pickup"||o.type==="takeaway" ? "Pickup" : "Delivery";
   const lines = [ (()=>{ const n = (S.brands.find(b=>b.id===branch?.brandId)?.name || "Slick").toUpperCase(); return n.padStart((w+n.length)/2); })(), (branch?.name||"").padStart((w+(branch?.name||"").length)/2), ...rcptHead(w), "",
-    ...(o.status==="refund" ? ["*** REFUND ***".padStart((w+14)/2), row("Return " + ordRef(o), typ), ...(o.invoiceRef || S.orders.find(x=>x.id===o.refundOf)?.invoiceNo ? ["Original invoice " + (o.invoiceRef || S.orders.find(x=>x.id===o.refundOf)?.invoiceNo)] : []), ...(o.returnReason ? ["Reason: " + o.returnReason] : [])]
-      : [row("Order #"+(o.no||"—"), typ), ...(o.ref ? ["Ref " + o.ref] : []), ...(a.rcptInvoice && o.invoiceNo ? ["Invoice " + o.invoiceNo] : [])]), ...(a.rcptSource && o.source ? ["Source: " + o.source] : []),
+    ...(o.status==="refund" ? ["*** REFUND ***".padStart((w+14)/2), row("Return " + ordRef(o), typ), ...(o.invoiceRef || S.orders.find(x=>x.id===o.refundOf)?.invoiceNo ? ["Original invoice " + invNo(o.invoiceRef || S.orders.find(x=>x.id===o.refundOf)?.invoiceNo)] : []), ...(o.returnReason ? ["Reason: " + o.returnReason] : [])]
+      : [row("Order #"+(o.no||"—"), typ), ...(o.ref ? ["Ref " + o.ref] : []), ...(a.rcptInvoice && o.invoiceNo ? ["Invoice " + invNo(o.invoiceNo)] : [])]), ...(a.rcptSource && o.source ? ["Source: " + o.source] : []),
     ...(a.rcptCustomer && (o.customerName || o.phone) ? [[o.customerName, o.phone].filter(Boolean).join(" · ")] : []),
     new Date(o.createdAt).toLocaleString("en-GB"), "-".repeat(w),
     ...o.items.flatMap(i => [row(i.qty+" x "+i.name, lineNet(i).toFixed(2)), ...modLines(i).map(m => ("   - " + m).slice(0, w)), ...(+i.disc ? ["  discount -" + (+i.disc).toFixed(2)] : [])]), "-".repeat(w) ];
@@ -834,10 +834,11 @@ function approve(perm, title){
 let OV = { tab:"all", q:"", open:null, view:"list", filt:false, ft:"", fc:"" };
 const stLbl = o => ({ refund:"Refund", pending:"Waiting for you", active:"In kitchen", closed:"Done", void:"Void", returned:"Returned", declined:"Declined", draft:"Draft" }[o.status] || o.status);
 const typLbl = t => t==="dinein" ? "Dine-in" : t==="pickup"||t==="takeaway" ? "Pickup" : t==="delivery" ? "Delivery" : (t||"—");
-const ordRef = o => o.status==="refund" ? "RET-" + String(o.returnNo || "…").padStart(6,"0") : o.no ? "#" + o.no : o.invoiceNo ? "Inv " + o.invoiceNo : "—";
+const invNo = n => n ? "INV-" + String(n).padStart(6,"0") : "";   // invoice number as shown and printed
+const ordRef = o => o.status==="refund" ? "RET-" + String(o.returnNo || "…").padStart(6,"0") : o.no ? "#" + o.no : o.invoiceNo ? invNo(o.invoiceNo) : "—";
 function ordersFor(tab){
   const mine = S.orders.filter(o => o.branchId===device.branchId), today = bizDate();
-  const q = OV.q.trim().toLowerCase(), m = o => !q || [o.no, o.ref, o.invoiceNo, o.customerName, o.phone, o.source].some(v => String(v||"").toLowerCase().includes(q));
+  const q = OV.q.trim().toLowerCase(), m = o => !q || [o.no, o.ref, o.invoiceNo, invNo(o.invoiceNo), o.returnNo && "RET-" + String(o.returnNo).padStart(6,"0"), o.customerName, o.phone, o.source].some(v => String(v||"").toLowerCase().includes(q));
   const l = tab==="incoming" ? mine.filter(o => o.channel!=="pos" && ["pending","active"].includes(o.status))
     : tab==="active" ? mine.filter(o => o.status==="active")
     : tab==="closed" ? mine.filter(o => ["closed","void","returned","refund"].includes(o.status) && bizDate(o.createdAt)===today)
@@ -849,7 +850,7 @@ const OV_COLS = [["pending","Pending","Waiting for this branch to accept"],["act
 function boardOrders(col, pd){
   const today = bizDate(), day = !pd && OV.date ? OV.date : today, anyDay = day===today;   // the Orders list can look at another business day
   const mine = S.orders.filter(o => o.branchId===device.branchId), onDay = o => anyDay || bizDate(o.createdAt)===day;
-  const q = OV.q.trim().toLowerCase(), m = o => (!q || [o.no, o.ref, o.invoiceNo, o.customerName, o.phone, o.source, o.table].some(v => String(v||"").toLowerCase().includes(q)))
+  const q = OV.q.trim().toLowerCase(), m = o => (!q || [o.no, o.ref, o.invoiceNo, invNo(o.invoiceNo), o.returnNo && "RET-" + String(o.returnNo).padStart(6,"0"), o.customerName, o.phone, o.source, o.table].some(v => String(v||"").toLowerCase().includes(q)))
     && (!pd || ["pickup","takeaway","delivery"].includes(o.type)) && (pd || !OV.ft || (OV.ft==="pickup" ? ["pickup","takeaway"].includes(o.type) : o.type===OV.ft)) && (pd || !OV.fc || (OV.fc==="pos" ? o.channel==="pos" : OV.fc==="callcenter" ? o.channel==="callcenter" : !["pos","callcenter"].includes(o.channel)));
   if(col==="all") return ["pending","active","closed","void"].flatMap(k => boardOrders(k, pd)).sort((a,b) => String(b.createdAt).localeCompare(String(a.createdAt)));
   const l = col==="pending" ? mine.filter(o => o.status==="pending" && onDay(o)) : col==="active" ? mine.filter(o => o.status==="active" && onDay(o))
@@ -862,13 +863,13 @@ function openIncoming(){
   const t = v => v ? new Date(v).toLocaleTimeString("en-GB",{hour:"numeric",minute:"2-digit"}) : "";
   const chn = o => o.channel==="pos" ? "POS" : o.channel==="callcenter" ? "Call center" : "Web";
   const card = o => `<button class="ocard" data-ov="${esc(o.id)}"><span class="oc1"><b>${esc(o.no ? "#" + o.no : ordRef(o))}</b><span class="spill s-${o.status}">${stLbl(o)}</span></span>
-    ${o.invoiceNo && o.no ? `<span class="mut oc-s">Invoice ${esc(o.invoiceNo)}</span>` : ""}
+    ${o.invoiceNo && o.no ? `<span class="mut oc-s">${esc(invNo(o.invoiceNo))}</span>` : ""}
     ${o.customerName || o.phone ? `<span class="oc2">👤 ${esc(o.customerName||"")}<small>${esc(o.phone||"")}</small></span>` : ""}
     <span class="oc2 mut">🕒 Created ${t(o.createdAt)}${o.updatedAt && o.updatedAt!==o.createdAt ? `<small>Modified ${t(o.updatedAt)}</small>` : ""}</span>
     <span class="oc2">${o.channel==="pos" ? "🧾" : o.channel==="callcenter" ? "🎧" : "🌐"} ${esc(o.source || chn(o))} · ${esc(typLbl(o.type))}${o.table ? " · T" + esc(o.table) : ""}<small>${esc(o.agent || "")}</small></span>
     <b class="oc-t">${usd(o.total)}</b></button>`;
   // one row per order: number · type (table) + time · customer / source + phone · status + total
-  const row = o => `<button class="lrow" data-ov="${esc(o.id)}"><span class="lc"><b class="lno" style="text-transform:none">${esc(o.no ? "#" + o.no : ordRef(o))}</b><span>${o.invoiceNo && o.no ? "Inv " + esc(o.invoiceNo) : o.status==="pending" ? "Not accepted yet" : ""}</span></span>
+  const row = o => `<button class="lrow" data-ov="${esc(o.id)}"><span class="lc"><b class="lno" style="text-transform:none">${esc(o.no ? "#" + o.no : ordRef(o))}</b><span>${o.invoiceNo && o.no ? esc(invNo(o.invoiceNo)) : o.status==="pending" ? "Not accepted yet" : ""}</span></span>
     <span class="lc"><b>${esc(typLbl(o.type))}${o.table ? " (T" + esc(o.table) + ")" : ""}</b><span>${t(o.createdAt)}</span></span>
     <span class="lc lc2"><b>${esc(o.customerName || (o.channel!=="pos" ? o.source || chn(o) : ""))}</b><span>${esc(o.phone || (o.customerName && o.channel!=="pos" ? o.source || chn(o) : ""))}</span></span>
     <span class="lr"><b class="lst-${o.status}">${stLbl(o)}</b><span>${usd(o.total)}</span></span></button>`;
@@ -899,7 +900,7 @@ function openOrderView(id){
   S.orders.filter(x => x.refundOf===o.id).forEach(x => acts.push(`<button class="btn" data-ov="${esc(x.id)}">Return ${esc(ordRef(x))}</button>`));
   if(o.status==="refund" && src) acts.push(`<button class="btn" data-ov="${esc(src.id)}">Open original order</button>`);
   modal("orderview", `<div class="mh"><h2>Order ${esc(ordRef(o))} <span class="spill s-${o.status}">${stLbl(o)}</span></h2><button class="x" data-ovback aria-label="Back">←</button></div><div class="mb">
-    <p class="mut">${o.invoiceNo && o.no?`Invoice ${esc(o.invoiceNo)} · `:""}${esc(typLbl(o.type))}${o.table?" T"+esc(o.table):""} · ${esc(o.source || (o.channel==="pos"?"POS":"Call center"))} · ${new Date(o.createdAt).toLocaleString("en-GB",{day:"numeric",month:"short",hour:"numeric",minute:"2-digit"})}${o.agent?` · ${esc(o.agent)}`:""}</p>
+    <p class="mut">${o.invoiceNo && o.no?`${esc(invNo(o.invoiceNo))} · `:""}${esc(typLbl(o.type))}${o.table?" T"+esc(o.table):""} · ${esc(o.source || (o.channel==="pos"?"POS":"Call center"))} · ${new Date(o.createdAt).toLocaleString("en-GB",{day:"numeric",month:"short",hour:"numeric",minute:"2-digit"})}${o.agent?` · ${esc(o.agent)}`:""}</p>
     ${o.customerName||o.phone ? `<p><b>${esc(o.customerName||"")}</b> ${o.phone?`<a href="tel:${esc(o.phone)}" style="color:#5b2bc4">${esc(o.phone)}</a>`:""}${o.address?`<br><span class="mut">${esc(o.address)}</span>`:""}${o.lat?`<br><a href="https://www.google.com/maps?q=${o.lat},${o.lng}" target="_blank" rel="noopener" style="color:#5b2bc4">📍 Open pinned location</a>`:""}</p>` : ""}
     <div class="vlines">${(o.items||[]).map(i=>`<div><span>${i.qty} × ${esc(i.name)}${modList(i)}${+i.disc?`<small style="display:block;color:#b45309">Discount −${usd(i.disc)}</small>`:""}</span><b>${usd(lineNet(i))}</b></div>`).join("")}
       ${(o.voidedItems||[]).map(i=>`<div class="mut"><span><s>${i.qty} × ${esc(i.name)}</s> · voided${i.reason?" ("+esc(i.reason)+")":""}</span><s>${usd((+i.price||0)*(+i.qty||1))}</s></div>`).join("")}
@@ -1101,7 +1102,7 @@ function openBoard(){
   const t = v => v ? new Date(v).toLocaleTimeString("en-GB",{hour:"numeric",minute:"2-digit"}) : "";
   const chn = o => o.channel==="pos" ? "POS" : o.channel==="callcenter" ? "Call center" : "Web";
   const card = o => `<button class="ocard" data-ov="${esc(o.id)}"><span class="oc1"><b>${esc(o.no ? "#" + o.no : ordRef(o))}</b><span class="spill s-${o.status}">${stLbl(o)}</span></span>
-    ${o.invoiceNo && o.no ? `<span class="mut oc-s">Invoice ${esc(o.invoiceNo)}</span>` : ""}
+    ${o.invoiceNo && o.no ? `<span class="mut oc-s">${esc(invNo(o.invoiceNo))}</span>` : ""}
     ${o.customerName || o.phone ? `<span class="oc2">👤 ${esc(o.customerName||"")}<small>${esc(o.phone||"")}</small></span>` : ""}
     ${o.type==="delivery" && o.address ? `<span class="oc2 mut">📍 ${esc(o.address)}</span>` : ""}
     <span class="oc2 mut">🕒 Created ${t(o.createdAt)}${o.updatedAt && o.updatedAt!==o.createdAt ? `<small>Modified ${t(o.updatedAt)}</small>` : ""}</span>
