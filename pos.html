@@ -203,6 +203,7 @@ body{-webkit-font-smoothing:antialiased}
 .rsec{background:var(--s);border-radius:14px;padding:14px 16px;box-shadow:0 1px 3px rgba(21,19,31,.06)}.rsec h3{margin:0 0 8px;font-size:15px}
 .rsec table{width:100%;border-collapse:collapse;font-size:14px;font-variant-numeric:tabular-nums}.rsec td{padding:7px 0;border-bottom:1px solid var(--line)}.rsec tr:last-child td{border-bottom:0}.rsec td+td{text-align:right;padding-left:10px;white-space:nowrap}.rsec td.c{color:#8d8c98}
 .toast{bottom:96px!important}
+#modal .addrg input{width:100%;min-width:0;padding:10px 12px;border:1px solid var(--line);border-radius:12px}#modal .f input:not([type=checkbox]){width:100%}
 .dvl{display:grid;gap:10px}.dvc{display:flex;align-items:center;gap:12px;background:var(--s);border-radius:14px;padding:14px 16px;box-shadow:0 1px 3px rgba(21,19,31,.06)}.dvc .sp{flex:1}.dot{width:10px;height:10px;border-radius:50%;background:#c9c7d4;flex:none}.dot.on{background:var(--good)}
 </style>
 <script>window.SLICK_OFFLINE = true;</script>
@@ -246,7 +247,7 @@ body{-webkit-font-smoothing:antialiased}
     <section class="rside">
       <div class="abar" id="abar"><button class="abtn" data-a="print"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 9V3h10v6"/><rect x="3" y="9" width="18" height="8" rx="2"/><path d="M7 14h10v7H7z"/></svg><span>Print</span></button><button class="abtn" data-a="kitchen"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 14a4 4 0 0 1-1-7.9A5 5 0 0 1 12 3a5 5 0 0 1 7 3.1A4 4 0 0 1 18 14"/><path d="M6 14h12v6H6z"/><path d="M10 14v3M14 14v3"/></svg><span>Kitchen</span></button><button class="abtn" data-a="void"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M5.6 18.4 18.4 5.6"/></svg><span>Void</span></button><button class="abtn" data-a="hold" style="position:relative"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg><span>Hold</span><span class="badge hide" id="holdBadge" style="position:absolute;top:6px;right:6px;background:#fff;color:var(--acci);border-radius:999px;font-size:11px;padding:0 6px;font-weight:700">0</span></button><button class="abtn" data-a="notes"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3h14v12l-6 6H5z"/><path d="M13 21v-6h6"/></svg><span>Notes</span></button><button class="abtn" data-a="more" id="menuBtn" aria-haspopup="menu"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg><span>More</span></button></div>
       <section class="menu"><div class="qwrap"><input class="search" id="q" placeholder="Search products" aria-label="Search products"></div><div class="grid" id="grid"></div></section>
-      <nav class="bnav" id="bnav"><button data-nav="home" class="on"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11 12 4l9 7"/><path d="M5 10v10h14V10"/></svg><span>Home</span></button><button data-nav="orders" id="incomingBtn"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span>Orders</span><span class="badge hide" id="incBadge">0</span></button><button data-nav="board" id="boardBtn"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="5" height="16" rx="1.5"/><rect x="10" y="4" width="5" height="11" rx="1.5"/><rect x="17" y="4" width="4" height="7" rx="1.5"/></svg><span>Board</span></button><button data-nav="new"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>New</span></button></nav>
+      <nav class="bnav" id="bnav"><button data-nav="home" class="on"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11 12 4l9 7"/><path d="M5 10v10h14V10"/></svg><span>Home</span></button><button data-nav="orders" id="incomingBtn"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span>Orders</span><span class="badge hide" id="incBadge">0</span></button><button data-nav="board" id="boardBtn"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="5" height="16" rx="1.5"/><rect x="10" y="4" width="5" height="11" rx="1.5"/><rect x="17" y="4" width="4" height="7" rx="1.5"/></svg><span>Pickup & delivery</span></button><button data-nav="new"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>New</span></button></nav>
     </section>
   </div>
   <div class="morepop hide" id="morePop" role="menu">
@@ -701,6 +702,10 @@ $("#modal").addEventListener("click", async e => {
   if(e.target.closest("#notesSave")){ orderNote = $("#noteTxt").value.trim(); closeModal(); renderCart(); if(EDIT && isOpenOrd(editOrder()||{})) toast("Note added · press Send to send it to the kitchen"); return; }
   const nq = e.target.closest("[data-nq]"); if(nq){ const ta = $("#noteTxt"); ta.value = (ta.value.trim() ? ta.value.trim() + ", " : "") + nq.dataset.nq; ta.focus(); return; }
   if(e.target.closest("#diagReload")) return location.reload();
+  if(e.target.closest("[data-pdnew]")){ PD = null; return openPDNew(); }
+  const pdt = e.target.closest("[data-pdt]"); if(pdt){ pdKeep(); PD.type = pdt.dataset.pdt; return openPDNew(); }
+  const pda = e.target.closest("[data-pdaddr]"); if(pda){ pdKeep(); const a = (PD.cust?.addresses||[])[+pda.dataset.pdaddr]; if(a) PD.addr = addrParts(a.address); return openPDNew(); }
+  if(e.target.closest("#pdGo")) return pdContinue();
   const hg = e.target.closest("[data-hget]"); if(hg) return retrieveHeld(hg.dataset.hget);
   const hd = e.target.closest("[data-hdel]"); if(hd){ if(!confirm("Delete this held order?")) return; heldSave(heldList().filter(x => x.id!==hd.dataset.hdel)); return openHeld(); }
   const ov = e.target.closest("[data-ov]"); if(ov){ const o = S.orders.find(x=>x.id===ov.dataset.ov); if(["incoming","tables","board"].includes(modalKind) && o && !["pending","declined","refund"].includes(o.status)) return loadOrder(o.id); return openOrderView(ov.dataset.ov); }
@@ -718,7 +723,7 @@ $("#modal").addEventListener("click", async e => {
   if(e.target.closest("#doCloseShift")) return doCloseShift();
   if(e.target.closest("#deact")){ store.set("wokDevice", null); location.reload(); }
 });
-$("#modal").addEventListener("input", e => { if(e.target.id==="tender") updChange(); if(e.target.id==="bdQ"){ BQ = e.target.value; const pos = e.target.selectionStart; openBoard(); const q = $("#bdQ"); q.focus(); q.setSelectionRange(pos, pos); return; } if(e.target.id==="ovQ"){ OV.q = e.target.value; const pos = e.target.selectionStart; openIncoming(); const q = $("#ovQ"); q.focus(); q.setSelectionRange(pos, pos); } });
+$("#modal").addEventListener("input", e => { if(e.target.id==="pdPhone"){ clearTimeout(pdT); pdT = setTimeout(pdLookup, 450); } if(e.target.id==="tender") updChange(); if(e.target.id==="bdQ"){ BQ = e.target.value; const pos = e.target.selectionStart; openBoard(); const q = $("#bdQ"); q.focus(); q.setSelectionRange(pos, pos); return; } if(e.target.id==="ovQ"){ OV.q = e.target.value; const pos = e.target.selectionStart; openIncoming(); const q = $("#ovQ"); q.focus(); q.setSelectionRange(pos, pos); } });
 $("#modal").addEventListener("change", e => { if(e.target.id==="ovDate"){ const v = e.target.value; OV.date = !v || v >= bizDate() ? "" : v; return openIncoming(); } if(e.target.id==="vrReason") $("#vrOther").style.display = e.target.value==="_other" ? "" : "none"; });
 
 /* payment */
@@ -1110,11 +1115,56 @@ function openBoard(){
     <b class="oc-t">${usd(o.total)}</b></button>`;
   const q = OV.q; OV.q = BQ;
   const cols = OV_COLS.map(([k,title,tip]) => [k, title, tip, boardOrders(k, true)]); OV.q = q;
-  modal("board", `<div class="ohdr"><button class="hbtn" data-close>Back</button><b style="font-size:18px">Pickup & delivery</b><input class="search" id="bdQ" placeholder="Search order #, reference, customer, phone" value="${esc(BQ)}" style="flex:1;min-width:220px;margin:0"><button class="hbtn ghost" data-osync>Sync</button></div>
+  modal("board", `<div class="ohdr"><button class="hbtn" data-close>Back</button><b style="font-size:18px">Pickup & delivery</b><button class="hbtn" data-pdnew>+ New order</button><input class="search" id="bdQ" placeholder="Search order #, invoice, customer, phone" value="${esc(BQ)}" style="flex:1;min-width:220px;margin:0"><button class="hbtn ghost" data-osync>Sync</button></div>
     <div class="mb"><div class="oboard">${cols.map(([k,title,tip,l]) => `<div class="ocol"><div class="ochead" title="${esc(tip)}"><b>${title}</b><span class="cnt">${l.length}</span></div>${l.length ? l.map(card).join("") : `<div class="oempty">You don't have ${title.toLowerCase()} orders</div>`}</div>`).join("")}</div></div>`, true);
   $("#modal").classList.add("full"); $("#scrim").classList.add("fullscr");
 }
 let BQ = "";
+// new pickup / delivery order, like the call center: customer & delivery first, then the menu
+const normPhone = p => String(p||"").replace(/[^0-9+]/g, "");
+let PD = null, pdT;
+function openPDNew(){
+  const types = allowedTypes().filter(t => t!=="dinein"); if(!types.length) return toast("Pickup and delivery aren't enabled on this register");
+  PD = PD || { type: types.includes("delivery") ? "delivery" : types[0], phone:"", name:"", addr:{}, cust:null };
+  if(!types.includes(PD.type)) PD.type = types[0];
+  const A = [["label","Address name (Home, Work…)"],["street","Area / street *"],["building","Building name / no. *"],["floor","Floor *"],["extra","Additional info"]];
+  const saved = (PD.cust?.addresses || []).filter(a => a.address);
+  modal("pdnew", `<div class="mh"><h2>New order · Customer & delivery</h2><button class="x" data-close aria-label="Close">×</button></div><div class="mb">
+    <div class="dseg" style="margin-bottom:14px">${types.map(t => `<button type="button" data-pdt="${t}" class="${PD.type===t?"on":""}">${t==="delivery" ? "Delivery" : "Pickup"}</button>`).join("")}</div>
+    <div class="f"><label for="pdPhone">Customer phone *</label><input id="pdPhone" inputmode="tel" value="${esc(PD.phone)}" placeholder="e.g. 70123456" autocomplete="off"><div class="mut" id="pdHint" style="min-height:18px">${PD.cust ? pdHint(PD.cust) : ""}</div></div>
+    <div class="f"><label for="pdName">Customer name *</label><input id="pdName" value="${esc(PD.name)}"></div>
+    ${PD.type==="delivery" ? `${saved.length ? `<div class="f"><label>Saved addresses</label><div class="chgs">${saved.map((a,i) => `<button type="button" class="chg${addrJoin(PD.addr)===a.address?" on":""}" data-pdaddr="${i}">📍 ${esc(a.address)}</button>`).join("")}</div></div>` : ""}
+      <div class="f"><label>Delivery address</label><div class="addrg">${A.map(([k,ph]) => `<input id="pdA_${k}" placeholder="${ph}" value="${esc(PD.addr[k]||"")}"${k==="extra"||k==="label"?' class="wide"':""}>`).join("")}</div></div>` : ""}
+    <div class="err" id="pdErr"></div></div>
+    <div class="mf"><button class="btn" data-close>Cancel</button><button class="btn pri" id="pdGo">Continue to menu →</button></div>`);
+  setTimeout(() => (PD.phone ? $("#pdName") : $("#pdPhone"))?.focus(), 30);
+}
+const pdHint = c => `${c.blacklisted ? '<b style="color:#b42318">⚠ Blacklisted customer.</b> ' : "Returning customer. "}${(c.tags||[]).map(t => esc(t)).join(", ")}${c.notes ? ` · <i>${esc(c.notes)}</i>` : ""}`;
+async function pdLookup(){
+  const ph = normPhone($("#pdPhone")?.value); if(!PD) return;
+  if(ph.length < 6 || !window.WOK?.sb || !navigator.onLine){ PD.cust = null; if($("#pdHint")) $("#pdHint").innerHTML = ""; return; }
+  try{ const { data } = await window.WOK.sb.from("customers").select("id,name,addresses,blacklisted,notes,tags").eq("phone", ph).maybeSingle();
+    if(normPhone($("#pdPhone")?.value) !== ph || modalKind!=="pdnew") return;
+    pdKeep(); PD.cust = data || null;
+    if(data){ if(!PD.name && data.name) PD.name = data.name; if(PD.type==="delivery" && !ADDR_K.some(k => PD.addr[k]) && data.addresses?.[0]?.address) PD.addr = addrParts(data.addresses[0].address); openPDNew(); const i = $("#pdPhone"); i.focus(); i.setSelectionRange(i.value.length, i.value.length); }
+    else $("#pdHint").innerHTML = "New customer · enter their name";
+  }catch(e){ console.warn(e); }
+}
+function pdKeep(){ if(!PD || modalKind!=="pdnew") return; PD.phone = $("#pdPhone")?.value || ""; PD.name = $("#pdName")?.value || ""; ADDR_K.forEach(k => { const el = $("#pdA_" + k); if(el) PD.addr[k] = el.value; }); }
+function pdContinue(){
+  pdKeep(); const need = [];
+  if(normPhone(PD.phone).length < 6) need.push("phone number"); if(!PD.name.trim()) need.push("name");
+  if(PD.type==="delivery") [["street","area / street"],["building","building"],["floor","floor"]].forEach(([k,l]) => { if(!String(PD.addr[k]||"").trim()) need.push(l); });
+  if(need.length){ $("#pdErr").textContent = "Enter the customer's " + need.join(", ").replace(/, ([^,]*)$/, " and $1") + "."; return; }
+  if(PD.cust?.blacklisted && !confirm("This customer is blacklisted. Take the order anyway?")) return;
+  if(EDIT) unloadOrder();
+  if(cart.length && !confirm("Hold the order that's in the cart and start this one?")) return;
+  if(cart.length) holdOrder(true);
+  resetOrder(); otype = PD.type==="delivery" ? "delivery" : "takeaway";
+  cust = { name: PD.name.trim(), phone: PD.phone.trim(), addr: PD.type==="delivery" ? { ...PD.addr } : {} };
+  PD = null; closeModal(); cat = ""; $("#q").value = ""; renderCart(); renderMenu();
+  toast("Add the items, then Send to the kitchen or Pay");
+}
 
 /* ---------- tables ---------- */
 const tableCount = () => +devSet().tables || Math.max(0, ...(S.devices||[]).filter(d => !d.deleted && d.branchId===device.branchId).map(d => +d.settings?.tables || 0));
