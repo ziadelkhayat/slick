@@ -134,9 +134,9 @@ let zoneId = "", branchId = qrBranch || "", tableNo = qrTable || "", cat = "", c
 const zoneList = () => zones.filter(z => modeOn("delivery", z.branch_id) && Array.isArray(z.polygon) && z.polygon.length >= 3);
 const curBranch = () => mode === "delivery" ? (zones.find(z=>z.id===zoneId)?.branch_id || "") : branchId;
 const chan = () => mode === "delivery" ? "delivery" : mode === "takeaway" ? "takeaway" : "dinein";
-const visible = () => products.filter(p => p.pricing_method!=="open" && (!p.channels || p.channels.includes(chan())) && (!curBranch() || (!(p.inactive_branch_ids||[]).includes(curBranch()) && !(cats.find(c=>c.id===p.category_id)?.inactive_branch_ids||[]).includes(curBranch()))));
+const visible = () => products.filter(p => p.pricing_method!=="open" && (!curBranch() || (!(p.inactive_branch_ids||[]).includes(curBranch()) && !(p.inactive_branch_ids||[]).includes(curBranch() + ":online") && !(cats.find(c=>c.id===p.category_id)?.inactive_branch_ids||[]).includes(curBranch()))));
 const priceOf = p => { const c = curBranch() && (p.custom_prices||{})[curBranch()]; return c!=null && c!=="" && c!==false ? +c : +p.price; };
-const oos = p => !!curBranch() && (p.out_of_stock_branch_ids||[]).includes(curBranch());
+const oos = p => false;   // products have no out-of-stock switch; switch them off per channel in Menus
 
 /* point-in-polygon (ray casting) — polygon is [[lat,lng],...] */
 function inside(pt, poly){
@@ -212,7 +212,7 @@ function zoneInfo(){ const z = zones.find(x=>x.id===zoneId); return `<div class=
 // the product's modifier options this branch sells, at this branch's price
 function modData(p){
   const ids = new Set((p.modifiers||[]).map(l=>l.modifierId)), b = curBranch();
-  const options = mopts.filter(o => ids.has(o.modifier_id) && !(b && (o.inactive_branch_ids||[]).includes(b)) && !(b && (o.out_of_stock_branch_ids||[]).includes(b)))
+  const options = mopts.filter(o => ids.has(o.modifier_id) && !(b && ((o.inactive_branch_ids||[]).includes(b) || (o.inactive_branch_ids||[]).includes(b + ":online"))) && !(b && (o.out_of_stock_branch_ids||[]).includes(b)))
     .sort((x,y)=>(x.sort??999)-(y.sort??999) || x.name.localeCompare(y.name))
     .map(o => { const c = b && (o.custom_prices||{})[b]; return { id:o.id, modifierId:o.modifier_id, name:o.name, price: c!=null && c!=="" && c!==false ? +c : +o.price||0 }; });
   return { links:(p.modifiers||[]).filter(l => mgroups[l.modifierId]), groups:mgroups, options };

@@ -1326,13 +1326,12 @@ const CRUD = {
   },
   products: {
     col:"products", title:"Products", one:"Product", detail: r => productDetail(r),
-    tabs:[["all","All",live],["active","Active",r=>live(r)&&r.active!==false],["inactive","Inactive",r=>live(r)&&r.active===false],["deleted","Deleted",r=>r.deleted]],
+    tabs:[["all","All",live],["deleted","Deleted",r=>r.deleted]],
     sort:(a,b)=>String(a.name||"").localeCompare(String(b.name||"")),
     search:r=>r.name+" "+(r.sku||"")+" "+catName(r.categoryId),
     filter:r=>brandFilter(r) && (!state.catFilter || r.categoryId===state.catFilter),
     cols:[["Name",r=>`<span class="pname">${r.imageUrl?`<img class="pthumb" src="${esc(r.imageUrl)}" alt="" loading="lazy">`:`<span class="pthumb none"></span>`}<b>${esc(r.name)}</b></span>`],["Brand",r=>esc(brandName(r.brandId))],["SKU",r=>`<span class="code">${esc(r.sku||"")}</span>`],["Category",r=>esc(catName(r.categoryId))],
-      ["Price",r=>r.pricingMethod==="open"?"Open":usd(r.price)],["Cost %",r=>{ const c = productCost(r); return +r.price && c ? (c/r.price*100).toFixed(1)+" %" : '<span class="note">—</span>'; },"num"],["Tax Group",r=>esc(tgName(r.taxGroup))],
-      ["Channels",r=>chanTags(r)],["Active",r=>r.active===false?'<span class="tag off">Inactive</span>':'<span class="tag on">Active</span>']],
+      ["Price",r=>r.pricingMethod==="open"?"Open":usd(r.price)],["Cost %",r=>{ const c = productCost(r); return +r.price && c ? (c/r.price*100).toFixed(1)+" %" : '<span class="note">—</span>'; },"num"],["Tax Group",r=>esc(tgName(r.taxGroup))]],
     fields:[{k:"name",l:"Name",req:1},{k:"nameAr",l:"Name (Arabic)"},brandField,{k:"sku",l:"SKU",auto:()=>nextSku("products")},
       {k:"categoryId",l:"Category",t:"select",req:1,opts:()=>S.categories.filter(c=>live(c)&&brandFilter(c)).map(c=>[c.id,(state.brand==="all"?brandName(c.brandId)+" · ":"")+c.name])},
       {k:"pricingMethod",l:"Pricing method",t:"select",opts:()=>[["fixed","Fixed price"],["open","Open price (cashier enters it)"]],def:"fixed"},
@@ -1341,9 +1340,7 @@ const CRUD = {
       {k:"sellingMethod",l:"Selling method",t:"select",opts:()=>[["unit","Unit"],["weight","Weight"]],def:"unit"},{k:"barcode",l:"Barcode"},
       {k:"prepTime",l:"Preparation time (minutes)",t:"number"},{k:"calories",l:"Calories (kCal)",t:"number"},
       {k:"imageUrl",l:"Image",t:"image",full:1},
-      {k:"description",l:"Description",t:"textarea",full:1},
-      {k:"channels",l:"Sell on (menu zoning by channel)",t:"multi",full:1,opts:()=>CHANNELS,def:CHANNELS.map(c=>c[0])},
-      {k:"active",l:"Active",t:"chk",def:true}]
+      {k:"description",l:"Description",t:"textarea",full:1}]
   },
   modifiers: {
     col:"modifiers", title:"Modifiers", one:"Modifier", detail: r => modifierDetail(r),
@@ -2042,7 +2039,7 @@ function fillOrderBranches(sel){
 function availableProducts(){
   const br = $("#oBranch")?.value, bd = $("#oBrand")?.value;
   if(brandList().length && !bd) return [];
-  return S.products.filter(p => live(p) && p.active!==false && (!bd || p.brandId===bd) && (!p.channels || p.channels.includes("callcenter")) && (!br || (!(p.inactiveBranchIds||[]).includes(br) && !(S.categories.find(c=>c.id===p.categoryId)?.inactiveBranchIds||[]).includes(br))));
+  return S.products.filter(p => live(p) && (!bd || p.brandId===bd) && (!br || (!offAt(p.inactiveBranchIds, br, "callcenter") && !(S.categories.find(c=>c.id===p.categoryId)?.inactiveBranchIds||[]).includes(br))));
 }
 const prodRate = id => { const p = S.products.find(x=>x.id===id), g = p && S.tax_groups.find(x=>x.id===p.taxGroup && live(x)); return g ? taxRate(g)/100 : 0; };
 const ccTax = items => +(items||[]).reduce((a,i) => { const l = (+i.price||0)*(+i.qty||1), r = prodRate(i.productId); return a + l*r/(1+r); }, 0).toFixed(2);
@@ -2067,7 +2064,7 @@ function renderOrderMenu(){
     : prods.filter(p => state.oCat==="_none" ? !cats.some(c=>c.id===p.categoryId) : p.categoryId===state.oCat);
   $("#oCatTitle").textContent = q ? `${list.length} result${list.length===1?"":"s"} for “${q}”` : (cats.find(c=>c.id===state.oCat)?.name || (state.oCat==="_none" ? "Other" : ""));
   const inCart = id => cart.filter(i=>i.productId===id).reduce((a,i)=>a+i.qty,0);
-  box.innerHTML = list.length ? list.sort((a,b)=>(q ? catRank(a.categoryId)-catRank(b.categoryId) : 0) || bySort(a,b)).map(p=>{ const c = inCart(p.id), oos = (p.outOfStockBranchIds||[]).includes($("#oBranch")?.value);
+  box.innerHTML = list.length ? list.sort((a,b)=>(q ? catRank(a.categoryId)-catRank(b.categoryId) : 0) || bySort(a,b)).map(p=>{ const c = inCart(p.id), oos = false && (p.outOfStockBranchIds||[]).includes($("#oBranch")?.value);
     return `<button type="button" class="pbtn${c?" sel":""}" data-add="${esc(p.id)}" ${oos?"disabled title=\"Out of stock at this branch\"":""}>${c?`<em>${c}</em>`:""}${p.imageUrl?`<img class="ccimg" src="${esc(p.imageUrl)}" alt="" loading="lazy">`:""}<span>${esc(p.name)}</span><b>${oos?"Out of stock":usd(ccPrice(p))}</b>${(p.modifiers||[]).length?`<small>Options</small>`:""}</button>`; }).join("")
     : `<div class="note" style="padding:12px">${S.products.length ? (q ? "No products match." : $("#oBrand")?.value ? "No products in this category." : "Choose a brand to see its menu.") : "No products yet. Add them under Menu → Products."}</div>`;
 }
@@ -2217,7 +2214,7 @@ function viewOnline(){
   </div>
   <div class="card"><h3 class="ct">Order types</h3><p class="note">Turn each type on for the whole page. Fine-tune per branch below.</p>
     ${modes.map(([k,t])=>`<label class="chk" style="margin:8px 0"><input type="checkbox" id="olm_${k}" ${(c.modes||{})[k]!==false?"checked":""}> ${t}</label>`).join("")}
-    <p class="note" style="margin-top:12px">Which products appear on each type is set per product under <a class="lnk" href="#products">Menu → Products</a> ("Sell on"). Delivery fees and areas are set in <a class="lnk" href="#delivery-zones">Delivery Zones</a>.</p></div></div>
+    <p class="note" style="margin-top:12px">Which products appear online at each branch is set in <a class="lnk" href="#branch-menu">Menu → Menus</a> (the Online column). Delivery fees and areas are set in <a class="lnk" href="#delivery-zones">Delivery Zones</a>.</p></div></div>
   <div style="height:16px"></div><div class="card tbl"><div class="ttop"><h3 class="ct">Locations</h3></div><table><thead><tr><th>Branch</th>${modes.map(m=>`<th>${m[1]}</th>`).join("")}<th class="num">Tables (for QR)</th><th>Table QR links</th><th>Delivery zones</th></tr></thead><tbody>${
     (branches.some(b=>b.active!==false && b.brandId===olBrand()) ? "" : `<tr><td colspan="7" class="note" style="padding:16px">This brand has no branches yet. Add them under Manage → Branches.</td></tr>`) + branches.filter(b=>b.active!==false && b.brandId===olBrand()).map(b=>{ const x = bc[b.id] || {}; const z = S.zones.filter(zz=>live(zz)&&zz.branchId===b.id&&zz.active!==false).length;
       return `<tr><td><b>${esc(b.name)}</b><br><span class="note">${b.open||b.close ? esc(t12(b.open)) + " – " + esc(t12(b.close)) : ""}</span></td>${modes.map(([k])=>`<td><label class="toggle"><input type="checkbox" data-olb="${esc(b.id)}:${k}" ${x[k]!==false?"checked":""}><span class="trk"></span></label></td>`).join("")}
@@ -2241,14 +2238,18 @@ const BM = { branch:"", kind:"products", q:"", draft:{} };
 function bmItems(){
   const br = branches.find(b=>b.id===BM.branch); if(!br) return [];
   if(BM.kind==="options") return S.modifier_options.filter(o=>live(o)&&o.active!==false).sort((a,b)=>modName(a.modifierId).localeCompare(modName(b.modifierId))||bySort(a,b));
-  return S.products.filter(p=>live(p)&&p.active!==false&&(!br.brandId||!p.brandId||p.brandId===br.brandId)).sort((a,b)=>{ const ca = S.categories.find(c=>c.id===a.categoryId)||{}, cb = S.categories.find(c=>c.id===b.categoryId)||{}; return bySort(ca, cb) || String(a.categoryId).localeCompare(String(b.categoryId)) || bySort(a,b); });   // same order as every channel
+  return S.products.filter(p=>live(p)&&(!br.brandId||!p.brandId||p.brandId===br.brandId)).sort((a,b)=>{ const ca = S.categories.find(c=>c.id===a.categoryId)||{}, cb = S.categories.find(c=>c.id===b.categoryId)||{}; return bySort(ca, cb) || String(a.categoryId).localeCompare(String(b.categoryId)) || bySort(a,b); });   // same order as every channel
 }
+// an item can be switched off per channel at a branch: inactiveBranchIds holds "branch" (off everywhere) or "branch:pos" / "branch:callcenter" / "branch:online"
+const BM_CH = [["pos","POS"],["callcenter","Call center"],["online","Online"]];
+const offAt = (arr, b, ch) => !!b && ((arr||[]).includes(b) || (arr||[]).includes(b + ":" + ch));
 function bmState(r){
-  const b = BM.branch, d = { ...(BM.saving?.[r.id]||{}), ...(BM.draft[r.id]||{}) };
-  const on = d.on ?? ((!r.branchIds?.length || r.branchIds.includes(b)) && !(r.inactiveBranchIds||[]).includes(b));
+  const b = BM.branch, d = { ...(BM.saving?.[r.id]||{}), ...(BM.draft[r.id]||{}) }, ia = r.inactiveBranchIds||[], inB = !r.branchIds?.length || r.branchIds.includes(b);
+  const chs = Object.fromEntries(BM_CH.map(([c]) => [c, d["ch_"+c] ?? (inB && !offAt(ia, b, c))]));
+  const on = Object.values(chs).some(Boolean);
   const stock = d.stock ?? !(r.outOfStockBranchIds||[]).includes(b);
   const cp = (r.customPrices||{})[b], price = d.price ?? (cp!=null && cp!=="" ? String(cp) : "");
-  return { on, stock, price };
+  return { on, chs, stock, price };
 }
 function viewBranchMenu(){
   const list = branches.filter(b=>b.active!==false && brandFilter(b));
@@ -2263,22 +2264,22 @@ function viewBranchMenu(){
   h += `<div class="card tbl"><div class="ttop" style="flex-wrap:wrap;gap:10px">
       <select class="sel" id="bmBranch" aria-label="Branch">${list.map(b=>`<option value="${esc(b.id)}" ${b.id===BM.branch?"selected":""}>${brandList().length>1?esc(brandName(b.brandId))+" · ":""}${esc(b.name)}</option>`).join("")}</select>
       <div class="ttabs"><a href="#branch-menu" data-bmkind="products" class="${BM.kind==="products"?"on":""}">Products</a><a href="#branch-menu" data-bmkind="options" class="${BM.kind==="options"?"on":""}">Modifier options</a></div>
-      <span class="note">${all.length-offN} on the menu · ${offN} off · ${oosN} out of stock</span><div class="sp"></div>
+      <span class="note">${all.length-offN} on the menu · ${offN} off${BM.kind==="options" ? ` · ${oosN} out of stock` : ""}</span><div class="sp"></div>
       <input class="sel search" id="bmQ" placeholder="Search" value="${esc(BM.q)}" aria-label="Search"></div>`;
   if(!items.length) return h + `<div class="empty">${all.length ? "Nothing matches." : "Nothing on this brand's menu yet."}</div></div>`;
   let last = null;
-  h += `<table><thead><tr><th>${BM.kind==="options"?"Option":"Product"}</th><th class="num">Base price</th><th class="num">Price at ${esc(br.name)}</th><th>On the menu</th><th>In stock</th></tr></thead><tbody>`;
+  h += `<table><thead><tr><th>${BM.kind==="options"?"Option":"Product"}</th><th class="num">Base price</th><th class="num">Price at ${esc(br.name)}</th>${BM_CH.map(([,t])=>`<th>${t}</th>`).join("")}${BM.kind==="options" ? "<th>In stock</th>" : ""}</tr></thead><tbody>`;
   BM.open ||= new Set();
   const cnt = {}; items.forEach(r => { const g = grp(r); cnt[g] = (cnt[g]||0) + 1; });
   items.forEach(r => { const g = grp(r), st = bmState(r), open = !!q || BM.open.has(g);
     const cOn = BM.kind==="options" || bmCatOn(r.categoryId);
     const drag = BM.kind!=="options" && !q;
-    if(g!==last){ last = g; h += `<tr class="grp"${drag ? ` draggable="true" data-bmdrag="c:${esc(r.categoryId)}" title="Drag to move this category"` : ""}><td colspan="5">${drag ? '<span class="bmgrip" aria-hidden="true">⋮⋮</span>' : ""}<button type="button" class="bmexp" data-bmexp="${esc(g)}" aria-expanded="${open}" title="${open?"Collapse":"Show items"}">${open?"▾":"▸"}</button>${BM.kind!=="options" ? `<label class="toggle" style="margin-right:8px" title="Category on the menu at ${esc(br.name)}"><input type="checkbox" data-bmcat="${esc(r.categoryId)}" ${cOn?"checked":""}><span class="trk"></span></label>` : ""}<b class="bmg" data-bmexp="${esc(g)}">${esc(g)}</b> <span class="note">${cnt[g]} item${cnt[g]===1?"":"s"}</span>${cOn ? "" : ` <span class="tag off">Category off at this branch</span>`}</td></tr>`; }
+    if(g!==last){ last = g; h += `<tr class="grp"${drag ? ` draggable="true" data-bmdrag="c:${esc(r.categoryId)}" title="Drag to move this category"` : ""}><td colspan="${BM.kind==="options" ? 7 : 6}">${drag ? '<span class="bmgrip" aria-hidden="true">⋮⋮</span>' : ""}<button type="button" class="bmexp" data-bmexp="${esc(g)}" aria-expanded="${open}" title="${open?"Collapse":"Show items"}">${open?"▾":"▸"}</button>${BM.kind!=="options" ? `<label class="toggle" style="margin-right:8px" title="Category on the menu at ${esc(br.name)}"><input type="checkbox" data-bmcat="${esc(r.categoryId)}" ${cOn?"checked":""}><span class="trk"></span></label>` : ""}<b class="bmg" data-bmexp="${esc(g)}">${esc(g)}</b> <span class="note">${cnt[g]} item${cnt[g]===1?"":"s"}</span>${cOn ? "" : ` <span class="tag off">Category off at this branch</span>`}</td></tr>`; }
     if(!cOn || !open) return;
     h += `<tr class="${st.on?"":"off"}${BM.draft[r.id]?" chg":""}"${drag ? ` draggable="true" data-bmdrag="p:${esc(r.id)}" data-bmcatof="${esc(r.categoryId)}"` : ""}><td>${drag ? '<span class="bmgrip" aria-hidden="true" title="Drag to move">⋮⋮</span>' : ""}<b>${esc(r.name)}</b></td><td class="num">${usd(+r.price||0)}</td>
       <td class="num"><input type="number" min="0" step="any" class="sel" style="width:96px;text-align:right" data-bmprice="${esc(r.id)}" value="${esc(st.price)}" placeholder="${esc(String(+r.price||0))}" aria-label="Price of ${esc(r.name)} at ${esc(br.name)}"></td>
-      <td><label class="toggle"><input type="checkbox" data-bmon="${esc(r.id)}" ${st.on?"checked":""}><span class="trk"></span></label></td>
-      <td><label class="toggle"><input type="checkbox" data-bmstock="${esc(r.id)}" ${st.stock?"checked":""} ${st.on?"":"disabled"}><span class="trk"></span></label></td></tr>`; });
+      ${BM_CH.map(([c,t]) => `<td><label class="toggle" title="${t} at ${esc(br.name)}"><input type="checkbox" data-bmch="${esc(r.id)}|${c}" ${st.chs[c]?"checked":""} aria-label="${esc(r.name)} on ${t}"><span class="trk"></span></label></td>`).join("")}
+      ${BM.kind==="options" ? `<td><label class="toggle"><input type="checkbox" data-bmstock="${esc(r.id)}" ${st.stock?"checked":""} ${st.on?"":"disabled"}><span class="trk"></span></label></td>` : ""}</tr>`; });
   return h + `</tbody></table></div>`;
 }
 /* drag to order categories and their products; the order is the same in the POS, call center and online menu */
@@ -2326,15 +2327,16 @@ async function saveBranchMenu(){
   bmStat("Saving…");
   try{
     for(const [id, d] of Object.entries(work)){
-      if(id.startsWith("cat:")){ const c = S.categories.find(x=>x.id===id.slice(4)); if(!c) continue; const ia = new Set(c.inactiveBranchIds||[]); if(d.on === !ia.has(b)) continue; d.on ? ia.delete(b) : ia.add(b); await put("categories", c.id, { inactiveBranchIds:[...ia] }); continue; }
+      if(id.startsWith("cat:")){ const c = S.categories.find(x=>x.id===id.slice(4)); if(!c) continue; const ia = new Set(c.inactiveBranchIds||[]); if(d.on === !ia.has(b)) continue; d.on ? ia.delete(b) : ia.add(b); await put("categories", c.id, { inactiveBranchIds:[...ia] }); c.inactiveBranchIds = [...ia]; continue; }
       const r = S[col].find(x=>x.id===id); if(!r) continue; const ch = {};
-      if(d.on!=null){ const ia = new Set(r.inactiveBranchIds||[]);
-        if(d.on !== !ia.has(b) || (d.on && r.branchIds?.length && !r.branchIds.includes(b))){
-          if(d.on){ ia.delete(b); if(r.branchIds?.length && !r.branchIds.includes(b)) ch.branchIds = [...r.branchIds, b]; } else ia.add(b);
-          ch.inactiveBranchIds = [...ia]; } }
+      if(BM_CH.some(([c]) => d["ch_"+c]!=null)){
+        const cur = bmState(r).chs, ia = (r.inactiveBranchIds||[]).filter(x => x!==b && !x.startsWith(b + ":")), off = BM_CH.map(([c])=>c).filter(c => !cur[c]);
+        const next = off.length===BM_CH.length ? [...ia, b] : [...ia, ...off.map(c => b + ":" + c)];
+        if(JSON.stringify(next) !== JSON.stringify(r.inactiveBranchIds||[])) ch.inactiveBranchIds = next;
+        if(off.length < BM_CH.length && r.branchIds?.length && !r.branchIds.includes(b)) ch.branchIds = [...r.branchIds, b]; }
       if(d.stock!=null){ const os = new Set(r.outOfStockBranchIds||[]); if(d.stock === os.has(b)){ d.stock ? os.delete(b) : os.add(b); ch.outOfStockBranchIds = [...os]; } }
       if(d.price!=null){ const cp = { ...(r.customPrices||{}) }, was = cp[b]; if(d.price==="" || +d.price===+r.price) delete cp[b]; else cp[b] = +d.price; if(cp[b] !== was) ch.customPrices = cp; }
-      if(Object.keys(ch).length) await put(col, id, ch);
+      if(Object.keys(ch).length){ await put(col, id, ch); Object.assign(r, ch); }   // keep the local copy current until the refresh arrives
     }
     BM.saving = null; bmStat("All changes saved"); render();
   }catch(err){ console.error(err); BM.saving = null; bmStat("Not saved"); toast("Couldn't save. Only the owner or an admin can change the menu."); render(); }
@@ -2342,7 +2344,7 @@ async function saveBranchMenu(){
 $("#view").addEventListener("change", e => {
   const t = e.target;
   if(t.id==="bmBranch"){ if(Object.keys(BM.draft).length && !confirm("Discard unsaved changes for this branch?")){ t.value = BM.branch; return; } BM.branch = t.value; BM.draft = {}; return render(); }
-  if(t.dataset.bmon){ bmSet(t.dataset.bmon, "on", t.checked); render(); return bmAuto(); }
+  if(t.dataset.bmch){ const [id, c] = t.dataset.bmch.split("|"); bmSet(id, "ch_"+c, t.checked); render(); return bmAuto(); }
   if(t.dataset.bmcat){ bmSet("cat:"+t.dataset.bmcat, "on", t.checked); render(); return bmAuto(); }
   if(t.dataset.bmstock){ bmSet(t.dataset.bmstock, "stock", t.checked); render(); return bmAuto(); }
   if(t.dataset.bmprice!=null && t.dataset.bmprice){ bmSet(t.dataset.bmprice, "price", t.value.trim()); render(); return bmAuto(); }
@@ -2964,8 +2966,7 @@ function productDetail(p){
     info("Pricing Method", p.pricingMethod==="open"?"Open Price":"Fixed Price"), info("Selling Method", p.sellingMethod==="weight"?"Weight":"Unit"),
     info("Costing Method", p.costingMethod==="fixed"?"Fixed Cost":"From Ingredients"), info("Preparation Time", p.prepTime ? esc(p.prepTime)+" min" : "—"),
     info("Price", p.pricingMethod==="open" ? "Open" : usd(price)), info(p.costingMethod==="fixed"?"Fixed Cost":"Ingredients Cost", fmtCost(cost)),
-    info("Cost %", price ? `<span style="${pct>40?"color:var(--accent-ink);font-weight:600":""}">${pct.toFixed(1)} %</span>` : "—"), info("Calories", p.calories ? esc(p.calories)+" kCal" : "—"),
-    info("Sold on", chanTags(p))]);
+    info("Cost %", price ? `<span style="${pct>40?"color:var(--accent-ink);font-weight:600":""}">${pct.toFixed(1)} %</span>` : "—"), info("Calories", p.calories ? esc(p.calories)+" kCal" : "—")]);
   if(p.imageUrl || p.description) h += `<div class="card" style="margin-bottom:16px;display:flex;gap:16px;align-items:flex-start">${p.imageUrl?`<img src="${esc(p.imageUrl)}" alt="" style="width:160px;height:160px;object-fit:cover;border-radius:12px">`:""}<div>${p.description?`<div class="note">Description</div>${esc(p.description)}`:'<span class="note">No description</span>'}</div></div>`;
   h += ingEditor("products", p);
   h += modLinks(p);
@@ -3141,7 +3142,7 @@ document.addEventListener("change", e => { if(e.target.id==="modAdd" && e.target
 function ccModData(p){
   const b = $("#oBranch")?.value || "", groups = {}; S.modifiers.filter(live).forEach(m => groups[m.id] = { name:m.name, sort:m.sort });
   const ids = new Set((p.modifiers||[]).map(l=>l.modifierId));
-  const options = S.modifier_options.filter(o => live(o) && o.active!==false && ids.has(o.modifierId) && !(b && (o.inactiveBranchIds||[]).includes(b)))
+  const options = S.modifier_options.filter(o => live(o) && o.active!==false && ids.has(o.modifierId) && !offAt(o.inactiveBranchIds, b, "callcenter"))
     .sort((x,y)=>(x.sort??999)-(y.sort??999) || x.name.localeCompare(y.name))
     .map(o => { const c = b && (o.customPrices||{})[b]; return { id:o.id, modifierId:o.modifierId, name:o.name, price: c!=null && c!=="" ? +c : +o.price||0, oos: !!b && (o.outOfStockBranchIds||[]).includes(b) }; });
   return { links:(p.modifiers||[]).filter(l=>groups[l.modifierId]), groups, options };
