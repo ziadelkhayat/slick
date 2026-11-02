@@ -8,7 +8,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="modpick.js?v=4"></script>
+<script src="modpick.js?v=5"></script>
 <style>
 :root{--bg:#f6f5f9;--s:#fff;--ink:#1c1b22;--ink2:#5b5a66;--mut:#8d8c98;--line:#e7e5ee;--acc:#5b2bc4;--accs:#efe9fc;--acci:#47209e;--bad:#9e0c24}
 *{box-sizing:border-box}html,body{margin:0}body{font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif;background:var(--bg);color:var(--ink);font-size:15px;padding-bottom:90px}
@@ -108,7 +108,7 @@ const [st, br, ca, pr, zo, mg, tx, tg, mo] = await Promise.all([
   sb.from("settings").select("data").eq("id","online_"+brandId).maybeSingle(),
   sb.from("branches").select("id,name,open_time,close_time").eq("brand_id", brandId),
   sb.from("categories").select("id,name,sort,inactive_branch_ids").eq("brand_id", brandId).order("sort").order("name"),
-  sb.from("products").select("id,name,price,description,category_id,channels,branch_ids,pricing_method,custom_prices,inactive_branch_ids,out_of_stock_branch_ids,modifiers,sort,image_url,tax_group").eq("brand_id", brandId).order("sort").order("name"),
+  sb.from("products").select("id,name,price,description,category_id,channels,branch_ids,pricing_method,custom_prices,inactive_branch_ids,out_of_stock_branch_ids,modifiers,sort,image_url,tax_group,variants").eq("brand_id", brandId).order("sort").order("name"),
   sb.from("delivery_zones").select("id,name,branch_id,fee,min_order,eta,polygon").order("name"),
   sb.from("modifiers").select("id,name,sort,deleted"),
   sb.from("taxes").select("id,rate,deleted"), sb.from("tax_groups").select("id,tax_ids,deleted"),
@@ -220,10 +220,13 @@ function modData(p){
 const hasMods = p => (p.modifiers||[]).some(l => mgroups[l.modifierId]);
 async function addItem(p){
   if(oos(p)) return;
-  let options = [], mods = "", price = priceOf(p);
-  if(hasMods(p)){ const r = await SlickMods.pick({ name:p.name, basePrice:price, ...modData(p), money:usd }); if(!r) return; options = r.options; mods = r.mods; price = r.unitPrice; }
-  const k = SlickMods.key(p.id, options), ex = cart.find(i => SlickMods.key(i.productId, i.options) === k);
-  if(ex) ex.qty++; else cart.push({ productId:p.id, name:p.name, price, qty:1, ...(options.length ? { options, mods, optPrice: +(price - priceOf(p)).toFixed(2) } : {}) });
+  let options = [], mods = "", price = priceOf(p), variant = null;
+  const vars = (p.variants||[]).filter(v => v && v.name);
+  if(vars.length && SlickMods.variant){ variant = await SlickMods.variant({ name:p.name, variants:vars, money:usd }); if(!variant) return; price = +variant.price||0; }
+  const base = price, nm = variant ? p.name + " (" + variant.name + ")" : p.name;
+  if(hasMods(p)){ const r = await SlickMods.pick({ name:nm, basePrice:price, ...modData(p), money:usd }); if(!r) return; options = r.options; mods = r.mods; price = r.unitPrice; }
+  const k = SlickMods.key(p.id, options), ex = cart.find(i => SlickMods.key(i.productId, i.options) === k && (i.variant||"") === (variant?.name||""));
+  if(ex) ex.qty++; else cart.push({ productId:p.id, name:nm, price, qty:1, ...(variant ? { variant: variant.name } : {}), ...(options.length ? { options, mods, optPrice: +(price - base).toFixed(2) } : {}) });
   const y = scrollY; renderMenu(); scrollTo(0,y);
 }
 function itemCard(p){ const q = cart.filter(i=>i.productId===p.id).reduce((a,i)=>a+i.qty,0);

@@ -145,8 +145,8 @@ body{-webkit-font-smoothing:antialiased}
 <script>window.SLICK_OFFLINE = true;</script>
 <script src="supabase.js"></script>
 <script>if(!window.supabase) document.write('<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"><\/script>');</script>
-<script src="wokdb.js?v=22"></script>
-<script src="modpick.js?v=4"></script>
+<script src="wokdb.js?v=23"></script>
+<script src="modpick.js?v=5"></script>
 </head>
 <body>
 <div id="boot" class="center"><div class="panel"><div class="logo">S</div><h1>Slick POS</h1><p>Connecting…</p></div></div>
@@ -458,11 +458,13 @@ function modData(p){
 async function addProduct(p){
   let price = prodPrice(p);
   if(p.pricingMethod==="open"){ if(!can("pos_open_price")){ deny("open-price items"); return; } const v = prompt("Price for " + p.name, price || ""); if(v===null || v==="" || isNaN(+v) || +v<0) return; price = +v; }
-  let options = [], mods = "";
-  if((p.modifiers||[]).length && window.SlickMods){ const r = await SlickMods.pick({ name:p.name, basePrice:price, ...modData(p), money:usd }); if(!r) return; options = r.options; mods = r.mods; price = r.unitPrice; }
+  let options = [], mods = "", variant = null;
+  const vars = (p.variants||[]).filter(v => v && v.name);
+  if(vars.length && window.SlickMods?.variant){ variant = await SlickMods.variant({ name:p.name, setName:(S.variant_sets||[]).find(x=>x.id===p.variantSetId)?.name, variants:vars, money:usd }); if(!variant) return; price = +variant.price||0; }
+  if((p.modifiers||[]).length && window.SlickMods){ const r = await SlickMods.pick({ name: variant ? p.name + " (" + variant.name + ")" : p.name, basePrice:price, ...modData(p), money:usd }); if(!r) return; options = r.options; mods = r.mods; price = r.unitPrice; }
   const k = SlickMods ? SlickMods.key(p.id, options) : p.id;
-  const ex = cart.find(i => !i.note && (window.SlickMods ? SlickMods.key(i.productId, i.options) : i.productId) === k && i.price === price);
-  if(ex) ex.qty++; else cart.push({ productId:p.id, name:p.name, price, qty:1, ...(options.length ? { options, mods } : {}) });
+  const ex = cart.find(i => !i.note && (window.SlickMods ? SlickMods.key(i.productId, i.options) : i.productId) === k && i.price === price && (i.variant||"") === (variant?.name||""));
+  if(ex) ex.qty++; else cart.push({ productId:p.id, name: variant ? p.name + " (" + variant.name + ")" : p.name, price, qty:1, ...(variant ? { variant: variant.name } : {}), ...(options.length ? { options, mods } : {}) });
   renderCart();
 }
 $("#grid").addEventListener("click", e => { const b = e.target.closest("[data-add]"); if(!b) return; const p = S.products.find(x=>x.id===b.dataset.add); if(p) addProduct(p); });

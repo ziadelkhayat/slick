@@ -1,5 +1,6 @@
 /* Slick: modifier picker shared by the POS, the call center and online ordering.
    SlickMods.pick({ name, basePrice, links, groups, options, money }) -> Promise<null | { options, unitPrice, mods }>
+   SlickMods.variant({ name, setName, variants:[{ name, price }], money }) -> Promise<null | { name, price }>
    links:   [{ modifierId, min, max, free, multi }] in display order (from the product)
             min/max count every option picked (2 × Cheese counts as 2); multi = the same option can be picked more than once
    groups:  { [modifierId]: { name } }
@@ -88,5 +89,21 @@
   const key = (productId, options) => productId + "|" + (options||[]).map(x => x.id).sort().join(",");
   // the text shown on tickets and receipts: the options, then the cashier's note
   const label = (mods, note) => [mods, note ? "Note: " + note : ""].filter(Boolean).join(" · ");
-  window.SlickMods = { pick, key, label };
+  // product variants (Size: Small / Medium / Large): pick one before the modifiers. Resolves the chosen { name, price } or null
+  function variant(o){
+    const money = o.money || (n => "USD " + (+n||0).toFixed(2)), list = (o.variants||[]).filter(v => v && v.name);
+    if(list.length < 2) return Promise.resolve(list[0] || null);
+    if(!document.getElementById("smpCss")){ const st = document.createElement("style"); st.id = "smpCss"; st.textContent = css; document.head.appendChild(st); }
+    if(!document.getElementById("smpVarCss")){ const st = document.createElement("style"); st.id = "smpVarCss"; st.textContent = `.smp .vgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px;padding:4px 0 8px}.smp .vbtn{display:flex;flex-direction:column;gap:6px;align-items:flex-start;border:1px solid #ddd8ea;background:#fff;border-radius:12px;padding:14px;font:inherit;cursor:pointer;text-align:left}.smp .vbtn:hover{border-color:#5b2bc4;background:#f6f2ff}.smp .vbtn b{font-size:15px}.smp .vbtn span{color:#5b2bc4;font-weight:600}`; document.head.appendChild(st); }
+    return new Promise(resolve => {
+      const el = document.createElement("div"); el.className = "smp-scrim";
+      const close = v => { document.removeEventListener("keydown", onKey); el.remove(); resolve(v); };
+      const onKey = e => { if(e.key === "Escape") close(null); };
+      el.innerHTML = `<div class="smp" role="dialog" aria-modal="true" aria-label="${esc(o.name)}"><header><h3>${esc(o.name)}</h3><button type="button" data-x aria-label="Close">×</button></header><div class="b"><div class="g"><b>${esc(o.setName || "Choose a variant")}</b><span>Choose 1</span></div><div class="vgrid">${list.map((v, i) => `<button type="button" class="vbtn" data-v="${i}"><b>${esc(v.name)}</b><span>${money(v.price)}</span></button>`).join("")}</div></div></div>`;
+      el.addEventListener("click", e => { if(e.target === el || e.target.closest("[data-x]")) return close(null); const b = e.target.closest("[data-v]"); if(b) close(list[+b.dataset.v]); });
+      document.addEventListener("keydown", onKey);
+      document.body.appendChild(el);
+    });
+  }
+  window.SlickMods = { pick, key, label, variant };
 })();
