@@ -209,6 +209,7 @@ body{-webkit-font-smoothing:antialiased}
 .rsec{background:var(--s);border-radius:14px;padding:14px 16px;box-shadow:0 1px 3px rgba(21,19,31,.06)}.rsec h3{margin:0 0 8px;font-size:15px}
 .rsec table{width:100%;border-collapse:collapse;font-size:14px;font-variant-numeric:tabular-nums}.rsec td{padding:7px 0;border-bottom:1px solid var(--line)}.rsec tr:last-child td{border-bottom:0}.rsec td+td{text-align:right;padding-left:10px;white-space:nowrap}.rsec td.c{color:#8d8c98}
 .toast{bottom:96px!important}
+.bnav-m{flex:none;margin:0 16px 14px!important}#modal.full .bnav-m{position:relative}
 .extra:empty{display:none}
 @keyframes ring{0%,100%{transform:none}20%{transform:rotate(-6deg) scale(1.06)}40%{transform:rotate(6deg) scale(1.06)}60%{transform:rotate(-4deg)}80%{transform:rotate(4deg)}}.bnav button.ring{animation:ring 1s 3;background:#fff4e8}
 .gpad{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}.gpad button{min-height:60px;border:1px solid var(--line);background:var(--s);border-radius:14px;font-size:20px;font-weight:700}.gpad button.on{border-color:var(--acc);background:var(--accs);color:var(--acci)}.gpad button:active{transform:scale(.95)}
@@ -579,7 +580,7 @@ function renderCart(){
   document.querySelectorAll("#otype button").forEach(b => b.classList.toggle("on", b.dataset.t===otype || (b.dataset.t==="pd" && (otype==="takeaway" || otype==="delivery"))));
   const pdb = $("#otype [data-t=pd]"); pdb.classList.toggle("hide", otype!=="takeaway" && otype!=="delivery"); pdb.textContent = otype==="delivery" ? "Delivery" : "Pickup";
   const eo0 = editOrder(), canSwitch = !eo0;
-  const ctx = otype==="dinein" ? `<div class="ctx"><span class="ci">🍽</span><div><b>${esc(tblLbl(tableNo || "—"))}</b><small>Dine-in${GUESTS ? ` · ${GUESTS} guest${GUESTS===1?"":"s"}` : ""}</small></div><span class="sp"></span>${canSwitch ? `<button data-ctx="table">Change table</button><button data-ctx="fast">Fast sale</button>` : ""}</div>`
+  const ctx = otype==="dinein" ? `<div class="ctx"><span class="ci">🍽</span><div><b>${esc(tblLbl(tableNo || "—"))}</b><small>Dine-in${GUESTS ? ` · ${GUESTS} guest${GUESTS===1?"":"s"}` : ""}</small></div><span class="sp"></span>${canSwitch ? `<button data-ctx="table">Change table</button><button data-ctx="fast">Remove table</button>` : ""}</div>`
     : otype==="takeaway" || otype==="delivery" ? `<div class="ctx"><span class="ci">${otype==="delivery" ? "🛵" : "🛍"}</span><div><b>${otype==="delivery" ? "Delivery" : "Pickup"}</b><small>${esc(cust.name || "")}</small></div><span class="sp"></span>${canSwitch ? `<button data-ctx="pddetails">Details</button>` : ""}</div>`
     : `<div class="ctx"><span class="ci ci-svg"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12v18l-2-1.5L14 21l-2-1.5L10 21l-2-1.5L6 21z"/><path d="M9 8h6M9 12h6M9 16h3"/></svg></span><div><b>FAST SALE</b></div><span class="sp"></span></div>`;
   const held = device ? heldList() : [];
@@ -604,8 +605,8 @@ function renderCart(){
   // actions: new order / open order / closed order
   const acts = $("#acts"), unsent = cart.some(i => i.qty > (i.saved||0));
   let b;
-  if(!eo) b = [...(otype==="fast" ? [] : [`<button data-act="send" ${cart.length?"":"disabled"}>Save</button>`]), `<button class="pay" data-act="pay" ${cart.length?"":"disabled"}>${cart.length ? `Pay ${usd(t.total)}` : "Pay"}</button>`];
-  else if(isOpenOrd(eo)) b = [...(otype==="fast" ? [] : [`<button data-act="send" ${unsent?"":"disabled"}>Save</button>`]), `<button class="pay" data-act="pay" ${cart.length?"":"disabled"}>Pay ${usd(t.total)}</button>`];
+  if(!eo) b = [...(otype==="fast" ? [] : [`<button data-act="send" ${cart.length?"":"disabled"}>Save</button>`]), `<button class="pay" data-act="pay" ${cart.length?"":"disabled"}>${cart.length ? `Total ${usd(t.total)}` : "Total"}</button>`];
+  else if(isOpenOrd(eo)) b = [...(otype==="fast" ? [] : [`<button data-act="send" ${unsent?"":"disabled"}>Save</button>`]), `<button class="pay" data-act="pay" ${cart.length?"":"disabled"}>Total ${usd(t.total)}</button>`];
   else b = [];
   acts.style.setProperty("--n", b.length + 1); acts.innerHTML = b.join(""); acts.classList.toggle("hide", !b.length);
   if(orderNote) $("#lines").insertAdjacentHTML("afterbegin", `<div class="onote" data-onote title="${ro?"":"Tap to edit"}">📝 ${esc(orderNote)}</div>`);
@@ -711,7 +712,7 @@ $("#lines").addEventListener("click", e => { if(e.target.closest("[data-onote]")
   if(d < 0 && i.qty <= (i.saved||0)) return voidSent(ix);           // already sent: void with a manager's PIN
   i.qty += d; if(i.qty<=0) cart.splice(ix,1); renderCart(); });
 $("#extra").addEventListener("click", e => { const ht = e.target.closest("[data-hgettab]"); if(ht) return retrieveHeld(ht.dataset.hgettab);
-  if(e.target.closest("[data-clearcart]")){ askYes("Clear the cart? Nothing was sent to the kitchen yet.", "Clear cart", true).then(y => { if(!y) return; const keepT = otype==="dinein" ? tableNo : "", keepO = otype; resetOrder(); if(keepO==="dinein" && keepT){ otype = "dinein"; tableNo = keepT; renderCart(); } }); return; }
+  if(e.target.closest("[data-clearcart]")){ Promise.resolve(true).then(() => { const keepT = otype==="dinein" ? tableNo : "", keepO = otype; resetOrder(); if(keepO==="dinein" && keepT){ otype = "dinein"; tableNo = keepT; renderCart(); } }); return; }
   const cx = e.target.closest("[data-ctx]");
   if(cx && cx.dataset.ctx==="table") return openTables();
   if(cx && cx.dataset.ctx==="pddetails"){ PD = { type: otype==="delivery" ? "delivery" : "takeaway", phone: cust.phone, name: cust.name, addr: { ...(cust.addr||{}) }, cust:null, edit:true }; return openPDNew(); }
@@ -982,7 +983,7 @@ function openIncoming(){
     body = `<div class="otabs2">${TABS.map(([k,l2]) => `<button data-ovtab="${k}" class="${OV.tab===k?"on":""}">${l2}${k==="all" || boardOrders(k).length ? ` (${boardOrders(k).length})` : ""}</button>`).join("")}</div>
       <div class="olist2">${l.length ? `<div class="lrow ol5 lhead"><span>Order no.</span><span>Invoice no.</span><span>Customer</span><span style="text-align:right">Total</span></div>` + l.map(row).join("") : `<div class="oempty" style="border-radius:0">No orders here</div>`}</div>`; }
   modal("incoming", `${head}<div class="mb" style="display:flex;flex-direction:column;gap:12px">${filt}${body}<p class="mut" style="margin:0">${(OV.date||bizDate())===bizDate() ? `Today's business day (${bizDate()}) plus open orders from earlier days.` : `Business day ${OV.date}.`} Tap an order to open it in the billing section.</p></div>`, true);
-  $("#modal").classList.add("full"); $("#scrim").classList.add("fullscr");
+  $("#modal").classList.add("full"); $("#scrim").classList.add("fullscr"); withNav();
   const q = $("#ovQ"); if(q && document.activeElement?.id!=="ovQ" && OV.q){ /* keep the list where it was */ }
 }
 function openOrderView(id){
@@ -1116,6 +1117,9 @@ const openMore = () => modal("more", `<div class="mh"><h2>Device</h2><button cla
   <p><b>${esc(device.name)}</b><br><span class="mut">${esc(branch?.name||"")}</span></p><p class="mut">To move this tablet to another branch, generate a new code in the back office and activate again.</p></div>
   <div class="mf"><a class="btn" href="index.html#devices" style="margin-right:auto;text-decoration:none">Back office</a><button class="btn bad" id="deact">Deactivate on this tablet</button><button class="btn" data-close>Close</button></div>`);
 
+// full-screen Orders / Tables / Pickup & delivery keep the bottom bar, so "New" and the other tabs stay reachable
+function withNav(){ const m = $("#modal"); if(m.querySelector(".bnav-m")) return; m.insertAdjacentHTML("beforeend", `<nav class="bnav bnav-m">${$("#bnav").innerHTML.replace(/ id="[^"]*"/g, "")}</nav>`); paintNav(); }
+$("#modal").addEventListener("click", e => { const b = e.target.closest(".bnav-m [data-nav]"); if(!b) return; e.stopPropagation(); $(`#bnav [data-nav="${b.dataset.nav}"]`).click(); }, true);
 /* ---------- in-app yes / no question (the Android app's web view doesn't show window.confirm) ---------- */
 function askYes(msg, ok = "Yes", bad = false){
   return new Promise(res => { const el = document.createElement("div"); el.className = "apv";
@@ -1128,7 +1132,7 @@ function askYes(msg, ok = "Yes", bad = false){
 /* ---------- Foodics-style frame: top actions, More menu, bottom navigation ---------- */
 const hideMore = () => $("#morePop").classList.add("hide");
 function paintNav(){ const k = modalKind==="incoming" || modalKind==="orderview" ? "orders" : modalKind==="tables" ? "tables" : modalKind==="board" ? "board" : modalKind ? "" : "home";
-  document.querySelectorAll("#bnav [data-nav]").forEach(b => b.classList.toggle("on", b.dataset.nav===k)); }
+  document.querySelectorAll("#bnav [data-nav], .bnav-m [data-nav]").forEach(b => b.classList.toggle("on", b.dataset.nav===k)); }
 /* ---------- hold an unsent order on this register and pick it up later ---------- */
 const heldKey = () => "slickHeld:" + device.id;
 const heldList = () => { try{ return JSON.parse(store.get(heldKey()) || "[]"); }catch(e){ return []; } };
@@ -1188,6 +1192,7 @@ $("#devicesBtn").addEventListener("click", () => { hideMore(); openDevices(); })
 $("#diagBtn").addEventListener("click", () => { hideMore(); openDiag(); });
 $("#bnav").addEventListener("click", e => { const b = e.target.closest("[data-nav]"); if(!b) return; const k = b.dataset.nav; hideMore();
   if(k==="home"){ closeModal(); cat = ""; $("#q").value = ""; renderMenu(); return; }
+  if(k==="new" && modalKind==="board"){ PD = null; return openPDNew(); }
   if(k==="new"){ closeModal(); unloadOrder(); cat = ""; $("#q").value = ""; renderMenu(); return toast("New order"); }
   if(k==="orders") return openIncoming();
   if(k==="tables") return openTables();
@@ -1215,9 +1220,9 @@ function openBoard(){
   const q = OV.q; OV.q = BQ;
   const PD_COLS = [...OV_COLS.slice(0,3), ["declined","Declined","Declined today"]];   // pickup & delivery: no void / returns column
   const cols = PD_COLS.map(([k,title,tip]) => [k, title, tip, boardOrders(k, true)]); OV.q = q;
-  modal("board", `<div class="ohdr"><button class="hbtn" data-close>Back</button><b style="font-size:18px">Pickup & delivery</b><button class="hbtn" data-pdnew>+ New order</button><input class="search" id="bdQ" placeholder="Search order #, invoice, customer, phone" value="${esc(BQ)}" style="flex:1;min-width:220px;margin:0"><button class="hbtn ghost" data-osync>Sync</button></div>
+  modal("board", `<div class="ohdr"><button class="hbtn" data-close>Back</button><b style="font-size:18px;letter-spacing:.03em">PICKUP & DELIVERY</b><span class="sp"></span><button class="hbtn ghost" data-osync>Sync</button></div>
     <div class="mb"><div class="oboard">${cols.map(([k,title,tip,l]) => `<div class="ocol"><div class="ochead" title="${esc(tip)}"><b>${title}</b><span class="cnt">${l.length}</span></div>${l.length ? l.map(card).join("") : `<div class="oempty">You don't have ${title.toLowerCase()} orders</div>`}</div>`).join("")}</div></div>`, true);
-  $("#modal").classList.add("full"); $("#scrim").classList.add("fullscr");
+  $("#modal").classList.add("full"); $("#scrim").classList.add("fullscr"); withNav();
 }
 let BQ = "";
 // new pickup / delivery order, like the call center: customer & delivery first, then the menu
@@ -1288,7 +1293,7 @@ function openTables(){
     <span class="tleg"><span><i style="background:#fff;border:1px solid #ccc"></i>Free</span><span><i style="background:#f3c18f"></i>Occupied</span><span><i style="background:#f2a3ae"></i>Over 1 hour</span></span></div>
     <div class="mb"><p class="mut" style="margin:0 0 12px">${all.length ? `${busy} of ${all.length} tables occupied. Tap a free table to start a dine-in order, or an occupied one to open its order.` : "No tables set up for this branch yet. Add them in the back office under Manage → Tables."}</p>
     ${secs.map(sc => { const l = all.filter(t => (t.section||"")===sc); return `${secs.length > 1 || sc ? `<h3 class="tsec">${esc(sc || "Tables")}<span class="mut"> · ${l.filter(t => tableOrders(t.name).length).length}/${l.length} occupied</span></h3>` : ""}<div class="tgrid">${l.map(tile).join("")}</div>`; }).join("")}</div>`, true);
-  $("#modal").classList.add("full"); $("#scrim").classList.add("fullscr");
+  $("#modal").classList.add("full"); $("#scrim").classList.add("fullscr"); withNav();
 }
 function askGuests(k){
   window.__gTable = k; const t = branchTables().find(x => String(x.name).trim()===String(k));
