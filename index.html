@@ -524,6 +524,10 @@ tr[draggable="true"].dragging{opacity:.45}tr.dropto td{box-shadow:inset 0 2px 0 
       <div class="f full"><div class="note">Sales before this time count on the previous business day. Set it after your closing time, e.g. 03:00 if you close at 2 AM. Must be between 12:00 AM and 11:59 AM.</div></div>
       <h4 class="fsec">Opening hours</h4>
       <div class="f full"><div class="hours" id="fHours"></div><div class="note">Times after midnight (e.g. closes 02:00) count for the day that opened.</div></div>
+      <h4 class="fsec">Sections & tables</h4>
+      <div class="f full"><div id="fTables"></div></div>
+      <h4 class="fsec">Delivery zones</h4>
+      <div class="f full"><div class="multi" id="fDZones"></div><div class="note">Ticked zones are delivered by this branch (a zone belongs to one branch). Draw or change zones in Manage → Delivery Zones.</div></div>
       <h4 class="fsec">Charges at this branch</h4>
       <div class="f full"><div class="multi" id="fCharges"></div><div class="note">Ticked charges apply to orders at this branch. Add or change charges in Manage → Charges.</div></div>
       <h4 class="fsec">Order types at this branch</h4>
@@ -764,6 +768,14 @@ function fallback(msg){
   render();
 }
 // which charges apply at a branch is kept on each charge (no branches ticked = every branch)
+// a delivery zone belongs to one branch: ticking it here moves it to this branch, unticking leaves it without a branch
+async function saveBranchZones(bid, pick){
+  if(!bid || storeMode!=="db") return;
+  for(const z of (S.zones||[]).filter(z => !z.deleted)){
+    const on = z.branchId===bid, want = pick.has(z.id);
+    if(on!==want) await put("zones", z.id, { branchId: want ? bid : null });
+  }
+}
 async function saveBranchCharges(bid, pick){
   if(!bid || storeMode!=="db") return;
   for(const c of (S.charges||[]).filter(c => !c.deleted && c.active!==false)){
@@ -1207,6 +1219,13 @@ function openForm(id){
   $("#fNameAr").value = b?.nameAr || ""; $("#fTaxNo").value = b?.taxNumber || ""; $("#fLat").value = b?.lat ?? ""; $("#fLng").value = b?.lng ?? "";
   $("#fRHead").value = st.receiptHeader || ""; $("#fRFoot").value = st.receiptFooter || ""; paintMapLink();
   $("#fTaxGroup").innerHTML = `<option value="">None</option>` + (S.tax_groups||[]).filter(g => !g.deleted).map(g => `<option value="${esc(g.id)}" ${st.taxGroup===g.id?"selected":""}>${esc(g.name)}</option>`).join(""); $("#fGLink").value = "";
+  if(b){ const tl = tblList(b.id), secs = tblSecs(b.id);
+    $("#fTables").innerHTML = `${tl.length ? `<div class="multi">${secs.map(sc => { const n = tl.filter(t => (t.section||"")===sc); return `<span class="tag">${esc(sc || "No section")} · ${n.length} table${n.length===1?"":"s"}, ${n.reduce((a,t)=>a+(+t.seats||0),0)} seats</span>`; }).join("")}</div>` : '<div class="note">No sections or tables yet.</div>'}
+      <button type="button" class="btn" data-brtables="${esc(b.id)}" style="margin-top:8px">${tl.length ? "Edit sections & tables" : "Add sections & tables"}</button>`; }
+  else $("#fTables").innerHTML = '<div class="note">Save the branch first, then add its sections and tables.</div>';
+  const zs = (S.zones||[]).filter(z => !z.deleted).sort((a,c) => String(a.name).localeCompare(String(c.name)));
+  $("#fDZones").innerHTML = zs.length ? zs.map(z => { const ob = z.branchId && b && z.branchId!==b.id ? branches.find(x => x.id===z.branchId) : null;
+    return `<label class="chk"><input type="checkbox" value="${esc(z.id)}" ${b && z.branchId===b.id ? "checked" : ""}> ${esc(z.name)}${ob ? ` <span class="note">now ${esc(ob.name)}</span>` : ""}</label>`; }).join("") : '<span class="note">No delivery zones yet.</span>';
   const chOn = c => !(c.branchIds||[]).length || (b && c.branchIds.includes(b.id));
   const chs = (S.charges||[]).filter(c => !c.deleted && c.active!==false);
   $("#fCharges").innerHTML = chs.length ? chs.map(c => `<label class="chk"><input type="checkbox" value="${esc(c.id)}" ${chOn(c)?"checked":""}> ${esc(c.name)} <span class="note">${c.type==="percent" ? (+c.value||0) + "%" : money(+c.value||0)}</span></label>`).join("") : '<span class="note">No charges yet.</span>';
@@ -1227,6 +1246,7 @@ const gmapsCoords = v => { v = decodeURIComponent(String(v||"")); const pats = [
 function paintGMap(){ const la = $("#fLat").value.trim(), ln = $("#fLng").value.trim(), f = $("#fGMap"); if(!f) return;
   if(la && ln && !isNaN(+la) && !isNaN(+ln)){ const src = `https://maps.google.com/maps?q=${encodeURIComponent(la)},${encodeURIComponent(ln)}&z=16&output=embed`; if(f.src!==src) f.src = src; f.style.display = ""; } else { f.style.display = "none"; f.removeAttribute("src"); } }
 function paintMapLink(){ const la = $("#fLat").value.trim(), ln = $("#fLng").value.trim(); $("#fMapLnk").href = la && ln ? `https://www.google.com/maps?q=${encodeURIComponent(la)},${encodeURIComponent(ln)}` : "https://www.google.com/maps"; $("#fMapLnk").textContent = la && ln ? "View on Google Maps" : "Open Google Maps"; paintGMap(); }
+$("#branchForm").addEventListener("click", e => { const t = e.target.closest("[data-brtables]"); if(!t) return; e.preventDefault(); state.tblBranch = t.dataset.brtables; closeForm(); location.hash = "tables"; render(); });
 $("#branchForm").addEventListener("input", e => { if(e.target.id==="fGLink"){ const c = gmapsCoords(e.target.value);
     if(c){ $("#fLat").value = c[0]; $("#fLng").value = c[1]; paintMapLink(); $("#fErr").textContent = ""; }
     else if(e.target.value.trim()) $("#fErr").textContent = /goo\.gl|maps\.app/.test(e.target.value) ? "Short links can't be read. Open the link, then copy the full address from the browser bar." : "";
@@ -1265,9 +1285,11 @@ $("#branchForm").addEventListener("submit", async e => {
     open: mon.closed ? $("#fOpen").value : (mon.open || $("#fOpen").value), close: mon.closed ? $("#fClose").value : (mon.close || $("#fClose").value), zones:$("#fZones").value.trim(),
     active:$("#fActive").checked, callCenter:$("#fCC").checked, production:$("#fProd").checked, updatedAt:new Date().toISOString() };
   $("#saveBtn").disabled = true;
+  const zPick = new Set([...document.querySelectorAll("#fDZones input:checked")].map(i => i.value));
   const chPick = new Set([...document.querySelectorAll("#fCharges input:checked")].map(i => i.value));
   try{ const bid = await saveBranch(data, editing);
     await saveBranchCharges(editing || bid, chPick);
+    await saveBranchZones(editing || bid, zPick);
     toast(editing ? "Branch updated" : `${name} added`); closeForm(); }
   catch(err){ console.error(err); $("#fErr").textContent = "Couldn't save. You may not have edit access to this page."; }
   finally{ $("#saveBtn").disabled = false; }
