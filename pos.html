@@ -484,7 +484,7 @@ button,input,select,textarea{font-family:var(--f-ui)}
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 // modifiers shown as a list under the product: one line per option ("2× Cheese"), then the item note
-const modLines = i => { if(Array.isArray(i.options) && i.options.length){ const t = []; i.options.forEach(x => { const f = t.find(y => y.name===x.name); if(f) f.n++; else t.push({ name:x.name, n:1 }); }); return [...t.map(x => (x.n > 1 ? x.n + "× " : "") + x.name), ...(i.note ? ["Note: " + i.note] : [])]; }
+const modLines = (i, hideFree) => { if(Array.isArray(i.options) && i.options.length){ const t = []; i.options.forEach(x => { if(hideFree && !(+x.price)) return; const f = t.find(y => y.name===x.name); if(f) f.n++; else t.push({ name:x.name, n:1 }); }); return [...t.map(x => (x.n > 1 ? x.n + "× " : "") + x.name), ...(i.note ? ["Note: " + i.note] : [])]; }
   return String(i.mods||"").split(" · ").flatMap(p => p.startsWith("Note: ") ? [p] : p.split(", ")).map(x => x.trim()).filter(Boolean); };
 const modList = i => { const l = modLines(i); return l.length ? `<ul class="mlist">${l.map(x => `<li${x.startsWith("Note: ") ? ' class="mn"' : ""}>${esc(x)}</li>`).join("")}</ul>` : ""; };
 const coS = () => { try{ return S.settings.find(x=>x.id==="company") || {}; }catch(e){ return {}; } };
@@ -610,7 +610,7 @@ $("#lock").addEventListener("click", e => { const b = e.target.closest("[data-pi
   $("#pinErr").textContent = ""; paintPin(); if(pinBuf.length>=4) tryPin(); });
 document.addEventListener("keydown", e => { if($("#lock").classList.contains("hide")) return; if(/^\d$/.test(e.key) && pinBuf.length < 5){ pinBuf += e.key; paintPin(); if(pinBuf.length>=4) tryPin(); } else if(e.key==="Backspace"){ pinBuf = pinBuf.slice(0,-1); paintPin(); } });
 $("#lockBtn").addEventListener("click", () => lock());
-let idleT; ["pointerdown","keydown"].forEach(ev => document.addEventListener(ev, () => { clearTimeout(idleT); const mins = devSet().lockMinutes ?? 10; if(+mins > 0) idleT = setTimeout(() => { if(usePins() && cashier) lock(); }, mins*60*1000); }));
+let idleT; ["pointerdown","keydown"].forEach(ev => document.addEventListener(ev, () => { clearTimeout(idleT); const mins = devSet().lockMinutes ?? appSet().logoutMinutes ?? 10; if(+mins > 0) idleT = setTimeout(() => { if(usePins() && cashier) lock(); }, mins*60*1000); }));
 const deny = what => { toast(`${cashier ? cashier.name + ", your" : "Your"} role doesn't allow ${what}.`); return true; };
 /* ---------- order numbers: each tablet counts 1, 2, 3… and starts again every business day ---------- */
 // the business day starts at this branch's own time (Manage → Branches); the old company-wide setting is the fallback
@@ -639,7 +639,11 @@ function giveBackNo(no){ const key = "slickNo_" + device.branchId; try{ const c 
 const company = () => S.settings.find(x=>x.id==="company") || {};
 const APP_DEF = { requireCustPickup:true, requireCustDelivery:true, requireTable:false, stockAction:"ask", reasonRequired:true, discountApproval:false, rcptInvoice:true, rcptCustomer:true, rcptTax:true, rcptSource:false,
   voidReasons:"Customer changed mind\nWrong item entered\nItem not available\nKitchen mistake", returnReasons:"Quality complaint\nWrong order delivered\nLate delivery\nCustomer cancelled" };
-const appSet = () => ({ ...APP_DEF, ...(S.settings.find(x=>x.id==="app")||{}) });
+// Manage → Brands → Settings (one set per brand) wins over the older company-wide settings
+const BRAND_POS_DEF = { showOrderNo:true, showSubtotal:true, phoneOnPickup:true, printLang:"main", returnMode:"unlimited", returnMinutes:1440, kitchenSort:"added", presetTender:"", logoutMinutes:10 };
+const appSet = () => { const a = { ...APP_DEF, ...BRAND_POS_DEF, ...(S.settings.find(x=>x.id==="app")||{}), ...(S.settings.find(x=>x.id==="brand_" + (branch?.brandId || ""))||{}) };
+  if(a.requireTableGuests !== undefined) a.requireTable = !!a.requireTableGuests; return a; };
+const custGiven = (n, p) => !!(String(n||"").trim() || String(p||"").replace(/[^0-9]/g,"").length >= 6);
 const typeKey = t => t==="takeaway" ? "pickup" : t;
 const menuType = () => otype==="takeaway" || otype==="fast" ? "pickup" : otype;   // fast orders sell the pickup menu
 const chargeList = type => S.charges.filter(c => !c.deleted && c.active!==false && (!(c.orderTypes||[]).length || c.orderTypes.includes(typeKey(type)))
@@ -887,6 +891,8 @@ const unsentItems = () => cart.flatMap(i => { const n = i.qty - (i.saved||0); if
 // what this register needs before sending or billing an order (table, customer, address)
 function orderInfoOk(){
   if(otype==="dinein" && appSet().requireTable && !String(tableNo).trim()){ toast("Enter the table number"); $("#tbl")?.focus(); return false; }
+  if(otype==="dinein" && appSet().requireTableGuests && !(+GUESTS > 0)){ toast("Enter the guest count"); return false; }
+  if(appSet().requireCustAll && (!cust.name.trim() || cust.phone.replace(/[^0-9]/g,"").length < 6)){ toast("Enter the customer's name and phone number"); $(!cust.phone.trim() ? "#cPhone" : "#cName")?.focus(); return false; }
   if(otype==="takeaway" ? appSet().requireCustPickup : otype==="delivery" ? appSet().requireCustDelivery : false){
     const need = []; if(!cust.name.trim()) need.push("name"); if(cust.phone.replace(/[^0-9]/g,"").length < 6) need.push("phone number");
     const am = otype==="delivery" ? [["street","area / street"],["building","building"],["floor","floor"]].filter(([k]) => !(cust.addr[k]||"").trim()) : [];
@@ -949,6 +955,7 @@ async function editLine(ix){
   const i = cart[ix], p = i && S.products.find(x=>x.id===i.productId); if(!i || !window.SlickMods) return;
   const base = (+i.price||0) - (i.options||[]).reduce((t,x)=>t+(+x.price||0),0);   // the item's own price, before its options
   const r = await SlickMods.pick({ name:i.name, basePrice:base, ...(p ? modData(p) : { links:[], groups:{}, options:[] }), money:usd, edit:true, initial:i.options||[], qty:i.qty, note:i.note||"", allowDiscount: can("pos_item_discount"), discType:i.discType, discValue:i.discValue }); if(!r) return;
+  if(+r.disc && !(+i.disc) && appSet().discNeedsCustomer && !custGiven(cust.name, cust.phone)){ toast("Add the customer first: discounts need customer info"); return; }
   if(+r.disc && !(+i.disc) && appSet().discountApproval && !(await approve("pos_item_discount", "Approve item discount"))) return;
   Object.assign(i, { price:r.unitPrice, qty:r.qty, options:r.options, note:r.note, mods:SlickMods.label(r.mods, r.note) });
   if(r.disc != null){ i.disc = r.disc; i.discType = r.discType; i.discValue = r.discValue; }
@@ -1014,12 +1021,13 @@ function openDiscount(){
   setTimeout(() => $("#discVal")?.focus(), 30);
 }
 $("#modal").addEventListener("click", async e => {
-  const d = e.target.closest("[data-disc]"); if(d){ if(+d.dataset.disc > 0 && appSet().discountApproval && !(await approve("pos_discount", "Approve discount"))) return; discount = +d.dataset.disc; discType = "pct"; closeModal(); renderCart(); return; }
+  const d = e.target.closest("[data-disc]"); if(d){ if(+d.dataset.disc > 0 && appSet().discNeedsCustomer && !custGiven(cust.name, cust.phone)){ toast("Add the customer first: discounts need customer info"); return; } if(+d.dataset.disc > 0 && appSet().discountApproval && !(await approve("pos_discount", "Approve discount"))) return; discount = +d.dataset.disc; discType = "pct"; closeModal(); renderCart(); return; }
   const dt = e.target.closest("[data-dt]"); if(dt){ document.querySelectorAll("[data-dt]").forEach(b => b.classList.toggle("on", b===dt)); $("#discVal").placeholder = dt.dataset.dt==="amt" ? "Amount in USD" : "Percent"; $("#discVal").focus(); return; }
   if(e.target.closest("#discApply")){ const ty = document.querySelector("[data-dt].on")?.dataset.dt || "pct", v = +String($("#discVal").value).replace(",", "."), sub = totals().sub;
     if(!(v >= 0) || $("#discVal").value.trim()==="") { $("#discNote").textContent = "Enter a number."; return; }
     if(ty==="pct" && v > 100){ $("#discNote").textContent = "A percentage can't be more than 100."; return; }
     if(ty==="amt" && v > sub){ $("#discNote").textContent = `The discount can't be more than the subtotal (${usd(sub)}).`; return; }
+    if(v > 0 && appSet().discNeedsCustomer && !custGiven(cust.name, cust.phone)){ $("#discNote").textContent = "Add the customer first: discounts need customer info."; return; }
     if(v > 0 && appSet().discountApproval && !(await approve("pos_discount", "Approve discount"))) return;
     discount = +v.toFixed(2); discType = ty; closeModal(); renderCart(); return; }
   const pm = e.target.closest("[data-pm]"); if(pm){ payMethod = payMethods().find(m=>m.id===pm.dataset.pm); document.querySelectorAll("[data-pm]").forEach(b=>b.classList.toggle("on", b===pm)); $("#cashBox").style.display = payMethod?.type==="cash" ? "flex" : "none"; if($("#cardNote")) $("#cardNote").style.display = payMethod?.type==="cash" ? "none" : "grid"; updChange(); return; }
@@ -1087,7 +1095,7 @@ function openPay(){
   if(!openShift()){ toast("Open a shift before taking payments"); return; }
   if(!orderInfoOk()) return;
   const t = totals(), pms = payMethods(); payMethod = pms[0];
-  const q = [t.total, Math.ceil(t.total/5)*5, Math.ceil(t.total/10)*10, Math.ceil(t.total/20)*20].filter((v,i,a)=>a.indexOf(v)===i);
+  const q = [t.total, Math.ceil(t.total/5)*5, Math.ceil(t.total/10)*10, Math.ceil(t.total/20)*20, ...String(appSet().presetTender||"").split(",").map(x=>+x.trim()).filter(x => x > t.total)].filter((v,i,a)=>a.indexOf(v)===i);
   KP = true;   // the first key typed replaces the prefilled amount
   const pmIco = m => ico(m.type==="cash" ? "cash" : m.type==="card" ? "card" : "wallet");
   modal("pay", `<div class="payx"><div class="payl"><div class="ptop"><div><div class="dlbl">Amount due</div><div class="damt">${usd(t.total)}</div>${usd2(t.total) ? `<div class="d2">≈ ${usd2(t.total)}</div>` : ""}</div><button class="x" data-close aria-label="Close">×</button></div>
@@ -1127,31 +1135,35 @@ async function completeSale(){
 function rcptHead(w){
   const c = l => l.slice(0,w).padStart((w + Math.min(w,l.length))/2), out = [];
   if(branch?.nameAr) out.push(c(branch.nameAr));
-  (brSet().receiptHeader || "").split("\n").map(l=>l.trim()).filter(Boolean).forEach(l => out.push(c(l)));
+  (appSet().receiptHeader || brSet().receiptHeader || "").split("\n").map(l=>l.trim()).filter(Boolean).forEach(l => out.push(c(l)));
   const tax = branch?.taxNumber || (S.settings.find(x=>x.id==="company")||{}).taxNumber; if(tax) out.push(c("VAT No. " + tax));
   if(branch?.phone) out.push(c("Tel " + branch.phone));
   return out;
 }
+// item name in the receipt's print language (Brands → Settings → Receipt)
+function rcptNames(i, a){ const ar = S.products.find(p => p.id===i.productId)?.nameAr; return a.printLang==="localized" ? [ar || i.name] : a.printLang==="both" && ar && ar!==i.name ? [i.name, ar] : [i.name]; }
 function receiptText(o){
   const w = 32, row = (a,b) => a.slice(0, w-b.length-1).padEnd(w-b.length) + b, a = appSet(), net = (+o.total||0) - (+o.tax||0);
   const typ = o.type==="dinein" ? "Dine-in"+(o.table?" T"+o.table:"") : o.type==="pickup"||o.type==="takeaway" ? "Pickup" : o.type==="fast" ? "Fast sale" : "Delivery";
   const lines = [ (()=>{ const n = (S.brands.find(b=>b.id===branch?.brandId)?.name || "Slick").toUpperCase(); return n.padStart((w+n.length)/2); })(), (branch?.name||"").padStart((w+(branch?.name||"").length)/2), ...rcptHead(w), "",
+    ...(a.invoiceTitle && o.status!=="refund" ? [a.invoiceTitle.slice(0,w).padStart((w+Math.min(w,a.invoiceTitle.length))/2), ""] : []),
     ...(o.status==="refund" ? ["*** REFUND ***".padStart((w+14)/2), row("Return " + ordRef(o), typ), ...(o.invoiceRef || S.orders.find(x=>x.id===o.refundOf)?.invoiceNo ? ["Original invoice " + invNo(o.invoiceRef || S.orders.find(x=>x.id===o.refundOf)?.invoiceNo)] : []), ...(o.returnReason ? ["Reason: " + o.returnReason] : [])]
-      : [row("Order #"+(o.no||"—"), typ), ...(o.ref ? ["Ref " + o.ref] : []), ...(a.rcptInvoice && o.invoiceNo ? ["Invoice " + invNo(o.invoiceNo)] : [])]), ...(a.rcptSource && o.source ? ["Source: " + o.source] : []),
+      : [a.showOrderNo===false ? typ : row("Order #"+(o.no||"—"), typ), ...(o.ref ? ["Ref " + o.ref] : []), ...(a.rcptInvoice && o.invoiceNo ? ["Invoice " + invNo(o.invoiceNo)] : [])]), ...(a.rcptSource && o.source ? ["Source: " + o.source] : []),
     ...(o.type==="dinein" && +o.guests ? ["Guests: " + o.guests] : []),
-    ...(a.rcptCustomer && (o.customerName || o.phone) ? [[o.customerName, o.phone].filter(Boolean).join(" · ")] : []),
+    ...(a.rcptCustomer && (o.customerName || o.phone) ? [[o.customerName, (o.type==="pickup"||o.type==="takeaway") && a.phoneOnPickup===false ? "" : o.phone].filter(Boolean).join(" · ")] : []),
+    ...(a.showCreator && (o.agent || o.handledBy) ? ["Created by " + (o.agent || o.handledBy)] : []), ...(a.showCloser && (o.handledBy || o.agent) ? ["Closed by " + (o.handledBy || o.agent)] : []),
     new Date(o.createdAt).toLocaleString("en-GB"), "-".repeat(w),
-    ...o.items.flatMap(i => [row(i.qty+" x "+i.name, lineNet(i).toFixed(2)), ...modLines(i).map(m => ("   - " + m).slice(0, w)), ...(+i.disc ? ["  discount -" + (+i.disc).toFixed(2)] : [])]), "-".repeat(w) ];
+    ...o.items.flatMap(i => [...rcptNames(i, a).map((nm, k) => k ? ("     " + nm).slice(0, w) : row(i.qty+" x "+nm, lineNet(i).toFixed(2))), ...modLines(i, a.hideFreeMods).map(m => ("   - " + m).slice(0, w)), ...(+i.disc ? ["  discount -" + (+i.disc).toFixed(2)] : [])]), "-".repeat(w) ];
   if(o.discount) lines.push(row(o.discountType==="amt" ? "Discount" : "Discount "+o.discountPct+"%", "-"+(+o.discount).toFixed(2)));
   (o.charges||[]).filter(c=>+c.amount).forEach(c => lines.push(row(c.name, (+c.amount).toFixed(2))));
-  lines.push(row("Subtotal", net.toFixed(2)));
+  if(a.showSubtotal!==false) lines.push(row("Subtotal", net.toFixed(2)));
   if(a.rcptTax) lines.push(row(taxIncl() ? "Tax (incl.)" : "Tax", (+o.tax||0).toFixed(2)));
   lines.push(row("TOTAL USD", (+o.total).toFixed(2)));
   if(usd2(o.total)) lines.push(row("", "= " + usd2(o.total)));
   if(o.payment){ lines.push(row((o.status==="refund" ? "Refunded (" : "Paid (")+o.payment.method+")", Math.abs(+o.payment.tendered).toFixed(2))); if(o.payment.change) lines.push(row("Change", (+o.payment.change).toFixed(2))); }
   if(o.status==="void") lines.push("", "*** VOID ***".padStart((w+12)/2)); if(o.status==="returned") lines.push("", "*** RETURNED ***".padStart((w+16)/2));
   if(o.receiptNotes) lines.push("", ...o.receiptNotes.split("\n").map(l => l.trim().slice(0,w)).filter(Boolean));
-  const foot = (brSet().receiptFooter || "Thank you!").split("\n").map(l => l.trim()).filter(Boolean);
+  const foot = (appSet().receiptFooter || brSet().receiptFooter || "Thank you!").split("\n").map(l => l.trim()).filter(Boolean);
   lines.push("", ...foot.map(l => l.slice(0,w).padStart((w + Math.min(w,l.length))/2)));
   return lines.join("\n");
 }
@@ -1161,7 +1173,8 @@ function kitchenText(o){
   const ctr = t => t.padStart((w + t.length)/2);
   const lines = [ctr("KITCHEN"), ctr("ORDER #" + (o.no || "—")), ctr(typ), ...(o.ref ? [ctr(o.ref)] : []), ...(o.source && o.channel!=="pos" ? [ctr(o.source)] : []),
     new Date(o.createdAt).toLocaleString("en-GB"), "=".repeat(w)];
-  (o.items||[]).forEach(i => { lines.push((i.qty + " x " + i.name).slice(0, w)); modLines(i).forEach(m => lines.push(("   - " + m).slice(0, w))); });
+  const kItems = appSet().kitchenSort==="category" ? [...(o.items||[])].sort((x, y) => catRank(S.products.find(p=>p.id===x.productId)||{}) - catRank(S.products.find(p=>p.id===y.productId)||{})) : (o.items||[]);
+  kItems.forEach(i => { lines.push((i.qty + " x " + i.name).slice(0, w)); modLines(i).forEach(m => lines.push(("   - " + m).slice(0, w))); });
   lines.push("=".repeat(w));
   if(o.notes) lines.push("NOTE: " + o.notes);
   return lines.join("\n");
@@ -1313,6 +1326,9 @@ const fullyBack = o => +o.refundTotal && +o.refundTotal >= +o.total - 0.001;
 function openVR(kind, mode){
   const o = S.orders.find(x=>x.id===OV.open); if(!o) return;
   const a = appSet(), reasons = String(kind==="void" ? a.voidReasons : a.returnReasons).split("\n").map(x=>x.trim()).filter(Boolean);
+  if(kind==="return" && a.returnMode==="none") return toast("Returns aren't allowed for this brand");
+  if(kind==="return" && a.returnMode==="limited"){ const t = o.closedAt || o.updatedAt || o.createdAt, m = +a.returnMinutes || 0; if(t && Date.now() - new Date(t) > m*60000) return toast(`The return period (${m} min) for this order is over`); }
+  if(kind==="void" && a.voidNeedsCustomer && !custGiven(o.customerName, o.phone)) return toast("Add the customer to this order first: voids need customer info");
   const pick = mode==="items";
   modal("vr", `<div class="mh"><h2>${kind==="void"?"Void":"Return"} ${pick?"items":"order"} · ${esc(ordRef(o))}</h2><button class="x" data-ovopen="${esc(o.id)}" aria-label="Back">←</button></div><div class="mb">
     <div class="dseg vrmode" style="margin-bottom:14px"><button type="button" data-vrmode="${kind}:all" class="${pick?"":"on"}">Whole order</button><button type="button" data-vrmode="${kind}:items" class="${pick?"on":""}">Choose items</button></div>

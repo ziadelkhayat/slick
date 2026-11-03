@@ -456,6 +456,9 @@ tr[draggable="true"].dragging{opacity:.45}tr.dropto td{box-shadow:inset 0 2px 0 
 .cstats{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:12px;margin-bottom:16px}.cstats>div{background:#fff;border:1px solid var(--line);border-radius:10px;padding:14px 16px}.cstats span{display:block;font-size:12px;color:var(--muted);margin-bottom:4px}.cstats b{font-size:17px}
 .cflt{padding:14px 18px;border-bottom:1px solid var(--line);background:#faf9fc}.cfltb{display:flex;gap:8px;justify-content:flex-end;margin-top:10px}
 .ddwrap{position:relative;display:inline-block}.ddmenu{position:absolute;right:0;top:calc(100% + 4px);background:#fff;border:1px solid var(--line);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.12);z-index:30;min-width:190px;padding:4px}.ddmenu button{display:block;width:100%;text-align:left;background:none;border:0;padding:9px 12px;border-radius:6px;cursor:pointer;font:inherit}.ddmenu button:hover{background:#f4f2f8}
+.bswrap{display:grid;grid-template-columns:220px 1fr;gap:16px;align-items:start}.bsnav{display:flex;flex-direction:column;background:#fff;border:1px solid var(--line);border-radius:12px;padding:8px;position:sticky;top:12px}.bsnav b{padding:8px 10px;font-size:13px;color:var(--muted)}.bsnav a{padding:9px 12px;border-radius:8px;color:inherit;text-decoration:none;font-size:14px}.bsnav a.on{background:#f1edfc;color:#5b3fd1;font-weight:600}.bsnav a:hover{background:#f6f4fa}
+.bsbody{padding:18px 22px}.bsbody h3{margin:0 0 14px;font-size:16px}.bsf{padding:12px 0;border-bottom:1px solid var(--line)}.bsf:last-of-type{border-bottom:0}.bsf>label{display:block;font-weight:600;font-size:14px;margin-bottom:2px}.bsf .note{margin:2px 0 8px}.bsf input:not([type=checkbox]):not([type=radio]),.bsf textarea,.bsf select{width:100%;max-width:520px}.bschk .note{margin-left:26px}.bsseg{display:flex;flex-wrap:wrap;gap:6px 16px}.bsimg{display:flex;align-items:center;gap:10px}.bsimg img{max-height:64px;max-width:160px;border:1px solid var(--line);border-radius:8px;background:#fff}
+@media(max-width:760px){.bswrap{grid-template-columns:1fr}.bsnav{position:static;flex-direction:row;flex-wrap:wrap}}
 .brcard{padding:16px 18px;margin-bottom:14px}.brch{display:flex;align-items:center;gap:8px;margin-bottom:10px}.brch h3{margin:0;font-size:15px}.brempty{margin:0;padding:6px 0}.brcard table{width:100%}
 .bdrow{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--line)}.bdrow>div{display:flex;flex-direction:column;gap:2px}.bdrow .btn{white-space:nowrap}
 .taxcfg{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:14px}.taxcfg h3{margin:0 0 4px;font-size:15px}.taxcfg .note{margin:0}.taxcfg .chk{font-weight:600;white-space:nowrap}
@@ -612,7 +615,7 @@ const NAV = [
   {t:"Inventory",i:"box",tabs:1,kids:[["inv-categories","Inventory Categories"],["inv-items","Items"],["warehouses","Locations"],["suppliers","Suppliers"],["purchase-orders","Purchase Orders"],["transfer-orders","Transfer Orders"],["transfers","Transfers"],["inventory-count","Inventory Count"],["production","Production"],["quantity-adjustments","Quantity Adjustment"],["cost-adjustments","Cost Adjustment"],["spot-check","Inventory Spot Check"],["count-sheets","Count Sheet"]]},
   {t:"Menu",i:"book",tabs:1,kids:[["@Menu Builder"],["categories","Categories"],["products","Products"],["modifiers","Modifiers"],["combos","Combos"],["groups","Groups"],["@Menu Settings"],["price-tags","Price Tags"],["allergens","Allergens"]]},
   {id:"branch-menu",t:"Sales Channels",i:"globe"},
-  {t:"Manage",i:"gear",kids:[["users","Users"],["roles","Roles"],["brands","Brands"],["branches","Branches"],["devices","Devices"],["taxes","Taxes & Groups"],["currency","Currency"],["payment-methods","Payment Methods"],["order-sources","Order Sources"],["charges","Charges"],["delivery-zones","Delivery Zones"],["online-ordering","Web Ordering"],["kitchen-flows","Kitchen Flows"],["reasons","Reasons"],["settings","Settings"]]},
+  {t:"Manage",i:"gear",kids:[["users","Users"],["roles","Roles"],["brands","Brands"],["branches","Branches"],["devices","Devices"],["taxes","Taxes & Groups"],["currency","Currency"],["payment-methods","Payment Methods"],["order-sources","Order Sources"],["charges","Charges"],["delivery-zones","Delivery Zones"],["online-ordering","Web Ordering"],["kitchen-flows","Kitchen Flows"],["reasons","Reasons"]]},
   {t:"Marketing",i:"tag",kids:[["loyalty","Loyalty"],["gift-cards","Gift Cards"],["discounts","Discounts"],["promotions","Promotions"],["coupons","Coupons"]]}
 ];
 const TITLES = { account:"Account settings" };
@@ -1734,7 +1737,7 @@ const CRUD = {
     }
   },
   brands: {
-    col:"brands", title:"Brands", one:"Brand",
+    col:"brands", title:"Brands", one:"Brand", detail: r => brandDetail(r),
     tabs:[["all","All",live],["deleted","Deleted",r=>r.deleted]],
     sort:(a,b)=>a.name.localeCompare(b.name),
     search:r=>r.name,
@@ -2454,6 +2457,9 @@ function ccStep1Err(){
   if(!type) return ["Choose delivery or pickup.", null];
   if(brandList().length && !$("#oBrand").value) return ["Choose the brand.", "oBrand"];
   if(!$("#oBranch").value) return ["Pick the branch that will prepare this order.", "oBranch"];
+  { const bs = brandSet($("#oBrand")?.value || branches.find(b => b.id===$("#oBranch").value)?.brandId || "");
+    if((bs.ccInactiveTypes||[]).includes(type)) return [`${ordTypeLbl(type)} orders aren't taken by the call center for this brand.`, null];
+    if((bs.ccAgents||[]).length && storeMode==="db" && state.role!=="owner"){ const me = S.users.find(x => live(x) && x.userId && x.userId===state.userId); if(!me || !bs.ccAgents.includes(me.id)) return ["You aren't one of this brand's call center agents (Manage → Brands → Settings → Call Center).", null]; } }
   if(!$("#oSource").value) return ["Choose the order source.", "oSource"];
   if(type==="delivery"){ const miss = [["street","area / street"],["building","building"],["floor","floor"]].filter(([k]) => !a[k]);
     if(miss.length) return ["The delivery address needs the " + miss.map(x=>x[1]).join(", ").replace(/, ([^,]*)$/, " and $1") + ".", "oA_"+miss[0][0]]; }
@@ -2523,7 +2529,8 @@ function ccActions(o){
 }
 function fillOrderBranches(sel){
   const bd = $("#oBrand").value;
-  const list = branches.filter(b => (b.active!==false && b.callCenter!==false || b.id===sel) && (bd ? b.brandId===bd : !brandList().length));
+  const list = branches.filter(b => (b.active!==false && b.callCenter!==false && !(brandSet(b.brandId).ccInactiveBranches||[]).includes(b.id) || b.id===sel) && (bd ? b.brandId===bd : !brandList().length));
+  const ds = brandSet(bd || list[0]?.brandId || "").ccDefaultSource, os = $("#oSource"); if(ds && os && !os.value && [...os.options].some(x => x.value===ds)) os.value = ds;
   if(!sel && list.length===1) sel = list[0].id;   // only one branch takes call-center orders for this brand: pick it
   $("#oBranch").innerHTML = `<option value="">${bd||!brandList().length?"Choose…":"Pick brand"}</option>` + list.map(b=>`<option value="${esc(b.id)}" ${sel===b.id?"selected":""}>${esc(b.name)}</option>`).join("");
 }
@@ -2938,7 +2945,7 @@ function moduleRoute(route){
   if(route==="company"){ state.acTab = "business"; setTimeout(() => location.replace("#account"), 0); return ""; }
   if(route==="reasons") return viewReasons();
   if(route==="currency") return viewCurrency();
-  if(route==="settings") return viewSettings(route);
+  if(route==="settings"){ const bl = S.brands.filter(live); setTimeout(() => { location.replace("#brands"); if(bl.length===1) setTimeout(() => openDetail("brands", bl[0].id), 50); }, 0); return ""; }
   if(DOC_KINDS[route]) return viewDocs(route);
   if(route==="order-transactions") return viewOrderTx();
   if(route==="__old_order_tx") return `<h1>Order Transactions</h1><p class="subt">Consumption, returns and waste created automatically from sales.</p>` + placeholder("Starts with recipes", "Each sold product will deduct its recipe ingredients from the branch stock and show up here (Consumption, Return, Waste). It turns on next, now that products have ingredients (open a product under Menu → Products).");
@@ -3592,6 +3599,141 @@ function viewSettings(route){
 document.addEventListener("click", async e => { if(!e.target.closest("#asSave")) return;
   const d = {}; Object.keys(APP_DEF).forEach(k => { const el = $("#as_"+k); if(!el) return; d[k] = el.type==="checkbox" ? el.checked : el.value; });   // reasons are saved on their own page
   try{ await put("settings", "app", d); toast("Settings saved"); }catch(err){ console.error(err); $("#asErr").textContent = "Couldn't save. Only the owner or an admin can change settings."; } });
+
+/* ---------- Brands → brand page with its settings (Foodics settings format, one set per brand) ---------- */
+const BRAND_DEF = { printLang:"main", mainLang:"en", locLang:"ar", invoiceTitle:"", receiptHeader:"", receiptFooter:"", showOrderNo:true, showCalories:false, showSubtotal:true, showRounding:false,
+  showCloser:false, showCreator:false, showCheckNo:false, hideFreeMods:false, phoneOnPickup:true,
+  ccAgents:[], ccPayments:[], ccInactiveBranches:[], ccMenuGroup:"", ccInactiveTypes:[], ccDiscounts:true, ccCoupons:true, ccEdit:true, ccVoid:false, ccReadAllCc:true, ccReadAll:false, ccPriceTags:false, ccAvailability:true,
+  presetTender:"", tenderCurrencies:"", tipsPct:"", uploadDelay:0, logoutMinutes:10, returnMode:"unlimited", returnMinutes:1440, orderTagTypes:[], rounding:"none",
+  enableTips:false, discNeedsCustomer:false, voidNeedsCustomer:false, requireTableGuests:false, autoKitchenOnPay:false, autoSync:false, autoProductMix:false, autoTills:false, forceInvCount:false, autoCloseKiosk:false,
+  preventOos:false, printPayReceipts:false, singleTill:false, requireCustAll:false, displayBg:"", kdsDefaultMods:false, kitchenSort:"added", invLogo:"", invHeader:"", invFooter:"", preventNegative:false, logo:"" };
+const brandSet = id => { const app = S.settings.find(x=>x.id==="app") || {}, row = S.settings.find(x=>x.id==="brand_" + id) || {};
+  return { ...BRAND_DEF, requireTableGuests: !!app.requireTable, ...appSet(), ...row }; };
+const BS_LANGS = [["ar","عربي"],["en","English"],["es","Español"],["fr","Français"]];
+const bsUsers = () => S.users.filter(u => live(u) && u.active!==false).map(u => [u.id, u.name]);
+const BS_TABS = [
+  ["receipt","Receipt","Receipt Settings",[
+    {k:"logo",l:"Change Logo",t:"img",n:"Select an image to be used as the business logo."},
+    {k:"printLang",l:"Print Language",t:"radio",req:1,o:[["main","Main"],["localized","Localized"],["both","Main & Localized"]],n:"Select a language or multiple languages for the receipt printer."},
+    {k:"mainLang",l:"Main Langauge",t:"radio",req:1,o:BS_LANGS,n:"Select the main language to be used when printing the receipt"},
+    {k:"locLang",l:"Localized Language",t:"radio",req:1,o:BS_LANGS,n:"Select the localized language to be used when printing the receipt"},
+    {k:"secCurrency",l:"Secondary Receipt Currency",t:"info",v:()=>{ const c = coSet(); return c.currency2 ? esc(c.currency2) + ` <span class="note">(set in Manage → Currency)</span>` : `<span class="note">None · add one in Manage → Currency</span>`; },n:"Choose one of the tendered currencies to display as a secondary currency on printed receipts."},
+    {k:"receiptHeader",l:"Receipt Header",t:"area",n:"You can enter text here to show at the header of the receipts."},
+    {k:"receiptFooter",l:"Receipt Footer",t:"area",n:"You can enter text here to show at the footer of the receipts."},
+    {k:"invoiceTitle",l:"Invoice Title",t:"text",n:"You can enter text here to be printed as title in invoice."},
+    {k:"showOrderNo",l:"Show Order Number",t:"chk",n:"Show or hide order number from the receipts."},
+    {k:"showCalories",l:"Show Calories",t:"chk",n:"Check this to show calories in the receipts."},
+    {k:"showSubtotal",l:"Show Subtotal",t:"chk",n:"Check this to show the receipt’s subtotal (before taxes) with the final price."},
+    {k:"showRounding",l:"Show Rounding",t:"chk",n:"Check this to show the rounding amount in the receipts."},
+    {k:"showCloser",l:"Show Closer Username",t:"chk",n:"Check this to show the order closer username in the receipts."},
+    {k:"showCreator",l:"Show Creator Username",t:"chk",n:"Check this to show the order creator username in the receipts."},
+    {k:"showCheckNo",l:"Show Check Number",t:"chk",n:"Check this to show the check number in the receipts."},
+    {k:"hideFreeMods",l:"Hide Free Modifier Options",t:"chk",n:"Check this to hide modifier options with zero price in the receipts."},
+    {k:"phoneOnPickup",l:"Print customer phone number in pickup orders",t:"chk",n:"Enabling this will print the customer phone number on the receipt when the order type is pickup"},
+    {k:"rcptInvoice",l:"Show Invoice Number",t:"chk",n:"Show or hide the invoice number (INV-…) on the receipts."},
+    {k:"rcptCustomer",l:"Show Customer",t:"chk",n:"Print the customer's name (and phone) on the receipts."},
+    {k:"rcptTax",l:"Show Tax",t:"chk",n:"Print the tax line on the receipts."},
+    {k:"rcptSource",l:"Show Order Source",t:"chk",n:"Print the order source (Toters, Phone…) on the receipts."}]],
+  ["call_center","Call Center","Call Center Ordering Settings",[
+    {k:"ccAgents",l:"Agents",t:"multi",req:1,o:bsUsers,n:"Users who can make an online order.",none:"Every user allowed to use the call center"},
+    {k:"ccPayments",l:"Accepted Payment Modes",t:"multi",req:1,o:()=>(S.payment_methods||[]).filter(m=>live(m) && m.active!==false).map(m=>[m.id,m.name]),none:"All payment methods"},
+    {k:"ccInactiveBranches",l:"Inactive Branches",t:"multi",req:1,o:b=>branches.filter(x=>x.brandId===b.id).map(x=>[x.id,x.name]),n:"Branches in which call center is deactivated.",none:"None"},
+    {k:"ccMenuGroup",l:"Menu Group",t:"select",req:1,o:()=>[["","Main Screen"],...((S.groups||[]).filter(live).map(g=>[g.id,g.name]))],n:"Select the menu group to view categories, products & combos."},
+    {k:"ccInactiveTypes",l:"Inactive Order Types",t:"multi",req:1,o:()=>[["delivery","Delivery"],["pickup","Pick Up"]],n:"Unavailable order types for call center orders.",none:"None"},
+    {k:"ccDefaultSource",l:"Suggested Order Source",t:"select",o:()=>[["","None (user must pick)"],...sourceList().map(x=>[x,x])],n:"The order source picked for new call center orders."},
+    {k:"ccDiscounts",l:"Allow Discounts",t:"chk",n:"Allow call center agents to make discounts."},
+    {k:"ccCoupons",l:"Allow Coupons",t:"chk",n:"Allow call center agents to apply coupons on orders"},
+    {k:"ccEdit",l:"Allow Editing Orders",t:"chk",n:"Allow Call Center Agents to Edit Active orders from the Call Center"},
+    {k:"ccVoid",l:"Allow Voiding Active Orders",t:"chk",n:"Allow Call Center Agents to Void Active orders from the Call Center"},
+    {k:"ccReadAllCc",l:"Allow agents to read all CC Orders",t:"chk",n:"Allow the agent to read orders created by other agents"},
+    {k:"ccReadAll",l:"Allow agents to read all Orders",t:"chk",n:"Allow agents to view all orders from all Sources"},
+    {k:"ccPriceTags",l:"Allow Price Tags",t:"chk",n:"Allow call center agents to apply price tags on orders"},
+    {k:"ccAvailability",l:"Show Product Availability",t:"chk",n:"Show available and unavailable products to Call Center Agents based on local availability from the Cashier system"}]],
+  ["cashier","Cashier App","Cashier App Settings",[
+    {k:"presetTender",l:"Preset Tendered Amounts",t:"text",req:1,ph:"50,100",n:"Enter the values of the common cash bills used by the customers up to two values separated by a comma, like 50,100"},
+    {k:"tenderCurrencies",l:"Tendered Amount Currencies",t:"text",req:1,ph:"LBP,89500",n:"A comma separated list of currencies that can be used in the cashier along with their conversion rate against business currency (USD). Ex: USD,3.6,SAR,0.9,BHD,9.5"},
+    {k:"tipsPct",l:"Predefined Tips Percentages",t:"text",req:1,ph:"10,20,30",n:"Enter tips percentages that will be suggested to customers in check if tips are enabled. You can enter multiple values separated by a comma. e.g. 10,20,30"},
+    {k:"uploadDelay",l:"Upload Orders Delay(Minute)",t:"num",req:1,n:"How long to wait before uploading closed orders from the cashier to the console."},
+    {k:"logoutMinutes",l:"Inactive Users Logout(Minute)",t:"num",req:1,n:"For better security, if a user is not active for this long, the cashier will automatically logout."},
+    {k:"returnMode",l:"Return Period",t:"radio",o:[["limited","Limited return period (minutes)"],["none","Return not allowed"],["unlimited","Unlimited return period"]],n:"How long after the order is closed can it be returned and refunded to the customer."},
+    {k:"returnMinutes",l:"Return period (minutes)",t:"num",show:v=>v.returnMode==="limited"},
+    {k:"orderTagTypes",l:"Require Order Tags for Orders",t:"multi",req:1,o:()=>[["pickup","Pick Up"],["delivery","Delivery"]],n:"Selected order types will require assigning orders tag in cashier",none:"None"},
+    {k:"rounding",l:"Rounding Method",t:"radio",req:1,o:[["none","None"],["up","Up"],["down","Down"],["average","Average"]],n:"Up: Will add the needed amount to the price to reach the selected rounding level.<br>Down: Will deduct the needed amount to the price to reach the selected rounding level.<br>Average: Will Round to the nearest number that fulfills the selected rounding level."},
+    {k:"enableTips",l:"Enable Tips",t:"chk",n:"Allows the cashier to add tips to all types of orders."},
+    {k:"discNeedsCustomer",l:"Discounts & Coupons Require Customer Info",t:"chk",n:"The cashier can’t add a discount or a coupon without assigning a customer."},
+    {k:"voidNeedsCustomer",l:"Void Requires Customer Info",t:"chk",n:"The cashier can’t void an order without assigning a customer."},
+    {k:"requireTableGuests",l:"Require Table and Guest count selection for DineIn orders",t:"chk",n:"For DineIn orders, require table number and guest count."},
+    {k:"reasonRequired",l:"Always Ask For Void Reasons",t:"chk",n:"The cashier can’t void an order or product without a reason."},
+    {k:"autoKitchenOnPay",l:"Auto Send To Kitchen After Full Payment",t:"chk",n:"When an order is fully paid, it will be sent to the kitchen screen and printer automatically."},
+    {k:"autoSync",l:"Auto Data Sync At Start Of Day",t:"chk",n:"Syncs data automatically when the user logs in to the cashier app."},
+    {k:"autoProductMix",l:"Auto Print Products Mix",t:"chk",n:"With End Of Day report, print the product mix automatically."},
+    {k:"autoTills",l:"Auto Print Tills reports",t:"chk",n:"With End Of Day report, print the till summary reports automatically."},
+    {k:"forceInvCount",l:"Force inventory count before end of day",t:"chk",n:"Cashier will not allow end of day if no inventory count is performed"},
+    {k:"autoCloseKiosk",l:"Auto Close Kiosk Orders",t:"chk",n:"The cashier app will automatically close Kiosk orders when an order is fully paid and bumped in Kitchen Display System"},
+    {k:"preventOos",l:"Prevent selling out-of-stock products",t:"chk",n:"When the users enable this option, it prevents the cashier app from selling stock products if they are out of stock"},
+    {k:"printPayReceipts",l:"Print Payment Receipts for Active Orders",t:"chk",n:"This setting allows the Cashier to print the payment receipts for partial and custom amount payments added to the order."},
+    {k:"singleTill",l:"Single Till Mode",t:"chk",n:"This setting allows one Cashier user to open a till at any given time during the business day."},
+    {k:"requireCustAll",l:"Require customer info before closing any order",t:"chk",n:"This setting forces the cashier user to add customer info before closing any order."},
+    {k:"requireCustPickup",l:"Pickup orders need the customer's name and phone",t:"chk"},
+    {k:"requireCustDelivery",l:"Delivery orders need the customer's name, phone and address",t:"chk"},
+    {k:"discountApproval",l:"Discounts need a manager's PIN",t:"chk",n:"Someone whose role allows discounts types their PIN to approve."},
+    {k:"stockAction",l:"After a void or return, the items go",t:"radio",o:[["ask","Ask every time"],["stock","Back to stock"],["waste","To waste"]]}]],
+  ["display","Display App","Display App Settings",[
+    {k:"displayBg",l:"Upload Background",t:"img",n:"Select an image to be used as the background image in the display app."}]],
+  ["kitchen","Kitchen","Kitchen Settings",[
+    {k:"kdsDefaultMods",l:"Enable printing / showing default modifiers on kitchen receipt and kitchen display",t:"chk",n:"Check this to show default modifiers in the kitchen receipt as well as the kitchen display"},
+    {k:"kitchenSort",l:"Kitchen Sorting Method",t:"radio",req:1,o:[["added","As added in the cashier"],["category","Based on menu categories sorting"]],n:"How order products will be sorted in the Kitchen Display and Kitchen Receipt"}]],
+  ["inventory_transactions","Inventory Transactions","Inventory Transactions",[
+    {k:"invLogo",l:"Upload Logo",t:"img",n:"You can select image here to show at the begining of the transactions when printing."},
+    {k:"invHeader",l:"Header",t:"area",req:1,n:"You can enter text here to show at the header of the transactions when printing."},
+    {k:"invFooter",l:"Footer",t:"area",req:1,n:"You can enter text here to show at the footer of the transactions when printing."},
+    {k:"preventNegative",l:"Restrict inventory transactions to available quantities (Prevent Negative Stock)",t:"chk",n:"By enabling this setting, users will be prevented from entering quantities of items that exceed the quantities available in inventory transactions (production, transfer sending, quantity adjustment and return to supplier)"}]]
+];
+function bsField(f, v, b, dis){
+  const id = "bs_" + f.k, lbl = `<label${f.t==="chk"||f.t==="radio"||f.t==="multi"?"":` for="${id}"`}>${f.l}${f.req?"*":""}</label>`, help = f.n ? `<div class="note">${f.n}</div>` : "";
+  if(f.show && !f.show(v)) return `<div class="bsf" data-bsdep="${f.k}" hidden></div>`;
+  if(f.t==="chk") return `<div class="bsf bschk"><label class="chk"><input type="checkbox" id="${id}" data-bs="${f.k}" data-bst="chk" ${v[f.k]?"checked":""} ${dis}> <b>${f.l}</b></label>${help}</div>`;
+  if(f.t==="info") return `<div class="bsf">${lbl}${help}<div>${f.v()}</div></div>`;
+  if(f.t==="radio") return `<div class="bsf">${lbl}${help}<div class="bsseg">${f.o.map(([k,t])=>`<label class="chk"><input type="radio" name="${id}" value="${esc(k)}" data-bs="${f.k}" data-bst="radio" ${String(v[f.k])===k?"checked":""} ${dis}> ${t}</label>`).join("")}</div></div>`;
+  if(f.t==="multi"){ const o = f.o(b), cur = v[f.k] || []; return `<div class="bsf">${lbl}${help}<div class="multi">${o.length ? o.map(([k,t])=>`<label class="chk"><input type="checkbox" data-bs="${f.k}" data-bst="multi" value="${esc(k)}" ${cur.includes(k)?"checked":""} ${dis}> ${esc(t)}</label>`).join("") : '<span class="note">Nothing to pick yet.</span>'}</div>${f.none?`<div class="note">Nothing ticked: ${f.none}.</div>`:""}</div>`; }
+  if(f.t==="select") return `<div class="bsf">${lbl}${help}<select class="sel" id="${id}" data-bs="${f.k}" data-bst="text" ${dis}>${f.o(b).map(([k,t])=>`<option value="${esc(k)}" ${String(v[f.k]||"")===k?"selected":""}>${esc(t)}</option>`).join("")}</select></div>`;
+  if(f.t==="area") return `<div class="bsf">${lbl}${help}<textarea id="${id}" rows="3" data-bs="${f.k}" data-bst="text" ${dis}>${esc(v[f.k]||"")}</textarea></div>`;
+  if(f.t==="img") return `<div class="bsf">${lbl}${help}<div class="bsimg">${v[f.k] ? `<img src="${esc(v[f.k])}" alt="">` : '<span class="note">No image</span>'}<input type="hidden" data-bs="${f.k}" data-bst="text" value="${esc(v[f.k]||"")}">
+      ${dis ? "" : `<label class="btn sm">Choose image<input type="file" accept="image/*" data-bsimg="${f.k}" hidden></label>${v[f.k]?`<button type="button" class="btn sm" data-bsimgx="${f.k}">Remove</button>`:""}`}</div></div>`;
+  return `<div class="bsf">${lbl}${help}<input id="${id}" ${f.t==="num"?'type="number" min="0"':""} placeholder="${esc(f.ph||"")}" data-bs="${f.k}" data-bst="${f.t==="num"?"num":"text"}" value="${esc(v[f.k] ?? "")}" ${dis}></div>`;
+}
+function brandDetail(b){
+  const admin = !state.role || state.role==="owner" || state.role==="admin", dis = admin ? "" : "disabled", tab = BS_TABS.find(t => t[0]===state.bsTab) || BS_TABS[0];
+  const v = { ...brandSet(b.id), ...(state.bsDraft?.[b.id] || {}) }, row = (k, x) => `<div><span>${k}</span>${x}</div>`, brs = branches.filter(x => x.brandId===b.id);
+  return `<div class="phead"><a href="#brands" class="btn" data-detback style="text-decoration:none">← Back</a><h1 style="margin-left:10px">${esc(b.name)}</h1><div class="sp"></div><button class="btn pri" data-detedit>Edit Brand</button></div>
+    <div class="card odet" style="margin-bottom:16px;padding:16px 18px">${row("Name", esc(b.name))}${row("Name Localized", esc(b.nameAr || "—"))}${row("Branches", brs.length)}${row("Products", S.products.filter(p=>live(p)&&p.brandId===b.id).length)}${row("Status", b.active===false ? "Inactive" : "Active")}</div>
+    <div class="bswrap"><nav class="bsnav"><b>Settings</b>${BS_TABS.map(([k,t])=>`<a href="#brands" data-bstab="${k}" class="${tab[0]===k?"on":""}">${t}</a>`).join("")}</nav>
+    <div class="card bsbody" data-bsbrand="${esc(b.id)}"><h3>${tab[2]}</h3>${admin?"":`<div class="banner">Only the owner or an admin can change settings.</div>`}
+      ${tab[3].map(f => bsField(f, v, b, dis)).join("")}
+      <div class="err" id="bsErr"></div>${admin ? `<div style="display:flex;justify-content:flex-end;margin-top:8px"><button class="btn pri" data-bssave>Save Changes</button></div>` : ""}</div></div>`;
+}
+function bsRead(){
+  const d = {}; document.querySelectorAll("[data-bs]").forEach(el => { const k = el.dataset.bs, t = el.dataset.bst;
+    if(t==="chk") d[k] = el.checked; else if(t==="radio"){ if(el.checked) d[k] = el.value; } else if(t==="multi"){ d[k] = d[k] || []; if(el.checked) d[k].push(el.value); }
+    else if(t==="num") d[k] = el.value==="" ? null : +el.value; else d[k] = el.value.trim(); });
+  return d;
+}
+function bsImage(file, cb){ const r = new FileReader(); r.onload = () => { const im = new Image(); im.onload = () => { const s = Math.min(1, 480 / Math.max(im.width, im.height)), c = document.createElement("canvas");
+  c.width = Math.round(im.width*s); c.height = Math.round(im.height*s); c.getContext("2d").drawImage(im, 0, 0, c.width, c.height); cb(c.toDataURL("image/png")); }; im.src = r.result; }; r.readAsDataURL(file); }
+document.addEventListener("click", async e => {
+  const t = e.target.closest("[data-bstab]"); if(t){ e.preventDefault(); const id = document.querySelector("[data-bsbrand]")?.dataset.bsbrand; if(id) state.bsDraft = { ...(state.bsDraft||{}), [id]: { ...(state.bsDraft?.[id]||{}), ...bsRead() } }; state.bsTab = t.dataset.bstab; render(); return; }
+  const x = e.target.closest("[data-bsimgx]"); if(x){ const el = document.querySelector(`input[type=hidden][data-bs="${x.dataset.bsimgx}"]`); el.value = ""; const id = document.querySelector("[data-bsbrand]").dataset.bsbrand; state.bsDraft = { ...(state.bsDraft||{}), [id]: { ...(state.bsDraft?.[id]||{}), ...bsRead() } }; render(); return; }
+  if(!e.target.closest("[data-bssave]")) return;
+  const id = document.querySelector("[data-bsbrand]").dataset.bsbrand, d = { ...(state.bsDraft?.[id]||{}), ...bsRead() };
+  if(d.presetTender && !/^\s*\d+(\.\d+)?\s*(,\s*\d+(\.\d+)?\s*)?$/.test(d.presetTender)){ $("#bsErr").textContent = "Preset tendered amounts: up to two numbers separated by a comma, like 50,100"; return; }
+  if(d.tipsPct && !/^\s*\d+(\.\d+)?(\s*,\s*\d+(\.\d+)?)*\s*$/.test(d.tipsPct)){ $("#bsErr").textContent = "Tips percentages: numbers separated by commas, like 10,20,30"; return; }
+  try{ await put("settings", "brand_" + id, d); if(state.bsDraft) delete state.bsDraft[id]; toast("Settings saved"); render(); }
+  catch(err){ console.error(err); $("#bsErr").textContent = "Couldn't save. Only the owner or an admin can change settings."; }
+});
+document.addEventListener("change", e => {
+  const f = e.target.closest("[data-bsimg]"); if(f && f.files[0]){ bsImage(f.files[0], url => { const el = document.querySelector(`input[type=hidden][data-bs="${f.dataset.bsimg}"]`); el.value = url; const id = document.querySelector("[data-bsbrand]").dataset.bsbrand; state.bsDraft = { ...(state.bsDraft||{}), [id]: { ...(state.bsDraft?.[id]||{}), ...bsRead() } }; render(); }); return; }
+  if(e.target.matches?.('[data-bs="returnMode"]')){ const id = document.querySelector("[data-bsbrand]").dataset.bsbrand; state.bsDraft = { ...(state.bsDraft||{}), [id]: { ...(state.bsDraft?.[id]||{}), ...bsRead() } }; render(); }
+});
 
 /* ---------- Manage → Reasons: what the cashier picks from when voiding or returning ---------- */
 const rsList = k => String(appSet()[k] || "").split("\n").map(x => x.trim()).filter(Boolean);
