@@ -514,6 +514,7 @@ tr[draggable="true"].dragging{opacity:.45}tr.dropto td{box-shadow:inset 0 2px 0 
       <h4 class="fsec">Business day</h4>
       <div class="f"><label for="fDayStart">New business day starts at</label><input id="fDayStart" type="time" class="sel" value="00:00"></div>
       <div class="f"><label>Example</label><div class="note" style="padding-top:8px" id="fDayEx"></div></div>
+      <div class="f full"><label class="chk"><input type="checkbox" id="fAutoDay"> Automatic end of day</label><div class="note">At the start time, if the previous day wasn't ended manually and all its orders are closed, the branch POS ends it automatically.</div></div>
       <div class="f full"><div class="note">Sales before this time count on the previous business day. Set it after your closing time, e.g. 03:00 if you close at 2 AM. Must be between 12:00 AM and 11:59 AM.</div></div>
       <h4 class="fsec">Opening hours</h4>
       <div class="f full"><div class="hours" id="fHours"></div><div class="note">Times after midnight (e.g. closes 02:00) count for the day that opened.</div></div>
@@ -1141,7 +1142,7 @@ function openForm(id){
   const st = b?.settings || {};
   $("#fNameAr").value = b?.nameAr || ""; $("#fTaxNo").value = b?.taxNumber || ""; $("#fLat").value = b?.lat ?? ""; $("#fLng").value = b?.lng ?? "";
   $("#fRHead").value = st.receiptHeader || ""; $("#fRFoot").value = st.receiptFooter || ""; paintMapLink();
-  $("#fDayStart").value = st.dayStart || company().dayEnd || "00:00"; $("#fDayEx").textContent = dayExample($("#fDayStart").value);
+  $("#fDayStart").value = st.dayStart || company().dayEnd || "00:00"; $("#fDayEx").textContent = dayExample($("#fDayStart").value); $("#fAutoDay").checked = st.autoDayEnd !== false;
   const types = st.orderTypes || ["dinein","takeaway","delivery"]; document.querySelectorAll("#fTypes input").forEach(i => i.checked = types.includes(i.value));
   const H = st.hours || {}, o0 = b?.open || "11:00", c0 = b?.close || "23:30";
   $("#fHours").innerHTML = DAYS.map(([k,t]) => { const d = H[k] || { open:o0, close:c0, closed:false };
@@ -1182,7 +1183,7 @@ $("#branchForm").addEventListener("submit", async e => {
   if(+dayStart.split(":")[0] >= 12){ $("#fErr").textContent = "The business day must start between 12:00 AM and 11:59 AM."; $("#fDayStart").focus(); return; }
   const data = { name, code, brandId, address:$("#fAddr").value.trim(), city:$("#fCity").value.trim(), phone:$("#fPhone").value.trim(),
     nameAr:$("#fNameAr").value.trim(), taxNumber:$("#fTaxNo").value.trim(), lat: lat ? +lat : null, lng: lng ? +lng : null,
-    settings:{ ...(branches.find(x=>x.id===editing)?.settings || {}), hours, orderTypes, receiptHeader:$("#fRHead").value.trim(), receiptFooter:$("#fRFoot").value.trim(), dayStart },
+    settings:{ ...(branches.find(x=>x.id===editing)?.settings || {}), hours, orderTypes, receiptHeader:$("#fRHead").value.trim(), receiptFooter:$("#fRFoot").value.trim(), dayStart, autoDayEnd: $("#fAutoDay").checked },
     open: mon.closed ? $("#fOpen").value : (mon.open || $("#fOpen").value), close: mon.closed ? $("#fClose").value : (mon.close || $("#fClose").value), zones:$("#fZones").value.trim(),
     active:$("#fActive").checked, callCenter:$("#fCC").checked, production:$("#fProd").checked, updatedAt:new Date().toISOString() };
   $("#saveBtn").disabled = true;

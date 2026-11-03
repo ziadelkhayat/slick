@@ -518,6 +518,7 @@ let device = null, branch = null, cat = "", otype = "dinein", cart = [], discoun
 })();
 let started = false;
 function onData(c){
+  if(c==="orders" && !window.__ordSnap){ window.__ordSnap = true; }
   if(c==="devices" && !started){ started = true; const id = store.get("wokDevice"); if(id && S.devices.some(d=>d.id===id && !d.deleted && d.activatedAt)) startApp(id); else { store.set("wokDevice", null); show("activate"); $("#code").focus(); } return; }
   if(!device) return;
   device = S.devices.find(d => d.id===device.id) || device;
@@ -525,6 +526,7 @@ function onData(c){
   branch = S.branches.find(b => b.id===device.branchId) || branch;
   if(c==="settings") salesResetCheck();
   if(c==="orders") window.__ordLoaded = true;
+  if(c==="orders" || c==="day_closes") setTimeout(autoDayEnd, 1500);
   if(c==="orders" && devSet().autoAccept) autoAccept();
   if(c==="users" || c==="roles"){ if(cashier){ cashier = S.users.find(u=>u.id===cashier.id && live(u) && u.active!==false) || null; } lockIfNeeded(); }
   renderAll();
@@ -568,7 +570,7 @@ $("#actForm").addEventListener("submit", async e => {
 });
 function startApp(id){
   device = S.devices.find(d => d.id===id); branch = S.branches.find(b => b.id===device.branchId);
-  show("app"); renderAll(); lockIfNeeded(); if(devSet().autoAccept) autoAccept();
+  show("app"); renderAll(); lockIfNeeded(); if(devSet().autoAccept) autoAccept(); setTimeout(autoDayEnd, 4000);
   setInterval(() => db.collection("devices").doc(device.id).update({ lastSeen:new Date().toISOString() }).catch(()=>{}), 5*60*1000);
 }
 
@@ -690,6 +692,22 @@ async function doDayEnd(day){
   catch(err){ console.error(err); toast("Couldn't end the day. Check the connection and try again."); }
 }
 $("#dayBtn").addEventListener("click", openDayEnd);
+// automatic end of day: once this branch's new business day starts, an earlier day that wasn't ended is ended
+// automatically, as long as none of its orders are still open (open orders keep the manual End day flow)
+let autoDayBusy = false;
+async function autoDayEnd(){
+  if(autoDayBusy || !device || !db || !window.__ordSnap || brSet().autoDayEnd === false) return;
+  const today = bizDate(), day = openDay();
+  if(day >= today || dayClosed(day)) return;
+  if(S.orders.some(o => o.branchId===device.branchId && ["pending","active"].includes(o.status))) return;
+  const sales = S.orders.filter(o => liveOrder(o) && (o.status==="closed" || o.status==="refund") && bizDate(o.createdAt)===day);
+  autoDayBusy = true;
+  try{ await db.collection("day_closes").doc("dc_" + device.branchId + "_" + day).set({ branchId:device.branchId, businessDate:day, closedAt:new Date().toISOString(), closedBy:"Automatic", deviceId:device.id, orders:sales.length, sales:+sales.reduce((a,o)=>a+(+o.total||0),0).toFixed(2) });
+    toast(`Day ended automatically · ${fmtDay(day)}`); renderAll(); }
+  catch(err){ console.warn("auto day end", err); }
+  finally{ autoDayBusy = false; }
+}
+setInterval(autoDayEnd, 60000);
 /* ---------- device & branch settings (Manage → Devices → Settings, Manage → Branches) ---------- */
 const devSet = () => device?.settings || {}, brSet = () => branch?.settings || {};
 const allowedTypes = () => { const b = brSet().orderTypes || ["dinein","takeaway","delivery"], d = devSet().orderTypes || b, a = ["dinein","takeaway","delivery"].filter(t => b.includes(t) && d.includes(t)); return a.length ? a : ["dinein","takeaway","delivery"]; };
