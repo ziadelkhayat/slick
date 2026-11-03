@@ -505,7 +505,7 @@ tr[draggable="true"].dragging{opacity:.45}tr.dropto td{box-shadow:inset 0 2px 0 
       <h4 class="fsec">General</h4>
       <div class="f"><label for="fName">Branch name *</label><input id="fName" required maxlength="60" placeholder="e.g. Hamra"></div>
       <div class="f"><label for="fNameAr">Name (Arabic)</label><input id="fNameAr" maxlength="60" dir="auto"></div>
-      <div class="f"><label for="fCode">Reference code</label><input id="fCode" maxlength="10" placeholder="Auto"></div>
+      <div class="f"><label for="fCode">Reference code *</label><input id="fCode" maxlength="10" placeholder="e.g. B01"></div>
       <div class="f"><label for="fBrand">Brand *</label><select id="fBrand"></select></div>
       <div class="f"><label for="fTaxNo">Branch tax (VAT) number</label><input id="fTaxNo" maxlength="40" placeholder="Leave empty to use the company's"></div>
       <div class="f"><label for="fPhone">Phone</label><input id="fPhone" maxlength="30"></div>
@@ -1182,7 +1182,7 @@ function openForm(id){
   $("#mTitle").textContent = b ? "Edit branch" : "Add branch";
   $("#fBrand").innerHTML = `<option value="">Choose brand…</option>` + brandList().map(x=>`<option value="${esc(x.id)}">${esc(x.name)}</option>`).join("");
   $("#fBrand").value = b?.brandId || defaultBrand();
-  $("#fName").value = b?.name || ""; $("#fCode").value = b?.code || ""; $("#fCode").placeholder = b ? "" : nextCode();
+  $("#fName").value = b?.name || ""; $("#fCode").value = b ? (b.code || nextCode()) : nextCode();
   $("#fAddr").value = b?.address || ""; $("#fCity").value = b?.city || ""; $("#fPhone").value = b?.phone || "";
   $("#fOpen").value = b?.open || "11:00"; $("#fClose").value = b?.close || "23:30"; $("#fZones").value = b?.zones || "";
   const st = b?.settings || {};
@@ -1213,7 +1213,8 @@ document.addEventListener("keydown", e => { if(e.key==="Escape"){ closeForm(); $
 $("#branchForm").addEventListener("submit", async e => {
   e.preventDefault();
   const name = $("#fName").value.trim();
-  const code = ($("#fCode").value.trim() || (editing ? "" : nextCode())).toUpperCase();
+  const code = $("#fCode").value.trim().toUpperCase();
+  if(!code){ $("#fErr").textContent = "Reference code is required."; $("#fCode").focus(); return; }
   if(!name){ $("#fErr").textContent = "Branch name is required."; return; }
   const brandId = $("#fBrand").value;
   if(brandList().length && !brandId){ $("#fErr").textContent = "Choose the brand this branch belongs to."; return; }
