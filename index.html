@@ -411,6 +411,8 @@ body[data-route="call-center"] .ocard{padding:10px 12px;gap:5px;font-size:13px}
 tr.grp td{background:var(--bg,#f6f6fa);font-size:13px;padding-top:12px}
 tr.off td:first-child b{color:var(--ink3,#8d8c98);text-decoration:line-through}
 tr.chg td:first-child{box-shadow:inset 3px 0 0 var(--accent)}
+.multi.mdesc{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:8px 18px}.multi.mdesc .chk{align-items:flex-start}.multi.mdesc .chk span{display:flex;flex-direction:column;gap:1px}.multi.mdesc .chk b{font-weight:600}.multi.mdesc .chk small{color:var(--muted);font-size:12px;line-height:1.35}
+.mtog{background:none;border:0;padding:0 0 0 8px;cursor:pointer;font-size:12px;font-weight:600;text-transform:none;letter-spacing:0}
 .multi .mhead{grid-column:1/-1;flex-basis:100%;width:100%;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink3,#8d8c98);margin:8px 0 2px}
 .acct{position:relative}.acctbtn{display:flex;align-items:center;gap:9px;border:1px solid transparent;background:none;border-radius:999px;padding:3px 10px 3px 3px;font:inherit;font-weight:600;color:var(--ink);cursor:pointer}
 .acctbtn:hover,.acctbtn[aria-expanded="true"]{background:var(--surface);border-color:var(--line)}.acctbtn .chev{font-size:11px;color:var(--ink3,#8d8c98)}
@@ -472,7 +474,7 @@ tr[draggable="true"].dragging{opacity:.45}tr.dropto td{box-shadow:inset 0 2px 0 
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="wokdb.js?v=26"></script>
+<script src="wokdb.js?v=27"></script>
 <script src="modpick.js?v=5"></script>
 </head>
 <body>
@@ -1385,11 +1387,17 @@ const taxTabs = on => `<div class="tabs" style="margin-bottom:8px"><a href="#tax
   <p class="subt" style="margin-top:0">Each tax is either inclusive (already inside the menu price) or added on top at checkout; set it on the tax. A group can mix both.</p>`;
 
 /* ---------- users & roles ---------- */
-const PERMS = [["@Back office · screens"],["bo_dashboard","Dashboard"],["bo_orders","Orders"],["bo_callcenter","Call center"],["bo_customers","Customers"],["bo_reports","Reports"],["bo_inventory","Inventory"],["bo_menu","Menu"],["bo_manage","Manage (settings, users, branches) — full admin"],["bo_marketing","Marketing"],
-  ["@Back office · actions"],["bo_cc_discount","Give item discounts in the call center"],["bo_cc_edit","Edit placed call-center orders (source, type, items)"],["bo_import","Import and export lists (products, customers…)"],["bo_customers_edit","Add, edit and delete customers"],
-  ["@POS app · selling"],["pos_access","Use the POS (sign in with PIN)"],["pos_discount","Give order discounts"],["pos_item_discount","Give item discounts"],["pos_open_price","Sell open-price items"],["pos_charges","Remove or add charges on an order"],
-  ["@POS app · orders"],["pos_orders","See the orders list"],["pos_incoming","Accept / decline / complete call-center and web orders"],["pos_void","Approve voids (active orders and items)"],["pos_return","Approve returns (closed orders and items)"],["pos_reprint","Reprint receipts"],
-  ["@POS app · register"],["pos_shift","Open and close shifts"],["pos_endday","End the business day"],["pos_reports","See POS reports"],["pos_settings","Device settings"]];
+// Foodics-style authorities: [key, title, description]; keys already used across Slick are kept
+const PERMS = [
+  ["@Order Authorities"],["bo_orders","Read Orders","Allows the user to view orders in the console."],["bo_orders_manage","Manage Orders","Allows the user to accept, decline, void and pay orders in the console."],
+  ["@Customer Authorities"],["bo_customers","Read Customers","Allows the user to view customers data in the console."],["bo_customers_insights","Read Customers Insights","Allows the user to view customers loyalty, house account credit, etc..."],["bo_customers_edit","Manage Customers","Allows the user to edit or delete customers."],["bo_import","Import / Export","Allows the user to import and export lists (products, customers…)."],
+  ["@Inventory Authorities"],["bo_inventory","Read Inventory Items","Allows the user to view inventory items and transactions."],["inv_manage","Manage Inventory Items","Allows the user to edit or delete inventory items."],["inv_suppliers","Manage Suppliers","Allows the user to edit or delete suppliers."],["inv_po","Create Purchase Orders","Allows the user to create a PO and save as draft."],["inv_po_submit","Submit Purchase Orders","Allows the user to submit draft POs to be approved."],["inv_po_approve","Approve Purchase Orders","Allows the user to approve submitted POs."],["inv_transfer","Create Transfers","Allows the user to create a transfer from one branch/warehouse to other locations."],["inv_transfer_send","Send & Receive Transfers","Allows the user to submit draft transfer transactions."],["inv_purchasing","Create Purchasing","Allows the user to create a purchasing transaction and save as draft."],["inv_purchasing_submit","Submit Purchasing","Allows the user to submit draft purchasing transactions."],["inv_production","Create Production","Allows the user to create draft production transactions."],["inv_production_submit","Submit Production","Allows the user to submit draft production transactions."],["inv_qa","Create Quantity Adjustment","Allows the user to create draft QA transactions."],["inv_qa_submit","Submit Quantity Adjustment","Allows the user to submit draft QA transactions."],["inv_count","Create Inventory Count","Allows the user to create draft count transactions."],["inv_count_submit","Submit Inventory Count","Allows the user to submit draft count transactions."],["inv_order_tx","Read Order Transactions","Allows the user to view inventory transactions made from orders."],
+  ["@Menu Authorities"],["bo_menu","Read Menu","Allows the user to view menu items in the console."],["menu_manage","Manage Menu","Allows the user to edit and manage menu items in the console."],["menu_hide","Hide Items","Allows the user to deactivate menu items in selected branches to hide them from the menu."],["menu_oos","Mark Items Out of Stock","Allows the user to set menu items as Out of Stock in selected branches."],["menu_ingredients","Manage Ingredients","Allows the user to edit menu ingredients."],["menu_costs","Manage Costs","Allows the user to edit menu items costs."],
+  ["@Admin Authorities"],["bo_manage","Manage Settings","Allows the user to open Manage: branches, devices, users, roles, taxes, payment methods, charges, reasons, delivery zones, web ordering and other settings."],["bo_marketing","Manage Marketing","Allows the user to create and edit discounts, coupons, gift cards and promotions."],
+  ["@Reports Authorities"],["bo_reports","View Sales Reports","Allows the user to view and export all reports."],
+  ["@Dashboard Authorities"],["bo_dashboard","Access General Dashboard","Allows the user to view the general dashboard and graphs."],
+  ["@Call Center Authorities"],["bo_callcenter","Access Call Center","Allows the user to take call center orders."],["bo_cc_edit","Edit Online Orders","Allows the user to edit placed call center orders (order source, order type, items)."],["bo_cc_discount","Apply Discounts in Call Center","Allows the user to give item discounts in the call center."],
+  ["@Cashier & Waiter Apps Authorities"],["pos_access","Access Cash Register","Allows the user to sign in with their PIN and sell on the cashier."],["pos_settings","Access Devices Management","Allows the user to open device settings in the cashier."],["pos_reports","Access Reports","Allows the user to access sales and till reports in the cashier."],["pos_discount","Apply Open Discounts","Allows the user to apply open discounts on orders."],["pos_item_discount","Apply Item Discounts","Allows the user to apply discounts on products."],["pos_charges","Add Open Charge","Allows the user to add or remove charges on an order."],["pos_shift","Access Drawer Operations","Allows the user to open and close shifts and the cash drawer."],["pos_endday","Perform End of Day","Allows the user to end the day and generate EOD reports."],["pos_reprint","Print Receipt","Allows the user to reprint a receipt of a closed order."],["pos_return","Return Order","Allows the user to return a closed order and refund the customer."],["pos_orders","View Done Orders","Allows the user to view done orders history."],["pos_void","Void Orders and Products","Allows the user to cancel orders and products for a reason."],["pos_incoming","Accept Online Orders","Allows the user to accept, decline and complete call center and web orders."],["pos_open_price","Add Open Price Product","Allows the user to sell open price products."]];
 // ready-made starting points for a new role (tick or untick anything after)
 const ROLE_TPL = {
   "Cashier": ["pos_access","pos_orders","pos_incoming","pos_shift","pos_reprint"],
@@ -1399,14 +1407,16 @@ const ROLE_TPL = {
   "Admin": null };
 const PERM_KEYS = PERMS.filter(p=>!p[0].startsWith("@")).map(p=>p[0]);
 const roleName = id => S.roles.find(r=>r.id===id)?.name || "—";
+const userRoleIds = u => (u?.roleIds||[]).length ? u.roleIds : (u?.roleId ? [u.roleId] : []);
+const userRolesTxt = u => userRoleIds(u).map(roleName).join(", ") || "—";
 async function pinHash(id, pin){ const b = await crypto.subtle.digest("SHA-256", new TextEncoder().encode("slick:" + id + ":" + pin)); return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,"0")).join(""); }
 const newUserId = () => "usr_" + Date.now().toString(36) + Math.random().toString(36).slice(2,8);
 // what the signed-in person may open in the back office (the owner and legacy admins see everything)
 function myPerms(){
   if(storeMode!=="db" || !state.role || state.role==="owner") return null;
-  const u = S.users.find(x => live(x) && x.userId && x.userId===state.userId), r = u && S.roles.find(x=>x.id===u.roleId && live(x));
-  if(!r) return state.role==="admin" ? null : ["bo_dashboard","bo_orders","bo_callcenter","bo_customers"];
-  return r.permissions || [];
+  const u = S.users.find(x => live(x) && x.userId && x.userId===state.userId), rs = u ? S.roles.filter(x => userRoleIds(u).includes(x.id) && live(x)) : [];
+  if(!rs.length) return state.role==="admin" ? null : ["bo_dashboard","bo_orders","bo_callcenter","bo_customers"];
+  return [...new Set(rs.flatMap(r => r.permissions || []))];
 }
 const NAV_PERM = { "dashboard":"bo_dashboard", "orders":"bo_orders", "call-center":"bo_callcenter", "customers":"bo_customers", "Reports":"bo_reports", "Inventory":"bo_inventory", "Menu":"bo_menu", "Manage":"bo_manage", "Marketing":"bo_marketing" };
 // may the signed-in person do this back-office action? (the owner and admins always may)
@@ -1464,33 +1474,37 @@ const CRUD = {
     col:"roles", title:"Roles", one:"Role",
     tabs:[["all","All",live],["deleted","Deleted",r=>r.deleted]],
     sort:(a,b)=>a.name.localeCompare(b.name), search:r=>r.name,
-    cols:[["Name",r=>`<b>${esc(r.name)}</b>${r.description?`<div class="note">${esc(r.description)}</div>`:""}`],
+    cols:[["Name",r=>`<b>${esc(r.name)}</b>${r.nameAr?` <span class="note">${esc(r.nameAr)}</span>`:""}${r.description?`<div class="note">${esc(r.description)}</div>`:""}`],
       ["Back office",r=>{ const n = (r.permissions||[]).filter(p=>p.startsWith("bo_")).length; return n ? (r.permissions.includes("bo_manage") ? '<span class="tag on">Full admin</span>' : n+" areas") : '<span class="note">No access</span>'; }],
       ["POS",r=>{ const n = (r.permissions||[]).filter(p=>p.startsWith("pos_")).length; return n ? n+" permissions"+((r.permissions||[]).some(p=>p==="pos_void"||p==="pos_return") ? ' <span class="tag cc">Approves voids/returns</span>' : "") : '<span class="note">No access</span>'; }],
       ["Users",r=>S.users.filter(u=>live(u)&&u.roleId===r.id).length,"num"]],
-    fields:[{k:"name",l:"Name",req:1,ph:"e.g. Cashier, Branch manager, Call center user"},{k:"description",l:"Description"},
-      {k:"permissions",l:"Permissions",t:"multi",opts:()=>PERMS,note:"Back-office screens decide which menus a user sees. \"Manage\" also allows changing menus, prices and settings. POS voids and returns are approved with the PIN of someone whose role allows them."}],
+    fields:[{k:"name",l:"Name",req:1,ph:"The name of the role in the organization."},{k:"nameAr",l:"Name Localized",ph:"The localized name in a 2nd language"},
+      {k:"permissions",l:"Authorities",t:"multi",toggle:1,opts:()=>PERMS,note:"Back-office screens decide which menus a user sees. \"Manage\" also allows changing menus, prices and settings. POS voids and returns are approved with the PIN of someone whose role allows them."}],
     after: () => `<div class="f full"><label>Start from a template</label><div class="row" style="gap:6px;flex-wrap:wrap">${Object.keys(ROLE_TPL).map(k=>`<button type="button" class="btn sm" data-roletpl="${esc(k)}">${esc(k)}</button>`).join("")}<button type="button" class="btn sm" data-roletpl="">Clear all</button></div></div>`,
     unique:"name"
   },
   users: {
-    col:"users", title:"Users", one:"User",
+    col:"users", title:"Users", one:"User", detail: r => userDetail(r),
     tabs:[["all","All",live],["active","Active",r=>live(r)&&r.active!==false],["inactive","Inactive",r=>live(r)&&r.active===false],["deleted","Deleted",r=>r.deleted]],
     sort:(a,b)=>a.name.localeCompare(b.name), search:r=>r.name+" "+(r.email||"")+" "+(r.phone||"")+" "+(r.employeeNo||""),
-    cols:[["Name",r=>`<b>${esc(r.name)}</b>${r.employeeNo?` <span class="note">#${esc(r.employeeNo)}</span>`:""}`],["Role",r=>esc(roleName(r.roleId))],
-      ["Branches",r=>(r.branchIds||[]).length ? r.branchIds.map(id=>esc(branchName(id))).join(", ") : '<span class="note">All</span>'],
-      ["POS PIN",r=>r.pinHash?'<span class="tag on">Set</span>':'<span class="note">—</span>'],
-      ["Back-office login",r=>r.email ? (r.userId ? `<span class="tag on">Linked</span> <span class="note">${esc(r.email)}</span>` : `<span class="tag off">Waiting for first sign-in</span> <span class="note">${esc(r.email)}</span>`) : '<span class="note">—</span>'],
-      ["Active",r=>r.active===false?'<span class="tag off">Inactive</span>':'<span class="tag on">Active</span>']],
-    fields:[{k:"name",l:"Name",req:1},{k:"employeeNo",l:"Employee number"},{k:"phone",l:"Phone"},
-      {k:"roleId",l:"Role",t:"select",req:1,opts:()=>S.roles.filter(live).map(r=>[r.id,r.name])},
-      {k:"pin",l:"POS PIN",t:"pin",note:"4 digits the user types to sign in on POS tablets. Must be unique."},
-      {k:"email",l:"Back-office email (optional)",ph:"name@company.com"},
+    cols:[["Name",r=>`<b>${esc(r.name)}</b>${r.employeeNo?` <span class="note">#${esc(r.employeeNo)}</span>`:""}${r.active===false?' <span class="tag off">Inactive</span>':""}`],
+      ["Console Access",r=>r.email ? (r.userId ? '<span class="tag on">Active</span>' : '<span class="tag off">Invited</span>') : '<span class="tag off">Inactive</span>'],
+      ["App Access",r=>r.pinHash ? '<span class="tag on">Active</span>' : '<span class="tag off">Inactive</span>'],
+      ["Roles",r=>esc(userRolesTxt(r))]],
+    fields:[{k:"name",l:"Name",req:1,ph:"The user's name."},
+      {k:"language",l:"Language",t:"select",opts:()=>[["en","English"],["ar","Arabic"]],def:"en"},
+      {k:"employeeNo",l:"Employee Number",ph:"The user's employment number in your organization"},{k:"phone",l:"Phone Number",ph:"With country code, e.g. +961 70 123 456"},
+      {k:"email",l:"Email",ph:"Needed only to log in to the back office"},
+      {k:"pin",l:"Login PIN",t:"pin",note:"4 digits the user types to sign in on the cashier app. Must be unique. Use Generate for a random PIN."},
+      {k:"displayLocalized",l:"Display Localized Names (show the apps in the localized language)",t:"chk",def:false},
+      {k:"roleIds",l:"Roles",t:"multi",get:r=>userRoleIds(r),opts:()=>S.roles.filter(live).map(r=>[r.id,r.name])},
       {k:"branchIds",l:"Branches (leave all unticked = every branch)",t:"multi",opts:()=>branches.filter(b=>b.active!==false).map(b=>[b.id,(brandList().length>1?brandName(b.brandId)+" · ":"")+b.name])},
       {k:"active",l:"Active",t:"chk",def:true}],
     note:"POS users sign in on the tablet with their PIN. For back-office access, add their email here, then create a login with that same email in Supabase (Authentication → Add user); the first time they sign in, it links automatically.",
     prep: async (data, id) => {
       const pin = data.pin; delete data.pin;
+      data.roleIds = data.roleIds || []; if(!data.roleIds.length) return "Pick at least one role.";
+      data.roleId = data.roleIds[0];   // older screens read the first role
       if(data.email) data.email = data.email.toLowerCase();
       if(data.email && S.users.some(u=>u.id!==id && live(u) && (u.email||"").toLowerCase()===data.email)) return "Another user already has this email.";
       if(!id) data.id = newUserId();
@@ -1824,17 +1838,18 @@ let crudEdit = null;
 function openCrud(key, id){
   const cfg = CRUD[key], r = id ? S[cfg.col].find(x=>x.id===id) : null;
   crudEdit = { key, id: r?.id || null };
-  const val = f => r ? r[f.k] : (f.auto ? f.auto() : f.def);
+  const val = f => r ? (f.get ? f.get(r) : r[f.k]) : (f.auto ? f.auto() : f.def);
   const field = f => {
     if(f.hideIf && r && f.hideIf(r)) return "";   // e.g. price and tax of a product with variants: each variant has its own
     const v = val(f), idA = "cf_"+f.k, full = f.full||f.t==="textarea"||f.t==="multi" ? " full" : "";
     if(f.t==="polygon") return `<div class="f full"><label>${f.l}</label><div class="note">Click the map to add corners around the area this branch delivers to. Drag a corner to adjust it.</div><div id="zoneMap" class="zmap"></div><div class="row" style="margin:8px 0 0"><button type="button" class="btn sm" id="zUndo">Undo last point</button><button type="button" class="btn sm" id="zClear">Clear</button><span class="note" id="zInfo"></span></div></div>`;
     if(f.t==="chk") return `<div class="f full"><label class="chk"><input type="checkbox" id="${idA}" ${v!==false&&v!==undefined?"checked":""}> ${f.l}</label></div>`;
     if(f.t==="select") return `<div class="f${full}"><label for="${idA}">${f.l}${f.req?" *":""}</label><select id="${idA}"><option value="">${esc(f.ph||"Choose…")}</option>${f.opts().map(([k,t])=>`<option value="${esc(k)}" ${k===v?"selected":""}>${esc(t)}</option>`).join("")}</select></div>`;
-    if(f.t==="multi"){ const set = new Set(v||[]); return `<div class="f full"><label>${f.l}</label><div class="multi" id="${idA}">${f.opts().map(([k,t])=>k.startsWith("@") ? `<div class="mhead">${esc(k.slice(1))}</div>` : `<label class="chk"><input type="checkbox" value="${esc(k)}" ${set.has(k)?"checked":""}> ${esc(t)}</label>`).join("")}</div>${f.note?`<div class="note">${esc(f.note)}</div>`:""}</div>`; }
+    if(f.t==="multi"){ const set = new Set(v||[]), o = f.opts(), hasD = o.some(x => x[2]);
+      return `<div class="f full"><label>${f.l}${f.toggle ? ` <button type="button" class="lnk mtog" data-mtog="${idA}">Toggle All</button>` : ""}</label><div class="multi${hasD ? " mdesc" : ""}" id="${idA}">${o.map(([k,t,d])=>k.startsWith("@") ? `<div class="mhead">${esc(k.slice(1))}${f.toggle ? ` <button type="button" class="lnk mtog" data-mtog="${idA}" data-mgrp="${esc(k)}">Toggle</button>` : ""}</div>` : `<label class="chk" data-grp="${esc(o.filter(x=>x[0].startsWith("@")).reverse().find(x => o.indexOf(x) < o.findIndex(y=>y[0]===k))?.[0] || "")}"><input type="checkbox" value="${esc(k)}" ${set.has(k)?"checked":""}> <span><b>${esc(t)}</b>${d ? `<small>${esc(d)}</small>` : ""}</span></label>`).join("")}</div>${f.note?`<div class="note">${esc(f.note)}</div>`:""}</div>`; }
     if(f.t==="image") return `<div class="f full"><label>${f.l}</label><div class="imgf"><div class="imgprev" id="${idA}_prev">${v ? `<img src="${esc(v)}" alt="">` : '<span class="note">No image</span>'}</div>
       <div><input type="file" accept="image/*" id="${idA}_file"><input type="hidden" id="${idA}" value="${esc(v||"")}"><div class="note" id="${idA}_st">JPG or PNG. It's resized automatically for the POS, call center and web menu.</div>${v ? `<button type="button" class="btn sm" data-imgclear="${idA}" style="margin-top:6px">Remove image</button>` : ""}</div></div></div>`;
-    if(f.t==="pin") return `<div class="f"><label for="${idA}">${f.l}</label><input id="${idA}" type="password" inputmode="numeric" maxlength="4" autocomplete="new-password" placeholder="${r?.pinHash?"•••• (set; type to change)":"4 digits"}"><div class="note">${esc(f.note||"")}</div></div>`;
+    if(f.t==="pin") return `<div class="f"><label for="${idA}">${f.l}</label><div style="display:flex;gap:8px"><input id="${idA}" type="text" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="${r?.pinHash?"•••• (set; type to change)":"4 digits"}" style="flex:1"><button type="button" class="btn" data-pingen="${idA}">Generate</button></div><div class="note">${esc(f.note||"")}</div></div>`;
     if(f.t==="items") return `<div class="f full"><label for="${idA}_new">${f.l}${f.req?" *":""}</label><div class="items" id="${idA}">${(Array.isArray(v) ? v : []).map(x => itemRow(x)).join("")}</div>
       <div class="itemadd"><input id="${idA}_new" placeholder="${esc(f.ph||"")}" data-itemnew="${idA}"><button type="button" class="btn sm" data-itemadd="${idA}">+ Add</button></div>${f.note?`<div class="note">${esc(f.note)}</div>`:""}</div>`;
     if(f.t==="textarea") return `<div class="f full"><label for="${idA}">${f.l}${f.req?" *":""}</label><textarea id="${idA}" rows="${f.rows||3}" ${f.ph?`placeholder="${esc(f.ph)}"`:""}>${esc(Array.isArray(v) ? v.join("\n") : (v||""))}</textarea>${f.note?`<div class="note">${esc(f.note)}</div>`:""}</div>`;
@@ -2030,6 +2045,9 @@ function customerImport(){
 }
 document.addEventListener("click", e => { const m = e.target.closest("[data-brmenu]"); if(!m) return; e.preventDefault(); const b = branches.find(x=>x.id===m.dataset.brmenu);
   location.hash = "branch-menu"; setTimeout(() => { if(b){ state.brand = brandList().length ? (b.brandId || "all") : "all"; BM.branch = b.id; BM.kind = "products"; BM.draft = {}; } render(); }, 60); });
+document.addEventListener("click", e => { const t = e.target.closest("[data-mtog]"); if(!t) return; e.preventDefault();
+  const box = document.getElementById(t.dataset.mtog), g = t.dataset.mgrp, ins = [...box.querySelectorAll(g ? `.chk[data-grp="${CSS.escape(g)}"] input` : "input")];
+  const on = !ins.every(i => i.checked); ins.forEach(i => i.checked = on); });
 document.addEventListener("click", e => { const t = e.target.closest("[data-roletpl]"); if(!t) return; e.preventDefault();
   const set = t.dataset.roletpl ? ROLE_TPL[t.dataset.roletpl] : [], all = !set;
   document.querySelectorAll("#cf_permissions input[type=checkbox]").forEach(c => c.checked = all || set.includes(c.value));
@@ -2128,7 +2146,7 @@ function sourceList(cur){ const l = S.order_sources.filter(r=>live(r)&&r.active!
 state.ccBranch = "all"; state.ccAgent = "all"; state.ccTab = "today";
 function viewCallCenter(){
   // users who can use the call center (their role allows it, or they manage everything); the owner too
-  const ccUsers = S.users.filter(u => live(u) && u.active!==false && (() => { const r = S.roles.find(x=>x.id===u.roleId && live(x)); return r && ((r.permissions||[]).includes("bo_callcenter") || (r.permissions||[]).includes("bo_manage")); })()).map(u=>u.name);
+  const ccUsers = S.users.filter(u => live(u) && u.active!==false && (() => { const r = { permissions: S.roles.filter(x => userRoleIds(u).includes(x.id) && live(x)).flatMap(x => x.permissions||[]) }; return r && ((r.permissions||[]).includes("bo_callcenter") || (r.permissions||[]).includes("bo_manage")); })()).map(u=>u.name);
   if(state.fullName && !ccUsers.includes(state.fullName)) ccUsers.unshift(state.fullName);
   const agents = [...new Set(ccUsers)].sort((a,b)=>a.localeCompare(b));
   const byUser = (o, n) => o.agent===n || o.agent===String(n).split(/\s+/)[0];
@@ -3499,6 +3517,24 @@ function branchSettings(p, brs, price){
       <td><label class="chk"><input type="checkbox" data-bro="${esc(b.id)}" ${yes(B.oos,b.id)?"checked":""}> Out of stock</label></td></tr>`).join("")}</tbody></table>` : `<div class="empty">No branches for this brand yet.</div>`}</div>`;
 }
 
+function userDetail(u){
+  const more = state.usrMore, row = (k, v) => `<div><span>${k}</span>${v}</div>`, dt = t => t ? new Date(t).toLocaleString("en-GB",{day:"numeric",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"}) : "—";
+  const rs = S.roles.filter(r => userRoleIds(u).includes(r.id)), brs = (u.branchIds||[]).length ? branches.filter(b => u.branchIds.includes(b.id)) : branches.filter(b => b.active!==false);
+  const tbl = (head, rows) => rows.length ? `<table><thead><tr>${head.map(h=>`<th>${h}</th>`).join("")}</tr></thead><tbody>${rows.map(r=>`<tr>${r.map(c=>`<td>${c}</td>`).join("")}</tr>`).join("")}</tbody></table>` : '<p class="note brempty">No data to display!</p>';
+  return `<div class="phead"><a href="#users" class="btn" data-detback style="text-decoration:none">← Back</a><h1 style="margin-left:10px">${esc(u.name)}</h1><div class="sp"></div>
+      <button class="btn" data-usrpin>Change PIN</button><button class="btn pri" data-detedit>Edit User</button></div>
+    <div class="card odet" style="margin-bottom:16px">${row("Name", esc(u.name))}${row("Status", u.active===false ? "Inactive" : "Active")}${row("Console Access", u.email ? (u.userId ? "Active" : "Invited · waiting for first sign-in") : "Inactive")}${row("App Access", u.pinHash ? "Active" : "Inactive")}
+      ${more ? row("Email", esc(u.email || "—")) + row("Employee Number", esc(u.employeeNo || "—")) + row("Phone", esc(u.phone || "—")) + row("Language", u.language==="ar" ? "Arabic" : "English") + row("Display Localized Names", u.displayLocalized ? "Yes" : "No") + row("Created", dt(u.createdAt)) : ""}
+      <div style="grid-column:1/-1"><button class="lnk" data-usrmore style="background:none;border:0;padding:0;cursor:pointer">${more ? "Show Less" : "Show More"}</button></div></div>
+    <div class="card brcard"><div class="brch"><h3>Roles</h3><span class="sp"></span><button class="btn sm" data-detedit data-sec="cf_roleIds">Edit Roles</button></div>${tbl(["Name","Authorities"], rs.map(r => [esc(r.name), `${(r.permissions||[]).length}`]))}</div>
+    <div class="card brcard"><div class="brch"><h3>Branches</h3><span class="sp"></span><button class="btn sm" data-detedit data-sec="cf_branchIds">Edit Branches</button></div>${(u.branchIds||[]).length ? "" : '<p class="note" style="margin:0 0 8px">No branch picked: the user can work at every branch.</p>'}${tbl(["Name","Reference"], brs.map(b => [esc(b.name), esc(b.code||"—")]))}</div>`;
+}
+document.addEventListener("click", e => { const g = e.target.closest("[data-pingen]"); if(!g) return; e.preventDefault(); document.getElementById(g.dataset.pingen).value = String(Math.floor(1000 + Math.random()*9000)); });
+document.addEventListener("click", e => {
+  if(e.target.closest("[data-usrmore]")){ state.usrMore = !state.usrMore; render(); return; }
+  if(e.target.closest("[data-usrpin]")){ if(DET.key==="users") openCrud("users", DET.id); setTimeout(() => { const f = $("#cf_pin"); f?.scrollIntoView({ block:"center" }); f?.focus(); }, 120); return; }
+  const sec = e.target.closest("[data-detedit][data-sec]"); if(sec){ const id = sec.dataset.sec; setTimeout(() => document.getElementById(id)?.scrollIntoView({ block:"center" }), 150); }
+});
 function invItemDetail(it){
   const prodCost = recipeCost(DET.ing), produced = hasRecipe(it);
   const inProducts = S.products.filter(p => live(p) && (p.ingredients||[]).some(l=>l.itemId===it.id));

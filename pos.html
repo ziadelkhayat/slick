@@ -430,7 +430,7 @@ button,input,select,textarea{font-family:var(--f-ui)}
 <script>window.SLICK_OFFLINE = true;</script>
 <script src="supabase.js"></script>
 <script>if(!window.supabase) document.write('<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"><\/script>');</script>
-<script src="wokdb.js?v=26"></script>
+<script src="wokdb.js?v=27"></script>
 <script src="modpick.js?v=5"></script>
 </head>
 <body>
@@ -587,7 +587,9 @@ const openShift = () => S.shifts.find(s => s.deviceId===device.id && !s.closedAt
 let cashier = null, pinBuf = "";
 const posUsers = () => S.users.filter(u => live(u) && u.active!==false && u.pinHash && (!(u.branchIds||[]).length || u.branchIds.includes(device.branchId)));
 const usePins = () => S.users.some(u => live(u) && u.pinHash);           // no PIN users yet = the register stays open, as before
-const can = perm => { if(!usePins()) return true; if(!cashier) return false; const r = S.roles.find(x => x.id===cashier.roleId && live(x)); return !!r && (r.permissions||[]).includes(perm); };
+// a user can have several roles (Foodics-style); a permission from any of them counts
+const userPerms = u => { const ids = (u?.roleIds||[]).length ? u.roleIds : [u?.roleId]; return S.roles.filter(r => ids.includes(r.id) && !r.deleted).flatMap(r => r.permissions||[]); };
+const can = perm => { if(!usePins()) return true; if(!cashier) return false; return userPerms(cashier).includes(perm); };
 async function pinHash(id, pin){ const b = await crypto.subtle.digest("SHA-256", new TextEncoder().encode("slick:" + id + ":" + pin)); return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,"0")).join(""); }
 function lockIfNeeded(){ if(usePins() && !cashier) lock(); paintCashier(); }
 function lock(){ cashier = null; pinBuf = ""; paintPin(); $("#pinErr").textContent = ""; $("#lock").classList.remove("hide"); paintCashier(); }
@@ -596,8 +598,7 @@ function paintCashier(){ $("#lockBtn").classList.toggle("hide", !usePins()); $("
 async function tryPin(){
   const pin = pinBuf; pinBuf = ""; paintPin();
   for(const u of posUsers()){ if(await pinHash(u.id, pin) === u.pinHash){
-    const r = S.roles.find(x => x.id===u.roleId && live(x));
-    if(!r || !(r.permissions||[]).includes("pos_access")){ $("#pinErr").textContent = "Your role doesn't allow using the POS."; return; }
+    if(!userPerms(u).includes("pos_access")){ $("#pinErr").textContent = "Your role doesn't allow using the POS."; return; }
     cashier = u; $("#lock").classList.add("hide"); paintCashier(); toast("Signed in as " + u.name); return; } }
   $("#pinErr").textContent = "Wrong PIN. Try again.";
 }
@@ -1181,7 +1182,7 @@ function approve(perm, title){
     const done = v => { el.remove(); document.removeEventListener("keydown", key, true); resolve(v); };
     const check = async () => { const pin = buf; buf = "";
       for(const u of S.users.filter(u => !u.deleted && u.active!==false && u.pinHash)){ if(await pinHash(u.id, pin) === u.pinHash){
-        const r = S.roles.find(x => x.id===u.roleId && !x.deleted); if(r && (r.permissions||[]).includes(perm)) return done(u);
+        if(userPerms(u).includes(perm)) return done(u);
         return draw(`${u.name}'s role can't approve this.`); } }
       draw("Wrong PIN. Try again."); };
     const press = k => { if(k==="c") buf = ""; else if(k==="b") buf = buf.slice(0,-1); else if(buf.length < 4) buf += k; draw(); if(buf.length===4) check(); };
