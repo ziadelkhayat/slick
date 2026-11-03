@@ -624,7 +624,10 @@ function nextOrderNo(){
   const key = "slickNo_" + device.branchId; let c = {}; try{ c = JSON.parse(store.get(key) || "{}"); }catch(e){}
   let n = c.since===since ? +c.n||0 : 0;
   S.orders.forEach(o => { if(o.branchId===device.branchId && o.no && o.status!=="refund" && +new Date(o.createdAt) > since) n = Math.max(n, parseInt(String(o.no).replace(/\D/g,""),10)||0); });
-  n++; store.set(key, JSON.stringify({ since, n })); return String(n);
+  // Device Settings: Call Number Start / Call Number Reset
+  const st = Math.max(1, +devSet().callStart || 1), rs = +devSet().callReset || 0;
+  n = n < st - 1 ? st - 1 : n; n++; if(rs && n > rs) n = st;
+  store.set(key, JSON.stringify({ since, n })); return String(n);
 }
 // a number taken for an order that then couldn't be saved goes back, so the sequence has no gap
 function giveBackNo(no){ const key = "slickNo_" + device.branchId; try{ const c = JSON.parse(store.get(key) || "{}"); if(String(c.n)===String(no)){ c.n = +no - 1; store.set(key, JSON.stringify(c)); } }catch(e){} }
@@ -650,7 +653,7 @@ function orderTaxParts(items, disc){ let g = 0, t = 0, add = 0; (items||[]).forE
 function orderTax(items, disc){ return orderTaxParts(items, disc).tax; }
 const taxIncl = () => !S.taxes.some(x => live(x) && x.inclusive===false);
 /* ---------- payment methods (Manage → Payment Methods; Cash / Card / Other until some are added) ---------- */
-const payMethods = () => { const l = S.payment_methods.filter(m => live(m) && m.active!==false).sort((a,b)=>(a.sort??999)-(b.sort??999)||a.name.localeCompare(b.name));
+const payMethods = () => { const l = S.payment_methods.filter(m => live(m) && m.active!==false && !(brSet().inactivePayments||[]).includes(m.id)).sort((a,b)=>(a.sort??999)-(b.sort??999)||a.name.localeCompare(b.name));
   return l.length ? l.map(m => ({ id:m.id, name:m.name, type:m.type||"other" })) : [{ id:"cash", name:"Cash", type:"cash" },{ id:"card", name:"Card", type:"card" },{ id:"other", name:"Other", type:"other" }]; };
 const incoming = () => S.orders.filter(o => o.branchId===device.branchId && o.channel!=="pos" && (o.status==="pending" || o.status==="active"));
 
@@ -1686,7 +1689,8 @@ async function pdContinue(){
 /* ---------- tables ---------- */
 // tables come from the back office (Manage → Tables), per branch: [{ id, name, section, seats }]
 const tblLbl = n => /^\d+$/.test(String(n).trim()) ? "Table " + String(n).trim() : String(n);
-const branchTables = () => { const c = S.settings.find(x => x.id==="tables") || {}; return (c[device.branchId] || []).filter(t => t && String(t.name||"").trim()); };
+const branchTables = () => { const c = S.settings.find(x => x.id==="tables") || {}, asg = devSet().tables || [];   // Device Settings → Assigned Tables (none = all)
+  return (c[device.branchId] || []).filter(t => t && String(t.name||"").trim() && (!asg.length || asg.includes(t.id))); };
 const tableOrders = n => S.orders.filter(o => o.branchId===device.branchId && ["active","pending"].includes(o.status) && o.type==="dinein" && String(o.table||"").trim()===String(n)).sort((a,b) => String(a.createdAt).localeCompare(String(b.createdAt)));
 function openTables(){
   const cfg = branchTables(), known = new Set(cfg.map(t => String(t.name).trim()));
@@ -1764,7 +1768,7 @@ function reportText(){
 const devOnline = d => d.id===device.id || (d.lastSeen && Date.now() - new Date(d.lastSeen) < 11*60000);
 function openDevices(){
   const l = (S.devices||[]).filter(d => !d.deleted && d.branchId===device.branchId).sort((a,b) => (b.id===device.id) - (a.id===device.id) || String(a.name).localeCompare(String(b.name)));
-  const hasM = l.some(d => d.settings?.master), role = d => d.type && d.type!=="cashier" ? ({ kds:"Kitchen display", waiter:"Waiter", kiosk:"Kiosk", notifier:"Notifier" }[d.type] || d.type) : hasM ? (d.settings?.master ? "Master POS" : "Sub-POS") : "POS";
+  const hasM = l.some(d => d.settings?.master), role = d => d.type && d.type!=="cashier" ? ({ kds:"Kitchen display", waiter:"Waiter", kiosk:"Kiosk", notifier:"Notifier", display:"Display", sub_cashier:"Sub cashier" }[d.type] || d.type) : hasM ? (d.settings?.master ? "Master POS" : "Sub-POS") : "POS";
   modal("devices", `<div class="mh"><h2>Devices · ${esc(branch?.name||"")}</h2><button class="x" data-close aria-label="Close">×</button></div><div class="mb"><div class="dvl">${l.map(d => `<div class="dvc"><span class="dot${devOnline(d)?" on":""}"></span><div class="sp"><b>${esc(d.name)}</b>${d.id===device.id ? ` <span class="pill">This device</span>` : ""}<div class="mut">${esc(role(d))} · ${d.activatedAt ? (devOnline(d) ? "Online" : "Last seen " + ago(d.lastSeen)) : "Not activated yet"}</div></div>${d.settings?.master ? `<span class="spill s-active">Master</span>` : ""}</div>`).join("") || `<p class="mut">No devices.</p>`}</div>
     <p class="mut" style="margin-top:12px">${hasM ? "Only the master POS accepts call-center and web orders and ends the day." : "No master POS set: every POS can accept orders and end the day. Pick one in Manage → Devices → Settings."} Add or change devices in the back office.</p></div>
     <div class="mf"><button class="btn pri" data-close>Done</button></div>`);

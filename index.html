@@ -449,6 +449,7 @@ tr[draggable="true"].dragging{opacity:.45}tr.dropto td{box-shadow:inset 0 2px 0 
 /* orders: title, filters and status tabs stay in view while the list scrolls */
 .ostick{position:sticky;top:var(--toph,62px);z-index:4;background:var(--bg);margin:-6px -8px 0;padding:6px 8px 0}
 .ostick .fbar{margin-bottom:12px}
+.brcard{padding:16px 18px;margin-bottom:14px}.brch{display:flex;align-items:center;gap:8px;margin-bottom:10px}.brch h3{margin:0;font-size:15px}.brempty{margin:0;padding:6px 0}.brcard table{width:100%}
 .bdrow{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--line)}.bdrow>div{display:flex;flex-direction:column;gap:2px}.bdrow .btn{white-space:nowrap}
 .taxcfg{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:14px}.taxcfg h3{margin:0 0 4px;font-size:15px}.taxcfg .note{margin:0}.taxcfg .chk{font-weight:600;white-space:nowrap}
 .ofb{flex-wrap:wrap;gap:10px}.osrch{flex:1;min-width:240px;display:flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:10px;background:var(--surface);padding:0 12px}.osrch svg{width:16px;height:16px;color:var(--muted);flex:none}.osrch input{border:0;outline:0;background:transparent;font:inherit;padding:9px 0;width:100%}
@@ -507,7 +508,8 @@ tr[draggable="true"].dragging{opacity:.45}tr.dropto td{box-shadow:inset 0 2px 0 
       <div class="f"><label for="fNameAr">Name (Arabic)</label><input id="fNameAr" maxlength="60" dir="auto"></div>
       <div class="f"><label for="fCode">Reference code *</label><input id="fCode" maxlength="10" placeholder="e.g. B01"></div>
       <div class="f"><label for="fBrand">Brand *</label><select id="fBrand"></select></div>
-      <div class="f"><label for="fTaxNo">Branch tax (VAT) number</label><input id="fTaxNo" maxlength="40" placeholder="Leave empty to use the company's"></div>
+      <div class="f"><label for="fTaxName">Branch tax registration name</label><input id="fTaxName" maxlength="80" placeholder="Leave empty to use the company's"></div>
+      <div class="f"><label for="fTaxNo">Branch tax number</label><input id="fTaxNo" maxlength="40" placeholder="Leave empty to use the company's"></div>
       <div class="f"><label for="fPhone">Phone</label><input id="fPhone" maxlength="30"></div>
       <div class="f full"><label for="fAddr">Address</label><input id="fAddr" maxlength="160"></div>
       <div class="f"><label for="fCity">Area / city</label><input id="fCity" maxlength="60" placeholder="e.g. Beirut"></div>
@@ -520,6 +522,7 @@ tr[draggable="true"].dragging{opacity:.45}tr.dropto td{box-shadow:inset 0 2px 0 
       <h4 class="fsec">Business day</h4>
       <div class="f"><label for="fDayStart">New business day starts at</label><input id="fDayStart" type="time" class="sel" value="00:00"></div>
       <div class="f"><label>Example</label><div class="note" style="padding-top:8px" id="fDayEx"></div></div>
+      <div class="f"><label for="fInvEnd">Inventory end of day</label><input id="fInvEnd" type="time" class="sel"><div class="note">Inventory transactions after this time are added to the next business day. Empty = same as the business day start.</div></div>
       <div class="f full"><label class="chk"><input type="checkbox" id="fAutoDay"> Automatic end of day</label><div class="note">At the start time, if the previous day wasn't ended manually and all its orders are closed, the branch POS ends it automatically.</div></div>
       <div class="f full"><div class="note">Sales before this time count on the previous business day. Set it after your closing time, e.g. 03:00 if you close at 2 AM. Must be between 12:00 AM and 11:59 AM.</div></div>
       <h4 class="fsec">Opening hours</h4>
@@ -807,7 +810,7 @@ async function countBranchData(id){
   return { orders: o.count || 0, inv: inv.reduce((a,r) => a + (r.error ? 0 : r.count || 0), 0) };
 }
 async function paintBranchData(id){
-  const box = $("#fData"); if(!box) return;
+  const box = $("#bdData") || $("#fData"); if(!box) return;
   if(!id){ box.style.display = "none"; box.innerHTML = ""; return; }
   BD.id = id; BD.orders = BD.inv = null; box.style.display = "";
   const draw = () => { const n = v => v==null ? "…" : v.toLocaleString();
@@ -1123,7 +1126,31 @@ function viewInventoryDash(I, bname){
 const kpi = (t,v) => `<div class="card kpi"><h3>${t}</h3><div class="v">${v}</div></div>`;
 const placeholder = (t, s) => `<div class="card ph"><div><div class="big">${esc(t)}</div>${esc(s)}</div></div>`;
 
+function viewBranch(b){
+  const st = b.settings || {}, more = state.brMore, row = (k, v) => `<div><span>${k}</span>${v}</div>`, t12o = v => v ? esc(t12(v)) : "—";
+  const mon = st.hours?.mon || {}, tg = (S.tax_groups||[]).find(g => g.id===st.taxGroup)?.name;
+  const zones = (S.zones||[]).filter(z => !z.deleted && z.branchId===b.id), users = (S.users||[]).filter(u => !u.deleted && u.active!==false && (!(u.branchIds||[]).length || u.branchIds.includes(b.id)));
+  const devs = S.devices.filter(d => live(d) && d.branchId===b.id), chs = (S.charges||[]).filter(c => !c.deleted && c.active!==false && (!(c.branchIds||[]).length || c.branchIds.includes(b.id)));
+  const tl = tblList(b.id), secs = tblSecs(b.id), offPay = st.inactivePayments || [], pms = (S.payment_methods||[]).filter(m => !m.deleted && m.active!==false);
+  const card = (title, btn, body) => `<div class="card brcard"><div class="brch"><h3>${title}</h3><span class="sp"></span>${btn||""}</div>${body}</div>`;
+  const tbl = (head, rows) => rows.length ? `<table><thead><tr>${head.map(h=>`<th>${h}</th>`).join("")}</tr></thead><tbody>${rows.map(r=>`<tr>${r.map(c=>`<td>${c}</td>`).join("")}</tr>`).join("")}</tbody></table>` : '<p class="note brempty">No data to display!</p>';
+  const typesOf = c => (c.orderTypes||[]).length ? c.orderTypes.map(t=>esc(TYPE_LBL[t]||t)).join(", ") : "All order types";
+  return `<div class="phead"><a class="btn" href="#branches" data-brback style="text-decoration:none">← Back</a><h1>${esc(b.name)}</h1><div class="sp"></div><button class="btn pri" data-edit="${esc(b.id)}">Edit Branch</button></div>
+    <div class="card odet" style="margin-bottom:16px">${row("Name", esc(b.name))}${row("Name Localized", esc(b.nameAr || "—"))}${row("Reference", esc(b.code || "—"))}${row("Brand", esc(brandName(b.brandId) || "—"))}
+      ${more ? row("Opening From", t12o(mon.open || b.open)) + row("Opening To", t12o(mon.close || b.close)) + row("Business day starts", t12o(st.dayStart || "00:00")) + row("Inventory End of Day", t12o(st.invEnd || st.dayStart || "00:00"))
+        + row("Tax Group", esc(tg || "—")) + row("Tax Registration Name", esc(st.taxName || "—")) + row("Tax Number", esc(b.taxNumber || "—")) + row("Phone", esc(b.phone || "—")) + row("Address", esc(b.address || "—"))
+        + row("Location", b.lat && b.lng ? `<a class="lnk" target="_blank" rel="noopener" href="https://www.google.com/maps?q=${b.lat},${b.lng}">${b.lat}, ${b.lng}</a>` : "—") + row("Receives call center and web orders", b.callCenter ? "Yes" : "No") + row("Automatic end of day", st.autoDayEnd===false ? "No" : "Yes") + row("Status", b.active===false ? "Inactive" : "Active") : ""}
+      <div style="grid-column:1/-1"><button class="lnk" data-brmore style="background:none;border:0;padding:0;cursor:pointer">${more ? "Show Less" : "Show More"}</button></div></div>
+    ${card("Delivery Zones", `<button class="btn sm" data-edit="${esc(b.id)}" data-sec="fDZones">Edit Delivery Zones</button>`, tbl(["Name","Delivery fee","Min. order"], zones.map(z => [esc(z.name), money(+z.fee||0), money(+z.minOrder||0)])))}
+    ${card("Users", "", tbl(["Name","Email","Employee Number","Phone"], users.map(u => [esc(u.name), esc(u.email||"—"), esc(u.employeeNo||"—"), esc(u.phone||"—")])))}
+    ${card("Sections", `<button class="btn sm" data-brtables="${esc(b.id)}">${tl.length ? "Edit Sections" : "Add Section"}</button>`, tbl(["Section","Tables"], secs.map(sc => [esc(sc || "No section"), tl.filter(t => (t.section||"")===sc).map(t => esc(tblLbl(t.name))).join(", ")])))}
+    ${card("Assigned Devices", "", tbl(["Name","Reference","Type","Status"], devs.map(d => [`<a href="#devices" class="lnk" data-devgo="${esc(d.id)}">${esc(d.name)}</a>`, esc(d.reference||"—"), esc(devType(d.type)), devStatus(d)])))}
+    ${card("Assigned Charges", `<button class="btn sm" data-edit="${esc(b.id)}" data-sec="fCharges">Edit Charges</button>`, tbl(["Name","Value","Applies On"], chs.map(c => [esc(c.name), c.type==="percent" ? (+c.value||0)+"%" : money(+c.value||0), typesOf(c)])))}
+    ${card("Inactive Payment Methods", "", `<p class="note" style="margin:0 0 8px">Deactivate specific payment methods at this branch.</p><div class="multi">${pms.length ? pms.map(m => `<label class="chk"><input type="checkbox" data-brpay="${esc(b.id)}:${esc(m.id)}" ${offPay.includes(m.id)?"checked":""}> ${esc(m.name)}</label>`).join("") : '<span class="note">No payment methods yet.</span>'}</div>`)}
+    <div class="card brcard"><div id="bdData"></div><div class="bdrow"><div><b>Delete Branch</b><span class="note">If you delete this branch, all of its data is permanently deleted.</span></div><button class="btn danger" data-brdel="${esc(b.id)}">Delete Branch</button></div></div>`;
+}
 function viewBranches(){
+  const ob = state.brOpen && branches.find(x => x.id===state.brOpen); if(ob){ setTimeout(() => paintBranchData(ob.id), 0); return viewBranch(ob); }
   const list = branches.filter(b => state.brand==="all" || b.brandId===state.brand);
   const n = list.length, a = activeBranches().length;
   let h = `<div class="row" style="justify-content:space-between;margin-bottom:6px"><div><h1>Branches</h1><p class="subt" style="margin:0">${n} total · ${a} active</p></div>
@@ -1132,8 +1159,8 @@ function viewBranches(){
   if(!n) return h + `<div class="card empty">No branches yet. Add your first branch to get started.</div>`;
   const tgName = id => (S.tax_groups||[]).find(g => g.id===id)?.name || "";
   h += `<div class="card tbl"><table><thead><tr><th>Name</th><th>Reference</th><th>Tax group</th><th>Created</th><th>Active</th></tr></thead><tbody>${
-    list.map(b => `<tr class="clk" data-edit="${esc(b.id)}" title="Edit ${esc(b.name)}">
-      <td><a href="#branches" class="lnk" data-edit="${esc(b.id)}"><b style="font-weight:600">${esc(b.name)}</b></a>${brandList().length > 1 ? ` <span class="note">${esc(brandName(b.brandId))}</span>` : ""}</td>
+    list.map(b => `<tr class="clk" data-bropen="${esc(b.id)}">
+      <td><a href="#branches" class="lnk" data-bropen="${esc(b.id)}"><b style="font-weight:600">${esc(b.name)}</b></a>${brandList().length > 1 ? ` <span class="note">${esc(brandName(b.brandId))}</span>` : ""}</td>
       <td class="code">${esc(b.code || "—")}</td>
       <td>${esc(tgName(b.settings?.taxGroup)) || '<span class="note">—</span>'}</td>
       <td>${b.createdAt ? new Date(b.createdAt).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"}) : '<span class="note">—</span>'}</td>
@@ -1187,6 +1214,11 @@ $("#menuBtn").addEventListener("click", e => { e.stopPropagation(); document.bod
 document.addEventListener("click", e => { if(document.body.classList.contains("navopen") && (!e.target.closest(".side") || e.target.closest(".side a"))) document.body.classList.remove("navopen"); });
 window.addEventListener("hashchange", () => { const r = location.hash.slice(1) || "dashboard"; if(r !== lastRoute){ resetPageFilters(); lastRoute = r; document.querySelectorAll(".scrim.show").forEach(x => x.classList.remove("show")); } render(); window.scrollTo(0,0); });
 $("#view").addEventListener("change", async e => {
+  const bp = e.target.closest?.("[data-brpay]"); if(bp){ const [bid, mid] = bp.dataset.brpay.split(":"), b = branches.find(x => x.id===bid); if(!b) return;
+    const cur = new Set(b.settings?.inactivePayments || []); bp.checked ? cur.add(mid) : cur.delete(mid);
+    try{ await saveBranch({ settings: { ...(b.settings||{}), inactivePayments: [...cur] }, updatedAt: new Date().toISOString() }, bid); toast(bp.checked ? "Payment method turned off at this branch" : "Payment method available at this branch"); }
+    catch(err){ console.error(err); bp.checked = !bp.checked; toast("Couldn't save. You may not have edit access."); }
+    return; }
   const ba = e.target.closest?.("[data-bract]"); if(ba){ const b = branches.find(x => x.id===ba.dataset.bract), on = ba.checked; if(!b) return;
     try{ await saveBranch({ active: on, updatedAt: new Date().toISOString() }, b.id); toast(`${b.name} ${on ? "activated" : "deactivated"}`); }
     catch(err){ console.error(err); ba.checked = !on; toast("Couldn't change this branch. You may not have edit access."); }
@@ -1205,7 +1237,12 @@ $("#view").addEventListener("click", e => {
   const t = e.target.closest("[data-dt]"); if(t){ e.preventDefault(); state.dashTab = t.dataset.dt; render(); return; }
   if(e.target.closest("#addBranch")) openForm();
   if(e.target.closest(".noedit")) return;   // the Active switch in the branches list
-  const ed = e.target.closest("[data-edit]"); if(ed){ e.preventDefault(); openForm(ed.dataset.edit); }
+  const bo = e.target.closest("[data-bropen]"); if(bo){ e.preventDefault(); state.brOpen = bo.dataset.bropen; state.brMore = false; render(); window.scrollTo(0,0); return; }
+  if(e.target.closest("[data-brback]")){ e.preventDefault(); state.brOpen = null; render(); return; }
+  if(e.target.closest("[data-brmore]")){ state.brMore = !state.brMore; render(); return; }
+  const bdl = e.target.closest("[data-brdel]"); if(bdl){ editing = bdl.dataset.brdel; $("#delBtn").click(); return; }
+  const dg = e.target.closest("[data-devgo]"); if(dg){ e.preventDefault(); location.hash = "devices"; setTimeout(() => { state.devOpen = dg.dataset.devgo; render(); }, 60); return; }
+  const ed = e.target.closest("[data-edit]"); if(ed){ e.preventDefault(); openForm(ed.dataset.edit); const sec = ed.dataset.sec; if(sec) setTimeout(() => $("#"+sec)?.scrollIntoView({ block:"center" }), 120); }
 });
 
 let editing = null;
@@ -1219,7 +1256,7 @@ function openForm(id){
   $("#fAddr").value = b?.address || ""; $("#fCity").value = b?.city || ""; $("#fPhone").value = b?.phone || "";
   $("#fOpen").value = b?.open || "11:00"; $("#fClose").value = b?.close || "23:30"; $("#fZones").value = b?.zones || "";
   const st = b?.settings || {};
-  $("#fNameAr").value = b?.nameAr || ""; $("#fTaxNo").value = b?.taxNumber || ""; $("#fLat").value = b?.lat ?? ""; $("#fLng").value = b?.lng ?? "";
+  $("#fNameAr").value = b?.nameAr || ""; $("#fTaxNo").value = b?.taxNumber || ""; $("#fTaxName").value = b?.settings?.taxName || ""; $("#fInvEnd").value = b?.settings?.invEnd || ""; $("#fLat").value = b?.lat ?? ""; $("#fLng").value = b?.lng ?? "";
   $("#fRHead").value = st.receiptHeader || ""; $("#fRFoot").value = st.receiptFooter || ""; paintMapLink();
   $("#fTaxGroup").innerHTML = `<option value="">None</option>` + (S.tax_groups||[]).filter(g => !g.deleted).map(g => `<option value="${esc(g.id)}" ${st.taxGroup===g.id?"selected":""}>${esc(g.name)}</option>`).join(""); $("#fGLink").value = "";
   if(b){ const tl = tblList(b.id), secs = tblSecs(b.id);
@@ -1282,7 +1319,7 @@ $("#branchForm").addEventListener("submit", async e => {
   if(+dayStart.split(":")[0] >= 12){ $("#fErr").textContent = "The business day must start between 12:00 AM and 11:59 AM."; $("#fDayStart").focus(); return; }
   const data = { name, code, brandId, address:$("#fAddr").value.trim(), city:$("#fCity").value.trim(), phone:$("#fPhone").value.trim(),
     nameAr:$("#fNameAr").value.trim(), taxNumber:$("#fTaxNo").value.trim(), lat: lat ? +lat : null, lng: lng ? +lng : null,
-    settings:{ ...(branches.find(x=>x.id===editing)?.settings || {}), hours, orderTypes: null, receiptHeader:$("#fRHead").value.trim(), receiptFooter:$("#fRFoot").value.trim(), dayStart, autoDayEnd: $("#fAutoDay").checked, taxGroup: $("#fTaxGroup").value || null },
+    settings:{ ...(branches.find(x=>x.id===editing)?.settings || {}), hours, orderTypes: null, receiptHeader:$("#fRHead").value.trim(), receiptFooter:$("#fRFoot").value.trim(), dayStart, autoDayEnd: $("#fAutoDay").checked, taxName: $("#fTaxName").value.trim(), invEnd: $("#fInvEnd").value || "", taxGroup: $("#fTaxGroup").value || null },
     open: mon.closed ? $("#fOpen").value : (mon.open || $("#fOpen").value), close: mon.closed ? $("#fClose").value : (mon.close || $("#fClose").value), zones:$("#fZones").value.trim(),
     active:$("#fActive").checked, callCenter:$("#fCC").checked, production:false, updatedAt:new Date().toISOString() };
   $("#saveBtn").disabled = true;
@@ -1298,14 +1335,14 @@ $("#branchForm").addEventListener("submit", async e => {
 $("#delBtn").addEventListener("click", async () => {
   const b = branches.find(x=>x.id===editing); if(!b) return;
   let c = { orders: BD.orders, inv: BD.inv }; try{ c = await countBranchData(b.id); }catch(e){ console.error(e); }
-  if(c.orders==null || c.orders || c.inv){ $("#fErr").textContent = c.orders==null ? "Couldn't check this branch's data. Try again." : `Delete this branch's ${c.orders ? `${c.orders} order${c.orders===1?"":"s"}` : ""}${c.orders && c.inv ? " and " : ""}${c.inv ? `${c.inv} inventory transaction${c.inv===1?"":"s"}` : ""} first (Branch data, above).`; $("#fData")?.scrollIntoView({ behavior:"smooth", block:"center" }); return; }
+  if(c.orders==null || c.orders || c.inv){ if(!$("#scrim").classList.contains("show")) toast(c.orders==null ? "Couldn't check this branch's data. Try again." : "Delete this branch's orders and inventory transactions first."); $("#fErr").textContent = c.orders==null ? "Couldn't check this branch's data. Try again." : `Delete this branch's ${c.orders ? `${c.orders} order${c.orders===1?"":"s"}` : ""}${c.orders && c.inv ? " and " : ""}${c.inv ? `${c.inv} inventory transaction${c.inv===1?"":"s"}` : ""} first (Branch data, above).`; $("#fData")?.scrollIntoView({ behavior:"smooth", block:"center" }); return; }
   $("#confirmText").innerHTML = `This removes <b>${esc(b.name)}</b> permanently. To keep its history, mark it inactive instead.`;
   $("#confirmScrim").classList.add("show");
 });
 $("#cNo").addEventListener("click", () => $("#confirmScrim").classList.remove("show"));
 $("#cYes").addEventListener("click", async () => {
   const id = editing; $("#confirmScrim").classList.remove("show");
-  try{ await deleteBranch(id); toast("Branch deleted"); closeForm(); } catch(err){ console.error(err); toast("Couldn't delete branch"); }
+  try{ await deleteBranch(id); toast("Branch deleted"); closeForm(); state.brOpen = null; render(); } catch(err){ console.error(err); toast("Couldn't delete branch"); }
 });
 let tt; function toast(m){ const t = $("#toast"); t.textContent = m; t.classList.add("show"); clearTimeout(tt); tt = setTimeout(()=>t.classList.remove("show"), 2200); }
 
@@ -2339,17 +2376,29 @@ async function setOrderStatus(s){
 }
 
 /* ---------- Devices: POS app (APK) setup from the dashboard ---------- */
-const DEV_TYPES = [["cashier","Cashier (POS)"],["kds","Kitchen Display (KDS)"],["waiter","Waiter app"],["notifier","Order Notifier"],["display","Customer Display"]];
+const DEV_TYPES = [["cashier","Cashier"],["kds","KDS"],["notifier","Notifier"],["display","Display"],["sub_cashier","Sub Cashier"]];
+const devType = t => (DEV_TYPES.find(x => x[0]===t) || [, t==="waiter" ? "Waiter" : (t || "—")])[1];
+const devRef = () => { let n = 0; S.devices.forEach(d => { const m = /^C(\d+)$/i.exec(d.reference||""); if(m) n = Math.max(n, +m[1]); }); return "C" + String(n+1).padStart(2,"0"); };
+const devStatus = d => d.activatedAt ? '<span class="tag on"><span class="dot"></span>Used</span>' : '<span class="tag off">Not used</span>';
+function viewDevice(d){
+  const s = d.settings || {}, row = (k, v) => `<div><span>${k}</span>${v}</div>`, dt = t => t ? new Date(t).toLocaleString("en-GB",{day:"numeric",month:"long",hour:"2-digit",minute:"2-digit"}) : "—";
+  const last = S.orders.filter(o => o.deviceId===d.id).reduce((m,o) => o.createdAt > m ? o.createdAt : m, "");
+  return `<div class="phead"><a class="btn" href="#devices" data-devback style="text-decoration:none">← Back</a><h1>${esc(d.name)}</h1><span class="acode" title="Activation code">${esc(String(d.code||"").split("").join(" "))}</span><div class="sp"></div>
+      <button class="btn" data-devset="${esc(d.id)}">Device Settings</button><button class="btn pri" data-devedit="${esc(d.id)}">Edit Device</button></div>
+    <div class="card odet" style="margin-bottom:16px">${row("Reference", esc(d.reference || "—"))}${row("Type", esc(devType(d.type)))}${row("Branch", esc(branchName(d.branchId)))}${row("Brand", esc(brandName(branches.find(b=>b.id===d.branchId)?.brandId) || "—"))}
+      ${row("Status", devStatus(d))}${row("Receives Online Orders", s.master ? "Yes" : "No")}${row("Activated", dt(d.activatedAt))}${row("Last Online", dt(d.lastSeen))}${row("Last Order", dt(last))}</div>
+    <div class="card bdrow" style="padding:16px 18px"><div><b>Deactivate Device</b><span class="note">Make sure all its orders are uploaded. The tablet signs out and a new activation code is generated.</span></div><button class="btn danger" data-devcode="${esc(d.id)}">Deactivate Device</button></div>
+    <div class="card bdrow" style="padding:16px 18px;margin-top:12px"><div><b>Delete Device</b><span class="note">Removes this device from Slick. Its past orders are kept.</span></div><button class="btn danger" data-devdel="${esc(d.id)}">Delete Device</button></div>`;
+}
 function viewDevices(){
+  const od = state.devOpen && S.devices.find(x => x.id===state.devOpen && live(x)); if(od) return viewDevice(od);
   const list = S.devices.filter(live).sort((a,b)=>branchName(a.branchId).localeCompare(branchName(b.branchId))||a.name.localeCompare(b.name));
   let h = `<div class="phead"><h1>Devices</h1><div class="sp"></div><button class="btn pri" id="devNew">Create Device</button></div>
   <div class="card setup"><div><h3>Set up a POS tablet</h3><ol class="steps"><li>Download the <b>Slick POS</b> APK on the Android tablet and install it (allow "install from this source" when asked).</li><li>Create a device here and choose its branch and type.</li><li>Open the app, sign in with a staff account, then enter the device's 6-digit activation code.</li><li>The tablet downloads its branch, menu, prices and printers, then it's ready to take orders.</li></ol></div>
   <div class="apk"><a class="btn pri" href="the-wok-pos.apk" download>⬇ Download POS APK</a><a class="lnk" href="pos.html" target="_blank" rel="noopener">or open POS in a browser</a></div></div><div style="height:16px"></div>`;
   if(storeMode==="local") h += `<div class="banner">Preview mode: devices won't be saved.</div>`;
-  h += `<div class="card tbl">${list.length ? `<table><thead><tr><th>Name</th><th>Type</th><th>Brand</th><th>Branch</th><th>Activation code</th><th>Status</th><th>Last seen</th><th></th></tr></thead><tbody>${list.map(d=>`<tr>
-    <td><b>${esc(d.name)}</b>${d.reference?` <span class="note">${esc(d.reference)}</span>`:""}${devSummary(d)}</td><td>${esc((DEV_TYPES.find(t=>t[0]===d.type)||[,d.type])[1])}</td><td>${esc(brandName(branches.find(b=>b.id===d.branchId)?.brandId))}</td><td>${esc(branchName(d.branchId))}</td>
-    <td><span class="acode">${esc(d.code)}</span></td><td>${d.activatedAt?'<span class="tag on"><span class="dot"></span>Active</span>':'<span class="tag off">Waiting for activation</span>'}</td>
-    <td>${d.lastSeen?ago(d.lastSeen):"—"}</td><td class="num"><button class="btn sm" data-devset="${esc(d.id)}">Settings</button> <button class="btn sm" data-devcode="${esc(d.id)}">New code</button> <button class="btn sm danger" data-devdel="${esc(d.id)}">Remove</button></td></tr>`).join("")}</tbody></table>`
+  h += `<div class="card tbl">${list.length ? `<table><thead><tr><th>Name</th><th>Reference</th><th>Status</th><th>Branch</th></tr></thead><tbody>${list.map(d=>`<tr class="clk" data-devopen="${esc(d.id)}">
+    <td><a href="#devices" class="lnk" data-devopen="${esc(d.id)}"><b>${esc(d.name)}</b></a> <span class="note">${esc(devType(d.type))}</span></td><td class="code">${esc(d.reference || "—")}</td><td>${devStatus(d)}</td><td>${esc(branchName(d.branchId))}</td></tr>`).join("")}</tbody></table>`
     : `<div class="empty">No devices yet. Create one for each tablet, kitchen screen or printer station.</div>`}</div>`;
   return h;
 }
@@ -2362,58 +2411,91 @@ function devSummary(d){ const s = d.settings || {}, bits = [];
   if(d.type==="cashier" && S.devices.some(x => live(x) && x.branchId===d.branchId && x.settings?.master)) bits.push(s.master ? "Master POS" : "Sub-POS");
   if(s.autoAccept) bits.push("Auto-accepts orders"); if(+s.lockMinutes) bits.push(`Locks after ${s.lockMinutes} min`); if(s.kitchenPrinter) bits.push("Kitchen printer");
   return bits.length ? `<div class="note">${bits.map(esc).join(" · ")}</div>` : ""; }
-function openDeviceSettings(id){
-  const d = S.devices.find(x=>x.id===id); if(!d) return; const s = d.settings || {}, br = branches.find(b=>b.id===d.branchId), brTypes = br?.settings?.orderTypes || OT3.map(x=>x[0]);
-  const types = s.orderTypes || brTypes, sel = (k, v, opts) => `<select id="ds_${k}" class="sel">${opts.map(([a,b])=>`<option value="${a}" ${String(v)===String(a)?"selected":""}>${b}</option>`).join("")}</select>`;
-  $("#crudBox").innerHTML = `<header><h2>Device settings · ${esc(d.name)}</h2><button type="button" class="x" data-cclose aria-label="Close">×</button></header>
+const dsel = (k, v, opts) => `<select id="ds_${k}" class="sel">${opts.map(([a,b])=>`<option value="${esc(a)}" ${String(v)===String(a)?"selected":""}>${esc(b)}</option>`).join("")}</select>`;
+const dhelp = t => `<div class="note">${t}</div>`;
+function openDeviceEdit(id){
+  const d = S.devices.find(x=>x.id===id); if(!d) return; const s = d.settings || {}, br = branches.find(b=>b.id===d.branchId);
+  $("#crudBox").innerHTML = `<header><h2>Edit Device</h2><button type="button" class="x" data-cclose aria-label="Close">×</button></header>
   <div class="body bform">
-    <h4 class="fsec">General</h4>
-    <div class="f"><label for="ds_name">Device name *</label><input id="ds_name" value="${esc(d.name)}"></div>
-    <div class="f"><label for="ds_reference">Reference</label><input id="ds_reference" value="${esc(d.reference||"")}" placeholder="e.g. C1"></div>
-    <div class="f"><label for="ds_type">Type</label>${sel("type", d.type, DEV_TYPES)}</div>
-    <div class="f"><label for="ds_brand">Brand</label>${sel("brand", br?.brandId || "", brandList().map(b=>[b.id,b.name]))}</div>
-    <div class="f"><label for="ds_branch">Branch</label><select id="ds_branch" class="sel">${devBranchOpts(br?.brandId || "", d.branchId)}</select><div class="note">Moving a tablet to another branch needs a new activation code.</div></div>
-    <h4 class="fsec">Orders</h4>
-    <div class="f full"><label>Order types on this device</label><div class="multi" id="ds_types">${OT3.map(([k,t])=>`<label class="chk"><input type="checkbox" value="${k}" ${types.includes(k)?"checked":""} ${brTypes.includes(k)?"":"disabled"}> ${t}${brTypes.includes(k)?"":" (off for this branch)"}</label>`).join("")}</div></div>
-    <div class="f"><label for="ds_defaultType">Default order type</label>${sel("defaultType", s.defaultType==="dinein" ? "dinein" : s.defaultType ? "fast" : (types[0]==="dinein" ? "dinein" : "fast"), [["dinein","Dine-in"],["fast","Fast sale"]])}</div>
-    
-    <div class="f full"><label class="chk"><input type="checkbox" id="ds_master" ${s.master?"checked":""}> Master POS for this branch</label><div class="note">One per branch. The master POS accepts call-center and web orders and ends the day; every other cashier device is a sub-POS that sells, sends and bills orders.</div></div>
-    <div class="f full"><label class="chk"><input type="checkbox" id="ds_autoAccept" ${s.autoAccept?"checked":""}> Auto-accept call-center and web orders for this branch (sends them straight to the kitchen and gives them this device's order number)</label></div>
-    <h4 class="fsec">Printing &amp; hardware</h4>
-    <div class="f"><label for="ds_receipt">After each sale</label>${sel("receipt", s.receipt || "show", [["show","Show the receipt"],["print","Print the receipt automatically"],["none","Don't show or print"]])}</div>
+    <div class="f full"><label for="ds_name">Name *</label><input id="ds_name" value="${esc(d.name)}">${dhelp("For example: Main Cashier, 2nd Floor Cashier, etc…")}</div>
+    <div class="f full"><label for="ds_reference">Reference *</label><div style="display:flex;gap:8px"><input id="ds_reference" value="${esc(d.reference||devRef())}" style="flex:1"><button type="button" class="btn" data-devgen>Generate</button></div>${dhelp("Reference number or ID of the device.")}</div>
+    <div class="f"><label for="ds_type">Type</label>${dsel("type", d.type, DEV_TYPES)}</div>
+    <div class="f"><label for="ds_brand">Brand</label>${dsel("brand", br?.brandId || "", brandList().map(b=>[b.id,b.name]))}</div>
+    <div class="f full"><label for="ds_branch">Branch *</label><select id="ds_branch" class="sel">${devBranchOpts(br?.brandId || "", d.branchId)}</select>${dhelp("Moving a device to another branch needs a new activation code.")}</div>
+    <div class="f full"><label class="chk"><input type="checkbox" id="ds_master" ${s.master?"checked":""}> Receives Online Orders</label>${dhelp("Only one cashier is allowed to receive call center and web orders in the branch. It also ends the day.")}</div>
+    <div class="err" id="cErr"></div></div>
+  <footer><button type="button" class="btn" data-cclose>Close</button><button type="button" class="btn pri" id="deSave">Save</button></footer>`;
+  crudEdit = { key:"devedit", id }; $("#crudBox").className = "modal"; $("#crudScrim").classList.add("show");
+}
+async function saveDeviceEdit(){
+  const id = crudEdit.id, d = S.devices.find(x=>x.id===id), v = k => ($("#ds_"+k)?.value || "").trim();
+  const name = v("name"), reference = v("reference").toUpperCase(); if(!name){ $("#cErr").textContent = "Name is required."; return; }
+  if(!reference){ $("#cErr").textContent = "Reference is required."; return; }
+  if(S.devices.some(x => live(x) && x.id!==id && String(x.reference||"").toUpperCase()===reference)){ $("#cErr").textContent = "Another device already uses this reference."; return; }
+  if(!v("branch")){ $("#cErr").textContent = "Pick the branch."; return; }
+  const master = !!$("#ds_master").checked && ["cashier","sub_cashier"].includes(v("type"));
+  const ch = { name, reference, type: v("type"), settings: { ...(d.settings||{}), master } };
+  if(v("branch") !== d.branchId){ if(!confirm("Move this device to another branch? It will need a new activation code.")) return; ch.branchId = v("branch"); ch.code = newCode(); ch.activatedAt = null; }
+  try{
+    if(master) for(const o of S.devices.filter(x => live(x) && x.id!==id && x.branchId===(ch.branchId || d.branchId) && x.settings?.master)) await put("devices", o.id, { settings: { ...o.settings, master:false } });   // one per branch
+    await put("devices", id, ch); toast(ch.code ? `Device moved · new activation code ${ch.code}` : "Device saved"); closeCrud(); render(); }
+  catch(err){ console.error(err); $("#cErr").textContent = "Couldn't save. Only the owner or an admin can change devices."; }
+}
+function openDeviceSettings(id){
+  const d = S.devices.find(x=>x.id===id); if(!d) return; const s = d.settings || {};
+  const on = s.orderTypes || OT3.map(x=>x[0]), tbls = (typeof tblList==="function" ? tblList(d.branchId) : []), asg = s.tables || [];
+  const tg = (k, l, h, def) => `<div class="f full"><label class="chk"><input type="checkbox" id="ds_${k}" ${(s[k] ?? def) ? "checked" : ""}> ${l}</label>${dhelp(h)}</div>`;
+  $("#crudBox").innerHTML = `<header><h2>Edit Device Settings</h2><button type="button" class="x" data-cclose aria-label="Close">×</button></header>
+  <div class="body bform">
+    <div class="f"><label for="ds_callStart">Call Number Start</label><input id="ds_callStart" type="number" min="1" value="${esc(s.callStart ?? 1)}">${dhelp("The number of the first order in a business day. For example 100.")}</div>
+    <div class="f"><label for="ds_callReset">Call Number Reset</label><input id="ds_callReset" type="number" min="0" value="${esc(s.callReset ?? "")}" placeholder="No reset">${dhelp("When this number is reached, numbering goes back to the Call Number Start.")}</div>
+    <div class="f full"><label>Disabled Order Types</label><div class="multi" id="ds_types">${OT3.map(([k,t])=>`<label class="chk"><input type="checkbox" value="${k}" ${on.includes(k)?"":"checked"}> ${t}</label>`).join("")}</div>${dhelp("Choose the order types to disable on this cashier.")}</div>
+    <div class="f"><label for="ds_kitchenLang">Kitchen Print Language</label>${dsel("kitchenLang", s.kitchenLang || "main", [["main","Main"],["localized","Localized"],["both","Main & Localized"]])}${dhelp("Products on the kitchen ticket appear in this language.")}</div>
     <div class="f"><label for="ds_copies">Receipt copies</label><input id="ds_copies" type="number" min="1" max="5" value="${esc(s.copies || 1)}"></div>
+    <div class="f"><label for="ds_eodEmail">Send End of Day Report To Email</label><input id="ds_eodEmail" type="email" value="${esc(s.eodEmail||"")}">${dhelp("One email address to receive end of day reports.")}</div>
+    <div class="f"><label for="ds_shiftEmail">Send Shift Report To Email</label><input id="ds_shiftEmail" type="email" value="${esc(s.shiftEmail||"")}">${dhelp("One email address to receive opening and closing shift reports.")}</div>
+    <div class="f full"><label>Assigned Tables</label><div class="multi" id="ds_tables">${tbls.length ? tbls.map(t => `<label class="chk"><input type="checkbox" value="${esc(t.id)}" ${asg.includes(t.id)?"checked":""}> ${esc(tblLbl(t.name))}${t.section?` <span class="note">${esc(t.section)}</span>`:""}</label>`).join("") : '<span class="note">This branch has no tables yet.</span>'}</div>${dhelp("Tables this cashier shows. None ticked = all tables of the branch.")}</div>
     <div class="f"><label for="ds_kitchenPrinter">Kitchen printer (IP address or name)</label><input id="ds_kitchenPrinter" value="${esc(s.kitchenPrinter||"")}" placeholder="e.g. 192.168.1.50"></div>
     <div class="f"><label for="ds_receiptPrinter">Receipt printer (IP address or name)</label><input id="ds_receiptPrinter" value="${esc(s.receiptPrinter||"")}" placeholder="Built-in / 192.168.1.51"></div>
-    <div class="f full"><label class="chk"><input type="checkbox" id="ds_cashDrawer" ${s.cashDrawer!==false?"checked":""}> Cash drawer connected (opens for cash payments)</label></div>
-    <h4 class="fsec">Security</h4>
-    <div class="f"><label for="ds_lockMinutes">Auto-lock after (minutes idle)</label><input id="ds_lockMinutes" type="number" min="0" max="240" value="${esc(s.lockMinutes ?? 10)}"><div class="note">0 = never lock. Only applies once users have PINs.</div></div>
-    <div class="f"><label class="chk" style="margin-top:22px"><input type="checkbox" id="ds_lockAfterSale" ${s.lockAfterSale?"checked":""}> Lock after every sale</label></div>
+    <div class="f"><label for="ds_lockMinutes">Auto-lock after (minutes idle)</label><input id="ds_lockMinutes" type="number" min="0" max="240" value="${esc(s.lockMinutes ?? 10)}">${dhelp("0 = never lock.")}</div>
+    ${tg("barcode", "Enable Barcode Scanners", "Allow the cashier to use a barcode scanner.", true)}
+    ${tg("autoAccept", "Auto Accept and Send Online Orders to Kitchen", "Accept call center and web orders and send them to the kitchen automatically.", false)}
+    ${tg("printOnline", "Print Online Order Info When Received", "Print call center and web orders automatically when they arrive.", false)}
+    ${tg("noAutoPrint", "Disable Automatic Receipt Printing", "Don't print receipts automatically after payments or closing orders.", s.receipt!=="print")}
+    ${tg("printDrawer", "Print Drawer Operations", "Print a receipt after each cash in / cash out.", false)}
+    ${tg("cashDrawer", "Cash drawer connected", "The drawer opens for cash payments.", true)}
+    ${tg("lockAfterSale", "Lock after every sale", "The next cashier enters their PIN.", false)}
     <div class="err" id="cErr"></div>
   </div>
-  <footer><button type="button" class="btn" data-cclose>Cancel</button><button type="button" class="btn pri" id="dsSave">Save settings</button></footer>`;
+  <footer><button type="button" class="btn" data-cclose>Close</button><button type="button" class="btn pri" id="dsSave">Save</button></footer>`;
   crudEdit = { key:"devset", id }; $("#crudBox").className = "modal wide"; $("#crudScrim").classList.add("show");
 }
 async function saveDeviceSettings(){
   const id = crudEdit.id, d = S.devices.find(x=>x.id===id), v = k => ($("#ds_"+k)?.value || "").trim(), ck = k => !!$("#ds_"+k)?.checked;
-  const name = v("name"); if(!name){ $("#cErr").textContent = "Device name is required."; return; }
-  const orderTypes = [...document.querySelectorAll("#ds_types input:checked")].map(i=>i.value);
-  if(!orderTypes.length){ $("#cErr").textContent = "Pick at least one order type."; return; }
-  const defaultType = orderTypes.includes(v("defaultType")) ? v("defaultType") : orderTypes[0];
-  const settings = { ...(d.settings||{}), orderTypes, defaultType, autoAccept: ck("autoAccept"), master: ck("master") && v("type")==="cashier", receipt: v("receipt"), copies: Math.max(1, +v("copies") || 1),
-    kitchenPrinter: v("kitchenPrinter"), receiptPrinter: v("receiptPrinter"), cashDrawer: ck("cashDrawer"), lockMinutes: Math.max(0, +v("lockMinutes") || 0), lockAfterSale: ck("lockAfterSale") };
-  const ch = { name, reference: v("reference"), type: v("type"), settings };
-  if(!v("branch")){ $("#cErr").textContent = "Pick the branch."; return; }
-  if(v("branch") !== d.branchId){ if(!confirm("Move this device to another branch? It will need a new activation code.")) return; ch.branchId = v("branch"); ch.code = newCode(); ch.activatedAt = null; }
-  try{
-    if(settings.master) for(const o of S.devices.filter(x => live(x) && x.id!==id && x.branchId===(ch.branchId || d.branchId) && x.settings?.master)) await put("devices", o.id, { settings: { ...o.settings, master:false } });   // one master per branch
-    await put("devices", id, ch); toast(ch.code ? `Device moved · new activation code ${ch.code}` : "Device settings saved"); closeCrud(); }
+  const off = [...document.querySelectorAll("#ds_types input:checked")].map(i=>i.value), orderTypes = OT3.map(x=>x[0]).filter(k => !off.includes(k));
+  if(!orderTypes.length){ $("#cErr").textContent = "At least one order type must stay enabled."; return; }
+  const callStart = Math.max(1, +v("callStart") || 1), callReset = +v("callReset") || 0;
+  if(callReset && callReset <= callStart){ $("#cErr").textContent = "Call Number Reset must be bigger than Call Number Start."; return; }
+  const settings = { ...(d.settings||{}), orderTypes, callStart, callReset, kitchenLang: v("kitchenLang"), copies: Math.max(1, +v("copies") || 1), eodEmail: v("eodEmail"), shiftEmail: v("shiftEmail"),
+    tables: [...document.querySelectorAll("#ds_tables input:checked")].map(i=>i.value), kitchenPrinter: v("kitchenPrinter"), receiptPrinter: v("receiptPrinter"), lockMinutes: Math.max(0, +v("lockMinutes") || 0),
+    barcode: ck("barcode"), autoAccept: ck("autoAccept"), printOnline: ck("printOnline"), noAutoPrint: ck("noAutoPrint"), receipt: ck("noAutoPrint") ? "show" : "print", printDrawer: ck("printDrawer"), cashDrawer: ck("cashDrawer"), lockAfterSale: ck("lockAfterSale") };
+  try{ await put("devices", id, { settings }); toast("Device settings saved"); closeCrud(); render(); }
   catch(err){ console.error(err); $("#cErr").textContent = "Couldn't save. Only the owner or an admin can change devices."; }
 }
+document.addEventListener("click", e => {
+  const o = e.target.closest("[data-devopen]"); if(o){ e.preventDefault(); state.devOpen = o.dataset.devopen; render(); return; }
+  if(e.target.closest("[data-devback]")){ e.preventDefault(); state.devOpen = null; render(); return; }
+  const ed = e.target.closest("[data-devedit]"); if(ed) return openDeviceEdit(ed.dataset.devedit);
+  if(e.target.closest("#deSave")) return saveDeviceEdit();
+  if(e.target.closest("[data-devgen]")){ $("#ds_reference").value = devRef(); return; }
+  if(e.target.closest("[data-devgen2]")){ $("#dRef").value = devRef(); return; }
+});
 document.addEventListener("click", e => { const b = e.target.closest("[data-devset]"); if(b) return openDeviceSettings(b.dataset.devset); if(e.target.closest("#dsSave")) saveDeviceSettings(); });
 function openDevice(){
   $("#crudBox").innerHTML = `<header><h2>Create Device</h2><button type="button" class="x" data-cclose aria-label="Close">×</button></header>
-  <div class="body"><div class="f full"><label for="dName">Device name *</label><input id="dName" placeholder="e.g. Kaslik Cashier 1"></div>
-  <div class="f"><label for="dType">Type</label><select id="dType">${DEV_TYPES.map(([k,t])=>`<option value="${k}">${t}</option>`).join("")}</select></div>
+  <div class="body"><div class="f full"><label for="dType">Type *</label><select id="dType">${DEV_TYPES.map(([k,t])=>`<option value="${k}">${t}</option>`).join("")}</select><div class="note">Choose the type of device.</div></div>
+  <div class="f full"><label for="dName">Name *</label><input id="dName" placeholder="e.g. Main Cashier, 2nd Floor Cashier"></div>
+  <div class="f full"><label for="dRef">Reference *</label><div style="display:flex;gap:8px"><input id="dRef" value="${esc(devRef())}" style="flex:1"><button type="button" class="btn" data-devgen2>Generate</button></div></div>
   <div class="f"><label for="dBrand">Brand *</label><select id="dBrand"><option value="">Choose…</option>${brandList().filter(b=>b.active!==false).map(b=>`<option value="${esc(b.id)}" ${brandList().length===1?"selected":""}>${esc(b.name)}</option>`).join("")}</select></div>
   <div class="f"><label for="dBranch">Branch *</label><select id="dBranch">${devBranchOpts(brandList().length===1 ? brandList()[0].id : "", "")}</select></div>
   <div class="err" id="cErr"></div></div><footer><button type="button" class="btn" data-cclose>Cancel</button><button type="button" class="btn pri" id="dSave">Create &amp; get code</button></footer>`;
@@ -3245,7 +3327,7 @@ document.addEventListener("keydown", e => { if(e.key==="Enter" && e.target.id?.s
 
 /* filters belong to the page: leaving a page puts its filters back to the defaults */
 function resetPageFilters(){
-  Object.assign(state, { range:"day", days:1, date:todayStr(), dateSet:false, compare:false, cmpDate:"", dashTab:"general", branch:"all", brand:"all" }); DASH.key = "";
+  Object.assign(state, { range:"day", days:1, date:todayStr(), dateSet:false, compare:false, cmpDate:"", dashTab:"general", branch:"all", brand:"all", devOpen:null, brOpen:null }); DASH.key = "";
   Object.assign(ORD, { tab:"all", range:"week", q:"", from:"", to:"", channel:"", type:"", pay:"", source:"", brand:"", branch:"", page:1, key:"", open:null });
   Object.assign(CUS, { filter:"all", q:"", sort:"last", page:1, key:"" });
   Object.assign(BM, { q:"", draft:{} });
@@ -4162,10 +4244,11 @@ $("#crudScrim").addEventListener("click", async e => {
   if(e.target.closest("#cDelete")) return softDelete(true);
   if(e.target.closest("#cRestore")) return softDelete(false);
   if(e.target.closest("#dSave")){
-    const name = $("#dName").value.trim(), branchId = $("#dBranch").value;
-    if(!name || !branchId){ $("#cErr").textContent = "Name and branch are required."; return; }
-    const code = newCode();
-    try{ await put("devices", null, { name, type:$("#dType").value, branchId, code }); closeCrud(); toast(`Device created · activation code ${code}`); }
+    const name = $("#dName").value.trim(), branchId = $("#dBranch").value, reference = $("#dRef").value.trim().toUpperCase();
+    if(!name || !branchId || !reference){ $("#cErr").textContent = "Type, name, reference and branch are required."; return; }
+    if(S.devices.some(x => live(x) && String(x.reference||"").toUpperCase()===reference)){ $("#cErr").textContent = "Another device already uses this reference."; return; }
+    const code = newCode(), type = $("#dType").value, master = type==="cashier" && !S.devices.some(x => live(x) && x.branchId===branchId && x.settings?.master);
+    try{ await put("devices", null, { name, reference, type, branchId, code, settings: master ? { master:true } : {} }); closeCrud(); toast(`Device created · activation code ${code}`); }
     catch(err){ console.error(err); $("#cErr").textContent = "Couldn't create the device."; }
   }
 });
@@ -4203,8 +4286,8 @@ $("#view").addEventListener("click", async e => {
   if(t.closest("#ccNew")) return openOrder();
   const oc = t.closest("[data-order]"); if(oc) return openOrder(oc.dataset.order);
   if(t.closest("#devNew")) return openDevice();
-  const dc = t.closest("[data-devcode]"); if(dc){ const code = newCode(); await put("devices", dc.dataset.devcode, { code, activatedAt:null }); toast("New activation code " + code); return; }
-  const dd = t.closest("[data-devdel]"); if(dd){ await put("devices", dd.dataset.devdel, { deleted:true }); toast("Device removed"); return; }
+  const dc = t.closest("[data-devcode]"); if(dc){ if(!confirm("Deactivate this device? The tablet signs out and gets a new activation code.")) return; const code = newCode(); await put("devices", dc.dataset.devcode, { code, activatedAt:null }); toast("Device deactivated · new activation code " + code); render(); return; }
+  const dd = t.closest("[data-devdel]"); if(dd){ if(!confirm("Delete this device?")) return; await put("devices", dd.dataset.devdel, { deleted:true }); state.devOpen = null; toast("Device deleted"); render(); return; }
   if(t.closest("#olSave")) return saveOnline();
 });
 $("#view").addEventListener("input", e => {
