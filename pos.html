@@ -208,7 +208,7 @@ body{-webkit-font-smoothing:antialiased}
 .lrow{display:grid;grid-template-columns:110px 1.2fr 1.2fr 140px;gap:12px;align-items:center;width:100%;border:0;border-bottom:1px solid var(--line);background:none;padding:14px 20px;text-align:left;font:inherit;color:inherit;cursor:pointer}
 .lrow:hover{background:#faf9fe}.lrow:last-child{border-bottom:0}.lrow .lno{font-size:17px;font-weight:600}.lrow .lc{display:flex;flex-direction:column;gap:3px;color:#5b5a66;font-size:14px}.lrow .lc b{color:var(--ink);font-weight:500;text-transform:uppercase;font-size:13.5px;letter-spacing:.02em}.lrow .lr{text-align:right;display:flex;flex-direction:column;gap:4px;align-items:flex-end}.lrow .lr b{text-transform:uppercase;font-size:13.5px;letter-spacing:.03em}
 .modal.full .mb>*{flex-shrink:0}.otabs2{flex-shrink:0;overflow-x:auto;overflow-y:hidden}.otabs2 button{min-height:52px}.fdot{display:inline-grid;place-items:center;min-width:18px;height:18px;border-radius:9px;background:#fff;color:var(--acci);font-size:11px;margin-left:4px;padding:0 4px}.hbtn.ghost .fdot{background:var(--acc);color:#fff}
-.lrow.ol5{grid-template-columns:.9fr 1fr 1.3fr .8fr 1fr .7fr .9fr}.lrow.lhead{cursor:default;padding-top:10px;padding-bottom:10px;font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:#8d8c98}.lrow.lhead:hover{background:none}
+.lrow.ol5{grid-template-columns:.8fr 1fr 1.2fr .8fr .9fr .9fr .6fr .9fr}.lrow.lhead{cursor:default;padding-top:10px;padding-bottom:10px;font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:#8d8c98}.lrow.lhead:hover{background:none}
 
 .lst-pending{color:#2c5fb8}.lst-active{color:var(--warn)}.lst-closed{color:var(--good)}.lst-void,.lst-refund,.lst-declined,.lst-returned{color:var(--bad)}
 @media(max-width:800px){.lrow{grid-template-columns:80px 1fr 110px}.lrow .lc2{display:none}}
@@ -488,7 +488,7 @@ let tt; const toast = m => { const t=$("#toast"); t.textContent=m; t.classList.a
 const store = { get(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } }, set(k,v){ try{ v==null?localStorage.removeItem(k):localStorage.setItem(k,v); }catch(e){} } };
 
 let db = null;
-const S = { brands:[], devices:[], branches:[], categories:[], products:[], orders:[], shifts:[], modifiers:[], modifier_options:[], taxes:[], tax_groups:[], payment_methods:[], roles:[], users:[], settings:[], day_closes:[], charges:[] };
+const S = { brands:[], devices:[], branches:[], categories:[], products:[], orders:[], shifts:[], modifiers:[], modifier_options:[], taxes:[], tax_groups:[], payment_methods:[], roles:[], users:[], settings:[], day_closes:[], charges:[], order_sources:[] };
 let posChg = null;   // null = the charges that apply automatically; otherwise the ids the cashier kept
 let GUESTS = 0, orderNote = "", SEEN = new Set(), SEEN_READY = false;   // pending call-center / web orders already announced   // order-level note, printed on the receipt (not the kitchen ticket)
 let EDIT = null;   // an order opened from the Orders list into the billing section: { id }
@@ -773,7 +773,7 @@ function renderCart(){
   const rf = eo0 && eo0.status==="refund" ? eo0 : null, rfInv = rf && invNo(rf.invoiceRef || S.orders.find(x => x.id===rf.refundOf)?.invoiceNo);
   const ctx = rf ? `<div class="ctx"><span class="ci ci-svg">${ico("undo")}</span><div><b>RETURN</b><small>${rfInv ? "Original invoice " + esc(rfInv) : esc(typLbl(rf.type))}</small></div><span class="sp"></span></div>`
     : otype==="dinein" ? `<div class="ctx"><span class="ci ci-svg">${ico("dine")}</span><div><b>${esc(tblLbl(tableNo || "—"))}</b><small>Dine-in${GUESTS ? ` · ${GUESTS} guest${GUESTS===1?"":"s"}` : ""}</small></div><span class="sp"></span>${canSwitch ? `<button data-ctx="table">Change table</button><button data-ctx="fast">Remove table</button>` : ""}</div>`
-    : otype==="takeaway" || otype==="delivery" ? `<div class="ctx"><span class="ci ci-svg">${ico(otype==="delivery" ? "scooter" : "bag")}</span><div><b>${otype==="delivery" ? "Delivery" : "Pickup"}</b><small>${esc(cust.name || "")}</small></div><span class="sp"></span>${cust.phone || cust.name ? `<button data-ctx="custpage">Customer details</button>` : ""}${canSwitch ? `<button data-ctx="pddetails">Details</button>` : ""}</div>`
+    : otype==="takeaway" || otype==="delivery" ? `<div class="ctx"><span class="ci ci-svg">${ico(otype==="delivery" ? "scooter" : "bag")}</span><div><b>${otype==="delivery" ? "Delivery" : "Pickup"}</b><small>${esc([cust.name, cust.source].filter(Boolean).join(" · "))}</small></div><span class="sp"></span>${cust.phone || cust.name ? `<button data-ctx="custpage">Customer details</button>` : ""}${canSwitch ? `<button data-ctx="pddetails">Details</button>` : ""}</div>`
     : `<div class="ctx"><span class="ci ci-svg"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12v18l-2-1.5L14 21l-2-1.5L10 21l-2-1.5L6 21z"/><path d="M9 8h6M9 12h6M9 16h3"/></svg></span><div><b>FAST SALE</b></div><span class="sp"></span></div>`;
   const held = device ? heldList() : [];
   const htabs = held.length ? `<div class="htabs" role="tablist" aria-label="Held orders">${held.map(h => `<button type="button" class="htab" data-hgettab="${esc(h.id)}" title="Retrieve held order H${h.n}"><b>H${h.n}</b><span>${usd(h.total)}</span></button>`).join("")}</div>` : "";
@@ -821,7 +821,7 @@ function loadOrder(id, keep){
   cart = (o.items||[]).map((i,ix) => ({ ...i, saved: +i.qty, oix: ix }));
   if(keep) keep.forEach(k => cart.push(k));                          // items added here but not sent yet
   otype = o.type==="pickup" || o.type==="takeaway" ? "takeaway" : (o.type || "dinein"); tableNo = o.table || "";
-  cust = { name:o.customerName||"", phone:o.phone||"", addr: addrParts(o.address) };
+  cust = { name:o.customerName||"", phone:o.phone||"", addr: addrParts(o.address), source: o.source && o.source.toUpperCase()!=="POS" ? o.source : "" };
   discType = o.discountType || "pct"; discount = discType==="amt" ? +o.discount||0 : +o.discountPct||0;
   posChg = new Set((o.charges||[]).map(c=>c.id)); orderNote = o.receiptNotes || ""; GUESTS = +o.guests || 0;
   closeModal(); renderCart(); renderMenu();
@@ -840,7 +840,7 @@ function orderInfoOk(){
   return true;
 }
 function orderFields(t){
-  return { type: otype==="dinein"?"dinein":otype==="fast"?"fast":otype==="takeaway"?"pickup":"delivery", table: otype==="dinein"?tableNo:"", customerName:cust.name.trim(), phone:cust.phone.trim(), address: otype==="delivery"?addrJoin(cust.addr):"",
+  return { type: otype==="dinein"?"dinein":otype==="fast"?"fast":otype==="takeaway"?"pickup":"delivery", table: otype==="dinein"?tableNo:"", customerName:cust.name.trim(), phone:cust.phone.trim(), address: otype==="delivery"?addrJoin(cust.addr):"", ...((otype==="takeaway" || otype==="delivery") && cust.source ? { source: cust.source } : {}),
     items: cart.map(cleanItem), subtotal:+t.sub.toFixed(2), charges:t.charges, chargesTotal:t.chT, discountPct: discType==="pct" ? discount : (t.sub ? +(t.disc/t.sub*100).toFixed(2) : 0), discountType: discType, discount:t.disc, total:t.total, tax:t.tax, receiptNotes: orderNote.trim(), ...(otype==="dinein" && GUESTS ? { guests: GUESTS } : {}) };
 }
 // Send: save the order as open (to the kitchen) without payment; on an open order, send what was added
@@ -851,7 +851,7 @@ async function sendOrder(){
   try{
     if(eo){ await db.collection("orders").doc(eo.id).update({ ...orderFields(t), updatedAt: now }); toast(`Saved · order ${ordRef(eo)}`); unloadOrder(); }
     else { const id = "pos_" + Date.now().toString(36) + Math.random().toString(36).slice(2,5), no = nextOrderNo();
-      await db.collection("orders").doc(id).set({ no, channel:"pos", source:"POS", brandId:branch?.brandId || null, branchId:device.branchId, deviceId:device.id, shiftId:openShift()?.id || null, agent:cashier?.name || device.name, ...orderFields(t), status:"active", createdAt:now, updatedAt:now });
+      await db.collection("orders").doc(id).set({ no, channel:"pos", source:"", brandId:branch?.brandId || null, branchId:device.branchId, deviceId:device.id, shiftId:openShift()?.id || null, agent:cashier?.name || device.name, ...orderFields(t), status:"active", createdAt:now, updatedAt:now });
       toast(`Order #${no} sent to the kitchen · open it from Orders to add items or bill it`); resetOrder(); }
   }catch(err){ console.error(err); toast("Couldn't send the order. Try again."); }
 }
@@ -911,7 +911,7 @@ $("#extra").addEventListener("click", e => { const ht = e.target.closest("[data-
   const cx = e.target.closest("[data-ctx]");
   if(cx && cx.dataset.ctx==="table") return openTables();
   if(cx && cx.dataset.ctx==="custpage") return openCustPage();
-  if(cx && cx.dataset.ctx==="pddetails"){ PD = { type: otype==="delivery" ? "delivery" : "takeaway", phone: cust.phone, name: cust.name, addr: { ...(cust.addr||{}) }, cust:null, edit:true }; return openPDNew(); }
+  if(cx && cx.dataset.ctx==="pddetails"){ PD = { type: otype==="delivery" ? "delivery" : "takeaway", phone: cust.phone, name: cust.name, addr: { ...(cust.addr||{}) }, source: cust.source || "", cust:null, edit:true }; return openPDNew(); }
   if(cx && cx.dataset.ctx==="fast"){ const go = () => { otype = "fast"; tableNo = ""; cust = { name:"", phone:"", addr:{} }; posChg = null; renderCart(); renderMenu(); };
     if((otype==="takeaway" || otype==="delivery") && (cust.name || cust.phone)) askYes("Make this a fast sale? The customer details are removed.", "Fast sale").then(y => y && go()); else go(); return; }
   if(e.target.closest("[data-unload]")) return unloadOrder(); });
@@ -993,6 +993,7 @@ $("#modal").addEventListener("click", async e => {
   const pdt = e.target.closest("[data-pdt]"); if(pdt){ pdKeep(); PD.type = pdt.dataset.pdt; return openPDNew(); }
   const pda = e.target.closest("[data-pdaddr]"); if(pda){ pdKeep(); const a = (PD.cust?.addresses||[]).filter(x => x.address)[+pda.dataset.pdaddr]; if(a) PD.addr = addrParts(a.address); return openPDNew(); }
   const cvd = e.target.closest("[data-cvdet]"); if(cvd){ CV.det = cvd.dataset.cvdet || null; return drawCust(); }
+  const psrc = e.target.closest("[data-pdsrc]"); if(psrc){ PD.source = psrc.dataset.pdsrc; document.querySelectorAll("[data-pdsrc]").forEach(x => x.classList.toggle("on", x===psrc)); if($("#pdErr")) $("#pdErr").textContent = ""; return; }
   const pdd = e.target.closest("[data-pddet]"); if(pdd){ pdKeep(); PD.det = pdd.dataset.pddet || null; return openPDNew(); }
   if(e.target.closest("[data-pdnewaddr]")){ pdKeep(); PD.addr = {}; openPDNew(); return $("#pdA_label")?.focus(); }
   if(e.target.closest("[data-pdcancel]")) return pdCancel();
@@ -1045,7 +1046,7 @@ function updChange(){ const t = totals().total, v = +$("#tender")?.value || 0; i
 async function completeSale(){
   const t = totals(), now = new Date().toISOString(), tender = payMethod?.type==="cash" ? +$("#tender").value : t.total;
   const eo0 = editOrder(), no = eo0?.no || nextOrderNo();   // an open order being paid keeps its number: don't use up a new one
-  const order = { no, channel:"pos", source:"POS", type: otype==="dinein"?"dinein":otype==="fast"?"fast":otype==="takeaway"?"pickup":"delivery", table: otype==="dinein"?tableNo:"",
+  const order = { no, channel:"pos", source: (otype==="takeaway" || otype==="delivery") ? (cust.source || "") : "", type: otype==="dinein"?"dinein":otype==="fast"?"fast":otype==="takeaway"?"pickup":"delivery", table: otype==="dinein"?tableNo:"",
     customerName:cust.name.trim(), phone:cust.phone.trim(), address: otype==="delivery"?addrJoin(cust.addr):"",
     brandId:branch?.brandId || null, branchId:device.branchId, deviceId:device.id, shiftId:openShift().id, agent:cashier?.name || device.name, items:cart, subtotal:+t.sub.toFixed(2), charges:t.charges, chargesTotal:t.chT, discountPct: discType==="pct" ? discount : (t.sub ? +(t.disc/t.sub*100).toFixed(2) : 0), discountType: discType, discount:t.disc, total:t.total, receiptNotes: orderNote.trim(), ...(otype==="dinein" && GUESTS ? { guests: GUESTS } : {}),
     tax:t.tax, payment:{ method:payMethod.name, type:payMethod.type, methodId:payMethod.id, tendered:tender, change:+Math.max(0,tender-t.total).toFixed(2) }, status:"closed", createdAt:now, updatedAt:now };
@@ -1053,7 +1054,7 @@ async function completeSale(){
   try{
     const eo = editOrder();
     if(eo){   // billing an open order: it keeps its number, channel and customer; this register bills it
-      Object.assign(order, { no: eo.no || no, channel: eo.channel, source: eo.source, createdAt: eo.createdAt, brandId: eo.brandId || order.brandId, items: cart.map(cleanItem),
+      Object.assign(order, { no: eo.no || no, channel: eo.channel, source: cust.source || eo.source || "", createdAt: eo.createdAt, brandId: eo.brandId || order.brandId, items: cart.map(cleanItem),
         ...(eo.channel!=="pos" ? { agent: eo.agent, customerName: eo.customerName || order.customerName, phone: eo.phone || order.phone, address: eo.address || order.address } : {}), handledBy: cashier?.name || device.name });
       await db.collection("orders").doc(eo.id).update(order); EDIT = null;
     } else {
@@ -1183,7 +1184,8 @@ function openIncoming(){
     <span class="lc"><b style="text-transform:none">${esc(invOf(o)) || `<span class="mut">${o.status==="pending" ? "Not accepted yet" : "—"}</span>`}</b></span>
     <span class="lc"><b style="text-transform:none">${esc(custOf(o) ? (o.customerName || o.phone) : "-")}</b>${custOf(o) && o.customerName && o.phone ? `<span>${esc(o.phone)}</span>` : ""}</span>
     <span class="lc lc2"><b style="text-transform:none">${esc(typLbl(o.type))}</b></span>
-    <span class="lc lc2"><b style="text-transform:none">${esc(o.source || chn(o))}</b>${o.source && o.source.toLowerCase()!==chn(o).toLowerCase() ? `<span>${esc(chn(o))}</span>` : ""}</span>
+    <span class="lc lc2"><b style="text-transform:none">${esc(chn(o))}</b></span>
+    <span class="lc lc2"><b style="text-transform:none">${o.source && o.source.toLowerCase()!==chn(o).toLowerCase() ? esc(o.source) : "-"}</b></span>
     <span class="lc lc2"><b style="text-transform:none">${o.type==="dinein" && o.table ? esc(tblLbl(o.table)) : "-"}</b></span>
     <span class="lr"><b style="text-transform:none;font-size:15px">${usd(o.total)}</b></span></button>`;
   const TABS = [["all","All"],["active","Active"],["closed","Closed"],["void","Void & returns"]];
@@ -1192,13 +1194,13 @@ function openIncoming(){
   const head = `<div class="ohdr"><button class="hbtn" data-close>Back</button><input class="search" id="ovQ" placeholder="Search orders: order no., invoice no., customer, phone, table" value="${esc(OV.q)}" style="flex:1;min-width:220px;margin:0">
     <button class="hbtn${OV.filt ? "" : " ghost"}" data-ofilt>Filter${(OV.date && OV.date!==bizDate()) || OV.ft || OV.fc ? ` <span class="fdot">${[(OV.date && OV.date!==bizDate()), OV.ft, OV.fc].filter(Boolean).length}</span>` : ""}</button></div>`;
   const day = OV.date || bizDate(), shift = n => { const d = new Date(day + "T12:00:00"); d.setDate(d.getDate() + n); return d.toISOString().slice(0,10); };
-  const filt = !OV.filt ? "" : `<div class="ofilt"><b style="font-size:13px">Date</b><button class="chip" data-odate="${shift(-1)}" aria-label="Previous day">‹</button><input type="date" id="ovDate" value="${day}" max="${bizDate()}" style="padding:6px 10px;border:1px solid var(--line);border-radius:999px;font-weight:600"><button class="chip" data-odate="${shift(1)}" aria-label="Next day" ${day >= bizDate() ? "disabled" : ""}>›</button>${day!==bizDate() ? `<button class="chip on" data-odate="">Today</button>` : ""}<span style="width:14px"></span><b style="font-size:13px">Type</b>${chip("ft","","All")}${chip("ft","dinein","Dine-in")}${chip("ft","pickup","Pickup")}${chip("ft","delivery","Delivery")}${chip("ft","fast","Fast sale")}<span style="width:14px"></span><b style="font-size:13px">Channel</b>${chip("fc","","All")}${chip("fc","pos","POS")}${chip("fc","callcenter","Call center")}${chip("fc","web","Web")}</div>`;
+  const filt = !OV.filt ? "" : `<div class="ofilt"><b style="font-size:13px">Date</b><button class="chip" data-odate="${shift(-1)}" aria-label="Previous day">‹</button><input type="date" id="ovDate" value="${day}" max="${bizDate()}" style="padding:6px 10px;border:1px solid var(--line);border-radius:999px;font-weight:600"><button class="chip" data-odate="${shift(1)}" aria-label="Next day" ${day >= bizDate() ? "disabled" : ""}>›</button>${day!==bizDate() ? `<button class="chip on" data-odate="">Today</button>` : ""}<span style="width:14px"></span><b style="font-size:13px">Order type</b>${chip("ft","","All")}${chip("ft","dinein","Dine-in")}${chip("ft","pickup","Pickup")}${chip("ft","delivery","Delivery")}${chip("ft","fast","Fast sale")}<span style="width:14px"></span><b style="font-size:13px">Sales channel</b>${chip("fc","","All")}${chip("fc","pos","POS")}${chip("fc","callcenter","Call center")}${chip("fc","web","Web")}</div>`;
   let body;
   if(false) body = `<div class="oboard">${OV_COLS.map(([k,title,tip]) => { const l = boardOrders(k);
       return `<div class="ocol"><div class="ochead" title="${esc(tip)}"><b>${title}</b><span class="cnt">${l.length}</span></div>${l.length ? l.map(card).join("") : `<div class="oempty">You don't have ${title.toLowerCase()} orders</div>`}</div>`; }).join("")}</div>`;
   else { const l = boardOrders(OV.tab);
     body = `<div class="otabs2">${TABS.map(([k,l2]) => `<button data-ovtab="${k}" class="${OV.tab===k?"on":""}">${l2}${k==="all" || boardOrders(k).length ? ` (${boardOrders(k).length})` : ""}</button>`).join("")}</div>
-      <div class="olist2">${l.length ? `<div class="lrow ol5 lhead"><span>Order no.</span><span>Invoice no.</span><span>Customer</span><span class="lc2">Type</span><span class="lc2">Channel</span><span class="lc2">Table</span><span style="text-align:right">Total</span></div>` + l.map(row).join("") : `<div class="oempty" style="border-radius:0">No orders here</div>`}</div>`; }
+      <div class="olist2">${l.length ? `<div class="lrow ol5 lhead"><span>Order no.</span><span>Invoice no.</span><span>Customer</span><span class="lc2">Order type</span><span class="lc2">Sales channel</span><span class="lc2">Source</span><span class="lc2">Table</span><span style="text-align:right">Total</span></div>` + l.map(row).join("") : `<div class="oempty" style="border-radius:0">No orders here</div>`}</div>`; }
   modal("incoming", `${head}<div class="mb" style="display:flex;flex-direction:column;gap:12px">${filt}${body}<p class="mut" style="margin:0">${(OV.date||bizDate())===bizDate() ? `Today's business day (${bizDate()}) plus open orders from earlier days.` : `Business day ${OV.date}.`} Tap an order to open it in the billing section.</p></div>`, true);
   $("#modal").classList.add("full"); $("#scrim").classList.add("fullscr"); withNav();
   const q = $("#ovQ"); if(q && document.activeElement?.id!=="ovQ" && OV.q){ /* keep the list where it was */ }
@@ -1466,6 +1468,7 @@ function openPDNew(){
   const side = PD.cust ? pdSide() : "";
   modal("pdnew", `<div class="mh"><h2>${PD.edit ? "Edit order" : "New order"}</h2></div><div class="mb${side ? " pdcols" : ""}"><div class="pdform">
     <div class="dseg" style="margin-bottom:14px">${types.map(t => `<button type="button" data-pdt="${t}" class="${PD.type===t?"on":""}">${t==="delivery" ? "Delivery" : "Pickup"}</button>`).join("")}</div>
+    <div class="f"><label>Order source *</label><div class="rchips">${posSources().map(s => `<button type="button" data-pdsrc="${esc(s)}" class="${PD.source===s?"on":""}">${esc(s)}</button>`).join("")}</div></div>
     <div class="f"><label for="pdPhone">Customer phone *</label><input id="pdPhone" inputmode="tel" value="${esc(PD.phone)}" placeholder="e.g. 70123456" autocomplete="off"><div class="mut" id="pdHint" style="min-height:18px">${PD.cust && !side ? pdHint(PD.cust) : ""}</div></div>
     <div class="f"><label for="pdName">Customer name *</label><input id="pdName" value="${esc(PD.name)}"></div>
     ${PD.type==="delivery" ? `${saved.length ? `<div class="f"><label>Saved addresses · ${saved.length}</label><div class="acards">${saved.map((a,i) => { const p = addrParts(a.address);
@@ -1550,6 +1553,9 @@ function drawCust(){
   $("#modal").classList.add("full"); $("#scrim").classList.add("fullscr"); withNav();
 }
 function pdCancel(){ const ed = PD?.edit; PD = null; if(ed) return closeModal(); openBoard(); }
+// order sources from Manage → Order Sources (POS is a channel, not a source)
+const posSources = () => { const l = S.order_sources.filter(r => !r.deleted && r.active!==false && String(r.name||"").trim() && String(r.name).toUpperCase()!=="POS").sort((a,b) => (a.sort??999)-(b.sort??999) || String(a.name).localeCompare(b.name)).map(r => r.name);
+  return l.length ? l : ["Phone","Toters","NokNok","Talabat","WhatsApp","Website","Walk-in"]; };
 // keeps the customer's details and every new delivery address on their record
 async function pdSaveCust(){
   if(!window.WOK?.sb || !navigator.onLine) return;
@@ -1567,15 +1573,16 @@ async function pdContinue(){
   pdKeep(); const need = [];
   if(normPhone(PD.phone).length < 6) need.push("phone number"); if(!PD.name.trim()) need.push("name");
   if(PD.type==="delivery") [["street","area / street"],["building","building"],["floor","floor"]].forEach(([k,l]) => { if(!String(PD.addr[k]||"").trim()) need.push(l); });
+  if(!PD.source){ $("#pdErr").textContent = "Pick the order source."; return; }
   if(need.length){ $("#pdErr").textContent = "Enter the customer's " + need.join(", ").replace(/, ([^,]*)$/, " and $1") + "."; return; }
-  if(PD.edit){ pdSaveCust(); otype = PD.type==="delivery" ? "delivery" : "takeaway"; cust = { name: PD.name.trim(), phone: PD.phone.trim(), addr: PD.type==="delivery" ? { ...PD.addr } : {} }; PD = null; closeModal(); renderCart(); renderMenu(); return toast("Customer details saved"); }
+  if(PD.edit){ pdSaveCust(); otype = PD.type==="delivery" ? "delivery" : "takeaway"; cust = { name: PD.name.trim(), phone: PD.phone.trim(), addr: PD.type==="delivery" ? { ...PD.addr } : {}, source: PD.source || "" }; PD = null; closeModal(); renderCart(); renderMenu(); return toast("Customer details saved"); }
   pdSaveCust();
   if(PD.cust?.blacklisted && !(await askYes("This customer is blacklisted. Take the order anyway?", "Take order", true))) return;
   if(EDIT) unloadOrder();
   if(cart.length && !(await askYes("Hold the order that's in the cart and start this one?", "Hold & continue"))) return;
   if(cart.length) holdOrder(true);
   resetOrder(); otype = PD.type==="delivery" ? "delivery" : "takeaway";
-  cust = { name: PD.name.trim(), phone: PD.phone.trim(), addr: PD.type==="delivery" ? { ...PD.addr } : {} };
+  cust = { name: PD.name.trim(), phone: PD.phone.trim(), addr: PD.type==="delivery" ? { ...PD.addr } : {}, source: PD.source || "" };
   PD = null; closeModal(); cat = ""; renderCart(); renderMenu();
   toast("Add the items, then Save (sends to the kitchen) or Pay");
 }

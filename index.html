@@ -565,7 +565,7 @@ const NAV = [
   {id:"customers",t:"Customers",i:"users"},
   {t:"Reports",i:"chart",kids:[["sales-reports","Sales Reports"],["inventory-reports","Inventory Reports"],["business-reports","Business Reports"],["analysis-reports","Analysis Reports"]]},
   {t:"Inventory",i:"box",tabs:1,kids:[["inv-categories","Inventory Categories"],["inv-items","Items"],["warehouses","Locations"],["suppliers","Suppliers"],["purchase-orders","Purchase Orders"],["transfer-orders","Transfer Orders"],["transfers","Transfers"],["inventory-count","Inventory Count"],["production","Production"],["quantity-adjustments","Quantity Adjustment"],["cost-adjustments","Cost Adjustment"],["spot-check","Inventory Spot Check"],["count-sheets","Count Sheet"]]},
-  {t:"Menu",i:"book",tabs:1,kids:[["@Menu Builder"],["categories","Categories"],["products","Products"],["modifiers","Modifiers"],["branch-menu","Channels"],["combos","Combos"],["groups","Groups"],["@Menu Settings"],["price-tags","Price Tags"],["allergens","Allergens"]]},
+  {t:"Menu",i:"book",tabs:1,kids:[["@Menu Builder"],["categories","Categories"],["products","Products"],["modifiers","Modifiers"],["branch-menu","Sales Channels"],["combos","Combos"],["groups","Groups"],["@Menu Settings"],["price-tags","Price Tags"],["allergens","Allergens"]]},
   {t:"Manage",i:"gear",kids:[["users","Users"],["roles","Roles"],["brands","Brands"],["branches","Branches"],["devices","Devices"],["tables","Tables"],["taxes","Taxes & Groups"],["payment-methods","Payment Methods"],["order-sources","Order Sources"],["charges","Charges"],["delivery-zones","Delivery Zones"],["online-ordering","Web Ordering"],["kitchen-flows","Kitchen Flows"],["reasons","Reasons"],["settings","Settings"]]},
   {t:"Marketing",i:"tag",kids:[["loyalty","Loyalty"],["gift-cards","Gift Cards"],["discounts","Discounts"],["promotions","Promotions"],["coupons","Coupons"]]}
 ];
@@ -1322,7 +1322,7 @@ const CRUD = {
   },
   categories: {
     col:"categories", title:"Categories", one:"Category",
-    note:"Set the order of categories and their items in Menu → Channels: that order is used by the POS, call center and web ordering.",
+    note:"Set the order of categories and their items in Menu → Sales Channels: that order is used by the POS, call center and web ordering.",
     tabs:[["all","All",live],["deleted","Deleted",r=>r.deleted]],
     sort:(a,b)=>a.name.localeCompare(b.name),
     search:r=>r.name+" "+(r.reference||""),
@@ -1930,7 +1930,7 @@ const CC_COLS = [["draft","Draft","Orders that are not yet sent to the branch"],
   ["closed","Closed","Orders that are completed, voided, joined or returned"]];
 const CC_SUB = { draft:"Draft", pending:"Sent to branch", active:"Sent To Kitchen", declined:"Declined", closed:"Done" };
 const SOURCES_DEF = ["Phone","Toters","NokNok","Talabat","WhatsApp","Website","Walk-in"];
-function sourceList(cur){ const l = S.order_sources.filter(r=>live(r)&&r.active!==false).sort(CRUD["order-sources"].sort).map(r=>r.name); const out = l.length ? l : SOURCES_DEF; return cur && !out.includes(cur) ? [cur, ...out] : out; }
+function sourceList(cur){ const l = S.order_sources.filter(r=>live(r)&&r.active!==false&&String(r.name||"").toUpperCase()!=="POS").sort(CRUD["order-sources"].sort).map(r=>r.name); const out = l.length ? l : SOURCES_DEF; return cur && !out.includes(cur) ? [cur, ...out] : out; }
 state.ccBranch = "all"; state.ccAgent = "all"; state.ccTab = "today";
 function viewCallCenter(){
   // users who can use the call center (their role allows it, or they manage everything); the owner too
@@ -2281,7 +2281,7 @@ function viewOnline(){
   </div>
   <div class="card"><h3 class="ct">Order types</h3><p class="note">Turn each type on for the whole page. Fine-tune per branch below.</p>
     ${modes.map(([k,t])=>`<label class="chk" style="margin:8px 0"><input type="checkbox" id="olm_${k}" ${(c.modes||{})[k]!==false?"checked":""}> ${t}</label>`).join("")}
-    <p class="note" style="margin-top:12px">Which products appear on the web at each branch is set in <a class="lnk" href="#branch-menu">Menu → Channels</a> (the Online column). Delivery fees and areas are set in <a class="lnk" href="#delivery-zones">Delivery Zones</a>.</p></div></div>
+    <p class="note" style="margin-top:12px">Which products appear on the web at each branch is set in <a class="lnk" href="#branch-menu">Menu → Sales Channels</a> (the Online column). Delivery fees and areas are set in <a class="lnk" href="#delivery-zones">Delivery Zones</a>.</p></div></div>
   <div style="height:16px"></div><div class="card tbl"><div class="ttop"><h3 class="ct">Locations</h3></div><table><thead><tr><th>Branch</th>${modes.map(m=>`<th>${m[1]}</th>`).join("")}<th class="num">Tables (for QR)</th><th>Table QR links</th><th>Delivery zones</th></tr></thead><tbody>${
     (branches.some(b=>b.active!==false && b.brandId===olBrand()) ? "" : `<tr><td colspan="7" class="note" style="padding:16px">This brand has no branches yet. Add them under Manage → Branches.</td></tr>`) + branches.filter(b=>b.active!==false && b.brandId===olBrand()).map(b=>{ const x = bc[b.id] || {}; const z = S.zones.filter(zz=>live(zz)&&zz.branchId===b.id&&zz.active!==false).length;
       return `<tr><td><b>${esc(b.name)}</b><br><span class="note">${b.open||b.close ? esc(t12(b.open)) + " – " + esc(t12(b.close)) : ""}</span></td>${modes.map(([k])=>`<td><label class="toggle"><input type="checkbox" data-olb="${esc(b.id)}:${k}" ${x[k]!==false?"checked":""}><span class="trk"></span></label></td>`).join("")}
@@ -2336,8 +2336,8 @@ function viewBranchMenu(){
   const list = branches.filter(b=>b.active!==false && brandFilter(b));
   if(!list.some(b=>b.id===BM.branch)) BM.branch = (state.branch!=="all" && list.some(b=>b.id===state.branch)) ? state.branch : list[0]?.id || "";
   const br = branches.find(b=>b.id===BM.branch), dirty = Object.keys(BM.draft).length;
-  let h = `<div class="phead"><h1>Channels</h1><div class="sp"></div>${scopeBar(false)}<span class="note" id="bmStat">${BM.stat || "Changes save automatically"}</span></div>
-    <p class="subt" style="margin-top:-6px">Each channel has its own menu per branch: <b>POS &amp; Call center</b> (one menu for both) and <b>Web ordering</b>. Switch categories on or off, switch each product on or off per order type (dine-in, pickup, delivery), and set the channel's own prices. Drag categories and items (⋮⋮) to set the order, which is the same in every channel.</p>`;
+  let h = `<div class="phead"><h1>Sales Channels</h1><div class="sp"></div>${scopeBar(false)}<span class="note" id="bmStat">${BM.stat || "Changes save automatically"}</span></div>
+    <p class="subt" style="margin-top:-6px">Each sales channel has its own menu per branch: <b>POS &amp; Call center</b> (one menu for both) and <b>Web ordering</b>. Switch categories on or off, switch each product on or off per order type (dine-in, pickup, delivery), and set the channel's own prices. Drag categories and items (⋮⋮) to set the order, which is the same in every channel.</p>`;
   if(!br) return h + `<div class="card empty">No branches yet. Add them under Manage → Branches.</div>`;
   const q = BM.q.trim().toLowerCase(), items = bmItems().filter(r => !q || r.name.toLowerCase().includes(q));
   const grp = r => BM.kind==="options" ? modName(r.modifierId) : catName(r.categoryId);
@@ -2560,7 +2560,8 @@ async function loadOrders(force){
 }
 const fromRowO = r => { const o = {}; for(const [k,v] of Object.entries(r)) o[k.replace(/_([a-z])/g,(_,c)=>c.toUpperCase())] = v; if(o.tableNo!=null) o.table = o.tableNo; return o; };
 function ordSoon(){ if(location.hash.slice(1)!=="orders") return; clearTimeout(ORD.t); ORD.t = setTimeout(() => { loadOrders(true); if(ORD.open) openOrderDetail(ORD.open, true); }, 1200); }
-const ordSources = () => [...new Set(["POS", ...S.order_sources.filter(r=>live(r)).sort(bySort).map(r=>r.name), "Website", "Table QR", ...ORD.rows.map(o=>o.source).filter(Boolean)])];
+const srcOf = o => o.source && o.source.toUpperCase()!=="POS" ? o.source : "";   // POS is a channel, not a source
+const ordSources = () => [...new Set([...S.order_sources.filter(r => String(r.name||"").toUpperCase()!=="POS").filter(r=>live(r)).sort(bySort).map(r=>r.name), "Website", "Table QR", ...ORD.rows.map(srcOf).filter(Boolean)])];
 const ordPays = () => [...new Set([...S.payment_methods.filter(r=>live(r)).sort(bySort).map(r=>r.name), "Cash", "Card", "Other"])];
 function viewOrders(){
   if(storeMode!=="db") return `<h1>Orders</h1>` + placeholder("Orders", "Sign in to see orders.");
@@ -2573,20 +2574,20 @@ function viewOrders(){
     <button type="button" class="sel drpbtn" id="ordRange" aria-haspopup="dialog">${svgIco("calendar")}<span>${esc(drpLabel(ORD.from, ORD.to))}</span></button>
     ${sel("ordBrand", ORD.brand, [["","All brands"], ...brandList().map(b=>[b.id,esc(b.name)])])}
     ${sel("ordBranch", ORD.branch, [["","All branches"], ...branches.filter(b=>!ORD.brand || b.brandId===ORD.brand).map(b=>[b.id,esc(b.name)])])}
-    ${sel("ordChannel", ORD.channel, [["","All channels"],["pos","POS"],["callcenter","Call center"],["online","Web ordering"]])}
+    ${sel("ordChannel", ORD.channel, [["","All sales channels"],["pos","POS"],["callcenter","Call center"],["online","Web ordering"]])}
     ${sel("ordSource", ORD.source, [["","All sources"], ...ordSources().map(x=>[esc(x),esc(x)])])}
-    ${sel("ordType", ORD.type, [["","All types"],["dinein","Dine-in"],["fast","Fast sale"],["pickup","Pickup"],["delivery","Delivery"]])}
+    ${sel("ordType", ORD.type, [["","All order types"],["dinein","Dine-in"],["fast","Fast sale"],["pickup","Pickup"],["delivery","Delivery"]])}
     ${sel("ordPay", ORD.pay, [["","All payments"], ...ordPays().map(x=>[esc(x),esc(x)])])}
     <input class="sel" id="ordQ" placeholder="Reference, order #, invoice #, customer, phone" value="${esc(ORD.q)}" style="min-width:210px">
   </div>
   <div class="card tbl otbl"><div class="ttop"><div class="ttabs">${ORD_TABS.map(([k,t])=>`<a href="#orders" data-otab="${k}" class="${ORD.tab===k?"on":""}">${t} <span class="note">${ORD.counts[k] ?? ""}</span></a>`).join("")}</div><span class="sp"></span><span class="note">${ORD.loading ? "Loading…" : ""}</span></div>
-  ${ORD.err ? `<p class="note" style="padding:16px">Couldn't load orders: ${esc(ORD.err)}</p>` : `<table><thead><tr><th>Reference</th><th>Order #</th><th>Invoice #</th><th>Brand</th><th>Branch</th><th>Customer</th><th>Status</th><th>Channel</th><th>Source</th><th>Type</th><th>Opened at</th><th class="num">Total</th></tr></thead><tbody>${
+  ${ORD.err ? `<p class="note" style="padding:16px">Couldn't load orders: ${esc(ORD.err)}</p>` : `<table><thead><tr><th>Reference</th><th>Order #</th><th>Invoice #</th><th>Brand</th><th>Branch</th><th>Customer</th><th>Status</th><th>Sales channel</th><th>Source</th><th>Order type</th><th>Table</th><th>Opened at</th><th class="num">Total</th></tr></thead><tbody>${
     ORD.rows.length ? ORD.rows.map(o => `<tr class="clk" data-oid="${esc(o.id)}"><td><b>${esc(o.ref || "—")}</b></td><td>${o.no ? `#${esc(o.no)}` : '<span class="note" title="Gets its number when a POS bills it">—</span>'}</td><td>${o.invoiceNo ? esc(invNo(o.invoiceNo)) : '<span class="note" title="Gets its invoice number when a POS accepts it">—</span>'}</td>
       <td>${esc(brandName(o.brandId) || "—")}</td><td>${esc(branches.find(x=>x.id===o.branchId)?.name || "—")}</td>
       <td>${esc(o.customerName || "—")}${o.phone?`<div class="note">${esc(o.phone)}</div>`:""}</td><td><span class="spill s-${o.status}">${ORD_ST[o.status]||o.status}</span></td>
-      <td><span class="tag cc">${esc(CH_LBL[o.channel] || cap(o.channel))}</span></td><td>${esc(o.source || "—")}</td><td>${esc(ordTypeLbl(o.type))}${o.table?` · T${esc(o.table)}`:""}</td>
+      <td><span class="tag cc">${esc(CH_LBL[o.channel] || cap(o.channel))}</span></td><td>${esc(srcOf(o) || "-")}</td><td>${esc(ordTypeLbl(o.type))}</td><td>${o.table ? esc(/^\d+$/.test(String(o.table).trim()) ? "Table " + String(o.table).trim() : o.table) : "-"}</td>
       <td>${dt(o.createdAt)}</td><td class="num">${money(+o.total||0)}</td></tr>`).join("")
-    : `<tr><td colspan="11" class="note" style="padding:24px;text-align:center">${ORD.loading ? "Loading orders…" : "No orders match these filters."}</td></tr>`
+    : `<tr><td colspan="14" class="note" style="padding:24px;text-align:center">${ORD.loading ? "Loading orders…" : "No orders match these filters."}</td></tr>`
   }</tbody></table>`}
   <div class="pager"><span class="note">${a}–${b} of ${ORD.count.toLocaleString()}</span><span class="sp"></span><button class="btn" id="ordPrev" ${ORD.page<=1?"disabled":""}>‹ Previous</button><span class="note">Page ${ORD.page} of ${pages}</span><button class="btn" id="ordNext" ${ORD.page>=pages?"disabled":""}>Next ›</button></div></div>`;
 }
@@ -2599,15 +2600,15 @@ async function openOrderDetail(id, quiet){
   const admin = ["owner","admin"].includes(state.role);
   const items = Array.isArray(o.items) ? o.items : [];
   const box = $("#ccBox"); box.className = "modal wide";
-  box.innerHTML = `<header><h2>Order ${esc(ordRef(o))} <span class="spill s-${o.status}">${ORD_ST[o.status]||o.status}</span></h2><button type="button" class="x" data-ccclose aria-label="Close">×</button></header>
+  box.innerHTML = `<header><h2>${o.status==="refund" ? esc(ordRef(o)) : esc(o.ref || ordRef(o))} <span class="spill s-${o.status}">${ORD_ST[o.status]||o.status}</span></h2><button type="button" class="x" data-ccclose aria-label="Close">×</button></header>
   <div style="padding:18px 22px;max-height:72vh;overflow:auto">
     <div class="odet">
-      <div><span>Reference</span>${esc(o.ref || "—")}</div>
+      <div><span>Order no.</span>${o.status==="refund" ? "–" : o.no ? "#" + esc(o.no) : "—"}</div>
       <div><span>Invoice</span>${o.invoiceNo ? esc(invNo(o.invoiceNo)) : (o.channel!=="pos" && ["pending","draft"].includes(o.status) ? '<span class="note">From the POS when accepted</span>' : "—")}</div>
       <div><span>Brand</span>${esc(brandName(o.brandId) || "—")}</div>
       <div><span>Branch</span>${esc(branches.find(x=>x.id===o.branchId)?.name || "—")}</div>
-      <div><span>Channel</span>${esc(CH_LBL[o.channel] || cap(o.channel))}${o.source && o.source!=="POS"?` · ${esc(o.source)}`:""}</div>
-      <div><span>Type</span>${esc(ordTypeLbl(o.type))}${o.table?` · Table ${esc(o.table)}`:""}</div>
+      <div><span>Sales channel</span>${esc(CH_LBL[o.channel] || cap(o.channel))}${o.source && o.source!=="POS"?` · ${esc(o.source)}`:""}</div>
+      <div><span>Order type</span>${esc(ordTypeLbl(o.type))}${o.table?` · Table ${esc(o.table)}`:""}</div>
       <div><span>Placed</span>${dt(o.createdAt)}</div>
       ${o.acceptedAt?`<div><span>Accepted</span>${dt(o.acceptedAt)} <span class="note">(${mins(o.createdAt,o.acceptedAt)})</span></div>`:""}
       ${o.doneAt?`<div><span>${o.status==="declined"?"Declined":"Done"}</span>${dt(o.doneAt)} <span class="note">(${mins(o.createdAt,o.doneAt)} total)</span></div>`:""}
@@ -2664,7 +2665,7 @@ async function exportOrders(){
   const { data, error } = await ordQuery("ref,no,invoice_no,brand_id,created_at,branch_id,channel,source,type,table_no,status,customer_name,phone,address,subtotal,discount,delivery_fee,total,payment,agent,items", {}, true).order("created_at", { ascending:false }).range(0, 4999);
   if(error) return toast("Export failed: " + error.message);
   const q = v => { v = v==null ? "" : String(v); return /[",\n]/.test(v) ? `"${v.replace(/"/g,'""')}"` : v; };
-  const head = ["Reference","Order","Invoice","Brand","Date","Branch","Channel","Source","Type","Table","Status","Customer","Phone","Address","Items","Subtotal","Discount","Delivery fee","Total","Payment","User/Device"];
+  const head = ["Reference","Order","Invoice","Brand","Date","Branch","Sales channel","Source","Order type","Table","Status","Customer","Phone","Address","Items","Subtotal","Discount","Delivery fee","Total","Payment","User/Device"];
   const rows = data.map(r => [r.ref, r.no, r.invoice_no, brandName(r.brand_id), new Date(r.created_at).toLocaleString("en-GB"), branches.find(x=>x.id===r.branch_id)?.name||"", CH_LBL[r.channel]||r.channel, r.source, ordTypeLbl(r.type), r.table_no, ORD_ST[r.status]||r.status, r.customer_name, r.phone, r.address,
     (Array.isArray(r.items)?r.items:[]).map(i=>`${+i.qty||1}x ${i.name}${i.mods?" ("+i.mods+")":""}`).join("; "), r.subtotal, r.discount, r.delivery_fee, r.total, r.payment?.method, r.agent]);
   const blob = new Blob([[head, ...rows].map(l=>l.map(q).join(",")).join("\n")], { type:"text/csv" });
@@ -2793,7 +2794,7 @@ async function openCustomer(id){
     <details style="margin:6px 0 4px"><summary class="lnk" style="cursor:pointer;font-size:13px">+ Add address</summary>
       <div class="body" style="padding:8px 0 0">${[["label","Label","Home, Work…"],["street","Area / street",""],["building","Building",""],["floor","Floor",""],["extra","Directions / info",""]].map(([k,l,ph])=>`<div class="f"><label for="cuA_${k}">${l}</label><input id="cuA_${k}" placeholder="${ph}"></div>`).join("")}
       <div class="f" style="align-self:end"><button type="button" class="btn" id="cuAddAddr">Add</button></div></div></details>
-    ${id ? `<h3 style="font-size:14px;margin:14px 0 6px">Order history</h3><div class="card tbl otbl"><table><thead><tr><th>Order</th><th>Date</th><th>Branch</th><th>Channel</th><th>Status</th><th class="num">Total</th></tr></thead><tbody>${
+    ${id ? `<h3 style="font-size:14px;margin:14px 0 6px">Order history</h3><div class="card tbl otbl"><table><thead><tr><th>Order</th><th>Date</th><th>Branch</th><th>Sales channel</th><th>Status</th><th class="num">Total</th></tr></thead><tbody>${
       orders.length ? orders.map(o=>`<tr class="clk" data-coid="${esc(o.id)}"><td><b>${esc(ordRef(o))}</b></td><td>${dt(o.created_at)}</td><td>${esc(branchName(o.branch_id) || "—")}</td><td>${esc(CH_LBL[o.channel]||cap(o.channel))}</td><td><span class="spill s-${o.status}">${ORD_ST[o.status]||o.status}</span></td><td class="num">${money(+o.total||0)}</td></tr>`).join("")
       : `<tr><td colspan="6" class="note">No orders yet.</td></tr>`}</tbody></table></div>` : ""}
     <div class="err" id="cuErr"></div>
