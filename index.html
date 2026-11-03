@@ -2545,7 +2545,7 @@ async function loadOrders(force){
   const key = JSON.stringify([ORD.tab, ORD.q, ORD.from, ORD.to, ORD.channel, ORD.type, ORD.pay, ORD.source, ORD.brand, ORD.branch, ORD.page, state.branch, state.brand]);
   if(!force && key===ORD.key && (ORD.loading || ORD.rows.length || ORD.err || ORD.count===0 && ORD.loaded===key)) return;
   ORD.key = key; ORD.loading = true; ORD.err = "";
-  const cols = "id,ref,no,invoice_no,channel,source,type,status,branch_id,brand_id,customer_name,phone,table_no,total,payment,agent,handled_by,created_at";
+  const cols = "id,ref,no,invoice_no,return_no,refund_of,channel,source,type,status,branch_id,brand_id,customer_name,phone,table_no,total,payment,agent,handled_by,created_at";
   try{
     const list = ordQuery(cols, { count:"exact" }, true).order("created_at", { ascending:false }).range((ORD.page-1)*ORD.per, ORD.page*ORD.per-1);
     const counts = ORD_TABS.filter(t=>t[0]!=="all").map(([st]) => ordQuery("id", { count:"exact", head:true }, false).eq("status", st));
@@ -2582,7 +2582,7 @@ function viewOrders(){
   </div>
   <div class="card tbl otbl"><div class="ttop"><div class="ttabs">${ORD_TABS.map(([k,t])=>`<a href="#orders" data-otab="${k}" class="${ORD.tab===k?"on":""}">${t} <span class="note">${ORD.counts[k] ?? ""}</span></a>`).join("")}</div><span class="sp"></span><span class="note">${ORD.loading ? "Loading…" : ""}</span></div>
   ${ORD.err ? `<p class="note" style="padding:16px">Couldn't load orders: ${esc(ORD.err)}</p>` : `<table><thead><tr><th>Reference</th><th>Order #</th><th>Invoice #</th><th>Brand</th><th>Branch</th><th>Customer</th><th>Status</th><th>Sales channel</th><th>Source</th><th>Order type</th><th>Table</th><th>Opened at</th><th class="num">Total</th></tr></thead><tbody>${
-    ORD.rows.length ? ORD.rows.map(o => `<tr class="clk" data-oid="${esc(o.id)}"><td><b>${esc(o.ref || "—")}</b></td><td>${o.no ? `#${esc(o.no)}` : '<span class="note" title="Gets its number when a POS bills it">—</span>'}</td><td>${o.invoiceNo ? esc(invNo(o.invoiceNo)) : '<span class="note" title="Gets its invoice number when a POS accepts it">—</span>'}</td>
+    ORD.rows.length ? ORD.rows.map(o => `<tr class="clk" data-oid="${esc(o.id)}"><td><b>${esc(o.ref || "—")}</b></td><td>${o.no ? `#${esc(o.no)}` : '<span class="note" title="Gets its number when a POS bills it">—</span>'}</td><td>${o.status==="refund" ? esc(ordRef(o)) : o.invoiceNo ? esc(invNo(o.invoiceNo)) : '<span class="note" title="Gets its invoice number when a POS accepts it">—</span>'}</td>
       <td>${esc(brandName(o.brandId) || "—")}</td><td>${esc(branches.find(x=>x.id===o.branchId)?.name || "—")}</td>
       <td>${esc(o.customerName || "—")}${o.phone?`<div class="note">${esc(o.phone)}</div>`:""}</td><td><span class="spill s-${o.status}">${ORD_ST[o.status]||o.status}</span></td>
       <td><span class="tag cc">${esc(CH_LBL[o.channel] || cap(o.channel))}</span></td><td>${esc(srcOf(o) || "-")}</td><td>${esc(ordTypeLbl(o.type))}</td><td>${o.table ? esc(/^\d+$/.test(String(o.table).trim()) ? "Table " + String(o.table).trim() : o.table) : "-"}</td>
@@ -2604,7 +2604,7 @@ async function openOrderDetail(id, quiet){
   <div style="padding:18px 22px;max-height:72vh;overflow:auto">
     <div class="odet">
       <div><span>Order no.</span>${o.status==="refund" ? "–" : o.no ? "#" + esc(o.no) : "—"}</div>
-      <div><span>Invoice</span>${o.invoiceNo ? esc(invNo(o.invoiceNo)) : (o.channel!=="pos" && ["pending","draft"].includes(o.status) ? '<span class="note">From the POS when accepted</span>' : "—")}</div>
+      <div><span>Invoice</span>${o.status==="refund" ? esc(ordRef(o)) : o.invoiceNo ? esc(invNo(o.invoiceNo)) : (o.channel!=="pos" && ["pending","draft"].includes(o.status) ? '<span class="note">From the POS when accepted</span>' : "—")}</div>
       <div><span>Brand</span>${esc(brandName(o.brandId) || "—")}</div>
       <div><span>Branch</span>${esc(branches.find(x=>x.id===o.branchId)?.name || "—")}</div>
       <div><span>Sales channel</span>${esc(CH_LBL[o.channel] || cap(o.channel))}${o.source && o.source!=="POS"?` · ${esc(o.source)}`:""}</div>
@@ -2662,11 +2662,11 @@ function printOrder(){
 }
 async function exportOrders(){
   toast("Preparing export…");
-  const { data, error } = await ordQuery("ref,no,invoice_no,brand_id,created_at,branch_id,channel,source,type,table_no,status,customer_name,phone,address,subtotal,discount,delivery_fee,total,payment,agent,items", {}, true).order("created_at", { ascending:false }).range(0, 4999);
+  const { data, error } = await ordQuery("ref,no,invoice_no,return_no,brand_id,created_at,branch_id,channel,source,type,table_no,status,customer_name,phone,address,subtotal,discount,delivery_fee,total,payment,agent,items", {}, true).order("created_at", { ascending:false }).range(0, 4999);
   if(error) return toast("Export failed: " + error.message);
   const q = v => { v = v==null ? "" : String(v); return /[",\n]/.test(v) ? `"${v.replace(/"/g,'""')}"` : v; };
   const head = ["Reference","Order","Invoice","Brand","Date","Branch","Sales channel","Source","Order type","Table","Status","Customer","Phone","Address","Items","Subtotal","Discount","Delivery fee","Total","Payment","User/Device"];
-  const rows = data.map(r => [r.ref, r.no, r.invoice_no, brandName(r.brand_id), new Date(r.created_at).toLocaleString("en-GB"), branches.find(x=>x.id===r.branch_id)?.name||"", CH_LBL[r.channel]||r.channel, r.source, ordTypeLbl(r.type), r.table_no, ORD_ST[r.status]||r.status, r.customer_name, r.phone, r.address,
+  const rows = data.map(r => [r.ref, r.status==="refund" ? "" : r.no, r.status==="refund" ? ordRef(r) : r.invoice_no ? invNo(r.invoice_no) : "", brandName(r.brand_id), new Date(r.created_at).toLocaleString("en-GB"), branches.find(x=>x.id===r.branch_id)?.name||"", CH_LBL[r.channel]||r.channel, r.source && r.source.toUpperCase()!=="POS" ? r.source : "", ordTypeLbl(r.type), r.table_no, ORD_ST[r.status]||r.status, r.customer_name, r.phone, r.address,
     (Array.isArray(r.items)?r.items:[]).map(i=>`${+i.qty||1}x ${i.name}${i.mods?" ("+i.mods+")":""}`).join("; "), r.subtotal, r.discount, r.delivery_fee, r.total, r.payment?.method, r.agent]);
   const blob = new Blob([[head, ...rows].map(l=>l.map(q).join(",")).join("\n")], { type:"text/csv" });
   const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `slick-orders-${ORD.from}-to-${ORD.to}.csv`; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href), 2000);
