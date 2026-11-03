@@ -1545,7 +1545,7 @@ function custPanel(c, ok, det, key){
     <div class="cins-g"><div><span>Orders</span><b>${ok.length}</b></div><div><span>Total spent</span><b>${usd(spent)}</b></div><div><span>Avg. order</span><b>${usd(ok.length ? spent/ok.length : 0)}</b></div><div><span>Last order</span><b>${ok[0] ? d(ok[0].at) : "—"}</b></div></div>
     ${ok.length ? `<div class="cmix">${nType("delivery")} delivery · ${nType("takeaway")} pickup${nType("dinein")+nType("fast") ? ` · ${nType("dinein")+nType("fast")} in store` : ""}</div>` : ""}
 </div>
-    <div class="cpast"><b>Previous orders</b>${ok.length ? ok.slice(0,20).map(o => `<button type="button" class="cpo" data-${key}="${esc(o.id)}"><span>${o.inv ? esc(invNo(o.inv)) : "#" + esc(o.no || "—")} · ${d(o.at)} · ${tl[o.type] || esc(o.type||"")}${o.source && o.source.toUpperCase()!=="POS" ? " · " + esc(o.source) : ""}</span><b>${usd(o.total)}</b><i>›</i></button>`).join("") : '<div class="mut">No orders yet</div>'}</div></div>`;
+    <div class="cpast"><b>Previous orders</b>${ok.length ? ok.slice(0,20).map(o => `<button type="button" class="cpo" data-${key}="${esc(o.id)}"><span>${o.inv ? esc(invNo(o.inv)) : "#" + esc(o.no || "—")} · ${d(o.at)} · ${tl[o.type] || esc(o.type||"")}</span><b>${usd(o.total)}</b><i>›</i></button>`).join("") : '<div class="mut">No orders yet</div>'}</div></div>`;
 }
 const pdSide = () => custPanel(PD.cust, PD.past, PD.det, "pddet");
 // Customer details page for the pickup/delivery order in the cart
@@ -1566,7 +1566,6 @@ function drawCust(){
       <div class="custcol"><div class="cins"><div class="cins-h"><b style="font-size:18px">${esc(c.name || cust.name || "Customer")}</b>${CV.c ? "" : `<span class="mut">${CV.loading ? "Loading…" : "Not saved as a customer yet"}</span>`}</div>
         <div class="kv"><span>Phone</span><b>${esc(cust.phone || "—")}</b></div>
         <div class="kv"><span>This order</span><b>${otype==="delivery" ? "Delivery" : "Pickup"}</b></div>
-        <div class="kv"><span>Order source</span><b>${esc(cust.source || "-")}</b></div>
         ${CV.addr ? `<div class="kv"><span>Delivering to</span><b>📍 ${esc(CV.addr)}</b></div>` : ""}</div>
         ${saved.length ? `<div class="cpast"><b>Saved addresses · ${saved.length}</b>${saved.map((a,i) => { const p = addrParts(a.address); return `<div class="acard" style="cursor:default"><b>${esc(p.label || "Address " + (i+1))}</b><span>${esc([p.street, p.building && "Bldg " + p.building, p.floor && "Floor " + p.floor, p.extra].filter(Boolean).join(" · ") || a.address)}</span></div>`; }).join("")}</div>` : ""}</div>
       <div class="custcol">${CV.loading ? '<div class="mut">Loading orders…</div>' : custPanel(c, CV.past, CV.det, "cvdet")}</div>
