@@ -607,7 +607,9 @@ $("#lockBtn").addEventListener("click", () => lock());
 let idleT; ["pointerdown","keydown"].forEach(ev => document.addEventListener(ev, () => { clearTimeout(idleT); const mins = devSet().lockMinutes ?? 10; if(+mins > 0) idleT = setTimeout(() => { if(usePins() && cashier) lock(); }, mins*60*1000); }));
 const deny = what => { toast(`${cashier ? cashier.name + ", your" : "Your"} role doesn't allow ${what}.`); return true; };
 /* ---------- order numbers: each tablet counts 1, 2, 3… and starts again every business day ---------- */
-const dayCut = () => { const m = /^(\d{1,2}):(\d{2})/.exec((S.settings.find(x=>x.id==="company")||{}).dayEnd || ""); return m ? Math.min(719, (+m[1])*60 + (+m[2])) : 0; };
+// the business day starts at this branch's own time (Manage → Branches); the old company-wide setting is the fallback
+const dayCut = () => { const b = (typeof branch!=="undefined" && branch) || null, v = b?.settings?.dayStart || (S.settings.find(x=>x.id==="company")||{}).dayEnd || "";
+  const m = /^(\d{1,2}):(\d{2})/.exec(v); return m ? Math.min(719, (+m[1])*60 + (+m[2])) : 0; };
 const bizDate = (t = new Date()) => { const d = new Date(+new Date(t) - dayCut()*60000); return new Date(d - d.getTimezoneOffset()*60000).toISOString().slice(0,10); };
 // call number: one sequence per branch (all registers), starting again at 1 after each end of day; the server fixes any clash
 function nextOrderNo(){

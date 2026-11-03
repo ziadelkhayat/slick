@@ -511,8 +511,12 @@ tr[draggable="true"].dragging{opacity:.45}tr.dropto td{box-shadow:inset 0 2px 0 
       <div class="f full"><label for="fAddr">Address</label><input id="fAddr" maxlength="160"></div>
       <div class="f"><label for="fCity">Area / city</label><input id="fCity" maxlength="60" placeholder="e.g. Beirut"></div>
       <div class="f"><label>Location (latitude, longitude)</label><div style="display:grid;grid-template-columns:1fr 1fr;gap:6px"><input id="fLat" inputmode="decimal" placeholder="33.89" ><input id="fLng" inputmode="decimal" placeholder="35.50"></div><a class="lnk note" id="fMapLnk" target="_blank" rel="noopener" href="https://www.google.com/maps">Find it on Google Maps</a></div>
+      <h4 class="fsec">Business day</h4>
+      <div class="f"><label for="fDayStart">New business day starts at</label><input id="fDayStart" type="time" class="sel" value="00:00"></div>
+      <div class="f"><label>Example</label><div class="note" style="padding-top:8px" id="fDayEx"></div></div>
+      <div class="f full"><div class="note">Sales before this time count on the previous business day. Set it after your closing time, e.g. 03:00 if you close at 2 AM. Must be between 12:00 AM and 11:59 AM.</div></div>
       <h4 class="fsec">Opening hours</h4>
-      <div class="f full"><div class="hours" id="fHours"></div><div class="note">Times after midnight (e.g. closes 02:00) count for the day that opened. Reports use the business day set under Company.</div></div>
+      <div class="f full"><div class="hours" id="fHours"></div><div class="note">Times after midnight (e.g. closes 02:00) count for the day that opened.</div></div>
       <h4 class="fsec">Order types at this branch</h4>
       <div class="f full"><div class="multi" id="fTypes"><label class="chk"><input type="checkbox" value="dinein"> Dine-in</label><label class="chk"><input type="checkbox" value="takeaway"> Pickup</label><label class="chk"><input type="checkbox" value="delivery"> Delivery</label></div></div>
       <h4 class="fsec">Receipt</h4>
@@ -766,10 +770,16 @@ async function deleteBranch(id){
 /* ---------- live dashboard data (summed in Supabase by slick_dashboard) ---------- */
 /* business day: runs from the day's start to its end time (Company → Business day); orders after midnight but before
    the end time still belong to the day that started */
-const dayCut = () => { const m = /^(\d{1,2}):(\d{2})/.exec((S.settings.find(x=>x.id==="company")||{}).dayEnd || ""); return m ? Math.min(719, (+m[1])*60 + (+m[2])) : 0; };
+// each branch starts its business day at its own time (Manage → Branches); the old company-wide setting is the fallback
+const cutOf = v => { const m = /^(\d{1,2}):(\d{2})/.exec(v || ""); return m ? Math.min(719, (+m[1])*60 + (+m[2])) : 0; };
+const branchCut = id => { const b = id && branches.find(x => x.id===id); return cutOf(b?.settings?.dayStart || (S.settings.find(x=>x.id==="company")||{}).dayEnd); };
+const dayCut = (bid) => { if(bid) return branchCut(bid);
+  if(typeof state!=="undefined" && state.branch && state.branch!=="all") return branchCut(state.branch);
+  const l = (typeof activeBranches==="function" ? activeBranches() : branches).map(b => branchCut(b.id)), c = {}; l.forEach(x => c[x] = (c[x]||0) + 1);
+  const top = Object.entries(c).sort((a,b) => b[1]-a[1])[0]; return top ? +top[0] : branchCut(null); };
 const dayStartH = () => Math.floor(dayCut()/60);
-const bizDate = (t = new Date()) => { const d = new Date(+new Date(t) - dayCut()*60000); return new Date(d - d.getTimezoneOffset()*60000).toISOString().slice(0,10); };
-const dayBounds = (from, to) => { const c = dayCut(), t0 = new Date(from+"T00:00:00"), t1 = new Date((to||from)+"T00:00:00"); t1.setDate(t1.getDate()+1); t0.setMinutes(c); t1.setMinutes(c); return [t0, t1]; };
+const bizDate = (t = new Date(), bid) => { const d = new Date(+new Date(t) - dayCut(bid)*60000); return new Date(d - d.getTimezoneOffset()*60000).toISOString().slice(0,10); };
+const dayBounds = (from, to, bid) => { const c = dayCut(bid), t0 = new Date(from+"T00:00:00"), t1 = new Date((to||from)+"T00:00:00"); t1.setDate(t1.getDate()+1); t0.setMinutes(c); t1.setMinutes(c); return [t0, t1]; };
 const todayStr = () => bizDate();
 window.SlickDay = { dayCut, dayStartH, bizDate, dayBounds };
 const setTopH = () => { const tb = document.querySelector(".top"); if(tb) document.documentElement.style.setProperty("--toph", tb.offsetHeight + "px"); };
@@ -1131,6 +1141,7 @@ function openForm(id){
   const st = b?.settings || {};
   $("#fNameAr").value = b?.nameAr || ""; $("#fTaxNo").value = b?.taxNumber || ""; $("#fLat").value = b?.lat ?? ""; $("#fLng").value = b?.lng ?? "";
   $("#fRHead").value = st.receiptHeader || ""; $("#fRFoot").value = st.receiptFooter || ""; paintMapLink();
+  $("#fDayStart").value = st.dayStart || company().dayEnd || "00:00"; $("#fDayEx").textContent = dayExample($("#fDayStart").value);
   const types = st.orderTypes || ["dinein","takeaway","delivery"]; document.querySelectorAll("#fTypes input").forEach(i => i.checked = types.includes(i.value));
   const H = st.hours || {}, o0 = b?.open || "11:00", c0 = b?.close || "23:30";
   $("#fHours").innerHTML = DAYS.map(([k,t]) => { const d = H[k] || { open:o0, close:c0, closed:false };
@@ -1143,6 +1154,7 @@ function openForm(id){
 const DAYS = [["mon","Monday"],["tue","Tuesday"],["wed","Wednesday"],["thu","Thursday"],["fri","Friday"],["sat","Saturday"],["sun","Sunday"]];
 function paintMapLink(){ const la = $("#fLat").value.trim(), ln = $("#fLng").value.trim(); $("#fMapLnk").href = la && ln ? `https://www.google.com/maps?q=${encodeURIComponent(la)},${encodeURIComponent(ln)}` : "https://www.google.com/maps"; $("#fMapLnk").textContent = la && ln ? "Open this location on Google Maps" : "Find it on Google Maps (right-click a spot to copy its coordinates)"; }
 $("#branchForm").addEventListener("input", e => { if(e.target.id==="fLat" || e.target.id==="fLng"){ const m = /^\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*$/.exec(e.target.value); if(m){ $("#fLat").value = m[1]; $("#fLng").value = m[2]; } paintMapLink(); } });
+$("#branchForm").addEventListener("input", e => { if(e.target.id==="fDayStart") $("#fDayEx").textContent = dayExample(e.target.value || "00:00"); });
 $("#branchForm").addEventListener("change", e => { if(e.target.dataset.h==="closed"){ e.target.closest(".hrow").querySelectorAll("input[type=time]").forEach(i => i.disabled = e.target.checked); } });
 $("#branchForm").addEventListener("click", e => { if(e.target.id==="fHoursAll"){ const rows = [...document.querySelectorAll("#fHours .hrow")], m = rows[0];
   rows.slice(1).forEach(r => { ["open","close"].forEach(k => { r.querySelector(`[data-h="${k}"]`).value = m.querySelector(`[data-h="${k}"]`).value; }); const c = m.querySelector('[data-h="closed"]').checked; r.querySelector('[data-h="closed"]').checked = c; r.querySelectorAll("input[type=time]").forEach(i => i.disabled = c); }); } });
@@ -1166,9 +1178,11 @@ $("#branchForm").addEventListener("submit", async e => {
   const lat = $("#fLat").value.trim(), lng = $("#fLng").value.trim();
   if((lat && isNaN(+lat)) || (lng && isNaN(+lng))){ $("#fErr").textContent = "Location must be numbers, e.g. 33.89 and 35.50."; return; }
   const mon = hours.mon || {};
+  const dayStart = $("#fDayStart").value || "00:00";
+  if(+dayStart.split(":")[0] >= 12){ $("#fErr").textContent = "The business day must start between 12:00 AM and 11:59 AM."; $("#fDayStart").focus(); return; }
   const data = { name, code, brandId, address:$("#fAddr").value.trim(), city:$("#fCity").value.trim(), phone:$("#fPhone").value.trim(),
     nameAr:$("#fNameAr").value.trim(), taxNumber:$("#fTaxNo").value.trim(), lat: lat ? +lat : null, lng: lng ? +lng : null,
-    settings:{ ...(branches.find(x=>x.id===editing)?.settings || {}), hours, orderTypes, receiptHeader:$("#fRHead").value.trim(), receiptFooter:$("#fRFoot").value.trim() },
+    settings:{ ...(branches.find(x=>x.id===editing)?.settings || {}), hours, orderTypes, receiptHeader:$("#fRHead").value.trim(), receiptFooter:$("#fRFoot").value.trim(), dayStart },
     open: mon.closed ? $("#fOpen").value : (mon.open || $("#fOpen").value), close: mon.closed ? $("#fClose").value : (mon.close || $("#fClose").value), zones:$("#fZones").value.trim(),
     active:$("#fActive").checked, callCenter:$("#fCC").checked, production:$("#fProd").checked, updatedAt:new Date().toISOString() };
   $("#saveBtn").disabled = true;
@@ -1978,7 +1992,7 @@ function viewCallCenter(){
   if(state.fullName && !ccUsers.includes(state.fullName)) ccUsers.unshift(state.fullName);
   const agents = [...new Set(ccUsers)].sort((a,b)=>a.localeCompare(b));
   const byUser = (o, n) => o.agent===n || o.agent===String(n).split(/\s+/)[0];
-  const list = S.orders.filter(o => o.channel!=="pos" && brandFilter(o) && (bizDate(o.createdAt)===todayStr() || ["draft","pending","active"].includes(o.status)))
+  const list = S.orders.filter(o => o.channel!=="pos" && brandFilter(o) && (bizDate(o.createdAt, o.branchId)===bizDate(new Date(), o.branchId) || ["draft","pending","active"].includes(o.status)))
     .filter(o => state.ccBranch==="all" || o.branchId===state.ccBranch).filter(o => state.ccAgent==="all" || byUser(o, state.ccAgent))
     .sort((a,b)=> b.createdAt.localeCompare(a.createdAt));
   let h = `<div class="phead"><h1>Call Center</h1><span class="note">Today's orders · open orders stay until closed</span><div class="sp"></div>
@@ -2567,7 +2581,7 @@ const daysAgo = n => { const d = new Date(bizDate()+"T12:00:00"); d.setDate(d.ge
 const ORD = { tab:"all", q:"", from:"", to:"", channel:"", type:"", pay:"", source:"", brand:"", branch:"", fopen:false, page:1, per:50, rows:[], count:0, counts:{}, loading:false, err:"", key:"", t:null, open:null };
 const ordTypeLbl = t => TYPE_LBL[t] || cap(t||"—");
 function ordQuery(sel, opts, withStatus){
-  const sb = WOK.sb, [t0, t1] = dayBounds(ORD.from, ORD.to);
+  const sb = WOK.sb, [t0, t1] = dayBounds(ORD.from, ORD.to, ORD.branch || "");
   let q = sb.from("orders").select(sel, opts).gte("created_at", t0.toISOString()).lt("created_at", t1.toISOString());
   const act = activeBranches();
   if(ORD.branch) q = q.eq("branch_id", ORD.branch);
@@ -2638,7 +2652,7 @@ function viewOrders(){
       <td>${esc(brandName(o.brandId) || "—")}</td><td>${esc(branches.find(x=>x.id===o.branchId)?.name || "—")}</td>
       <td>${esc(o.customerName || "—")}${o.phone?`<div class="note">${esc(o.phone)}</div>`:""}</td><td><span class="spill s-${o.status}">${ORD_ST[o.status]||o.status}</span></td>
       <td><span class="tag cc">${esc(CH_LBL[o.channel] || cap(o.channel))}</span></td><td>${esc(ordTypeLbl(o.type))}${o.type==="dinein" && o.table ? `<div class="note">${esc(/^\d+$/.test(String(o.table).trim()) ? "Table " + String(o.table).trim() : o.table)}</div>` : ""}</td><td>${esc(srcOf(o) || "-")}</td>
-      <td>${o.createdAt ? new Date(bizDate(o.createdAt) + "T12:00:00").toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"}) : "—"}</td><td>${esc(o.payment?.method || "-")}</td><td class="num">${money(+o.total||0)}</td></tr>`).join("")
+      <td>${o.createdAt ? new Date(bizDate(o.createdAt, o.branchId) + "T12:00:00").toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"}) : "—"}</td><td>${esc(o.payment?.method || "-")}</td><td class="num">${money(+o.total||0)}</td></tr>`).join("")
     : `<tr><td colspan="13" class="note" style="padding:24px;text-align:center">${ORD.loading ? "Loading orders…" : "No orders match these filters."}</td></tr>`
   }</tbody></table>`}
   <div class="pager"><span class="note">${a}–${b} of ${ORD.count.toLocaleString()}</span><span class="sp"></span><button class="btn" id="ordPrev" ${ORD.page<=1?"disabled":""}>‹ Previous</button><span class="note">Page ${ORD.page} of ${pages}</span><button class="btn" id="ordNext" ${ORD.page>=pages?"disabled":""}>Next ›</button></div></div>`;
@@ -2661,7 +2675,7 @@ async function openOrderDetail(id, quiet){
       <div><span>Branch</span>${esc(branches.find(x=>x.id===o.branchId)?.name || "—")}</div>
       <div><span>Sales channel</span>${esc(CH_LBL[o.channel] || cap(o.channel))}${o.source && o.source!=="POS"?` · ${esc(o.source)}`:""}</div>
       <div><span>Order type</span>${esc(ordTypeLbl(o.type))}${o.table?` · Table ${esc(o.table)}`:""}</div>
-      <div><span>Business date</span>${o.createdAt ? new Date(bizDate(o.createdAt) + "T12:00:00").toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"}) + ` <span class="note">${new Date(o.createdAt).toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"})}</span>` : "—"}</div>
+      <div><span>Business date</span>${o.createdAt ? new Date(bizDate(o.createdAt, o.branchId) + "T12:00:00").toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"}) + ` <span class="note">${new Date(o.createdAt).toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"})}</span>` : "—"}</div>
       ${o.acceptedAt?`<div><span>Accepted</span>${dt(o.acceptedAt)} <span class="note">(${mins(o.createdAt,o.acceptedAt)})</span></div>`:""}
       ${o.doneAt?`<div><span>${o.status==="declined"?"Declined":"Done"}</span>${dt(o.doneAt)} <span class="note">(${mins(o.createdAt,o.doneAt)} total)</span></div>`:""}
       ${o.agent?`<div><span>${o.channel==="pos"?"Device":"User"}</span>${esc(o.agent)}</div>`:""}
@@ -2851,7 +2865,7 @@ async function openCustomer(id){
       <div class="body" style="padding:8px 0 0">${[["label","Label","Home, Work…"],["street","Area / street",""],["building","Building",""],["floor","Floor",""],["extra","Directions / info",""]].map(([k,l,ph])=>`<div class="f"><label for="cuA_${k}">${l}</label><input id="cuA_${k}" placeholder="${ph}"></div>`).join("")}
       <div class="f" style="align-self:end"><button type="button" class="btn" id="cuAddAddr">Add</button></div></div></details>
     ${id ? `<h3 style="font-size:14px;margin:14px 0 6px">Order history</h3><div class="card tbl otbl"><table><thead><tr><th>Order</th><th>Business date</th><th>Branch</th><th>Sales channel</th><th>Order type</th><th>Order source</th><th>Payment type</th><th>Status</th><th class="num">Total</th></tr></thead><tbody>${
-      orders.length ? orders.map(o=>`<tr class="clk" data-coid="${esc(o.id)}"><td><b>${esc(ordRef(o))}</b></td><td>${o.created_at ? new Date(bizDate(o.created_at) + "T12:00:00").toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"}) : "—"}</td><td>${esc(branchName(o.branch_id) || "—")}</td><td>${esc(CH_LBL[o.channel]||cap(o.channel))}</td><td>${esc(ordTypeLbl(o.type))}${o.type==="dinein" && o.table_no ? `<div class="note">${esc(/^\d+$/.test(String(o.table_no).trim()) ? "Table " + String(o.table_no).trim() : o.table_no)}</div>` : ""}</td><td>${esc(srcOf(o) || "-")}</td><td>${esc(o.payment?.method || "-")}</td><td><span class="spill s-${o.status}">${ORD_ST[o.status]||o.status}</span></td><td class="num">${money(+o.total||0)}</td></tr>`).join("")
+      orders.length ? orders.map(o=>`<tr class="clk" data-coid="${esc(o.id)}"><td><b>${esc(ordRef(o))}</b></td><td>${o.created_at ? new Date(bizDate(o.created_at, o.branch_id) + "T12:00:00").toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"}) : "—"}</td><td>${esc(branchName(o.branch_id) || "—")}</td><td>${esc(CH_LBL[o.channel]||cap(o.channel))}</td><td>${esc(ordTypeLbl(o.type))}${o.type==="dinein" && o.table_no ? `<div class="note">${esc(/^\d+$/.test(String(o.table_no).trim()) ? "Table " + String(o.table_no).trim() : o.table_no)}</div>` : ""}</td><td>${esc(srcOf(o) || "-")}</td><td>${esc(o.payment?.method || "-")}</td><td><span class="spill s-${o.status}">${ORD_ST[o.status]||o.status}</span></td><td class="num">${money(+o.total||0)}</td></tr>`).join("")
       : `<tr><td colspan="9" class="note">No orders yet.</td></tr>`}</tbody></table></div>` : ""}
     <div class="err" id="cuErr"></div>
   </div>
@@ -3027,11 +3041,7 @@ function viewCompany(){
         <div class="f"><div class="note" style="margin-top:22px">Tax inclusive pricing is set in Manage → Taxes & Groups.</div></div>
       </div></div>
     <div class="card" style="margin-bottom:16px"><h3 style="margin:0 0 8px;font-size:15px">Business day</h3>
-      <p class="note" style="margin:0 0 12px">Reports cover one business day, from its start to its end. If you close after midnight, set the end time (e.g. 03:00): orders until then still count on the day that started. The next day starts right after.</p>
-      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px">
-        <div class="f"><label for="co_dayEnd">Day ends at</label><input id="co_dayEnd" class="sel" type="time" value="${esc(c.dayEnd||"00:00")}" ${admin?"":"disabled"}></div>
-        <div class="f"><label>Example</label><div class="note" style="padding-top:8px" id="coDayEx">${dayExample(c.dayEnd||"00:00")}</div></div>
-      </div></div>
+      <p class="note" style="margin:0">Each branch has its own business day start time. Set it under Manage → Branches.</p></div>
     <div class="card"><h3 style="margin:0 0 8px;font-size:15px">Structure</h3>
       <p class="note" style="margin:0 0 10px">Company → Brands → Branches. Manage them under Manage → Brands and Manage → Branches.</p>
       <div style="font-size:14px"><b>${esc(c.name||"Your company")}</b>${brandList().map(b=>`<div style="margin:6px 0 0 16px">↳ ${esc(b.name)} <span class="note">· ${branches.filter(x=>x.brandId===b.id).map(x=>esc(x.name)).join(", ") || "no branches yet"}</span></div>`).join("") || `<div class="note" style="margin:6px 0 0 16px">No brands yet</div>`}</div></div>`;
@@ -3044,9 +3054,8 @@ function dayExample(v){
 document.addEventListener("input", e => { if(e.target.id==="co_dayEnd" && $("#coDayEx")) $("#coDayEx").textContent = dayExample(e.target.value); });
 async function saveCompany(){
   const v = k => ($("#co_"+k)?.value || "").trim();
-  const data = { name:v("name"), legalName:v("legalName"), taxNumber:v("taxNumber"), crNumber:v("crNumber"), phone:v("phone"), email:v("email"), address:v("address"), logoUrl:v("logoUrl"), dayEnd: v("dayEnd") || "00:00",
+  const data = { name:v("name"), legalName:v("legalName"), taxNumber:v("taxNumber"), crNumber:v("crNumber"), phone:v("phone"), email:v("email"), address:v("address"), logoUrl:v("logoUrl"),
     country:v("country"), taxName:v("taxName"), timeZone:v("timeZone") || "Asia/Beirut" };
-  if(/^(\d{1,2})/.test(data.dayEnd) && +data.dayEnd.split(":")[0] >= 12){ $("#coErr").textContent = "The day must end between 12:00 AM and 11:59 AM."; $("#co_dayEnd").focus(); return; }
   if(!data.name){ $("#coErr").textContent = "Company name is required."; $("#co_name").focus(); return; }
   try{ await put("settings", "company", data); toast("Company saved"); }
   catch(e){ console.error(e); $("#coErr").textContent = "Couldn't save. Only the owner or an admin can change this."; }
