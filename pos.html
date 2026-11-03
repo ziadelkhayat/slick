@@ -447,7 +447,7 @@ button,input,select,textarea{font-family:var(--f-ui)}
 
 <div id="lock" class="center hide" style="position:fixed;inset:0;z-index:50;background:var(--bg,#f4f3f8)"><div class="panel">
   <div class="logo">S</div><h1 id="lockTitle">Enter your PIN</h1><p id="lockSub">Type your 4-digit PIN to start.</p>
-  <div class="pindots" id="pinDots"><i></i><i></i><i></i><i></i></div><div class="err" id="pinErr" style="min-height:20px;color:#b42318"></div>
+  <div class="pindots" id="pinDots"><i></i><i></i><i></i><i></i><i></i></div><div class="err" id="pinErr" style="min-height:20px;color:#b42318"></div>
   <div class="pinpad"><button data-pin="1">1</button><button data-pin="2">2</button><button data-pin="3">3</button><button data-pin="4">4</button><button data-pin="5">5</button><button data-pin="6">6</button><button data-pin="7">7</button><button data-pin="8">8</button><button data-pin="9">9</button><button data-pin="c" aria-label="Clear">C</button><button data-pin="0">0</button><button data-pin="b" aria-label="Delete">⌫</button></div>
 </div></div>
 <div id="app" class="app hide">
@@ -595,17 +595,20 @@ function lockIfNeeded(){ if(usePins() && !cashier) lock(); paintCashier(); }
 function lock(){ cashier = null; pinBuf = ""; paintPin(); $("#pinErr").textContent = ""; $("#lock").classList.remove("hide"); paintCashier(); }
 function paintPin(){ document.querySelectorAll("#pinDots i").forEach((d,i) => d.classList.toggle("on", i < pinBuf.length)); }
 function paintCashier(){ $("#lockBtn").classList.toggle("hide", !usePins()); $("#cashierName").textContent = cashier ? cashier.name : ""; }
+// login PINs are 5 digits (Foodics); older 4-digit PINs still work: at 4 digits a match signs in, otherwise the 5th digit is awaited
+const pinUser = async (list, pin) => { for(const u of list){ if(await pinHash(u.id, pin) === u.pinHash) return u; } return null; };
 async function tryPin(){
-  const pin = pinBuf; pinBuf = ""; paintPin();
-  for(const u of posUsers()){ if(await pinHash(u.id, pin) === u.pinHash){
-    if(!userPerms(u).includes("pos_access")){ $("#pinErr").textContent = "Your role doesn't allow using the POS."; return; }
-    cashier = u; $("#lock").classList.add("hide"); paintCashier(); toast("Signed in as " + u.name); return; } }
-  $("#pinErr").textContent = "Wrong PIN. Try again.";
+  const pin = pinBuf, u = await pinUser(posUsers(), pin);
+  if(!u && pin.length < 5) return;
+  pinBuf = ""; paintPin();
+  if(!u){ $("#pinErr").textContent = "Wrong PIN. Try again."; return; }
+  if(!userPerms(u).includes("pos_access")){ $("#pinErr").textContent = "Your role doesn't allow using the POS."; return; }
+  cashier = u; $("#lock").classList.add("hide"); paintCashier(); toast("Signed in as " + u.name);
 }
 $("#lock").addEventListener("click", e => { const b = e.target.closest("[data-pin]"); if(!b) return; const k = b.dataset.pin;
-  if(k==="c") pinBuf = ""; else if(k==="b") pinBuf = pinBuf.slice(0,-1); else if(pinBuf.length < 4) pinBuf += k;
-  $("#pinErr").textContent = ""; paintPin(); if(pinBuf.length===4) tryPin(); });
-document.addEventListener("keydown", e => { if($("#lock").classList.contains("hide")) return; if(/^\d$/.test(e.key) && pinBuf.length < 4){ pinBuf += e.key; paintPin(); if(pinBuf.length===4) tryPin(); } else if(e.key==="Backspace"){ pinBuf = pinBuf.slice(0,-1); paintPin(); } });
+  if(k==="c") pinBuf = ""; else if(k==="b") pinBuf = pinBuf.slice(0,-1); else if(pinBuf.length < 5) pinBuf += k;
+  $("#pinErr").textContent = ""; paintPin(); if(pinBuf.length>=4) tryPin(); });
+document.addEventListener("keydown", e => { if($("#lock").classList.contains("hide")) return; if(/^\d$/.test(e.key) && pinBuf.length < 5){ pinBuf += e.key; paintPin(); if(pinBuf.length>=4) tryPin(); } else if(e.key==="Backspace"){ pinBuf = pinBuf.slice(0,-1); paintPin(); } });
 $("#lockBtn").addEventListener("click", () => lock());
 let idleT; ["pointerdown","keydown"].forEach(ev => document.addEventListener(ev, () => { clearTimeout(idleT); const mins = devSet().lockMinutes ?? 10; if(+mins > 0) idleT = setTimeout(() => { if(usePins() && cashier) lock(); }, mins*60*1000); }));
 const deny = what => { toast(`${cashier ? cashier.name + ", your" : "Your"} role doesn't allow ${what}.`); return true; };
@@ -1176,16 +1179,17 @@ function approve(perm, title){
   if(!usePins()) return Promise.resolve({ name: cashier?.name || device.name });
   return new Promise(resolve => {
     let buf = ""; const el = document.createElement("div"); el.className = "apv";
-    const draw = err => { el.innerHTML = `<div class="apvbox"><h2>${esc(title)}</h2><p class="mut">A manager whose role allows this types their PIN.</p><div class="pindots">${[0,1,2,3].map(i=>`<i class="${i<buf.length?"on":""}"></i>`).join("")}</div>
+    const draw = err => { el.innerHTML = `<div class="apvbox"><h2>${esc(title)}</h2><p class="mut">A manager whose role allows this types their PIN.</p><div class="pindots">${[0,1,2,3,4].map(i=>`<i class="${i<buf.length?"on":""}"></i>`).join("")}</div>
       <div class="err" style="min-height:20px;color:#b42318">${esc(err||"")}</div><div class="pinpad">${[1,2,3,4,5,6,7,8,9].map(n=>`<button data-ap="${n}">${n}</button>`).join("")}<button data-ap="c">C</button><button data-ap="0">0</button><button data-ap="b">⌫</button></div>
       <button class="btn" data-apx style="margin-top:12px;width:100%">Cancel</button></div>`; };
     const done = v => { el.remove(); document.removeEventListener("keydown", key, true); resolve(v); };
-    const check = async () => { const pin = buf; buf = "";
-      for(const u of S.users.filter(u => !u.deleted && u.active!==false && u.pinHash)){ if(await pinHash(u.id, pin) === u.pinHash){
-        if(userPerms(u).includes(perm)) return done(u);
-        return draw(`${u.name}'s role can't approve this.`); } }
-      draw("Wrong PIN. Try again."); };
-    const press = k => { if(k==="c") buf = ""; else if(k==="b") buf = buf.slice(0,-1); else if(buf.length < 4) buf += k; draw(); if(buf.length===4) check(); };
+    const check = async () => { const pin = buf, u = await pinUser(S.users.filter(u => !u.deleted && u.active!==false && u.pinHash), pin);
+      if(!u && pin.length < 5) return;
+      buf = "";
+      if(!u) return draw("Wrong PIN. Try again.");
+      if(userPerms(u).includes(perm)) return done(u);
+      return draw(`${u.name}'s role can't approve this.`); };
+    const press = k => { if(k==="c") buf = ""; else if(k==="b") buf = buf.slice(0,-1); else if(buf.length < 5) buf += k; draw(); if(buf.length>=4) check(); };
     const key = e => { if(/^\d$/.test(e.key)){ e.stopPropagation(); press(e.key); } else if(e.key==="Backspace"){ e.stopPropagation(); press("b"); } else if(e.key==="Escape") done(null); };
     el.addEventListener("click", e => { const b = e.target.closest("[data-ap]"); if(b) return press(b.dataset.ap); if(e.target.closest("[data-apx]") || e.target===el) done(null); });
     document.addEventListener("keydown", key, true); draw(); document.body.appendChild(el);

@@ -451,6 +451,8 @@ tr[draggable="true"].dragging{opacity:.45}tr.dropto td{box-shadow:inset 0 2px 0 
 /* orders: title, filters and status tabs stay in view while the list scrolls */
 .ostick{position:sticky;top:var(--toph,62px);z-index:4;background:var(--bg);margin:-6px -8px 0;padding:6px 8px 0}
 .ostick .fbar{margin-bottom:12px}
+.rhub{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px}.rcard{display:flex;flex-direction:column;gap:6px;padding:18px 20px;text-decoration:none;color:inherit;transition:box-shadow .15s,transform .15s}.rcard:hover{box-shadow:0 6px 20px rgba(21,19,31,.1);transform:translateY(-1px)}.rcard b{font-size:15px}
+.rhead #rptDim{font-size:20px;font-weight:700;border:0;background:transparent;padding:4px 6px}.rptbl{overflow-x:auto}.rptbl th,.rptbl td{white-space:nowrap}.rptbl .rtot td{border-top:2px solid var(--line);background:var(--bg)}.rinfo{color:var(--muted);cursor:help;font-weight:400}
 .brcard{padding:16px 18px;margin-bottom:14px}.brch{display:flex;align-items:center;gap:8px;margin-bottom:10px}.brch h3{margin:0;font-size:15px}.brempty{margin:0;padding:6px 0}.brcard table{width:100%}
 .bdrow{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--line)}.bdrow>div{display:flex;flex-direction:column;gap:2px}.bdrow .btn{white-space:nowrap}
 .taxcfg{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:14px}.taxcfg h3{margin:0 0 4px;font-size:15px}.taxcfg .note{margin:0}.taxcfg .chk{font-weight:600;white-space:nowrap}
@@ -1128,6 +1130,217 @@ function viewInventoryDash(I, bname){
 const kpi = (t,v) => `<div class="card kpi"><h3>${t}</h3><div class="v">${v}</div></div>`;
 const placeholder = (t, s) => `<div class="card ph"><div><div class="big">${esc(t)}</div>${esc(s)}</div></div>`;
 
+/* ---------- Reports (Foodics-style): hubs, then one report page with type, group by, branch, dates, export, print ---------- */
+const RPT_HUB = {
+  "sales-reports": ["Sales Reports", [["sales","Sales Reports","Sales by branch, product, category, order type, order source, cashier and time"],["payments","Payment Reports","Payments by method, with returns taken off"]]],
+  "inventory-reports": ["Inventory Reports", [["#inv-levels","Inventory Levels","Stock on hand at each branch"],["#inv-history","Inventory History","Every stock movement"],["#purchase-orders","Purchase Orders",""],["#transfers","Transfers",""],["#purchasing","Purchasing",""]]],
+  "business-reports": ["Business Reports", [["taxes","Taxes","Tax collected per branch and day"],["days","Business Days","Every ended business day"],["shifts","Shifts","Opened and closed shifts with cash count"],["voids","Voids & Returns","Voided orders and items, and returns"]]],
+  "analysis-reports": ["Analysis Reports", [["menu","Menu Engineering","Products by quantity sold and net sales"],["trend","Branches Trend","Net sales of each branch, day by day"],["speed","Speed Of Service","Minutes from placing to accepting and to done"]]]
+};
+const RPT = { key:"", hub:"", from:"", to:"", branch:"", dim:"branch", group:"", rows:null, loading:false, err:"", loaded:"" };
+const SALES_DIMS = [["branch","Sales by Branch"],["product","Sales by Product"],["category","Sales by Category"],["type","Sales by Order Type"],["source","Sales by Order Source"],["channel","Sales by Sales Channel"],["cashier","Sales by Cashier"],["payment","Sales by Payment Method"],["customer","Sales by Customer"]];
+const RPT_GROUPS = [["","None"],["day","Day"],["week","Week"],["month","Month"],["hour","Hour of Day"],["dow","Day of Week"],["branch","Branch"],["type","Order Type"],["source","Order Source"],["category","Category"],["product","Product"],["cashier","Cashier"]];
+const RPT_COLS = [
+  ["gross","Gross Sales","Products before discount + Tax + Charges - Returns","m"],["grossPct","(Gross Sales %)","","p"],["netTax","Net Sales With Tax","Net Sales + Tax","m"],["tax","Taxes","Tax - Returned Tax","m"],
+  ["disc","Discount Amount","Order discounts + product discounts - returned discounts","m"],["grossNoTax","Gross Sales Without Tax","Gross Sales - Taxes","m"],["net","Net Sales","Gross Sales - Discount - Tax","m"],["netPct","(Net Sales %)","","p"],
+  ["orders","Order Count","Number of done orders","n"],["avg","Average Order","Net Sales / Order Count","m"],["guests","Guest Count","Total number of guests (at least one per order)","n"],["avgGuest","Average per Guest","Net Sales / Guest Count","m"],
+  ["qty","Net Quantity","Sold quantities - returned quantities","n"],["ret","Return Amount","Returned products + charges + taxes","m"],["retQty","Return Quantity","Quantities of returned products","n"],
+  ["void","Void Amount","Prices of voided products","m"],["voidQty","Void Quantity","Quantities of voided products","n"],["charges","Charges","Charges on orders in the period","m"]];
+const DOW = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+function rptDefaults(){ if(!RPT.from){ RPT.to = todayStr(); RPT.from = RPT.to.slice(0,8) + "01"; } }
+async function rptFetch(table, sel, dateCol, extra){
+  const out = []; const [t0, t1] = dayBounds(RPT.from, RPT.to, RPT.branch || "");
+  for(let p = 0; p < 50; p++){
+    let q = WOK.sb.from(table).select(sel).gte(dateCol, t0.toISOString()).lt(dateCol, t1.toISOString()).order(dateCol, { ascending:true }).range(p*1000, p*1000 + 999);
+    if(RPT.branch) q = q.eq("branch_id", RPT.branch); else if(state.brand!=="all"){ const ids = activeBranches().map(b=>b.id); q = q.in("branch_id", ids.length ? ids : ["-"]); }
+    if(extra) q = extra(q);
+    const { data, error } = await q; if(error) throw error; out.push(...data); if(data.length < 1000) break;
+  }
+  return out;
+}
+const camelRow = r => { const o = {}; for(const [k,v] of Object.entries(r)) o[k.replace(/_([a-z])/g,(_,c)=>c.toUpperCase())] = v; return o; };
+async function loadReport(force){
+  if(!window.WOK || storeMode!=="db") return;
+  rptDefaults();
+  const key = JSON.stringify([RPT.key, RPT.from, RPT.to, RPT.branch, state.brand]);
+  if(!force && RPT.loaded===key && (RPT.rows || RPT.err)) return; if(RPT.loading===key) return;
+  RPT.loading = key; RPT.err = ""; RPT.rows = null;
+  try{
+    let rows;
+    if(["sales","payments","taxes","voids","menu","trend","speed"].includes(RPT.key))
+      rows = (await rptFetch("orders", "id,no,invoice_no,return_no,status,type,source,channel,branch_id,customer_name,phone,items,discount,tax,total,charges_total,payment,agent,handled_by,guests,voided_items,returned_items,refund_total,void_reason,voided_by,return_reason,returned_by,created_at,accepted_at,done_at,refund_of", "created_at")).map(camelRow);
+    else if(RPT.key==="days") rows = (await rptFetch("day_closes", "*", "closed_at")).map(camelRow);
+    else if(RPT.key==="shifts") rows = (await rptFetch("shifts", "*", "opened_at")).map(camelRow);
+    else rows = [];
+    if(RPT.loading!==key) return;
+    RPT.rows = rows; RPT.loaded = key;
+  }catch(e){ console.error("report", e); if(RPT.loading===key) RPT.err = e.message || "Couldn't load the report"; RPT.loaded = key; }
+  finally{ if(RPT.loading===key){ RPT.loading = false; render(); } }
+}
+const isSale = o => o.status==="closed" || o.status==="returned";
+const prodOf = id => S.products.find(p => p.id===id);
+const catOf = i => { const p = prodOf(i.productId); return (p && S.categories.find(c => c.id===p.categoryId)?.name) || "Uncategorized"; };
+const cashierOf = o => o.handledBy || o.agent || "—";
+const payOf = o => o.payment?.method || "—";
+const rptDay = o => bizDate(o.createdAt, o.branchId);
+function rptKey(o, k, line){
+  const d = rptDay(o);
+  switch(k){
+    case "branch": return branchName(o.branchId) || "—";
+    case "type": return ordTypeLbl(o.type);
+    case "source": return srcOf(o) || "—";
+    case "channel": return CH_LBL[o.channel] || cap(o.channel || "—");
+    case "cashier": return cashierOf(o);
+    case "payment": return payOf(o);
+    case "customer": return o.customerName || o.phone || "Walk-in";
+    case "product": return line ? (line.name || "—") : "—";
+    case "category": return line ? catOf(line) : "—";
+    case "day": return d;
+    case "week": { const x = new Date(d + "T12:00:00"); x.setDate(x.getDate() - ((x.getDay()+6)%7)); return "Week of " + x.toISOString().slice(0,10); }
+    case "month": return d.slice(0,7);
+    case "hour": return String(new Date(o.createdAt).getHours()).padStart(2,"0") + ":00";
+    case "dow": return DOW[new Date(d + "T12:00:00").getDay()];
+    default: return "";
+  }
+}
+// one order → one or more slices (one per product line for product / category reports)
+function rptSlices(o, byLine){
+  const items = Array.isArray(o.items) ? o.items : [], refund = o.status==="refund", tot = +o.total||0, tax = +o.tax||0, chg = refund ? 0 : +o.chargesTotal||0;
+  const itemDisc = refund ? 0 : items.reduce((a,i)=>a+(+i.disc||0),0), disc = (+o.discount||0) + itemDisc;
+  const qty = items.reduce((a,i)=>a+(+i.qty||0),0) * (refund ? -1 : 1);
+  const base = { orders: isSale(o) ? 1 : 0, guests: isSale(o) ? Math.max(1, +o.guests||1) : 0, ret: refund ? -tot : 0, retQty: refund ? -qty : 0, charges: chg };
+  const voids = [...(o.status==="void" ? items : []), ...(Array.isArray(o.voidedItems) ? o.voidedItems : [])];
+  base.void = voids.reduce((a,i)=>a+(+i.price||0)*(+i.qty||1),0); base.voidQty = voids.reduce((a,i)=>a+(+i.qty||1),0);
+  const zero = { gross:0, tax:0, disc:0, total:0, qty:0, orders:0, guests:0, ret:0, retQty:0, charges:0 };
+  if(byLine && voids.length && !(isSale(o) || refund)) return voids.map(i => ({ line:i, ...zero, void:(+i.price||0)*(+i.qty||1), voidQty:+i.qty||1 }));
+  if(!(isSale(o) || refund)){ return [{ line:null, ...zero, void: base.void, voidQty: base.voidQty }]; }
+  if(!byLine || !items.length) return [{ line:null, gross: tot + disc, tax, disc, total: tot, qty, ...base }];
+  const sum = items.reduce((a,i)=>a+lineNet(i),0) || 1, k = refund ? -1 : 1;
+  return items.map((i, n) => { const w = lineNet(i)/sum, t = (tot - chg) * w, d = (+i.disc||0)*(refund?0:1) + (+o.discount||0)*w;
+    return { line:i, gross: t + d, tax: tax*w, disc: d, total: t, qty: (+i.qty||0)*k, orders: n===0 ? base.orders : 0, guests: n===0 ? base.guests : 0, ret: refund ? -t : 0, retQty: refund ? (+i.qty||0) : 0, charges: 0, void: n===0 ? base.void : 0, voidQty: n===0 ? base.voidQty : 0 }; });
+}
+function rptAggregate(rows, dim, group){
+  const byLine = ["product","category"].includes(dim) || ["product","category"].includes(group), map = new Map();
+  for(const o of rows) for(const s of rptSlices(o, byLine)){
+    const a = rptKey(o, dim, s.line), b = group ? rptKey(o, group, s.line) : "", key = a + "\u0001" + b;
+    let r = map.get(key); if(!r){ r = { a, b, gross:0, tax:0, disc:0, total:0, qty:0, orders:0, guests:0, ret:0, retQty:0, void:0, voidQty:0, charges:0 }; map.set(key, r); }
+    for(const f of ["gross","tax","disc","total","qty","orders","guests","ret","retQty","void","voidQty","charges"]) r[f] += s[f]||0;
+  }
+  const list = [...map.values()].filter(r => r.gross || r.orders || r.ret || r.void || r.qty), G = list.reduce((x,r)=>x+r.gross,0), N = list.reduce((x,r)=>x+(r.total-r.tax),0);
+  list.forEach(r => { r.net = r.total - r.tax; r.netTax = r.total; r.grossNoTax = r.gross - r.tax; r.avg = r.orders ? r.net/r.orders : 0; r.avgGuest = r.guests ? r.net/r.guests : 0; r.grossPct = G ? r.gross/G*100 : 0; r.netPct = N ? r.net/N*100 : 0; });
+  const ord = ["day","week","month","hour"].includes(dim) ? (x,y) => x.a.localeCompare(y.a) || x.b.localeCompare(y.b) : dim==="dow" ? (x,y) => DOW.indexOf(x.a)-DOW.indexOf(y.a) : (x,y) => y.net - x.net || x.b.localeCompare(y.b);
+  return list.sort(ord);
+}
+const fmtCell = (v, t) => t==="m" ? money(v) : t==="p" ? (+v||0).toFixed(2) + " %" : (+v||0).toLocaleString("en-US",{maximumFractionDigits:3});
+function rptTable(head, rows, foot){
+  return `<div class="card tbl rptbl"><table><thead><tr>${head.map(([l, tip, num]) => `<th class="${num?"num":""}">${esc(l)}${tip ? ` <span class="rinfo" title="${esc(tip)}">ⓘ</span>` : ""}</th>`).join("")}</tr></thead><tbody>${
+    rows.length ? rows.map(r => `<tr>${r.map((c,i) => `<td class="${head[i]?.[2]?"num":""}">${c}</td>`).join("")}</tr>`).join("") : `<tr><td colspan="${head.length}" class="note" style="padding:24px;text-align:center">No data to display!</td></tr>`
+  }${foot && rows.length ? `<tr class="rtot">${foot.map((c,i) => `<td class="${head[i]?.[2]?"num":""}"><b>${c}</b></td>`).join("")}</tr>` : ""}</tbody></table></div>`;
+}
+// what the report shows: { title, head:[[label, tip, numeric]], rows:[[cells]], foot, csv:[[...]] }
+function rptBuild(){
+  const R = RPT.rows || [], t = (d) => d ? new Date(d).toLocaleString("en-GB",{day:"numeric",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"}) : "—";
+  if(RPT.key==="sales"){
+    const dimLbl = { branch:"Branch", product:"Product", category:"Category", type:"Order Type", source:"Order Source", channel:"Sales Channel", cashier:"Cashier", payment:"Payment Method", customer:"Customer" }[RPT.dim];
+    const gl = RPT_GROUPS.find(g => g[0]===RPT.group)?.[1], list = rptAggregate(R, RPT.dim, RPT.group);
+    const cols = RPT_COLS.filter(c => !(["product","category"].includes(RPT.dim) && ["charges","guests","avgGuest"].includes(c[0])));
+    const head = [[dimLbl], ...(RPT.dim==="branch" ? [["Branch Reference"]] : []), ...(RPT.group ? [[gl]] : []), ...cols.map(c => [c[1], c[2], 1])];
+    const ref = a => branches.find(b => b.name===a)?.code || "—";
+    const rows = list.map(r => [esc(r.a), ...(RPT.dim==="branch" ? [esc(ref(r.a))] : []), ...(RPT.group ? [esc(r.b)] : []), ...cols.map(c => fmtCell(r[c[0]], c[3]))]);
+    const T = list.reduce((x,r) => { for(const c of cols) x[c[0]] = (x[c[0]]||0) + (+r[c[0]]||0); return x; }, {});
+    T.avg = T.orders ? T.net/T.orders : 0; T.avgGuest = T.guests ? T.net/T.guests : 0; T.grossPct = list.length ? 100 : 0; T.netPct = list.length ? 100 : 0;
+    const foot = ["Total", ...(RPT.dim==="branch" ? [""] : []), ...(RPT.group ? [""] : []), ...cols.map(c => fmtCell(T[c[0]], c[3]))];
+    return { title: SALES_DIMS.find(d => d[0]===RPT.dim)?.[1] || "Sales", head, rows, foot };
+  }
+  if(RPT.key==="payments"){
+    const m = new Map(); R.filter(o => isSale(o) || o.status==="refund").forEach(o => { const k = payOf(o) + "\u0001" + (branchName(o.branchId)||"—"); const r = m.get(k) || { p: payOf(o), b: branchName(o.branchId)||"—", n:0, amt:0, ret:0 };
+      if(o.status==="refund") r.ret += -(+o.total||0); else { r.n++; r.amt += +o.total||0; } m.set(k, r); });
+    const list = [...m.values()].sort((a,b) => b.amt - a.amt);
+    return { title:"Payment Reports", head:[["Payment Method"],["Branch"],["Payments Count",0,1],["Amount",0,1],["Returned Amount",0,1],["Net Amount",0,1]],
+      rows: list.map(r => [esc(r.p), esc(r.b), r.n, money(r.amt), money(r.ret), money(r.amt - r.ret)]),
+      foot: ["Total","", list.reduce((a,r)=>a+r.n,0), money(list.reduce((a,r)=>a+r.amt,0)), money(list.reduce((a,r)=>a+r.ret,0)), money(list.reduce((a,r)=>a+r.amt-r.ret,0))] };
+  }
+  if(RPT.key==="taxes"){
+    const m = new Map(); R.filter(o => isSale(o) || o.status==="refund").forEach(o => { const k = rptDay(o) + "\u0001" + (branchName(o.branchId)||"—"); const r = m.get(k) || { d: rptDay(o), b: branchName(o.branchId)||"—", tax:0, net:0 };
+      r.tax += +o.tax||0; r.net += (+o.total||0) - (+o.tax||0); m.set(k, r); });
+    const list = [...m.values()].sort((a,b) => a.d.localeCompare(b.d) || a.b.localeCompare(b.b));
+    return { title:"Taxes", head:[["Business Date"],["Branch"],["Taxable Sales",0,1],["Tax Amount",0,1]], rows: list.map(r => [esc(fmtD(r.d)), esc(r.b), money(r.net), money(r.tax)]),
+      foot:["Total","", money(list.reduce((a,r)=>a+r.net,0)), money(list.reduce((a,r)=>a+r.tax,0))] };
+  }
+  if(RPT.key==="days"){
+    const list = R.slice().sort((a,b) => String(b.businessDate).localeCompare(String(a.businessDate)));
+    return { title:"Business Days", head:[["Branch"],["Business Date"],["Ended At"],["Ended By"],["Orders",0,1],["Sales",0,1]],
+      rows: list.map(r => [esc(branchName(r.branchId)), esc(fmtD(String(r.businessDate).slice(0,10))), t(r.closedAt), esc(r.closedBy||"—"), +r.orders||0, money(+r.sales||0)]),
+      foot:["Total","","","", list.reduce((a,r)=>a+(+r.orders||0),0), money(list.reduce((a,r)=>a+(+r.sales||0),0))] };
+  }
+  if(RPT.key==="shifts"){
+    const list = R.slice().sort((a,b) => String(b.openedAt).localeCompare(String(a.openedAt)));
+    return { title:"Shifts", head:[["Branch"],["Device"],["Cashier"],["Opened At"],["Closed At"],["Orders",0,1],["Sales",0,1],["Opening Cash",0,1],["Expected Cash",0,1],["Counted Cash",0,1],["Difference",0,1]],
+      rows: list.map(r => [esc(branchName(r.branchId)), esc(S.devices.find(d=>d.id===r.deviceId)?.name || "—"), esc(r.cashier||"—"), t(r.openedAt), r.closedAt ? t(r.closedAt) : '<span class="tag on">Open</span>',
+        +r.orders||0, money(+r.sales||0), money(+r.openingCash||0), r.closedAt ? money(+r.expectedCash||0) : "—", r.closedAt ? money(+r.countedCash||0) : "—", r.closedAt ? money(+r.difference||0) : "—"]) };
+  }
+  if(RPT.key==="voids"){
+    const list = [];
+    R.forEach(o => { const ref = o.status==="refund" ? "RET-" + String(o.returnNo||"").padStart(6,"0") : o.invoiceNo ? invNo(o.invoiceNo) : "#" + (o.no||"—");
+      if(o.status==="void") (o.items||[]).forEach(i => list.push([t(o.createdAt), esc(branchName(o.branchId)), esc(ref), "Void order", esc(i.name), +i.qty||1, money((+i.price||0)*(+i.qty||1)), esc(o.voidReason||"—"), esc(o.voidedBy||"—")]));
+      (o.voidedItems||[]).forEach(i => list.push([t(i.voidedAt||o.createdAt), esc(branchName(o.branchId)), esc(ref), "Void item", esc(i.name), +i.qty||1, money((+i.price||0)*(+i.qty||1)), esc(i.reason||"—"), esc(i.voidedBy||"—")]));
+      if(o.status==="refund") (o.items||[]).forEach(i => list.push([t(o.createdAt), esc(branchName(o.branchId)), esc(ref), "Return", esc(i.name), +i.qty||1, money(lineNet(i)), esc(o.returnReason||"—"), esc(o.returnedBy||o.agent||"—")])); });
+    return { title:"Voids & Returns", head:[["Time"],["Branch"],["Reference"],["Kind"],["Product"],["Quantity",0,1],["Amount",0,1],["Reason"],["By"]], rows: list };
+  }
+  if(RPT.key==="menu"){
+    const list = rptAggregate(R, "product", ""), Q = list.reduce((a,r)=>a+r.qty,0) || 1;
+    return { title:"Menu Engineering", head:[["Product"],["Category"],["Quantity Sold",0,1],["Popularity %",0,1],["Net Sales",0,1],["Average Price",0,1]],
+      rows: list.filter(r => r.qty > 0).map(r => { const p = S.products.find(x => x.name===r.a); return [esc(r.a), esc(p ? (S.categories.find(c=>c.id===p.categoryId)?.name || "—") : "—"), fmtCell(r.qty,"n"), (r.qty/Q*100).toFixed(2) + " %", money(r.net), money(r.qty ? r.net/r.qty : 0)]; }) };
+  }
+  if(RPT.key==="trend"){
+    const days = [...new Set(R.filter(isSale).map(rptDay))].sort(), brs = [...new Set(R.map(o => branchName(o.branchId)||"—"))].sort();
+    const v = (b, d) => R.filter(o => (isSale(o) || o.status==="refund") && (branchName(o.branchId)||"—")===b && rptDay(o)===d).reduce((a,o)=>a+(+o.total||0)-(+o.tax||0),0);
+    return { title:"Branches Trend", head:[["Business Date"], ...brs.map(b => [b,0,1]), ["Total",0,1]],
+      rows: days.map(d => [esc(fmtD(d)), ...brs.map(b => money(v(b,d))), money(brs.reduce((a,b)=>a+v(b,d),0))]) };
+  }
+  if(RPT.key==="speed"){
+    const m = new Map(); R.filter(isSale).forEach(o => { const k = branchName(o.branchId)||"—"; const r = m.get(k) || { b:k, n:0, acc:0, na:0, done:0, nd:0 }; r.n++;
+      if(o.acceptedAt){ r.acc += (new Date(o.acceptedAt) - new Date(o.createdAt))/60000; r.na++; } if(o.doneAt){ r.done += (new Date(o.doneAt) - new Date(o.createdAt))/60000; r.nd++; } m.set(k, r); });
+    const list = [...m.values()];
+    return { title:"Speed Of Service", head:[["Branch"],["Orders",0,1],["Avg. Minutes to Accept",0,1],["Avg. Minutes to Done",0,1]], rows: list.map(r => [esc(r.b), r.n, r.na ? (r.acc/r.na).toFixed(1) : "—", r.nd ? (r.done/r.nd).toFixed(1) : "—"]) };
+  }
+  return { title:"Report", head:[], rows:[] };
+}
+const fmtD = d => d ? new Date(d + "T12:00:00").toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"}) : "—";
+function viewReports(route){
+  const hub = RPT_HUB[route]; if(!hub) return "";
+  if(!RPT.key || RPT.hub!==route){
+    return `<div class="phead"><h1>${hub[0]}</h1></div><div class="rhub">${hub[1].map(([k,t,d]) => k.startsWith("#") ? `<a class="card rcard" href="${k}"><b>${esc(t)}</b>${d?`<span class="note">${esc(d)}</span>`:""}</a>` : `<a class="card rcard" href="#${route}" data-rpt="${k}"><b>${esc(t)}</b>${d?`<span class="note">${esc(d)}</span>`:""}</a>`).join("")}</div>`;
+  }
+  loadReport();
+  const B = RPT.rows ? rptBuild() : null, sel = (id, val, opts) => `<select class="sel" id="${id}">${opts.map(([v,t])=>`<option value="${esc(v)}" ${val===v?"selected":""}>${esc(t)}</option>`).join("")}</select>`;
+  const title = RPT.key==="sales" ? sel("rptDim", RPT.dim, SALES_DIMS) : `<h1 style="margin:0">${esc(hub[1].find(x=>x[0]===RPT.key)?.[1] || "")}</h1>`;
+  return `<div class="phead rhead"><a class="btn" href="#${route}" data-rptback style="text-decoration:none">← Back</a>${title}<div class="sp"></div></div>
+    <div class="row fbar ofb">
+      ${RPT.key==="sales" ? `<label class="note" style="display:flex;align-items:center;gap:6px">Group By ${sel("rptGroup", RPT.group, RPT_GROUPS.filter(g => g[0]!==RPT.dim))}</label>` : ""}
+      ${sel("rptBranch", RPT.branch, [["","All Branches"], ...activeBranches().map(b=>[b.id, b.name])])}
+      <button type="button" class="sel drpbtn" id="rptRange">${svgIco("calendar")}<span>${esc(drpLabel(RPT.from, RPT.to))}</span></button>
+      <span class="sp"></span><span class="note">${RPT.loading ? "Loading…" : ""}</span>
+      <button class="btn" id="rptCsv" ${B?"":"disabled"}>Export</button><button class="btn" id="rptPrint" ${B?"":"disabled"}>Print</button></div>
+    ${RPT.err ? `<div class="banner">Couldn't load the report: ${esc(RPT.err)}</div>` : B ? rptTable(B.head, B.rows, B.foot) : `<div class="card"><p class="note" style="padding:24px;text-align:center">Loading report…</p></div>`}`;
+}
+document.addEventListener("click", e => {
+  const r = e.target.closest("[data-rpt]"); if(r){ e.preventDefault(); RPT.key = r.dataset.rpt; RPT.hub = location.hash.slice(1); RPT.loaded = ""; render(); window.scrollTo(0,0); return; }
+  if(e.target.closest("[data-rptback]")){ e.preventDefault(); RPT.key = ""; render(); return; }
+  const rr = e.target.closest("#rptRange"); if(rr){ if(DRP.el) return drpClose(); drpOpen(rr, RPT.from, RPT.to, (f, t) => { RPT.from = f; RPT.to = t; render(); }); return; }
+  if(e.target.closest("#rptCsv")){ const B = rptBuild(), strip = v => String(v).replace(/<[^>]+>/g,"").replace(/&amp;/g,"&").replace(/&lt;/g,"<").replace(/&gt;/g,">").replace(/&quot;/g,'"').replace(/&#39;/g,"'");
+    const q = v => { v = strip(v); return /[",\n]/.test(v) ? `"${v.replace(/"/g,'""')}"` : v; };
+    const lines = [B.head.map(h=>h[0]), ...B.rows, ...(B.foot ? [B.foot] : [])].map(l => l.map(q).join(","));
+    const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([lines.join("\n")], { type:"text/csv" })); a.download = `slick-${B.title.toLowerCase().replace(/[^a-z0-9]+/g,"-")}-${RPT.from}-to-${RPT.to}.csv`; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href), 2000); return; }
+  if(e.target.closest("#rptPrint")){ const B = rptBuild(), w = window.open("", "_blank"); if(!w) return toast("Allow pop-ups to print");
+    w.document.write(`<!doctype html><title>${esc(B.title)}</title><style>body{font:12px system-ui,sans-serif;margin:24px}table{border-collapse:collapse;width:100%}th,td{border-bottom:1px solid #ddd;padding:6px 8px;text-align:left}.num{text-align:right}h2{margin:0 0 4px}.rinfo{display:none}</style><h2>${esc(B.title)}</h2><p>${esc(drpLabel(RPT.from, RPT.to))} · ${esc(RPT.branch ? branchName(RPT.branch) : "All Branches")}</p>${rptTable(B.head, B.rows, B.foot)}<script>print()<\/script>`); w.document.close(); return; }
+});
+document.addEventListener("change", e => {
+  if(e.target.id==="rptDim"){ RPT.dim = e.target.value; if(RPT.group===RPT.dim) RPT.group = ""; render(); }
+  if(e.target.id==="rptGroup"){ RPT.group = e.target.value; render(); }
+  if(e.target.id==="rptBranch"){ RPT.branch = e.target.value; render(); }
+});
+
 function viewBranch(b){
   const st = b.settings || {}, more = state.brMore, row = (k, v) => `<div><span>${k}</span>${v}</div>`, t12o = v => v ? esc(t12(v)) : "—";
   const mon = st.hours?.mon || {}, tg = (S.tax_groups||[]).find(g => g.id===st.taxGroup)?.name;
@@ -1188,7 +1401,8 @@ function render(){
   const v = $("#view");
   if(storeMode==="loading"){ v.innerHTML = `<div class="ph"><div>Loading…</div></div>`; return; }
   if(!canOpen(route)){ v.innerHTML = `<h1>${esc(TITLES[route]||"")}</h1>` + placeholder("No access", "Your role doesn't include this area. Ask the owner to change your role under Manage → Roles."); return; }
-  if(route==="dashboard") v.innerHTML = viewDashboard();
+  if(RPT_HUB[route]) v.innerHTML = viewReports(route);
+  else if(route==="dashboard") v.innerHTML = viewDashboard();
   else if(route==="branches") v.innerHTML = viewBranches();
   else if(moduleRoute(route) !== null) v.innerHTML = moduleRoute(route);
   else v.innerHTML = `<h1>${esc(TITLES[route]||"Not found")}</h1><p class="subt">&nbsp;</p>` + placeholder("Coming next", "This screen is part of the plan and will be built in a later step.");
@@ -1495,7 +1709,7 @@ const CRUD = {
       {k:"language",l:"Language",t:"select",opts:()=>[["en","English"],["ar","Arabic"]],def:"en"},
       {k:"employeeNo",l:"Employee Number",ph:"The user's employment number in your organization"},{k:"phone",l:"Phone Number",ph:"With country code, e.g. +961 70 123 456"},
       {k:"email",l:"Email",ph:"Needed only to log in to the back office"},
-      {k:"pin",l:"Login PIN",t:"pin",note:"4 digits the user types to sign in on the cashier app. Must be unique. Use Generate for a random PIN."},
+      {k:"pin",l:"Login PIN",t:"pin",note:"A unique 5-digit PIN the user types to sign in on the cashier app. Generate a random PIN for better security."},
       {k:"displayLocalized",l:"Display Localized Names (show the apps in the localized language)",t:"chk",def:false},
       {k:"roleIds",l:"Roles",t:"multi",get:r=>userRoleIds(r),opts:()=>S.roles.filter(live).map(r=>[r.id,r.name])},
       {k:"branchIds",l:"Branches (leave all unticked = every branch)",t:"multi",opts:()=>branches.filter(b=>b.active!==false).map(b=>[b.id,(brandList().length>1?brandName(b.brandId)+" · ":"")+b.name])},
@@ -1508,9 +1722,9 @@ const CRUD = {
       if(data.email) data.email = data.email.toLowerCase();
       if(data.email && S.users.some(u=>u.id!==id && live(u) && (u.email||"").toLowerCase()===data.email)) return "Another user already has this email.";
       if(!id) data.id = newUserId();
-      if(pin){ if(!/^\d{4}$/.test(pin)) return "The PIN must be exactly 4 digits.";
+      if(pin){ if(!/^\d{5}$/.test(pin)) return "The Login PIN must be exactly 5 digits.";
         const myId = id || data.id;
-        for(const u of S.users.filter(u=>live(u) && u.id!==myId && u.pinHash)){ if(await pinHash(u.id, pin)===u.pinHash) return "Another user already uses this PIN. Pick a different one."; }
+        for(const u of S.users.filter(u=>live(u) && u.id!==myId && u.pinHash)){ if(await pinHash(u.id, pin)===u.pinHash || await pinHash(u.id, pin.slice(0,4))===u.pinHash) return "This PIN clashes with another user's PIN. Pick a different one (Generate)."; }
         data.pinHash = await pinHash(myId, pin); }
       if(id) delete data.id;
       return "";
@@ -1849,7 +2063,7 @@ function openCrud(key, id){
       return `<div class="f full"><label>${f.l}${f.toggle ? ` <button type="button" class="lnk mtog" data-mtog="${idA}">Toggle All</button>` : ""}</label><div class="multi${hasD ? " mdesc" : ""}" id="${idA}">${o.map(([k,t,d])=>k.startsWith("@") ? `<div class="mhead">${esc(k.slice(1))}${f.toggle ? ` <button type="button" class="lnk mtog" data-mtog="${idA}" data-mgrp="${esc(k)}">Toggle</button>` : ""}</div>` : `<label class="chk" data-grp="${esc(o.filter(x=>x[0].startsWith("@")).reverse().find(x => o.indexOf(x) < o.findIndex(y=>y[0]===k))?.[0] || "")}"><input type="checkbox" value="${esc(k)}" ${set.has(k)?"checked":""}> <span><b>${esc(t)}</b>${d ? `<small>${esc(d)}</small>` : ""}</span></label>`).join("")}</div>${f.note?`<div class="note">${esc(f.note)}</div>`:""}</div>`; }
     if(f.t==="image") return `<div class="f full"><label>${f.l}</label><div class="imgf"><div class="imgprev" id="${idA}_prev">${v ? `<img src="${esc(v)}" alt="">` : '<span class="note">No image</span>'}</div>
       <div><input type="file" accept="image/*" id="${idA}_file"><input type="hidden" id="${idA}" value="${esc(v||"")}"><div class="note" id="${idA}_st">JPG or PNG. It's resized automatically for the POS, call center and web menu.</div>${v ? `<button type="button" class="btn sm" data-imgclear="${idA}" style="margin-top:6px">Remove image</button>` : ""}</div></div></div>`;
-    if(f.t==="pin") return `<div class="f"><label for="${idA}">${f.l}</label><div style="display:flex;gap:8px"><input id="${idA}" type="text" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="${r?.pinHash?"•••• (set; type to change)":"4 digits"}" style="flex:1"><button type="button" class="btn" data-pingen="${idA}">Generate</button></div><div class="note">${esc(f.note||"")}</div></div>`;
+    if(f.t==="pin") return `<div class="f"><label for="${idA}">${f.l}</label><div style="display:flex;gap:8px"><input id="${idA}" type="text" inputmode="numeric" maxlength="5" autocomplete="off" placeholder="${r?.pinHash?"••••• (set; type to change)":"5 digits"}" style="flex:1"><button type="button" class="btn" data-pingen="${idA}">Generate</button></div><div class="note">${esc(f.note||"")}</div></div>`;
     if(f.t==="items") return `<div class="f full"><label for="${idA}_new">${f.l}${f.req?" *":""}</label><div class="items" id="${idA}">${(Array.isArray(v) ? v : []).map(x => itemRow(x)).join("")}</div>
       <div class="itemadd"><input id="${idA}_new" placeholder="${esc(f.ph||"")}" data-itemnew="${idA}"><button type="button" class="btn sm" data-itemadd="${idA}">+ Add</button></div>${f.note?`<div class="note">${esc(f.note)}</div>`:""}</div>`;
     if(f.t==="textarea") return `<div class="f full"><label for="${idA}">${f.l}${f.req?" *":""}</label><textarea id="${idA}" rows="${f.rows||3}" ${f.ph?`placeholder="${esc(f.ph)}"`:""}>${esc(Array.isArray(v) ? v.join("\n") : (v||""))}</textarea>${f.note?`<div class="note">${esc(f.note)}</div>`:""}</div>`;
@@ -3345,7 +3559,7 @@ document.addEventListener("keydown", e => { if(e.key==="Enter" && e.target.id?.s
 
 /* filters belong to the page: leaving a page puts its filters back to the defaults */
 function resetPageFilters(){
-  Object.assign(state, { range:"day", days:1, date:todayStr(), dateSet:false, compare:false, cmpDate:"", dashTab:"general", branch:"all", brand:"all", devOpen:null, brOpen:null }); DASH.key = "";
+  Object.assign(state, { range:"day", days:1, date:todayStr(), dateSet:false, compare:false, cmpDate:"", dashTab:"general", branch:"all", brand:"all", devOpen:null, brOpen:null }); RPT.key = ""; DASH.key = "";
   Object.assign(ORD, { tab:"all", range:"week", q:"", from:"", to:"", channel:"", type:"", pay:"", source:"", brand:"", branch:"", page:1, key:"", open:null });
   Object.assign(CUS, { filter:"all", q:"", sort:"last", page:1, key:"" });
   Object.assign(BM, { q:"", draft:{} });
@@ -3529,7 +3743,7 @@ function userDetail(u){
     <div class="card brcard"><div class="brch"><h3>Roles</h3><span class="sp"></span><button class="btn sm" data-detedit data-sec="cf_roleIds">Edit Roles</button></div>${tbl(["Name","Authorities"], rs.map(r => [esc(r.name), `${(r.permissions||[]).length}`]))}</div>
     <div class="card brcard"><div class="brch"><h3>Branches</h3><span class="sp"></span><button class="btn sm" data-detedit data-sec="cf_branchIds">Edit Branches</button></div>${(u.branchIds||[]).length ? "" : '<p class="note" style="margin:0 0 8px">No branch picked: the user can work at every branch.</p>'}${tbl(["Name","Reference"], brs.map(b => [esc(b.name), esc(b.code||"—")]))}</div>`;
 }
-document.addEventListener("click", e => { const g = e.target.closest("[data-pingen]"); if(!g) return; e.preventDefault(); document.getElementById(g.dataset.pingen).value = String(Math.floor(1000 + Math.random()*9000)); });
+document.addEventListener("click", e => { const g = e.target.closest("[data-pingen]"); if(!g) return; e.preventDefault(); document.getElementById(g.dataset.pingen).value = String(Math.floor(10000 + Math.random()*90000)); });
 document.addEventListener("click", e => {
   if(e.target.closest("[data-usrmore]")){ state.usrMore = !state.usrMore; render(); return; }
   if(e.target.closest("[data-usrpin]")){ if(DET.key==="users") openCrud("users", DET.id); setTimeout(() => { const f = $("#cf_pin"); f?.scrollIntoView({ block:"center" }); f?.focus(); }, 120); return; }
