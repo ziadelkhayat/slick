@@ -641,7 +641,7 @@ const chargeList = type => S.charges.filter(c => !c.deleted && c.active!==false 
 const pickedCharges = () => chargeList(otype).filter(c => posChg ? posChg.has(c.id) : c.auto!==false);
 const lineNet = i => Math.max(0, (+i.price||0) * (+i.qty||1) - (+i.disc||0));
 /* ---------- tax (prices include it, unless the company turned tax-inclusive pricing off) ---------- */
-const prodTaxRate = id => { const p = S.products.find(x=>x.id===id), g = p && S.tax_groups.find(x=>x.id===p.taxGroup && live(x)); return g ? (g.taxIds||[]).reduce((a,t) => { const x = S.taxes.find(y=>y.id===t && live(y)); return a + (x ? +x.rate||0 : 0); }, 0)/100 : 0; };
+const prodTaxRate = id => { const p = S.products.find(x=>x.id===id), g = p && S.tax_groups.find(x=>x.id===(p.taxGroup || brSet().taxGroup) && live(x)); return g ? (g.taxIds||[]).reduce((a,t) => { const x = S.taxes.find(y=>y.id===t && live(y)); return a + (x ? +x.rate||0 : 0); }, 0)/100 : 0; };
 function orderTax(items, disc){ const incl = taxIncl(); let g = 0, t = 0; (items||[]).forEach(i => { const l = lineNet(i), r = prodTaxRate(i.productId); g += l; t += incl ? l*r/(1+r) : l*r; }); if(g>0 && disc>0) t *= 1 - Math.min(disc,g)/g; return +t.toFixed(2); }
 /* ---------- payment methods (Manage → Payment Methods; Cash / Card / Other until some are added) ---------- */
 const payMethods = () => { const l = S.payment_methods.filter(m => live(m) && m.active!==false).sort((a,b)=>(a.sort??999)-(b.sort??999)||a.name.localeCompare(b.name));

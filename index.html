@@ -511,7 +511,12 @@ tr[draggable="true"].dragging{opacity:.45}tr.dropto td{box-shadow:inset 0 2px 0 
       <div class="f"><label for="fPhone">Phone</label><input id="fPhone" maxlength="30"></div>
       <div class="f full"><label for="fAddr">Address</label><input id="fAddr" maxlength="160"></div>
       <div class="f"><label for="fCity">Area / city</label><input id="fCity" maxlength="60" placeholder="e.g. Beirut"></div>
-      <div class="f"><label>Location (latitude, longitude)</label><div style="display:grid;grid-template-columns:1fr 1fr;gap:6px"><input id="fLat" inputmode="decimal" placeholder="33.89" ><input id="fLng" inputmode="decimal" placeholder="35.50"></div><a class="lnk note" id="fMapLnk" target="_blank" rel="noopener" href="https://www.google.com/maps">Find it on Google Maps</a></div>
+      <div class="f full"><label for="fGLink">Location on Google Maps</label>
+        <div style="display:flex;gap:8px;flex-wrap:wrap"><input id="fGLink" class="sel" style="flex:1;min-width:220px" placeholder="Paste a Google Maps link or coordinates (33.89, 35.50)"><a class="btn" id="fMapLnk" target="_blank" rel="noopener" href="https://www.google.com/maps" style="text-decoration:none">Open Google Maps</a></div>
+        <div class="note">In Google Maps, find the branch, then copy the link from the address bar (or right-click the spot and copy its coordinates) and paste it here.</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px"><input id="fLat" inputmode="decimal" placeholder="Latitude 33.89" aria-label="Latitude"><input id="fLng" inputmode="decimal" placeholder="Longitude 35.50" aria-label="Longitude"></div>
+        <iframe id="fGMap" title="Branch location" style="display:none;width:100%;height:220px;border:1px solid var(--line);border-radius:10px;margin-top:8px" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe></div>
+      <div class="f"><label for="fTaxGroup">Tax group</label><select id="fTaxGroup" class="sel"></select><div class="note">Used for items that have no tax group of their own.</div></div>
       <h4 class="fsec">Business day</h4>
       <div class="f"><label for="fDayStart">New business day starts at</label><input id="fDayStart" type="time" class="sel" value="00:00"></div>
       <div class="f"><label>Example</label><div class="note" style="padding-top:8px" id="fDayEx"></div></div>
@@ -519,6 +524,8 @@ tr[draggable="true"].dragging{opacity:.45}tr.dropto td{box-shadow:inset 0 2px 0 
       <div class="f full"><div class="note">Sales before this time count on the previous business day. Set it after your closing time, e.g. 03:00 if you close at 2 AM. Must be between 12:00 AM and 11:59 AM.</div></div>
       <h4 class="fsec">Opening hours</h4>
       <div class="f full"><div class="hours" id="fHours"></div><div class="note">Times after midnight (e.g. closes 02:00) count for the day that opened.</div></div>
+      <h4 class="fsec">Charges at this branch</h4>
+      <div class="f full"><div class="multi" id="fCharges"></div><div class="note">Ticked charges apply to orders at this branch. Add or change charges in Manage → Charges.</div></div>
       <h4 class="fsec">Order types at this branch</h4>
       <div class="f full"><div class="multi" id="fTypes"><label class="chk"><input type="checkbox" value="dinein"> Dine-in</label><label class="chk"><input type="checkbox" value="takeaway"> Pickup</label><label class="chk"><input type="checkbox" value="delivery"> Delivery</label></div></div>
       <h4 class="fsec">Receipt</h4>
@@ -756,10 +763,23 @@ function fallback(msg){
   setSync(msg || "Preview mode · changes not saved");
   render();
 }
+// which charges apply at a branch is kept on each charge (no branches ticked = every branch)
+async function saveBranchCharges(bid, pick){
+  if(!bid || storeMode!=="db") return;
+  for(const c of (S.charges||[]).filter(c => !c.deleted && c.active!==false)){
+    const ids = (c.branchIds||[]).filter(x => x!=="-"), all = !ids.length, on = all || ids.includes(bid), want = pick.has(c.id);
+    if(on===want) continue;
+    let next;
+    if(want) next = [...ids, bid];
+    else next = all ? branches.filter(b => b.id!==bid).map(b => b.id) : ids.filter(x => x!==bid);
+    if(!next.length) next = ["-"];   // no branch at all
+    await put("charges", c.id, { branchIds: next });
+  }
+}
 async function saveBranch(data, id){
   if(storeMode === "db"){
     if(id) await col.doc(id).update(data);
-    else { const nid = "br_" + Date.now().toString(36) + Math.random().toString(36).slice(2,6); await col.doc(nid).set({ ...data, createdAt: new Date().toISOString() }); }
+    else { const nid = "br_" + Date.now().toString(36) + Math.random().toString(36).slice(2,6); await col.doc(nid).set({ ...data, createdAt: new Date().toISOString() }); return nid; }
   } else {
     if(id){ const b = branches.find(x => x.id===id); Object.assign(b, data); }
     else branches.push({ ...data, id:"local"+Date.now() });
@@ -1101,15 +1121,13 @@ function viewBranches(){
     <div class="row" style="gap:8px;margin:0">${scopeBar(false)}<button class="btn pri" id="addBranch">+ Add branch</button></div></div><div style="height:14px"></div>`;
   if(storeMode==="local") h += `<div class="banner">Preview mode: branches you add here won't be saved. Open this page from claude.ai while signed in to save them.</div>`;
   if(!n) return h + `<div class="card empty">No branches yet. Add your first branch to get started.</div>`;
-  h += `<div class="card tbl"><table><thead><tr><th>Code</th><th>Name</th><th>Brand</th><th>Area</th><th>Today</th><th>Phone</th><th>Status</th></tr></thead><tbody>${
+  const tgName = id => (S.tax_groups||[]).find(g => g.id===id)?.name || "";
+  h += `<div class="card tbl"><table><thead><tr><th>Name</th><th>Reference</th><th>Tax group</th><th>Created</th></tr></thead><tbody>${
     list.map(b => `<tr class="clk" data-edit="${esc(b.id)}" title="Edit ${esc(b.name)}">
-      <td class="code">${esc(b.code)}</td>
-      <td><a href="#branches" class="lnk" data-edit="${esc(b.id)}"><b style="font-weight:600">${esc(b.name)}</b></a>${b.production?` <span class="tag cc">Central kitchen</span>`:""}</td>
-      <td>${esc(brandName(b.brandId))}</td>
-      <td>${esc(b.city)||'<span class="note">—</span>'}</td>
-      <td>${(() => { const d = b.settings?.hours?.[DAYS[(new Date().getDay()+6)%7][0]]; return d ? (d.closed ? '<span class="note">Closed today</span>' : `${esc(t12(d.open))} – ${esc(t12(d.close))}`) : `${esc(b.open||"")}${b.open||b.close?"–":""}${esc(b.close||"")}`; })()}</td>
-      <td>${esc(b.phone)||'<span class="note">—</span>'}</td>
-      <td><span class="tag ${b.active!==false?"on":"off"}"><span class="dot"></span>${b.active!==false?"Active":"Inactive"}</span>${b.callCenter?` <span class="tag cc">Call center</span>`:""}</td></tr>`).join("")
+      <td><a href="#branches" class="lnk" data-edit="${esc(b.id)}"><b style="font-weight:600">${esc(b.name)}</b></a>${brandList().length > 1 ? ` <span class="note">${esc(brandName(b.brandId))}</span>` : ""}${b.active===false ? ` <span class="tag off">Inactive</span>` : ""}${b.production?` <span class="tag cc">Central kitchen</span>`:""}</td>
+      <td class="code">${esc(b.code || "—")}</td>
+      <td>${esc(tgName(b.settings?.taxGroup)) || '<span class="note">—</span>'}</td>
+      <td>${b.createdAt ? new Date(b.createdAt).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"}) : '<span class="note">—</span>'}</td></tr>`).join("")
   }</tbody></table></div>
   <p class="note" style="margin-top:12px">Inactive branches stay in your history but are hidden from dashboards, filters and call-center routing.</p>`;
   return h;
@@ -1188,6 +1206,10 @@ function openForm(id){
   const st = b?.settings || {};
   $("#fNameAr").value = b?.nameAr || ""; $("#fTaxNo").value = b?.taxNumber || ""; $("#fLat").value = b?.lat ?? ""; $("#fLng").value = b?.lng ?? "";
   $("#fRHead").value = st.receiptHeader || ""; $("#fRFoot").value = st.receiptFooter || ""; paintMapLink();
+  $("#fTaxGroup").innerHTML = `<option value="">None</option>` + (S.tax_groups||[]).filter(g => !g.deleted).map(g => `<option value="${esc(g.id)}" ${st.taxGroup===g.id?"selected":""}>${esc(g.name)}</option>`).join(""); $("#fGLink").value = "";
+  const chOn = c => !(c.branchIds||[]).length || (b && c.branchIds.includes(b.id));
+  const chs = (S.charges||[]).filter(c => !c.deleted && c.active!==false);
+  $("#fCharges").innerHTML = chs.length ? chs.map(c => `<label class="chk"><input type="checkbox" value="${esc(c.id)}" ${chOn(c)?"checked":""}> ${esc(c.name)} <span class="note">${c.type==="percent" ? (+c.value||0) + "%" : money(+c.value||0)}</span></label>`).join("") : '<span class="note">No charges yet.</span>';
   $("#fDayStart").value = st.dayStart || company().dayEnd || "00:00"; $("#fDayEx").textContent = dayExample($("#fDayStart").value); $("#fAutoDay").checked = st.autoDayEnd !== false;
   const types = st.orderTypes || ["dinein","takeaway","delivery"]; document.querySelectorAll("#fTypes input").forEach(i => i.checked = types.includes(i.value));
   const H = st.hours || {}, o0 = b?.open || "11:00", c0 = b?.close || "23:30";
@@ -1199,8 +1221,17 @@ function openForm(id){
   $("#scrim").classList.add("show"); setTimeout(()=>$("#fName").focus(), 30);
 }
 const DAYS = [["mon","Monday"],["tue","Tuesday"],["wed","Wednesday"],["thu","Thursday"],["fri","Friday"],["sat","Saturday"],["sun","Sunday"]];
-function paintMapLink(){ const la = $("#fLat").value.trim(), ln = $("#fLng").value.trim(); $("#fMapLnk").href = la && ln ? `https://www.google.com/maps?q=${encodeURIComponent(la)},${encodeURIComponent(ln)}` : "https://www.google.com/maps"; $("#fMapLnk").textContent = la && ln ? "Open this location on Google Maps" : "Find it on Google Maps (right-click a spot to copy its coordinates)"; }
-$("#branchForm").addEventListener("input", e => { if(e.target.id==="fLat" || e.target.id==="fLng"){ const m = /^\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*$/.exec(e.target.value); if(m){ $("#fLat").value = m[1]; $("#fLng").value = m[2]; } paintMapLink(); } });
+// coordinates from a Google Maps link (…/@33.89,35.50,17z, ?q=33.89,35.50, !3d33.89!4d35.50) or plain "33.89, 35.50"
+const gmapsCoords = v => { v = decodeURIComponent(String(v||"")); const pats = [/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/, /@(-?\d+\.\d+),\s*(-?\d+\.\d+)/, /[?&](?:q|query|ll|center|destination)=(-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?)/, /^\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*$/];
+  for(const r of pats){ const m = r.exec(v); if(m && Math.abs(+m[1]) <= 90 && Math.abs(+m[2]) <= 180) return [m[1], m[2]]; } return null; };
+function paintGMap(){ const la = $("#fLat").value.trim(), ln = $("#fLng").value.trim(), f = $("#fGMap"); if(!f) return;
+  if(la && ln && !isNaN(+la) && !isNaN(+ln)){ const src = `https://maps.google.com/maps?q=${encodeURIComponent(la)},${encodeURIComponent(ln)}&z=16&output=embed`; if(f.src!==src) f.src = src; f.style.display = ""; } else { f.style.display = "none"; f.removeAttribute("src"); } }
+function paintMapLink(){ const la = $("#fLat").value.trim(), ln = $("#fLng").value.trim(); $("#fMapLnk").href = la && ln ? `https://www.google.com/maps?q=${encodeURIComponent(la)},${encodeURIComponent(ln)}` : "https://www.google.com/maps"; $("#fMapLnk").textContent = la && ln ? "View on Google Maps" : "Open Google Maps"; paintGMap(); }
+$("#branchForm").addEventListener("input", e => { if(e.target.id==="fGLink"){ const c = gmapsCoords(e.target.value);
+    if(c){ $("#fLat").value = c[0]; $("#fLng").value = c[1]; paintMapLink(); $("#fErr").textContent = ""; }
+    else if(e.target.value.trim()) $("#fErr").textContent = /goo\.gl|maps\.app/.test(e.target.value) ? "Short links can't be read. Open the link, then copy the full address from the browser bar." : "";
+    return; }
+  if(e.target.id==="fLat" || e.target.id==="fLng"){ const m = /^\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*$/.exec(e.target.value); if(m){ $("#fLat").value = m[1]; $("#fLng").value = m[2]; } paintMapLink(); } });
 $("#branchForm").addEventListener("input", e => { if(e.target.id==="fDayStart") $("#fDayEx").textContent = dayExample(e.target.value || "00:00"); });
 $("#branchForm").addEventListener("change", e => { if(e.target.dataset.h==="closed"){ e.target.closest(".hrow").querySelectorAll("input[type=time]").forEach(i => i.disabled = e.target.checked); } });
 $("#branchForm").addEventListener("click", e => { if(e.target.id==="fHoursAll"){ const rows = [...document.querySelectorAll("#fHours .hrow")], m = rows[0];
@@ -1230,11 +1261,14 @@ $("#branchForm").addEventListener("submit", async e => {
   if(+dayStart.split(":")[0] >= 12){ $("#fErr").textContent = "The business day must start between 12:00 AM and 11:59 AM."; $("#fDayStart").focus(); return; }
   const data = { name, code, brandId, address:$("#fAddr").value.trim(), city:$("#fCity").value.trim(), phone:$("#fPhone").value.trim(),
     nameAr:$("#fNameAr").value.trim(), taxNumber:$("#fTaxNo").value.trim(), lat: lat ? +lat : null, lng: lng ? +lng : null,
-    settings:{ ...(branches.find(x=>x.id===editing)?.settings || {}), hours, orderTypes, receiptHeader:$("#fRHead").value.trim(), receiptFooter:$("#fRFoot").value.trim(), dayStart, autoDayEnd: $("#fAutoDay").checked },
+    settings:{ ...(branches.find(x=>x.id===editing)?.settings || {}), hours, orderTypes, receiptHeader:$("#fRHead").value.trim(), receiptFooter:$("#fRFoot").value.trim(), dayStart, autoDayEnd: $("#fAutoDay").checked, taxGroup: $("#fTaxGroup").value || null },
     open: mon.closed ? $("#fOpen").value : (mon.open || $("#fOpen").value), close: mon.closed ? $("#fClose").value : (mon.close || $("#fClose").value), zones:$("#fZones").value.trim(),
     active:$("#fActive").checked, callCenter:$("#fCC").checked, production:$("#fProd").checked, updatedAt:new Date().toISOString() };
   $("#saveBtn").disabled = true;
-  try{ await saveBranch(data, editing); toast(editing ? "Branch updated" : `${name} added`); closeForm(); }
+  const chPick = new Set([...document.querySelectorAll("#fCharges input:checked")].map(i => i.value));
+  try{ const bid = await saveBranch(data, editing);
+    await saveBranchCharges(editing || bid, chPick);
+    toast(editing ? "Branch updated" : `${name} added`); closeForm(); }
   catch(err){ console.error(err); $("#fErr").textContent = "Couldn't save. You may not have edit access to this page."; }
   finally{ $("#saveBtn").disabled = false; }
 });
@@ -1577,7 +1611,7 @@ const CRUD = {
     tabs:[["all","All",live],["active","Active",r=>live(r)&&r.active!==false],["inactive","Inactive",r=>live(r)&&r.active===false],["deleted","Deleted",r=>r.deleted]],
     sort:(a,b)=>bySort(a,b), search:r=>r.name+" "+(r.nameAr||""),
     cols:[["Name",r=>`<b>${esc(r.name)}</b>${r.nameAr?` <span class="note">${esc(r.nameAr)}</span>`:""}`],["Type",r=>r.type==="percent"?"Percentage":"Fixed amount"],["Value",r=>r.type==="percent"?(+r.value||0)+" %":usd(r.value),"num"],
-      ["Order types",r=>(r.orderTypes||[]).length ? r.orderTypes.map(t=>esc(TYPE_LBL[t]||t)).join(", ") : "All"],["Brands / branches",r=>[(r.brandIds||[]).length ? r.brandIds.map(brandName).join(", ") : "All brands", (r.branchIds||[]).length ? r.branchIds.length+" branch(es)" : "all branches"].map(esc).join(" · ")],
+      ["Order types",r=>(r.orderTypes||[]).length ? r.orderTypes.map(t=>esc(TYPE_LBL[t]||t)).join(", ") : "All"],["Brands / branches",r=>[(r.brandIds||[]).length ? r.brandIds.map(brandName).join(", ") : "All brands", (r.branchIds||[]).length ? (r.branchIds.includes("-") ? "no branches" : r.branchIds.length+" branch(es)") : "all branches"].map(esc).join(" · ")],
       ["Applies",r=>r.auto===false?'<span class="tag off">When picked</span>':'<span class="tag on">Automatically</span>'],["Status",r=>r.active===false?'<span class="tag off">Inactive</span>':'<span class="tag on">Active</span>']],
     fields:[{k:"name",l:"Name",req:1,ph:"e.g. Delivery charge, Service charge"},{k:"nameAr",l:"Name (Arabic)"},
       {k:"type",l:"Type",t:"select",req:1,opts:()=>[["fixed","Fixed amount (USD)"],["percent","Percentage of the order"]],def:"fixed"},{k:"value",l:"Value",t:"number",req:1,ph:"e.g. 2 or 10"},
