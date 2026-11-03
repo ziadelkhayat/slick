@@ -1530,20 +1530,25 @@ async function pdPast(id, ph){
   return rows.filter(o => ["pending","active","closed"].includes(o.status)).sort((a,b) => String(b.at).localeCompare(String(a.at)));
 }
 // customer card: insights + previous orders (tap one for its details); used by the new-order form and the customer page
-function custPanel(c, ok, det, key, extra = ""){
+function insCard(c, ok){
   ok = ok || []; const spent = ok.reduce((s,o) => s + o.total, 0);
   const nType = k => ok.filter(o => o.type===k || (k==="takeaway" && o.type==="pickup")).length;
   const d = x => x ? new Date(x).toLocaleDateString("en-GB", { day:"numeric", month:"short", year:"numeric" }) : "—";
   const since = d(c.created_at || ok[ok.length-1]?.at);
-  const tl = { delivery:"Delivery", takeaway:"Pickup", pickup:"Pickup", dinein:"Dine-in", fast:"Fast sale" };
-  const sel = det && ok.find(o => o.id===det);
-  const ins = `<div class="cins"><div class="cins-h"><b>${esc(c.name || "Customer")}</b><span class="mut">Since ${since}</span></div>
+  return `<div class="cins"><div class="cins-h"><b>${esc(c.name || "Customer")}</b><span class="mut">Since ${since}</span></div>
     ${c.blacklisted || (c.tags||[]).length || c.notes ? `<div class="ctags">${c.blacklisted ? '<span class="tag bad">⚠ Blacklisted</span>' : ""}${(c.tags||[]).map(x => `<span class="tag">${esc(x)}</span>`).join("")}${c.notes ? `<i>${esc(c.notes)}</i>` : ""}</div>` : ""}
     <div class="cins-g"><div><span>Orders</span><b>${ok.length}</b></div><div><span>Total spent</span><b>${usd(spent)}</b></div><div><span>Avg. order</span><b>${usd(ok.length ? spent/ok.length : 0)}</b></div><div><span>Last order</span><b>${ok[0] ? d(ok[0].at) : "—"}</b></div></div>
     ${ok.length ? `<div class="cmix">${nType("delivery")} delivery · ${nType("takeaway")} pickup${nType("dinein")+nType("fast") ? ` · ${nType("dinein")+nType("fast")} in store` : ""}</div>` : ""}
 </div>`;
+}
+function custPanel(c, ok, det, key, extra = "", noIns = false){
+  ok = ok || [];
+  const d = x => x ? new Date(x).toLocaleDateString("en-GB", { day:"numeric", month:"short", year:"numeric" }) : "—";
+  const tl = { delivery:"Delivery", takeaway:"Pickup", pickup:"Pickup", dinein:"Dine-in", fast:"Fast sale" };
+  const sel = det && ok.find(o => o.id===det);
+  const ins = noIns ? "" : insCard(c, ok);
   if(sel){ const brn = S.branches?.find(b => b.id===sel.branchId)?.name || "";
-    return `<div class="pdside">${ins}${extra}<button type="button" class="btn" data-${key}="" style="align-self:flex-start">← Previous orders</button>
+    return `<div class="pdside">${ins}${extra}<button type="button" class="btn" data-${key}="" style="align-self:flex-start">← Orders history</button>
     <div class="cins"><div class="cins-h"><b>${sel.inv ? esc(invNo(sel.inv)) : "#" + esc(sel.no || "—")}</b><span class="mut">${esc(stLbl(sel))}</span></div>
       <div class="mut">Order #${esc(sel.no || "—")} · ${tl[sel.type] || esc(sel.type||"")} · ${new Date(sel.at).toLocaleString("en-GB", { day:"numeric", month:"short", year:"numeric", hour:"2-digit", minute:"2-digit" })}${brn ? " · " + esc(brn) : ""}${sel.source && sel.source.toUpperCase()!=="POS" ? " · " + esc(sel.source) : ""}</div>
       ${sel.address ? `<div class="mut">📍 ${esc(adShort(sel.address))}</div>` : ""}</div>
@@ -1551,7 +1556,7 @@ function custPanel(c, ok, det, key, extra = ""){
       ${sel.discount ? `<div class="cdl"><span>Discount</span><b>-${usd(sel.discount)}</b></div>` : ""}${(sel.charges||[]).filter(c => +c.amount).map(c => `<div class="cdl"><span>${esc(c.name)}</span><b>${usd(+c.amount)}</b></div>`).join("")}${sel.fee ? `<div class="cdl"><span>Delivery fee</span><b>${usd(sel.fee)}</b></div>` : ""}
       <div class="cdl tot"><span>Total</span><b>${usd(sel.total)}</b></div>${sel.payment?.method ? `<div class="mut">Paid by ${esc(sel.payment.method)}</div>` : ""}</div></div>`; }
   return `<div class="pdside">${ins}${extra}
-    <div class="cpast"><b>Previous orders</b>${ok.length ? ok.slice(0,20).map(o => `<button type="button" class="cpo" data-${key}="${esc(o.id)}"><span>${o.inv ? esc(invNo(o.inv)) : "#" + esc(o.no || "—")} · ${d(o.at)} · ${tl[o.type] || esc(o.type||"")}${o.address ? `<small class="cpoa">📍 ${esc(adShort(o.address))}</small>` : ""}</span><b>${usd(o.total)}</b><i>›</i></button>`).join("") : '<div class="mut">No orders yet</div>'}</div></div>`;
+    <div class="cpast"><b>Orders history</b>${ok.length ? ok.slice(0,20).map(o => `<button type="button" class="cpo" data-${key}="${esc(o.id)}"><span>${o.inv ? esc(invNo(o.inv)) : "#" + esc(o.no || "—")} · ${d(o.at)} · ${tl[o.type] || esc(o.type||"")}${o.address ? `<small class="cpoa">📍 ${esc(adShort(o.address))}</small>` : ""}</span><b>${usd(o.total)}</b><i>›</i></button>`).join("") : '<div class="mut">No orders yet</div>'}</div></div>`;
 }
 const adShort = a => { const p = addrParts(a); return [p.label, p.street, p.building && "Bldg " + p.building, p.floor && "Floor " + p.floor].filter(Boolean).join(" · ") || a; };
 const pdSide = (extra) => custPanel(PD.cust, PD.past, PD.det, "pddet", extra);
@@ -1574,8 +1579,9 @@ function drawCust(){
         <div class="kv"><span>Phone</span><b>${esc(cust.phone || "—")}</b></div>
         <div class="kv"><span>This order</span><b>${otype==="delivery" ? "Delivery" : "Pickup"}</b></div>
         ${CV.addr ? `<div class="kv"><span>Delivering to</span><b>📍 ${esc(CV.addr)}</b></div>` : ""}</div>
+        ${CV.loading ? "" : insCard(c, CV.past)}
         ${saved.length ? `<div class="cpast"><b>Saved addresses · ${saved.length}</b>${saved.map((a,i) => { const p = addrParts(a.address); return `<div class="acard" style="cursor:default"><b>${esc(p.label || "Address " + (i+1))}</b><span>${esc([p.street, p.building && "Bldg " + p.building, p.floor && "Floor " + p.floor, p.extra].filter(Boolean).join(" · ") || a.address)}</span></div>`; }).join("")}</div>` : ""}</div>
-      <div class="custcol">${CV.loading ? '<div class="mut">Loading orders…</div>' : custPanel(c, CV.past, CV.det, "cvdet")}</div>
+      <div class="custcol">${CV.loading ? '<div class="mut">Loading orders…</div>' : custPanel(c, CV.past, CV.det, "cvdet", "", true)}</div>
     </div></div>`);
   $("#modal").classList.add("full"); $("#scrim").classList.add("fullscr"); withNav();
 }
