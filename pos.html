@@ -641,7 +641,10 @@ const liveOrder = o => o.branchId===device.branchId && !["draft","declined","voi
 const dayClosed = d => S.day_closes.some(c => c.branchId===device.branchId && String(c.businessDate).slice(0,10)===d);
 // the latest earlier business day at this branch that had sales and wasn't ended; otherwise today
 function openDay(){ const today = bizDate(), days = [...new Set(S.orders.filter(liveOrder).map(o => bizDate(o.createdAt)))].filter(d => d < today && !dayClosed(d)).sort(); return days.length ? days[days.length-1] : today; }
+// an open check started before the day end time can still be updated and paid (it stays on its own day), so the day can then be ended
 function saleBlock(){
+  let eo = null; try{ eo = editOrder(); }catch(e){}
+  if(eo && ["active","pending","draft"].includes(eo.status) && !dayClosed(bizDate(eo.createdAt))) return "";
   const today = bizDate(), od = openDay();
   if(od < today) return `The business day of ${fmtDay(od)} hasn't been ended. End that day first (End day button), then you can sell.`;
   if(dayClosed(today)) return `Today's business day (${fmtDay(today)}) is already ended at this branch. New sales start after the day end time.`;
