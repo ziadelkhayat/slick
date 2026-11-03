@@ -449,6 +449,7 @@ tr[draggable="true"].dragging{opacity:.45}tr.dropto td{box-shadow:inset 0 2px 0 
 /* orders: title, filters and status tabs stay in view while the list scrolls */
 .ostick{position:sticky;top:var(--toph,62px);z-index:4;background:var(--bg);margin:-6px -8px 0;padding:6px 8px 0}
 .ostick .fbar{margin-bottom:12px}
+.taxcfg{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:14px}.taxcfg h3{margin:0 0 4px;font-size:15px}.taxcfg .note{margin:0}.taxcfg .chk{font-weight:600;white-space:nowrap}
 .ofb{flex-wrap:wrap;gap:10px}.osrch{flex:1;min-width:240px;display:flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:10px;background:var(--surface);padding:0 12px}.osrch svg{width:16px;height:16px;color:var(--muted);flex:none}.osrch input{border:0;outline:0;background:transparent;font:inherit;padding:9px 0;width:100%}
 .osrch:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
 .ofbtn{display:inline-flex;align-items:center;gap:8px}.ofbtn svg{width:16px;height:16px}.ofbtn.on{border-color:var(--accent);color:var(--accent-ink);background:var(--accent-soft)}
@@ -1222,8 +1223,13 @@ const catName = id => S.categories.find(c => c.id===id)?.name || "—";
 const taxRate = g => (g?.taxIds||[]).reduce((a,id) => { const t = S.taxes.find(x=>x.id===id && live(x)); return a + (t ? +t.rate||0 : 0); }, 0);
 const tgName = id => { if(!id) return "No tax"; const g = S.tax_groups.find(x=>x.id===id); return g ? `${g.name} (${+taxRate(g).toFixed(2)}%)` : (id==="TAX" ? "VAT" : id); };
 const taxGroupOpts = () => S.tax_groups.filter(live).map(g=>[g.id, `${g.name} (${+taxRate(g).toFixed(2)}%)`]);
-const taxTabs = on => `<div class="tabs" style="margin-bottom:14px"><a href="#taxes" class="${on==="taxes"?"on":""}">Taxes</a><a href="#tax-groups" class="${on==="tax-groups"?"on":""}">Tax Groups</a></div>
-  <p class="subt" style="margin-top:-4px">Menu prices include tax. Receipts and reports show the tax inside each sale; net sales leave it out.</p>`;
+const taxTabs = on => { const incl = company().taxInclusive !== false, admin = !state.role || ["owner","admin"].includes(state.role);
+  return `<div class="card taxcfg"><div><h3>Tax configuration</h3><p class="note">${incl ? "Menu prices already include tax. Receipts and reports show the tax inside each sale; net sales leave it out." : "Tax is added on top of the menu price at checkout."}</p></div>
+    <label class="chk"><input type="checkbox" id="taxInclToggle" ${incl?"checked":""} ${admin?"":"disabled"}> Tax inclusive pricing</label></div>
+  <div class="tabs" style="margin-bottom:14px"><a href="#taxes" class="${on==="taxes"?"on":""}">Taxes</a><a href="#tax-groups" class="${on==="tax-groups"?"on":""}">Tax Groups</a></div>`; };
+document.addEventListener("change", async e => { if(e.target.id!=="taxInclToggle") return; const v = e.target.checked;
+  try{ await put("settings", "company", { taxInclusive: v }); toast(v ? "Prices now include tax" : "Tax is now added on top of prices"); render(); }
+  catch(err){ console.error(err); e.target.checked = !v; toast("Couldn't save. Only the owner or an admin can change this."); } });
 
 /* ---------- users & roles ---------- */
 const PERMS = [["@Back office · screens"],["bo_dashboard","Dashboard"],["bo_orders","Orders"],["bo_callcenter","Call center"],["bo_customers","Customers"],["bo_reports","Reports"],["bo_inventory","Inventory"],["bo_menu","Menu"],["bo_manage","Manage (settings, users, branches) — full admin"],["bo_marketing","Marketing"],
@@ -2010,7 +2016,7 @@ function openOrder(id){
   box.innerHTML = `<header><h2>${o?`Order ${esc(ordRef(o))} <span class="spill s-${o.status}">${CC_SUB[o.status]}</span>`:"New Call Center Order"}</h2>
     <nav class="ccsteps" aria-label="Order steps"><button type="button" data-ccstep="1"><i>1</i>Customer & delivery</button><span aria-hidden="true">›</span><button type="button" data-ccstep="2"><i>2</i>Items</button></nav>
     <button type="button" class="x" data-ccclose aria-label="Close">×</button></header>
-  ${o && !ro && ccLocked ? `<div class="ccbanner">Placed order: you can change the source, type and items. Changes go straight to ${esc(branchName(o.branchId))}.</div>` : ""}
+  ${o && !ro && ccLocked ? `<div class="ccbanner">Placed order: you can change the order source, order type and items. Changes go straight to ${esc(branchName(o.branchId))}.</div>` : ""}
   <div class="ccx" id="ccX">
    <section class="ccleft">
     <div class="cc1">
@@ -2025,7 +2031,7 @@ function openOrder(id){
       <div class="f"><label>Order type *</label><div class="seg tiles" id="oType">${[["delivery","Delivery"],["pickup","Pickup"]].map(([k,t])=>`<button type="button" data-ot="${k}" class="${o?.type===k?"on":""}" ${dis}>${svgIco(k==="delivery"?"truck":"store")}${t}</button>`).join("")}</div></div>
       <div class="f2"><div class="f"><label for="oBrand">Brand *</label><select id="oBrand" ${ldis}><option value="">Choose…</option>${brandList().filter(b=>b.active!==false || b.id===o?.brandId).map(b=>`<option value="${esc(b.id)}" ${o?.brandId===b.id?"selected":""}>${esc(b.name)}</option>`).join("")}</select></div>
       <div class="f"><label for="oBranch">Branch *</label><select id="oBranch" ${ldis}></select></div></div>
-      <div class="f"><label for="oSource">Source *</label><select id="oSource" ${dis}><option value="">Choose…</option>${sourceList(o?.source).map(s=>`<option ${o?.source===s?"selected":""}>${esc(s)}</option>`).join("")}</select></div>
+      <div class="f"><label for="oSource">Order source *</label><select id="oSource" ${dis}><option value="">Choose…</option>${sourceList(o?.source).map(s=>`<option ${o?.source===s?"selected":""}>${esc(s)}</option>`).join("")}</select></div>
       <div id="oAddrF">${(() => { const a = addrSplit(o?.address), ad = ro || (ccLocked && o?.address) ? "disabled" : ""; return `<h4>Delivery address</h4>
         <div class="acards" id="oAddrCards"></div>
         <div class="f2"><div class="f"><label for="oA_label">Address name</label><input id="oA_label" value="${esc(a.label)}" ${ad} placeholder="Home, Work…"></div>
@@ -2654,7 +2660,7 @@ async function openOrderDetail(id, quiet){
       <div><span>Branch</span>${esc(branches.find(x=>x.id===o.branchId)?.name || "—")}</div>
       <div><span>Sales channel</span>${esc(CH_LBL[o.channel] || cap(o.channel))}${o.source && o.source!=="POS"?` · ${esc(o.source)}`:""}</div>
       <div><span>Order type</span>${esc(ordTypeLbl(o.type))}${o.table?` · Table ${esc(o.table)}`:""}</div>
-      <div><span>Placed</span>${dt(o.createdAt)}</div>
+      <div><span>Business date</span>${o.createdAt ? new Date(bizDate(o.createdAt) + "T12:00:00").toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"}) + ` <span class="note">${new Date(o.createdAt).toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"})}</span>` : "—"}</div>
       ${o.acceptedAt?`<div><span>Accepted</span>${dt(o.acceptedAt)} <span class="note">(${mins(o.createdAt,o.acceptedAt)})</span></div>`:""}
       ${o.doneAt?`<div><span>${o.status==="declined"?"Declined":"Done"}</span>${dt(o.doneAt)} <span class="note">(${mins(o.createdAt,o.doneAt)} total)</span></div>`:""}
       ${o.agent?`<div><span>${o.channel==="pos"?"Device":"User"}</span>${esc(o.agent)}</div>`:""}
@@ -2819,7 +2825,7 @@ async function openCustomer(id){
   let c = { id:null, phone:"", name:"", email:"", birthday:null, notes:"", tags:[], blacklisted:false, addresses:[] }, orders = [];
   if(id){
     const [r1, r2] = await Promise.all([WOK.sb.from("customers").select("*").eq("id", id).maybeSingle(),
-      WOK.sb.from("orders").select("id,ref,no,invoice_no,created_at,branch_id,channel,type,status,total,address").eq("customer_id", id).order("created_at", { ascending:false }).limit(100)]);
+      WOK.sb.from("orders").select("id,ref,no,invoice_no,return_no,created_at,branch_id,channel,type,table_no,source,payment,status,total,address").eq("customer_id", id).order("created_at", { ascending:false }).limit(100)]);
     if(r1.error || !r1.data) return toast("Couldn't open this customer");
     c = r1.data; orders = r2.data || []; c.__orders = orders;
   }
@@ -2843,9 +2849,9 @@ async function openCustomer(id){
     <details style="margin:6px 0 4px"><summary class="lnk" style="cursor:pointer;font-size:13px">+ Add address</summary>
       <div class="body" style="padding:8px 0 0">${[["label","Label","Home, Work…"],["street","Area / street",""],["building","Building",""],["floor","Floor",""],["extra","Directions / info",""]].map(([k,l,ph])=>`<div class="f"><label for="cuA_${k}">${l}</label><input id="cuA_${k}" placeholder="${ph}"></div>`).join("")}
       <div class="f" style="align-self:end"><button type="button" class="btn" id="cuAddAddr">Add</button></div></div></details>
-    ${id ? `<h3 style="font-size:14px;margin:14px 0 6px">Order history</h3><div class="card tbl otbl"><table><thead><tr><th>Order</th><th>Date</th><th>Branch</th><th>Sales channel</th><th>Status</th><th class="num">Total</th></tr></thead><tbody>${
-      orders.length ? orders.map(o=>`<tr class="clk" data-coid="${esc(o.id)}"><td><b>${esc(ordRef(o))}</b></td><td>${dt(o.created_at)}</td><td>${esc(branchName(o.branch_id) || "—")}</td><td>${esc(CH_LBL[o.channel]||cap(o.channel))}</td><td><span class="spill s-${o.status}">${ORD_ST[o.status]||o.status}</span></td><td class="num">${money(+o.total||0)}</td></tr>`).join("")
-      : `<tr><td colspan="6" class="note">No orders yet.</td></tr>`}</tbody></table></div>` : ""}
+    ${id ? `<h3 style="font-size:14px;margin:14px 0 6px">Order history</h3><div class="card tbl otbl"><table><thead><tr><th>Order</th><th>Business date</th><th>Branch</th><th>Sales channel</th><th>Order type</th><th>Order source</th><th>Payment type</th><th>Status</th><th class="num">Total</th></tr></thead><tbody>${
+      orders.length ? orders.map(o=>`<tr class="clk" data-coid="${esc(o.id)}"><td><b>${esc(ordRef(o))}</b></td><td>${o.created_at ? new Date(bizDate(o.created_at) + "T12:00:00").toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"}) : "—"}</td><td>${esc(branchName(o.branch_id) || "—")}</td><td>${esc(CH_LBL[o.channel]||cap(o.channel))}</td><td>${esc(ordTypeLbl(o.type))}${o.type==="dinein" && o.table_no ? `<div class="note">${esc(/^\d+$/.test(String(o.table_no).trim()) ? "Table " + String(o.table_no).trim() : o.table_no)}</div>` : ""}</td><td>${esc(srcOf(o) || "-")}</td><td>${esc(o.payment?.method || "-")}</td><td><span class="spill s-${o.status}">${ORD_ST[o.status]||o.status}</span></td><td class="num">${money(+o.total||0)}</td></tr>`).join("")
+      : `<tr><td colspan="9" class="note">No orders yet.</td></tr>`}</tbody></table></div>` : ""}
     <div class="err" id="cuErr"></div>
   </div>
   <footer>${id && ["owner","admin"].includes(state.role) ? `<button type="button" class="btn bad" id="cuDel">Delete</button>` : ""}<span style="flex:1"></span><button type="button" class="btn" data-ccclose>Cancel</button><button type="button" class="btn pri" id="cuSave">${id?"Save":"Add customer"}</button></footer>`;
@@ -3022,11 +3028,10 @@ function viewCompany(){
         <div class="f"><label for="co_rate2">Exchange rate (1 ${esc(c.currency||"USD")} =)</label><input id="co_rate2" class="sel" type="number" min="0" step="any" value="${esc(c.rate2??"")}" placeholder="e.g. 89500" ${admin?"":"disabled"}></div>
         <div class="f"><label for="co_decimals2">Second currency decimals</label><select id="co_decimals2" class="sel" ${admin?"":"disabled"}>${[0,1,2].map(n=>`<option value="${n}" ${String(c.decimals2 ?? 0)===String(n)?"selected":""}>${n}</option>`).join("")}</select></div>
       </div><p class="note" style="margin:10px 0 0">The second currency is shown next to totals in the POS, on receipts, in the call center and online, at this rate.</p></div>
-    <div class="card" style="margin-bottom:16px"><h3 style="margin:0 0 12px;font-size:15px">Time & tax</h3>
+    <div class="card" style="margin-bottom:16px"><h3 style="margin:0 0 12px;font-size:15px">Time zone</h3>
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px">
         <div class="f"><label for="co_timeZone">Time zone</label><select id="co_timeZone" class="sel" ${admin?"":"disabled"}>${TZS.map(z=>`<option value="${z}" ${(c.timeZone||"Asia/Beirut")===z?"selected":""}>${z.replace(/_/g," ")}</option>`).join("")}</select></div>
-        <div class="f"><label class="chk" style="margin-top:22px"><input type="checkbox" id="co_taxInclusive" ${c.taxInclusive!==false?"checked":""} ${admin?"":"disabled"}> Tax inclusive pricing</label>
-          <div class="note">On: menu prices already include tax. Off: tax is added on top of the price at checkout.</div></div>
+        <div class="f"><div class="note" style="margin-top:22px">Tax inclusive pricing is set in Manage → Taxes & Groups.</div></div>
       </div></div>
     <div class="card" style="margin-bottom:16px"><h3 style="margin:0 0 8px;font-size:15px">Business day</h3>
       <p class="note" style="margin:0 0 12px">Reports cover one business day, from its start to its end. If you close after midnight, set the end time (e.g. 03:00): orders until then still count on the day that started. The next day starts right after.</p>
@@ -3047,7 +3052,7 @@ document.addEventListener("input", e => { if(e.target.id==="co_dayEnd" && $("#co
 async function saveCompany(){
   const v = k => ($("#co_"+k)?.value || "").trim();
   const data = { name:v("name"), legalName:v("legalName"), taxNumber:v("taxNumber"), crNumber:v("crNumber"), currency:v("currency")||"USD", phone:v("phone"), email:v("email"), address:v("address"), logoUrl:v("logoUrl"), dayEnd: v("dayEnd") || "00:00",
-    country:v("country"), taxName:v("taxName"), priceDecimals: +v("priceDecimals"), currency2: v("currency2"), rate2: v("rate2")==="" ? null : +v("rate2"), decimals2: +v("decimals2") || 0, timeZone:v("timeZone") || "Asia/Beirut", taxInclusive: !!$("#co_taxInclusive")?.checked };
+    country:v("country"), taxName:v("taxName"), priceDecimals: +v("priceDecimals"), currency2: v("currency2"), rate2: v("rate2")==="" ? null : +v("rate2"), decimals2: +v("decimals2") || 0, timeZone:v("timeZone") || "Asia/Beirut" };
   if(/^(\d{1,2})/.test(data.dayEnd) && +data.dayEnd.split(":")[0] >= 12){ $("#coErr").textContent = "The day must end between 12:00 AM and 11:59 AM."; $("#co_dayEnd").focus(); return; }
   if(!data.name){ $("#coErr").textContent = "Company name is required."; $("#co_name").focus(); return; }
   try{ await put("settings", "company", data); toast("Company saved"); }
