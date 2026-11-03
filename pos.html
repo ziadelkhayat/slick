@@ -208,7 +208,7 @@ body{-webkit-font-smoothing:antialiased}
 .lrow{display:grid;grid-template-columns:110px 1.2fr 1.2fr 140px;gap:12px;align-items:center;width:100%;border:0;border-bottom:1px solid var(--line);background:none;padding:14px 20px;text-align:left;font:inherit;color:inherit;cursor:pointer}
 .lrow:hover{background:#faf9fe}.lrow:last-child{border-bottom:0}.lrow .lno{font-size:17px;font-weight:600}.lrow .lc{display:flex;flex-direction:column;gap:3px;color:#5b5a66;font-size:14px}.lrow .lc b{color:var(--ink);font-weight:500;text-transform:uppercase;font-size:13.5px;letter-spacing:.02em}.lrow .lr{text-align:right;display:flex;flex-direction:column;gap:4px;align-items:flex-end}.lrow .lr b{text-transform:uppercase;font-size:13.5px;letter-spacing:.03em}
 .modal.full .mb>*{flex-shrink:0}.otabs2{flex-shrink:0;overflow-x:auto;overflow-y:hidden}.otabs2 button{min-height:52px}.fdot{display:inline-grid;place-items:center;min-width:18px;height:18px;border-radius:9px;background:#fff;color:var(--acci);font-size:11px;margin-left:4px;padding:0 4px}.hbtn.ghost .fdot{background:var(--acc);color:#fff}
-.lrow.ol5{grid-template-columns:.8fr 1fr 1.2fr .8fr .9fr .9fr .6fr .9fr}.lrow.lhead{cursor:default;padding-top:10px;padding-bottom:10px;font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:#8d8c98}.lrow.lhead:hover{background:none}
+.lrow.ol5{grid-template-columns:.75fr .95fr 1.15fr .8fr .85fr .8fr .6fr .75fr .85fr}.lrow.lhead{cursor:default;padding-top:10px;padding-bottom:10px;font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:#8d8c98}.lrow.lhead:hover{background:none}
 
 .lst-pending{color:#2c5fb8}.lst-active{color:var(--warn)}.lst-closed{color:var(--good)}.lst-void,.lst-refund,.lst-declined,.lst-returned{color:var(--bad)}
 @media(max-width:800px){.lrow{grid-template-columns:80px 1fr 110px}.lrow .lc2{display:none}}
@@ -1188,6 +1188,7 @@ function openIncoming(){
     <span class="lc lc2"><b style="text-transform:none">${esc(chn(o))}</b></span>
     <span class="lc lc2"><b style="text-transform:none">${o.source && o.source.toLowerCase()!==chn(o).toLowerCase() ? esc(o.source) : "-"}</b></span>
     <span class="lc lc2"><b style="text-transform:none">${o.type==="dinein" && o.table ? esc(tblLbl(o.table)) : "-"}</b></span>
+    <span class="lc lc2"><b style="text-transform:none">${esc(o.payment?.method || "-")}</b></span>
     <span class="lr"><b style="text-transform:none;font-size:15px">${usd(o.total)}</b></span></button>`;
   const TABS = [["all","All"],["active","Active"],["closed","Closed"],["void","Void & returns"]];
   if(!TABS.some(x => x[0]===OV.tab)) OV.tab = "all";
@@ -1201,7 +1202,7 @@ function openIncoming(){
       return `<div class="ocol"><div class="ochead" title="${esc(tip)}"><b>${title}</b><span class="cnt">${l.length}</span></div>${l.length ? l.map(card).join("") : `<div class="oempty">You don't have ${title.toLowerCase()} orders</div>`}</div>`; }).join("")}</div>`;
   else { const l = boardOrders(OV.tab);
     body = `<div class="otabs2">${TABS.map(([k,l2]) => `<button data-ovtab="${k}" class="${OV.tab===k?"on":""}">${l2}${k==="all" || boardOrders(k).length ? ` (${boardOrders(k).length})` : ""}</button>`).join("")}</div>
-      <div class="olist2">${l.length ? `<div class="lrow ol5 lhead"><span>Order no.</span><span>Invoice no.</span><span>Customer</span><span class="lc2">Order type</span><span class="lc2">Sales channel</span><span class="lc2">Source</span><span class="lc2">Table</span><span style="text-align:right">Total</span></div>` + l.map(row).join("") : `<div class="oempty" style="border-radius:0">No orders here</div>`}</div>`; }
+      <div class="olist2">${l.length ? `<div class="lrow ol5 lhead"><span>Order no.</span><span>Invoice no.</span><span>Customer</span><span class="lc2">Order type</span><span class="lc2">Sales channel</span><span class="lc2">Source</span><span class="lc2">Table</span><span class="lc2">Payment</span><span style="text-align:right">Total</span></div>` + l.map(row).join("") : `<div class="oempty" style="border-radius:0">No orders here</div>`}</div>`; }
   modal("incoming", `${head}<div class="mb" style="display:flex;flex-direction:column;gap:12px">${filt}${body}<p class="mut" style="margin:0">${(OV.date||bizDate())===bizDate() ? `Today's business day (${bizDate()}) plus open orders from earlier days.` : `Business day ${OV.date}.`} Tap an order to open it in the billing section.</p></div>`, true);
   $("#modal").classList.add("full"); $("#scrim").classList.add("fullscr"); withNav();
   const q = $("#ovQ"); if(q && document.activeElement?.id!=="ovQ" && OV.q){ /* keep the list where it was */ }
