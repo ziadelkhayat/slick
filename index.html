@@ -592,7 +592,8 @@ const NAV = [
   {id:"customers",t:"Customers",i:"users"},
   {t:"Reports",i:"chart",kids:[["sales-reports","Sales Reports"],["inventory-reports","Inventory Reports"],["business-reports","Business Reports"],["analysis-reports","Analysis Reports"]]},
   {t:"Inventory",i:"box",tabs:1,kids:[["inv-categories","Inventory Categories"],["inv-items","Items"],["warehouses","Locations"],["suppliers","Suppliers"],["purchase-orders","Purchase Orders"],["transfer-orders","Transfer Orders"],["transfers","Transfers"],["inventory-count","Inventory Count"],["production","Production"],["quantity-adjustments","Quantity Adjustment"],["cost-adjustments","Cost Adjustment"],["spot-check","Inventory Spot Check"],["count-sheets","Count Sheet"]]},
-  {t:"Menu",i:"book",tabs:1,kids:[["@Menu Builder"],["categories","Categories"],["products","Products"],["modifiers","Modifiers"],["branch-menu","Sales Channels"],["combos","Combos"],["groups","Groups"],["@Menu Settings"],["price-tags","Price Tags"],["allergens","Allergens"]]},
+  {t:"Menu",i:"book",tabs:1,kids:[["@Menu Builder"],["categories","Categories"],["products","Products"],["modifiers","Modifiers"],["combos","Combos"],["groups","Groups"],["@Menu Settings"],["price-tags","Price Tags"],["allergens","Allergens"]]},
+  {id:"branch-menu",t:"Sales Channels",i:"globe"},
   {t:"Manage",i:"gear",kids:[["users","Users"],["roles","Roles"],["brands","Brands"],["branches","Branches"],["devices","Devices"],["tables","Tables"],["taxes","Taxes & Groups"],["currency","Currency"],["payment-methods","Payment Methods"],["order-sources","Order Sources"],["charges","Charges"],["delivery-zones","Delivery Zones"],["online-ordering","Web Ordering"],["kitchen-flows","Kitchen Flows"],["reasons","Reasons"],["settings","Settings"]]},
   {t:"Marketing",i:"tag",kids:[["loyalty","Loyalty"],["gift-cards","Gift Cards"],["discounts","Discounts"],["promotions","Promotions"],["coupons","Coupons"]]}
 ];
@@ -1100,16 +1101,15 @@ function viewBranches(){
     <div class="row" style="gap:8px;margin:0">${scopeBar(false)}<button class="btn pri" id="addBranch">+ Add branch</button></div></div><div style="height:14px"></div>`;
   if(storeMode==="local") h += `<div class="banner">Preview mode: branches you add here won't be saved. Open this page from claude.ai while signed in to save them.</div>`;
   if(!n) return h + `<div class="card empty">No branches yet. Add your first branch to get started.</div>`;
-  h += `<div class="card tbl"><table><thead><tr><th>Code</th><th>Name</th><th>Brand</th><th>Area</th><th>Today</th><th>Phone</th><th>Status</th><th></th></tr></thead><tbody>${
-    list.map(b => `<tr>
+  h += `<div class="card tbl"><table><thead><tr><th>Code</th><th>Name</th><th>Brand</th><th>Area</th><th>Today</th><th>Phone</th><th>Status</th></tr></thead><tbody>${
+    list.map(b => `<tr class="clk" data-edit="${esc(b.id)}" title="Edit ${esc(b.name)}">
       <td class="code">${esc(b.code)}</td>
-      <td><b style="font-weight:600">${esc(b.name)}</b>${b.production?` <span class="tag cc">Central kitchen</span>`:""}</td>
+      <td><a href="#branches" class="lnk" data-edit="${esc(b.id)}"><b style="font-weight:600">${esc(b.name)}</b></a>${b.production?` <span class="tag cc">Central kitchen</span>`:""}</td>
       <td>${esc(brandName(b.brandId))}</td>
       <td>${esc(b.city)||'<span class="note">—</span>'}</td>
       <td>${(() => { const d = b.settings?.hours?.[DAYS[(new Date().getDay()+6)%7][0]]; return d ? (d.closed ? '<span class="note">Closed today</span>' : `${esc(t12(d.open))} – ${esc(t12(d.close))}`) : `${esc(b.open||"")}${b.open||b.close?"–":""}${esc(b.close||"")}`; })()}</td>
       <td>${esc(b.phone)||'<span class="note">—</span>'}</td>
-      <td><span class="tag ${b.active!==false?"on":"off"}"><span class="dot"></span>${b.active!==false?"Active":"Inactive"}</span>${b.callCenter?` <span class="tag cc">Call center</span>`:""}</td>
-      <td class="num"><a class="btn sm" href="#branch-menu" data-brmenu="${esc(b.id)}" style="text-decoration:none">Menu</a> <button class="btn sm" data-edit="${esc(b.id)}">Edit</button></td></tr>`).join("")
+      <td><span class="tag ${b.active!==false?"on":"off"}"><span class="dot"></span>${b.active!==false?"Active":"Inactive"}</span>${b.callCenter?` <span class="tag cc">Call center</span>`:""}</td></tr>`).join("")
   }</tbody></table></div>
   <p class="note" style="margin-top:12px">Inactive branches stay in your history but are hidden from dashboards, filters and call-center routing.</p>`;
   return h;
@@ -1172,7 +1172,7 @@ $("#view").addEventListener("click", e => {
   const t2 = e.target.closest("[data-dt2]"); if(t2){ e.preventDefault(); state.dashTab = t2.dataset.dt2; render(); return; }
   const t = e.target.closest("[data-dt]"); if(t){ e.preventDefault(); state.dashTab = t.dataset.dt; render(); return; }
   if(e.target.closest("#addBranch")) openForm();
-  const ed = e.target.closest("[data-edit]"); if(ed) openForm(ed.dataset.edit);
+  const ed = e.target.closest("[data-edit]"); if(ed){ e.preventDefault(); openForm(ed.dataset.edit); }
 });
 
 let editing = null;
