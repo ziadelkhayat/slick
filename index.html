@@ -779,7 +779,11 @@ const dayCut = (bid) => { if(bid) return branchCut(bid);
   const l = (typeof activeBranches==="function" ? activeBranches() : branches).map(b => branchCut(b.id)), c = {}; l.forEach(x => c[x] = (c[x]||0) + 1);
   const top = Object.entries(c).sort((a,b) => b[1]-a[1])[0]; return top ? +top[0] : branchCut(null); };
 const dayStartH = () => Math.floor(dayCut()/60);
-const bizDate = (t = new Date(), bid) => { const d = new Date(+new Date(t) - dayCut(bid)*60000); return new Date(d - d.getTimezoneOffset()*60000).toISOString().slice(0,10); };
+const nextDay = d => { const x = new Date(d + "T12:00:00"); x.setDate(x.getDate() + 1); return x.toISOString().slice(0,10); };
+// a branch that ends its day early (before its start time) starts the next business day right then
+const bizDate = (t = new Date(), bid) => { const ms = +new Date(t), d0 = new Date(ms - dayCut(bid)*60000); let d = new Date(d0 - d0.getTimezoneOffset()*60000).toISOString().slice(0,10);
+  if(bid && S.day_closes?.length) for(let i = 0; i < 3; i++){ const c = S.day_closes.find(c => c.branchId===bid && String(c.businessDate).slice(0,10)===d); if(c && +new Date(c.closedAt) <= ms) d = nextDay(d); else break; }
+  return d; };
 const dayBounds = (from, to, bid) => { const c = dayCut(bid), t0 = new Date(from+"T00:00:00"), t1 = new Date((to||from)+"T00:00:00"); t1.setDate(t1.getDate()+1); t0.setMinutes(c); t1.setMinutes(c); return [t0, t1]; };
 const todayStr = () => bizDate();
 window.SlickDay = { dayCut, dayStartH, bizDate, dayBounds };
@@ -1204,7 +1208,7 @@ $("#cYes").addEventListener("click", async () => {
 let tt; function toast(m){ const t = $("#toast"); t.textContent = m; t.classList.add("show"); clearTimeout(tt); tt = setTimeout(()=>t.classList.remove("show"), 2200); }
 
 /* ---------- generic collections (menu, inventory, devices, call center, web ordering) ---------- */
-const COLS = ["brands","categories","products","inv_items","devices","orders","zones","settings","order_sources","inv_categories","warehouses","inv_docs","modifiers","modifier_options","suppliers","taxes","tax_groups","payment_methods","roles","users","charges","variant_sets"];
+const COLS = ["brands","categories","products","inv_items","devices","orders","zones","settings","order_sources","inv_categories","warehouses","inv_docs","modifiers","modifier_options","suppliers","taxes","tax_groups","payment_methods","roles","users","charges","variant_sets","day_closes"];
 const S = {}; COLS.forEach(c => S[c] = []);
 function subscribeAll(){
   COLS.forEach(c => db.collection(c).onSnapshot(snap => {

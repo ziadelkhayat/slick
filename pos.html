@@ -612,7 +612,12 @@ const deny = what => { toast(`${cashier ? cashier.name + ", your" : "Your"} role
 // the business day starts at this branch's own time (Manage → Branches); the old company-wide setting is the fallback
 const dayCut = () => { const b = (typeof branch!=="undefined" && branch) || null, v = b?.settings?.dayStart || (S.settings.find(x=>x.id==="company")||{}).dayEnd || "";
   const m = /^(\d{1,2}):(\d{2})/.exec(v); return m ? Math.min(719, (+m[1])*60 + (+m[2])) : 0; };
-const bizDate = (t = new Date()) => { const d = new Date(+new Date(t) - dayCut()*60000); return new Date(d - d.getTimezoneOffset()*60000).toISOString().slice(0,10); };
+const nextDay = d => { const x = new Date(d + "T12:00:00"); x.setDate(x.getDate() + 1); return x.toISOString().slice(0,10); };
+// ending the day early (before the start time) starts the next business day right then
+const bizDate = (t = new Date()) => { const ms = +new Date(t), d0 = new Date(ms - dayCut()*60000); let d = new Date(d0 - d0.getTimezoneOffset()*60000).toISOString().slice(0,10);
+  const bid = (typeof device!=="undefined" && device?.branchId) || null;
+  if(bid && S.day_closes.length) for(let i = 0; i < 3; i++){ const c = S.day_closes.find(c => c.branchId===bid && String(c.businessDate).slice(0,10)===d); if(c && +new Date(c.closedAt) <= ms) d = nextDay(d); else break; }
+  return d; };
 // call number: one sequence per branch (all registers), starting again at 1 after each end of day; the server fixes any clash
 function nextOrderNo(){
   const since = S.day_closes.filter(c => c.branchId===device.branchId).reduce((m,c) => Math.max(m, +new Date(c.closedAt) || 0), 0);
