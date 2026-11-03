@@ -453,6 +453,9 @@ tr[draggable="true"].dragging{opacity:.45}tr.dropto td{box-shadow:inset 0 2px 0 
 .ostick .fbar{margin-bottom:12px}
 .rhub{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px}.rcard{display:flex;flex-direction:column;gap:6px;padding:18px 20px;text-decoration:none;color:inherit;transition:box-shadow .15s,transform .15s}.rcard:hover{box-shadow:0 6px 20px rgba(21,19,31,.1);transform:translateY(-1px)}.rcard b{font-size:15px}
 .rhead #rptDim{font-size:20px;font-weight:700;border:0;background:transparent;padding:4px 6px}.rptbl{overflow-x:auto}.rptbl th,.rptbl td{white-space:nowrap}.rptbl .rtot td{border-top:2px solid var(--line);background:var(--bg)}.rinfo{color:var(--muted);cursor:help;font-weight:400}
+.cstats{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:12px;margin-bottom:16px}.cstats>div{background:#fff;border:1px solid var(--line);border-radius:10px;padding:14px 16px}.cstats span{display:block;font-size:12px;color:var(--muted);margin-bottom:4px}.cstats b{font-size:17px}
+.cflt{padding:14px 18px;border-bottom:1px solid var(--line);background:#faf9fc}.cfltb{display:flex;gap:8px;justify-content:flex-end;margin-top:10px}
+.ddwrap{position:relative;display:inline-block}.ddmenu{position:absolute;right:0;top:calc(100% + 4px);background:#fff;border:1px solid var(--line);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.12);z-index:30;min-width:190px;padding:4px}.ddmenu button{display:block;width:100%;text-align:left;background:none;border:0;padding:9px 12px;border-radius:6px;cursor:pointer;font:inherit}.ddmenu button:hover{background:#f4f2f8}
 .brcard{padding:16px 18px;margin-bottom:14px}.brch{display:flex;align-items:center;gap:8px;margin-bottom:10px}.brch h3{margin:0;font-size:15px}.brempty{margin:0;padding:6px 0}.brcard table{width:100%}
 .bdrow{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--line)}.bdrow>div{display:flex;flex-direction:column;gap:2px}.bdrow .btn{white-space:nowrap}
 .taxcfg{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:14px}.taxcfg h3{margin:0 0 4px;font-size:15px}.taxcfg .note{margin:0}.taxcfg .chk{font-weight:600;white-space:nowrap}
@@ -2222,7 +2225,7 @@ async function impexPreview(key, text){
 document.addEventListener("click", e => {
   const ex = e.target.closest("[data-exp]"); if(ex){ e.preventDefault(); return impexExport(ex.dataset.exp); }
   const im = e.target.closest("[data-imp]"); if(im){ e.preventDefault(); return impexStart(im.dataset.imp); }
-  if(e.target.id==="cusImp") return customerImport();
+  if(e.target.id==="cusImp"){ const m = $("#cusIEm"); if(m) m.hidden = true; return customerImport(); }
 });
 // customers: matched by phone; new phones are added, known ones get the empty details filled and new addresses added
 function customerImport(){
@@ -3226,118 +3229,202 @@ $("#view").addEventListener("click", e => {
   const tr = e.target.closest("tr[data-oid]"); if(tr){ openOrderDetail(tr.dataset.oid); return; }
 });
 
-/* ---------- Customers: one record per phone, filled automatically from orders ---------- */
-const CUS = { filter:"all", q:"", sort:"last", page:1, per:50, rows:[], count:0, summary:null, loading:false, err:"", key:"", t:null };
+/* ---------- Customers (Foodics format): one record per phone, filled automatically from orders ---------- */
+const CUS = { filter:"all", q:"", sort:"last", page:1, per:50, rows:[], all:null, count:0, summary:null, loading:false, err:"", key:"", t:null, open:null, det:null, more:false, fopen:false, flt:{} };
 const CUS_TABS = [["all","All"],["repeat","Repeat"],["new","New (30 days)"],["inactive","Inactive (60+ days)"],["blacklisted","Blacklisted"]];
+const CUS_FLT = [["name","Name","text"],["phone","Phone","text"],["email","Email","text"],["tag","Tag","text"],["hasOrders","Has Orders","yn"],["black","Blacklisted","yn"],["updated","Updated After","date"]];
 const normPhone = p => String(p||"").replace(/[^0-9+]/g, "");
 const ago2 = t => { if(!t) return "—"; const d = Math.floor((Date.now()-new Date(t))/86400000); return d<=0 ? "Today" : d===1 ? "Yesterday" : d<31 ? d+" days ago" : new Date(t).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"}); };
+const cusAdv = () => Object.values(CUS.flt).some(v => v);
+function cusMatch(c){
+  const f = CUS.flt, has = (v, q) => String(v||"").toLowerCase().includes(String(q).toLowerCase().trim());
+  if(f.name && !has(c.name, f.name)) return false;
+  if(f.phone && !normPhone(c.phone).includes(normPhone(f.phone))) return false;
+  if(f.email && !has(c.email, f.email)) return false;
+  if(f.tag && !(c.tags||[]).some(t => has(t, f.tag))) return false;
+  if(f.hasOrders && (f.hasOrders==="yes") !== (+c.n > 0)) return false;
+  if(f.black && (f.black==="yes") !== !!c.blacklisted) return false;
+  if(f.updated){ const t = c.updated_at || c.last_at || c.first_at; if(!t || new Date(t) < new Date(f.updated + "T00:00:00")) return false; }
+  return true;
+}
 async function loadCustomers(force){
   if(!window.WOK || storeMode!=="db") return;
-  const key = JSON.stringify([CUS.filter, CUS.q, CUS.sort, CUS.page]);
+  const adv = cusAdv(), key = JSON.stringify([CUS.filter, CUS.q, CUS.sort, adv ? CUS.flt : CUS.page]);
   if(!force && key===CUS.key && (CUS.loading || CUS.summary || CUS.err)) return;
   CUS.key = key; CUS.loading = true; CUS.err = "";
-  const { data, error } = await WOK.sb.rpc("slick_customers", { p_q: CUS.q.trim(), p_filter: CUS.filter, p_sort: CUS.sort, p_limit: CUS.per, p_offset: (CUS.page-1)*CUS.per });
+  const { data, error } = await WOK.sb.rpc("slick_customers", adv ? { p_q: CUS.q.trim(), p_filter: CUS.filter, p_sort: CUS.sort, p_limit: 10000, p_offset: 0 }
+                                                                  : { p_q: CUS.q.trim(), p_filter: CUS.filter, p_sort: CUS.sort, p_limit: CUS.per, p_offset: (CUS.page-1)*CUS.per });
   if(CUS.key!==key) return;
   CUS.loading = false;
-  if(error){ console.error(error); CUS.err = error.message; } else { CUS.rows = data.rows; CUS.count = data.count; CUS.summary = data.summary; }
-  if(location.hash.slice(1)==="customers") render();
+  if(error){ console.error(error); CUS.err = error.message; }
+  else if(adv){ CUS.all = (data.rows||[]).filter(cusMatch); CUS.count = CUS.all.length; CUS.summary = data.summary; }
+  else { CUS.all = null; CUS.rows = data.rows; CUS.count = data.count; CUS.summary = data.summary; }
+  if(location.hash.slice(1)==="customers" && !CUS.open) render();
 }
 function viewCustomers(){
   if(storeMode!=="db") return `<h1>Customers</h1>` + placeholder("Customers", "Sign in to see customers.");
+  if(CUS.open) return viewCustomer();
   loadCustomers();
-  const S2 = CUS.summary, pages = Math.max(1, Math.ceil(CUS.count/CUS.per)), a = CUS.count ? (CUS.page-1)*CUS.per+1 : 0, b = Math.min(CUS.count, CUS.page*CUS.per);
-  return `<div class="phead"><h1>Customers</h1><span class="sp"></span><button class="btn" id="cusImp">Import</button><button class="btn" id="cusCsv">Export CSV</button><button class="btn pri" id="cusAdd">+ Add customer</button></div>
+  const adv = cusAdv(), pages = Math.max(1, Math.ceil(CUS.count/CUS.per)); if(CUS.page > pages) CUS.page = pages;
+  const a = CUS.count ? (CUS.page-1)*CUS.per+1 : 0, b = Math.min(CUS.count, CUS.page*CUS.per);
+  const rows = adv && CUS.all ? CUS.all.slice((CUS.page-1)*CUS.per, CUS.page*CUS.per) : CUS.rows, f = CUS.flt;
+  const fld = ([k, l, t]) => `<div class="f"><label for="cf_${k}">${l}</label>${t==="yn" ? `<select class="sel" id="cfl_${k}"><option value="">Any</option><option value="yes" ${f[k]==="yes"?"selected":""}>Yes</option><option value="no" ${f[k]==="no"?"selected":""}>No</option></select>`
+      : `<input id="cfl_${k}" type="${t}" value="${esc(f[k]||"")}">`}</div>`;
+  const nAdv = Object.values(f).filter(Boolean).length;
+  return `<div class="phead"><h1>Customers</h1><span class="sp"></span>
+      <div class="ddwrap"><button class="btn" id="cusIE">Import / Export ▾</button><div class="ddmenu" id="cusIEm" hidden><button type="button" id="cusImp">Import Customers</button><button type="button" id="cusCsv">Export Customers</button></div></div>
+      <button class="btn pri" id="cusAdd">Add Customer</button></div>
   <div class="card tbl otbl"><div class="ttop"><div class="ttabs">${CUS_TABS.map(([k,t])=>`<a href="#customers" data-ctab="${k}" class="${CUS.filter===k?"on":""}">${t}</a>`).join("")}</div><span class="sp"></span>
-    <input class="sel" id="cusQ" placeholder="Name, phone or email" value="${esc(CUS.q)}" style="min-width:200px">
-    <select class="sel" id="cusSort">${[["last","Last order"],["spent","Total spent"],["orders","Most orders"],["new","Newest"],["name","Name A–Z"]].map(([v,t])=>`<option value="${v}" ${CUS.sort===v?"selected":""}>Sort: ${t}</option>`).join("")}</select></div>
-  ${CUS.err ? `<p class="note" style="padding:16px">Couldn't load customers: ${esc(CUS.err)}</p>` : `<table><thead><tr><th>Customer</th><th>Phone</th><th class="num">Orders</th><th class="num">Total spent</th><th class="num">Avg. order</th><th>Last order</th><th>Tags</th></tr></thead><tbody>${
-    CUS.rows.length ? CUS.rows.map(c => `<tr class="clk" data-cid="${esc(c.id)}"><td><b>${esc(c.name || "Unnamed")}</b>${c.blacklisted?' <span class="spill s-declined">Blacklisted</span>':""}${c.email?`<div class="note">${esc(c.email)}</div>`:""}</td><td>${esc(c.phone)}</td>
-      <td class="num">${c.n}</td><td class="num">${money(+c.spent)}</td><td class="num">${money(c.n ? c.spent/c.n : 0)}</td><td>${ago2(c.last_at)}</td><td>${(c.tags||[]).map(t=>`<span class="tag cc">${esc(t)}</span>`).join(" ")}</td></tr>`).join("")
-    : `<tr><td colspan="7" class="note" style="padding:24px;text-align:center">${CUS.loading ? "Loading customers…" : CUS.q || CUS.filter!=="all" ? "No customers match." : "No customers yet. They're added automatically when an order has a phone number."}</td></tr>`
+    <input class="sel" id="cusQ" placeholder="Search name, phone or email" value="${esc(CUS.q)}" style="min-width:200px">
+    <select class="sel" id="cusSort">${[["last","Last order"],["spent","Total spent"],["orders","Most orders"],["new","Newest"],["name","Name A–Z"]].map(([v,t])=>`<option value="${v}" ${CUS.sort===v?"selected":""}>Sort: ${t}</option>`).join("")}</select>
+    <button class="btn${nAdv?" pri":""}" id="cusFlt">Filter${nAdv?` (${nAdv})`:""}</button></div>
+  ${CUS.fopen ? `<div class="cflt"><div class="body" style="padding:0">${CUS_FLT.map(fld).join("")}</div><div class="cfltb"><button class="btn" id="cusFClr">Clear</button><button class="btn pri" id="cusFApply">Apply</button></div></div>` : ""}
+  ${CUS.err ? `<p class="note" style="padding:16px">Couldn't load customers: ${esc(CUS.err)}</p>` : `<table><thead><tr><th>Name</th><th>Phone</th><th>Email</th><th class="num">Total Orders</th><th>Last Order</th><th class="num">Account Balance</th></tr></thead><tbody>${
+    rows.length ? rows.map(c => `<tr class="clk" data-cid="${esc(c.id)}"><td><b>${esc(c.name || "Unnamed")}</b>${c.blacklisted?' <span class="spill s-declined">Blacklisted</span>':""}${(c.tags||[]).length?`<div>${c.tags.map(t=>`<span class="tag cc">${esc(t)}</span>`).join(" ")}</div>`:""}</td><td>${esc(c.phone)}</td><td>${esc(c.email || "—")}</td>
+      <td class="num">${c.n}</td><td>${ago2(c.last_at)}</td><td class="num">${money(+c.balance||0)}</td></tr>`).join("")
+    : `<tr><td colspan="6" class="note" style="padding:24px;text-align:center">${CUS.loading ? "Loading customers…" : CUS.q || CUS.filter!=="all" || adv ? "No customers match." : "No customers yet. They're added automatically when an order has a phone number."}</td></tr>`
   }</tbody></table>`}
   <div class="pager"><span class="note">${a}–${b} of ${CUS.count.toLocaleString()}</span><span class="sp"></span><button class="btn" id="cusPrev" ${CUS.page<=1?"disabled":""}>‹ Previous</button><span class="note">Page ${CUS.page} of ${pages}</span><button class="btn" id="cusNext" ${CUS.page>=pages?"disabled":""}>Next ›</button></div></div>`;
 }
+// ---- customer page ----
 async function openCustomer(id){
-  let c = { id:null, phone:"", name:"", email:"", birthday:null, notes:"", tags:[], blacklisted:false, addresses:[] }, orders = [];
-  if(id){
-    const [r1, r2] = await Promise.all([WOK.sb.from("customers").select("*").eq("id", id).maybeSingle(),
-      WOK.sb.from("orders").select("id,ref,no,invoice_no,return_no,created_at,branch_id,channel,type,table_no,source,payment,status,total,address").eq("customer_id", id).order("created_at", { ascending:false }).limit(100)]);
-    if(r1.error || !r1.data) return toast("Couldn't open this customer");
-    c = r1.data; orders = r2.data || []; c.__orders = orders;
-  }
-  const ok = orders.filter(o => ["pending","active","closed"].includes(o.status)), spent = ok.reduce((a,o)=>a+(+o.total||0),0);
-  const dt = t => new Date(t).toLocaleString("en-GB",{day:"numeric",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"});
-  const box = $("#ccBox"); box.className = "modal wide";
-  box.innerHTML = `<header><h2>${id ? esc(c.name || c.phone) : "New customer"} ${c.blacklisted?'<span class="spill s-declined">Blacklisted</span>':""}</h2><button type="button" class="x" data-ccclose aria-label="Close">×</button></header>
-  <div style="padding:18px 22px;max-height:72vh;overflow:auto">
-    ${id ? `<div class="odet"><div><span>Orders</span>${ok.length}</div><div><span>Total spent</span>${money(spent)}</div><div><span>Average order</span>${money(ok.length?spent/ok.length:0)}</div>
-      <div><span>First order</span>${ok.length?ago2(ok[ok.length-1].created_at):"—"}</div><div><span>Last order</span>${ok.length?ago2(ok[0].created_at):"—"}</div></div>` : ""}
-    <div class="body" style="padding:0;margin-bottom:14px">
-      <div class="f"><label for="cuName">Name *</label><input id="cuName" value="${esc(c.name||"")}"></div>
-      <div class="f"><label for="cuPhone">Phone *</label><input id="cuPhone" value="${esc(c.phone||"")}" placeholder="+961 …"></div>
-      <div class="f"><label for="cuEmail">Email</label><input id="cuEmail" type="email" value="${esc(c.email||"")}"></div>
-      <div class="f"><label for="cuBday">Birthday</label><input id="cuBday" type="date" value="${esc(c.birthday||"")}"></div>
-      <div class="f"><label for="cuTags">Tags</label><input id="cuTags" value="${esc((c.tags||[]).join(", "))}" placeholder="e.g. VIP, corporate"></div>
-      <div class="f"><label><input type="checkbox" id="cuBlack" ${c.blacklisted?"checked":""}> Blacklisted (warn users and branches)</label></div>
-      <div class="f" style="grid-column:1/-1"><label for="cuNotes">Notes</label><textarea id="cuNotes" rows="2" placeholder="Allergies, preferences, gate code…">${esc(c.notes||"")}</textarea></div>
-    </div>
-    <h3 style="font-size:14px;margin:0 0 6px">Addresses</h3><div id="cuAddrs">${cuAddrList(c)}</div>
-    <details style="margin:6px 0 4px"><summary class="lnk" style="cursor:pointer;font-size:13px">+ Add address</summary>
-      <div class="body" style="padding:8px 0 0">${[["label","Label","Home, Work…"],["street","Area / street",""],["building","Building",""],["floor","Floor",""],["extra","Directions / info",""]].map(([k,l,ph])=>`<div class="f"><label for="cuA_${k}">${l}</label><input id="cuA_${k}" placeholder="${ph}"></div>`).join("")}
-      <div class="f" style="align-self:end"><button type="button" class="btn" id="cuAddAddr">Add</button></div></div></details>
-    ${id ? `<h3 style="font-size:14px;margin:14px 0 6px">Order history</h3><div class="card tbl otbl"><table><thead><tr><th>Order</th><th>Business date</th><th>Branch</th><th>Sales channel</th><th>Order type</th><th>Order source</th><th>Payment type</th><th>Status</th><th class="num">Total</th></tr></thead><tbody>${
-      orders.length ? orders.map(o=>`<tr class="clk" data-coid="${esc(o.id)}"><td><b>${esc(ordRef(o))}</b></td><td>${o.created_at ? new Date(bizDate(o.created_at, o.branch_id) + "T12:00:00").toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"}) : "—"}</td><td>${esc(branchName(o.branch_id) || "—")}</td><td>${esc(CH_LBL[o.channel]||cap(o.channel))}</td><td>${esc(ordTypeLbl(o.type))}${o.type==="dinein" && o.table_no ? `<div class="note">${esc(/^\d+$/.test(String(o.table_no).trim()) ? "Table " + String(o.table_no).trim() : o.table_no)}</div>` : ""}</td><td>${esc(srcOf(o) || "-")}</td><td>${esc(o.payment?.method || "-")}</td><td><span class="spill s-${o.status}">${ORD_ST[o.status]||o.status}</span></td><td class="num">${money(+o.total||0)}</td></tr>`).join("")
-      : `<tr><td colspan="9" class="note">No orders yet.</td></tr>`}</tbody></table></div>` : ""}
-    <div class="err" id="cuErr"></div>
-  </div>
-  <footer>${id && ["owner","admin"].includes(state.role) ? `<button type="button" class="btn bad" id="cuDel">Delete</button>` : ""}<span style="flex:1"></span><button type="button" class="btn" data-ccclose>Cancel</button><button type="button" class="btn pri" id="cuSave">${id?"Save":"Add customer"}</button></footer>`;
-  window.__cus = c;
-  $("#ccScrim").classList.add("show");
+  if(!id) return openCustomerEdit(null);
+  CUS.open = id; CUS.det = null; CUS.more = false; render(); window.scrollTo(0, 0);
+  const [r1, r2] = await Promise.all([WOK.sb.from("customers").select("*").eq("id", id).maybeSingle(),
+    WOK.sb.from("orders").select("id,ref,no,invoice_no,return_no,created_at,branch_id,channel,type,table_no,source,payment,status,total,discount,items,address").eq("customer_id", id).order("created_at", { ascending:false }).limit(500)]);
+  if(CUS.open!==id) return;
+  if(r1.error || !r1.data){ CUS.open = null; render(); return toast("Couldn't open this customer"); }
+  const c = r1.data; c.__orders = r2.data || []; c.addresses = c.addresses || []; c.tags = c.tags || [];
+  CUS.det = c; window.__cus = c; render();
 }
-// a customer's addresses: the saved ones, plus any delivery address used on their orders that isn't saved yet
-function cuAddrList(c){
-  const seen = new Set((c.addresses||[]).map(a => String(a.address||"").trim()));
-  (c.__orders||[]).forEach(o => { const v = String(o.address||"").trim(); if(v && !seen.has(v)){ seen.add(v); (c.__used = c.__used || []).push(v); } });
-  const show = v => { const a = addrSplit(v); return `${a.label?`<b>${esc(a.label)}</b> · `:""}${esc([a.street, a.building && "Bldg " + a.building, a.floor && "Floor " + a.floor, a.extra].filter(Boolean).join(" · ") || v)}`; };
-  const saved = (c.addresses||[]).map((a,i)=>`<div class="note" style="margin-bottom:4px;color:inherit">${show(a.address)} ${a.lat?mapLink(a):""} <a href="#customers" class="lnk" data-deladdr="${i}">Remove</a></div>`).join("");
-  const used = (c.__used||[]).map((v,i)=>`<div class="note" style="margin-bottom:4px">${show(v)} <span class="tag">from orders</span> <a href="#customers" class="lnk" data-saveaddr="${i}">Save</a></div>`).join("");
-  return saved + used || `<div class="note">No addresses yet.</div>`;
+const cusNum = v => v && typeof v==="object" ? +(v.amount ?? v.value ?? 0) || 0 : +v || 0;
+function cusTop(list){ let best = null, n = 0; for(const [k, v] of Object.entries(list)) if(v > n){ best = k; n = v; } return best; }
+function viewCustomer(){
+  const c = CUS.det;
+  if(!c) return `<div class="phead"><a href="#customers" class="btn" data-cusback style="text-decoration:none">← Back</a></div><div class="card" style="padding:24px"><p class="note">Loading customer…</p></div>`;
+  const orders = c.__orders || [], done = orders.filter(o => o.status==="closed"), more = CUS.more, row = (k, v) => `<div><span>${k}</span>${v}</div>`;
+  const prod = {}, brs = {};
+  done.forEach(o => { brs[o.branch_id] = (brs[o.branch_id]||0) + 1; (o.items||[]).forEach(i => { if(i.voided) return; const k = i.name || "—"; prod[k] = (prod[k]||0) + (+i.qty||1); }); });
+  const spent = done.reduce((s,o)=>s+(+o.total||0),0), disc = done.reduce((s,o)=>s+cusNum(o.discount),0), fb = cusTop(brs);
+  const dtf = t => t ? new Date(t).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"}) : "—";
+  const tbl = (head, rows) => rows.length ? `<table><thead><tr>${head.map(h=>`<th>${h}</th>`).join("")}</tr></thead><tbody>${rows.join("")}</tbody></table>` : '<p class="note brempty">No data to display!</p>';
+  const zn = id => (S.zones||[]).find(z => z.id===id)?.name;
+  const used = []; { const seen = new Set(c.addresses.map(a => String(a.address||"").trim())); orders.forEach(o => { const v = String(o.address||"").trim(); if(v && !seen.has(v)){ seen.add(v); used.push(v); } }); } c.__used = used;
+  const desc = v => { const a = addrSplit(v); return esc([a.street, a.building && "Bldg " + a.building, a.floor && "Floor " + a.floor, a.extra].filter(Boolean).join(" · ") || v); };
+  const admin = ["owner","admin"].includes(state.role);
+  return `<div class="phead"><a href="#customers" class="btn" data-cusback style="text-decoration:none">← Back</a><h1 style="margin-left:10px">${esc(c.name || c.phone)}</h1>${c.blacklisted?' <span class="spill s-declined" style="margin-left:8px">Blacklisted</span>':""}<div class="sp"></div>
+      ${admin ? `<button class="btn" id="cuDel">Delete Customer</button>` : ""}<button class="btn pri" id="cuEdit">Edit Customer</button></div>
+    <div class="cstats">
+      <div><span>Done Orders</span><b>${done.length}</b></div>
+      <div><span>Last Order</span><b>${orders.length ? dtf(orders[0].created_at) : "—"}</b></div>
+      <div><span>Favourite Product</span><b>${esc(cusTop(prod) || "—")}</b></div>
+      <div><span>Favourite Branch</span><b>${esc(fb ? branchName(fb) || "—" : "—")}</b></div>
+      ${more ? `<div><span>Total Spent (${esc(CUR())})</span><b>${money(spent)}</b></div><div><span>Total Discounts (${esc(CUR())})</span><b>${money(disc)}</b></div><div><span>Average Order (${esc(CUR())})</span><b>${money(done.length ? spent/done.length : 0)}</b></div><div><span>First Order</span><b>${orders.length ? dtf(orders[orders.length-1].created_at) : "—"}</b></div>` : ""}
+      <div style="grid-column:1/-1;padding:0;border:0;background:none"><button class="lnk" data-cusmore style="background:none;border:0;padding:0;cursor:pointer">${more ? "Show Less" : "Show More"}</button></div></div>
+    <div class="card odet" style="margin-bottom:16px;padding:16px 18px">${row("Name", esc(c.name || "—"))}${row("Email", esc(c.email || "—"))}${row("Phone", esc(c.phone || "—"))}${row("Birth Date", c.birthday ? dtf(c.birthday + "T12:00:00") : "—")}
+      ${row("Gender", esc({ male:"Male", female:"Female" }[c.gender] || "—"))}${row("Loyalty", "Disabled")}${row("House Account", "Disabled")}${row("Blacklist", c.blacklisted ? "Yes" : "No")}
+      ${row("Created", dtf(c.created_at))}${c.notes ? `<div style="grid-column:1/-1"><span>Customer Notes</span>${esc(c.notes)}</div>` : ""}</div>
+    <div class="card brcard"><div class="brch"><h3>Tags</h3><span class="sp"></span><button class="btn sm" id="cuTagBtn">Add Tags</button></div>${c.tags.length ? `<div>${c.tags.map((t,i)=>`<span class="tag cc">${esc(t)} <a href="#customers" class="lnk" data-cdtag="${i}" aria-label="Remove tag" style="text-decoration:none">×</a></span>`).join(" ")}</div>` : '<p class="note brempty">No data to display!</p>'}</div>
+    <div class="card brcard"><div class="brch"><h3>Addresses</h3><span class="sp"></span><button class="btn sm" id="cuAddrBtn">Add Address</button></div>${tbl(["Name","Description","Delivery Zone","Created",""],
+      c.addresses.map((a,i) => `<tr><td>${esc(addrSplit(a.address).label || "—")}</td><td>${desc(a.address)} ${a.lat ? mapLink(a) : ""}</td><td>${esc(zn(a.zoneId) || "—")}</td><td>${dtf(a.createdAt)}</td><td class="num"><a href="#customers" class="lnk" data-cdaddr="${i}">Remove</a></td></tr>`)
+      .concat(used.map((v,i) => `<tr><td>${esc(addrSplit(v).label || "—")}</td><td>${desc(v)} <span class="tag">from orders</span></td><td>—</td><td>—</td><td class="num"><a href="#customers" class="lnk" data-csaddr="${i}">Save</a></td></tr>`)))}</div>
+    <div class="card brcard otbl"><div class="brch"><h3>Orders</h3></div>${tbl(["Order","Business date","Branch","Sales channel","Order type","Order source","Payment type","Status",`<span class="num">Total</span>`],
+      orders.slice(0, 100).map(o=>`<tr class="clk" data-coid="${esc(o.id)}"><td><b>${esc(ordRef(o))}</b></td><td>${o.created_at ? new Date(bizDate(o.created_at, o.branch_id) + "T12:00:00").toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"}) : "—"}</td><td>${esc(branchName(o.branch_id) || "—")}</td><td>${esc(CH_LBL[o.channel]||cap(o.channel))}</td><td>${esc(ordTypeLbl(o.type))}${o.type==="dinein" && o.table_no ? `<div class="note">${esc(/^\d+$/.test(String(o.table_no).trim()) ? "Table " + String(o.table_no).trim() : o.table_no)}</div>` : ""}</td><td>${esc(srcOf(o) || "-")}</td><td>${esc(o.payment?.method || "-")}</td><td><span class="spill s-${o.status}">${ORD_ST[o.status]||o.status}</span></td><td class="num">${money(+o.total||0)}</td></tr>`))}</div>`;
+}
+// save a change made on the customer page straight away
+async function cusPatch(patch, msg){
+  const c = CUS.det; if(!c) return;
+  const { error } = await WOK.sb.from("customers").update({ ...patch, updated_at: new Date().toISOString() }).eq("id", c.id);
+  if(error) return toast("Couldn't save: " + error.message);
+  Object.assign(c, patch); toast(msg); CUS.key = ""; render();
+}
+function openCustomerEdit(c){
+  c = c || { id:null, phone:"", name:"", email:"", birthday:null, gender:"", notes:"", tags:[], blacklisted:false, addresses:[] };
+  const box = $("#ccBox"); box.className = "modal";
+  box.innerHTML = `<header><h2>${c.id ? "Edit Customer" : "Add Customer"}</h2><button type="button" class="x" data-ccclose aria-label="Close">×</button></header>
+  <div class="body" style="max-height:70vh;overflow:auto">
+    <div class="f" style="grid-column:1/-1"><label for="cuName">Name *</label><input id="cuName" value="${esc(c.name||"")}"></div>
+    <div class="f"><label for="cuPhone">Phone Number *</label><input id="cuPhone" value="${esc(c.phone||"")}" placeholder="+961 …"></div>
+    <div class="f"><label for="cuEmail">Email</label><input id="cuEmail" type="email" value="${esc(c.email||"")}"></div>
+    <div class="f"><label for="cuBday">Birth Date</label><input id="cuBday" type="date" value="${esc(c.birthday||"")}"></div>
+    <div class="f"><label for="cuGender">Gender</label><select id="cuGender"><option value="">—</option><option value="male" ${c.gender==="male"?"selected":""}>Male</option><option value="female" ${c.gender==="female"?"selected":""}>Female</option></select></div>
+    <div class="f" style="grid-column:1/-1"><label for="cuNotes">Customer Notes</label><textarea id="cuNotes" rows="2" placeholder="Allergies, preferences, gate code…">${esc(c.notes||"")}</textarea><span class="note">Shown to the cashier and call center when this customer orders.</span></div>
+    <div class="f" style="grid-column:1/-1"><label class="chk"><input type="checkbox" id="cuBlack" ${c.blacklisted?"checked":""}> Blacklist</label><span class="note">Blacklisted customers are flagged on the POS and call center when they order.</span></div>
+    <div class="err" id="cuErr" style="grid-column:1/-1"></div>
+  </div>
+  <footer><span style="flex:1"></span><button type="button" class="btn" data-ccclose>Close</button><button type="button" class="btn pri" id="cuSave">Save</button></footer>`;
+  window.__cusEdit = c;
+  $("#ccScrim").classList.add("show"); setTimeout(() => $("#cuName")?.focus(), 50);
 }
 async function saveCustomer(){
-  const c = window.__cus, phone = normPhone($("#cuPhone").value);
+  const c = window.__cusEdit, phone = normPhone($("#cuPhone").value);
   if(!$("#cuName").value.trim()){ $("#cuErr").textContent = "Customer name is required."; $("#cuName").focus(); return; }
   if(phone.length < 6){ $("#cuErr").textContent = "Enter a valid phone number."; return; }
-  const row = { name: $("#cuName").value.trim() || null, phone, email: $("#cuEmail").value.trim() || null, birthday: $("#cuBday").value || null,
-    tags: $("#cuTags").value.split(",").map(t=>t.trim()).filter(Boolean), blacklisted: $("#cuBlack").checked, notes: $("#cuNotes").value.trim() || null,
-    addresses: c.addresses || [], updated_at: new Date().toISOString() };
-  const res = c.id ? await WOK.sb.from("customers").update(row).eq("id", c.id) : await WOK.sb.from("customers").insert(row);
+  const row = { name: $("#cuName").value.trim(), phone, email: $("#cuEmail").value.trim() || null, birthday: $("#cuBday").value || null,
+    gender: $("#cuGender").value || null, blacklisted: $("#cuBlack").checked, notes: $("#cuNotes").value.trim() || null, updated_at: new Date().toISOString() };
+  if(!c.id){ row.tags = []; row.addresses = []; }
+  const go = r => c.id ? WOK.sb.from("customers").update(r).eq("id", c.id) : WOK.sb.from("customers").insert(r).select("id").maybeSingle();
+  let res = await go(row);
+  if(res.error && /gender/i.test(res.error.message)){ delete row.gender; res = await go(row); if(!res.error) toast("Saved · gender needs a database update first"); }
   if(res.error){ $("#cuErr").textContent = /duplicate|unique/i.test(res.error.message) ? "A customer with this phone already exists." : res.error.message; return; }
-  toast(c.id ? "Customer saved" : "Customer added"); $("#ccScrim").classList.remove("show"); loadCustomers(true);
+  $("#ccScrim").classList.remove("show"); CUS.key = "";
+  if(c.id){ if(CUS.det && CUS.det.id===c.id){ Object.assign(CUS.det, row); } toast("Customer saved"); render(); }
+  else { toast("Customer added"); if(res.data?.id) openCustomer(res.data.id); else loadCustomers(true); }
 }
 async function deleteCustomer(){
-  const c = window.__cus; if(!confirm(`Delete ${c.name || c.phone}? Their past orders stay in Orders.`)) return;
+  const c = CUS.det; if(!c || !confirm(`Delete ${c.name || c.phone}? Their past orders stay in Orders.`)) return;
   const { error } = await WOK.sb.from("customers").delete().eq("id", c.id);
   if(error) return toast("Couldn't delete: " + error.message);
   await WOK.sb.from("orders").update({ customer_id: null }).eq("customer_id", c.id);
-  toast("Customer deleted"); $("#ccScrim").classList.remove("show"); loadCustomers(true);
+  toast("Customer deleted"); CUS.open = null; CUS.det = null; CUS.key = ""; render();
+}
+function openCusTags(){
+  const box = $("#ccBox"); box.className = "modal";
+  box.innerHTML = `<header><h2>Add Tags</h2><button type="button" class="x" data-ccclose aria-label="Close">×</button></header>
+  <div class="body"><div class="f" style="grid-column:1/-1"><label for="cuTagIn">Tags</label><input id="cuTagIn" placeholder="e.g. VIP, corporate"><span class="note">Separate tags with commas.</span></div></div>
+  <footer><span style="flex:1"></span><button type="button" class="btn" data-ccclose>Close</button><button type="button" class="btn pri" id="cuTagSave">Save</button></footer>`;
+  $("#ccScrim").classList.add("show"); setTimeout(() => $("#cuTagIn")?.focus(), 50);
+}
+function openCusAddr(){
+  const zs = (S.zones||[]).filter(z => !z.deleted).sort((a,b) => String(a.name).localeCompare(String(b.name)));
+  const box = $("#ccBox"); box.className = "modal";
+  box.innerHTML = `<header><h2>Add Address</h2><button type="button" class="x" data-ccclose aria-label="Close">×</button></header>
+  <div class="body">${[["label","Name","Home, Work…"],["street","Area / street",""],["building","Building",""],["floor","Floor",""],["extra","Directions / info",""]].map(([k,l,ph])=>`<div class="f"${k==="extra"?' style="grid-column:1/-1"':""}><label for="cuA_${k}">${l}${k==="street"?" *":""}</label><input id="cuA_${k}" placeholder="${ph}"></div>`).join("")}
+    <div class="f" style="grid-column:1/-1"><label for="cuA_zone">Delivery Zone</label><select id="cuA_zone"><option value="">—</option>${zs.map(z=>`<option value="${esc(z.id)}">${esc(z.name)}${z.branchId ? " · " + esc(branchName(z.branchId)||"") : ""}</option>`).join("")}</select></div></div>
+  <footer><span style="flex:1"></span><button type="button" class="btn" data-ccclose>Close</button><button type="button" class="btn pri" id="cuAddrSave">Save</button></footer>`;
+  $("#ccScrim").classList.add("show"); setTimeout(() => $("#cuA_label")?.focus(), 50);
 }
 async function exportCustomers(){
   toast("Preparing export…");
   const { data, error } = await WOK.sb.rpc("slick_customers", { p_q: CUS.q.trim(), p_filter: CUS.filter, p_sort: CUS.sort, p_limit: 10000, p_offset: 0 });
   if(error) return toast("Export failed: " + error.message);
   const q = v => { v = v==null ? "" : String(v); return /[",\n]/.test(v) ? `"${v.replace(/"/g,'""')}"` : v; };
-  const rows = data.rows.map(c => [c.name, c.phone, c.email, c.n, (+c.spent).toFixed(2), c.n?(c.spent/c.n).toFixed(2):"0.00", c.first_at?new Date(c.first_at).toLocaleDateString("en-GB"):"", c.last_at?new Date(c.last_at).toLocaleDateString("en-GB"):"", (c.tags||[]).join("; "), c.blacklisted?"Yes":""]);
-  const blob = new Blob([[["Name","Phone","Email","Orders","Total spent (USD)","Avg order (USD)","First order","Last order","Tags","Blacklisted"], ...rows].map(l=>l.map(q).join(",")).join("\n")], { type:"text/csv" });
+  const rows = data.rows.filter(c => !cusAdv() || cusMatch(c)).map(c => [c.name, c.phone, c.email, c.n, c.last_at?new Date(c.last_at).toLocaleDateString("en-GB"):"", (+c.balance||0).toFixed(2), (+c.spent).toFixed(2), (c.tags||[]).join("; "), c.blacklisted?"Yes":"No"]);
+  const blob = new Blob([[["Name","Phone","Email","Total Orders","Last Order","Account Balance","Total Spent","Tags","Blacklisted"], ...rows].map(l=>l.map(q).join(",")).join("\n")], { type:"text/csv" });
   const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `slick-customers-${todayStr()}.csv`; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href), 2000);
 }
 let cusQT; $("#view").addEventListener("input", e => { if(e.target.id==="cusQ"){ clearTimeout(cusQT); const v = e.target.value; cusQT = setTimeout(() => { CUS.q = v; CUS.page = 1; render(); const el = $("#cusQ"); if(el){ el.focus(); el.setSelectionRange(v.length, v.length); } }, 350); } });
 $("#view").addEventListener("change", e => { if(e.target.id==="cusSort"){ CUS.sort = e.target.value; CUS.page = 1; render(); } });
+document.addEventListener("click", e => { const m = $("#cusIEm"); if(m && !e.target.closest("#cusIE")) m.hidden = true; });
 $("#view").addEventListener("click", e => {
   const tb = e.target.closest("[data-ctab]"); if(tb){ e.preventDefault(); CUS.filter = tb.dataset.ctab; CUS.page = 1; render(); return; }
-  if(e.target.id==="cusPrev"){ CUS.page--; render(); return; }
+  if(e.target.id==="cusPrev"){ CUS.page--; if(!cusAdv()) CUS.key = ""; render(); return; }
   if(e.target.id==="cusNext"){ CUS.page++; render(); return; }
-  if(e.target.id==="cusAdd"){ openCustomer(null); return; }
-  if(e.target.id==="cusCsv"){ exportCustomers(); return; }
+  if(e.target.id==="cusAdd"){ openCustomerEdit(null); return; }
+  if(e.target.id==="cusIE"){ const m = $("#cusIEm"); m.hidden = !m.hidden; return; }
+  if(e.target.id==="cusCsv"){ $("#cusIEm").hidden = true; exportCustomers(); return; }
+  if(e.target.id==="cusFlt"){ CUS.fopen = !CUS.fopen; render(); return; }
+  if(e.target.id==="cusFApply"){ const f = {}; CUS_FLT.forEach(([k]) => { const v = $("#cfl_"+k).value.trim(); if(v) f[k] = v; }); CUS.flt = f; CUS.page = 1; CUS.fopen = false; render(); return; }
+  if(e.target.id==="cusFClr"){ CUS.flt = {}; CUS.page = 1; CUS.fopen = false; render(); return; }
+  if(e.target.closest("[data-cusback]")){ e.preventDefault(); CUS.open = null; CUS.det = null; render(); return; }
+  if(e.target.closest("[data-cusmore]")){ CUS.more = !CUS.more; render(); return; }
+  if(e.target.id==="cuEdit"){ openCustomerEdit(CUS.det); return; }
+  if(e.target.id==="cuDel"){ deleteCustomer(); return; }
+  if(e.target.id==="cuTagBtn"){ openCusTags(); return; }
+  if(e.target.id==="cuAddrBtn"){ openCusAddr(); return; }
+  const dt = e.target.closest("[data-cdtag]"); if(dt){ e.preventDefault(); const t = [...CUS.det.tags]; t.splice(+dt.dataset.cdtag, 1); cusPatch({ tags:t }, "Tag removed"); return; }
+  const da = e.target.closest("[data-cdaddr]"); if(da){ e.preventDefault(); if(!confirm("Remove this address?")) return; const a = [...CUS.det.addresses]; a.splice(+da.dataset.cdaddr, 1); cusPatch({ addresses:a }, "Address removed"); return; }
+  const sa = e.target.closest("[data-csaddr]"); if(sa){ e.preventDefault(); const v = CUS.det.__used?.[+sa.dataset.csaddr]; if(v) cusPatch({ addresses:[...CUS.det.addresses, { address:v, createdAt:new Date().toISOString() }] }, "Address saved"); return; }
   const tr = e.target.closest("tr[data-cid]"); if(tr){ openCustomer(tr.dataset.cid); return; }
 });
 // call center: recognise returning customers by phone
@@ -3378,14 +3465,13 @@ document.addEventListener("click", e => {
   const ua = e.target.closest("[data-useaddr]"); if(ua){ e.preventDefault(); const a = window.__ccCust?.addresses?.[+ua.dataset.useaddr]; if(a){ ccAddrSet(a.address); ccAddrCards(); } return; }
   if(e.target.closest("[data-newaddr]")){ e.preventDefault(); ADDR_K.forEach(k => { const el = $("#oA_"+k); if(el) el.value = ""; }); ccAddrCards(); $("#oA_label")?.focus(); return; }
   const st = e.target.closest("[data-ccstep]"); if(st){ e.preventDefault(); ccStep(+st.dataset.ccstep); return; }
-  const da = e.target.closest("[data-deladdr]"); if(da){ e.preventDefault(); window.__cus.addresses.splice(+da.dataset.deladdr, 1); window.__cus.__used = null; $("#cuAddrs").innerHTML = cuAddrList(window.__cus); return; }
-  const sa = e.target.closest("[data-saveaddr]"); if(sa){ e.preventDefault(); const c = window.__cus, v = c.__used?.[+sa.dataset.saveaddr]; if(v){ c.addresses = [...(c.addresses||[]), { address:v }]; c.__used = null; $("#cuAddrs").innerHTML = cuAddrList(c); } return; }
-  if(e.target.id==="cuAddAddr"){ const a = {}; ["label","street","building","floor","extra"].forEach(k => a[k] = $("#cuA_"+k).value.trim());
+  if(e.target.id==="cuTagSave"){ const add = $("#cuTagIn").value.split(",").map(t=>t.trim()).filter(Boolean); if(!add.length) return $("#cuTagIn").focus();
+    $("#ccScrim").classList.remove("show"); const t = [...(CUS.det?.tags||[])]; add.forEach(x => { if(!t.some(y => y.toLowerCase()===x.toLowerCase())) t.push(x); }); cusPatch({ tags:t }, "Tags saved"); return; }
+  if(e.target.id==="cuAddrSave"){ const a = {}; ["label","street","building","floor","extra"].forEach(k => a[k] = $("#cuA_"+k).value.trim());
     if(!a.street){ $("#cuA_street").focus(); return toast("Enter the area / street"); }
-    const c = window.__cus; c.addresses = [...(c.addresses||[]), { address: addrJoin(a) }]; c.__used = null; $("#cuAddrs").innerHTML = cuAddrList(c);
-    ["label","street","building","floor","extra"].forEach(k => $("#cuA_"+k).value = ""); toast("Address added — press Save to keep it"); return; }
+    $("#ccScrim").classList.remove("show"); const z = $("#cuA_zone").value || null;
+    cusPatch({ addresses:[...(CUS.det?.addresses||[]), { address: addrJoin(a), zoneId: z, createdAt: new Date().toISOString() }] }, "Address added"); return; }
   if(e.target.id==="cuSave") return saveCustomer();
-  if(e.target.id==="cuDel") return deleteCustomer();
   const co = e.target.closest("tr[data-coid]"); if(co) return openOrderDetail(co.dataset.coid);
 });
 
@@ -3561,7 +3647,7 @@ document.addEventListener("keydown", e => { if(e.key==="Enter" && e.target.id?.s
 function resetPageFilters(){
   Object.assign(state, { range:"day", days:1, date:todayStr(), dateSet:false, compare:false, cmpDate:"", dashTab:"general", branch:"all", brand:"all", devOpen:null, brOpen:null }); RPT.key = ""; DASH.key = "";
   Object.assign(ORD, { tab:"all", range:"week", q:"", from:"", to:"", channel:"", type:"", pay:"", source:"", brand:"", branch:"", page:1, key:"", open:null });
-  Object.assign(CUS, { filter:"all", q:"", sort:"last", page:1, key:"" });
+  Object.assign(CUS, { filter:"all", q:"", sort:"last", page:1, key:"", open:null, det:null, more:false, fopen:false, flt:{} });
   Object.assign(BM, { q:"", draft:{} });
   state.tabs = {}; state.q = {}; state.page = {}; state.catFilter = ""; state.modFilter = ""; state.invCat = "";
   Object.assign(IC, { q:"", cat:"", sheet:"" });
