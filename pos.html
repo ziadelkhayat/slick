@@ -659,7 +659,7 @@ function openDayEnd(){
   const sales = S.orders.filter(o => liveOrder(o) && (o.status==="closed" || o.status==="refund") && bizDate(o.createdAt)===day);
   const blockers = [];
   if(act.length) blockers.push(`<p><b>${act.length} order${act.length===1?" is":"s are"} still active.</b> Finish, decline or void ${act.length===1?"it":"them"} first:</p><p class="mut">${act.slice(0,12).map(o => (o.no ? "#"+esc(o.no) : esc(invNo(o.invoiceNo))) + " · " + (o.status==="pending" ? "waiting" : "in kitchen")).join("<br>")}</p>`);
-  if(shifts.length) blockers.push(`<p><b>${shifts.length} shift${shifts.length===1?" is":"s are"} still open.</b> Close ${shifts.length===1?"it":"them"} first:</p><p class="mut">${shifts.map(x => esc(S.devices.find(d=>d.id===x.deviceId)?.name || "Device") + " · " + esc(x.cashier||"")).join("<br>")}</p>`);
+  if(shifts.length) blockers.push(`<p><b>${shifts.length} shift${shifts.length===1?" is":"s are"} still open.</b> Close ${shifts.length===1?"it":"them"} first:</p><div class="vlines">${shifts.map(x => `<div><span>${esc(S.devices.find(d=>d.id===x.deviceId)?.name || "Device")} · ${esc(x.cashier||"")}<small class="mut" style="display:block">Opened ${new Date(x.openedAt).toLocaleString("en-GB",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})}</small></span><button class="btn" data-shclose="${esc(x.id)}">Close shift</button></div>`).join("")}</div>`);
   modal("dayend", `<div class="mh"><h2>End day · ${esc(fmtDay(day))}</h2><button class="x" data-close aria-label="Close">×</button></div><div class="mb">
     ${blockers.length ? blockers.join("") : `<div class="stats"><div>Orders<b>${sales.length}</b></div><div>Net sales<b>${usd(sales.reduce((a,o)=>a+(+o.total||0)-(+o.tax||0),0))}</b></div><div>Payments<b>${usd(sales.reduce((a,o)=>a+(+o.total||0),0))}</b></div></div>
       <p class="mut">Ending the day closes ${esc(fmtDay(day))} for ${esc(branch?.name||"this branch")}. Every device at the branch then starts the next business day.</p>`}</div>
@@ -1015,6 +1015,7 @@ $("#modal").addEventListener("click", async e => {
   const de = e.target.closest("#doDayEnd"); if(de) return doDayEnd(de.dataset.day);
   if(e.target.closest("#goDayEnd")){ closeModal(); return openDayEnd(); }
   if(e.target.closest("#doCloseShift")) return doCloseShift();
+  const shc = e.target.closest("[data-shclose]"); if(shc) return closeShiftRemote(shc.dataset.shclose);
   if(e.target.closest("#deact")){ store.set("wokDevice", null); location.reload(); }
 });
 $("#modal").addEventListener("input", e => { if(e.target.id==="pdPhone"){ clearTimeout(pdT); pdT = setTimeout(pdLookup, 450); } if(e.target.id==="tender") updChange(); if(e.target.id==="bdQ"){ BQ = e.target.value; const pos = e.target.selectionStart; openBoard(); const q = $("#bdQ"); q.focus(); q.setSelectionRange(pos, pos); return; } if(e.target.id==="ovQ"){ OV.q = e.target.value; const pos = e.target.selectionStart; openIncoming(); const q = $("#ovQ"); q.focus(); q.setSelectionRange(pos, pos); } });
@@ -1329,6 +1330,16 @@ async function doOpenShift(){
   const id = "sh_" + Date.now().toString(36);
   try{ await db.collection("shifts").doc(id).set({ deviceId:device.id, branchId:device.branchId, cashier:$("#sName").value.trim(), openingCash:+$("#sCash").value||0, openedAt:new Date().toISOString() }); closeModal(); toast("Shift opened"); }
   catch(err){ console.error(err); toast("Couldn't open the shift"); }
+}
+// a shift left open on any register of the branch (even another tablet) is closed from End of day; the drawer is taken as counted at the expected amount
+async function closeShiftRemote(id){
+  const sh = S.shifts.find(s => s.id===id && !s.closedAt); if(!sh) return openDayEnd();
+  const ok = await approve("pos_endday", "Close this shift"); if(!ok) return;
+  const sales = S.orders.filter(o => o.shiftId===sh.id && (o.status==="closed" || o.status==="refund"));
+  const cash = sales.filter(o=>(o.payment?.type || o.payment?.method)==="cash").reduce((a,o)=>a+o.total,0), expected = +((+sh.openingCash||0)+cash).toFixed(2);
+  try{ await db.collection("shifts").doc(sh.id).update({ closedAt:new Date().toISOString(), orders:sales.filter(o=>o.status==="closed").length, sales:+sales.reduce((a,o)=>a+o.total,0).toFixed(2), expectedCash:expected, countedCash:expected, difference:0 });
+    toast("Shift closed"); setTimeout(openDayEnd, 300); }
+  catch(err){ console.error(err); toast("Couldn't close the shift. Check the connection and try again."); }
 }
 async function doCloseShift(){
   const sh = openShift(), sales = S.orders.filter(o => o.shiftId===sh.id && (o.status==="closed" || o.status==="refund"));
