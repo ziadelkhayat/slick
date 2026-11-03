@@ -449,6 +449,7 @@ tr[draggable="true"].dragging{opacity:.45}tr.dropto td{box-shadow:inset 0 2px 0 
 /* orders: title, filters and status tabs stay in view while the list scrolls */
 .ostick{position:sticky;top:var(--toph,62px);z-index:4;background:var(--bg);margin:-6px -8px 0;padding:6px 8px 0}
 .ostick .fbar{margin-bottom:12px}
+.bdrow{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--line)}.bdrow>div{display:flex;flex-direction:column;gap:2px}.bdrow .btn{white-space:nowrap}
 .taxcfg{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:14px}.taxcfg h3{margin:0 0 4px;font-size:15px}.taxcfg .note{margin:0}.taxcfg .chk{font-weight:600;white-space:nowrap}
 .ofb{flex-wrap:wrap;gap:10px}.osrch{flex:1;min-width:240px;display:flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:10px;background:var(--surface);padding:0 12px}.osrch svg{width:16px;height:16px;color:var(--muted);flex:none}.osrch input{border:0;outline:0;background:transparent;font:inherit;padding:9px 0;width:100%}
 .osrch:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
@@ -530,6 +531,7 @@ tr[draggable="true"].dragging{opacity:.45}tr.dropto td{box-shadow:inset 0 2px 0 
         <label class="chk"><input type="checkbox" id="fProd"> Central kitchen / production site</label>
       </div>
       <input type="hidden" id="fOpen" value="11:00"><input type="hidden" id="fClose" value="23:30"><input type="hidden" id="fZones">
+      <div id="fData" class="f full" style="display:none"></div>
       <div class="err" id="fErr"></div>
     </div>
     <footer>
@@ -763,6 +765,46 @@ async function saveBranch(data, id){
     sortBranches(); render();
   }
 }
+// a branch's data (Manage → Branches → edit): orders and inventory transactions can be deleted, then the branch itself
+const BD = { id:null, orders:null, inv:null, busy:false };
+const invQueries = id => [WOK.sb.from("inventory_docs").select("id", { count:"exact", head:true }).or(`location_id.eq.${id},dest_id.eq.${id}`),
+  WOK.sb.from("order_transactions").select("id", { count:"exact", head:true }).eq("branch_id", id),
+  WOK.sb.from("stock_counts").select("id", { count:"exact", head:true }).eq("branch_id", id)];
+async function countBranchData(id){
+  if(storeMode!=="db" || !window.WOK?.sb) return { orders:0, inv:0 };
+  const [o, ...inv] = await Promise.all([WOK.sb.from("orders").select("id", { count:"exact", head:true }).eq("branch_id", id), ...invQueries(id)]);
+  const err = [o, ...inv].find(r => r.error && !/does not exist|schema cache/i.test(r.error.message||"")); if(err) throw err.error;
+  return { orders: o.count || 0, inv: inv.reduce((a,r) => a + (r.error ? 0 : r.count || 0), 0) };
+}
+async function paintBranchData(id){
+  const box = $("#fData"); if(!box) return;
+  if(!id){ box.style.display = "none"; box.innerHTML = ""; return; }
+  BD.id = id; BD.orders = BD.inv = null; box.style.display = "";
+  const draw = () => { const n = v => v==null ? "…" : v.toLocaleString();
+    box.innerHTML = `<h4 class="fsec" style="margin-top:4px">Branch data</h4>
+      <div class="bdrow"><div><b>Orders</b><span class="note">${n(BD.orders)} order${BD.orders===1?"":"s"}, with their shifts and end-of-day records</span></div><button type="button" class="btn danger" id="bdDelOrders" ${!BD.orders || BD.busy ? "disabled" : ""}>Delete orders</button></div>
+      <div class="bdrow"><div><b>Inventory transactions</b><span class="note">${n(BD.inv)} record${BD.inv===1?"":"s"}: purchases, transfers, adjustments, production, counts and consumption</span></div><button type="button" class="btn danger" id="bdDelInv" ${!BD.inv || BD.busy ? "disabled" : ""}>Delete inventory transactions</button></div>
+      <p class="note" style="margin:6px 0 0">Deleting is permanent. The branch itself can be deleted once it has no orders and no inventory transactions.</p>`; };
+  draw();
+  try{ Object.assign(BD, await countBranchData(id)); }catch(e){ console.error(e); }
+  if(BD.id===id) draw();
+}
+async function wipeBranch(kind){
+  const b = branches.find(x => x.id===BD.id); if(!b || BD.busy) return;
+  const what = kind==="orders" ? `all ${BD.orders} orders` : `all ${BD.inv} inventory transactions`;
+  const typed = prompt(`This permanently deletes ${what} of ${b.name}. It can't be undone.\n\nType the branch name to confirm:`);
+  if(typed==null) return; if(typed.trim().toLowerCase()!==b.name.trim().toLowerCase()) return toast("The name didn't match · nothing was deleted");
+  BD.busy = true; paintBranchData(b.id);
+  try{
+    const sb = WOK.sb, chk = r => { if(r.error && !/does not exist|schema cache/i.test(r.error.message||"")) throw r.error; };
+    if(kind==="orders"){ for(const t of ["orders","shifts","day_closes"]) chk(await sb.from(t).delete().eq("branch_id", b.id)); }
+    else { chk(await sb.from("inventory_docs").delete().or(`location_id.eq.${b.id},dest_id.eq.${b.id}`)); chk(await sb.from("order_transactions").delete().eq("branch_id", b.id)); chk(await sb.from("stock_counts").delete().eq("branch_id", b.id)); }
+    const left = await countBranchData(b.id), n = kind==="orders" ? left.orders : left.inv;
+    toast(n ? `${n} record${n===1?"":"s"} couldn't be deleted. Only the owner or an admin can delete them.` : kind==="orders" ? `Orders of ${b.name} deleted` : `Inventory transactions of ${b.name} deleted`);
+  }catch(e){ console.error(e); toast("Couldn't delete. Only the owner or an admin can do this."); }
+  finally{ BD.busy = false; paintBranchData(b.id); }
+}
+document.addEventListener("click", e => { if(e.target.closest("#bdDelOrders")) wipeBranch("orders"); if(e.target.closest("#bdDelInv")) wipeBranch("inv"); });
 async function deleteBranch(id){
   if(storeMode === "db") await col.doc(id).delete();
   else { branches = branches.filter(b => b.id!==id); render(); }
@@ -1153,7 +1195,7 @@ function openForm(id){
     return `<div class="hrow" data-day="${k}"><b>${t}</b><input type="time" class="sel" data-h="open" value="${esc(d.open||o0)}" ${d.closed?"disabled":""} aria-label="${t} opens"><span class="note">to</span><input type="time" class="sel" data-h="close" value="${esc(d.close||c0)}" ${d.closed?"disabled":""} aria-label="${t} closes"><label class="chk"><input type="checkbox" data-h="closed" ${d.closed?"checked":""}> Closed</label></div>`; }).join("")
     + `<button type="button" class="btn sm" id="fHoursAll" style="margin-top:6px">Copy Monday to every day</button>`;
   $("#fActive").checked = b ? b.active!==false : true; $("#fCC").checked = b ? !!b.callCenter : true; $("#fProd").checked = !!b?.production;
-  $("#delBtn").style.display = b ? "" : "none"; $("#fErr").textContent = "";
+  $("#delBtn").style.display = b ? "" : "none"; $("#fErr").textContent = ""; paintBranchData(b?.id);
   $("#scrim").classList.add("show"); setTimeout(()=>$("#fName").focus(), 30);
 }
 const DAYS = [["mon","Monday"],["tue","Tuesday"],["wed","Wednesday"],["thu","Thursday"],["fri","Friday"],["sat","Saturday"],["sun","Sunday"]];
@@ -1195,8 +1237,10 @@ $("#branchForm").addEventListener("submit", async e => {
   catch(err){ console.error(err); $("#fErr").textContent = "Couldn't save. You may not have edit access to this page."; }
   finally{ $("#saveBtn").disabled = false; }
 });
-$("#delBtn").addEventListener("click", () => {
+$("#delBtn").addEventListener("click", async () => {
   const b = branches.find(x=>x.id===editing); if(!b) return;
+  let c = { orders: BD.orders, inv: BD.inv }; try{ c = await countBranchData(b.id); }catch(e){ console.error(e); }
+  if(c.orders==null || c.orders || c.inv){ $("#fErr").textContent = c.orders==null ? "Couldn't check this branch's data. Try again." : `Delete this branch's ${c.orders ? `${c.orders} order${c.orders===1?"":"s"}` : ""}${c.orders && c.inv ? " and " : ""}${c.inv ? `${c.inv} inventory transaction${c.inv===1?"":"s"}` : ""} first (Branch data, above).`; $("#fData")?.scrollIntoView({ behavior:"smooth", block:"center" }); return; }
   $("#confirmText").innerHTML = `This removes <b>${esc(b.name)}</b> permanently. To keep its history, mark it inactive instead.`;
   $("#confirmScrim").classList.add("show");
 });
@@ -1376,7 +1420,8 @@ const CRUD = {
     cols:[["Brand",r=>`<b>${esc(r.name)}</b>${r.nameAr?` <span class="note">${esc(r.nameAr)}</span>`:""}`],
       ["Branches",r=>branches.filter(b=>b.brandId===r.id).length,"num"],["Products",r=>S.products.filter(p=>live(p)&&p.brandId===r.id).length,"num"],
       ["Status",r=>r.active===false?'<span class="tag off">Inactive</span>':'<span class="tag on">Active</span>']],
-    fields:[{k:"name",l:"Brand name",req:1},{k:"nameAr",l:"Name (Arabic)"},{k:"active",l:"Active",t:"chk",def:true}]
+    fields:[{k:"name",l:"Brand name",req:1},{k:"nameAr",l:"Name (Arabic)"},{k:"active",l:"Active",t:"chk",def:true}],
+    canDelete: r => { const n = branches.filter(b => b.brandId===r.id).length; return n ? `Delete this brand's ${n} branch${n===1?"":"es"} first (Manage → Branches).` : ""; }
   },
   categories: {
     col:"categories", title:"Categories", one:"Category",
