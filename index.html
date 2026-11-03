@@ -586,7 +586,7 @@ const NAV = [
   {t:"Reports",i:"chart",kids:[["sales-reports","Sales Reports"],["inventory-reports","Inventory Reports"],["business-reports","Business Reports"],["analysis-reports","Analysis Reports"]]},
   {t:"Inventory",i:"box",tabs:1,kids:[["inv-categories","Inventory Categories"],["inv-items","Items"],["warehouses","Locations"],["suppliers","Suppliers"],["purchase-orders","Purchase Orders"],["transfer-orders","Transfer Orders"],["transfers","Transfers"],["inventory-count","Inventory Count"],["production","Production"],["quantity-adjustments","Quantity Adjustment"],["cost-adjustments","Cost Adjustment"],["spot-check","Inventory Spot Check"],["count-sheets","Count Sheet"]]},
   {t:"Menu",i:"book",tabs:1,kids:[["@Menu Builder"],["categories","Categories"],["products","Products"],["modifiers","Modifiers"],["branch-menu","Sales Channels"],["combos","Combos"],["groups","Groups"],["@Menu Settings"],["price-tags","Price Tags"],["allergens","Allergens"]]},
-  {t:"Manage",i:"gear",kids:[["users","Users"],["roles","Roles"],["brands","Brands"],["branches","Branches"],["devices","Devices"],["tables","Tables"],["taxes","Taxes & Groups"],["payment-methods","Payment Methods"],["order-sources","Order Sources"],["charges","Charges"],["delivery-zones","Delivery Zones"],["online-ordering","Web Ordering"],["kitchen-flows","Kitchen Flows"],["reasons","Reasons"],["settings","Settings"]]},
+  {t:"Manage",i:"gear",kids:[["users","Users"],["roles","Roles"],["brands","Brands"],["branches","Branches"],["devices","Devices"],["tables","Tables"],["taxes","Taxes & Groups"],["currency","Currency"],["payment-methods","Payment Methods"],["order-sources","Order Sources"],["charges","Charges"],["delivery-zones","Delivery Zones"],["online-ordering","Web Ordering"],["kitchen-flows","Kitchen Flows"],["reasons","Reasons"],["settings","Settings"]]},
   {t:"Marketing",i:"tag",kids:[["loyalty","Loyalty"],["gift-cards","Gift Cards"],["discounts","Discounts"],["promotions","Promotions"],["coupons","Coupons"]]}
 ];
 const TITLES = { account:"Account settings" };
@@ -659,7 +659,7 @@ const SUBI = {
   "quantity-adjustments":"sliders","cost-adjustments":"dollar","order-transactions":"receipt","inv-categories":"folder","warehouses":"warehouse","spot-check":"search","count-sheets":"list",
   "categories":"grid","products":"utensils","modifiers":"layers","variants":"sliders","modifier-options":"list","branch-menu":"store","combos":"combo","groups":"folder","price-tags":"pricetag","allergens":"alert",
   "company":"building","users":"user","roles":"shield","brands":"store","branches":"map","devices":"tablet","tables":"grid","taxes":"percent","payment-methods":"card","order-sources":"source",
-  "charges":"plusc","delivery-zones":"globe","online-ordering":"globe","kitchen-flows":"flow","reasons":"message","settings":"gear",
+  "charges":"plusc","delivery-zones":"globe","online-ordering":"globe","kitchen-flows":"flow","reasons":"message","currency":"dollar","settings":"gear",
   "loyalty":"heart","gift-cards":"gift","discounts":"percent","promotions":"megaphone","coupons":"ticket",
   "dashboard":"dash","orders":"orders","call-center":"phone","customers":"users"
 };
@@ -2501,6 +2501,7 @@ function moduleRoute(route){
   if(route==="customers") return viewCustomers();
   if(route==="company"){ state.acTab = "business"; setTimeout(() => location.replace("#account"), 0); return ""; }
   if(route==="reasons") return viewReasons();
+  if(route==="currency") return viewCurrency();
   if(route==="settings") return viewSettings(route);
   if(DOC_KINDS[route]) return viewDocs(route);
   if(route==="order-transactions") return viewOrderTx();
@@ -3016,18 +3017,10 @@ function viewCompany(){
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px">
         ${f("name","Company name *","e.g. Wok Group SAL")}${f("legalName","Legal name","As on the commercial register")}
         ${f("taxNumber","Tax (VAT) number")}${f("crNumber","Commercial register number")}
-        <div class="f"><label for="co_currency">Currency</label><select id="co_currency" class="sel" ${admin?"":"disabled"}>${CURRENCIES.map(([k,t])=>`<option value="${k}" ${(c.currency||"USD")===k?"selected":""}>${t}</option>`).join("")}</select></div>
         ${f("phone","Phone")}${f("email","Email","","email")}
         ${f("country","Country","Lebanon")}${f("taxName","Tax registration name","Name on the VAT certificate")}
         ${f("address","Address","","",1)}${f("logoUrl","Logo image link (optional)","https://…","url",1)}
       </div><div class="err" id="coErr"></div></div>
-    <div class="card" style="margin-bottom:16px"><h3 style="margin:0 0 12px;font-size:15px">Prices & currencies</h3>
-      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px">
-        <div class="f"><label for="co_priceDecimals">Price decimals</label><select id="co_priceDecimals" class="sel" ${admin?"":"disabled"}>${[0,1,2,3].map(n=>`<option value="${n}" ${String(c.priceDecimals ?? 2)===String(n)?"selected":""}>${n} (${(12.5).toFixed(n)})</option>`).join("")}</select></div>
-        <div class="f"><label for="co_currency2">Second currency</label><select id="co_currency2" class="sel" ${admin?"":"disabled"}><option value="">None</option>${CURRENCIES.map(([k,t])=>`<option value="${k}" ${c.currency2===k?"selected":""}>${t}</option>`).join("")}</select></div>
-        <div class="f"><label for="co_rate2">Exchange rate (1 ${esc(c.currency||"USD")} =)</label><input id="co_rate2" class="sel" type="number" min="0" step="any" value="${esc(c.rate2??"")}" placeholder="e.g. 89500" ${admin?"":"disabled"}></div>
-        <div class="f"><label for="co_decimals2">Second currency decimals</label><select id="co_decimals2" class="sel" ${admin?"":"disabled"}>${[0,1,2].map(n=>`<option value="${n}" ${String(c.decimals2 ?? 0)===String(n)?"selected":""}>${n}</option>`).join("")}</select></div>
-      </div><p class="note" style="margin:10px 0 0">The second currency is shown next to totals in the POS, on receipts, in the call center and online, at this rate.</p></div>
     <div class="card" style="margin-bottom:16px"><h3 style="margin:0 0 12px;font-size:15px">Time zone</h3>
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px">
         <div class="f"><label for="co_timeZone">Time zone</label><select id="co_timeZone" class="sel" ${admin?"":"disabled"}>${TZS.map(z=>`<option value="${z}" ${(c.timeZone||"Asia/Beirut")===z?"selected":""}>${z.replace(/_/g," ")}</option>`).join("")}</select></div>
@@ -3051,8 +3044,8 @@ function dayExample(v){
 document.addEventListener("input", e => { if(e.target.id==="co_dayEnd" && $("#coDayEx")) $("#coDayEx").textContent = dayExample(e.target.value); });
 async function saveCompany(){
   const v = k => ($("#co_"+k)?.value || "").trim();
-  const data = { name:v("name"), legalName:v("legalName"), taxNumber:v("taxNumber"), crNumber:v("crNumber"), currency:v("currency")||"USD", phone:v("phone"), email:v("email"), address:v("address"), logoUrl:v("logoUrl"), dayEnd: v("dayEnd") || "00:00",
-    country:v("country"), taxName:v("taxName"), priceDecimals: +v("priceDecimals"), currency2: v("currency2"), rate2: v("rate2")==="" ? null : +v("rate2"), decimals2: +v("decimals2") || 0, timeZone:v("timeZone") || "Asia/Beirut" };
+  const data = { name:v("name"), legalName:v("legalName"), taxNumber:v("taxNumber"), crNumber:v("crNumber"), phone:v("phone"), email:v("email"), address:v("address"), logoUrl:v("logoUrl"), dayEnd: v("dayEnd") || "00:00",
+    country:v("country"), taxName:v("taxName"), timeZone:v("timeZone") || "Asia/Beirut" };
   if(/^(\d{1,2})/.test(data.dayEnd) && +data.dayEnd.split(":")[0] >= 12){ $("#coErr").textContent = "The day must end between 12:00 AM and 11:59 AM."; $("#co_dayEnd").focus(); return; }
   if(!data.name){ $("#coErr").textContent = "Company name is required."; $("#co_name").focus(); return; }
   try{ await put("settings", "company", data); toast("Company saved"); }
@@ -3087,6 +3080,29 @@ document.addEventListener("click", async e => { if(!e.target.closest("#asSave"))
 /* ---------- Manage → Reasons: what the cashier picks from when voiding or returning ---------- */
 const rsList = k => String(appSet()[k] || "").split("\n").map(x => x.trim()).filter(Boolean);
 async function rsSave(k, l){ try{ await put("settings", "app", { [k]: l.join("\n") }); render(); }catch(err){ console.error(err); toast("Couldn't save. Only the owner or an admin can change reasons."); } }
+function viewCurrency(){
+  const c = company(), admin = !state.role || state.role==="owner" || state.role==="admin";
+  return `<div class="phead"><h1>Currency</h1><div class="sp"></div>${admin?`<button class="btn pri" id="curSave">Save changes</button>`:""}</div>
+    <p class="subt" style="margin-top:-6px">The currency your menu prices are in, how many decimals they show, and an optional second currency.</p>
+    ${admin?"":`<div class="banner">Only the owner or an admin can change the currency.</div>`}
+    <div class="card" style="margin-bottom:16px"><h3 style="margin:0 0 12px;font-size:15px">Prices & currencies</h3>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px">
+        <div class="f"><label for="co_currency">Currency</label><select id="co_currency" class="sel" ${admin?"":"disabled"}>${CURRENCIES.map(([k,t])=>`<option value="${k}" ${(c.currency||"USD")===k?"selected":""}>${t}</option>`).join("")}</select></div>
+        <div class="f"><label for="co_priceDecimals">Price decimals</label><select id="co_priceDecimals" class="sel" ${admin?"":"disabled"}>${[0,1,2,3].map(n=>`<option value="${n}" ${String(c.priceDecimals ?? 2)===String(n)?"selected":""}>${n} (${(12.5).toFixed(n)})</option>`).join("")}</select></div>
+        <div class="f"><label for="co_currency2">Second currency</label><select id="co_currency2" class="sel" ${admin?"":"disabled"}><option value="">None</option>${CURRENCIES.map(([k,t])=>`<option value="${k}" ${c.currency2===k?"selected":""}>${t}</option>`).join("")}</select></div>
+        <div class="f"><label for="co_rate2">Exchange rate (1 ${esc(c.currency||"USD")} =)</label><input id="co_rate2" class="sel" type="number" min="0" step="any" value="${esc(c.rate2??"")}" placeholder="e.g. 89500" ${admin?"":"disabled"}></div>
+        <div class="f"><label for="co_decimals2">Second currency decimals</label><select id="co_decimals2" class="sel" ${admin?"":"disabled"}>${[0,1,2].map(n=>`<option value="${n}" ${String(c.decimals2 ?? 0)===String(n)?"selected":""}>${n}</option>`).join("")}</select></div>
+      </div><p class="note" style="margin:10px 0 0">The second currency is shown next to totals in the POS, on receipts, in the call center and online, at this rate.</p></div>
+    <div class="err" id="curErr"></div>`;
+}
+async function saveCurrency(){
+  const v = k => ($("#co_"+k)?.value || "").trim();
+  const data = { currency: v("currency") || "USD", priceDecimals: +v("priceDecimals"), currency2: v("currency2"), rate2: v("rate2")==="" ? null : +v("rate2"), decimals2: +v("decimals2") || 0 };
+  if(data.currency2 && !(data.rate2 > 0)){ $("#curErr").textContent = "Enter the exchange rate for the second currency."; $("#co_rate2").focus(); return; }
+  try{ await put("settings", "company", data); toast("Currency saved"); }
+  catch(e){ console.error(e); $("#curErr").textContent = "Couldn't save. Only the owner or an admin can change this."; }
+}
+document.addEventListener("click", e => { if(e.target.closest("#curSave")) saveCurrency(); });
 function viewReasons(){
   const admin = !state.role || state.role==="owner" || state.role==="admin";
   const card = (k, title, note, ph) => { const l = rsList(k);
