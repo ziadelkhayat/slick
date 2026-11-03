@@ -103,7 +103,7 @@ if(!brand){ $("#main").innerHTML = `<div class="closed">This restaurant isn't ta
 $("#brand").textContent = brand.name; $("#logo").textContent = brand.name.trim()[0].toUpperCase(); document.title = brand.name + " – Order Online";
 
 PUB = await sb.rpc("slick_public_settings").then(r => (!r.error && r.data) ? { ...PUB, ...r.data, decimals: r.data.decimals ?? 2 } : PUB, () => PUB);
-const incl = PUB.taxInclusive !== false;   // prices include tax unless the company turned it off
+let incl = true;   // set below: true when every tax is inclusive
 const [st, br, ca, pr, zo, mg, tx, tg, mo] = await Promise.all([
   sb.from("settings").select("data").eq("id","online_"+brandId).maybeSingle(),
   sb.from("branches").select("id,name,open_time,close_time").eq("brand_id", brandId),
@@ -111,15 +111,18 @@ const [st, br, ca, pr, zo, mg, tx, tg, mo] = await Promise.all([
   sb.from("products").select("id,name,price,description,category_id,channels,branch_ids,pricing_method,custom_prices,inactive_branch_ids,out_of_stock_branch_ids,modifiers,sort,image_url,tax_group,variants").eq("brand_id", brandId).order("sort").order("name"),
   sb.from("delivery_zones").select("id,name,branch_id,fee,min_order,eta,polygon").order("name"),
   sb.from("modifiers").select("id,name,sort,deleted"),
-  sb.from("taxes").select("id,rate,deleted"), sb.from("tax_groups").select("id,tax_ids,deleted"),
+  sb.from("taxes").select("*"), sb.from("tax_groups").select("id,tax_ids,deleted"),
   sb.from("modifier_options").select("id,modifier_id,name,price,custom_prices,inactive_branch_ids,out_of_stock_branch_ids,sort,active,deleted")
 ]);
 const mgroups = {}; (mg.data||[]).forEach(m => { if(!m.deleted) mgroups[m.id] = { name:m.name, sort:m.sort }; });
 // tax included in the prices (shown on the order summary)
-const taxRates = {}; (tx?.data||[]).filter(t=>!t.deleted).forEach(t => taxRates[t.id] = +t.rate||0);
-const groupRate = {}; (tg?.data||[]).filter(g=>!g.deleted).forEach(g => groupRate[g.id] = (g.tax_ids||[]).reduce((a,id)=>a+(taxRates[id]||0),0)/100);
-const taxIn = () => +cart.reduce((a,i) => { const p = products.find(x=>x.id===i.productId), r = (p && groupRate[p.tax_group]) || 0, l = (+i.price||0)*(+i.qty||1); return a + (incl ? l*r/(1+r) : l*r); }, 0).toFixed(2);
-const grand = () => +(sub() + fee() + (incl ? 0 : taxIn())).toFixed(2);
+// each tax is inclusive (inside the price) or added on top
+const taxDef = {}; (tx?.data||[]).filter(t=>!t.deleted).forEach(t => taxDef[t.id] = { rate:(+t.rate||0)/100, inc: t.inclusive !== false });
+const groupRate = {}; (tg?.data||[]).filter(g=>!g.deleted).forEach(g => { const r = { inc:0, exc:0 }; (g.tax_ids||[]).forEach(id => { const t = taxDef[id]; if(t) r[t.inc ? "inc" : "exc"] += t.rate; }); groupRate[g.id] = r; });
+const taxParts = () => cart.reduce((a,i) => { const p = products.find(x=>x.id===i.productId), r = (p && groupRate[p.tax_group]) || { inc:0, exc:0 }, l = (+i.price||0)*(+i.qty||1), base = l/(1+r.inc); a.tax += (l - base) + base*r.exc; a.add += base*r.exc; return a; }, { tax:0, add:0 });
+incl = !Object.values(taxDef).some(t => !t.inc);
+const taxIn = () => +taxParts().tax.toFixed(2);
+const grand = () => +(sub() + fee() + taxParts().add).toFixed(2);
 const mopts = (mo.data||[]).filter(o => o.active!==false && !o.deleted);
 if([st,br,ca,pr,zo].some(r => r.error)){ $("#main").innerHTML = `<div class="closed">We couldn't load the menu. Please try again in a moment.</div>`; return; }
 const cfg = st.data?.data || {}, branches = br.data, cats = ca.data, products = pr.data, zones = zo.data.filter(z => branches.some(b => b.id === z.branch_id));

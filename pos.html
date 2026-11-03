@@ -430,7 +430,7 @@ button,input,select,textarea{font-family:var(--f-ui)}
 <script>window.SLICK_OFFLINE = true;</script>
 <script src="supabase.js"></script>
 <script>if(!window.supabase) document.write('<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"><\/script>');</script>
-<script src="wokdb.js?v=25"></script>
+<script src="wokdb.js?v=26"></script>
 <script src="modpick.js?v=5"></script>
 </head>
 <body>
@@ -633,7 +633,6 @@ const company = () => S.settings.find(x=>x.id==="company") || {};
 const APP_DEF = { requireCustPickup:true, requireCustDelivery:true, requireTable:false, stockAction:"ask", reasonRequired:true, discountApproval:false, rcptInvoice:true, rcptCustomer:true, rcptTax:true, rcptSource:false,
   voidReasons:"Customer changed mind\nWrong item entered\nItem not available\nKitchen mistake", returnReasons:"Quality complaint\nWrong order delivered\nLate delivery\nCustomer cancelled" };
 const appSet = () => ({ ...APP_DEF, ...(S.settings.find(x=>x.id==="app")||{}) });
-const taxIncl = () => company().taxInclusive !== false;
 const typeKey = t => t==="takeaway" ? "pickup" : t;
 const menuType = () => otype==="takeaway" || otype==="fast" ? "pickup" : otype;   // fast orders sell the pickup menu
 const chargeList = type => S.charges.filter(c => !c.deleted && c.active!==false && (!(c.orderTypes||[]).length || c.orderTypes.includes(typeKey(type)))
@@ -641,8 +640,15 @@ const chargeList = type => S.charges.filter(c => !c.deleted && c.active!==false 
 const pickedCharges = () => chargeList(otype).filter(c => posChg ? posChg.has(c.id) : c.auto!==false);
 const lineNet = i => Math.max(0, (+i.price||0) * (+i.qty||1) - (+i.disc||0));
 /* ---------- tax (prices include it, unless the company turned tax-inclusive pricing off) ---------- */
-const prodTaxRate = id => { const p = S.products.find(x=>x.id===id), g = p && S.tax_groups.find(x=>x.id===(p.taxGroup || brSet().taxGroup) && live(x)); return g ? (g.taxIds||[]).reduce((a,t) => { const x = S.taxes.find(y=>y.id===t && live(y)); return a + (x ? +x.rate||0 : 0); }, 0)/100 : 0; };
-function orderTax(items, disc){ const incl = taxIncl(); let g = 0, t = 0; (items||[]).forEach(i => { const l = lineNet(i), r = prodTaxRate(i.productId); g += l; t += incl ? l*r/(1+r) : l*r; }); if(g>0 && disc>0) t *= 1 - Math.min(disc,g)/g; return +t.toFixed(2); }
+// each tax is either inclusive (already inside the menu price) or added on top (Manage → Taxes & Groups)
+const prodRates = id => { const p = S.products.find(x=>x.id===id), g = p && S.tax_groups.find(x=>x.id===(p.taxGroup || brSet().taxGroup) && live(x)), r = { inc:0, exc:0 };
+  (g?.taxIds||[]).forEach(t => { const x = S.taxes.find(y=>y.id===t && live(y)); if(x) r[x.inclusive===false ? "exc" : "inc"] += (+x.rate||0)/100; }); return r; };
+const prodTaxRate = id => { const r = prodRates(id); return r.inc + r.exc; };
+// tax = inclusive part taken out of the price + exclusive part added on the price before tax; "added" is what goes on top of the total
+function orderTaxParts(items, disc){ let g = 0, t = 0, add = 0; (items||[]).forEach(i => { const l = lineNet(i), r = prodRates(i.productId), base = l/(1+r.inc); g += l; t += (l - base) + base*r.exc; add += base*r.exc; });
+  if(g>0 && disc>0){ const k = 1 - Math.min(disc,g)/g; t *= k; add *= k; } return { tax:+t.toFixed(2), added:+add.toFixed(2) }; }
+function orderTax(items, disc){ return orderTaxParts(items, disc).tax; }
+const taxIncl = () => !S.taxes.some(x => live(x) && x.inclusive===false);
 /* ---------- payment methods (Manage → Payment Methods; Cash / Card / Other until some are added) ---------- */
 const payMethods = () => { const l = S.payment_methods.filter(m => live(m) && m.active!==false).sort((a,b)=>(a.sort??999)-(b.sort??999)||a.name.localeCompare(b.name));
   return l.length ? l.map(m => ({ id:m.id, name:m.name, type:m.type||"other" })) : [{ id:"cash", name:"Cash", type:"cash" },{ id:"card", name:"Card", type:"card" },{ id:"other", name:"Other", type:"other" }]; };
@@ -804,8 +810,8 @@ function renderMenu(){
 function totals(){
   const sub = cart.reduce((a,i)=>a+lineNet(i),0), disc = +(discType==="amt" ? Math.min(discount, sub) : sub*discount/100).toFixed(2);
   const charges = pickedCharges().map(c => ({ id:c.id, name:c.name, type:c.type, value:+c.value||0, amount: +(c.type==="percent" ? (sub-disc)*(+c.value||0)/100 : +c.value||0).toFixed(2) }));
-  const chT = +charges.reduce((a,c)=>a+c.amount,0).toFixed(2), tax = orderTax(cart, disc);
-  const total = +(sub - disc + chT + (taxIncl() ? 0 : tax)).toFixed(2);
+  const chT = +charges.reduce((a,c)=>a+c.amount,0).toFixed(2), tp = orderTaxParts(cart, disc), tax = tp.tax;
+  const total = +(sub - disc + chT + tp.added).toFixed(2);
   return { sub, disc, charges, chT, tax, total, net: +(total - tax).toFixed(2) };
 }
 const discLbl = () => discType==="amt" ? "Discount" : `Discount ${discount}%`;
@@ -1332,7 +1338,7 @@ async function doVR(kind, mode){
       const items = (o.items||[]).map((i,ix) => { const left = +i.qty - (qs[ix]||0); if(left <= 0) return null; const k = { ...i, qty:left }; if(+i.disc) k.disc = +(i.disc * left / i.qty).toFixed(2); return k; }).filter(Boolean);
       const sub = items.reduce((s,i)=>s+lineNet(i),0), d = Math.min(+o.discount||0, sub);
       const charges = (o.charges||[]).map(c => ({ ...c, amount: +(c.type==="percent" ? (sub-d)*(+c.value||0)/100 : +c.amount||0).toFixed(2) }));
-      const tax = orderTax(items, d), total = +(sub - d + charges.reduce((s,c)=>s+c.amount,0) + (taxIncl() ? 0 : tax)).toFixed(2);
+      const tp = orderTaxParts(items, d), tax = tp.tax, total = +(sub - d + charges.reduce((s,c)=>s+c.amount,0) + tp.added).toFixed(2);
       Object.assign(patch, { items, subtotal: +sub.toFixed(2), discount: d, tax, charges, chargesTotal: +charges.reduce((s,c)=>s+c.amount,0).toFixed(2), total,
         voidedItems: [...(o.voidedItems||[]), ...chosen.map(c => ({ ...c, reason, stock, voidedAt: now, voidedBy: by, approvedBy: ok.name }))] });
     }

@@ -471,7 +471,7 @@ tr[draggable="true"].dragging{opacity:.45}tr.dropto td{box-shadow:inset 0 2px 0 
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="wokdb.js?v=25"></script>
+<script src="wokdb.js?v=26"></script>
 <script src="modpick.js?v=5"></script>
 </head>
 <body>
@@ -603,7 +603,7 @@ const NAV = [
   {t:"Inventory",i:"box",tabs:1,kids:[["inv-categories","Inventory Categories"],["inv-items","Items"],["warehouses","Locations"],["suppliers","Suppliers"],["purchase-orders","Purchase Orders"],["transfer-orders","Transfer Orders"],["transfers","Transfers"],["inventory-count","Inventory Count"],["production","Production"],["quantity-adjustments","Quantity Adjustment"],["cost-adjustments","Cost Adjustment"],["spot-check","Inventory Spot Check"],["count-sheets","Count Sheet"]]},
   {t:"Menu",i:"book",tabs:1,kids:[["@Menu Builder"],["categories","Categories"],["products","Products"],["modifiers","Modifiers"],["combos","Combos"],["groups","Groups"],["@Menu Settings"],["price-tags","Price Tags"],["allergens","Allergens"]]},
   {id:"branch-menu",t:"Sales Channels",i:"globe"},
-  {t:"Manage",i:"gear",kids:[["users","Users"],["roles","Roles"],["brands","Brands"],["branches","Branches"],["devices","Devices"],["tables","Tables"],["taxes","Taxes & Groups"],["currency","Currency"],["payment-methods","Payment Methods"],["order-sources","Order Sources"],["charges","Charges"],["delivery-zones","Delivery Zones"],["online-ordering","Web Ordering"],["kitchen-flows","Kitchen Flows"],["reasons","Reasons"],["settings","Settings"]]},
+  {t:"Manage",i:"gear",kids:[["users","Users"],["roles","Roles"],["brands","Brands"],["branches","Branches"],["devices","Devices"],["taxes","Taxes & Groups"],["currency","Currency"],["payment-methods","Payment Methods"],["order-sources","Order Sources"],["charges","Charges"],["delivery-zones","Delivery Zones"],["online-ordering","Web Ordering"],["kitchen-flows","Kitchen Flows"],["reasons","Reasons"],["settings","Settings"]]},
   {t:"Marketing",i:"tag",kids:[["loyalty","Loyalty"],["gift-cards","Gift Cards"],["discounts","Discounts"],["promotions","Promotions"],["coupons","Coupons"]]}
 ];
 const TITLES = { account:"Account settings" };
@@ -704,7 +704,7 @@ new MutationObserver(() => { clearTimeout(decorate.t); decorate.t = setTimeout((
 
 
 function renderNav(route){
-  if(route==="tax-groups") route = "taxes";
+  if(route==="tax-groups") route = "taxes"; if(route==="tables") route = "branches";
   $("#nav").innerHTML = NAV.map((n,gi) => {
     if(!canOpen(n.id || n.kids.find(k=>!k[0].startsWith("@"))?.[0])) return "";
     if(n.id) return `<a href="#${n.id}" class="${route===n.id?"on":""}">${svgIco(n.i)}${n.t}</a>`;
@@ -1345,13 +1345,8 @@ const catName = id => S.categories.find(c => c.id===id)?.name || "—";
 const taxRate = g => (g?.taxIds||[]).reduce((a,id) => { const t = S.taxes.find(x=>x.id===id && live(x)); return a + (t ? +t.rate||0 : 0); }, 0);
 const tgName = id => { if(!id) return "No tax"; const g = S.tax_groups.find(x=>x.id===id); return g ? `${g.name} (${+taxRate(g).toFixed(2)}%)` : (id==="TAX" ? "VAT" : id); };
 const taxGroupOpts = () => S.tax_groups.filter(live).map(g=>[g.id, `${g.name} (${+taxRate(g).toFixed(2)}%)`]);
-const taxTabs = on => { const incl = company().taxInclusive !== false, admin = !state.role || ["owner","admin"].includes(state.role);
-  return `<div class="card taxcfg"><div><h3>Tax configuration</h3><p class="note">${incl ? "Menu prices already include tax. Receipts and reports show the tax inside each sale; net sales leave it out." : "Tax is added on top of the menu price at checkout."}</p></div>
-    <label class="chk"><input type="checkbox" id="taxInclToggle" ${incl?"checked":""} ${admin?"":"disabled"}> Tax inclusive pricing</label></div>
-  <div class="tabs" style="margin-bottom:14px"><a href="#taxes" class="${on==="taxes"?"on":""}">Taxes</a><a href="#tax-groups" class="${on==="tax-groups"?"on":""}">Tax Groups</a></div>`; };
-document.addEventListener("change", async e => { if(e.target.id!=="taxInclToggle") return; const v = e.target.checked;
-  try{ await put("settings", "company", { taxInclusive: v }); toast(v ? "Prices now include tax" : "Tax is now added on top of prices"); render(); }
-  catch(err){ console.error(err); e.target.checked = !v; toast("Couldn't save. Only the owner or an admin can change this."); } });
+const taxTabs = on => `<div class="tabs" style="margin-bottom:8px"><a href="#taxes" class="${on==="taxes"?"on":""}">Taxes</a><a href="#tax-groups" class="${on==="tax-groups"?"on":""}">Tax Groups</a></div>
+  <p class="subt" style="margin-top:0">Each tax is either inclusive (already inside the menu price) or added on top at checkout; set it on the tax. A group can mix both.</p>`;
 
 /* ---------- users & roles ---------- */
 const PERMS = [["@Back office · screens"],["bo_dashboard","Dashboard"],["bo_orders","Orders"],["bo_callcenter","Call center"],["bo_customers","Customers"],["bo_reports","Reports"],["bo_inventory","Inventory"],["bo_menu","Menu"],["bo_manage","Manage (settings, users, branches) — full admin"],["bo_marketing","Marketing"],
@@ -1381,7 +1376,7 @@ const NAV_PERM = { "dashboard":"bo_dashboard", "orders":"bo_orders", "call-cente
 // may the signed-in person do this back-office action? (the owner and admins always may)
 const mayDo = perm => { const p = myPerms(); return !p || p.includes(perm) || p.includes("bo_manage"); };
 function canOpen(route){
-  const p = myPerms(); if(!p) return true; if(route==="tax-groups") route = "taxes";
+  const p = myPerms(); if(!p) return true; if(route==="tax-groups") route = "taxes"; if(route==="tables") route = "branches";
   const n = NAV.find(x => x.id===route || (x.kids||[]).some(k=>k[0]===route)); if(!n) return true;
   const need = NAV_PERM[n.id || n.t]; return !need || p.includes(need);
 }
@@ -1404,9 +1399,9 @@ const CRUD = {
     col:"taxes", title:"Taxes & Groups", one:"Tax", top: () => taxTabs("taxes"),
     tabs:[["all","All",live],["deleted","Deleted",r=>r.deleted]],
     sort:(a,b)=>a.name.localeCompare(b.name), search:r=>r.name,
-    cols:[["Name",r=>`<b>${esc(r.name)}</b>${r.nameAr?` <span class="note">${esc(r.nameAr)}</span>`:""}`],["Rate",r=>(+r.rate||0)+" %","num"],
+    cols:[["Name",r=>`<b>${esc(r.name)}</b>${r.nameAr?` <span class="note">${esc(r.nameAr)}</span>`:""}`],["Rate",r=>(+r.rate||0)+" %","num"],["Pricing",r=>r.inclusive===false ? "Added on top" : "Inclusive"],
       ["Used in groups",r=>S.tax_groups.filter(g=>live(g)&&(g.taxIds||[]).includes(r.id)).map(g=>esc(g.name)).join(", ")||'<span class="note">—</span>'],["Created",r=>fmtDate(r.createdAt)]],
-    fields:[{k:"name",l:"Name",req:1,ph:"e.g. VAT"},{k:"nameAr",l:"Name (Arabic)"},{k:"rate",l:"Rate (%)",t:"number",req:1}],
+    fields:[{k:"name",l:"Name",req:1,ph:"e.g. VAT"},{k:"nameAr",l:"Name (Arabic)"},{k:"rate",l:"Rate (%)",t:"number",req:1},{k:"inclusive",l:"Tax inclusive (already included in the menu price). Off: added on top of the price at checkout",t:"chk",def:true}],
     unique:"name"
   },
   "tax-groups": {
@@ -2218,17 +2213,17 @@ function ccAddrCards(){
 }
 let ccOrig = [], ccChg = null, ccLocked = false;
 /* ---------- charges (Manage → Charges) and order totals, shared by the call center ---------- */
-const taxIncl = () => company().taxInclusive !== false;
+const taxIncl = () => !S.taxes.some(x => live(x) && x.inclusive===false);
 const chargeList = (type, brandId, branchId) => S.charges.filter(c => live(c) && c.active!==false && (!(c.orderTypes||[]).length || c.orderTypes.includes(type==="takeaway" ? "pickup" : type))
   && (!(c.brandIds||[]).length || c.brandIds.includes(brandId)) && (!(c.branchIds||[]).length || c.branchIds.includes(branchId))).sort(bySort);
 const chargeAmt = (c, base) => +(c.type==="percent" ? base * (+c.value||0) / 100 : +c.value||0).toFixed(2);
 const lineNet = i => Math.max(0, (+i.price||0) * (+i.qty||1) - (+i.disc||0));
-function orderCalc(items, discount, charges){
-  let gross = 0, tax = 0; const incl = taxIncl();
-  (items||[]).forEach(i => { const l = lineNet(i), r = prodRate(i.productId); gross += l; tax += incl ? l*r/(1+r) : l*r; });
-  const d = Math.min(+discount||0, gross); if(gross > 0 && d > 0) tax *= 1 - d/gross;
+function orderCalc(items, discount, charges, branchId){
+  let gross = 0, tax = 0, add = 0; branchId = branchId || $("#oBranch")?.value || "";
+  (items||[]).forEach(i => { const l = lineNet(i), r = prodRates(i.productId, branchId), base = l/(1+r.inc); gross += l; tax += (l - base) + base*r.exc; add += base*r.exc; });
+  const d = Math.min(+discount||0, gross); if(gross > 0 && d > 0){ tax *= 1 - d/gross; add *= 1 - d/gross; }
   const ch = (charges||[]).map(c => ({ id:c.id, name:c.name, type:c.type, value:+c.value||0, amount: chargeAmt(c, gross - d) })), chT = ch.reduce((a,c)=>a+c.amount, 0);
-  const total = +(gross - d + chT + (incl ? 0 : tax)).toFixed(2); tax = +tax.toFixed(2);
+  const total = +(gross - d + chT + add).toFixed(2); tax = +tax.toFixed(2);
   return { gross:+gross.toFixed(2), disc:d, charges:ch, chargesTotal:+chT.toFixed(2), tax, total, subtotal:+(total - tax).toFixed(2) };
 }
 function ccCharges(){
@@ -2266,7 +2261,9 @@ function availableProducts(){
   if(brandList().length && !bd) return [];
   return S.products.filter(p => live(p) && (!bd || p.brandId===bd) && (!br || (!offAt(p.inactiveBranchIds, br, "callcenter") && !(($("#oType .on")?.dataset.ot) && typeOff(p.inactiveBranchIds, br, "callcenter", $("#oType .on").dataset.ot)) && !offAt(S.categories.find(c=>c.id===p.categoryId)?.inactiveBranchIds, br, "callcenter"))));
 }
-const prodRate = id => { const p = S.products.find(x=>x.id===id), g = p && S.tax_groups.find(x=>x.id===p.taxGroup && live(x)); return g ? taxRate(g)/100 : 0; };
+const prodRates = (id, branchId) => { const p = S.products.find(x=>x.id===id), bg = branches.find(b=>b.id===branchId)?.settings?.taxGroup, g = p && S.tax_groups.find(x=>x.id===(p.taxGroup || bg) && live(x)), r = { inc:0, exc:0 };
+  (g?.taxIds||[]).forEach(t => { const x = S.taxes.find(y=>y.id===t && live(y)); if(x) r[x.inclusive===false ? "exc" : "inc"] += (+x.rate||0)/100; }); return r; };
+const prodRate = id => { const r = prodRates(id); return r.inc + r.exc; };
 const ccTax = items => +(items||[]).reduce((a,i) => { const l = (+i.price||0)*(+i.qty||1), r = prodRate(i.productId); return a + l*r/(1+r); }, 0).toFixed(2);
 function ccPrice(p){ const b = $("#oBranch")?.value, c = b && (p.customPrices||{})[b]; return c!=null && c!=="" ? +c : +p.price||0; }
 function renderOrderMenu(){
@@ -2649,14 +2646,16 @@ function viewTables(){
       <span class="note">Add</span><input class="sel" type="number" min="1" max="100" value="1" id="tbN_${esc(sc)}" style="width:70px"><span class="note">tables with</span><input class="sel" type="number" min="0" max="50" value="4" id="tbS_${esc(sc)}" style="width:70px"><span class="note">seats</span><button class="btn pri" data-tbadd="${esc(sc)}">Add tables</button>
       ${sc ? `<button class="btn" data-tbrensec="${esc(sc)}">Rename</button><button class="btn" data-tbdelsec="${esc(sc)}" style="color:#9e0c24">Delete section</button>` : ""}</div>
       ${l.length ? `<div class="tblg">${l.map(chip).join("")}</div>` : `<div class="note">No tables in this section yet.</div>`}</div>`; };
-  return `<div class="phead"><h1>Tables</h1><div class="sp"></div></div>
-    <p class="subt">Dine-in tables of each branch, grouped in sections. The POS shows them on its Tables screen; the cashier taps a table, enters the number of guests and takes the order.</p>
-    ${branches.filter(x => x.active!==false).length > 1 ? `<div class="tabs" style="margin-bottom:16px">${branches.filter(x => x.active!==false).map(x => `<button class="tab ${x.id===b?"on":""}" data-tbbr="${esc(x.id)}">${esc(x.name)} <span class="note">${tblList(x.id).length}</span></button>`).join("")}</div>` : ""}
+  const bn = branches.find(x => x.id===b)?.name || "";
+  return `<div class="phead"><a class="btn" href="#branches" data-tbback="${esc(b)}" style="text-decoration:none">← Branches</a><h1>Sections & tables${bn ? ` · ${esc(bn)}` : ""}</h1><div class="sp"></div></div>
+    <p class="subt">Dine-in tables of this branch, grouped in sections. The POS shows them on its Tables screen; the cashier taps a table, enters the number of guests and takes the order.</p>
+    ${false ? `<div class="tabs" style="margin-bottom:16px">${branches.filter(x => x.active!==false).map(x => `<button class="tab ${x.id===b?"on":""}" data-tbbr="${esc(x.id)}">${esc(x.name)} <span class="note">${tblList(x.id).length}</span></button>`).join("")}</div>` : ""}
     <div class="card" style="padding:16px;margin-bottom:16px;display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap"><label style="display:flex;flex-direction:column;gap:4px;font-size:12.5px;color:#5b5a66;font-weight:500">New section<input class="sel" id="tbSecNew" placeholder="e.g. Indoor, Terrace" style="min-width:240px"></label><button class="btn pri" id="tbSecAdd">Add section</button><div class="note" id="tbErr"></div></div>
     ${secs.length ? secs.map(secCard).join("") : `<div class="empty">No sections yet. Add a section (e.g. Indoor), then add its tables.</div>`}`;
 }
 document.addEventListener("click", async e => {
   const t = e.target; if(!t.closest || !t.closest("#view")) return;
+  const bk = t.closest("[data-tbback]"); if(bk){ e.preventDefault(); location.hash = "branches"; setTimeout(() => openForm(bk.dataset.tbback), 80); return; }
   const br = t.closest("[data-tbbr]"); if(br){ state.tblBranch = br.dataset.tbbr; render(); return; }
   if(t.closest("#tbSecAdd")){ const b = tblBranchId(), n = $("#tbSecNew").value.trim(), secs = tblSecs(b); if(!n){ $("#tbSecNew").focus(); return; }
     if(secs.some(x => x.toLowerCase()===n.toLowerCase())){ $("#tbErr").textContent = "That section already exists."; return; }

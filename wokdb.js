@@ -23,7 +23,7 @@
     inventory_docs: "id kind ref name location_id reason direction status business_date items notes created_by submitted_by submitted_at deleted created_at consumed supplier_id dest_id linked_id received_at received_by",
     suppliers: "id name code contact_name phone email address notes deleted created_at",
     modifiers: "id name name_ar reference sort deleted created_at",
-    taxes: "id name name_ar rate deleted created_at",
+    taxes: "id name name_ar rate inclusive deleted created_at",
     tax_groups: "id name name_ar reference tax_ids deleted created_at",
     payment_methods: "id name name_ar type code open_drawer active sort deleted created_at",
     roles: "id name description permissions deleted created_at",
