@@ -416,7 +416,7 @@ button,input,select,textarea{font-family:var(--f-ui)}
 <script>window.SLICK_OFFLINE = true;</script>
 <script src="supabase.js"></script>
 <script>if(!window.supabase) document.write('<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"><\/script>');</script>
-<script src="wokdb.js?v=24"></script>
+<script src="wokdb.js?v=25"></script>
 <script src="modpick.js?v=5"></script>
 </head>
 <body>
@@ -509,6 +509,7 @@ function onData(c){
   device = S.devices.find(d => d.id===device.id) || device;
   if(device.deleted){ store.set("wokDevice", null); location.reload(); return; }
   branch = S.branches.find(b => b.id===device.branchId) || branch;
+  if(c==="settings") salesResetCheck();
   if(c==="orders") window.__ordLoaded = true;
   if(c==="orders" && devSet().autoAccept) autoAccept();
   if(c==="users" || c==="roles"){ if(cashier){ cashier = S.users.find(u=>u.id===cashier.id && live(u) && u.active!==false) || null; } lockIfNeeded(); }
@@ -1378,6 +1379,14 @@ const hideMore = () => $("#morePop").classList.add("hide");
 function paintNav(){ const k = modalKind==="incoming" || modalKind==="orderview" ? "orders" : modalKind==="tables" ? "tables" : modalKind==="board" ? "board" : modalKind ? "" : "home";
   document.querySelectorAll("#bnav [data-nav], .bnav-m [data-nav]").forEach(b => b.classList.toggle("on", b.dataset.nav===k)); }
 /* ---------- hold an unsent order on this register and pick it up later ---------- */
+// back office cleared all sales: this register drops what it still keeps from before (unsent sales, cached orders/shifts, today's call numbers)
+function salesResetCheck(){
+  const at = (S.settings.find(x => x.id==="app") || {}).salesResetAt; if(!at || store.get("slickSalesReset")===at) return;
+  store.set("slickSalesReset", at);
+  try{ window.WOK?.sync?.purgeBefore?.(["orders","shifts","day_closes","order_transactions"], new Date(at).toISOString()); }catch(e){ console.warn(e); }
+  try{ Object.keys(localStorage).filter(k => k.startsWith("slickNo_")).forEach(k => store.set(k, null)); }catch(e){}
+  if(device) toast("Sales history was cleared");
+}
 const heldKey = () => "slickHeld:" + device.id;
 const heldList = () => { try{ return JSON.parse(store.get(heldKey()) || "[]"); }catch(e){ return []; } };
 const heldSave = l => { store.set(heldKey(), l.length ? JSON.stringify(l) : null); renderCart(); };
