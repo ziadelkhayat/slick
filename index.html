@@ -537,7 +537,6 @@ tr[draggable="true"].dragging{opacity:.45}tr.dropto td{box-shadow:inset 0 2px 0 
       <div class="f full">
         <input type="checkbox" id="fActive" checked hidden>
         <label class="chk"><input type="checkbox" id="fCC" checked> Receives call-center orders</label>
-        <label class="chk"><input type="checkbox" id="fProd"> Central kitchen / production site</label>
       </div>
       <input type="hidden" id="fOpen" value="11:00"><input type="hidden" id="fClose" value="23:30"><input type="hidden" id="fZones">
       <div id="fData" class="f full" style="display:none"></div>
@@ -1134,7 +1133,7 @@ function viewBranches(){
   const tgName = id => (S.tax_groups||[]).find(g => g.id===id)?.name || "";
   h += `<div class="card tbl"><table><thead><tr><th>Name</th><th>Reference</th><th>Tax group</th><th>Created</th><th>Active</th></tr></thead><tbody>${
     list.map(b => `<tr class="clk" data-edit="${esc(b.id)}" title="Edit ${esc(b.name)}">
-      <td><a href="#branches" class="lnk" data-edit="${esc(b.id)}"><b style="font-weight:600">${esc(b.name)}</b></a>${brandList().length > 1 ? ` <span class="note">${esc(brandName(b.brandId))}</span>` : ""}${b.production?` <span class="tag cc">Central kitchen</span>`:""}</td>
+      <td><a href="#branches" class="lnk" data-edit="${esc(b.id)}"><b style="font-weight:600">${esc(b.name)}</b></a>${brandList().length > 1 ? ` <span class="note">${esc(brandName(b.brandId))}</span>` : ""}</td>
       <td class="code">${esc(b.code || "—")}</td>
       <td>${esc(tgName(b.settings?.taxGroup)) || '<span class="note">—</span>'}</td>
       <td>${b.createdAt ? new Date(b.createdAt).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"}) : '<span class="note">—</span>'}</td>
@@ -1239,7 +1238,7 @@ function openForm(id){
   $("#fHours").innerHTML = DAYS.map(([k,t]) => { const d = H[k] || { open:o0, close:c0, closed:false };
     return `<div class="hrow" data-day="${k}"><b>${t}</b><input type="time" class="sel" data-h="open" value="${esc(d.open||o0)}" ${d.closed?"disabled":""} aria-label="${t} opens"><span class="note">to</span><input type="time" class="sel" data-h="close" value="${esc(d.close||c0)}" ${d.closed?"disabled":""} aria-label="${t} closes"><label class="chk"><input type="checkbox" data-h="closed" ${d.closed?"checked":""}> Closed</label></div>`; }).join("")
     + `<button type="button" class="btn sm" id="fHoursAll" style="margin-top:6px">Copy Monday to every day</button>`;
-  $("#fActive").checked = b ? b.active!==false : true; $("#fCC").checked = b ? !!b.callCenter : true; $("#fProd").checked = !!b?.production;
+  $("#fActive").checked = b ? b.active!==false : true; $("#fCC").checked = b ? !!b.callCenter : true;
   $("#delBtn").style.display = b ? "" : "none"; $("#fErr").textContent = ""; paintBranchData(b?.id);
   $("#scrim").classList.add("show"); setTimeout(()=>$("#fName").focus(), 30);
 }
@@ -1285,7 +1284,7 @@ $("#branchForm").addEventListener("submit", async e => {
     nameAr:$("#fNameAr").value.trim(), taxNumber:$("#fTaxNo").value.trim(), lat: lat ? +lat : null, lng: lng ? +lng : null,
     settings:{ ...(branches.find(x=>x.id===editing)?.settings || {}), hours, orderTypes: null, receiptHeader:$("#fRHead").value.trim(), receiptFooter:$("#fRFoot").value.trim(), dayStart, autoDayEnd: $("#fAutoDay").checked, taxGroup: $("#fTaxGroup").value || null },
     open: mon.closed ? $("#fOpen").value : (mon.open || $("#fOpen").value), close: mon.closed ? $("#fClose").value : (mon.close || $("#fClose").value), zones:$("#fZones").value.trim(),
-    active:$("#fActive").checked, callCenter:$("#fCC").checked, production:$("#fProd").checked, updatedAt:new Date().toISOString() };
+    active:$("#fActive").checked, callCenter:$("#fCC").checked, production:false, updatedAt:new Date().toISOString() };
   $("#saveBtn").disabled = true;
   const zPick = new Set([...document.querySelectorAll("#fDZones input:checked")].map(i => i.value));
   const chPick = new Set([...document.querySelectorAll("#fCharges input:checked")].map(i => i.value));
