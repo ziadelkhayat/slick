@@ -445,6 +445,7 @@ tr[draggable="true"].dragging{opacity:.45}tr.dropto td{box-shadow:inset 0 2px 0 
 .tblg{display:grid!important;grid-template-columns:repeat(auto-fill,minmax(170px,1fr))!important;gap:10px!important}.tblc{display:flex!important;align-items:center;gap:8px;border:1px solid var(--line,#e8e8f0);border-radius:12px;padding:10px 10px 10px 12px;min-height:72px;flex-wrap:wrap;background:#fbfaff}
 .tbn{border:0;background:none;font:inherit;font-weight:700;font-size:15px;color:inherit;cursor:pointer;padding:0;flex:1 1 100%;text-align:left}.tbn:hover{color:#5b2bc4}.tblc label{display:flex;align-items:center;gap:6px}.tblc .ts{width:60px}.tblc .x{margin-left:auto}
 .tblg{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px}.tblc{display:grid;grid-template-columns:auto 1fr auto;gap:8px;align-items:center;border:1px solid var(--line,#e8e8f0);border-radius:12px;padding:10px}.tblc .sel{width:100%;min-width:0}.tblc .tn{grid-column:1/3;font-weight:700;font-size:15px}.tblc .x{grid-column:3;grid-row:1}.tblc label{display:flex;align-items:center;gap:6px;grid-column:1;white-space:nowrap}.tblc .ts{width:64px}.tblc select{grid-column:2/4}
+.rsnl{display:flex;flex-direction:column;border:1px solid var(--line,#e5e3ec);border-radius:12px;overflow:hidden}.rsn{display:flex;align-items:center;gap:6px;padding:10px 12px;border-bottom:1px solid var(--line,#e5e3ec);flex-wrap:wrap}.rsn:last-child{border-bottom:0}.rsn>span:first-child{font-weight:500}.rsn .sp{flex:1}.rsn .btn{padding:6px 10px}
 </style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -2459,7 +2460,8 @@ function moduleRoute(route){
   if(route==="orders") return viewOrders();
   if(route==="customers") return viewCustomers();
   if(route==="company"){ state.acTab = "business"; setTimeout(() => location.replace("#account"), 0); return ""; }
-  if(route==="settings" || route==="reasons") return viewSettings(route);
+  if(route==="reasons") return viewReasons();
+  if(route==="settings") return viewSettings(route);
   if(DOC_KINDS[route]) return viewDocs(route);
   if(route==="order-transactions") return viewOrderTx();
   if(route==="__old_order_tx") return `<h1>Order Transactions</h1><p class="subt">Consumption, returns and waste created automatically from sales.</p>` + placeholder("Starts with recipes", "Each sold product will deduct its recipe ingredients from the branch stock and show up here (Consumption, Return, Waste). It turns on next, now that products have ingredients (open a product under Menu → Products).");
@@ -3021,14 +3023,38 @@ function viewSettings(route){
     ${card("Call center", `<div class="f"><label for="as_ccDefaultSource">Suggested source for new orders</label><select id="as_ccDefaultSource" class="sel" ${dis}><option value="">None (user must pick)</option>${sourceList().map(x=>`<option ${a.ccDefaultSource===x?"selected":""}>${esc(x)}</option>`).join("")}</select></div>`
       + `<div class="f full note">Call center users can edit a placed order's source, type and items until the branch closes it. Item discounts need the "Give item discounts in the call center" permission.</div>`)}
     ${card("Receipt", chk("rcptInvoice","Show the invoice number") + chk("rcptCustomer","Show the customer's name and phone") + chk("rcptTax","Show the tax line") + chk("rcptSource","Show the order source"))}
-    <div class="card" id="reasons" style="margin-bottom:16px"><h3 style="margin:0 0 6px;font-size:15px">Reasons</h3><p class="note" style="margin:0 0 12px">The choices the cashier picks from. One per line.</p>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px"><div class="f"><label for="as_voidReasons">Void reasons</label><textarea id="as_voidReasons" rows="6" ${dis}>${esc(a.voidReasons)}</textarea></div>
-      <div class="f"><label for="as_returnReasons">Return reasons</label><textarea id="as_returnReasons" rows="6" ${dis}>${esc(a.returnReasons)}</textarea></div></div></div>
     <div class="err" id="asErr"></div>`;
 }
 document.addEventListener("click", async e => { if(!e.target.closest("#asSave")) return;
-  const d = {}; Object.keys(APP_DEF).forEach(k => { const el = $("#as_"+k); if(!el) return; d[k] = el.type==="checkbox" ? el.checked : el.value; });
+  const d = {}; Object.keys(APP_DEF).forEach(k => { const el = $("#as_"+k); if(!el) return; d[k] = el.type==="checkbox" ? el.checked : el.value; });   // reasons are saved on their own page
   try{ await put("settings", "app", d); toast("Settings saved"); }catch(err){ console.error(err); $("#asErr").textContent = "Couldn't save. Only the owner or an admin can change settings."; } });
+
+/* ---------- Manage → Reasons: what the cashier picks from when voiding or returning ---------- */
+const rsList = k => String(appSet()[k] || "").split("\n").map(x => x.trim()).filter(Boolean);
+async function rsSave(k, l){ try{ await put("settings", "app", { [k]: l.join("\n") }); render(); }catch(err){ console.error(err); toast("Couldn't save. Only the owner or an admin can change reasons."); } }
+function viewReasons(){
+  const admin = !state.role || state.role==="owner" || state.role==="admin";
+  const card = (k, title, note, ph) => { const l = rsList(k);
+    return `<div class="card" style="padding:18px;margin-bottom:16px"><div style="display:flex;align-items:baseline;gap:8px;margin-bottom:4px"><h3 style="margin:0;font-size:16px">${title}</h3><span class="note">${l.length}</span></div><p class="note" style="margin:0 0 12px">${note}</p>
+      <div class="rsnl">${l.length ? l.map((r,i) => `<div class="rsn"><span>${esc(r)}</span>${admin ? `<span class="sp"></span><button class="btn" data-rsmv="${k}:${i}:-1" ${i ? "" : "disabled"} title="Move up">↑</button><button class="btn" data-rsmv="${k}:${i}:1" ${i < l.length-1 ? "" : "disabled"} title="Move down">↓</button><button class="btn" data-rsren="${k}:${i}">Rename</button><button class="btn" data-rsdel="${k}:${i}" style="color:#9e0c24">Remove</button>` : ""}</div>`).join("") : `<div class="note">No reasons yet. The cashier will type the reason.</div>`}</div>
+      ${admin ? `<div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap"><input class="sel" id="rsNew_${k}" placeholder="${ph}" style="flex:1;min-width:200px"><button class="btn pri" data-rsadd="${k}">Add reason</button></div>` : ""}</div>`; };
+  return `<div class="phead"><h1>Reasons</h1><div class="sp"></div></div>
+    <p class="subt">The reasons the cashier taps on the POS when voiding items of an open order or returning items of a closed invoice. "Other…" is always offered too. Whether a reason is required is under Manage → Settings.</p>
+    ${admin ? "" : `<div class="banner">Only the owner or an admin can change reasons.</div>`}
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px;align-items:start">
+      ${card("voidReasons", "Void reasons", "For items of an active order, before it's paid.", "e.g. Customer changed mind")}
+      ${card("returnReasons", "Return reasons", "For items of a closed invoice; the refund gets a RET- number.", "e.g. Quality complaint")}</div>`;
+}
+document.addEventListener("click", async e => {
+  const t = e.target; if(!t.closest || !t.closest("#view")) return;
+  const ad = t.closest("[data-rsadd]"); if(ad){ const k = ad.dataset.rsadd, el = $("#rsNew_" + k), v = el.value.trim(), l = rsList(k); if(!v){ el.focus(); return; }
+    if(l.some(x => x.toLowerCase()===v.toLowerCase())) return toast("That reason is already on the list");
+    await rsSave(k, [...l, v]); toast("Reason added"); return; }
+  const dl = t.closest("[data-rsdel]"); if(dl){ const [k,i] = dl.dataset.rsdel.split(":"), l = rsList(k); l.splice(+i, 1); await rsSave(k, l); toast("Reason removed"); return; }
+  const mv = t.closest("[data-rsmv]"); if(mv){ const [k,i,d] = mv.dataset.rsmv.split(":"), l = rsList(k), a = +i, b = a + +d; if(b < 0 || b >= l.length) return; [l[a], l[b]] = [l[b], l[a]]; await rsSave(k, l); return; }
+  const rn = t.closest("[data-rsren]"); if(rn){ const [k,i] = rn.dataset.rsren.split(":"), l = rsList(k), v = prompt("Rename reason", l[+i]); if(v===null || !v.trim()) return; l[+i] = v.trim(); await rsSave(k, l); toast("Reason renamed"); return; }
+});
+document.addEventListener("keydown", e => { if(e.key==="Enter" && e.target.id?.startsWith("rsNew_")){ e.preventDefault(); document.querySelector(`[data-rsadd="${e.target.id.slice(6)}"]`)?.click(); } });
 
 /* filters belong to the page: leaving a page puts its filters back to the defaults */
 function resetPageFilters(){
