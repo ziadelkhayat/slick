@@ -353,6 +353,7 @@ button,input,select,textarea{font-family:var(--f-ui)}
 .vlines>div{align-items:center}.vlines .qty button{width:44px!important;height:44px!important;border-radius:12px!important;background:var(--sunk)!important;border:0!important;font-size:20px}
 .rchips{display:flex;flex-wrap:wrap;gap:8px}.rchips button{min-height:46px;padding:0 16px;border-radius:999px;border:1.5px solid var(--line);background:var(--s);font-weight:600;font-size:14px;color:var(--ink)}
 .rchips button.on{border-color:var(--acc);background:var(--accs);color:var(--acci)}.rchips button:active{transform:scale(.97)}
+.reord{width:100%;min-height:52px;border-radius:14px!important;font-weight:800!important;letter-spacing:.03em}
 /* bottom bar */
 .bnav:not(.bnav-m){margin:0!important}.bnav{border-radius:20px!important;box-shadow:var(--sh)!important;padding:6px!important}
 .bnav button{font-weight:700!important;letter-spacing:.06em!important;color:var(--mut)!important;border-radius:14px!important}
@@ -992,6 +993,10 @@ $("#modal").addEventListener("click", async e => {
   const pnt = e.target.closest("[data-pdnewt]"); if(pnt){ PD = null; return openPDNew(); }
   const pdt = e.target.closest("[data-pdt]"); if(pdt){ pdKeep(); PD.type = pdt.dataset.pdt; return openPDNew(); }
   const pda = e.target.closest("[data-pdaddr]"); if(pda){ pdKeep(); const a = (PD.cust?.addresses||[]).filter(x => x.address)[+pda.dataset.pdaddr]; if(a) PD.addr = addrParts(a.address); return openPDNew(); }
+  const ro = e.target.closest("[data-reorder]"); if(ro){ const [k, id] = ro.dataset.reorder.split(":");
+    if(k==="pddet"){ const o = (PD?.past||[]).find(x => x.id===id); if(!o) return; pdKeep(); PD.reorder = o.items; await pdContinue(); if(PD) delete PD.reorder; return; }
+    const o = (CV?.past||[]).find(x => x.id===id); if(!o) return; if(editOrder() && !isOpenOrd(editOrder())) return toast("This order is closed: start a new one first");
+    const n = addReorder(o.items); closeModal(); renderCart(); renderMenu(); return toast(n.added ? `${n.added} item${n.added===1?"":"s"} added to the cart` : "None of those items are on the menu anymore"); }
   const cvd = e.target.closest("[data-cvdet]"); if(cvd){ CV.det = cvd.dataset.cvdet || null; return drawCust(); }
   const psrc = e.target.closest("[data-pdsrc]"); if(psrc){ PD.source = psrc.dataset.pdsrc; document.querySelectorAll("[data-pdsrc]").forEach(x => x.classList.toggle("on", x===psrc)); if($("#pdErr")) $("#pdErr").textContent = ""; return; }
   const pdd = e.target.closest("[data-pddet]"); if(pdd){ pdKeep(); PD.det = pdd.dataset.pddet || null; return openPDNew(); }
@@ -1533,7 +1538,8 @@ function custPanel(c, ok, det, key){
       ${sel.address ? `<div class="mut">📍 ${esc(sel.address)}</div>` : ""}</div>
     <div class="cdet">${(sel.items||[]).map(i => `<div class="cdl${i.voided ? " vd" : ""}"><span>${+i.qty||1}× ${esc(i.name)}${modLines(i).length ? `<small>${modLines(i).map(esc).join(", ")}</small>` : ""}</span><b>${usd(lineNet(i))}</b></div>`).join("")}
       ${sel.discount ? `<div class="cdl"><span>Discount</span><b>-${usd(sel.discount)}</b></div>` : ""}${(sel.charges||[]).filter(c => +c.amount).map(c => `<div class="cdl"><span>${esc(c.name)}</span><b>${usd(+c.amount)}</b></div>`).join("")}${sel.fee ? `<div class="cdl"><span>Delivery fee</span><b>${usd(sel.fee)}</b></div>` : ""}
-      <div class="cdl tot"><span>Total</span><b>${usd(sel.total)}</b></div>${sel.payment?.method ? `<div class="mut">Paid by ${esc(sel.payment.method)}</div>` : ""}</div></div>`; }
+      <div class="cdl tot"><span>Total</span><b>${usd(sel.total)}</b></div>${sel.payment?.method ? `<div class="mut">Paid by ${esc(sel.payment.method)}</div>` : ""}</div>
+      <button type="button" class="btn pri reord" data-reorder="${key}:${esc(sel.id)}">↻ Reorder these items</button></div>`; }
   return `<div class="pdside"><div class="cins"><div class="cins-h"><b>${esc(c.name || "Customer")}</b><span class="mut">Since ${since}</span></div>
     ${c.blacklisted || (c.tags||[]).length || c.notes ? `<div class="ctags">${c.blacklisted ? '<span class="tag bad">⚠ Blacklisted</span>' : ""}${(c.tags||[]).map(x => `<span class="tag">${esc(x)}</span>`).join("")}${c.notes ? `<i>${esc(c.notes)}</i>` : ""}</div>` : ""}
     <div class="cins-g"><div><span>Orders</span><b>${ok.length}</b></div><div><span>Total spent</span><b>${usd(spent)}</b></div><div><span>Avg. order</span><b>${usd(ok.length ? spent/ok.length : 0)}</b></div><div><span>Last order</span><b>${ok[0] ? d(ok[0].at) : "—"}</b></div></div>
@@ -1598,8 +1604,19 @@ async function pdContinue(){
   if(cart.length) holdOrder(true);
   resetOrder(); otype = PD.type==="delivery" ? "delivery" : "takeaway";
   cust = { name: PD.name.trim(), phone: PD.phone.trim(), addr: PD.type==="delivery" ? { ...PD.addr } : {}, source: PD.source || "" };
-  PD = null; closeModal(); cat = ""; renderCart(); renderMenu();
+  const re = PD.reorder; PD = null; closeModal(); cat = "";
+  if(re){ const n = addReorder(re); renderCart(); renderMenu(); return toast(n.added ? `${n.added} item${n.added===1?"":"s"} added from the previous order${n.missing ? ` · ${n.missing} no longer on the menu` : ""}` : "None of those items are on the menu anymore"); }
+  renderCart(); renderMenu();
   toast("Add the items, then Save (sends to the kitchen) or Pay");
+}
+// items of an earlier order back into the cart, at today's prices (items with options keep the price they had)
+function addReorder(items){
+  let added = 0, missing = 0;
+  (items||[]).filter(i => !i.voided).forEach(i => { const p = S.products.find(x => x.id===i.productId && live(x));
+    if(!p){ missing++; return; }
+    const opts = Array.isArray(i.options) && i.options.length ? i.options : null;
+    cart.push({ productId:p.id, name:p.name, price: opts ? +i.price || prodPrice(p) : prodPrice(p), qty: +i.qty || 1, ...(opts ? { options:opts, mods:i.mods||"" } : {}), ...(i.note ? { note:i.note } : {}) }); added++; });
+  return { added, missing };
 }
 
 /* ---------- tables ---------- */
