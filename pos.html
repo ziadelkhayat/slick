@@ -351,6 +351,8 @@ button,input,select,textarea{font-family:var(--f-ui)}
 .cback b{font-family:var(--f-num);font-size:17px}
 .vrtot{display:flex;justify-content:space-between;align-items:baseline;padding:12px 14px;border-radius:14px;background:var(--accs);margin:12px 0;font-weight:700}.vrtot b{font-family:var(--f-num);font-size:20px;color:var(--acci)}
 .vlines>div{align-items:center}.vlines .qty button{width:44px!important;height:44px!important;border-radius:12px!important;background:var(--sunk)!important;border:0!important;font-size:20px}
+.rchips{display:flex;flex-wrap:wrap;gap:8px}.rchips button{min-height:46px;padding:0 16px;border-radius:999px;border:1.5px solid var(--line);background:var(--s);font-weight:600;font-size:14px;color:var(--ink)}
+.rchips button.on{border-color:var(--acc);background:var(--accs);color:var(--acci)}.rchips button:active{transform:scale(.97)}
 /* bottom bar */
 .bnav:not(.bnav-m){margin:0!important}.bnav{border-radius:20px!important;box-shadow:var(--sh)!important;padding:6px!important}
 .bnav button{font-weight:700!important;letter-spacing:.06em!important;color:var(--mut)!important;border-radius:14px!important}
@@ -772,7 +774,7 @@ function renderCart(){
     : `<div class="ctx"><span class="ci ci-svg"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12v18l-2-1.5L14 21l-2-1.5L10 21l-2-1.5L6 21z"/><path d="M9 8h6M9 12h6M9 16h3"/></svg></span><div><b>FAST SALE</b></div><span class="sp"></span></div>`;
   const held = device ? heldList() : [];
   const htabs = held.length ? `<div class="htabs" role="tablist" aria-label="Held orders">${held.map(h => `<button type="button" class="htab" data-hgettab="${esc(h.id)}" title="Retrieve held order H${h.n}"><b>H${h.n}</b><span>${usd(h.total)}</span></button>`).join("")}</div>` : "";
-  const clr = !eo0 && cart.length ? `<button type="button" class="clrc" data-clearcart>${ico("trash")}Clear cart</button>` : "";
+  const clr = !eo0 && cart.length ? `<button type="button" class="clrc" data-clearcart>${ico("trash")}Clear cart</button>` : eo0 ? `<button type="button" class="clrc" data-clearorder>${ico("x")}Clear</button>` : "";
   $("#extra").innerHTML = ctx.replace('<span class="sp"></span>', '<span class="sp"></span>' + clr);
   const eo = editOrder(), ro = eo && !isOpenOrd(eo);
   if(eo) $("#extra").insertAdjacentHTML("afterbegin", `<div class="obar"><b>${eo.status==="refund" ? "Returned order" : "Order"} ${esc(ordRef(eo))}</b>${eo.invoiceNo && eo.no ? `<span class="mut" style="font-size:13px">${esc(invNo(eo.invoiceNo))}</span>` : ""}<span class="spill s-${eo.status}">${stLbl(eo)}</span><span class="sp"></span></div>`);
@@ -902,6 +904,7 @@ $("#lines").addEventListener("click", e => { if(e.target.closest("[data-onotex]"
   if(d < 0 && i.qty <= (i.saved||0)) return voidSent(ix);           // already sent: void with a manager's PIN
   i.qty += d; if(i.qty<=0) cart.splice(ix,1); renderCart(); });
 $("#extra").addEventListener("click", e => { const ht = e.target.closest("[data-hgettab]"); if(ht) return retrieveHeld(ht.dataset.hgettab);
+  if(e.target.closest("[data-clearorder]")){ unloadOrder(); return; }
   if(e.target.closest("[data-clearcart]")){ Promise.resolve(true).then(() => { const keepT = otype==="dinein" ? tableNo : "", keepO = otype; resetOrder(); if(keepO==="dinein" && keepT){ otype = "dinein"; tableNo = keepT; renderCart(); } }); return; }
   const cx = e.target.closest("[data-ctx]");
   if(cx && cx.dataset.ctx==="table") return openTables();
@@ -935,7 +938,9 @@ function resetOrder(){ EDIT = null; orderNote = ""; GUESTS = 0; otype = defaultT
 
 /* ---------- modals ---------- */
 let modalKind = null;
-function modal(kind, html, wide){ modalKind = kind; hideMore(); paintNav(); $("#scrim").classList.remove("fullscr"); $("#modal").className = "modal" + (wide?" wide":""); $("#modal").innerHTML = html; $("#scrim").classList.add("show"); }
+function modal(kind, html, wide){ modalKind = kind; hideMore(); paintNav(); $("#scrim").classList.remove("fullscr"); $("#modal").className = "modal" + (wide?" wide":""); $("#modal").innerHTML = html; $("#scrim").classList.add("show");
+  // a sheet with its own Cancel button doesn't also need the back arrow
+  const bk = [...$("#modal").querySelectorAll(".mh .x")].find(b => b.textContent.trim()==="←"); if(bk && [...$("#modal").querySelectorAll(".mf button")].some(b => /^(cancel|close)$/i.test(b.textContent.trim()))) bk.remove(); }
 function closeModal(){ $("#scrim").classList.remove("show"); modalKind = null; paintNav(); }
 $("#scrim").addEventListener("click", e => { if(e.target.id==="scrim" && modalKind==="pdnew") return pdCancel(); if(e.target.id==="scrim" || e.target.closest("[data-close]")) closeModal(); });
 
@@ -997,6 +1002,7 @@ $("#modal").addEventListener("click", async e => {
   const ovo = e.target.closest("[data-ovopen]"); if(ovo) return closeModal();
   const vr = e.target.closest("[data-vr]"); if(vr){ const [k,m] = vr.dataset.vr.split(":"); return openVR(k, m); }
   const vq = e.target.closest("[data-vq]"); if(vq){ const [ix,d] = vq.dataset.vq.split(":").map(Number), o = S.orders.find(x=>x.id===OV.open); window.__vq[ix] = Math.max(0, Math.min(window.__vmax?.[ix] ?? +o.items[ix].qty, (window.__vq[ix]||0) + d)); $("#vq"+ix).textContent = window.__vq[ix]; if($("#vrAmt")) $("#vrAmt").textContent = usd(retAmt(o, window.__vq)); return; }
+  const rs = e.target.closest("[data-rs]"); if(rs){ const sel = $("#vrReason"); sel.value = rs.dataset.rs; document.querySelectorAll("[data-rs]").forEach(x => x.classList.toggle("on", x===rs)); $("#vrOther").style.display = rs.dataset.rs==="_other" ? "" : "none"; if(rs.dataset.rs==="_other") $("#vrOther").focus(); if($("#vrErr")) $("#vrErr").textContent = ""; return; }
   const vm = e.target.closest("[data-vrmode]"); if(vm){ const [k,m] = vm.dataset.vrmode.split(":"); return openVR(k, m); }
   const stb = e.target.closest("[data-st]"); if(stb){ document.querySelectorAll("[data-st]").forEach(b => b.classList.toggle("on", b===stb)); return; }
   const vg = e.target.closest("#vrGo"); if(vg) return doVR(vg.dataset.kind, vg.dataset.mode);
@@ -1230,8 +1236,9 @@ function openVR(kind, mode){
     ${pick ? `<p class="mut">How many of each item?</p><div class="vlines">${(o.items||[]).map((i,ix)=>`<div><span>${esc(i.name)}${modList(i)}</span><span class="qty"><button data-vq="${ix}:-1">−</button><b id="vq${ix}">0</b><button data-vq="${ix}:1">+</button> <span class="mut">of ${kind==="return" ? retLeft(o, ix) : i.qty}</span></span></div>`).join("")}</div>`
       : `<p>${kind==="void" ? "The whole order will be voided and removed from sales." : `The whole order will be returned and ${usd(o.total)} refunded.`}</p>`}
     ${pick && kind==="return" ? `<div class="vrtot"><span>Refund</span><b id="vrAmt">${usd(0)}</b></div>` : ""}
-    <div class="f"><label for="vrReason">Reason${a.reasonRequired?" *":""}</label><select id="vrReason"><option value="">Choose…</option>${reasons.map(r=>`<option>${esc(r)}</option>`).join("")}<option value="_other">Other…</option></select><input id="vrOther" placeholder="Write the reason" style="display:none;margin-top:6px"></div>
-    ${a.stockAction==="ask" ? `<div class="f"><label>The food goes</label><div class="dseg"><button type="button" data-st="stock" class="on">Back to stock</button><button type="button" data-st="waste">To waste</button></div></div>`
+    <div class="f"><label>Reason${a.reasonRequired?" *":""}</label><select id="vrReason" hidden><option value="">Choose…</option>${reasons.map(r=>`<option>${esc(r)}</option>`).join("")}<option value="_other">Other…</option></select>
+      <div class="rchips">${reasons.map(r=>`<button type="button" data-rs="${esc(r)}">${esc(r)}</button>`).join("")}<button type="button" data-rs="_other">Other…</button></div><input id="vrOther" placeholder="Write the reason" style="display:none;margin-top:8px"></div>
+    ${a.stockAction==="ask" ? `<div class="f"><label>The food goes</label><div class="dseg"><button type="button" data-st="stock" class="on">Return to stock</button><button type="button" data-st="waste">Waste</button></div></div>`
       : `<p class="mut">Items go ${a.stockAction==="waste"?"to waste":"back to stock"} (Manage → Settings).</p>`}
     <div class="err" id="vrErr" style="color:#b42318"></div></div>
     <div class="mf"><button class="btn" data-ovopen="${esc(o.id)}">Cancel</button><button class="btn bad" id="vrGo" data-kind="${kind}" data-mode="${mode}">${kind==="void" ? "Void" : "Return"}</button></div>`);
