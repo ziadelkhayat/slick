@@ -446,6 +446,12 @@ tr[draggable="true"].dragging{opacity:.45}tr.dropto td{box-shadow:inset 0 2px 0 
 .tbn{border:0;background:none;font:inherit;font-weight:700;font-size:15px;color:inherit;cursor:pointer;padding:0;flex:1 1 100%;text-align:left}.tbn:hover{color:#5b2bc4}.tblc label{display:flex;align-items:center;gap:6px}.tblc .ts{width:60px}.tblc .x{margin-left:auto}
 .tblg{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px}.tblc{display:grid;grid-template-columns:auto 1fr auto;gap:8px;align-items:center;border:1px solid var(--line,#e8e8f0);border-radius:12px;padding:10px}.tblc .sel{width:100%;min-width:0}.tblc .tn{grid-column:1/3;font-weight:700;font-size:15px}.tblc .x{grid-column:3;grid-row:1}.tblc label{display:flex;align-items:center;gap:6px;grid-column:1;white-space:nowrap}.tblc .ts{width:64px}.tblc select{grid-column:2/4}
 .rsnl{display:flex;flex-direction:column;border:1px solid var(--line,#e5e3ec);border-radius:12px;overflow:hidden}.rsn{display:flex;align-items:center;gap:6px;padding:10px 12px;border-bottom:1px solid var(--line,#e5e3ec);flex-wrap:wrap}.rsn:last-child{border-bottom:0}.rsn>span:first-child{font-weight:500}.rsn .sp{flex:1}.rsn .btn{padding:6px 10px}
+/* orders: title, filters and status tabs stay in view while the list scrolls */
+.ostick{position:sticky;top:var(--toph,62px);z-index:4;background:var(--bg);margin:-6px -8px 0;padding:6px 8px 0}
+.ostick .fbar{margin-bottom:12px}
+.otabsc{padding:0;border-bottom-left-radius:0!important;border-bottom-right-radius:0!important;margin-bottom:0!important;box-shadow:none}
+.otabsc .ttop{border-bottom:1px solid var(--line)}
+.card.obody{border-top-left-radius:0!important;border-top-right-radius:0!important;border-top:0!important;margin-top:0}
 </style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -751,6 +757,8 @@ const bizDate = (t = new Date()) => { const d = new Date(+new Date(t) - dayCut()
 const dayBounds = (from, to) => { const c = dayCut(), t0 = new Date(from+"T00:00:00"), t1 = new Date((to||from)+"T00:00:00"); t1.setDate(t1.getDate()+1); t0.setMinutes(c); t1.setMinutes(c); return [t0, t1]; };
 const todayStr = () => bizDate();
 window.SlickDay = { dayCut, dayStartH, bizDate, dayBounds };
+const setTopH = () => { const tb = document.querySelector(".top"); if(tb) document.documentElement.style.setProperty("--toph", tb.offsetHeight + "px"); };
+addEventListener("resize", setTopH); addEventListener("load", setTopH); setTimeout(setTopH, 800);
 const rangeDays = () => Math.max(1, state.days || 1);
 const dashFrom = () => { const d = new Date(state.date+"T12:00:00"); d.setDate(d.getDate() - rangeDays() + 1); return new Date(d - d.getTimezoneOffset()*60000).toISOString().slice(0,10); };
 const DASH = { key:"", cur:null, prev:null, loading:false, err:"", at:0, t:null };
@@ -1059,6 +1067,17 @@ function render(){
   if(tg) v.insertAdjacentHTML("afterbegin", `<nav class="ptabs" aria-label="${esc(tg.t)}">${tg.kids.filter(k=>!k[0].startsWith("@")).map(k=>`<a href="#${k[0]}" class="${k[0]===route?"on":""}">${svgIco(SUBI[k[0]]||"list")}${esc(k[1])}</a>`).join("")}</nav>`);
   v.querySelectorAll(".chart").forEach(wireLine);
   if(route==="delivery-zones") setTimeout(initZonesOverview, 0);
+  if(route!=="dashboard") stickHead(v);
+}
+// list pages: the title, filters and tabs above a table stay in view while the rows scroll (like Orders)
+function stickHead(v){
+  if(v.querySelector(".ostick")) return;
+  const card = [...v.children].find(el => el.classList.contains("card") && el.querySelector("table")); if(!card) return;
+  const before = []; for(const el of v.children){ if(el===card) break; before.push(el); }
+  if(!before.some(el => el.classList.contains("phead"))) return;
+  const w = document.createElement("div"); w.className = "ostick"; v.insertBefore(w, before[0]); before.forEach(el => w.appendChild(el));
+  const tt = card.querySelector(":scope > .ttop"); if(tt){ const c = document.createElement("div"); c.className = "card otabsc"; c.appendChild(tt); w.appendChild(c); card.classList.add("obody"); }
+  setTopH(); if(w.offsetHeight > innerHeight * 0.5) w.classList.remove("ostick");   // too tall to pin on this screen
 }
 
 /* ---------- events ---------- */
@@ -2570,7 +2589,7 @@ function viewOrders(){
   const sel = (id, val, opts) => `<select class="sel" id="${id}">${opts.map(([v,t])=>`<option value="${v}" ${val===v?"selected":""}>${t}</option>`).join("")}</select>`;
   const pages = Math.max(1, Math.ceil(ORD.count/ORD.per)), a = ORD.count ? (ORD.page-1)*ORD.per+1 : 0, b = Math.min(ORD.count, ORD.page*ORD.per);
   const dt = t => new Date(t).toLocaleString("en-GB",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"});
-  return `<div class="phead"><h1>Orders</h1><span class="sp"></span><button class="btn" id="ordCsv">Export CSV</button><button class="btn" id="ordRefresh">↻ Refresh</button></div>
+  return `<div class="ostick"><div class="phead"><h1>Orders</h1><span class="sp"></span><button class="btn" id="ordCsv">Export CSV</button><button class="btn" id="ordRefresh">↻ Refresh</button></div>
   <div class="row fbar" style="flex-wrap:wrap">
     <button type="button" class="sel drpbtn" id="ordRange" aria-haspopup="dialog">${svgIco("calendar")}<span>${esc(drpLabel(ORD.from, ORD.to))}</span></button>
     ${sel("ordBrand", ORD.brand, [["","All brands"], ...brandList().map(b=>[b.id,esc(b.name)])])}
@@ -2581,8 +2600,8 @@ function viewOrders(){
     ${sel("ordPay", ORD.pay, [["","All payments"], ...ordPays().map(x=>[esc(x),esc(x)])])}
     <input class="sel" id="ordQ" placeholder="Reference, order #, invoice #, customer, phone" value="${esc(ORD.q)}" style="min-width:210px">
   </div>
-  <div class="card tbl otbl"><div class="ttop"><div class="ttabs">${ORD_TABS.map(([k,t])=>`<a href="#orders" data-otab="${k}" class="${ORD.tab===k?"on":""}">${t} <span class="note">${ORD.counts[k] ?? ""}</span></a>`).join("")}</div><span class="sp"></span><span class="note">${ORD.loading ? "Loading…" : ""}</span></div>
-  ${ORD.err ? `<p class="note" style="padding:16px">Couldn't load orders: ${esc(ORD.err)}</p>` : `<table><thead><tr><th>Reference #</th><th>Invoice #</th><th>Order #</th><th>Brand</th><th>Branch</th><th>Customer</th><th>Status</th><th>Sales channel</th><th>Order type</th><th>Order source</th><th>Business day</th><th>Payment type</th><th class="num">Total</th></tr></thead><tbody>${
+  <div class="card otabsc"><div class="ttop"><div class="ttabs">${ORD_TABS.map(([k,t])=>`<a href="#orders" data-otab="${k}" class="${ORD.tab===k?"on":""}">${t} <span class="note">${ORD.counts[k] ?? ""}</span></a>`).join("")}</div><span class="sp"></span><span class="note">${ORD.loading ? "Loading…" : ""}</span></div></div></div>
+  <div class="card tbl otbl obody">${ORD.err ? `<p class="note" style="padding:16px">Couldn't load orders: ${esc(ORD.err)}</p>` : `<table><thead><tr><th>Reference #</th><th>Invoice #</th><th>Order #</th><th>Brand</th><th>Branch</th><th>Customer</th><th>Status</th><th>Sales channel</th><th>Order type</th><th>Order source</th><th>Business day</th><th>Payment type</th><th class="num">Total</th></tr></thead><tbody>${
     ORD.rows.length ? ORD.rows.map(o => `<tr class="clk" data-oid="${esc(o.id)}"><td><b>${esc(o.ref || "—")}</b></td><td>${o.status==="refund" ? esc(ordRef(o)) : o.invoiceNo ? esc(invNo(o.invoiceNo)) : '<span class="note" title="Gets its invoice number when a POS accepts it">—</span>'}</td><td>${o.status==="refund" ? "–" : o.no ? `#${esc(o.no)}` : '<span class="note" title="Gets its number when a POS bills it">—</span>'}</td>
       <td>${esc(brandName(o.brandId) || "—")}</td><td>${esc(branches.find(x=>x.id===o.branchId)?.name || "—")}</td>
       <td>${esc(o.customerName || "—")}${o.phone?`<div class="note">${esc(o.phone)}</div>`:""}</td><td><span class="spill s-${o.status}">${ORD_ST[o.status]||o.status}</span></td>
