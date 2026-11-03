@@ -449,6 +449,19 @@ tr[draggable="true"].dragging{opacity:.45}tr.dropto td{box-shadow:inset 0 2px 0 
 /* orders: title, filters and status tabs stay in view while the list scrolls */
 .ostick{position:sticky;top:var(--toph,62px);z-index:4;background:var(--bg);margin:-6px -8px 0;padding:6px 8px 0}
 .ostick .fbar{margin-bottom:12px}
+.ofb{flex-wrap:wrap;gap:10px}.osrch{flex:1;min-width:240px;display:flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:10px;background:var(--surface);padding:0 12px}.osrch svg{width:16px;height:16px;color:var(--muted);flex:none}.osrch input{border:0;outline:0;background:transparent;font:inherit;padding:9px 0;width:100%}
+.osrch:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.ofbtn{display:inline-flex;align-items:center;gap:8px}.ofbtn svg{width:16px;height:16px}.ofbtn.on{border-color:var(--accent);color:var(--accent-ink);background:var(--accent-soft)}
+.ofn{background:var(--accent);color:#fff;border-radius:999px;font-size:11px;font-weight:700;min-width:18px;height:18px;display:inline-grid;place-items:center;padding:0 5px}
+.ofpanel{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px;padding:16px 18px;margin-bottom:12px}
+.ofg{display:flex;flex-direction:column;gap:10px}.ofg h4{margin:0;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.ofg label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--ink2);font-weight:500}.ofg .sel{width:100%;font-size:14px;color:var(--ink)}
+.ofact{grid-column:1/-1;display:flex;justify-content:flex-end;gap:8px;border-top:1px solid var(--line);padding-top:12px}
+.ofchips{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:-2px 0 12px}
+.ofchip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--accent);background:var(--accent-soft);color:var(--accent-ink);border-radius:999px;padding:4px 6px 4px 12px;font:inherit;font-size:13px;font-weight:600;cursor:pointer}
+.ofchip span{display:inline-grid;place-items:center;width:18px;height:18px;border-radius:50%;background:rgba(108,71,255,.15);font-size:13px;line-height:1}.ofchip:hover span{background:var(--accent);color:#fff}
+.ofclr{border:0;background:none;color:var(--ink2);font:inherit;font-size:13px;text-decoration:underline;cursor:pointer;padding:4px 6px}
+@media (max-width:800px){.ofpanel{grid-template-columns:1fr}}
 .otabsc{padding:0;border-bottom-left-radius:0!important;border-bottom-right-radius:0!important;margin-bottom:0!important;box-shadow:none}
 .otabsc .ttop{border-bottom:1px solid var(--line)}
 .card.obody{border-top-left-radius:0!important;border-top-right-radius:0!important;border-top:0!important;margin-top:0}
@@ -606,6 +619,7 @@ Object.assign(I, {
   folder:'<path d="M3 6a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
   warehouse:'<path d="M3 21V8l9-5 9 5v13"/><path d="M7 21v-8h10v8M7 17h10"/>',
   search:'<circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/>',
+  filter:'<path d="M3 5h18l-7 8.5V19l-4 2v-7.5z"/>',
   sheet:'<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/>',
   grid:'<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
   layers:'<path d="M12 3l9 5-9 5-9-5z"/><path d="M3 13l9 5 9-5"/>',
@@ -2537,10 +2551,13 @@ document.addEventListener("change", async e => { const f = e.target.closest && e
   await tblSave(b, list.map(y => y.id===id ? { ...y, [k]: v } : y)); toast("Saved"); });
 
 /* ---------- Orders: every order from every channel, any date range ---------- */
-const ORD_TABS = [["all","All"],["draft","Draft"],["pending","Pending"],["active","Active"],["closed","Done"],["declined","Declined"],["void","Void"],["refund","Refunds"]];
+// status tabs: a few clear groups instead of one tab per status
+const ORD_TABS = [["all","All"],["open","Open"],["closed","Done"],["cancelled","Cancelled"],["returns","Returns"]];
+const ORD_GRP = { open:["draft","pending","active"], closed:["closed"], cancelled:["declined","void"], returns:["refund","returned"] };
+const ORD_ALLST = ["draft","pending","active","closed","declined","void","refund","returned"];
 const ORD_ST = { draft:"Draft", pending:"Pending", active:"Active", closed:"Done", declined:"Declined", void:"Void", returned:"Returned", refund:"Refund" };
 const daysAgo = n => { const d = new Date(bizDate()+"T12:00:00"); d.setDate(d.getDate()-n); return new Date(d - d.getTimezoneOffset()*60000).toISOString().slice(0,10); };
-const ORD = { tab:"all", q:"", from:"", to:"", channel:"", type:"", pay:"", source:"", brand:"", branch:"", page:1, per:50, rows:[], count:0, counts:{}, loading:false, err:"", key:"", t:null, open:null };
+const ORD = { tab:"all", q:"", from:"", to:"", channel:"", type:"", pay:"", source:"", brand:"", branch:"", fopen:false, page:1, per:50, rows:[], count:0, counts:{}, loading:false, err:"", key:"", t:null, open:null };
 const ordTypeLbl = t => TYPE_LBL[t] || cap(t||"—");
 function ordQuery(sel, opts, withStatus){
   const sb = WOK.sb, [t0, t1] = dayBounds(ORD.from, ORD.to);
@@ -2556,7 +2573,7 @@ function ordQuery(sel, opts, withStatus){
   if(ORD.pay) q = q.ilike("payment->>method", ORD.pay);
   const s = ORD.q.trim().replace(/[,()*%\\]/g, " ").trim();
   if(s) q = /^\d+$/.test(s) ? q.or(`no.eq.${s},invoice_no.eq.${s},phone.ilike.*${s}*,ref.ilike.*${s}`) : q.or(`ref.ilike.*${s}*,customer_name.ilike.*${s}*,phone.ilike.*${s}*,agent.ilike.*${s}*,source.ilike.*${s}*`);
-  if(withStatus && ORD.tab!=="all") q = q.eq("status", ORD.tab);
+  if(withStatus && ORD_GRP[ORD.tab]) q = q.in("status", ORD_GRP[ORD.tab]);
   return q;
 }
 async function loadOrders(force){
@@ -2568,13 +2585,13 @@ async function loadOrders(force){
   const cols = "id,ref,no,invoice_no,return_no,refund_of,channel,source,type,status,branch_id,brand_id,customer_name,phone,table_no,total,payment,agent,handled_by,created_at";
   try{
     const list = ordQuery(cols, { count:"exact" }, true).order("created_at", { ascending:false }).range((ORD.page-1)*ORD.per, ORD.page*ORD.per-1);
-    const counts = ORD_TABS.filter(t=>t[0]!=="all").map(([st]) => ordQuery("id", { count:"exact", head:true }, false).eq("status", st));
+    const counts = ORD_ALLST.map(st => ordQuery("id", { count:"exact", head:true }, false).eq("status", st));
     const [res, ...cs] = await Promise.all([list, ...counts]);
     if(ORD.key!==key) return;
     if(res.error) throw res.error;
     ORD.rows = res.data.map(r => ({ ...fromRowO(r) })); ORD.count = res.count || 0;
-    ORD.counts = {}; ORD_TABS.filter(t=>t[0]!=="all").forEach(([st], i) => ORD.counts[st] = cs[i].count || 0);
-    ORD.counts.all = Object.values(ORD.counts).reduce((a,b)=>a+b,0); ORD.loaded = key;
+    const per = {}; ORD_ALLST.forEach((st, i) => per[st] = cs[i].count || 0);
+    ORD.counts = { all: Object.values(per).reduce((a,b)=>a+b,0) }; Object.entries(ORD_GRP).forEach(([k, l]) => ORD.counts[k] = l.reduce((a,st)=>a+(per[st]||0),0)); ORD.loaded = key;
   }catch(e){ console.error("orders", e); if(ORD.key===key) ORD.err = e.message || "Couldn't load orders"; }
   finally{ if(ORD.key===key){ ORD.loading = false; if(location.hash.slice(1)==="orders") render(); } }
 }
@@ -2589,17 +2606,25 @@ function viewOrders(){
   const sel = (id, val, opts) => `<select class="sel" id="${id}">${opts.map(([v,t])=>`<option value="${v}" ${val===v?"selected":""}>${t}</option>`).join("")}</select>`;
   const pages = Math.max(1, Math.ceil(ORD.count/ORD.per)), a = ORD.count ? (ORD.page-1)*ORD.per+1 : 0, b = Math.min(ORD.count, ORD.page*ORD.per);
   const dt = t => new Date(t).toLocaleString("en-GB",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"});
+  const CHL = { pos:"POS", callcenter:"Call center", online:"Web ordering" }, TYL = { dinein:"Dine-in", fast:"Fast sale", pickup:"Pickup", delivery:"Delivery" };
+  const chips = [["brand", ORD.brand && (brandName(ORD.brand) || "Brand")], ["branch", ORD.branch && (branches.find(b=>b.id===ORD.branch)?.name || "Branch")], ["channel", ORD.channel && CHL[ORD.channel]], ["type", ORD.type && TYL[ORD.type]], ["source", ORD.source], ["pay", ORD.pay]].filter(x => x[1]);
+  const nF = chips.length;
   return `<div class="ostick"><div class="phead"><h1>Orders</h1><span class="sp"></span><button class="btn" id="ordCsv">Export CSV</button><button class="btn" id="ordRefresh">↻ Refresh</button></div>
-  <div class="row fbar" style="flex-wrap:wrap">
+  <div class="row fbar ofb">
+    <div class="osrch">${svgIco("search")}<input id="ordQ" placeholder="Search reference, order #, invoice #, customer or phone" value="${esc(ORD.q)}"></div>
     <button type="button" class="sel drpbtn" id="ordRange" aria-haspopup="dialog">${svgIco("calendar")}<span>${esc(drpLabel(ORD.from, ORD.to))}</span></button>
-    ${sel("ordBrand", ORD.brand, [["","All brands"], ...brandList().map(b=>[b.id,esc(b.name)])])}
-    ${sel("ordBranch", ORD.branch, [["","All branches"], ...branches.filter(b=>!ORD.brand || b.brandId===ORD.brand).map(b=>[b.id,esc(b.name)])])}
-    ${sel("ordChannel", ORD.channel, [["","All sales channels"],["pos","POS"],["callcenter","Call center"],["online","Web ordering"]])}
-    ${sel("ordSource", ORD.source, [["","All order sources"], ...ordSources().map(x=>[esc(x),esc(x)])])}
-    ${sel("ordType", ORD.type, [["","All order types"],["dinein","Dine-in"],["fast","Fast sale"],["pickup","Pickup"],["delivery","Delivery"]])}
-    ${sel("ordPay", ORD.pay, [["","All payments"], ...ordPays().map(x=>[esc(x),esc(x)])])}
-    <input class="sel" id="ordQ" placeholder="Reference, order #, invoice #, customer, phone" value="${esc(ORD.q)}" style="min-width:210px">
+    <button type="button" class="btn ofbtn${ORD.fopen || nF ? " on" : ""}" id="ordFilt" aria-expanded="${ORD.fopen}">${svgIco("filter")}Filters${nF ? ` <span class="ofn">${nF}</span>` : ""}</button>
   </div>
+  ${ORD.fopen ? `<div class="card ofpanel">
+    <div class="ofg"><h4>Location</h4><label>Brand${sel("ordBrand", ORD.brand, [["","All brands"], ...brandList().map(b=>[b.id,esc(b.name)])])}</label>
+      <label>Branch${sel("ordBranch", ORD.branch, [["","All branches"], ...branches.filter(b=>!ORD.brand || b.brandId===ORD.brand).map(b=>[b.id,esc(b.name)])])}</label></div>
+    <div class="ofg"><h4>Order</h4><label>Sales channel${sel("ordChannel", ORD.channel, [["","All sales channels"],["pos","POS"],["callcenter","Call center"],["online","Web ordering"]])}</label>
+      <label>Order type${sel("ordType", ORD.type, [["","All order types"],["dinein","Dine-in"],["fast","Fast sale"],["pickup","Pickup"],["delivery","Delivery"]])}</label>
+      <label>Order source${sel("ordSource", ORD.source, [["","All order sources"], ...ordSources().map(x=>[esc(x),esc(x)])])}</label></div>
+    <div class="ofg"><h4>Payment</h4><label>Payment type${sel("ordPay", ORD.pay, [["","All payment types"], ...ordPays().map(x=>[esc(x),esc(x)])])}</label></div>
+    <div class="ofact">${nF ? `<button type="button" class="btn" data-ofclear>Clear all</button>` : ""}<button type="button" class="btn pri" id="ordFiltDone">Done</button></div>
+  </div>` : ""}
+  ${nF ? `<div class="ofchips">${chips.map(([k,l]) => `<button type="button" class="ofchip" data-ofx="${k}" title="Remove this filter">${esc(l)}<span aria-hidden="true">×</span></button>`).join("")}<button type="button" class="ofclr" data-ofclear>Clear all</button></div>` : ""}
   <div class="card otabsc"><div class="ttop"><div class="ttabs">${ORD_TABS.map(([k,t])=>`<a href="#orders" data-otab="${k}" class="${ORD.tab===k?"on":""}">${t} <span class="note">${ORD.counts[k] ?? ""}</span></a>`).join("")}</div><span class="sp"></span><span class="note">${ORD.loading ? "Loading…" : ""}</span></div></div></div>
   <div class="card tbl otbl obody">${ORD.err ? `<p class="note" style="padding:16px">Couldn't load orders: ${esc(ORD.err)}</p>` : `<table><thead><tr><th>Reference #</th><th>Invoice #</th><th>Order #</th><th>Brand</th><th>Branch</th><th>Customer</th><th>Status</th><th>Sales channel</th><th>Order type</th><th>Order source</th><th>Business day</th><th>Payment type</th><th class="num">Total</th></tr></thead><tbody>${
     ORD.rows.length ? ORD.rows.map(o => `<tr class="clk" data-oid="${esc(o.id)}"><td><b>${esc(o.ref || "—")}</b></td><td>${o.status==="refund" ? esc(ordRef(o)) : o.invoiceNo ? esc(invNo(o.invoiceNo)) : '<span class="note" title="Gets its invoice number when a POS accepts it">—</span>'}</td><td>${o.status==="refund" ? "–" : o.no ? `#${esc(o.no)}` : '<span class="note" title="Gets its number when a POS bills it">—</span>'}</td>
@@ -2747,6 +2772,10 @@ $("#view").addEventListener("change", e => { if(e.target.id==="ordDay" && e.targ
 $("#view").addEventListener("click", e => {
   const orb = e.target.closest("#ordRange"); if(orb){ if(DRP.el) return drpClose(); drpOpen(orb, ORD.from, ORD.to, (f, t) => { ORD.from = f; ORD.to = t; ORD.page = 1; render(); }); return; }
   const rg = e.target.closest("[data-ordrange]"); if(rg){ ordSetRange(rg.dataset.ordrange); ORD.page = 1; render(); return; }
+  if(e.target.closest("#ordFilt")){ ORD.fopen = !ORD.fopen; render(); return; }
+  if(e.target.closest("#ordFiltDone")){ ORD.fopen = false; render(); return; }
+  if(e.target.closest("[data-ofclear]")){ Object.assign(ORD, { brand:"", branch:"", channel:"", type:"", source:"", pay:"", page:1 }); render(); return; }
+  const ofx = e.target.closest("[data-ofx]"); if(ofx){ ORD[ofx.dataset.ofx] = ""; ORD.page = 1; render(); return; }
   const tb = e.target.closest("[data-otab]"); if(tb){ e.preventDefault(); ORD.tab = tb.dataset.otab; ORD.page = 1; render(); return; }
   if(e.target.id==="ordPrev"){ ORD.page--; render(); return; }
   if(e.target.id==="ordNext"){ ORD.page++; render(); return; }

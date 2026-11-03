@@ -200,6 +200,16 @@ body{-webkit-font-smoothing:antialiased}
 .ohdr{display:flex;align-items:center;gap:10px;padding:14px 20px;background:var(--s);border-bottom:1px solid var(--line);flex-wrap:wrap}
 .ohdr .sp{flex:1}.hbtn{border:0;border-radius:10px;padding:11px 18px;font-weight:700;font-size:13px;letter-spacing:.04em;text-transform:uppercase;background:linear-gradient(135deg,#6c47ff,#5130e8);color:#fff}
 .hbtn.ghost{background:var(--s);color:var(--acci);border:1px solid var(--line)}
+.ovsrch{flex:1;min-width:220px;display:flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:12px;background:#fff;padding:0 12px;min-height:46px}.ovsrch svg,.ovfbtn svg{fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}.ovsrch svg{width:18px;height:18px;color:#8d8c98;flex:none}.ovsrch input{border:0;outline:0;background:transparent;font:inherit;font-size:15px;width:100%;padding:0}.ovsrch:focus-within{border-color:var(--acc);box-shadow:0 0 0 3px #efeaff}
+.ovday{display:flex;align-items:center;border:1px solid var(--line);border-radius:12px;background:#fff;min-height:46px;overflow:hidden}.ovday>button{border:0;background:none;width:42px;align-self:stretch;font-size:20px;color:var(--ink)}.ovday>button:disabled{color:#cfcdd9}.ovday label{position:relative;display:grid;place-items:center;min-width:110px;padding:0 6px;font-weight:700;font-size:14px;border-left:1px solid var(--line);border-right:1px solid var(--line);align-self:stretch;cursor:pointer}.ovday input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%}
+.ovfbtn{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line);background:#fff;border-radius:12px;min-height:46px;padding:0 16px;font:inherit;font-weight:700;font-size:14px;color:var(--ink)}.ovfbtn svg{width:18px;height:18px}.ovfbtn.on{border-color:var(--acc);background:#f3efff;color:#5130e8}
+.ofn{display:inline-grid;place-items:center;min-width:20px;height:20px;border-radius:10px;background:var(--acc);color:#fff;font-size:11px;padding:0 5px}
+.ofpanel2{background:var(--s);border-radius:14px;box-shadow:0 1px 3px rgba(21,19,31,.06);padding:6px 16px 14px;display:flex;flex-direction:column}
+.ofrow{display:grid;grid-template-columns:130px 1fr;gap:12px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)}.ofrow>b{font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:#8d8c98}
+.ofchips2{display:flex;flex-wrap:wrap;gap:8px}.ofchips2 .chip{border:1px solid var(--line);background:#fff;border-radius:999px;min-height:40px;padding:8px 16px;font-weight:600;font-size:14px}.ofchips2 .chip.on{background:var(--acc);border-color:var(--acc);color:#fff}
+.ofact2{display:flex;justify-content:flex-end;gap:8px;padding-top:12px}
+.ofsel{display:flex;flex-wrap:wrap;gap:8px;align-items:center}.ofchip2{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--acc);background:#f3efff;color:#5130e8;border-radius:999px;min-height:36px;padding:4px 6px 4px 14px;font:inherit;font-weight:700;font-size:13px}.ofchip2 span{display:inline-grid;place-items:center;width:24px;height:24px;border-radius:50%;background:rgba(108,71,255,.15);font-size:15px}.ofclr2{border:0;background:none;color:#55536a;font:inherit;font-size:13px;font-weight:600;text-decoration:underline;padding:6px}
+@media (max-width:800px){.ofrow{grid-template-columns:1fr;gap:6px}}
 .otabs2{display:flex;background:var(--s);border-radius:12px;box-shadow:0 1px 3px rgba(21,19,31,.06);overflow:auto}
 .otabs2 button{flex:1;border:0;background:none;padding:15px 12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;font-size:13px;color:#8d8c98;white-space:nowrap;border-bottom:3px solid transparent}.otabs2 button.on{color:var(--ink);border-bottom-color:var(--acc)}
 .ofilt{display:flex;gap:8px;flex-wrap:wrap;align-items:center;background:var(--s);border-radius:12px;padding:10px 12px}
@@ -708,6 +718,8 @@ function renderAll(){
 const catRank = p => { const c = S.categories.find(x=>x.id===p.categoryId); return c?.sort ?? 999; };   // "All" follows the category order
 /* ---------- line icons and category colors (picked from the category name) ---------- */
 const ICO = {
+  search:'<circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/>',
+  filter:'<path d="M3 5h18l-7 8.5V19l-4 2v-7.5z"/>',
   noodles:'<path d="M3 12h18a9 9 0 0 1-18 0Z"/><path d="M7 12c0-3 1-5 2-7M11 12c0-3 .5-6 1.5-8M15 3l-5 9M19 4l-6 8"/>',
   rice:'<path d="M3 12h18a9 9 0 0 1-18 0Z"/><path d="M6 12a6 4 0 0 1 12 0"/><path d="M10 9.5h.01M13 8.5h.01M15 10h.01"/>',
   roll:'<rect x="3" y="9" width="18" height="7" rx="3.5" transform="rotate(-20 12 12.5)"/><path d="m8 10 2 5M12 9l2 5"/>',
@@ -977,7 +989,9 @@ $("#modal").addEventListener("click", async e => {
   const ovt = e.target.closest("[data-ovtab]"); if(ovt){ OV.tab = ovt.dataset.ovtab; return openIncoming(); }
   if(e.target.closest("[data-ofilt]")){ OV.filt = !OV.filt; return openIncoming(); }
   const od = e.target.closest("[data-odate]"); if(od && !od.disabled){ OV.date = od.dataset.odate >= bizDate() ? "" : od.dataset.odate; return openIncoming(); }
-  const of = e.target.closest("[data-of]"); if(of){ const [k,v] = of.dataset.of.split(":"); OV[k] = v; return openIncoming(); }
+  const of = e.target.closest("[data-of]"); if(of){ const i = of.dataset.of.indexOf(":"); OV[of.dataset.of.slice(0,i)] = of.dataset.of.slice(i+1); return openIncoming(); }
+  const ofx = e.target.closest("[data-ofx]"); if(ofx){ OV[ofx.dataset.ofx] = ""; return openIncoming(); }
+  if(e.target.closest("[data-ofclear]")){ Object.assign(OV, { ft:"", fc:"", fs:"", fp:"" }); return openIncoming(); }
 
   if(e.target.closest("[data-osync]")){ window.WOK?.sync?.flush?.(); return toast(navigator.onLine ? "Syncing…" : "Offline · will sync when the connection is back"); }
   const tb = e.target.closest("[data-tbl]"); if(tb){ if(tableOrders(tb.dataset.tbl).length) return pickTable(tb.dataset.tbl); return askGuests(tb.dataset.tbl); }
@@ -1139,7 +1153,7 @@ function approve(perm, title){
 }
 
 /* ---------- orders: list, delivery & pickup management, void (active) and return (closed) ---------- */
-let OV = { tab:"all", q:"", open:null, view:"list", filt:false, ft:"", fc:"" };
+let OV = { tab:"all", q:"", open:null, view:"list", filt:false, ft:"", fc:"", fs:"", fp:"" };
 const stLbl = o => ({ refund:"Returned", pending:"Waiting for you", active:"Active", closed:"Done", void:"Void", returned:"Returned", declined:"Declined", draft:"Draft" }[o.status] || o.status);
 const typLbl = t => t==="fast" ? "Fast sale" : t==="dinein" ? "Dine-in" : t==="pickup"||t==="takeaway" ? "Pickup" : t==="delivery" ? "Delivery" : (t||"—");
 const invNo = n => n ? "INV-" + String(n).padStart(6,"0") : "";   // invoice number as shown and printed
@@ -1159,7 +1173,8 @@ function boardOrders(col, pd){
   const today = bizDate(), day = !pd && OV.date ? OV.date : today, anyDay = day===today;   // the Orders list can look at another business day
   const mine = S.orders.filter(o => o.branchId===device.branchId), onDay = o => anyDay || bizDate(o.createdAt)===day;
   const q = OV.q.trim().toLowerCase(), m = o => (!q || [o.no, o.ref, o.invoiceNo, invNo(o.invoiceNo), o.returnNo && "RET-" + String(o.returnNo).padStart(6,"0"), o.customerName, o.phone, o.source, o.table].some(v => String(v||"").toLowerCase().includes(q)))
-    && (!pd || ["pickup","takeaway","delivery"].includes(o.type)) && (pd || !OV.ft || (OV.ft==="pickup" ? ["pickup","takeaway"].includes(o.type) : o.type===OV.ft)) && (pd || !OV.fc || (OV.fc==="pos" ? o.channel==="pos" : OV.fc==="callcenter" ? o.channel==="callcenter" : !["pos","callcenter"].includes(o.channel)));
+    && (!pd || ["pickup","takeaway","delivery"].includes(o.type)) && (pd || !OV.ft || (OV.ft==="pickup" ? ["pickup","takeaway"].includes(o.type) : o.type===OV.ft)) && (pd || !OV.fc || (OV.fc==="pos" ? o.channel==="pos" : OV.fc==="callcenter" ? o.channel==="callcenter" : !["pos","callcenter"].includes(o.channel)))
+    && (pd || !OV.fs || String(o.source||"").toLowerCase()===OV.fs.toLowerCase()) && (pd || !OV.fp || String(o.payment?.method||"").toLowerCase()===OV.fp.toLowerCase());
   if(col==="all") return (pd ? ["pending","active","closed","void"] : ["active","closed","void"]).flatMap(k => boardOrders(k, pd)).sort((a,b) => String(b.createdAt).localeCompare(String(a.createdAt)));
   const l = col==="pending" ? mine.filter(o => o.status==="pending" && onDay(o)) : col==="active" ? mine.filter(o => o.status==="active" && onDay(o))
     : col==="closed" ? mine.filter(o => o.status==="closed" && bizDate(o.createdAt)===day)
@@ -1196,10 +1211,22 @@ function openIncoming(){
   const TABS = [["all","All"],["active","Active"],["closed","Closed"],["void","Void & returns"]];
   if(!TABS.some(x => x[0]===OV.tab)) OV.tab = "all";
   const chip = (k, v, l) => `<button class="chip${OV[k]===v?" on":""}" data-of="${k}:${v}">${l}</button>`;
-  const head = `<div class="ohdr"><button class="hbtn" data-close>Back</button><input class="search" id="ovQ" placeholder="Search orders: order no., invoice no., customer, phone, table" value="${esc(OV.q)}" style="flex:1;min-width:220px;margin:0">
-    <button class="hbtn${OV.filt ? "" : " ghost"}" data-ofilt>Filter${(OV.date && OV.date!==bizDate()) || OV.ft || OV.fc ? ` <span class="fdot">${[(OV.date && OV.date!==bizDate()), OV.ft, OV.fc].filter(Boolean).length}</span>` : ""}</button></div>`;
   const day = OV.date || bizDate(), shift = n => { const d = new Date(day + "T12:00:00"); d.setDate(d.getDate() + n); return d.toISOString().slice(0,10); };
-  const filt = !OV.filt ? "" : `<div class="ofilt"><b style="font-size:13px">Date</b><button class="chip" data-odate="${shift(-1)}" aria-label="Previous day">‹</button><input type="date" id="ovDate" value="${day}" max="${bizDate()}" style="padding:6px 10px;border:1px solid var(--line);border-radius:999px;font-weight:600"><button class="chip" data-odate="${shift(1)}" aria-label="Next day" ${day >= bizDate() ? "disabled" : ""}>›</button>${day!==bizDate() ? `<button class="chip on" data-odate="">Today</button>` : ""}<span style="width:14px"></span><b style="font-size:13px">Order type</b>${chip("ft","","All")}${chip("ft","dinein","Dine-in")}${chip("ft","pickup","Pickup")}${chip("ft","delivery","Delivery")}${chip("ft","fast","Fast sale")}<span style="width:14px"></span><b style="font-size:13px">Sales channel</b>${chip("fc","","All")}${chip("fc","pos","POS")}${chip("fc","callcenter","Call center")}${chip("fc","web","Web")}</div>`;
+  const isToday = day===bizDate(), dayLbl = isToday ? "Today" : shift(1)===bizDate() ? "Yesterday" : fmtDay(day);
+  const TYL = { dinein:"Dine-in", pickup:"Pickup", delivery:"Delivery", fast:"Fast sale" }, CHL = { pos:"POS", callcenter:"Call center", web:"Web" };
+  const active = [["ft", TYL[OV.ft]], ["fc", CHL[OV.fc]], ["fs", OV.fs], ["fp", OV.fp]].filter(x => x[1]);
+  const head = `<div class="ohdr"><button class="hbtn" data-close>Back</button>
+    <div class="ovsrch">${ico("search")}<input id="ovQ" placeholder="Search order no., invoice no., customer, phone or table" value="${esc(OV.q)}"></div>
+    <div class="ovday"><button data-odate="${shift(-1)}" aria-label="Previous day">‹</button><label><span>${esc(dayLbl)}</span><input type="date" id="ovDate" value="${day}" max="${bizDate()}" aria-label="Business day"></label><button data-odate="${shift(1)}" aria-label="Next day" ${isToday ? "disabled" : ""}>›</button></div>
+    <button class="ovfbtn${OV.filt || active.length ? " on" : ""}" data-ofilt aria-expanded="${!!OV.filt}">${ico("filter")}Filters${active.length ? ` <span class="ofn">${active.length}</span>` : ""}</button></div>`;
+  const grp = (k, title, opts) => `<div class="ofrow"><b>${title}</b><div class="ofchips2">${[["", "All"], ...opts].map(([v,l]) => `<button class="chip${(OV[k]||"")===v ? " on" : ""}" data-of="${k}:${esc(v)}">${esc(l)}</button>`).join("")}</div></div>`;
+  const srcs = [...new Set([...posSources(), ...S.orders.map(o => o.source).filter(x => x && x.toUpperCase()!=="POS")])];
+  const pays = [...new Set([...payMethods().map(m => m.name), ...S.orders.map(o => o.payment?.method).filter(Boolean)])];
+  const filt = (OV.filt ? `<div class="ofpanel2">
+      ${grp("ft", "Order type", Object.entries(TYL))}${grp("fc", "Sales channel", Object.entries(CHL))}
+      ${srcs.length ? grp("fs", "Order source", srcs.map(x => [x, x])) : ""}${pays.length ? grp("fp", "Payment type", pays.map(x => [x, x])) : ""}
+      <div class="ofact2">${active.length ? `<button class="btn" data-ofclear>Clear all</button>` : ""}<button class="btn pri" data-ofilt>Done</button></div></div>` : "")
+    + (active.length ? `<div class="ofsel">${active.map(([k,l]) => `<button class="ofchip2" data-ofx="${k}">${esc(l)}<span aria-hidden="true">×</span></button>`).join("")}<button class="ofclr2" data-ofclear>Clear all</button></div>` : "");
   let body;
   if(false) body = `<div class="oboard">${OV_COLS.map(([k,title,tip]) => { const l = boardOrders(k);
       return `<div class="ocol"><div class="ochead" title="${esc(tip)}"><b>${title}</b><span class="cnt">${l.length}</span></div>${l.length ? l.map(card).join("") : `<div class="oempty">You don't have ${title.toLowerCase()} orders</div>`}</div>`; }).join("")}</div>`;
