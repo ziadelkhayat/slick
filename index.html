@@ -535,7 +535,7 @@ tr[draggable="true"].dragging{opacity:.45}tr.dropto td{box-shadow:inset 0 2px 0 
       <div class="f full"><label for="fRFoot">Receipt footer</label><textarea id="fRFoot" rows="2" maxlength="300" placeholder="e.g. Thank you! Follow us @thewok"></textarea></div>
       <h4 class="fsec">Options</h4>
       <div class="f full">
-        <label class="chk"><input type="checkbox" id="fActive" checked> Active (shows in reports and filters)</label>
+        <input type="checkbox" id="fActive" checked hidden>
         <label class="chk"><input type="checkbox" id="fCC" checked> Receives call-center orders</label>
         <label class="chk"><input type="checkbox" id="fProd"> Central kitchen / production site</label>
       </div>
@@ -1132,12 +1132,13 @@ function viewBranches(){
   if(storeMode==="local") h += `<div class="banner">Preview mode: branches you add here won't be saved. Open this page from claude.ai while signed in to save them.</div>`;
   if(!n) return h + `<div class="card empty">No branches yet. Add your first branch to get started.</div>`;
   const tgName = id => (S.tax_groups||[]).find(g => g.id===id)?.name || "";
-  h += `<div class="card tbl"><table><thead><tr><th>Name</th><th>Reference</th><th>Tax group</th><th>Created</th></tr></thead><tbody>${
+  h += `<div class="card tbl"><table><thead><tr><th>Name</th><th>Reference</th><th>Tax group</th><th>Created</th><th>Active</th></tr></thead><tbody>${
     list.map(b => `<tr class="clk" data-edit="${esc(b.id)}" title="Edit ${esc(b.name)}">
-      <td><a href="#branches" class="lnk" data-edit="${esc(b.id)}"><b style="font-weight:600">${esc(b.name)}</b></a>${brandList().length > 1 ? ` <span class="note">${esc(brandName(b.brandId))}</span>` : ""}${b.active===false ? ` <span class="tag off">Inactive</span>` : ""}${b.production?` <span class="tag cc">Central kitchen</span>`:""}</td>
+      <td><a href="#branches" class="lnk" data-edit="${esc(b.id)}"><b style="font-weight:600">${esc(b.name)}</b></a>${brandList().length > 1 ? ` <span class="note">${esc(brandName(b.brandId))}</span>` : ""}${b.production?` <span class="tag cc">Central kitchen</span>`:""}</td>
       <td class="code">${esc(b.code || "—")}</td>
       <td>${esc(tgName(b.settings?.taxGroup)) || '<span class="note">—</span>'}</td>
-      <td>${b.createdAt ? new Date(b.createdAt).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"}) : '<span class="note">—</span>'}</td></tr>`).join("")
+      <td>${b.createdAt ? new Date(b.createdAt).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"}) : '<span class="note">—</span>'}</td>
+      <td class="noedit"><label class="toggle" title="${b.active!==false ? "Active · tap to deactivate" : "Inactive · tap to activate"}"><input type="checkbox" data-bract="${esc(b.id)}" ${b.active!==false?"checked":""}><span class="trk"></span>${b.active!==false?"Active":"Inactive"}</label></td></tr>`).join("")
   }</tbody></table></div>
   <p class="note" style="margin-top:12px">Inactive branches stay in your history but are hidden from dashboards, filters and call-center routing.</p>`;
   return h;
@@ -1186,7 +1187,11 @@ let lastRoute = location.hash.slice(1) || "dashboard";
 $("#menuBtn").addEventListener("click", e => { e.stopPropagation(); document.body.classList.toggle("navopen"); });
 document.addEventListener("click", e => { if(document.body.classList.contains("navopen") && (!e.target.closest(".side") || e.target.closest(".side a"))) document.body.classList.remove("navopen"); });
 window.addEventListener("hashchange", () => { const r = location.hash.slice(1) || "dashboard"; if(r !== lastRoute){ resetPageFilters(); lastRoute = r; document.querySelectorAll(".scrim.show").forEach(x => x.classList.remove("show")); } render(); window.scrollTo(0,0); });
-$("#view").addEventListener("change", e => {
+$("#view").addEventListener("change", async e => {
+  const ba = e.target.closest?.("[data-bract]"); if(ba){ const b = branches.find(x => x.id===ba.dataset.bract), on = ba.checked; if(!b) return;
+    try{ await saveBranch({ active: on, updatedAt: new Date().toISOString() }, b.id); toast(`${b.name} ${on ? "activated" : "deactivated"}`); }
+    catch(err){ console.error(err); ba.checked = !on; toast("Couldn't change this branch. You may not have edit access."); }
+    return; }
   if(e.target.id==="datePick" && e.target.value){ state.date = e.target.value; state.dateSet = state.date !== todayStr(); render(); }
   if(e.target.id==="cmpToggle"){ state.compare = e.target.checked; state.cmpDate = ""; render(); }
   if(e.target.id==="cmpDate"){ state.cmpDate = e.target.value && e.target.value!==cmpDefault() ? e.target.value : ""; render(); }
@@ -1200,6 +1205,7 @@ $("#view").addEventListener("click", e => {
   const t2 = e.target.closest("[data-dt2]"); if(t2){ e.preventDefault(); state.dashTab = t2.dataset.dt2; render(); return; }
   const t = e.target.closest("[data-dt]"); if(t){ e.preventDefault(); state.dashTab = t.dataset.dt; render(); return; }
   if(e.target.closest("#addBranch")) openForm();
+  if(e.target.closest(".noedit")) return;   // the Active switch in the branches list
   const ed = e.target.closest("[data-edit]"); if(ed){ e.preventDefault(); openForm(ed.dataset.edit); }
 });
 
