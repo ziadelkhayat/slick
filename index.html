@@ -567,6 +567,10 @@ h1:has(.ib),h3:has(.ib){display:inline-flex;align-items:center}
 .mlist{display:flex;flex-direction:column}.mlist .chk{display:flex;align-items:center;gap:10px;padding:7px 0;font-size:14px}.mlist .mall{margin-bottom:6px}.mlist .mgh{margin-top:14px}.mlist .mgh b,.mlist .mall b{font-weight:600}.mlist .mitem .ib{margin-left:4px}
 .modal .body{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.modal .body .f{min-width:0}.modal .body .f>input,.modal .body .f>select,.modal .body .f>textarea{width:100%;max-width:100%}.modal .body .f div>input{min-width:0}
 @media(max-width:600px){.modal .body{grid-template-columns:minmax(0,1fr)}.modal .body .f,.modal .body .f.full{grid-column:1/-1}}
+.udtop{margin:-6px 0 24px}.udback{display:inline-block;color:var(--ink);text-decoration:underline;font-size:14px;margin-bottom:6px}.udrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.udrow h1{margin:0}.udrow .sp{flex:1}
+.udwrap{max-width:660px;margin:0 auto}.udinfo{display:grid;grid-template-columns:1fr 1fr;gap:6px 38px;padding:22px 20px;margin-bottom:40px}.udf{padding:6px 0 8px;border-bottom:.8px solid #c7c7cc}.udf span{display:block;font-size:12.5px;color:#8e8e93;margin-bottom:4px}.udf div{font-size:14px}
+.udsec{margin-bottom:40px}.udh{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}.udh h3{margin:0;font-size:17px;font-weight:400}.udcard{padding:0;overflow:hidden}.udli{padding:16px 20px;font-size:14px;border-bottom:.8px solid #e5e5ea}.udli:last-child{border-bottom:0}.udcard table{width:100%}
+@media(max-width:600px){.udinfo{grid-template-columns:1fr}}
 </style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -1507,7 +1511,10 @@ function infoize(root){
     if(ibAttach(h1, n.innerHTML)){ n.dataset.iz = 1; n.remove(); }
   });
 }
-let ibT = null; const ibRun = () => { ibT = null; infoize($("#view")); document.querySelectorAll(".modal, .scrim .body, .drawer").forEach(m => infoize(m)); };
+// no hint text inside empty form boxes (search boxes keep theirs: it is their only label)
+function noHints(root){ (root||document).querySelectorAll(".f input[placeholder], .f textarea[placeholder], .bsf input[placeholder], .bsf textarea[placeholder], .modal input[placeholder], .modal textarea[placeholder], .ccnotes input[placeholder]").forEach(el => {
+  if(el.matches(".search, [type=search], [id*=Search], [id*=search], #cusQ, #oSearch, #oPhone")) return; el.removeAttribute("placeholder"); }); }
+let ibT = null; const ibRun = () => { ibT = null; noHints(document); infoize($("#view")); document.querySelectorAll(".modal, .scrim .body, .drawer").forEach(m => infoize(m)); };
 new MutationObserver(() => { if(!ibT) ibT = requestAnimationFrame(ibRun); }).observe(document.body, { childList:true, subtree:true });
 let ibBub = null, ibPin = null;
 function ibShow(ic){ ibHide(); ibBub = document.createElement("div"); ibBub.className = "ibub"; ibBub.innerHTML = ic.dataset.tip; document.body.appendChild(ibBub);
@@ -4129,17 +4136,39 @@ function branchSettings(p, brs, price){
 }
 
 function userDetail(u){
-  const more = state.usrMore, row = (k, v) => `<div><span>${k}</span>${v}</div>`, dt = t => t ? new Date(t).toLocaleString("en-GB",{day:"numeric",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"}) : "—";
-  const rs = S.roles.filter(r => userRoleIds(u).includes(r.id)), brs = (u.branchIds||[]).length ? branches.filter(b => u.branchIds.includes(b.id)) : branches.filter(b => b.active!==false);
-  const tbl = (head, rows) => rows.length ? `<table><thead><tr>${head.map(h=>`<th>${h}</th>`).join("")}</tr></thead><tbody>${rows.map(r=>`<tr>${r.map(c=>`<td>${c}</td>`).join("")}</tr>`).join("")}</tbody></table>` : '<p class="note brempty">No data to display!</p>';
-  return `<div class="phead"><a href="#users" class="btn" data-detback style="text-decoration:none">← Back</a><h1 style="margin-left:10px">${esc(u.name)}</h1><div class="sp"></div>
-      <button class="btn" data-usrpin>Change PIN</button><button class="btn pri" data-detedit>Edit User</button></div>
-    <div class="card odet" style="margin-bottom:16px">${row("Name", esc(u.name))}${row("Status", u.active===false ? "Inactive" : "Active")}${row("Console Access", u.email ? (u.userId ? "Active" : "Invited · waiting for first sign-in") : "Inactive")}${row("App Access", u.pinHash ? "Active" : "Inactive")}
-      ${more ? row("Email", esc(u.email || "—")) + row("Phone", esc(u.phone || "—")) + row("Language", u.language==="ar" ? "Arabic" : "English") + row("Display Localized Names", u.displayLocalized ? "Yes" : "No") + row("Created", dt(u.createdAt)) : ""}
-      <div style="grid-column:1/-1"><button class="lnk" data-usrmore style="background:none;border:0;padding:0;cursor:pointer">${more ? "Show Less" : "Show More"}</button></div></div>
-    <div class="card brcard"><div class="brch"><h3>Roles</h3><span class="sp"></span><button class="btn sm" data-detedit data-sec="cf_roleIds">Edit Roles</button></div>${tbl(["Name","Authorities"], rs.map(r => [esc(r.name), `${(r.permissions||[]).length}`]))}</div>
-    <div class="card brcard"><div class="brch"><h3>Branches</h3><span class="sp"></span><button class="btn sm" data-usrbr="${esc(u.id)}">Edit Branches</button></div>${(u.branchIds||[]).length ? "" : '<p class="note" style="margin:0 0 8px">Automatically applied on all existing and new branches.</p>'}${tbl(["Name","Reference"], brs.map(b => [esc(b.name), esc(b.code||"—")]))}</div>`;
+  const rs = S.roles.filter(r => userRoleIds(u).includes(r.id)), picked = (u.branchIds||[]).length, brs = picked ? branches.filter(b => u.branchIds.includes(b.id)) : branches.filter(b => b.active!==false);
+  const fld = (k, v) => `<div class="udf"><span>${k}</span><div>${v}</div></div>`, dt = t => t ? new Date(t).toLocaleString("en-GB",{day:"numeric",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"}) : "—";
+  const sec = (title, btn, body) => `<div class="udsec"><div class="udh"><h3>${title}</h3>${btn}</div><div class="card udcard">${body}</div></div>`;
+  return `<div class="udtop"><a href="#users" class="udback" data-detback>‹ Back</a><div class="udrow"><h1>${esc(u.name)}</h1>${u.active===false ? ' <span class="tag off">Inactive</span>' : ""}<div class="sp"></div>
+      ${u.email ? `<button class="btn" data-usrpw="${esc(u.id)}">Change Password</button>` : ""}<button class="btn" data-usrpin>Change PIN</button><button class="btn pri" data-detedit>Edit User</button></div></div>
+    <div class="udwrap">
+      <div class="card udinfo">${fld("Name", esc(u.name))}${fld("Email", esc(u.email || "—"))}${fld("Phone", esc(u.phone || "—"))}${fld("Language", u.language==="ar" ? "Arabic" : "English")}
+        ${fld("Display Localized Names", u.displayLocalized ? "Yes" : "No")}${fld("Console Access", u.email ? (u.userId ? "Yes" : "Not created yet") : "No")}
+        ${fld("App Access (PIN)", u.pinHash ? "Yes" : "No")}${fld("Created", dt(u.createdAt))}</div>
+      ${sec("Roles", `<button class="btn sm" data-usrroles="${esc(u.id)}">Edit Roles</button>`, rs.length ? rs.map(r => `<div class="udli">${esc(r.name)}</div>`).join("") : '<div class="udli note">No roles</div>')}
+      ${sec("Branches", `<button class="btn sm" data-usrbr="${esc(u.id)}">Edit Branches</button>`, picked ? `<table><thead><tr><th>Name</th><th>Reference</th></tr></thead><tbody>${brs.map(b => `<tr><td>${esc(b.name)}</td><td>${esc(b.code||"—")}</td></tr>`).join("")}</tbody></table>`
+        : '<div class="udli">Automatically applied on all existing and new branches</div>')}
+    </div>`;
 }
+// Users → Edit Roles
+function openUserRoles(id){
+  const u = S.users.find(x => x.id===id); if(!u) return; const cur = new Set(userRoleIds(u)), list = S.roles.filter(r => live(r) || cur.has(r.id));
+  const box = $("#ccBox"); box.className = "modal";
+  box.innerHTML = `<header><h2>Edit Roles</h2><button type="button" class="x" data-ccclose aria-label="Close">×</button></header>
+  <div class="body" style="display:block"><div class="mlist">${list.length ? list.map(r => `<label class="chk mitem"><input type="checkbox" value="${esc(r.id)}" ${cur.has(r.id)?"checked":""}> ${esc(r.name)}</label>`).join("") : '<span class="note">No roles yet. Create one in Manage → Roles.</span>'}</div><div class="err" id="urErr"></div></div>
+  <footer><span style="flex:1"></span><button type="button" class="btn" data-ccclose>Close</button><button type="button" class="btn pri" data-urapply="${esc(id)}">Apply</button></footer>`;
+  $("#ccScrim").classList.add("show");
+}
+document.addEventListener("click", async e => {
+  const o = e.target.closest("[data-usrroles]"); if(o){ e.preventDefault(); openUserRoles(o.dataset.usrroles); return; }
+  const ap = e.target.closest("[data-urapply]"); if(ap){ const ids = [...document.querySelectorAll("#ccBox .mlist input:checked")].map(i => i.value);
+    if(!ids.length){ $("#urErr").textContent = "Pick at least one role."; return; }
+    try{ await put("users", ap.dataset.urapply, { roleIds: ids, roleId: ids[0] }); toast("Roles saved"); $("#ccScrim").classList.remove("show"); render(); }catch(err){ console.error(err); $("#urErr").textContent = "Couldn't save."; } return; }
+  const pw = e.target.closest("[data-usrpw]"); if(pw){ e.preventDefault(); const u = S.users.find(x => x.id===pw.dataset.usrpw); if(!u?.email) return;
+    if(!confirm(`Send a password reset link to ${u.email}? They set their new password from the email.`)) return;
+    if(storeMode!=="db") return toast("Reset link sent");
+    const { error } = await WOK.sb.auth.resetPasswordForEmail(u.email, { redirectTo: location.href.split("#")[0] }); toast(error ? "Couldn't send: " + error.message : "Password reset link sent to " + u.email); return; }
+});
 document.addEventListener("click", e => { const g = e.target.closest("[data-pingen]"); if(!g) return; e.preventDefault(); document.getElementById(g.dataset.pingen).value = String(Math.floor(10000 + Math.random()*90000)); });
 document.addEventListener("click", e => {
   if(e.target.closest("[data-usrmore]")){ state.usrMore = !state.usrMore; render(); return; }
