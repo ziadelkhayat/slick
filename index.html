@@ -1936,7 +1936,7 @@ const CRUD = {
       {k:"price",l:"Price (USD)",t:"number",req:1,hideIf:r=>varKids(r).length},{k:"taxGroup",l:"Tax group",t:"select",opts:()=>taxGroupOpts(),def:"tg_vat",ph:"No tax",hideIf:r=>varKids(r).length},
       {k:"costingMethod",l:"Costing method",t:"select",opts:()=>[["ingredients","From ingredients"],["fixed","Fixed cost"]],def:"ingredients",hideIf:r=>varKids(r).length},{k:"cost",l:"Fixed cost (USD)",t:"number",req:1,when:{k:"costingMethod",is:"fixed"},hideIf:r=>varKids(r).length},
       {k:"sellingMethod",l:"Selling method",t:"select",opts:()=>[["unit","Unit"],["weight","Weight"]],def:"unit"},
-      {k:"prepTime",l:"Preparation time (minutes)",t:"number"},{k:"calories",l:"Calories (kCal)",t:"number"},
+      {k:"prepTime",l:"Preparation time (minutes)",t:"number"},
       {k:"imageUrl",l:"Image",t:"image",full:1,hideIf:r=>!!(r && r.id && varParent(r.id))},   // variants use the main product's image
       {k:"description",l:"Description",t:"textarea",full:1}]
   },
@@ -1984,7 +1984,7 @@ const CRUD = {
       {k:"modifierId",l:"Modifier",t:"select",req:1,opts:()=>S.modifiers.filter(live).sort((a,b)=>a.name.localeCompare(b.name)).map(m=>[m.id,m.name]),auto:()=>state.newOptMod||state.modFilter||""},
       {k:"sku",l:"SKU",auto:()=>nextSku("modifier_options")},{k:"price",l:"Price (USD)",t:"number",def:0},{k:"taxGroup",l:"Tax group",t:"select",opts:()=>taxGroupOpts(),def:"tg_vat",ph:"No tax"},
       {k:"costingMethod",l:"Costing method",t:"select",opts:()=>[["ingredients","From ingredients"],["fixed","Fixed cost"]],def:"ingredients"},{k:"cost",l:"Fixed cost (USD)",t:"number",req:1,when:{k:"costingMethod",is:"fixed"}},
-      {k:"calories",l:"Calories (kCal)",t:"number"},{k:"active",l:"Active",t:"chk",def:true}]
+      {k:"active",l:"Active",t:"chk",def:true}]
   },
   suppliers: {
     col:"suppliers", title:"Suppliers", one:"Supplier",
@@ -2308,8 +2308,8 @@ const byName = (list, v) => { const t = String(v||"").trim().toLowerCase(); retu
 const tgByName = v => { const t = String(v||"").trim().toLowerCase(); if(!t) return null; return S.tax_groups.find(g => live(g) && (g.name.toLowerCase()===t || tgName(g.id).toLowerCase()===t)) || null; };
 // one spec per page: the columns, how to find an existing row, and how to turn a CSV line into a record
 const IMPEX = {
-  products: { file:"products", head:["SKU","Name","Name (Arabic)","Brand","Category","Price","Pricing Method","Tax Group","Costing Method","Cost","Calories","Preparation Time","Description","Active"],
-    rows: () => S.products.filter(live).filter(brandFilter).sort(CRUD.products.sort).map(r => [r.sku, r.name, r.nameAr, brandName(r.brandId), catName(r.categoryId), r.price, r.pricingMethod||"fixed", r.taxGroup ? S.tax_groups.find(g=>g.id===r.taxGroup)?.name : "", r.costingMethod||"ingredients", r.cost, r.calories, r.prepTime, r.description, r.active===false?"No":"Yes"]),
+  products: { file:"products", head:["SKU","Name","Name (Arabic)","Brand","Category","Price","Pricing Method","Tax Group","Costing Method","Cost","Preparation Time","Description","Active"],
+    rows: () => S.products.filter(live).filter(brandFilter).sort(CRUD.products.sort).map(r => [r.sku, r.name, r.nameAr, brandName(r.brandId), catName(r.categoryId), r.price, r.pricingMethod||"fixed", r.taxGroup ? S.tax_groups.find(g=>g.id===r.taxGroup)?.name : "", r.costingMethod||"ingredients", r.cost, r.prepTime, r.description, r.active===false?"No":"Yes"]),
     build: (x, ctx) => {
       const bl = brandList(), bySku = x.sku && S.products.find(p => live(p) && (p.sku||"").toLowerCase()===x.sku.toLowerCase()),
         cats = S.categories.filter(c => live(c) && !c.channel && c.name.trim().toLowerCase()===String(x.category||"").trim().toLowerCase()),
@@ -2326,18 +2326,18 @@ const IMPEX = {
       if(x["pricing method"]) d.pricingMethod = /open/i.test(x["pricing method"]) ? "open" : "fixed";
       if(x["tax group"]){ const g = tgByName(x["tax group"]); if(!g) return { err:`tax group "${x["tax group"]}" not found` }; d.taxGroup = g.id; }
       if(x["costing method"]) d.costingMethod = /fix/i.test(x["costing method"]) ? "fixed" : "ingredients";
-      [["cost","cost"],["calories","calories"],["preparation time","prepTime"]].forEach(([h,k]) => { if(x[h]!=="" && x[h]!=null) d[k] = numOr(x[h], null); });
+      [["cost","cost"],["preparation time","prepTime"]].forEach(([h,k]) => { if(x[h]!=="" && x[h]!=null) d[k] = numOr(x[h], null); });
       if(x.description) d.description = x.description;
       if(x.active!=="" && x.active!=null) d.active = yes(x.active);
       if(!ex){ d.sku = x.sku || nextSku("products", ctx.skus); ctx.skus.push(d.sku); if(d.active==null) d.active = true; if(!d.taxGroup && S.tax_groups.some(g=>g.id==="tg_vat"&&live(g))) d.taxGroup = "tg_vat"; d.channels = CHANNELS.map(c=>c[0]); d.sort = 999; }
       else if(x.sku) d.sku = x.sku;
       return { col:"products", id: ex?.id, data:d };
     } },
-  modifiers: { file:"modifiers", head:["Modifier","Modifier Reference","Modifier Name (Arabic)","Option SKU","Option","Option Name (Arabic)","Price","Tax Group","Costing Method","Cost","Calories","Active"],
+  modifiers: { file:"modifiers", head:["Modifier","Modifier Reference","Modifier Name (Arabic)","Option SKU","Option","Option Name (Arabic)","Price","Tax Group","Costing Method","Cost","Active"],
     note:"One line per option. A modifier with no options can have the option columns empty. Missing modifiers are created.",
     rows: () => { const out = []; S.modifiers.filter(live).sort(bySort).forEach(m => { const os = modOptions(m.id);
       if(!os.length) out.push([m.name, m.reference, m.nameAr, "", "", "", "", "", "", "", "", ""]);
-      os.forEach(o => out.push([m.name, m.reference, m.nameAr, o.sku, o.name, o.nameAr, o.price, o.taxGroup ? S.tax_groups.find(g=>g.id===o.taxGroup)?.name : "", o.costingMethod||"ingredients", o.cost, o.calories, o.active===false?"No":"Yes"])); }); return out; },
+      os.forEach(o => out.push([m.name, m.reference, m.nameAr, o.sku, o.name, o.nameAr, o.price, o.taxGroup ? S.tax_groups.find(g=>g.id===o.taxGroup)?.name : "", o.costingMethod||"ingredients", o.cost, o.active===false?"No":"Yes"])); }); return out; },
     build: async (x, ctx) => {
       const mname = x.modifier || x["modifier name"]; if(!mname) return { err:"modifier name is required" };
       let m = (x["modifier reference"] && S.modifiers.find(r => live(r) && (r.reference||"").toLowerCase()===x["modifier reference"].toLowerCase())) || byName(S.modifiers, mname) || ctx.mods[mname.toLowerCase()];
@@ -2351,7 +2351,7 @@ const IMPEX = {
       if(x.price!=="" && x.price!=null) d.price = numOr(x.price, 0);
       if(x["tax group"]){ const g = tgByName(x["tax group"]); if(!g) return { err:`tax group "${x["tax group"]}" not found` }; d.taxGroup = g.id; }
       if(x["costing method"]) d.costingMethod = /fix/i.test(x["costing method"]) ? "fixed" : "ingredients";
-      [["cost","cost"],["calories","calories"]].forEach(([h,k]) => { if(x[h]!=="" && x[h]!=null) d[k] = numOr(x[h], null); });
+      [["cost","cost"]].forEach(([h,k]) => { if(x[h]!=="" && x[h]!=null) d[k] = numOr(x[h], null); });
       if(x.active!=="" && x.active!=null) d.active = yes(x.active);
       if(!ex){ d.sku = x["option sku"] || nextSku("modifier_options", ctx.skus); ctx.skus.push(d.sku); if(d.active==null) d.active = true; if(d.price==null) d.price = 0; if(!d.taxGroup && S.tax_groups.some(g=>g.id==="tg_vat"&&live(g))) d.taxGroup = "tg_vat"; d.sort = 999; }
       else if(x["option sku"]) d.sku = x["option sku"];
@@ -4276,7 +4276,7 @@ function productDetail(p){
     info("Pricing Method", p.pricingMethod==="open"?"Open Price":"Fixed Price"), info("Selling Method", p.sellingMethod==="weight"?"Weight":"Unit"),
     info("Costing Method", p.costingMethod==="fixed"?"Fixed Cost":"From Ingredients"), info("Preparation Time", p.prepTime ? esc(p.prepTime)+" min" : "—"),
     info("Price", varKids(p).length ? "Set on each variant" : p.pricingMethod==="open" ? "Open" : usd(price)), info(p.costingMethod==="fixed"?"Fixed Cost":"Ingredients Cost", fmtCost(cost)),
-    info("Cost %", price ? `<span style="${pct>40?"color:var(--accent-ink);font-weight:600":""}">${pct.toFixed(1)} %</span>` : "—"), info("Calories", p.calories ? esc(p.calories)+" kCal" : "—")]);
+    info("Cost %", price ? `<span style="${pct>40?"color:var(--accent-ink);font-weight:600":""}">${pct.toFixed(1)} %</span>` : "—")]);
   if((p.imageUrl && !varParent(p.id)) || p.description) h += `<div class="card" style="margin-bottom:16px;display:flex;gap:16px;align-items:flex-start">${p.imageUrl && !varParent(p.id)?`<img src="${esc(p.imageUrl)}" alt="" style="width:160px;height:160px;object-fit:cover;border-radius:12px">`:""}<div>${p.description?`<div class="note">Description</div>${esc(p.description)}`:'<span class="note">No description</span>'}</div></div>`;
   h += variantCard(p);
   // a product with variants isn't sold itself: each variant product has its own recipe
@@ -4581,7 +4581,7 @@ function optionDetail(o){
     info("Modifier", o.modifierId ? `<a href="#modifiers" class="lnk" data-detopen="modifiers:${esc(o.modifierId)}">${esc(modName(o.modifierId))}</a>` : "—"),
     info("SKU", `<span class="code">${esc(o.sku||"—")}</span>`), info("Price", price ? usd(price) : "Free"), info("Tax Group", esc(tgName(o.taxGroup))),
     info("Costing Method", o.costingMethod==="fixed"?"Fixed Cost":"From Ingredients"), info(o.costingMethod==="fixed"?"Fixed Cost":"Ingredients Cost", fmtCost(cost)),
-    info("Cost %", price && cost ? (cost/price*100).toFixed(1)+" %" : "—"), info("Calories", o.calories ? esc(o.calories)+" kCal" : "—")]);
+    info("Cost %", price && cost ? (cost/price*100).toFixed(1)+" %" : "—")]);
   h += ingEditor("modifier-options", o);
   return h;
 }
