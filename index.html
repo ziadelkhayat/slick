@@ -657,6 +657,9 @@ h1:has(.ib),h3:has(.ib){display:inline-flex;align-items:center}
 .ccseg{display:flex;gap:8px}.ccseg button{flex:1;padding:10px;border:1px solid var(--line);border-radius:10px;background:#fff;font:inherit;font-weight:600;cursor:pointer}.ccseg button.on{border-color:var(--accent);background:#f5f1ff;color:var(--accent-ink)}
 .ccdin{width:100%;box-sizing:border-box;margin-top:12px;font-size:22px!important;font-weight:700;text-align:right;padding:12px 14px!important;border-radius:12px!important}
 .slk-ask-yes:disabled{opacity:.45;cursor:default}
+.bizh{font-size:17px;font-weight:600;margin:22px 0 10px}.bizh:first-of-type{margin-top:6px}
+.bizcard{padding:22px 24px!important;margin-bottom:6px}.bizgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px 28px}.bizgrid .f{margin:0}.bizgrid .f.full{grid-column:1/-1}
+.bizgrid .tip{color:#8e8e93;font-size:12px;cursor:help}.bizn{margin:14px 0 0}@media(max-width:760px){.bizgrid{grid-template-columns:1fr}}
 </style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -4197,22 +4200,40 @@ function paintCompany(){
   document.title = "Slick – Back Office";
   if(typeof paintAcct === "function" && $("#who")) paintAcct();
 }
+const BIZ_CATS = { "F&B": ["Food QSR","Casual Dining","Fine Dining","Cafe","Bakery & Pastry","Cloud Kitchen","Bar & Lounge","Catering","Food Truck"], "Retail": ["Grocery","Butcher","Supermarket","Other retail"], "Services": ["Salon & Spa","Laundry","Other services"] };
 function viewCompany(){
-  const c = company(), admin = !state.role || state.role==="owner" || state.role==="admin";
-  const f = (k, l, ph, type, full) => `<div class="f${full?" full":""}"><label for="co_${k}">${l}</label><input id="co_${k}" class="sel" ${type?`type="${type}"`:""} value="${esc(c[k]||"")}" placeholder="${esc(ph||"")}" ${admin?"":"disabled"}></div>`;
+  const c = company(), admin = !state.role || state.role==="owner" || state.role==="admin", dis = admin ? "" : "disabled", lk = bizLocked();
+  const f = (k, l, opt = {}) => `<div class="f${opt.full?" full":""}"><label for="co_${k}">${l}${opt.tip ? ` <span class="tip" title="${esc(opt.tip)}">ⓘ</span>` : ""}</label><input id="co_${k}" class="sel" ${opt.type?`type="${opt.type}"`:""} value="${esc(c[k]||"")}" ${dis}></div>`;
+  const cat = c.bizCategory || "F&B", subs = BIZ_CATS[cat] || [];
+  const ph = ccSplit(c.ownerPhone);
   return `<div class="phead"><h1>Business</h1><div class="sp"></div>${admin?`<button class="btn pri" id="coSave">Save changes</button>`:""}</div><!--tabs-->
     ${admin?"":`<div class="banner">Only the owner or an admin can change business details.</div>`}
-    <div class="card"><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px">
-        <div class="f"><label>Account number</label><input class="sel" value="${esc(c.accountNo || "—")}" disabled title="Your business account number, given by Slick. Used on the sign-in page for every brand in this business."></div>
-        ${f("name","Business name *")}${f("taxNumber","Tax (VAT) number")}
-        ${f("phone","Phone")}${f("email","Email","","email")}
-        <div class="f"><label for="co_country">Country</label><select id="co_country" class="sel" ${admin && !bizLocked() ? "" : "disabled"} ${bizLocked() ? `title="${LOCK_NOTE}"` : ""}>${CC_CODES.map(([d,n])=>`<option value="${esc(n)}" ${(c.country||"Lebanon")===n?"selected":""}>${esc(n)}</option>`).join("")}</select></div>
-        <div class="f"><label for="co_bcur">Currency</label><select id="co_bcur" class="sel" ${admin && !bizLocked() ? "" : "disabled"} ${bizLocked() ? `title="${LOCK_NOTE}"` : ""}>${CURRENCIES.map(([k,t])=>`<option value="${k}" ${(c.currency||COUNTRY_CUR[c.country||"Lebanon"]||"USD")===k?"selected":""}>${t}</option>`).join("")}</select></div>
-        <div class="f"><label for="co_timeZone">Time zone</label><select id="co_timeZone" class="sel" ${admin?"":"disabled"}>${tzList().map(([z,off])=>`<option value="${z}" ${(c.timeZone||"Asia/Beirut")===z?"selected":""}>(UTC${off}) ${z.replace(/_/g," ")}</option>`).join("")}</select></div>
-        ${f("logoUrl","Logo image link","https://…","url")}
-        ${f("address","Address","","",1)}
-      </div>${bizLocked() ? `<p class="note" style="margin:10px 0 0">Country and currency were set when the business was created and can't be changed.</p>` : `<p class="note" style="margin:10px 0 0">Pick the country and currency carefully: once you save, they can't be changed.</p>`}<div class="err" id="coErr"></div></div>`;
+    <h3 class="bizh">General</h3>
+    <div class="card bizcard"><div class="bizgrid">
+      ${f("name","Business name *",{tip:"The legal or trading name of the business that owns every brand and branch."})}
+      <div class="f"><label>Account number</label><input class="sel" value="${esc(c.accountNo || "—")}" disabled title="Your business account number, given by Slick. Used on the sign-in page for every brand in this business."></div>
+      <div class="f"><label for="co_bizCategory">Business category</label><select id="co_bizCategory" class="sel" ${dis}>${Object.keys(BIZ_CATS).map(k => `<option ${cat===k?"selected":""}>${esc(k)}</option>`).join("")}</select></div>
+      <div class="f"><label for="co_bizSubcategory">Business subcategory</label><select id="co_bizSubcategory" class="sel" ${dis}>${subs.map(k => `<option ${(c.bizSubcategory||subs[0])===k?"selected":""}>${esc(k)}</option>`).join("")}</select></div>
+      ${f("taxName","Tax registration name",{tip:"The name registered with the tax authority, printed on invoices."})}
+      ${f("taxNumber","Tax number",{tip:"The VAT / tax registration number printed on invoices."})}
+      <div class="f"><label for="co_country">Country</label><select id="co_country" class="sel" ${admin && !lk ? "" : "disabled"} ${lk ? `title="${LOCK_NOTE}"` : ""}>${CC_CODES.map(([d,n])=>`<option value="${esc(n)}" ${(c.country||"Lebanon")===n?"selected":""}>${esc(n)}</option>`).join("")}</select></div>
+      <div class="f"><label for="co_bcur">Currency</label><select id="co_bcur" class="sel" ${admin && !lk ? "" : "disabled"} ${lk ? `title="${LOCK_NOTE}"` : ""}>${CURRENCIES.map(([k,t])=>`<option value="${k}" ${(c.currency||COUNTRY_CUR[c.country||"Lebanon"]||"USD")===k?"selected":""}>${t}</option>`).join("")}</select></div>
+    </div>${lk ? `<p class="note bizn">Country and currency were set when the business was created and can't be changed.</p>` : `<p class="note bizn">Pick the country and currency carefully: once you save, they can't be changed.</p>`}</div>
+    <h3 class="bizh">Contacts</h3>
+    <div class="card bizcard"><div class="bizgrid">
+      ${f("email","Primary email",{type:"email"})}
+      ${f("ownerEmail","Owner email",{type:"email"})}
+      <div class="f"><label for="co_ownerPhone">Owner phone number</label><div class="phrow"><select id="co_ownerPhoneCc" class="sel" aria-label="Country code" ${dis}>${CC_CODES.map(([d,n])=>`<option value="${d}" ${d===ph.cc?"selected":""}>${esc(n)} (${d})</option>`).join("")}</select><input id="co_ownerPhone" class="sel" type="tel" inputmode="tel" value="${esc(ph.num)}" ${dis}></div></div>
+      ${f("phone","Business phone",{type:"tel"})}
+      ${f("address","Address",{full:1})}
+    </div></div>
+    <h3 class="bizh">Settings</h3>
+    <div class="card bizcard"><div class="bizgrid">
+      <div class="f"><label for="co_timeZone">Time zone <span class="tip" title="Used for business days, reports and order times.">ⓘ</span></label><select id="co_timeZone" class="sel" ${dis}>${tzList().map(([z,off])=>`<option value="${z}" ${(c.timeZone||"Asia/Beirut")===z?"selected":""}>(UTC${off}) ${z.replace(/_/g," ")}</option>`).join("")}</select></div>
+      ${f("logoUrl","Logo image link",{type:"url"})}
+    </div><div class="err" id="coErr"></div></div>`;
 }
+document.addEventListener("change", e => { if(e.target.id!=="co_bizCategory") return; const sel = $("#co_bizSubcategory"); if(sel) sel.innerHTML = (BIZ_CATS[e.target.value]||[]).map(k => `<option>${esc(k)}</option>`).join(""); });
 function dayExample(v){
   const m = /^(\d{1,2}):(\d{2})/.exec(v||""), c = m ? (+m[1])*60 + (+m[2]) : 0, t = t12(`${Math.floor(c/60)}:${String(c%60).padStart(2,"0")}`);
   if(c > 719) return "Pick a time between 12:00 AM and 11:59 AM.";
@@ -4221,7 +4242,7 @@ function dayExample(v){
 document.addEventListener("input", e => { if(e.target.id==="co_dayEnd" && $("#coDayEx")) $("#coDayEx").textContent = dayExample(e.target.value); });
 async function saveCompany(){
   const v = k => ($("#co_"+k)?.value || "").trim();
-  const data = { name:v("name"), taxNumber:v("taxNumber"), phone:v("phone"), email:v("email"), address:v("address"), logoUrl:v("logoUrl"), timeZone:v("timeZone") || "Asia/Beirut", country: company().country || v("country") || "Lebanon", currency: bizLocked() ? (company().currency || "USD") : (v("bcur") || "USD"), ...(company().accountNo ? { accountNo: company().accountNo } : {}) };
+  const data = { name:v("name"), taxNumber:v("taxNumber"), taxName:v("taxName"), bizCategory:v("bizCategory"), bizSubcategory:v("bizSubcategory"), ownerEmail:v("ownerEmail"), ownerPhone: fullPhone(v("ownerPhone"), v("ownerPhoneCc")), phone:v("phone"), email:v("email"), address:v("address"), logoUrl:v("logoUrl"), timeZone:v("timeZone") || "Asia/Beirut", country: company().country || v("country") || "Lebanon", currency: bizLocked() ? (company().currency || "USD") : (v("bcur") || "USD"), ...(company().accountNo ? { accountNo: company().accountNo } : {}) };
   if(!data.name){ $("#coErr").textContent = "Business name is required."; $("#co_name").focus(); return; }
   try{ await put("settings", "company", data); toast("Business saved"); }
   catch(e){ console.error(e); $("#coErr").textContent = "Couldn't save. Only the owner or an admin can change this."; }
