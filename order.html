@@ -150,8 +150,9 @@ function brHoursToday(b, t){ t = t || new Date(); const H = (b?.settings||{}).ho
 const curBranch = () => mode === "delivery" ? (zones.find(z=>z.id===zoneId)?.branch_id || "") : branchId;
 const chan = () => mode === "delivery" ? "delivery" : mode === "takeaway" ? "takeaway" : "dinein";
 // the web menu's own categories (Sales Channels); older setups use the menu categories
-const inCat = (c, p) => useCh ? (c.product_ids||[]).includes(p.id) : p.category_id===c.id;
-const catOrder = c => (a, b) => useCh ? (c.product_ids||[]).indexOf(a.id) - (c.product_ids||[]).indexOf(b.id) : (a.sort??9999)-(b.sort??9999) || a.name.localeCompare(b.name);
+const chPos = (c, p) => { const ids = c.product_ids||[], k = [p.id, ...(p.variants||[]).map(v => v.productId)].map(x => ids.indexOf(x)).filter(i => i >= 0); return k.length ? Math.min(...k) : -1; };   // a main product is listed when it or one of its variants is
+const inCat = (c, p) => useCh ? chPos(c, p) >= 0 : p.category_id===c.id;
+const catOrder = c => (a, b) => useCh ? chPos(c, a) - chPos(c, b) : (a.sort??9999)-(b.sort??9999) || a.name.localeCompare(b.name);
 const visible = () => products.filter(p => p.active!==false && p.pricing_method!=="open" && (!curBranch() || (!(p.inactive_branch_ids||[]).includes(curBranch()) && !(p.inactive_branch_ids||[]).includes(curBranch() + ":online") && !(p.inactive_branch_ids||[]).includes(curBranch() + ":online:" + (mode==="takeaway" ? "pickup" : mode)) && !(cats.find(c=>c.id===p.category_id)?.inactive_branch_ids||[]).includes(curBranch()) && !(cats.find(c=>c.id===p.category_id)?.inactive_branch_ids||[]).includes(curBranch() + ":online"))));
 const priceOf = p => { const b = curBranch(), cp = p.custom_prices||{}, w = b && cp[b + ":online"], c = b && cp[b];   // the web menu's own price, else the branch price
   return w!=null && w!=="" && w!==false ? +w : c!=null && c!=="" && c!==false ? +c : +p.price; };

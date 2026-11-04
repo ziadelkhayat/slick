@@ -798,12 +798,14 @@ const CAT_ICON = [[/noodle|mein|udon|ramen|pasta|chow/i,"noodles","#d9822b"],[/r
   [/wok|special|chef|signature/i,"wok","#c23b4a"],[/sweet ?& ?sour|spicy|hot|szechuan|sichuan/i,"flame","#e0603a"],[/veg|tofu|salad|green/i,"leaf","#3c9a52"],[/side|fries|extra/i,"fries","#c99a1d"],
   [/dessert|sweet|cake|ice/i,"dessert","#c0508c"],[/drink|beverage|juice|tea|coffee|soda|water/i,"cup","#2f7fc4"],[/combo|meal|box|bundle|deal|family/i,"box","#7a55c9"],[/sauce|dip/i,"sauce","#9a6a3c"],[/bowl/i,"bowl","#c23b4a"]];
 const catStyle = (c, i) => { const m = CAT_ICON.find(([r]) => r.test(c?.name||"")); const hue = c?.color || (m ? m[2] : CAT_HUES[i % CAT_HUES.length]); return { icon: m ? m[1] : "bowl", hue, tint: `color-mix(in srgb, ${hue} 14%, #fff)` }; };
+// a main product is in a channel category when it or one of its variants is listed
+const chPos = (c, p) => { const ids = c.productIds||[], k = [p.id, ...(p.variants||[]).map(v => v.productId)].map(x => ids.indexOf(x)).filter(i => i >= 0); return k.length ? Math.min(...k) : -1; };
 function renderMenu(){
   const kids = kidIds(), prods = products().filter(p => !kids.has(p.id) && (!(p.variants||[]).some(v => v.productId) || kidsOf(p).length));
   // the POS menu's own categories (Sales Channels); older setups without them use the menu categories
-  const chc = S.categories.filter(c => live(c) && c.channel==="pos"), useCh = chc.length > 0, has = (c, p) => useCh ? (c.productIds||[]).includes(p.id) : p.categoryId===c.id;
+  const chc = S.categories.filter(c => live(c) && c.channel==="pos"), useCh = chc.length > 0, has = (c, p) => useCh ? chPos(c, p) >= 0 : p.categoryId===c.id;
   const cats = (useCh ? chc : S.categories.filter(c => live(c) && !c.channel)).filter(c => !(c.inactiveBranchIds||[]).includes(device.branchId) && !(c.inactiveBranchIds||[]).includes(device.branchId + ":pos") && prods.some(p => has(c, p))).sort((a,b)=>(a.sort??999)-(b.sort??999) || a.name.localeCompare(b.name));
-  const inOrder = c => (a, b) => useCh ? (c.productIds||[]).indexOf(a.id) - (c.productIds||[]).indexOf(b.id) : (a.sort??9999)-(b.sort??9999) || a.name.localeCompare(b.name);
+  const inOrder = c => (a, b) => useCh ? chPos(c, a) - chPos(c, b) : (a.sort??9999)-(b.sort??9999) || a.name.localeCompare(b.name);
   if(cat && !cats.some(c=>c.id===cat)) cat = "";
   const q = $("#q").value.trim().toLowerCase();
   const cs = {}; cats.forEach((c,i) => cs[c.id] = catStyle(c, i));
