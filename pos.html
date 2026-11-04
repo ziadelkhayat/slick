@@ -935,12 +935,15 @@ $("#grid").addEventListener("click", e => { const b = e.target.closest("[data-ca
 $("#mcats").addEventListener("click", e => { const b = e.target.closest("[data-cat]"); if(b){ cat = b.dataset.cat; $("#q").value = ""; renderMenu(); $(".rside .menu").scrollTop = 0; b.scrollIntoView({ block:"nearest", inline:"nearest" }); } });
 $("#q").addEventListener("input", renderMenu);
 // options of the product's modifiers that this branch sells, at this branch's price
+// the product's own settings for an option (Sales Channels): off per "branch:channel", price per "branch:channel", out of stock per branch
+const linkOpt = (p, o) => ((p.modifiers||[]).find(l => l.modifierId===o.modifierId)?.opts || {})[o.id] || {};
 function modData(p){
   const groups = {}; S.modifiers.forEach(m => { if(!m.deleted) groups[m.id] = { name:m.name, sort:m.sort }; });
   const ids = new Set((p.modifiers||[]).map(l=>l.modifierId));
   const options = S.modifier_options.filter(o => !o.deleted && o.active!==false && ids.has(o.modifierId) && !(o.inactiveBranchIds||[]).includes(device.branchId) && !(o.inactiveBranchIds||[]).includes(device.branchId + ":pos") && !(o.inactiveBranchIds||[]).includes(device.branchId + ":pos:" + menuType()))
     .sort((a,b)=>(a.sort??999)-(b.sort??999) || a.name.localeCompare(b.name))
-    .map(o => { const c = (o.customPrices||{})[device.branchId]; return { id:o.id, modifierId:o.modifierId, name:o.name, price: c!=null && c!=="" ? +c : +o.price||0, oos:(o.outOfStockBranchIds||[]).includes(device.branchId) }; });
+    .filter(o => !(linkOpt(p, o).off||[]).includes(device.branchId + ":pos"))
+    .map(o => { const s = linkOpt(p, o), sp = (s.price||{})[device.branchId + ":pos"], c = sp!=null && sp!=="" ? sp : (o.customPrices||{})[device.branchId]; return { id:o.id, modifierId:o.modifierId, name:o.name, price: c!=null && c!=="" ? +c : +o.price||0, oos:(o.outOfStockBranchIds||[]).includes(device.branchId) || (s.oos||[]).includes(device.branchId) }; });
   return { links:(p.modifiers||[]).filter(l => groups[l.modifierId]), groups, options };   // in the order set on the product
 }
 // out of stock at this branch (set in Sales Channels); a product with variants is out when every variant is

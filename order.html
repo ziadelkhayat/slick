@@ -232,11 +232,14 @@ function renderMenu(){
 function render(){ renderWhere(); renderMenu(); }
 function zoneInfo(){ const z = zones.find(x=>x.id===zoneId); return `<div class="info ok2">✓ Delivered by <b>${esc(branches.find(b=>b.id===z.branch_id)?.name||"")}</b> · Delivery ${usd(z.fee)}${z.min_order?` · Minimum ${usd(z.min_order)}`:""}${z.eta?` · About ${z.eta} min`:""}</div>`; }
 // the product's modifier options this branch sells, at this branch's price
+// the product's own settings for an option (Sales Channels)
+const linkOpt = (p, o) => ((p.modifiers||[]).find(l => l.modifierId===o.modifier_id)?.opts || {})[o.id] || {};
 function modData(p){
   const ids = new Set((p.modifiers||[]).map(l=>l.modifierId)), b = curBranch();
   const options = mopts.filter(o => ids.has(o.modifier_id) && !(b && ((o.inactive_branch_ids||[]).includes(b) || (o.inactive_branch_ids||[]).includes(b + ":online") || (o.inactive_branch_ids||[]).includes(b + ":online:" + (mode==="takeaway" ? "pickup" : mode)))) && !(b && (o.out_of_stock_branch_ids||[]).includes(b)))
     .sort((x,y)=>(x.sort??999)-(y.sort??999) || x.name.localeCompare(y.name))
-    .map(o => { const c = b && ((o.custom_prices||{})[b + ":online"] ?? (o.custom_prices||{})[b]); return { id:o.id, modifierId:o.modifier_id, name:o.name, price: c!=null && c!=="" && c!==false ? +c : +o.price||0 }; });
+    .filter(o => { const s = linkOpt(p, o); return !(b && ((s.off||[]).includes(b + ":online") || (s.oos||[]).includes(b))); })
+    .map(o => { const s = linkOpt(p, o), sp = b && (s.price||{})[b + ":online"], c = sp!=null && sp!=="" && sp!==false ? sp : b && ((o.custom_prices||{})[b + ":online"] ?? (o.custom_prices||{})[b]); return { id:o.id, modifierId:o.modifier_id, name:o.name, price: c!=null && c!=="" && c!==false ? +c : +o.price||0 }; });
   return { links:(p.modifiers||[]).filter(l => mgroups[l.modifierId]), groups:mgroups, options };
 }
 const hasMods = p => (p.modifiers||[]).some(l => mgroups[l.modifierId]);

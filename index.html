@@ -582,7 +582,7 @@ h1:has(.ib),h3:has(.ib){display:inline-flex;align-items:center}
 .mmmain{padding:16px 20px;min-width:0}.mmbar{display:flex;gap:12px;margin-bottom:14px}.mmbar .search{flex:1}.mmtbl{border:.8px solid #e5e5ea;border-radius:12px;overflow:hidden}
 .mmth,.mmrow{display:grid;grid-template-columns:56px minmax(160px,1.4fr) 150px minmax(0,2fr) 120px 40px;gap:12px;align-items:center;padding:10px 14px}.mmth{background:#fafafc;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.03em;color:#3a3a3c}
 .mmrow{border-top:.8px solid #f0f0f3}.mmrow.chg{background:#fbf9ff}.mmrow.off .mmname{color:#8e8e93}.mmname{display:flex;align-items:center;gap:10px;font-size:14px;min-width:0}.mmimg{width:40px;height:40px;border-radius:8px;border:1.5px dashed #cdb8ec;background:#faf7fe;display:grid;place-items:center;overflow:hidden;color:#a58bd0}.mmimg img{width:100%;height:100%;object-fit:cover}.mmimg svg{width:18px;height:18px}
-.mmrow .scprice input{width:84px}.mmrow>.scstock,.mmrow>.ddwrap{justify-self:start}.mmbar .btn{white-space:nowrap}
+.mmrow .scprice input,.mmorow .scprice input{width:84px}.mmpn{display:flex;flex-direction:column;align-items:flex-start;gap:2px}.mmmods{border:0;background:none;padding:0;font:inherit;font-size:12px;color:var(--accent);cursor:pointer}.mmsub{background:#fbfafd;border-top:.8px solid #f0f0f3;padding:4px 0 8px}.mmsg{padding:8px 14px 4px 82px;font-size:12px;font-weight:600;color:#636366;text-transform:uppercase;letter-spacing:.03em}.mmorow{display:grid;grid-template-columns:56px minmax(160px,1.4fr) 150px minmax(0,2fr) 120px 40px;gap:12px;align-items:center;padding:6px 14px;font-size:13px}.mmorow .mmname{font-size:13px}.mmorow.off .mmname{color:#8e8e93}.mmorow.chg{background:#f6f1fd}.mmrow>.scstock,.mmrow>.ddwrap,.mmorow>.scstock{justify-self:start}.mmbar .btn{white-space:nowrap}
 @media(max-width:1100px){.mm{grid-template-columns:1fr}.mmside{border-right:0;border-bottom:.8px solid #e5e5ea}.mmth{display:none}.mmrow{grid-template-columns:48px 1fr;}.mmrow>.scprice,.mmrow>.sctypes,.mmrow>.scstock,.mmrow>.ddwrap{grid-column:2}}
 .scadd{display:flex;align-items:center;gap:12px;padding:12px 10px}.scimg{width:34px;height:34px;border-radius:6px;background:#f2f2f7;overflow:hidden;flex:none}.scimg img{width:100%;height:100%;object-fit:cover}.scacts{display:flex;gap:6px}.scrm{width:28px;height:28px;font-size:16px;color:#8e8e93}
 .bkc{width:44px}.bkbar{text-align:left}.bkbar b{margin-right:16px}.bkbar .ddmenu{left:0;right:auto}
@@ -3034,6 +3034,14 @@ const chList = (ia, b, off) => { const rest = (ia||[]).filter(x => x!==b && !x.s
 const bmMenu = () => BM_MENUS.find(m => m[0]===BM.menu) || BM_MENUS[0];
 const bmPriceKey = (b, ch) => { ch = ch || bmMenu()[0]; return ch==="pos" ? b : b + ":" + ch; };
 const bmTypes = () => OTYPES.filter(([t]) => CH_TYPES[bmMenu()[0]].includes(t));
+// a product's own settings for each of its modifier options, kept on its modifier links: opts[optionId] = { off:["branch:channel"], price:{ "branch:channel": n }, oos:["branch"] }
+const bmLinks = p => (p.modifiers||[]).filter(l => S.modifiers.some(m => m.id===l.modifierId && live(m)));
+const linkOpt = (p, o) => ((p.modifiers||[]).find(l => l.modifierId===o.modifierId)?.opts || {})[o.id] || {};
+function bmOptState(p, o){
+  const b = BM.branch, k = b + ":" + bmMenu()[2][0], s = linkOpt(p, o), d = { ...(BM.saving?.["mo:"+p.id+"|"+o.id]||{}), ...(BM.draft["mo:"+p.id+"|"+o.id]||{}) };
+  const pr = (s.price||{})[k];
+  return { on: d.on ?? !(s.off||[]).includes(k), price: d.price ?? (pr!=null && pr!=="" ? String(pr) : ""), stock: d.stock ?? !(s.oos||[]).includes(b) };
+}
 function bmState(r){
   const b = BM.branch, d = { ...(BM.saving?.[r.id]||{}), ...(BM.draft[r.id]||{}) }, ia = r.inactiveBranchIds||[], inB = !r.branchIds?.length || r.branchIds.includes(b);
   const ch0 = bmMenu()[2][0], types = Object.fromEntries(bmTypes().map(([t]) => [t, d["t_"+t] ?? (inB && !typeOff(ia, b, ch0, t))]));
@@ -3044,6 +3052,7 @@ function bmState(r){
   return { on, types, stock, price, fallback };
 }
 function viewBranchMenu(){
+  BM.kind = "products";   // modifier options are set under each product
   const list = branches.filter(b=>b.active!==false && brandFilter(b));
   if(!list.some(b=>b.id===BM.branch)) BM.branch = (state.branch!=="all" && list.some(b=>b.id===state.branch)) ? state.branch : list[0]?.id || "";
   const br = branches.find(b=>b.id===BM.branch), ch = bmMenu(), types = bmTypes();
@@ -3056,7 +3065,7 @@ function viewBranchMenu(){
   const others = [...BM_MENUS.filter(m => m[0]!==ch[0]).map(m => [m[0] + "|" + br.id, `${m[1]} at ${br.name}`]), ...list.filter(b => b.id!==br.id).map(b => [ch[0] + "|" + b.id, `${ch[1]} at ${b.name}`])];
   h += `<div class="card tbl"><div class="ttop scbar">
       <select class="sel" id="bmBranch" aria-label="Branch">${list.map(b=>`<option value="${esc(b.id)}" ${b.id===BM.branch?"selected":""}>${brandList().length>1?esc(brandName(b.brandId))+" · ":""}${esc(b.name)}</option>`).join("")}</select>
-      <div class="ttabs"><a href="#branch-menu" data-bmkind="products" class="${BM.kind==="products"?"on":""}">Products</a><a href="#branch-menu" data-bmkind="options" class="${BM.kind==="options"?"on":""}">Modifier Options</a></div>
+      
       <span class="note"><b>${onN}</b> of ${all.length} on the ${esc(ch[1])} menu</span><div class="sp"></div>
       ${BM.kind==="options" ? `<input class="sel search" id="bmQ" placeholder="Search" value="${esc(BM.q)}" aria-label="Search">` : ""}
       <div class="ddwrap"><button type="button" class="btn" id="bmMore">Actions ▾</button><div class="ddmenu" id="bmMoreM" hidden>
@@ -3081,11 +3090,15 @@ function viewBranchMenu(){
     rows.forEach(r => { const st = bmState(r);
       h += `<div class="mmrow${st.on?"":" off"}${BM.draft[r.id]?" chg":""}"${q ? "" : ` draggable="true" data-bmdrag="p:${esc(r.id)}" data-bmcatof="${esc(cur.id)}"`}>
         <span class="mmimg">${r.imageUrl ? `<img src="${esc(r.imageUrl)}" alt="">` : svgIco("image")}</span>
-        <span class="mmname"><label class="toggle" title="On the ${esc(ch[1])} menu"><input type="checkbox" data-bmon="${esc(r.id)}" ${st.on?"checked":""} aria-label="${esc(r.name)} on the ${esc(ch[1])} menu"><span class="trk"></span></label>${esc(r.name)}</span>
+        <span class="mmname"><label class="toggle" title="On the ${esc(ch[1])} menu"><input type="checkbox" data-bmon="${esc(r.id)}" ${st.on?"checked":""} aria-label="${esc(r.name)} on the ${esc(ch[1])} menu"><span class="trk"></span></label><span class="mmpn">${esc(r.name)}${bmLinks(r).length ? `<button type="button" class="mmmods" data-bmmods="${esc(r.id)}">${BM.mopen?.has(r.id) ? "▾" : "▸"} Modifiers (${bmLinks(r).length})</button>` : ""}</span></span>
         <span class="scprice"><input type="number" min="0" step="any" class="sel" data-bmprice="${esc(r.id)}" value="${esc(st.price)}" placeholder="${esc(String(st.fallback))}" aria-label="Price of ${esc(r.name)}"><span class="note">USD</span></span>
         <span class="sctypes">${types.map(([t,tl]) => `<label class="scchip${st.types[t]?" on":""}"><input type="checkbox" data-bmtype="${esc(r.id)}|${t}" ${st.types[t]?"checked":""}>${tl}</label>`).join("")}</span>
         <label class="scchip scstock${st.stock?" on":" oos"}" title="In stock at ${esc(br.name)} (all channels)"><input type="checkbox" data-bmstock="${esc(r.id)}" ${st.stock?"checked":""} ${st.on?"":"disabled"}>${st.stock ? "In stock" : "Out of stock"}</label>
-        <div class="ddwrap"><button type="button" class="mmdots" data-bmcmenu="p" aria-label="Product actions">⋯</button><div class="ddmenu" hidden><button type="button" class="danger" data-bmrm="${esc(cur.id)}|${esc(r.id)}">Remove from category</button></div></div></div>`; });
+        <div class="ddwrap"><button type="button" class="mmdots" data-bmcmenu="p" aria-label="Product actions">⋯</button><div class="ddmenu" hidden><button type="button" class="danger" data-bmrm="${esc(cur.id)}|${esc(r.id)}">Remove from category</button></div></div></div>`;
+      if(BM.mopen?.has(r.id)) h += `<div class="mmsub">${bmLinks(r).map(l => `<div class="mmsg">${esc(modName(l.modifierId))}</div>` + modOptions(l.modifierId).filter(o => o.active!==false).map(o => { const os = bmOptState(r, o);
+        return `<div class="mmorow${os.on?"":" off"}${BM.draft["mo:"+r.id+"|"+o.id]?" chg":""}"><span></span><span class="mmname"><label class="toggle" title="On the ${esc(ch[1])} menu for ${esc(r.name)}"><input type="checkbox" data-bmoon="${esc(r.id)}|${esc(o.id)}" ${os.on?"checked":""} aria-label="${esc(o.name)} with ${esc(r.name)}"><span class="trk"></span></label>${esc(o.name)}</span>
+          <span class="scprice"><input type="number" min="0" step="any" class="sel" data-bmoprice="${esc(r.id)}|${esc(o.id)}" value="${esc(os.price)}" placeholder="${esc(String(+o.price||0))}" aria-label="Price of ${esc(o.name)} with ${esc(r.name)}"><span class="note">USD</span></span><span></span>
+          <label class="scchip scstock${os.stock?" on":" oos"}"><input type="checkbox" data-bmostock="${esc(r.id)}|${esc(o.id)}" ${os.stock?"checked":""} ${os.on?"":"disabled"}>${os.stock ? "In stock" : "Out of stock"}</label><span></span></div>`; }).join("")).join("")}</div>`; });
     return h + `</div></section></div></div>`;
   }
   BM.open ||= new Set();
@@ -3251,6 +3264,14 @@ async function saveBranchMenu(){
   bmStat("Saving…");
   try{
     for(const [id, d] of Object.entries(work)){
+      if(id.startsWith("mo:")){ const [pid, oid] = id.slice(3).split("|"), r = S.products.find(x => x.id===pid), o = S.modifier_options.find(x => x.id===oid); if(!r || !o) continue;
+        const mods = JSON.parse(JSON.stringify(r.modifiers||[])), l = mods.find(x => x.modifierId===o.modifierId); if(!l) continue;
+        const s = (l.opts ||= {})[oid] ||= {};
+        mchs.forEach(c => { const k = b + ":" + c;
+          if(d.on!=null){ const off = new Set(s.off||[]); d.on ? off.delete(k) : off.add(k); s.off = [...off]; }
+          if(d.price!=null){ s.price ||= {}; if(d.price==="") delete s.price[k]; else s.price[k] = +d.price; } });
+        if(d.stock!=null){ const os = new Set(s.oos||[]); d.stock ? os.delete(b) : os.add(b); s.oos = [...os]; }
+        await put("products", pid, { modifiers:mods }); r.modifiers = mods; continue; }
       if(id.startsWith("cat:")){ const c = S.categories.find(x=>x.id===id.slice(4)); if(!c) continue;
         const off = offSetOf(c.inactiveBranchIds, b); mchs.forEach(x => d.on ? off.delete(x) : off.add(x)); const next = chList(c.inactiveBranchIds, b, off);
         if(JSON.stringify(next) !== JSON.stringify(c.inactiveBranchIds||[])){ await put("categories", c.id, { inactiveBranchIds:next }); c.inactiveBranchIds = next; } continue; }
@@ -3278,6 +3299,9 @@ $("#view").addEventListener("change", e => {
   if(t.dataset.bmon){ const id = t.dataset.bmon; bmTypes().forEach(([ty]) => bmSet(id, "t_"+ty, t.checked)); render(); return bmAuto(); }
   if(t.dataset.bmtype){ const [id, ty] = t.dataset.bmtype.split("|"); bmSet(id, "t_"+ty, t.checked); render(); return bmAuto(); }
   if(t.dataset.bmcat){ bmSet("cat:"+t.dataset.bmcat, "on", t.checked); render(); return bmAuto(); }
+  if(t.dataset.bmoon){ bmSet("mo:"+t.dataset.bmoon, "on", t.checked); render(); return bmAuto(); }
+  if(t.dataset.bmostock){ bmSet("mo:"+t.dataset.bmostock, "stock", t.checked); render(); return bmAuto(); }
+  if(t.dataset.bmoprice){ bmSet("mo:"+t.dataset.bmoprice, "price", t.value.trim()); render(); return bmAuto(); }
   if(t.dataset.bmstock){ bmSet(t.dataset.bmstock, "stock", t.checked); render(); return bmAuto(); }
   if(t.dataset.bmprice!=null && t.dataset.bmprice){ bmSet(t.dataset.bmprice, "price", t.value.trim()); render(); return bmAuto(); }
 });
@@ -3291,6 +3315,7 @@ $("#view").addEventListener("click", e => {
   const dm = e.target.closest("[data-bmcmenu]"); if(dm){ e.preventDefault(); e.stopPropagation(); const m = dm.nextElementSibling, was = m.hidden; document.querySelectorAll(".mm .ddmenu").forEach(x => x.hidden = true); m.hidden = !was; return; }
   if(!e.target.closest(".mm .ddmenu")) document.querySelectorAll(".mm .ddmenu").forEach(x => x.hidden = true);
   const pk = e.target.closest("[data-bmpick]"); if(pk && !e.target.closest(".toggle,[data-bmcedit],[data-bmcdel]")){ e.preventDefault(); if(BM.cat !== pk.dataset.bmpick){ BM.cat = pk.dataset.bmpick; BM.q = ""; render(); } return; }
+  const mo = e.target.closest("[data-bmmods]"); if(mo){ e.preventDefault(); BM.mopen ||= new Set(); const id = mo.dataset.bmmods; BM.mopen.has(id) ? BM.mopen.delete(id) : BM.mopen.add(id); return render(); }
   const ex = e.target.closest("[data-bmexp]"); if(ex){ e.preventDefault(); const g = ex.dataset.bmexp; BM.open ||= new Set(); BM.open.has(g) ? BM.open.delete(g) : BM.open.add(g); return render(); }
   if(e.target.closest("[data-bmnewcat]")){ e.preventDefault(); openCrud("chcat"); return; }
   const ce = e.target.closest("[data-bmcedit]"); if(ce){ e.preventDefault(); openCrud("chcat", ce.dataset.bmcedit); return; }
@@ -4556,7 +4581,7 @@ document.addEventListener("pointerdown", e => {
   document.addEventListener("pointermove", move); document.addEventListener("pointerup", up);
 });
 async function saveModLinks(){
-  const list = DET.mods.map(l => ({ modifierId:l.modifierId, min: Math.max(0, parseInt(l.min)||0), max: Math.max(0, parseInt(l.max)||0), free: Math.max(0, parseInt(l.free)||0), ...(l.multi ? { multi:true } : {}) }));
+  const list = DET.mods.map(l => ({ modifierId:l.modifierId, min: Math.max(0, parseInt(l.min)||0), max: Math.max(0, parseInt(l.max)||0), free: Math.max(0, parseInt(l.free)||0), ...(l.multi ? { multi:true } : {}), ...(l.opts ? { opts:l.opts } : {}) }));   // opts: per-channel option settings from Sales Channels
   const bad = list.find(l => l.max && l.min > l.max); if(bad){ toast(`${modName(bad.modifierId)}: minimum can't be more than maximum`); return; }
   DET.saving = true; render();
   try{ await put("products", DET.id, { modifiers: list }); DET.mods = list; DET.dirtyMods = false; toast("Modifiers saved"); }
@@ -4583,7 +4608,8 @@ function ccModData(p){
   const ids = new Set((p.modifiers||[]).map(l=>l.modifierId));
   const options = S.modifier_options.filter(o => live(o) && o.active!==false && ids.has(o.modifierId) && !offAt(o.inactiveBranchIds, b, "callcenter") && !(($("#oType .on")?.dataset.ot) && typeOff(o.inactiveBranchIds, b, "callcenter", $("#oType .on").dataset.ot)))
     .sort((x,y)=>(x.sort??999)-(y.sort??999) || x.name.localeCompare(y.name))
-    .map(o => { const c = b && ((o.customPrices||{})[b + ":callcenter"] ?? (o.customPrices||{})[b]); return { id:o.id, modifierId:o.modifierId, name:o.name, price: c!=null && c!=="" ? +c : +o.price||0, oos: !!b && (o.outOfStockBranchIds||[]).includes(b) }; });
+    .filter(o => !(linkOpt(p, o).off||[]).includes(b + ":callcenter"))
+    .map(o => { const s = linkOpt(p, o), sp = (s.price||{})[b + ":callcenter"], c = sp!=null && sp!=="" ? sp : b && ((o.customPrices||{})[b + ":callcenter"] ?? (o.customPrices||{})[b]); return { id:o.id, modifierId:o.modifierId, name:o.name, price: c!=null && c!=="" ? +c : +o.price||0, oos: !!b && ((o.outOfStockBranchIds||[]).includes(b) || (s.oos||[]).includes(b)) }; });
   return { links:(p.modifiers||[]).filter(l=>groups[l.modifierId]), groups, options };
 }
 // edit a line already in the cart: its options, quantity and note
