@@ -616,6 +616,7 @@ h1:has(.ib),h3:has(.ib){display:inline-flex;align-items:center}
 
 /* table cells stay on one line; wide tables scroll sideways */
 .tbl table th,.tbl table td{white-space:nowrap}.tbl table td.wrap,.tbl table td .note{white-space:normal}
+.phrow{display:flex;gap:8px}.phrow select{flex:0 1 210px;max-width:45%;min-width:0}.phrow input{flex:1;min-width:0}
 </style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -2658,7 +2659,7 @@ function openOrder(id){
     <div class="cc1">
      <div class="cc1a">
       <h4>Customer</h4>
-      <div class="f"><label for="oPhone">Phone *</label><input id="oPhone" class="big" value="${esc(o?.phone||"")}" ${ldis} placeholder="Search by phone: +961 …" autocomplete="off" inputmode="tel"></div>
+      <div class="f"><label for="oPhone">Phone *</label>${(() => { const sp = ccSplit(o?.phone); return `<div class="phrow"><select id="oCc" class="sel big" ${ldis} aria-label="Country code">${CC_CODES.map(([d,n])=>`<option value="${d}" ${d===sp.cc?"selected":""}>${esc(n)} (${d})</option>`).join("")}</select><input id="oPhone" class="big" value="${esc(sp.num)}" ${ldis} placeholder="Search by phone" autocomplete="off" inputmode="tel"></div>`; })()}</div>
       <div class="f"><label for="oName">Name *</label><input id="oName" value="${esc(o?.customerName||"")}" ${ldis} placeholder="Customer name"></div>
       <div id="oInsights"></div>
      </div>
@@ -2721,7 +2722,7 @@ function ccSide(){
   const el = $("#oSide"); if(!el) return;
   const type = $("#oType .on")?.dataset.ot || "", c = window.__ccCust, a = addrSplit(addrJoin(ccAddrGet()));
   const bits = [type ? ordTypeLbl(type) : "", branchName($("#oBranch").value), type==="delivery" ? (a.label ? a.label + ": " : "") + [a.street, a.building && "Bldg " + a.building, a.floor && "Floor " + a.floor].filter(Boolean).join(", ") : ""].filter(Boolean);
-  el.innerHTML = `<b>${esc($("#oName").value.trim() || "New customer")}</b><span class="note">${esc($("#oPhone").value.trim())}</span>${c?.blacklisted ? `<span class="tag" style="background:#fde8eb;color:#9e0c24">⚠ Blacklisted</span>` : ""}
+  el.innerHTML = `<b>${esc($("#oName").value.trim() || "New customer")}</b><span class="note">${esc(ccPhone())}</span>${c?.blacklisted ? `<span class="tag" style="background:#fde8eb;color:#9e0c24">⚠ Blacklisted</span>` : ""}
     ${bits.map(x => `<span class="dot">·</span><span class="cs-b" title="${esc(x)}">${esc(x)}</span>`).join("")}`;
 }
 function ccAddrCards(){
@@ -2850,7 +2851,7 @@ function renderCart(ro){
 async function saveOrder(status){
   const o = ccEdit ? S.orders.find(x=>x.id===ccEdit) : null;
   if(status==="keep") status = o?.status || "draft";
-  const phone = $("#oPhone").value.trim(), name = $("#oName").value.trim(), branchId = $("#oBranch").value;
+  const phone = ccPhone(), name = $("#oName").value.trim(), branchId = $("#oBranch").value;
   if(!phone){ $("#oErr").textContent = "Customer phone is required."; $("#oPhone").focus(); return; }
   if(!name){ $("#oErr").textContent = "Customer name is required."; $("#oName").focus(); return; }
   const type = $("#oType .on")?.dataset.ot || "", brandId = $("#oBrand").value, sent = status!=="draft", addr = ccAddrGet();
@@ -3695,6 +3696,10 @@ const CUS = { filter:"all", q:"", sort:"last", page:1, per:50, rows:[], all:null
 const CUS_TABS = [["all","All"],["repeat","Repeat"],["new","New (30 days)"],["inactive","Inactive (60+ days)"],["blacklisted","Blacklisted"]];
 const CUS_FLT = [["name","Name","text"],["phone","Phone","text"],["email","Email","text"],["tag","Tag","text"],["hasOrders","Has Orders","yn"],["black","Blacklisted","yn"],["updated","Updated After","date"]];
 const normPhone = p => String(p||"").replace(/[^0-9+]/g, "");
+// call center phone: country code (defaults to the business's country) + number
+const ccDefault = () => (CC_CODES.find(([d,n]) => n===(company().country||"Lebanon")) || CC_CODES[0])[0];
+function ccSplit(v){ const t = String(v||"").trim(); if(t.startsWith("+")){ const d = t.replace(/[^\d+]/g, ""), m = CC_CODES.map(x=>x[0]).sort((a,b)=>b.length-a.length).find(c => d.startsWith(c)); if(m) return { cc: m, num: d.slice(m.length) }; } return { cc: ccDefault(), num: t }; }
+function ccPhone(){ const raw = ($("#oPhone")?.value || "").trim(); if(!raw) return ""; if(raw.startsWith("+")) return normPhone(raw); return ($("#oCc")?.value || ccDefault()) + raw.replace(/\D/g, "").replace(/^0+/, ""); }
 const ago2 = t => { if(!t) return "—"; const d = Math.floor((Date.now()-new Date(t))/86400000); return d<=0 ? "Today" : d===1 ? "Yesterday" : d<31 ? d+" days ago" : new Date(t).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"}); };
 const cusAdv = () => Object.values(CUS.flt).some(v => v);
 function cusMatch(c){
@@ -3892,15 +3897,15 @@ $("#view").addEventListener("click", e => {
 let ccLookT;
 async function ccLookup(view){
   const inp = $("#oPhone"); if(!inp || (inp.disabled && !view)) return;
-  const ph = normPhone(inp.value); let hint = $("#oCustHint");
-  if(!hint){ inp.insertAdjacentHTML("afterend", `<div class="note" id="oCustHint" style="margin-top:4px"></div>`); hint = $("#oCustHint"); }
+  const ph = normPhone(ccPhone()); let hint = $("#oCustHint");
+  if(!hint){ (inp.closest(".phrow") || inp).insertAdjacentHTML("afterend", `<div class="note" id="oCustHint" style="margin-top:4px"></div>`); hint = $("#oCustHint"); }
   if(ph.length < 6){ hint.innerHTML = ""; $("#oInsights").innerHTML = ""; window.__ccCust = null; ccAddrCards(); return; }
   if(storeMode!=="db"){ hint.innerHTML = ""; return; }
   const { data } = await WOK.sb.from("customers").select("id,name,addresses,blacklisted,notes,tags,created_at").eq("phone", ph).maybeSingle();
-  if(normPhone($("#oPhone")?.value) !== ph) return;
+  if(normPhone(ccPhone()) !== ph) return;
   if(!data){ hint.innerHTML = view ? "" : "New customer · enter their name below"; $("#oInsights").innerHTML = ""; window.__ccCust = null; ccAddrCards(); return; }
   const { data: past } = await WOK.sb.from("orders").select("id,ref,no,invoice_no,status,total,items,branch_id,brand_id,type,source,channel,created_at").eq("customer_id", data.id).order("created_at", { ascending:false }).limit(100);
-  if(normPhone($("#oPhone")?.value) !== ph) return;
+  if(normPhone(ccPhone()) !== ph) return;
   if(!view){ if($("#oName") && !$("#oName").value && data.name) $("#oName").value = data.name;
     if($("#oA_street") && !ADDR_K.some(k => $("#oA_"+k)?.value) && data.addresses?.[0]?.address) ccAddrSet(data.addresses[0].address); }
   hint.innerHTML = `${data.blacklisted ? '<b style="color:#9e0c24">⚠ Blacklisted customer.</b> ' : ""}${(data.tags||[]).map(t=>`<span class="tag">${esc(t)}</span>`).join(" ")}${data.notes ? ` <i>${esc(data.notes)}</i>` : ""}`;
@@ -3915,6 +3920,7 @@ async function ccLookup(view){
     ${ok.length ? `<div class="cpast"><b>Previous orders</b>${ok.slice(0,6).map(o => `<div class="cpo"><div><span>${esc(o.ref || ordRef(o))} · ${d(o.created_at)}</span><div class="note">${esc(branchName(o.branch_id))} · ${(o.items||[]).slice(0,3).map(i=>`${i.qty}× ${esc(i.name)}`).join(", ")}${(o.items||[]).length>3?"…":""}</div></div><b>${usd(+o.total||0)}</b>${!view ? `<button type="button" class="btn sm" data-reorder="${esc(o.id)}">Reorder</button>` : ""}</div>`).join("")}</div>` : ""}`;
   if($("#ccX")?.classList.contains("s2")) ccSide();   // blacklisted flag
 }
+document.addEventListener("change", e => { if(e.target.id==="oCc"){ clearTimeout(ccLookT); ccLookT = setTimeout(ccLookup, 50); } });
 document.addEventListener("input", e => { if(e.target.id==="oPhone"){ clearTimeout(ccLookT); ccLookT = setTimeout(ccLookup, 450); } });
 document.addEventListener("click", e => {
   if(!e.target.closest || !e.target.closest("#ccScrim")) return;
@@ -3998,7 +4004,9 @@ document.addEventListener("click", async e => {
 
 /* ---------- Company: the business that owns every brand and branch ---------- */
 const TZS = ["Asia/Beirut","Asia/Dubai","Asia/Riyadh","Asia/Amman","Asia/Baghdad","Africa/Cairo","Asia/Kuwait","Asia/Qatar","Europe/Istanbul","Europe/London","Europe/Paris","America/New_York","UTC"];
-const CURRENCIES = [["USD","US Dollar (USD)"],["LBP","Lebanese Pound (LBP)"],["EUR","Euro (EUR)"],["AED","UAE Dirham (AED)"],["SAR","Saudi Riyal (SAR)"]];
+const CURRENCIES = [["USD","US Dollar (USD)"],["LBP","Lebanese Pound (LBP)"],["EUR","Euro (EUR)"],["AED","UAE Dirham (AED)"],["SAR","Saudi Riyal (SAR)"],["QAR","Qatari Riyal (QAR)"],["KWD","Kuwaiti Dinar (KWD)"],["BHD","Bahraini Dinar (BHD)"],["OMR","Omani Rial (OMR)"],["JOD","Jordanian Dinar (JOD)"],["SYP","Syrian Pound (SYP)"],["IQD","Iraqi Dinar (IQD)"],["EGP","Egyptian Pound (EGP)"],["TRY","Turkish Lira (TRY)"],["GBP","British Pound (GBP)"],["CAD","Canadian Dollar (CAD)"],["AUD","Australian Dollar (AUD)"],["BRL","Brazilian Real (BRL)"],["XOF","West African CFA Franc (XOF)"],["NGN","Nigerian Naira (NGN)"],["CDF","Congolese Franc (CDF)"],["INR","Indian Rupee (INR)"],["PHP","Philippine Peso (PHP)"],["LKR","Sri Lankan Rupee (LKR)"],["BDT","Bangladeshi Taka (BDT)"],["ETB","Ethiopian Birr (ETB)"]];
+// the usual menu currency for each country (Lebanon: restaurants price in US dollars); it can still be changed
+const COUNTRY_CUR = {"Lebanon":"USD","United Arab Emirates":"AED","Saudi Arabia":"SAR","Qatar":"QAR","Kuwait":"KWD","Bahrain":"BHD","Oman":"OMR","Jordan":"JOD","Syria":"SYP","Iraq":"IQD","Egypt":"EGP","Turkey":"TRY","Cyprus":"EUR","France":"EUR","United Kingdom":"GBP","Germany":"EUR","Italy":"EUR","Spain":"EUR","United States / Canada":"USD","Australia":"AUD","Brazil":"BRL","Ivory Coast":"XOF","Nigeria":"NGN","Senegal":"XOF","DR Congo":"CDF","India":"INR","Philippines":"PHP","Sri Lanka":"LKR","Bangladesh":"BDT","Ethiopia":"ETB"};
 const company = () => S.settings.find(x=>x.id==="company") || {};
 function paintCompany(){
   const c = company(), n = $("#coName"), l = $("#coLogo"), sub = $("#coSub"); if(!n) return;
@@ -4015,6 +4023,8 @@ function viewCompany(){
         <div class="f"><label>Account number</label><input class="sel" value="${esc(c.accountNo || "—")}" disabled title="Your business account number, given by Slick. Used on the sign-in page for every brand in this business."></div>
         ${f("name","Business name *")}${f("taxNumber","Tax (VAT) number")}
         ${f("phone","Phone")}${f("email","Email","","email")}
+        <div class="f"><label for="co_country">Country</label><select id="co_country" class="sel" ${admin?"":"disabled"}>${CC_CODES.map(([d,n])=>`<option value="${esc(n)}" ${(c.country||"Lebanon")===n?"selected":""}>${esc(n)}</option>`).join("")}</select></div>
+        <div class="f"><label for="co_bcur">Currency</label><select id="co_bcur" class="sel" ${admin?"":"disabled"}>${CURRENCIES.map(([k,t])=>`<option value="${k}" ${(c.currency||COUNTRY_CUR[c.country||"Lebanon"]||"USD")===k?"selected":""}>${t}</option>`).join("")}</select></div>
         <div class="f"><label for="co_timeZone">Time zone</label><select id="co_timeZone" class="sel" ${admin?"":"disabled"}>${TZS.map(z=>`<option value="${z}" ${(c.timeZone||"Asia/Beirut")===z?"selected":""}>${z.replace(/_/g," ")}</option>`).join("")}</select></div>
         ${f("logoUrl","Logo image link","https://…","url")}
         ${f("address","Address","","",1)}
@@ -4028,12 +4038,13 @@ function dayExample(v){
 document.addEventListener("input", e => { if(e.target.id==="co_dayEnd" && $("#coDayEx")) $("#coDayEx").textContent = dayExample(e.target.value); });
 async function saveCompany(){
   const v = k => ($("#co_"+k)?.value || "").trim();
-  const data = { name:v("name"), taxNumber:v("taxNumber"), phone:v("phone"), email:v("email"), address:v("address"), logoUrl:v("logoUrl"), timeZone:v("timeZone") || "Asia/Beirut", ...(company().accountNo ? { accountNo: company().accountNo } : {}) };
-  if(!data.name){ $("#coErr").textContent = "Company name is required."; $("#co_name").focus(); return; }
-  try{ await put("settings", "company", data); toast("Company saved"); }
+  const data = { name:v("name"), taxNumber:v("taxNumber"), phone:v("phone"), email:v("email"), address:v("address"), logoUrl:v("logoUrl"), timeZone:v("timeZone") || "Asia/Beirut", country:v("country") || "Lebanon", currency:v("bcur") || "USD", ...(company().accountNo ? { accountNo: company().accountNo } : {}) };
+  if(!data.name){ $("#coErr").textContent = "Business name is required."; $("#co_name").focus(); return; }
+  try{ await put("settings", "company", data); toast("Business saved"); }
   catch(e){ console.error(e); $("#coErr").textContent = "Couldn't save. Only the owner or an admin can change this."; }
 }
 document.addEventListener("click", e => { if(e.target.closest("#coSave")) saveCompany(); });
+document.addEventListener("change", e => { if(e.target.id==="co_country" && $("#co_bcur") && COUNTRY_CUR[e.target.value]) $("#co_bcur").value = COUNTRY_CUR[e.target.value]; });
 
 /* ---------- Manage → Settings: how the POS, call center and receipts behave ---------- */
 const APP_DEF = { requireCustPickup:true, requireCustDelivery:true, requireTable:false, stockAction:"ask", reasonRequired:true, discountApproval:false,
