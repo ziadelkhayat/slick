@@ -200,7 +200,7 @@ body{-webkit-font-smoothing:antialiased}
 .mitem:last-child{border-bottom:0}.mitem:hover{background:var(--accs)}.mitem svg{width:22px;height:22px;color:var(--acc)}
 .line.vd .n,.line.vd .p,.line.vd .qty{text-decoration:line-through;color:#a3a1ad}.line.vd .sent{text-decoration:none;color:#b42318;display:inline-block;width:100%}.line.vd .mlist{text-decoration:line-through}
 .onote{display:flex;align-items:center;gap:8px}.onote [data-onote]{flex:1;cursor:pointer}.onx{flex:none;width:36px;height:36px;border:0;border-radius:10px;background:#fde8c9;color:#8a5a00;font-size:20px;line-height:1}
-.onote{margin:8px 0 2px;padding:8px 10px;border-radius:10px;background:#fff8e6;color:#8a5a00;font-size:13px;cursor:pointer}
+.onote.knote{background:#eef4ff;color:#1d4ed8}.onote.knote .onx{background:#dbe7ff;color:#1d4ed8}.onote{margin:8px 0 2px;padding:8px 10px;border-radius:10px;background:#fff8e6;color:#8a5a00;font-size:13px;cursor:pointer}
 /* orders list (Foodics style) */
 .ohdr{display:flex;align-items:center;gap:10px;padding:14px 20px;background:var(--s);border-bottom:1px solid var(--line);flex-wrap:wrap}
 .ohdr .sp{flex:1}.hbtn{border:0;border-radius:10px;padding:11px 18px;font-weight:700;font-size:13px;letter-spacing:.04em;text-transform:uppercase;background:linear-gradient(135deg,#6c47ff,#5130e8);color:#fff}
@@ -509,7 +509,7 @@ const store = { get(k){ try{ return localStorage.getItem(k); }catch(e){ return n
 let db = null;
 const S = { brands:[], devices:[], branches:[], categories:[], products:[], orders:[], shifts:[], modifiers:[], modifier_options:[], taxes:[], tax_groups:[], payment_methods:[], roles:[], users:[], settings:[], day_closes:[], charges:[], order_sources:[] };
 let posChg = null;   // null = the charges that apply automatically; otherwise the ids the cashier kept
-let GUESTS = 0, orderNote = "", SEEN = new Set(), SEEN_READY = false;   // pending call-center / web orders already announced   // order-level note, printed on the receipt (not the kitchen ticket)
+let GUESTS = 0, orderNote = "", kitchenNote = "", SEEN = new Set(), SEEN_READY = false;   // pending call-center / web orders already announced   // order-level note, printed on the receipt (not the kitchen ticket)
 let EDIT = null;   // an order opened from the Orders list into the billing section: { id }
 let device = null, branch = null, cat = "", otype = "dinein", cart = [], discount = 0, discType = "pct", tableNo = "", cust = { name:"", phone:"", addr:{} };
 
@@ -872,7 +872,10 @@ function renderCart(){
   else if(isOpenOrd(eo)) b = [...(otype==="fast" ? [] : [`<button data-act="send" ${unsent?"":"disabled"}>Save</button>`]), `<button class="pay" data-act="pay" ${cart.length?"":"disabled"}>TOTAL</button>`];
   else b = [];
   acts.style.setProperty("--n", b.length + 1); acts.innerHTML = b.join(""); acts.classList.toggle("hide", !b.length);
-  if(orderNote) $("#lines").insertAdjacentHTML("afterbegin", `<div class="onote"><span data-onote title="${ro?"":"Tap to edit"}">📝 ${esc(orderNote)}</span>${ro ? "" : `<button class="onx" data-onotex aria-label="Remove note">×</button>`}</div>`);
+  // order note (invoice receipt) and kitchen note (kitchen tickets)
+  const noteRow = (k, ic, lbl, v) => `<div class="onote${k==="k"?" knote":""}"><span data-onote="${k}" title="${ro?"":"Tap to edit"}">${ic} <b>${lbl}:</b> ${esc(v)}</span>${ro ? "" : `<button class="onx" data-onotex="${k}" aria-label="Remove ${lbl.toLowerCase()}">×</button>`}</div>`;
+  if(orderNote) $("#lines").insertAdjacentHTML("afterbegin", noteRow("o", "📝", "Order note", orderNote));
+  if(kitchenNote) $("#lines").insertAdjacentHTML("afterbegin", noteRow("k", "🍳", "Kitchen note", kitchenNote));
   paintAbar();
   if(ro){ const T = eo; $("#totals").innerHTML = `${+T.discount?`<div><span>Discount</span><span>−${usd(T.discount)}</span></div>`:""}${(T.charges||[]).filter(c=>+c.amount).map(c=>`<div><span>${esc(c.name)}</span><span>${usd(c.amount)}</span></div>`).join("")}
     <div><span>Subtotal</span><span>${usd((+T.total||0)-(+T.tax||0))}</span></div><div class="mut" style="font-size:13px"><span>Tax</span><span>${usd(T.tax)}</span></div><div class="g"><span>Total</span><span>${usd(T.total)}</span></div>`; }
@@ -894,7 +897,7 @@ function loadOrder(id, keep){
   otype = o.type==="pickup" || o.type==="takeaway" ? "takeaway" : (o.type || "dinein"); tableNo = o.table || "";
   cust = { name:o.customerName||"", phone:o.phone||"", addr: addrParts(o.address), source: o.source && o.source.toUpperCase()!=="POS" ? o.source : "" };
   discType = o.discountType || "pct"; discount = discType==="amt" ? +o.discount||0 : +o.discountPct||0;
-  posChg = new Set((o.charges||[]).map(c=>c.id)); orderNote = o.receiptNotes || ""; GUESTS = +o.guests || 0;
+  posChg = new Set((o.charges||[]).map(c=>c.id)); orderNote = o.receiptNotes || ""; kitchenNote = o.notes || ""; GUESTS = +o.guests || 0;
   closeModal(); renderCart(); renderMenu();
 }
 function unloadOrder(){ EDIT = null; resetOrder(); renderMenu(); }
@@ -914,7 +917,7 @@ function orderInfoOk(){
 }
 function orderFields(t){
   return { type: otype==="dinein"?"dinein":otype==="fast"?"fast":otype==="takeaway"?"pickup":"delivery", table: otype==="dinein"?tableNo:"", customerName:cust.name.trim(), phone:cust.phone.trim(), address: otype==="delivery"?addrJoin(cust.addr):"", ...((otype==="takeaway" || otype==="delivery") && cust.source ? { source: cust.source } : {}),
-    items: cart.map(cleanItem), subtotal:+t.sub.toFixed(2), charges:t.charges, chargesTotal:t.chT, discountPct: discType==="pct" ? discount : (t.sub ? +(t.disc/t.sub*100).toFixed(2) : 0), discountType: discType, discount:t.disc, total:t.total, tax:t.tax, receiptNotes: orderNote.trim(), ...(otype==="dinein" && GUESTS ? { guests: GUESTS } : {}) };
+    items: cart.map(cleanItem), subtotal:+t.sub.toFixed(2), charges:t.charges, chargesTotal:t.chT, discountPct: discType==="pct" ? discount : (t.sub ? +(t.disc/t.sub*100).toFixed(2) : 0), discountType: discType, discount:t.disc, total:t.total, tax:t.tax, receiptNotes: orderNote.trim(), notes: kitchenNote.trim(), ...(otype==="dinein" && GUESTS ? { guests: GUESTS } : {}) };
 }
 // Send: save the order as open (to the kitchen) without payment; on an open order, send what was added
 async function sendOrder(){
@@ -979,8 +982,8 @@ async function editLine(ix){
   if(!i.options.length) delete i.options; if(!i.note) delete i.note; if(!i.mods) delete i.mods; if(!+i.disc){ delete i.disc; delete i.discType; delete i.discValue; }
   renderCart();
 }
-$("#lines").addEventListener("click", e => { if(e.target.closest("[data-onotex]")){ orderNote = ""; renderCart(); if(EDIT && isOpenOrd(editOrder()||{})) toast("Note removed · press Save to keep the change"); return; }
-  if(e.target.closest("[data-onote]")) return openNotes();
+$("#lines").addEventListener("click", e => { const nx = e.target.closest("[data-onotex]"); if(nx){ if(nx.dataset.onotex==="k") kitchenNote = ""; else orderNote = ""; renderCart(); if(EDIT && isOpenOrd(editOrder()||{})) toast("Note removed · press Save to keep the change"); return; }
+  const on = e.target.closest("[data-onote]"); if(on) return openNotes(on.dataset.onote);
   const eo = editOrder(), ro = eo && !isOpenOrd(eo);
   const ed = !e.target.closest("button, input, a") && e.target.closest("[data-edit]"); if(ed){ if(ro) return; const i = cart[+ed.dataset.edit]; if(i?.saved) return toast("This item was sent to the kitchen: void it with − instead of changing it"); return editLine(+ed.dataset.edit); }
   const b = e.target.closest("[data-q]"); if(!b || ro) return; const [ix,d] = b.dataset.q.split(":").map(Number), i = cart[ix];
@@ -1016,7 +1019,7 @@ $("#totals").addEventListener("click", e => { const b = e.target.closest("[data-
   if(!posChg) posChg = new Set(pickedCharges().map(c=>c.id)); posChg.has(b.dataset.chg) ? posChg.delete(b.dataset.chg) : posChg.add(b.dataset.chg); renderCart(); });
 $("#extra").addEventListener("change", e => { if(e.target.id==="tbl") tableNo = e.target.value; });
 $("#extra").addEventListener("input", e => { if(e.target.id==="tbl") tableNo = e.target.value; if(e.target.id==="cPhone") cust.phone = e.target.value; if(e.target.id==="cName") cust.name = e.target.value; if(e.target.id.startsWith("cA_")) cust.addr[e.target.id.slice(3)] = e.target.value; });
-function resetOrder(){ EDIT = null; orderNote = ""; GUESTS = 0; otype = defaultType(); cart = []; discount = 0; discType = "pct"; posChg = null; tableNo = ""; cust = { name:"", phone:"", addr:{} }; renderCart(); }
+function resetOrder(){ EDIT = null; orderNote = ""; kitchenNote = ""; GUESTS = 0; otype = defaultType(); cart = []; discount = 0; discType = "pct"; posChg = null; tableNo = ""; cust = { name:"", phone:"", addr:{} }; renderCart(); }
 
 /* ---------- modals ---------- */
 let modalKind = null;
@@ -1071,7 +1074,8 @@ $("#modal").addEventListener("click", async e => {
   const rp = e.target.closest("[data-rp]"); if(rp){ RP = rp.dataset.rp; return openReports(); }
   if(e.target.closest("[data-rprint]")) return modal("receipt", `<div class="mh"><h2>Report</h2><button class="x" data-rback aria-label="Back">←</button></div><div class="mb"><div class="receipt">${esc(reportText())}</div><p class="mut" style="margin-top:10px">Printing starts working in the installed Android app.</p></div><div class="mf"><button class="btn pri" data-rback>Done</button></div>`);
   if(e.target.closest("[data-rback]")) return openReports();
-  if(e.target.closest("#notesSave")){ orderNote = $("#noteTxt").value.trim(); closeModal(); renderCart(); if(EDIT && isOpenOrd(editOrder()||{})) toast("Note added · press Save to keep it on the order"); return; }
+  const nk = e.target.closest("[data-nkind]"); if(nk){ NOTEK = nk.dataset.nkind; document.querySelectorAll("[data-nkind]").forEach(b => b.classList.toggle("on", b===nk)); $("#noteTxt").value = NOTEK==="k" ? kitchenNote : orderNote; $("#notesSave").disabled = !$("#noteTxt").value.trim(); $("#noteTxt").focus(); return; }
+  if(e.target.closest("#notesSave")){ const v = $("#noteTxt").value.trim(); if(!v) return; if(NOTEK==="k") kitchenNote = v; else orderNote = v; closeModal(); renderCart(); if(EDIT && isOpenOrd(editOrder()||{})) toast("Note added · press Save to keep it on the order"); return; }
   const nq = e.target.closest("[data-nq]"); if(nq){ const ta = $("#noteTxt"); ta.value = (ta.value.trim() ? ta.value.trim() + ", " : "") + nq.dataset.nq; ta.focus(); return; }
   if(e.target.closest("#diagReload")) return location.reload();
   if(e.target.closest("[data-pdnew]")){ PD = null; return openPDNew(); }
@@ -1135,7 +1139,7 @@ async function completeSale(){
   const eo0 = editOrder(), no = eo0?.no || nextOrderNo();   // an open order being paid keeps its number: don't use up a new one
   const order = { no, channel:"pos", source: (otype==="takeaway" || otype==="delivery") ? (cust.source || "") : "", type: otype==="dinein"?"dinein":otype==="fast"?"fast":otype==="takeaway"?"pickup":"delivery", table: otype==="dinein"?tableNo:"",
     customerName:cust.name.trim(), phone:cust.phone.trim(), address: otype==="delivery"?addrJoin(cust.addr):"",
-    brandId:branch?.brandId || null, branchId:device.branchId, deviceId:device.id, shiftId:openShift().id, agent:cashier?.name || device.name, items:cart, subtotal:+t.sub.toFixed(2), charges:t.charges, chargesTotal:t.chT, discountPct: discType==="pct" ? discount : (t.sub ? +(t.disc/t.sub*100).toFixed(2) : 0), discountType: discType, discount:t.disc, total:t.total, receiptNotes: orderNote.trim(), ...(otype==="dinein" && GUESTS ? { guests: GUESTS } : {}),
+    brandId:branch?.brandId || null, branchId:device.branchId, deviceId:device.id, shiftId:openShift().id, agent:cashier?.name || device.name, items:cart, subtotal:+t.sub.toFixed(2), charges:t.charges, chargesTotal:t.chT, discountPct: discType==="pct" ? discount : (t.sub ? +(t.disc/t.sub*100).toFixed(2) : 0), discountType: discType, discount:t.disc, total:t.total, receiptNotes: orderNote.trim(), notes: kitchenNote.trim(), ...(otype==="dinein" && GUESTS ? { guests: GUESTS } : {}),
     tax:t.tax, payment:{ method:payMethod.name, type:payMethod.type, methodId:payMethod.id, tendered:tender, change:+Math.max(0,tender-t.total).toFixed(2) }, status:"closed", createdAt:now, updatedAt:now };
   $("#confirmPay").disabled = true;
   try{
@@ -1500,7 +1504,7 @@ const heldSave = l => { store.set(heldKey(), l.length ? JSON.stringify(l) : null
 function holdOrder(silent){
   if(!cart.length || EDIT) return;
   const t = totals(), l = heldList(), n = (l.reduce((m,h) => Math.max(m, +h.n||0), 0)) + 1;
-  l.push({ id: "h" + Date.now().toString(36), n, at: new Date().toISOString(), by: cashier?.name || "", otype, cart: cart.map(cleanItem), discount, discType, posChg: posChg ? [...posChg] : null, tableNo, guests: GUESTS, cust: JSON.parse(JSON.stringify(cust)), orderNote, total: t.total });
+  l.push({ id: "h" + Date.now().toString(36), n, at: new Date().toISOString(), by: cashier?.name || "", otype, cart: cart.map(cleanItem), discount, discType, posChg: posChg ? [...posChg] : null, tableNo, guests: GUESTS, cust: JSON.parse(JSON.stringify(cust)), orderNote, kitchenNote, total: t.total });
   heldSave(l); resetOrder(); renderMenu(); if(!silent) toast(`Order held as H${n} · tap Hold to pick it up`);
 }
 function openHeld(){
@@ -1518,14 +1522,14 @@ async function retrieveHeld(id){
   if(EDIT) unloadOrder();
   if(cart.length){ if(!(await askYes("Hold the current order and retrieve this one?", "Hold & retrieve"))) return; holdOrder(true); }
   const rest = heldList().filter(x => x.id!==id); heldSave(rest);
-  cart = h.cart; otype = h.otype; discount = +h.discount||0; discType = h.discType || "pct"; posChg = h.posChg ? new Set(h.posChg) : null; tableNo = h.tableNo || ""; GUESTS = +h.guests || 0; cust = h.cust || { name:"", phone:"", addr:{} }; cust.addr = cust.addr || {}; orderNote = h.orderNote || "";
+  cart = h.cart; otype = h.otype; discount = +h.discount||0; discType = h.discType || "pct"; posChg = h.posChg ? new Set(h.posChg) : null; tableNo = h.tableNo || ""; GUESTS = +h.guests || 0; cust = h.cust || { name:"", phone:"", addr:{} }; cust.addr = cust.addr || {}; orderNote = h.orderNote || ""; kitchenNote = h.kitchenNote || "";
   closeModal(); renderCart(); renderMenu(); toast(`Order H${h.n} retrieved`);
 }
 function paintAbar(){ const hb = document.getElementById("holdBadge"); if(hb && device){ const n = heldList().length; hb.textContent = n; hb.classList.toggle("hide", !n); }
   const eo = editOrder(), open = eo && isOpenOrd(eo), closed = eo && !open, off = (a, v) => document.querySelector(`#abar [data-a="${a}"]`)?.classList.toggle("off", !!v);
   const vb = document.querySelector('#abar [data-a="void"]'); if(vb){ vb.classList.toggle("hide", !eo || (closed && (eo.status!=="closed" || fullyBack(eo)))); vb.querySelector("span").textContent = closed ? "Return" : "Void";
     vb.querySelector("svg").innerHTML = closed ? '<path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>' : '<circle cx="12" cy="12" r="9"/><path d="M5.6 18.4 18.4 5.6"/>'; }
-  off("print", !eo); off("hold", !!eo || !cart.length); off("retrieve", !heldList().length); off("kitchen", !eo && (!cart.length || otype==="fast")); off("void", eo ? (closed && (eo.status!=="closed" || fullyBack(eo))) : !cart.length); off("notes", closed); off("disc", closed || !cart.length); }
+  off("print", !eo); off("hold", !!eo || !cart.length); off("retrieve", !heldList().length); off("kitchen", !eo && (!cart.length || otype==="fast")); off("void", eo ? (closed && (eo.status!=="closed" || fullyBack(eo))) : !cart.length); off("notes", closed || (!eo && !cart.length)); off("disc", closed || !cart.length); }
 $("#abar").addEventListener("click", e => { const b = e.target.closest("[data-a]"); if(!b) return; const a = b.dataset.a, eo = editOrder();
   if(a==="more"){ e.stopPropagation(); return $("#morePop").classList.toggle("hide"); }
   hideMore();
@@ -1541,7 +1545,7 @@ $("#abar").addEventListener("click", e => { const b = e.target.closest("[data-a]
   if(a==="disc"){ if(eo && !isOpenOrd(eo)) return toast("This order is closed"); if(!cart.length) return toast("Add items first"); return openDiscount(); }
   if(a==="hold") return eo ? toast("This order was already sent: find it under Orders") : cart.length ? holdOrder() : toast("Add items, then Hold to park the order");
   if(a==="retrieve") return heldList().length ? openHeld() : toast("No held orders");
-  if(a==="notes"){ if(eo && !isOpenOrd(eo)) return toast("This order is closed"); return openNotes(); }
+  if(a==="notes"){ if(eo && !isOpenOrd(eo)) return toast("This order is closed"); if(!eo && !cart.length) return toast("Add items first"); return openNotes(); }
 });
 document.addEventListener("click", e => { if(!e.target.closest("#morePop") && !e.target.closest("#menuBtn")) hideMore(); });
 $("#syncDataBtn").addEventListener("click", () => { hideMore(); window.WOK?.sync?.flush?.(); toast(navigator.onLine ? "Syncing data…" : "Offline · will sync when the connection is back"); });
@@ -1558,10 +1562,16 @@ $("#bnav").addEventListener("click", e => { const b = e.target.closest("[data-na
   if(k==="tables") return openTables();
   if(k==="board") return openBoard();
 });
-function openNotes(){
-  modal("notes", `<div class="mh"><h2>Order note</h2><button class="x" data-close aria-label="Close">×</button></div><div class="mb">
-    <div class="f"><label for="noteTxt">Printed on the receipt</label><textarea id="noteTxt" rows="4" placeholder="e.g. Thank you, Mr. Haddad">${esc(orderNote)}</textarea></div></div>
-    <div class="mf"><button class="btn" data-close>Cancel</button><button class="btn pri" id="notesSave">Save note</button></div>`);
+// notes: a kitchen note prints on the kitchen tickets, an order note on the invoice receipt
+let NOTEK = "o";
+function openNotes(kind){
+  NOTEK = kind || (kitchenNote && !orderNote ? "k" : "o");
+  const v = NOTEK==="k" ? kitchenNote : orderNote;
+  modal("notes", `<div class="mh"><h2>Notes</h2><button class="x" data-close aria-label="Close">×</button></div><div class="mb">
+    <div class="dseg" style="margin-bottom:12px"><button type="button" data-nkind="k" class="${NOTEK==="k"?"on":""}">Kitchen note</button><button type="button" data-nkind="o" class="${NOTEK==="o"?"on":""}">Order note</button></div>
+    <div class="f"><textarea id="noteTxt" rows="4" aria-label="Note">${esc(v)}</textarea></div></div>
+    <div class="mf"><button class="btn" data-close>Cancel</button><button class="btn pri" id="notesSave" ${v.trim() ? "" : "disabled"}>Save note</button></div>`);
+  $("#noteTxt").addEventListener("input", e => { $("#notesSave").disabled = !e.target.value.trim(); });
   setTimeout(() => $("#noteTxt")?.focus(), 30);
 }
 
@@ -1761,7 +1771,7 @@ function pickTable(k, guests){
   if(l.length === 1) return loadOrder(l[0].id);
   if(l.length > 1){ OV.q = ""; return modal("tables", `<div class="mh"><h2>Table ${esc(k)} · ${l.length} open orders</h2><button class="x" data-close aria-label="Close">×</button></div><div class="mb"><div class="olist2">${l.map(o => `<button class="lrow" data-ov="${esc(o.id)}" style="grid-template-columns:90px 1fr 120px"><span class="lno">${esc(o.no||"—")}</span><span class="lc"><b>${esc(o.agent||"")}</b><span>${new Date(o.createdAt).toLocaleTimeString("en-GB",{hour:"numeric",minute:"2-digit"})}</span></span><span class="lr"><b class="lst-${o.status}">${stLbl(o)}</b><span>${usd(o.total)}</span></span></button>`).join("")}</div></div>`); }
   if(!allowedTypes().includes("dinein")) return toast("Dine-in isn't enabled on this register");
-  if(EDIT || !cart.length){ const keepNote = EDIT ? "" : orderNote; resetOrder(); orderNote = keepNote; }   // items already in a new order stay, and move to this table
+  if(EDIT || !cart.length){ const keepNote = EDIT ? "" : orderNote, keepK = EDIT ? "" : kitchenNote; resetOrder(); orderNote = keepNote; kitchenNote = keepK; }   // items already in a new order stay, and move to this table
   if(otype==="takeaway" || otype==="delivery") cust = { name:"", phone:"", addr:{} };
   posChg = null; otype = "dinein"; if(guests) GUESTS = +guests; tableNo = String(k); closeModal(); renderCart(); renderMenu(); toast(`${tblLbl(k)}${GUESTS ? " · " + GUESTS + " guests" : ""} · new dine-in order`);
 }
