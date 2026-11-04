@@ -270,6 +270,7 @@ input,select,textarea{font-size:16px!important}                /* iOS doesn't zo
 .cbtn{min-height:44px;padding:10px 16px}
 .bnav button{min-height:56px}
 .x{width:44px!important;height:44px!important}
+.x.xc{width:auto!important;height:40px!important;padding:0 16px;border-radius:10px;border:1px solid var(--line);background:var(--s);color:var(--ink);font-size:15px;font-weight:600;font-family:inherit}
 .btn{min-height:48px;padding:12px 18px}
 .hbtn{min-height:46px}
 .chg,.ofilt .chip{min-height:40px;padding:8px 14px!important}
@@ -432,7 +433,7 @@ button,input,select,textarea{font-family:var(--f-ui)}
 <script src="supabase.js"></script>
 <script>if(!window.supabase) document.write('<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"><\/script>');</script>
 <script src="wokdb.js?v=29"></script>
-<script src="modpick.js?v=5"></script>
+<script src="modpick.js?v=6"></script>
 </head>
 <body>
 <div id="boot" class="center"><div class="panel"><div class="logo">S</div><h1>Slick POS</h1><p>Connecting…</p></div></div>
@@ -499,6 +500,9 @@ const usd2 = n => { const c = coS(); if(!c.currency2 || !(+c.rate2)) return ""; 
 const ADDR_K = ["label","street","building","floor","extra"];
 const addrJoin = a => { const c = v => String(v||"").replace(/\s*·\s*/g, ", ").trim(); return [c(a.label) ? "[" + c(a.label).replace(/[\[\]]/g,"") + "]" : "", [c(a.street), c(a.building) && "Bldg: " + c(a.building), c(a.floor) && "Floor: " + c(a.floor), c(a.extra) && "Info: " + c(a.extra)].filter(Boolean).join(" · ")].filter(Boolean).join(" "); };
 const show = id => ["boot","activate","app"].forEach(x => $("#"+x).classList.toggle("hide", x!==id));
+// no example text inside fields that need filling (search boxes keep theirs)
+const noHints = () => document.querySelectorAll("input[placeholder], textarea[placeholder]").forEach(el => { if(!el.matches("#ovQ, .search, [type=search]")) el.removeAttribute("placeholder"); });
+let nhT = null; new MutationObserver(() => { if(!nhT) nhT = requestAnimationFrame(() => { nhT = null; noHints(); }); }).observe(document.documentElement, { childList:true, subtree:true });
 let tt; const toast = m => { const t=$("#toast"); t.textContent=m; t.classList.add("show"); clearTimeout(tt); tt=setTimeout(()=>t.classList.remove("show"),2400); };
 const store = { get(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } }, set(k,v){ try{ v==null?localStorage.removeItem(k):localStorage.setItem(k,v); }catch(e){} } };
 
@@ -1018,7 +1022,10 @@ function resetOrder(){ EDIT = null; orderNote = ""; GUESTS = 0; otype = defaultT
 let modalKind = null;
 function modal(kind, html, wide){ modalKind = kind; hideMore(); paintNav(); $("#scrim").classList.remove("fullscr"); $("#modal").className = "modal" + (wide?" wide":""); $("#modal").innerHTML = html; $("#scrim").classList.add("show");
   // a sheet with its own Cancel button doesn't also need the back arrow
-  const bk = [...$("#modal").querySelectorAll(".mh .x")].find(b => b.textContent.trim()==="←"); if(bk && [...$("#modal").querySelectorAll(".mf button")].some(b => /^(cancel|close)$/i.test(b.textContent.trim()))) bk.remove(); }
+  const hasCancel = [...$("#modal").querySelectorAll(".mf button")].some(b => /^(cancel|close)$/i.test(b.textContent.trim()));
+  const bk = [...$("#modal").querySelectorAll(".mh .x")].find(b => b.textContent.trim()==="←"); if(bk && hasCancel) bk.remove();
+  // a Cancel button instead of the × (dropped when the sheet already has one)
+  $("#modal").querySelectorAll(".x[data-close]").forEach(b => { if(b.textContent.trim()!=="×") return; if(hasCancel) return b.remove(); b.textContent = "Cancel"; b.classList.add("xc"); b.removeAttribute("aria-label"); }); }
 function closeModal(){ $("#scrim").classList.remove("show"); modalKind = null; paintNav(); }
 $("#scrim").addEventListener("click", e => { if(e.target.id==="scrim" && modalKind==="pdnew") return pdCancel(); if(e.target.id==="scrim" || e.target.closest("[data-close]")) closeModal(); });
 
@@ -1035,7 +1042,7 @@ function openDiscount(){
 }
 $("#modal").addEventListener("click", async e => {
   const d = e.target.closest("[data-disc]"); if(d){ if(+d.dataset.disc > 0 && appSet().discNeedsCustomer && !custGiven(cust.name, cust.phone)){ toast("Add the customer first: discounts need customer info"); return; } if(+d.dataset.disc > 0 && appSet().discountApproval && !(await approve("pos_discount", "Approve discount"))) return; discount = +d.dataset.disc; discType = "pct"; closeModal(); renderCart(); return; }
-  const dt = e.target.closest("[data-dt]"); if(dt){ document.querySelectorAll("[data-dt]").forEach(b => b.classList.toggle("on", b===dt)); $("#discVal").placeholder = dt.dataset.dt==="amt" ? "Amount in USD" : "Percent"; $("#discVal").focus(); return; }
+  const dt = e.target.closest("[data-dt]"); if(dt){ document.querySelectorAll("[data-dt]").forEach(b => b.classList.toggle("on", b===dt)); $("#discVal").focus(); return; }
   if(e.target.closest("#discApply")){ const ty = document.querySelector("[data-dt].on")?.dataset.dt || "pct", v = +String($("#discVal").value).replace(",", "."), sub = totals().sub;
     if(!(v >= 0) || $("#discVal").value.trim()==="") { $("#discNote").textContent = "Enter a number."; return; }
     if(ty==="pct" && v > 100){ $("#discNote").textContent = "A percentage can't be more than 100."; return; }

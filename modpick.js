@@ -12,7 +12,7 @@
   .smp{background:#fff;width:min(520px,100%);max-height:92vh;display:flex;flex-direction:column;border-radius:16px 16px 0 0;box-shadow:0 10px 40px rgba(30,20,60,.2)}
   @media(min-width:640px){.smp{border-radius:16px}}
   .smp header{display:flex;align-items:center;gap:10px;padding:16px 18px;border-bottom:1px solid #eee}.smp header h3{margin:0;font-size:17px;flex:1}
-  .smp header button{border:0;background:#f3f2f7;border-radius:8px;width:32px;height:32px;font-size:18px;cursor:pointer}
+  .smp header button{border:1px solid #e5e3ec;background:#fff;border-radius:10px;height:40px;padding:0 16px;font:inherit;font-size:15px;font-weight:600;color:#1c1b22;cursor:pointer}
   .smp .b{overflow:auto;padding:6px 18px 12px}.smp .g{margin:14px 0 4px;display:flex;align-items:baseline;gap:8px}.smp .g b{font-size:15px}
   .smp .g span{font-size:12px;color:#6b6a75}.smp .g .req{color:#b42318;font-weight:600}
   .smp label{display:flex;align-items:center;gap:10px;padding:10px 4px;border-bottom:1px solid #f1f0f5;cursor:pointer;font-size:15px}
@@ -21,8 +21,9 @@
   .smp footer{display:flex;align-items:center;gap:10px;padding:14px 18px;border-top:1px solid #eee}.smp footer .err{flex:1;color:#b42318;font-size:13px}
   .smp label.qrow{cursor:default}.smp .qs{margin-left:10px;display:inline-flex;align-items:center;gap:8px}
   .smp .qs button{width:30px;height:30px;border-radius:50%;border:1px solid #d9d4ee;background:#fff;color:#5b2bc4;font-size:17px;font-weight:700;cursor:pointer;line-height:1}
-  .smp .qs button:disabled{opacity:.35;cursor:not-allowed}.smp .qs b{min-width:16px;text-align:center}
-  .smp label.qrow.on{background:#f6f2ff}.smp .dz{display:flex;gap:6px;align-items:center}.smp .dz button{border:1px solid #d9d4ee;background:#fff;border-radius:8px;padding:8px 12px;font:inherit;font-weight:600;cursor:pointer}.smp .dz button.on{background:#efe9fb;border-color:#5b2bc4;color:#5b2bc4}.smp .dz input{flex:1;border:1px solid #ddd8ea;border-radius:10px;padding:9px 10px;font:inherit}
+  .smp .qs button:disabled{opacity:.35;cursor:not-allowed}
+  .smp footer .qs{gap:12px;font-weight:700}.smp footer .qs b{min-width:20px;font-size:17px}.smp footer .qs button{width:44px;height:44px;border-radius:12px;border:0;background:#f7f6fb;color:#1b1830;font-size:22px;font-weight:500}.smp footer .qs button:active{background:#efebff;color:#6a4cf5}.smp .qs b{min-width:16px;text-align:center}
+  .smp label.qrow.on{background:#f6f2ff}.smp .dz{display:flex;gap:6px;align-items:center}.smp .dz button{border:1px solid #d9d4ee;background:#fff;border-radius:8px;padding:8px 0;width:56px;text-align:center;font:inherit;font-weight:600;cursor:pointer}.smp .dz button.on{background:#efe9fb;border-color:#5b2bc4;color:#5b2bc4}.smp .dz input{flex:1;border:1px solid #ddd8ea;border-radius:10px;padding:9px 10px;font:inherit}
   .smp textarea{width:100%;box-sizing:border-box;border:1px solid #ddd8ea;border-radius:10px;padding:9px 10px;font:inherit;font-size:14px;resize:vertical}
   .smp footer button{border:0;border-radius:10px;background:#5b2bc4;color:#fff;font:inherit;font-weight:600;padding:12px 18px;cursor:pointer}`;
   function pick(o){
@@ -43,7 +44,7 @@
       const priceOf = () => { let t = +o.basePrice||0; links.forEach((l, gi) => { let free = +l.free||0; units(l, gi).forEach(x => { if(free > 0) free--; else t += +x.price||0; }); }); return t; };
       const rule = l => { const mn = +l.min||0, mx = +l.max||0; if(mn && mx && mn===mx) return `Choose ${mn}`; if(mn && mx) return `Choose ${mn} to ${mx}`; if(mn) return `Choose at least ${mn}`; if(mx) return `Up to ${mx}`; return "Optional"; };
       const draw = () => {
-        el.innerHTML = `<div class="smp" role="dialog" aria-modal="true" aria-label="${esc(o.name)}"><header><h3>${esc(o.name)}</h3><button type="button" data-x aria-label="Close">×</button></header><div class="b">${links.map((l, gi) => {
+        el.innerHTML = `<div class="smp" role="dialog" aria-modal="true" aria-label="${esc(o.name)}"><header><h3>${esc(o.name)}</h3><button type="button" data-x class="smx">Cancel</button></header><div class="b">${links.map((l, gi) => {
           const one = (+l.max||0) === 1, full = (+l.max||0) > 0 && cnt(gi) >= +l.max;
           return `<div class="g"><b>${esc(o.groups?.[l.modifierId]?.name || "Options")}</b><span class="${+l.min?"req":""}">${rule(l)}</span>${+l.free?`<span>${l.free} free</span>`:""}${l.multi && !one?`<span>· repeat allowed</span>`:""}</div>` +
             l.opts.map(x => { const n = sel[gi].get(x.id)||0, on = n > 0;
@@ -51,8 +52,8 @@
                 <span class="qs"><button type="button" data-q="${gi}:${esc(x.id)}:-1" ${on?"":"disabled"} aria-label="Less ${esc(x.name)}">−</button><b>${n}</b><button type="button" data-q="${gi}:${esc(x.id)}:1" ${full||x.oos?"disabled":""} aria-label="More ${esc(x.name)}">+</button></span></label>`;
               const dis = !on && ((full && !one) || x.oos);
               return `<label class="${dis?"dis":""}"><input type="checkbox" name="g${gi}" data-g="${gi}" value="${esc(x.id)}" ${on?"checked":""} ${dis?"disabled":""}>${esc(x.name)}${x.oos?'<span class="oos">Out of stock</span>':""}<span class="p">${+x.price ? "+" + money(x.price) : ""}</span></label>`; }).join("");
-        }).join("")}${o.edit ? `<div class="g"><b>Item note</b><span>Shown to the kitchen</span></div><textarea data-note rows="2" placeholder="e.g. no onions, extra spicy">${esc(note)}</textarea>` : ""}${o.edit && o.allowDiscount ? `<div class="g"><b>Item discount</b>${discOf() ? `<span>−${money(discOf())}</span>` : ""}</div>
-          <div class="dz"><button type="button" data-dt="pct" class="${discT==="pct"?"on":""}">%</button><button type="button" data-dt="amt" class="${discT==="amt"?"on":""}">USD</button><input data-dv inputmode="decimal" placeholder="${discT==="amt"?"Amount off":"Percent off"}" value="${esc(discV)}"></div>` : ""}</div><footer>${o.edit ? `<span class="qs" style="margin:0"><button type="button" data-qq="-1" ${qty<=1?"disabled":""} aria-label="Less">−</button><b>${qty}</b><button type="button" data-qq="1" aria-label="More">+</button></span>` : ""}<span class="err" data-err></span><button type="button" data-ok>${o.edit ? "Update" : "Add"} · ${money(priceOf() * qty - (o.allowDiscount ? discOf() : 0))}</button></footer></div>`;
+        }).join("")}${o.edit ? `<div class="g"><b>Item note</b><span>Shown to the kitchen</span></div><textarea data-note rows="2">${esc(note)}</textarea>` : ""}${o.edit && o.allowDiscount ? `<div class="g"><b>Item discount</b>${discOf() ? `<span>−${money(discOf())}</span>` : ""}</div>
+          <div class="dz"><button type="button" data-dt="pct" class="${discT==="pct"?"on":""}">%</button><button type="button" data-dt="amt" class="${discT==="amt"?"on":""}">USD</button><input data-dv inputmode="decimal" aria-label="${discT==="amt"?"Amount off":"Percent off"}" value="${esc(discV)}"></div>` : ""}</div><footer>${o.edit ? `<span class="qs" style="margin:0"><button type="button" data-qq="-1" ${qty<=1?"disabled":""} aria-label="Less">−</button><b>${qty}</b><button type="button" data-qq="1" aria-label="More">+</button></span>` : ""}<span class="err" data-err></span><button type="button" data-ok>${o.edit ? "Update" : "Add · " + money(priceOf() * qty)}</button></footer></div>`;
       };
       const redraw = () => { const y = el.querySelector(".b")?.scrollTop; draw(); const b = el.querySelector(".b"); if(b) b.scrollTop = y; };
       const close = v => { el.remove(); document.removeEventListener("keydown", onKey); resolve(v); };
@@ -74,7 +75,7 @@
         }
       });
       el.addEventListener("input", e => { if(e.target.matches("[data-note]")) note = e.target.value;
-        if(e.target.matches("[data-dv]")){ discV = e.target.value; const b = el.querySelector("[data-ok]"); if(b) b.textContent = `Update · ${money(priceOf() * qty - discOf())}`; } });
+        if(e.target.matches("[data-dv]")){ discV = e.target.value; const b = el.querySelector("[data-ok]"); if(b) b.textContent = "Update"; } });
       el.addEventListener("change", e => {
         const i = e.target.closest("[data-g]"); if(!i) return; const gi = +i.dataset.g, l = links[gi];
         if((+l.max||0) === 1){ sel[gi].clear(); if(i.checked) sel[gi].set(i.value, 1); }
@@ -99,7 +100,7 @@
       const el = document.createElement("div"); el.className = "smp-scrim";
       const close = v => { document.removeEventListener("keydown", onKey); el.remove(); resolve(v); };
       const onKey = e => { if(e.key === "Escape") close(null); };
-      el.innerHTML = `<div class="smp" role="dialog" aria-modal="true" aria-label="${esc(o.name)}"><header><h3>${esc(o.name)}</h3><button type="button" data-x aria-label="Close">×</button></header><div class="b"><div class="g"><b>${esc(o.setName || "Choose a variant")}</b><span>Choose 1</span></div><div class="vgrid">${list.map((v, i) => `<button type="button" class="vbtn" data-v="${i}"><b>${esc(v.name)}</b><span>${money(v.price)}</span></button>`).join("")}</div></div></div>`;
+      el.innerHTML = `<div class="smp" role="dialog" aria-modal="true" aria-label="${esc(o.name)}"><header><h3>${esc(o.name)}</h3><button type="button" data-x class="smx">Cancel</button></header><div class="b"><div class="g"><b>${esc(o.setName || "Choose a variant")}</b><span>Choose 1</span></div><div class="vgrid">${list.map((v, i) => `<button type="button" class="vbtn" data-v="${i}"><b>${esc(v.name)}</b><span>${money(v.price)}</span></button>`).join("")}</div></div></div>`;
       el.addEventListener("click", e => { if(e.target === el || e.target.closest("[data-x]")) return close(null); const b = e.target.closest("[data-v]"); if(b) close(list[+b.dataset.v]); });
       document.addEventListener("keydown", onKey);
       document.body.appendChild(el);
