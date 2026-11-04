@@ -353,6 +353,7 @@ body[data-route="call-center"] .ocard{padding:10px 12px;gap:5px;font-size:13px}
 .cccart .clist{flex:1;overflow-y:auto;min-height:0}
 .cccart .ctot{margin-top:8px}
 .cccart .err{min-height:0;margin:6px 0 0}
+.ccnotes{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px;padding-top:10px;border-top:1px solid var(--line)}.ccnotes .f{margin:0}.ccnotes label{font-size:12.5px}.ccnotes input{width:100%;padding:7px 10px}
 .ccacts{display:flex;flex-wrap:wrap;gap:8px;padding-top:10px;border-top:1px solid var(--line);margin-top:8px}
 .ccacts .btn{flex:1;justify-content:center}
 .ccacts .btn.pri{flex-basis:100%;order:-1;padding:11px}
@@ -2486,7 +2487,7 @@ function openOrder(id){
   const ldis = ro || ccLocked ? "disabled" : "";
   const box = $("#ccBox"); box.className = "modal ccfull";
   box.innerHTML = `<header><h2>${o?`Order ${esc(ordRef(o))} <span class="spill s-${o.status}">${CC_SUB[o.status]}</span>`:"New Call Center Order"}</h2>
-    <nav class="ccsteps" aria-label="Order steps"><button type="button" data-ccstep="1"><i>1</i>Customer & delivery</button><span aria-hidden="true">›</span><button type="button" data-ccstep="2"><i>2</i>Items</button></nav>
+    <nav class="ccsteps" aria-label="Order steps"><button type="button" data-ccstep="1"><i>1</i>Customer</button><span aria-hidden="true">›</span><button type="button" data-ccstep="2"><i>2</i>Cart</button></nav>
     <button type="button" class="x" data-ccclose aria-label="Close">×</button></header>
   ${o && !ro && ccLocked ? `<div class="ccbanner">Placed order: you can change the order source, order type and items. Changes go straight to ${esc(branchName(o.branchId))}.</div>` : ""}
   <div class="ccx" id="ccX">
@@ -2500,7 +2501,7 @@ function openOrder(id){
      </div>
      <div class="cc1b">
       <h4>Order</h4>
-      <div class="f"><label>Order type *</label><div class="seg tiles" id="oType">${[["delivery","Delivery"],["pickup","Pickup"]].map(([k,t])=>`<button type="button" data-ot="${k}" class="${o?.type===k?"on":""}" ${dis}>${svgIco(k==="delivery"?"truck":"store")}${t}</button>`).join("")}</div></div>
+      <div class="f"><label>Order type *</label><div class="seg tiles" id="oType">${[["pickup","Pickup"],["delivery","Delivery"]].map(([k,t])=>`<button type="button" data-ot="${k}" class="${o?.type===k?"on":""}" ${dis}>${svgIco(k==="delivery"?"truck":"store")}${t}</button>`).join("")}</div></div>
       <div class="f2"><div class="f"><label for="oBrand">Brand *</label><select id="oBrand" ${ldis}><option value="">Choose…</option>${brandList().filter(b=>b.active!==false || b.id===o?.brandId).map(b=>`<option value="${esc(b.id)}" ${o?.brandId===b.id?"selected":""}>${esc(b.name)}</option>`).join("")}</select></div>
       <div class="f"><label for="oBranch">Branch *</label><select id="oBranch" ${ldis}></select></div></div>
       <div class="f"><label for="oSource">Order source *</label><select id="oSource" ${dis}><option value="">Choose…</option>${sourceList(o?.source).map(s=>`<option ${o?.source===s?"selected":""}>${esc(s)}</option>`).join("")}</select></div>
@@ -2512,15 +2513,14 @@ function openOrder(id){
         <div class="f"><label for="oA_floor">Floor *</label><input id="oA_floor" value="${esc(a.floor)}" ${ad}></div></div>
         <div class="f"><label for="oA_extra">Additional info</label><input id="oA_extra" value="${esc(a.extra)}" ${ad} placeholder="Apartment, landmark, directions"></div>`; })()}</div>
       ${o?.lat ? `<div class="f"><label>Pinned location</label>${mapLink(o)}</div>` : ""}
-      <div class="f2"><div class="f"><label for="oNotes">Kitchen notes</label><input id="oNotes" value="${esc(o?.notes||"")}" ${ldis} placeholder="On the kitchen ticket"></div>
-      <div class="f"><label for="oRNotes">Receipt notes</label><input id="oRNotes" value="${esc(o?.receiptNotes||"")}" ${ldis} placeholder="On the customer's receipt"></div></div>
      </div>
     </div>
-    <div class="ccnext"><span class="err" id="oErr1"></span><button type="button" class="btn pri" data-ccstep="2">Continue to items →</button></div>
+    <div class="ccnext"><span class="err" id="oErr1"></span><button type="button" class="btn pri" data-ccstep="2">Continue to cart →</button></div>
    </section>
    <aside class="ccside" id="oSide"></aside>
    ${ro ? "" : `<section class="ccmenu"><div class="ccprods"><div class="ccbar"><button type="button" class="btn sm" id="oCatBack" hidden>← Categories</button><div class="cchead" id="oCatTitle"></div><input class="sel search" id="oSearch" placeholder="Search all products" autocomplete="off"></div><div class="pgrid" id="oProducts"></div></div></section>`}
-   <section class="cccart${ro?" wide":""}"><div class="cart" id="oCart"></div><div class="err" id="oErr"></div><div class="ccacts">${ccActions(o)}</div></section>
+   <section class="cccart${ro?" wide":""}"><div class="cart" id="oCart"></div>
+   <div class="ccnotes"><div class="f"><label for="oNotes">Kitchen notes</label><input id="oNotes" value="${esc(o?.notes||"")}" ${ldis} placeholder="On the kitchen ticket"></div><div class="f"><label for="oRNotes">Receipt notes</label><input id="oRNotes" value="${esc(o?.receiptNotes||"")}" ${ldis} placeholder="On the customer's receipt"></div></div><div class="err" id="oErr"></div><div class="ccacts">${ccActions(o)}</div></section>
   </div>`;
   state.oCat = ""; fillOrderBranches(o?.branchId); renderOrderMenu(); renderCart(ro); ccAddrVis();
   $("#ccScrim").classList.add("show");
@@ -2547,7 +2547,7 @@ function ccStep1Err(){
 }
 function ccStep(n, force){
   const x = $("#ccX"); if(!x) return;
-  if(n===1 && !force && x.classList.contains("s2") && !confirm("Go back to Customer & delivery? The items in the cart stay.")) return;
+  if(n===1 && !force && x.classList.contains("s2") && !confirm("Go back to Customer? The items in the cart stay.")) return;
   if(n===2 && !force){ const e = ccStep1Err(); if(e){ $("#oErr1").textContent = e[0]; if(e[1]) $("#"+e[1])?.focus(); return; } }
   $("#oErr1") && ($("#oErr1").textContent = "");
   x.classList.toggle("s1", n===1); x.classList.toggle("s2", n===2);
@@ -2651,7 +2651,7 @@ function renderOrderMenu(){
 }
 function renderCart(ro){
   const ch = ccCharges(), c = orderCalc(cart, 0, ch.picked), qty = cart.reduce((a,i)=>a+i.qty,0);
-  $("#oCart").innerHTML = `<div class="kh"><h3>Order items</h3><span class="note">${qty} item${qty===1?"":"s"}</span></div><div class="clist">` +
+  $("#oCart").innerHTML = `<div class="kh" style="display:flex;align-items:center;gap:8px"><h3 style="margin:0">Cart</h3><span class="note">${qty} item${qty===1?"":"s"}</span>${!ro && cart.length ? `<button type="button" class="btn sm" data-ccclear style="margin-left:auto">Clear</button>` : ""}</div><div class="clist">` +
     (cart.length ? cart.map((i,ix)=>`<div class="citem"><span class="cname">${ro ? esc(i.name) : `<a href="#call-center" class="lnk" data-cedit="${ix}" title="Edit item: options, note, discount">${esc(i.name)}</a>`}${modList(i)}${+i.disc?`<div class="note" style="color:var(--accent-ink)">Discount −${usd(i.disc)}</div>`:""}</span>${ro?`<span>× ${i.qty}</span>`:`<span class="qty"><button type="button" data-q="${ix}:-1" aria-label="Less">−</button>${i.qty}<button type="button" data-q="${ix}:1" aria-label="More">+</button></span>`}<span class="num">${usd(lineNet(i))}</span></div>`).join("") : `<div class="note" style="padding:18px 0;text-align:center">${ro?"No items.":"Pick a category, then tap products to add them."}</div>`) +
     `</div>${ch.list.length ? `<div class="cchg">${ch.list.map(x => `<label class="chk"><input type="checkbox" data-ochg="${esc(x.id)}" ${ch.picked.includes(x) ? "checked" : ""} ${ro?"disabled":""}> ${esc(x.name)} <span class="note">${x.type==="percent" ? (+x.value)+"%" : usd(x.value)}</span></label>`).join("")}</div>` : ""}
     ${c.charges.filter(x=>x.amount).map(x => `<div class="ctot sub"><span>${esc(x.name)}</span><span>${usd(x.amount)}</span></div>`).join("")}
@@ -4817,6 +4817,7 @@ $("#ccScrim").addEventListener("click", e => { if(e.target.id==="repCsv") return
   if(e.target.id==="ccScrim" || e.target.closest("[data-ccclose]")) return $("#ccScrim").classList.remove("show");
   const ot = e.target.closest("[data-ot]"); if(ot && !ot.disabled){ document.querySelectorAll("#oType button").forEach(b=>b.classList.toggle("on", b===ot)); ccAddrVis(); ccAddrLock(); renderCart(false); }
   const oc = e.target.closest("[data-ocat]"); if(oc){ state.oCat = oc.dataset.ocat; if($("#oSearch")) $("#oSearch").value = ""; renderOrderMenu(); $("#oProducts").scrollTop = 0; }
+  if(e.target.closest("[data-ccclear]")){ e.preventDefault(); if(!cart.length || !confirm("Clear all items from the cart?")) return; cart = []; renderCart(false); return; }
   const ce = e.target.closest("[data-cedit]"); if(ce){ e.preventDefault(); ccEditItem(+ce.dataset.cedit); return; }
   const add = e.target.closest("[data-add]"); if(add){ const p = S.products.find(x=>x.id===add.dataset.add); if(p) ccAdd(p); }
   const q = e.target.closest("[data-q]"); if(q){ const [ix,d] = q.dataset.q.split(":").map(Number); cart[ix].qty += d; if(cart[ix].qty<=0) cart.splice(ix,1); renderCart(false); }
