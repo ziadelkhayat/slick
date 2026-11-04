@@ -454,6 +454,7 @@ button,input,select,textarea{font-family:var(--f-ui)}
 .slk-ask-yes{background:var(--accent,#6c47ff);border:1px solid var(--accent,#6c47ff);color:#fff}
 .slk-ask-yes.red{background:#dc2626;border-color:#dc2626}
 @keyframes slkAskIn{from{opacity:0}to{opacity:1}}
+.pdph{display:flex;gap:8px}.pdph select{flex:0 0 auto;max-width:42%;border:1px solid var(--line,#e4e1ef);border-radius:12px;background:#fff;font:inherit;font-size:15px;padding:0 10px}.pdph input{flex:1;min-width:0}
 </style>
 <script>
 /* ---------- Slick's own Yes / No message (instead of the browser's) ---------- */
@@ -1200,6 +1201,7 @@ $("#modal").addEventListener("click", async e => {
   const shc = e.target.closest("[data-shclose]"); if(shc) return closeShiftRemote(shc.dataset.shclose);
   if(e.target.closest("#deact")){ store.set("wokDevice", null); location.reload(); }
 });
+$("#modal").addEventListener("change", e => { if(e.target.id==="pdCc"){ PD && (PD.cc = e.target.value); clearTimeout(pdT); pdT = setTimeout(pdLookup, 50); } });
 $("#modal").addEventListener("input", e => { if(e.target.id==="pdPhone"){ clearTimeout(pdT); pdT = setTimeout(pdLookup, 450); } if(e.target.id==="tender") updChange(); if(e.target.id==="bdQ"){ BQ = e.target.value; const pos = e.target.selectionStart; openBoard(); const q = $("#bdQ"); q.focus(); q.setSelectionRange(pos, pos); return; } if(e.target.id==="ovQ"){ OV.q = e.target.value; const pos = e.target.selectionStart; openIncoming(); const q = $("#ovQ"); q.focus(); q.setSelectionRange(pos, pos); } });
 $("#modal").addEventListener("change", e => { if(e.target.id==="ovDate"){ const v = e.target.value; OV.date = !v || v >= bizDate() ? "" : v; return openIncoming(); } if(e.target.id==="vrReason") $("#vrOther").style.display = e.target.value==="_other" ? "" : "none"; });
 
@@ -1689,7 +1691,10 @@ let BQ = "";
 // new pickup / delivery order, like the call center: customer & delivery first, then the menu
 // phone numbers are kept in full international form (+96170123456): a number typed without a code gets the business's country code
 const CC_OF = {"Lebanon":"+961","United Arab Emirates":"+971","Saudi Arabia":"+966","Qatar":"+974","Kuwait":"+965","Bahrain":"+973","Oman":"+968","Jordan":"+962","Syria":"+963","Iraq":"+964","Egypt":"+20","Turkey":"+90","Cyprus":"+357","France":"+33","United Kingdom":"+44","Germany":"+49","Italy":"+39","Spain":"+34","United States / Canada":"+1","Australia":"+61","Brazil":"+55","Ivory Coast":"+225","Nigeria":"+234","Senegal":"+221","DR Congo":"+243","India":"+91","Philippines":"+63","Sri Lanka":"+94","Bangladesh":"+880","Ethiopia":"+251"};
-const normPhone = p => { let d = String(p||"").replace(/[^\d+]/g, ""); if(!d) return ""; if(d.startsWith("00")) d = "+" + d.slice(2); if(d.startsWith("+")) return d.replace(/(?!^)\+/g, ""); const n = d.replace(/\+/g, "").replace(/^0+/, ""); return n.length < 6 ? "" : (CC_OF[coS().country || "Lebanon"] || "+961") + n; };
+const PH_CODES = () => CC_OF;
+// a customer may have been saved as +96170123456, 70123456, 070123456 or "+961 70123456": look them all up
+function phoneVariants(full){ const out = new Set([full]); const m = Object.values(PH_CODES()).sort((a,b)=>b.length-a.length).find(c => full.startsWith(c)); if(m){ const n = full.slice(m.length); out.add(n); out.add("0" + n); out.add(m + " " + n); } return [...out]; }
+const normPhone = (p, cc) => { let d = String(p||"").replace(/[^\d+]/g, ""); if(!d) return ""; if(d.startsWith("00")) d = "+" + d.slice(2); if(d.startsWith("+")) return d.replace(/(?!^)\+/g, ""); const n = d.replace(/\+/g, "").replace(/^0+/, ""); return n.length < 6 ? "" : (cc || CC_OF[coS().country || "Lebanon"] || "+961") + n; };
 let PD = null, pdT;
 function openPDNew(){
   const types = allowedTypes().filter(t => t!=="dinein"); if(!types.length) return toast("Pickup and delivery aren't enabled on this register");
@@ -1707,7 +1712,7 @@ function openPDNew(){
   modal("pdnew", `<div class="mh"><h2>${PD.edit ? "Edit order" : "New order"}</h2></div><div class="mb pdcols"><div class="pdform">
     <div class="dseg" style="margin-bottom:14px">${types.map(t => `<button type="button" data-pdt="${t}" class="${PD.type===t?"on":""}">${t==="delivery" ? "Delivery" : "Pickup"}</button>`).join("")}</div>
     <div class="f"><label>Order source *</label><div class="rchips">${posSources().map(s => `<button type="button" data-pdsrc="${esc(s)}" class="${PD.source===s?"on":""}">${esc(s)}</button>`).join("")}</div></div>
-    <div class="f"><label for="pdPhone">Customer phone *</label><div class="npw"><input id="pdPhone" inputmode="none" data-np="tel" value="${esc(PD.phone)}" autocomplete="off">${numpad("pdPhone", "tel")}</div><div class="mut" id="pdHint" style="min-height:18px">${PD.cust && !side ? pdHint(PD.cust) : ""}</div></div>
+    <div class="f"><label for="pdPhone">Customer phone *</label><div class="npw"><div class="pdph"><select id="pdCc" aria-label="Country code">${Object.entries(CC_OF).map(([n,c]) => `<option value="${c}" ${(PD.cc||CC_OF[coS().country||"Lebanon"]||"+961")===c?"selected":""}>${esc(n)} (${c})</option>`).join("")}</select><input id="pdPhone" inputmode="none" data-np="tel" value="${esc(PD.phone)}" autocomplete="off"></div>${numpad("pdPhone", "tel")}</div><div class="mut" id="pdHint" style="min-height:18px">${PD.cust && !side ? pdHint(PD.cust) : ""}</div></div>
     <div class="f"><label for="pdName">Customer name *</label><input id="pdName" value="${esc(PD.name)}"></div>
     ${PD.type==="delivery" ? `
       <div class="f"><label>Delivery address</label><div class="addrg">${A.map(([k,ph]) => `<label class="adf${k==="extra"||k==="label"?" wide":""}"><span>${ph}</span><input id="pdA_${k}" value="${esc(PD.addr[k]||"")}"></label>`).join("")}</div></div>` : ""}
@@ -1719,12 +1724,12 @@ function openPDNew(){
 }
 const pdHint = c => `${c.blacklisted ? '<b style="color:#b42318">⚠ Blacklisted customer.</b> ' : "Returning customer. "}${(c.tags||[]).map(t => esc(t)).join(", ")}${c.notes ? ` · <i>${esc(c.notes)}</i>` : ""}`;
 async function pdLookup(){
-  const ph = normPhone($("#pdPhone")?.value); if(!PD) return;
+  const ph = normPhone($("#pdPhone")?.value, $("#pdCc")?.value); if(!PD) return;
   if(ph.length < 6 || !window.WOK?.sb || !navigator.onLine){ const had = !!PD.cust; PD.cust = null; PD.past = []; if(had && modalKind==="pdnew"){ pdKeep(); PD.cust = null; openPDNew(); const i = $("#pdPhone"); i.focus(); i.setSelectionRange(i.value.length, i.value.length); } if($("#pdHint")) $("#pdHint").innerHTML = ""; return; }
-  try{ const { data } = await window.WOK.sb.from("customers").select("id,name,addresses,blacklisted,notes,tags,created_at").eq("phone", ph).maybeSingle();
-    if(normPhone($("#pdPhone")?.value) !== ph || modalKind!=="pdnew") return;
+  try{ const { data: list } = await window.WOK.sb.from("customers").select("id,name,phone,addresses,blacklisted,notes,tags,created_at").in("phone", phoneVariants(ph)).limit(1); const data = list?.[0] || null;
+    if(normPhone($("#pdPhone")?.value, $("#pdCc")?.value) !== ph || modalKind!=="pdnew") return;
     PD.past = data ? await pdPast(data.id, ph) : [];
-    if(normPhone($("#pdPhone")?.value) !== ph || modalKind!=="pdnew") return;
+    if(normPhone($("#pdPhone")?.value, $("#pdCc")?.value) !== ph || modalKind!=="pdnew") return;
     pdKeep(); PD.cust = data || null; PD.det = null;
     if(data){ if(!PD.name && data.name) PD.name = data.name; if(PD.type==="delivery" && !ADDR_K.some(k => PD.addr[k]) && data.addresses?.[0]?.address) PD.addr = addrParts(data.addresses[0].address); openPDNew(); const i = $("#pdPhone"); i.focus(); i.setSelectionRange(i.value.length, i.value.length); }
     else { if($(".pdside")){ openPDNew(); const i = $("#pdPhone"); i.focus(); i.setSelectionRange(i.value.length, i.value.length); } $("#pdHint").innerHTML = "New customer · enter their name"; }
@@ -1779,7 +1784,7 @@ async function openCustPage(det){
   if(det===undefined) CV = null;
   const ph = normPhone(cust.phone), eo = editOrder(), addr = otype==="delivery" ? (eo?.address || addrJoin(cust.addr||{})) : "";
   if(!CV || CV.ph!==ph){ CV = { ph, c:null, past:[], loading:true }; drawCust(); 
-    if(ph.length >= 6 && window.WOK?.sb && navigator.onLine){ try{ const { data } = await window.WOK.sb.from("customers").select("id,name,addresses,blacklisted,notes,tags,created_at").eq("phone", ph).maybeSingle(); CV.c = data || null; CV.past = await pdPast(data?.id || "00000000-0000-0000-0000-000000000000", ph); }catch(e){ console.warn(e); } }
+    if(ph.length >= 6 && window.WOK?.sb && navigator.onLine){ try{ const { data: list } = await window.WOK.sb.from("customers").select("id,name,phone,addresses,blacklisted,notes,tags,created_at").in("phone", phoneVariants(ph)).limit(1); const data = list?.[0] || null; CV.c = data || null; CV.past = await pdPast(data?.id || "00000000-0000-0000-0000-000000000000", ph); }catch(e){ console.warn(e); } }
     else CV.past = S.orders.filter(o => ph && normPhone(o.phone)===ph && ["pending","active","closed"].includes(o.status)).map(o => ({ id:o.id, no:o.no, inv:o.invoiceNo, status:o.status, type:o.type, total:+o.total||0, items:o.items||[], branchId:o.branchId, at:o.createdAt, discount:+o.discount||0, fee:+o.deliveryFee||0, charges:o.charges||[], address:o.address||"", payment:o.payment||null, source:o.source||"" }));
     CV.loading = false; if(modalKind!=="custpage") return; }
   CV.det = det || null; CV.addr = addr; drawCust();
@@ -1805,7 +1810,7 @@ const posSources = () => { const l = S.order_sources.filter(r => !r.deleted && r
 // keeps the customer's details and every new delivery address on their record
 async function pdSaveCust(){
   if(!window.WOK?.sb || !navigator.onLine) return;
-  const ph = normPhone(PD.phone), name = PD.name.trim(), a = PD.type==="delivery" ? addrJoin(PD.addr) : "";
+  const ph = normPhone(PD.phone, PD.cc), name = PD.name.trim(), a = PD.type==="delivery" ? addrJoin(PD.addr) : "";
   try{
     if(PD.cust?.id){ const list = PD.cust.addresses || [], row = {};
       if(a && !list.some(x => addrJoin(addrParts(x.address))===a)) row.addresses = [...list, { address:a }];
@@ -1814,10 +1819,10 @@ async function pdSaveCust(){
     } else if(ph.length >= 6 && name) await window.WOK.sb.from("customers").insert({ phone:ph, name, addresses: a ? [{ address:a }] : [] });
   }catch(e){ console.warn("customer not saved", e); }
 }
-function pdKeep(){ if(!PD || modalKind!=="pdnew") return; PD.phone = $("#pdPhone")?.value || ""; PD.name = $("#pdName")?.value || ""; ADDR_K.forEach(k => { const el = $("#pdA_" + k); if(el) PD.addr[k] = el.value; }); }
+function pdKeep(){ if(!PD || modalKind!=="pdnew") return; PD.phone = $("#pdPhone")?.value || ""; PD.cc = $("#pdCc")?.value || PD.cc; PD.name = $("#pdName")?.value || ""; ADDR_K.forEach(k => { const el = $("#pdA_" + k); if(el) PD.addr[k] = el.value; }); }
 // what is still missing before the order can continue (Continue stays grey until nothing is)
 function pdNeed(){ const need = [];
-  if(normPhone(PD.phone).length < 6) need.push("phone number"); if(!PD.name.trim()) need.push("name");
+  if(normPhone(PD.phone, PD.cc).length < 6) need.push("phone number"); if(!PD.name.trim()) need.push("name");
   if(PD.type==="delivery") [["street","area / street"],["building","building"],["floor","floor"]].forEach(([k,l]) => { if(!String(PD.addr[k]||"").trim()) need.push(l); });
   return need; }
 document.addEventListener("input", () => { if(modalKind==="pdnew") pdRefresh(); });
@@ -1826,14 +1831,14 @@ async function pdContinue(){
   pdKeep(); const need = pdNeed();
   if(!PD.source){ $("#pdErr").textContent = "Pick the order source."; return; }
   if(need.length){ $("#pdErr").textContent = "Enter the customer's " + need.join(", ").replace(/, ([^,]*)$/, " and $1") + "."; return; }
-  if(PD.edit){ pdSaveCust(); otype = PD.type==="delivery" ? "delivery" : "takeaway"; cust = { name: PD.name.trim(), phone: normPhone(PD.phone) || PD.phone.trim(), addr: PD.type==="delivery" ? { ...PD.addr } : {}, source: PD.source || "" }; PD = null; closeModal(); renderCart(); renderMenu(); return toast("Customer details saved"); }
+  if(PD.edit){ pdSaveCust(); otype = PD.type==="delivery" ? "delivery" : "takeaway"; cust = { name: PD.name.trim(), phone: normPhone(PD.phone, PD.cc) || PD.phone.trim(), addr: PD.type==="delivery" ? { ...PD.addr } : {}, source: PD.source || "" }; PD = null; closeModal(); renderCart(); renderMenu(); return toast("Customer details saved"); }
   pdSaveCust();
   if(PD.cust?.blacklisted && !(await askYes("This customer is blacklisted. Take the order anyway?", "Take order", true))) return;
   if(EDIT) unloadOrder();
   if(cart.length && !(await askYes("Hold the order that's in the cart and start this one?", "Hold & continue"))) return;
   if(cart.length) holdOrder(true);
   resetOrder(); otype = PD.type==="delivery" ? "delivery" : "takeaway";
-  cust = { name: PD.name.trim(), phone: normPhone(PD.phone) || PD.phone.trim(), addr: PD.type==="delivery" ? { ...PD.addr } : {}, source: PD.source || "" };
+  cust = { name: PD.name.trim(), phone: normPhone(PD.phone, PD.cc) || PD.phone.trim(), addr: PD.type==="delivery" ? { ...PD.addr } : {}, source: PD.source || "" };
   PD = null; closeModal(); cat = ""; renderCart(); renderMenu();
   toast("Add the items, then Save (sends to the kitchen) or Pay");
 }

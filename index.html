@@ -628,6 +628,12 @@ h1:has(.ib),h3:has(.ib){display:inline-flex;align-items:center}
 .slk-ask-yes.red{background:#dc2626;border-color:#dc2626}
 @keyframes slkAskIn{from{opacity:0}to{opacity:1}}
 *:has(> footer [data-cclose], > footer [data-ccclose], > footer [data-close]) > header > .x{display:none!important}
+.invsetup{margin-bottom:16px;padding:14px 18px;border-left:4px solid #f59e0b}.invsetup ul{margin:8px 0 0;padding-left:18px;display:flex;flex-direction:column;gap:6px;font-size:14px;color:#3a3a3c}
+.ist{display:inline-block;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:600;white-space:nowrap}.ist-ok{background:#e8f6ee;color:#15803d}.ist-low{background:#fef3c7;color:#b45309}.ist-out{background:#fde8e8;color:#dc2626}.ist-none{background:#f2f2f5;color:#8e8e93}
+.balist{max-height:56vh;overflow:auto;display:flex;flex-direction:column;gap:14px;padding-right:4px}.bagh{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}.bagh b{font-size:13px;color:#6b6880;text-transform:uppercase;letter-spacing:.04em}.bagh .lnk{border:0;background:none;color:var(--accent);font:inherit;font-size:13px;font-weight:600;cursor:pointer}
+.bagrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px}.batile{position:relative;display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--line,#e5e5ea);border-radius:12px;cursor:pointer;background:#fff;transition:border-color .12s,background .12s}.batile:hover{border-color:#c9bff5}
+.batile input{position:absolute;opacity:0;pointer-events:none}.baimg{width:40px;height:40px;border-radius:8px;background:#f2f0f8;flex:none;overflow:hidden}.baimg img{width:100%;height:100%;object-fit:cover}.banm{display:flex;flex-direction:column;min-width:0;flex:1}.banm b{font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.banm small{color:#8e8e93;font-size:12px}
+.bachk{width:22px;height:22px;border-radius:50%;border:2px solid #d1d1d6;flex:none;display:grid;place-items:center}.batile:has(input:checked){border-color:var(--accent);background:#f5f1ff}.batile:has(input:checked) .bachk{background:var(--accent);border-color:var(--accent)}.batile:has(input:checked) .bachk::after{content:"";width:6px;height:10px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg) translate(-1px,-1px)}
 </style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -790,7 +796,7 @@ const NAV = [
   {t:"Manage",i:"gear",kids:[["users","Users"],["roles","Roles"],["brands","Brands"],["branches","Branches"],["devices","Devices"],["taxes","Taxes & Groups"],["currency","Currency"],["payment-methods","Payment Methods"],["order-sources","Order Sources"],["charges","Charges"],["delivery-zones","Delivery Zones"],["online-ordering","Web Ordering"],["kitchen-flows","Kitchen Flows"],["reasons","Reasons"]]},
   {t:"Marketing",i:"tag",kids:[["loyalty","Loyalty"],["gift-cards","Gift Cards"],["discounts","Discounts"],["promotions","Promotions"],["coupons","Coupons"]]}
 ];
-const TITLES = { account:"Account settings" };
+const TITLES = { account:"Account settings", "inv-levels":"Inventory Levels", "inv-history":"Inventory History", purchasing:"Purchasing" };
 NAV.forEach(n => { if(n.id) TITLES[n.id]=n.t; (n.kids||[]).forEach(k => { if(!k[0].startsWith("@")) TITLES[k[0]] = k[1]; }); });
 const svgIco = k => `<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${I[k]||""}</svg>`;
 /* ---------- icons for every screen (lucide-style strokes) ---------- */
@@ -1311,7 +1317,7 @@ const placeholder = (t, s) => `<div class="card ph"><div><div class="big">${esc(
 /* ---------- Reports (Foodics-style): hubs, then one report page with type, group by, branch, dates, export, print ---------- */
 const RPT_HUB = {
   "sales-reports": ["Sales Reports", [["sales","Sales Reports","Sales by branch, product, category, order type, order source, cashier and time"],["payments","Payment Reports","Payments by method, with returns taken off"]]],
-  "inventory-reports": ["Inventory Reports", [["#inv-levels","Inventory Levels","Stock on hand at each branch"],["#inv-history","Inventory History","Every stock movement"],["#purchase-orders","Purchase Orders",""],["#transfers","Transfers",""],["#purchasing","Purchasing",""]]],
+  "inventory-reports": ["Inventory Reports", [["#inv-levels","Inventory Levels","Stock on hand at each branch"],["#inv-history","Inventory History","Every stock movement"],["#purchase-orders","Purchase Orders",""],["#transfers","Transfers",""],["#purchasing","Purchasing","Purchases received by item and supplier"]]],
   "business-reports": ["Business Reports", [["taxes","Taxes","Tax collected per branch and day"],["days","Business Days","Every ended business day"],["shifts","Shifts","Opened and closed shifts with cash count"],["voids","Voids & Returns","Voided orders and items, and returns"]]],
   "analysis-reports": ["Analysis Reports", [["menu","Menu Engineering","Products by quantity sold and net sales"],["trend","Branches Trend","Net sales of each branch, day by day"],["speed","Speed Of Service","Minutes from placing to accepting and to done"]]]
 };
@@ -2006,7 +2012,9 @@ const CRUD = {
       return par ? `<span class="vchild">↳ <b>${esc(r.name)}</b> <span class="tag">${esc(varGroup(par))} · ${esc(par.variants.find(v=>v.productId===r.id)?.name||"")}</span></span>`
         : `<b>${esc(r.name)}</b>${n ? ` <span class="tag cc">${n} variant${n===1?"":"s"}</span>` : ""}`; })()}</span>`],["SKU",r=>`<span class="code">${esc(r.sku||"")}</span>`],["Category",r=>esc(catName(r.categoryId))],
       ["Price",r=>{ const k = varKids(r); return k.length ? "From " + usd(Math.min(...k.map(x=>+x.price||0))) : r.pricingMethod==="open"?"Open":usd(r.price); }],
-      ["Tax Group",r=>varKids(r).length ? '<span class="note">Per variant</span>' : esc(tgName(r.taxGroup))]],
+      ["Tax Group",r=>varKids(r).length ? '<span class="note">Per variant</span>' : esc(tgName(r.taxGroup))],
+      ["Cost",r=>{ if(varKids(r).length) return '<span class="note">Per variant</span>'; if(r.costingMethod!=="fixed" && !(r.ingredients||[]).length) return '<span class="note">No recipe</span>'; return fmtCost(productCost(r)); },"num"],
+      ["Cost %",r=>{ if(varKids(r).length || r.pricingMethod==="open" || !(+r.price)) return "—"; const c = productCost(r); if(!c) return "—"; const pc = c / (+r.price) * 100; return `<span style="color:${pc>35?"#dc2626":pc>28?"#b45309":"#15803d"};font-weight:600">${pc.toFixed(1)}%</span>`; },"num"]],
     fields:[{k:"name",l:"Name",req:1},{k:"nameAr",l:"Name (Arabic)"},brandField,{k:"sku",l:"SKU",auto:()=>nextSku("products")},
       {k:"categoryId",l:"Category",t:"select",req:1,opts:()=>S.categories.filter(c=>live(c)&&!c.channel).sort(bySort).map(c=>[c.id,c.name])},
       {k:"pricingMethod",l:"Pricing method",t:"select",opts:()=>[["fixed","Fixed price"],["open","Open Price"]],def:"fixed",hideIf:r=>varKids(r).length},
@@ -2079,7 +2087,9 @@ const CRUD = {
     sort:(a,b)=>(b.sku||"").localeCompare(a.sku||"",undefined,{numeric:true}),
     search:r=>r.name+" "+(r.sku||"")+" "+(r.category||""),
     filter:r=>!state.invCat || r.category===state.invCat,
-    cols:[["Name",r=>`<b>${esc(r.name)}</b>`],["Sku",r=>`<span class="code">${esc(r.sku||"")}</span>`],["Category",r=>esc(r.category||"—")]],
+    cols:[["Name",r=>`<b>${esc(r.name)}</b>`],["Sku",r=>`<span class="code">${esc(r.sku||"")}</span>`],["Category",r=>esc(r.category||"—")],["Unit",r=>esc(r.storageUnit||"—")],
+      ["On hand",r=>{ const q = invQty(r.id, ""); return q===undefined ? '<span class="note">—</span>' : n2(q); },"num"],["Cost",r=>{ const c = +itemUnitCost(r); return c ? fmtCost(c) : '<span class="note">No cost</span>'; },"num"],
+      ["Status",r=>{ const st = invStatus(r, invQty(r.id, "")); return `<span class="ist ist-${st[0]}">${st[1]}</span>`; }]],
     fields:[{k:"name",l:"Name",req:1},{k:"nameAr",l:"Name (Arabic)"},{k:"sku",l:"SKU",auto:()=>nextSku("inv_items")},
       {k:"category",l:"Category",t:"select",opts:()=>invCatNames().map(n=>[n,n])},
       
@@ -2176,6 +2186,7 @@ document.addEventListener("click", e => { const b = e.target.closest("[data-gens
 state.tabs = {}; state.q = {}; state.page = {}; state.catFilter = "";
 function crudView(key){
   if(key==="modifier-options"){ setTimeout(() => location.replace("#modifiers"), 0); return ""; }   // options are managed inside their modifier
+  if(key==="inv-items") loadStock();   // the list shows stock on hand
   const dk = key==="modifiers" && DET.key==="modifier-options" ? DET.key : key;
   if(CRUD[dk].detail && DET.key===dk && DET.id){ const r = S[CRUD[dk].col].find(x=>x.id===DET.id); if(r) return CRUD[dk].detail(r); closeDetail(); }
   const cfg = CRUD[key], tab = state.tabs[key] || "all", q = (state.q[key]||"").toLowerCase();
@@ -3251,15 +3262,21 @@ function bmAddItems(id){
   const c = S.categories.find(x => x.id===id); if(!c) return; const br = branches.find(b => b.id===BM.branch), have = new Set((c.productIds||[]).map(bmRoot)), kidIds = varChildIds();
   const prods = S.products.filter(p => live(p) && !kidIds.has(p.id) && !have.has(p.id) && (!br?.brandId || !p.brandId || p.brandId===br.brandId));
   const groups = {}; prods.forEach(p => (groups[catName(p.categoryId)] ||= []).push(p));
-  const box = $("#ccBox"); box.className = "modal";
-  box.innerHTML = `<header><h2>Add Items · ${esc(c.name)}</h2><button type="button" class="x" data-ccclose aria-label="Close">×</button></header>
-  <div class="body" style="display:block"><input class="sel search" id="baQ" placeholder="Search" style="width:100%;margin-bottom:10px">
-    <div class="mlist" id="baList" style="max-height:52vh;overflow:auto">${prods.length ? Object.keys(groups).sort().map(g => `<div class="mgh" style="padding:10px 0 4px"><b>${esc(g)}</b></div>${groups[g].sort(bySort).map(p => `<label class="chk mitem" data-n="${esc(p.name.toLowerCase())}"><input type="checkbox" value="${esc(p.id)}"> ${esc(p.name)}</label>`).join("")}`).join("") : '<span class="note">Every product is already in this category.</span>'}</div>
+  const box = $("#ccBox"); box.className = "modal wide";
+  const tile = p => `<label class="batile" data-n="${esc((p.name+" "+(p.sku||"")).toLowerCase())}"><input type="checkbox" value="${esc(p.id)}"><span class="baimg">${p.imageUrl ? `<img src="${esc(p.imageUrl)}" alt="" loading="lazy">` : ""}</span><span class="banm"><b>${esc(p.name)}</b><small>${varKids(p).length ? "From " + usd(Math.min(...varKids(p).map(x=>+x.price||0))) : p.pricingMethod==="open" ? "Open price" : usd(p.price)}</small></span><span class="bachk" aria-hidden="true"></span></label>`;
+  box.innerHTML = `<header><h2>Add Items</h2></header>
+  <div class="body" style="display:block"><input class="sel search" id="baQ" type="search" placeholder="Search products" style="width:100%;margin-bottom:12px">
+    <div id="baList" class="balist">${prods.length ? Object.keys(groups).sort().map(g => `<div class="bagrp" data-g><div class="bagh"><b>${esc(g)}</b><button type="button" class="lnk" data-baall>Select all</button></div><div class="bagrid">${groups[g].sort(bySort).map(tile).join("")}</div></div>`).join("") : '<div class="empty">Every product is already in this category.</div>'}</div>
     <div class="err" id="baErr"></div></div>
-  <footer><span style="flex:1"></span><button type="button" class="btn" data-ccclose>Cancel</button><button type="button" class="btn pri" data-baapply="${esc(id)}">Add</button></footer>`;
+  <footer><span class="note" id="baCnt" style="flex:1">Tap products to pick them</span><button type="button" class="btn" data-ccclose>Cancel</button><button type="button" class="btn pri" data-baapply="${esc(id)}" disabled>Add</button></footer>`;
   $("#ccScrim").classList.add("show"); setTimeout(() => $("#baQ")?.focus(), 30);
 }
-document.addEventListener("input", e => { if(e.target.id!=="baQ") return; const q = e.target.value.trim().toLowerCase(); document.querySelectorAll("#baList .mitem").forEach(l => l.style.display = !q || l.dataset.n.includes(q) ? "" : "none"); });
+document.addEventListener("input", e => { if(e.target.id!=="baQ") return; const q = e.target.value.trim().toLowerCase();
+  document.querySelectorAll("#baList .batile").forEach(l => l.style.display = !q || l.dataset.n.includes(q) ? "" : "none");
+  document.querySelectorAll("#baList .bagrp").forEach(g => g.style.display = [...g.querySelectorAll(".batile")].some(l => l.style.display !== "none") ? "" : "none"); });
+function baCount(){ const n = document.querySelectorAll("#baList input:checked").length, b = document.querySelector("[data-baapply]"); if(b){ b.disabled = !n; b.textContent = n ? `Add ${n} item${n===1?"":"s"}` : "Add"; } const c = $("#baCnt"); if(c) c.textContent = n ? `${n} selected` : "Tap products to pick them"; }
+document.addEventListener("change", e => { if(e.target.closest?.("#baList")) baCount(); });
+document.addEventListener("click", e => { const a = e.target.closest("[data-baall]"); if(!a) return; const boxes = [...a.closest(".bagrp").querySelectorAll(".batile")].filter(l => l.style.display !== "none").map(l => l.querySelector("input")); const on = boxes.some(b => !b.checked); boxes.forEach(b => b.checked = on); a.textContent = on ? "Clear" : "Select all"; baCount(); });
 document.addEventListener("click", async e => { const ap = e.target.closest("[data-baapply]"); if(!ap) return; const c = S.categories.find(x => x.id===ap.dataset.baapply); if(!c) return;
   const add = [...document.querySelectorAll("#baList input:checked")].map(i => i.value); if(!add.length){ $("#baErr").textContent = "Tick at least one product."; return; }
   const ids = [...(c.productIds||[]), ...add.filter(x => !(c.productIds||[]).includes(x))];
@@ -3439,6 +3456,9 @@ function moduleRoute(route){
   if(route==="settings"){ const bl = S.brands.filter(live); setTimeout(() => { location.replace("#brands"); if(bl.length===1) setTimeout(() => openDetail("brands", bl[0].id), 50); }, 0); return ""; }
   if(DOC_KINDS[route]) return viewDocs(route);
   if(route==="order-transactions") return viewOrderTx();
+  if(route==="inv-levels") return viewInvLevels();
+  if(route==="inv-history") return viewInvHistory();
+  if(route==="purchasing") return viewPurchasing();
   if(route==="__old_order_tx") return `<h1>Order Transactions</h1><p class="subt">Consumption, returns and waste created automatically from sales.</p>` + placeholder("Starts with recipes", "Each sold product will deduct its recipe ingredients from the branch stock and show up here (Consumption, Return, Waste). It turns on next, now that products have ingredients (open a product under Menu → Products).");
   return null;
 }
@@ -3738,6 +3758,9 @@ const CUS_FLT = [["name","Name","text"],["phone","Phone","text"],["email","Email
 function imgPh(){ return `<span class="imgph"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg><span>Choose photo</span></span>`; }
 const normPhone = p => String(p||"").replace(/[^0-9+]/g, "");
 // a phone number in full international form (+96170123456); numbers typed without a code get the business's country code
+const PH_CODES = () => Object.fromEntries(CC_CODES.map(([d,n]) => [n,d]));
+// a customer may have been saved as +96170123456, 70123456, 070123456 or "+961 70123456": look them all up
+function phoneVariants(full){ const out = new Set([full]); const m = Object.values(PH_CODES()).sort((a,b)=>b.length-a.length).find(c => full.startsWith(c)); if(m){ const n = full.slice(m.length); out.add(n); out.add("0" + n); out.add(m + " " + n); } return [...out]; }
 function fullPhone(v, cc){ let d = String(v||"").replace(/[^\d+]/g, ""); if(!d) return ""; if(d.startsWith("00")) d = "+" + d.slice(2); if(d.startsWith("+")) return d.replace(/(?!^)\+/g, ""); const n = d.replace(/\+/g, "").replace(/^0+/, ""); return n.length < 6 ? "" : (cc || ccDefault()) + n; }
 // call center phone: country code (defaults to the business's country) + number
 const ccDefault = () => (CC_CODES.find(([d,n]) => n===(company().country||"Lebanon")) || CC_CODES[0])[0];
@@ -3943,7 +3966,7 @@ async function ccLookup(view){
   if(!hint){ (inp.closest(".phrow") || inp).insertAdjacentHTML("afterend", `<div class="note" id="oCustHint" style="margin-top:4px"></div>`); hint = $("#oCustHint"); }
   if(ph.length < 6){ hint.innerHTML = ""; $("#oInsights").innerHTML = ""; window.__ccCust = null; ccAddrCards(); return; }
   if(storeMode!=="db"){ hint.innerHTML = ""; return; }
-  const { data } = await WOK.sb.from("customers").select("id,name,addresses,blacklisted,notes,tags,created_at").eq("phone", ph).maybeSingle();
+  const { data: list } = await WOK.sb.from("customers").select("id,name,phone,addresses,blacklisted,notes,tags,created_at").in("phone", phoneVariants(ph)).limit(1); const data = list?.[0] || null;
   if(normPhone(ccPhone()) !== ph) return;
   if(!data){ hint.innerHTML = view ? "" : "New customer · enter their name below"; $("#oInsights").innerHTML = ""; window.__ccCust = null; ccAddrCards(); return; }
   const { data: past } = await WOK.sb.from("orders").select("id,ref,no,invoice_no,status,total,items,branch_id,brand_id,type,source,channel,created_at").eq("customer_id", data.id).order("created_at", { ascending:false }).limit(100);
@@ -4893,6 +4916,139 @@ async function loadOT(){
   if(error){ OT.err = error.message; console.error(error); } else { OT.rows = data || []; OT.count = count || 0; OT.err = ""; }
   if(location.hash.slice(1)==="order-transactions") render();
 }
+/* ---------- Inventory reports: levels (stock on hand, value, low stock), history (every movement), purchasing ---------- */
+const INV = { loc:"", cat:"", q:"", low:false, hist:{ rows:null, loading:false, err:"", key:"", from:"", to:"", loc:"", item:"", type:"" }, pur:{ from:"", to:"", loc:"" } };
+const invDay = (d) => { const x = new Date(); x.setDate(x.getDate() + d); return x.toISOString().slice(0,10); };
+// stock on hand of an item at one location, or summed over every location when loc is ""
+const invQty = (id, loc) => { if(loc) return stockOf(loc, id); let s, any = false; locList().forEach(([l]) => { const v = stockOf(l, id); if(v !== undefined){ s = (s||0) + v; any = true; } }); return any ? s : undefined; };
+function invStatus(it, q){
+  const min = +it.minLevel || 0;
+  if(q === undefined) return ["none", "Not counted"];
+  if(q <= 0) return ["out", "Out of stock"];
+  if(min > 0 && q < min) return ["low", "Low"];
+  return ["ok", "In stock"];
+}
+const invReorder = (it, q) => { const par = +it.parLevel || 0, min = +it.minLevel || 0, cur = Math.max(0, q || 0); if(par > 0 && cur < par && (min <= 0 || cur < min || cur <= 0)) return par - cur; if(min > 0 && cur < min) return min - cur; return 0; };
+// what still needs setting up before the numbers mean something
+function invSetup(){
+  const items = S.inv_items.filter(live), prods = S.products.filter(p => live(p) && !varKids(p).length);
+  return { noUnit: items.filter(i => !i.storageUnit || !i.ingredientUnit || !(+i.factor)).length,
+           noCost: items.filter(i => !(+itemUnitCost(i))).length,
+           noRecipe: prods.filter(p => p.costingMethod!=="fixed" && !(p.ingredients||[]).length).length,
+           noMin: items.filter(i => !(+i.minLevel)).length, items: items.length, prods: prods.length };
+}
+function invSetupCard(){
+  const s = invSetup(), li = [];
+  if(s.noRecipe) li.push(`<li><b>${s.noRecipe} of ${s.prods} products</b> have no recipe, so selling them takes nothing out of stock and their cost is 0. Open a product in <a href="#products">Menu → Products</a> and add its ingredients.</li>`);
+  if(s.noUnit) li.push(`<li><b>${s.noUnit} items</b> are missing their storage unit, ingredient unit or factor (for example kg → g = 1000). Recipes are in the ingredient unit and stock in the storage unit.</li>`);
+  if(s.noCost) li.push(`<li><b>${s.noCost} items</b> have no cost. Receive a purchase order or use a cost adjustment to set it.</li>`);
+  if(s.noMin) li.push(`<li><b>${s.noMin} items</b> have no minimum level, so they never show as low stock.</li>`);
+  return li.length ? `<div class="card invsetup"><b>To get accurate numbers</b><ul>${li.join("")}</ul></div>` : "";
+}
+function viewInvLevels(){
+  loadStock();
+  const locs = locList(), loading = storeMode==="db" && (DOC.stock === "loading" || !DOC.stock), q = INV.q.trim().toLowerCase();
+  const all = S.inv_items.filter(live).filter(i => (!INV.cat || i.category===INV.cat) && (!q || (i.name+" "+(i.sku||"")).toLowerCase().includes(q)))
+    .sort((a,b) => (a.category||"").localeCompare(b.category||"") || a.name.localeCompare(b.name));
+  const rows = all.map(it => { const qn = invQty(it.id, INV.loc), cost = +itemUnitCost(it) || 0, st = invStatus(it, qn); return { it, qn, cost, value: (qn > 0 ? qn : 0) * cost, st, re: invReorder(it, qn) }; })
+    .filter(r => !INV.low || r.st[0]==="low" || r.st[0]==="out");
+  const tot = rows.reduce((s,r) => s + r.value, 0), counted = rows.filter(r => r.qn !== undefined).length,
+        low = rows.filter(r => r.st[0]==="low").length, out = rows.filter(r => r.st[0]==="out").length;
+  const per = !INV.loc && locs.length > 1 && locs.length <= 6;
+  let h = `<div class="phead"><a href="#inventory-reports" class="btn" style="text-decoration:none">← Back</a><h1 style="margin-left:10px">Inventory Levels</h1><div class="sp"></div><button class="btn" id="ilCsv">Export</button><button class="btn" id="ilRefresh">↻ Refresh</button></div>
+    <p class="subt" style="margin-top:-6px">Stock on hand right now, in each item's storage unit. Sales take recipe ingredients out, purchases and transfers add, counts set the quantity.</p>
+    ${invSetupCard()}
+    <div class="cstats"><div><span>Stock value</span><b>${fmtCost(tot)}</b></div><div><span>Items counted</span><b>${counted} / ${rows.length}</b></div><div><span>Low stock</span><b style="color:${low?"#b45309":"inherit"}">${low}</b></div><div><span>Out of stock</span><b style="color:${out?"#dc2626":"inherit"}">${out}</b></div></div>
+    <div class="card tbl"><div class="ttop" style="flex-wrap:wrap;gap:8px">
+      <select class="sel" id="ilLoc" aria-label="Location"><option value="">All locations</option>${locs.map(([id,n]) => `<option value="${esc(id)}" ${INV.loc===id?"selected":""}>${esc(n)}</option>`).join("")}</select>
+      <select class="sel" id="ilCat" aria-label="Category"><option value="">All categories</option>${invCatNames().map(n => `<option ${INV.cat===n?"selected":""}>${esc(n)}</option>`).join("")}</select>
+      <label class="chk" style="display:inline-flex;gap:6px;align-items:center"><input type="checkbox" id="ilLow" ${INV.low?"checked":""}> Low and out of stock only</label>
+      <div class="sp"></div><input class="search" id="ilQ" type="search" placeholder="Search" value="${esc(INV.q)}"></div>`;
+  if(loading) h += `<div class="empty">Loading stock…</div>`;
+  else if(!rows.length) h += `<div class="empty">${INV.low ? "Nothing is low or out of stock." : "No items."}</div>`;
+  else h += `<table><thead><tr><th>Item</th><th>Category</th><th>Unit</th>${per ? locs.map(([,n]) => `<th class="num">${esc(n)}</th>`).join("") : ""}<th class="num">On hand</th><th class="num">Min</th><th class="num">Par</th><th class="num">To order</th><th class="num">Unit cost</th><th class="num">Value</th><th>Status</th></tr></thead><tbody>${rows.map(r => `<tr>
+      <td><b>${esc(r.it.name)}</b> <span class="code">${esc(r.it.sku||"")}</span></td><td>${esc(r.it.category||"—")}</td><td>${esc(r.it.storageUnit||"—")}</td>
+      ${per ? locs.map(([l]) => { const v = stockOf(l, r.it.id); return `<td class="num">${v===undefined?'<span class="note">—</span>':n2(v)}</td>`; }).join("") : ""}
+      <td class="num"><b>${r.qn===undefined?'<span class="note">—</span>':n2(r.qn)}</b></td><td class="num">${+r.it.minLevel ? n2(r.it.minLevel) : "—"}</td><td class="num">${+r.it.parLevel ? n2(r.it.parLevel) : "—"}</td>
+      <td class="num">${r.re ? `<b>${n2(r.re)}</b>` : "—"}</td><td class="num">${r.cost ? fmtCost(r.cost) : '<span class="note">No cost</span>'}</td><td class="num">${fmtCost(r.value)}</td>
+      <td><span class="ist ist-${r.st[0]}">${r.st[1]}</span></td></tr>`).join("")}</tbody>
+      <tfoot><tr><td colspan="${3 + (per ? locs.length : 0) + 5}"><b>Total stock value</b></td><td class="num"><b>${fmtCost(tot)}</b></td><td></td></tr></tfoot></table>`;
+  INV._rows = rows; INV._locs = per ? locs : null;
+  return h + `</div>`;
+}
+// every movement, with how much it changed the quantity (needs the slick_inv_history database function)
+const invMoveType = r => { const n = (r.note||"") + " " + (r.batch||"");
+  if(/Consumption from order/i.test(n)) return "Sale"; if(/voided|Return/i.test(n)) return "Return"; if(/Waste/i.test(n)) return "Waste";
+  if(/Purchase/i.test(n)) return "Purchase"; if(/Transfer/i.test(n)) return "Transfer"; if(/production/i.test(n)) return "Production";
+  if(/adjust/i.test(n)) return "Adjustment"; return "Count"; };
+async function loadInvHistory(){
+  const H = INV.hist; if(storeMode!=="db") return;
+  H.from ||= invDay(-6); H.to ||= invDay(0);
+  const key = [H.from, H.to, H.loc, H.item].join("|"); if(H.loading || H.key===key) return;
+  H.loading = true; H.key = key; H.err = "";
+  const { data, error } = await WOK.sb.rpc("slick_inv_history", { p_from: H.from + "T00:00:00", p_to: H.to + "T23:59:59.999", p_loc: H.loc || null, p_item: H.item || null });
+  H.loading = false;
+  if(error){ console.error(error); H.rows = []; H.err = /slick_inv_history/.test(error.message||"") ? "Inventory history needs a database update first." : "Couldn't load the history: " + error.message; }
+  else H.rows = data || [];
+  if(location.hash.slice(1)==="inv-history") render();
+}
+function viewInvHistory(){
+  const H = INV.hist; H.from ||= invDay(-6); H.to ||= invDay(0); loadInvHistory();
+  const rows = (H.rows||[]).filter(r => !H.type || invMoveType(r)===H.type);
+  const types = ["Sale","Return","Waste","Purchase","Transfer","Production","Adjustment","Count"];
+  let h = `<div class="phead"><a href="#inventory-reports" class="btn" style="text-decoration:none">← Back</a><h1 style="margin-left:10px">Inventory History</h1><div class="sp"></div><button class="btn" id="ihCsv">Export</button></div>
+    <p class="subt" style="margin-top:-6px">Every stock movement: sales, returns, purchases, transfers, production, adjustments and counts.</p>
+    <div class="card tbl"><div class="ttop" style="flex-wrap:wrap;gap:8px">
+      <label class="note">From <input type="date" class="sel" id="ihFrom" value="${esc(H.from)}"></label><label class="note">To <input type="date" class="sel" id="ihTo" value="${esc(H.to)}"></label>
+      <select class="sel" id="ihLoc" aria-label="Location"><option value="">All locations</option>${locList().map(([id,n]) => `<option value="${esc(id)}" ${H.loc===id?"selected":""}>${esc(n)}</option>`).join("")}</select>
+      <select class="sel" id="ihItem" aria-label="Item"><option value="">All items</option>${S.inv_items.filter(live).sort((a,b)=>a.name.localeCompare(b.name)).map(i => `<option value="${esc(i.id)}" ${H.item===i.id?"selected":""}>${esc(i.name)}</option>`).join("")}</select>
+      <select class="sel" id="ihType" aria-label="Type"><option value="">All types</option>${types.map(t => `<option ${H.type===t?"selected":""}>${t}</option>`).join("")}</select></div>`;
+  if(H.err) h += `<div class="empty">${esc(H.err)}</div>`;
+  else if(H.loading && !H.rows) h += `<div class="empty">Loading…</div>`;
+  else if(!rows.length) h += `<div class="empty">No stock movements in these dates.</div>`;
+  else h += `<table><thead><tr><th>Date</th><th>Location</th><th>Item</th><th>Type</th><th class="num">Change</th><th class="num">Quantity after</th><th>Reference</th><th>Note</th><th>By</th></tr></thead><tbody>${rows.map(r => { const it = itemOf(r.item_id) || {}, d = +r.delta || 0;
+      return `<tr><td>${fmtDate(r.counted_at)}</td><td>${esc(locName(r.branch_id))}</td><td><b>${esc(it.name||"(deleted item)")}</b></td><td>${invMoveType(r)}</td>
+        <td class="num" style="color:${d<0?"#dc2626":d>0?"#15803d":"inherit"};font-weight:600">${d>0?"+":""}${n2(d)} ${esc(it.storageUnit||"")}</td><td class="num">${n2(r.qty)}</td><td><span class="code">${esc(r.batch||"")}</span></td><td>${esc(r.note||"")}</td><td>${esc(r.counted_by||"")}</td></tr>`; }).join("")}</tbody></table>`;
+  INV._hist = rows;
+  return h + `</div>`;
+}
+// purchases received in a date range, by item and supplier, from closed purchase orders
+function viewPurchasing(){
+  const P = INV.pur; P.from ||= invDay(-29); P.to ||= invDay(0);
+  const docs = (S.inv_docs||[]).filter(d => live(d) && d.kind==="purchase" && d.status==="closed" && (!P.loc || d.locationId===P.loc))
+    .filter(d => { const day = String(d.receivedAt || d.submittedAt || d.createdAt || "").slice(0,10); return day >= P.from && day <= P.to; });
+  const m = {}; docs.forEach(d => (d.items||[]).forEach(l => { const k = l.itemId + "|" + (d.supplierId||""); const r = m[k] ||= { itemId:l.itemId, sup:d.supplierId, qty:0, total:0, n:0 };
+    r.qty += +l.qty||0; r.total += (+l.qty||0) * (+l.cost || +itemOf(l.itemId)?.cost || 0); r.n++; }));
+  const rows = Object.values(m).sort((a,b) => b.total - a.total), total = rows.reduce((s,r)=>s+r.total,0);
+  const supName = id => S.suppliers?.find(s => s.id===id)?.name || "—";
+  let h = `<div class="phead"><a href="#inventory-reports" class="btn" style="text-decoration:none">← Back</a><h1 style="margin-left:10px">Purchasing</h1><div class="sp"></div><button class="btn" id="puCsv">Export</button></div>
+    <p class="subt" style="margin-top:-6px">What was received from suppliers (closed purchase orders), with quantities and cost.</p>
+    <div class="cstats"><div><span>Purchases received</span><b>${docs.length}</b></div><div><span>Total cost</span><b>${fmtCost(total)}</b></div><div><span>Items</span><b>${new Set(rows.map(r=>r.itemId)).size}</b></div><div><span>Suppliers</span><b>${new Set(docs.map(d=>d.supplierId)).size}</b></div></div>
+    <div class="card tbl"><div class="ttop" style="flex-wrap:wrap;gap:8px">
+      <label class="note">From <input type="date" class="sel" id="puFrom" value="${esc(P.from)}"></label><label class="note">To <input type="date" class="sel" id="puTo" value="${esc(P.to)}"></label>
+      <select class="sel" id="puLoc" aria-label="Location"><option value="">All locations</option>${locList().map(([id,n]) => `<option value="${esc(id)}" ${P.loc===id?"selected":""}>${esc(n)}</option>`).join("")}</select></div>`;
+  if(!rows.length) h += `<div class="empty">No purchases received in these dates.</div>`;
+  else h += `<table><thead><tr><th>Item</th><th>Supplier</th><th class="num">Quantity</th><th class="num">Average cost</th><th class="num">Total cost</th></tr></thead><tbody>${rows.map(r => { const it = itemOf(r.itemId) || {};
+      return `<tr><td><b>${esc(it.name||"(deleted item)")}</b></td><td>${esc(supName(r.sup))}</td><td class="num">${n2(r.qty)} ${esc(it.storageUnit||"")}</td><td class="num">${fmtCost(r.qty ? r.total/r.qty : 0)}</td><td class="num">${fmtCost(r.total)}</td></tr>`; }).join("")}</tbody>
+      <tfoot><tr><td colspan="4"><b>Total</b></td><td class="num"><b>${fmtCost(total)}</b></td></tr></tfoot></table>`;
+  INV._pur = rows;
+  return h + `</div>`;
+}
+document.addEventListener("change", e => { const t = e.target, H = INV.hist, P = INV.pur;
+  if(t.id==="ilLoc"){ INV.loc = t.value; return render(); } if(t.id==="ilCat"){ INV.cat = t.value; return render(); } if(t.id==="ilLow"){ INV.low = t.checked; return render(); }
+  if(t.id==="ihFrom"){ H.from = t.value; return loadInvHistory(); } if(t.id==="ihTo"){ H.to = t.value; return loadInvHistory(); }
+  if(t.id==="ihLoc"){ H.loc = t.value; return loadInvHistory(); } if(t.id==="ihItem"){ H.item = t.value; return loadInvHistory(); } if(t.id==="ihType"){ H.type = t.value; return render(); }
+  if(t.id==="puFrom"){ P.from = t.value; return render(); } if(t.id==="puTo"){ P.to = t.value; return render(); } if(t.id==="puLoc"){ P.loc = t.value; return render(); } });
+let ilT; document.addEventListener("input", e => { if(e.target.id!=="ilQ") return; INV.q = e.target.value; clearTimeout(ilT); ilT = setTimeout(() => { const pos = e.target.selectionStart; render(); const i = $("#ilQ"); if(i){ i.focus(); try{ i.setSelectionRange(pos, pos); }catch(_){} } }, 250); });
+document.addEventListener("click", e => { const t = e.target;
+  if(t.id==="ilRefresh"){ loadStock(true); return; }
+  if(t.id==="ilCsv"){ const L = INV._locs || []; return csvDownload("inventory-levels.csv", [["SKU","Item","Category","Unit", ...L.map(l=>l[1]), "On hand","Minimum","Par","To order","Unit cost","Value","Status"],
+    ...(INV._rows||[]).map(r => [r.it.sku, r.it.name, r.it.category, r.it.storageUnit, ...L.map(([l]) => stockOf(l, r.it.id) ?? ""), r.qn ?? "", r.it.minLevel ?? "", r.it.parLevel ?? "", r.re || "", r.cost, +r.value.toFixed(5), r.st[1]])]); }
+  if(t.id==="ihCsv") return csvDownload("inventory-history.csv", [["Date","Location","Item","Type","Change","Quantity after","Unit","Reference","Note","By"],
+    ...(INV._hist||[]).map(r => { const it = itemOf(r.item_id) || {}; return [fmtDate(r.counted_at), locName(r.branch_id), it.name, invMoveType(r), r.delta, r.qty, it.storageUnit, r.batch, r.note, r.counted_by]; })]);
+  if(t.id==="puCsv") return csvDownload("purchasing.csv", [["Item","Supplier","Quantity","Unit","Average cost","Total cost"],
+    ...(INV._pur||[]).map(r => { const it = itemOf(r.itemId) || {}; return [it.name, S.suppliers?.find(s=>s.id===r.sup)?.name || "", r.qty, it.storageUnit, r.qty ? +(r.total/r.qty).toFixed(5) : 0, +r.total.toFixed(5)]; })]);
+});
 function viewOrderTx(){
   loadOT();
   const tabs = [["","All"],["consumption","Consumption"],["return","Return"]];
