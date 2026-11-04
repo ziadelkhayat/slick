@@ -363,7 +363,7 @@ body[data-route="call-center"] .ocard{padding:10px 12px;gap:5px;font-size:13px}
 .ccside .cins-g{grid-template-columns:1fr 1fr}
 .bmexp{border:0;background:none;cursor:pointer;font-size:13px;width:22px;color:var(--ink2);padding:0}.bmg{cursor:pointer}
 .avhead,.avrow{display:grid;grid-template-columns:1.3fr .8fr 1.2fr 1fr 36px;gap:6px;align-items:center}.avhead{font-size:12px;color:var(--ink2);margin-bottom:4px}.avrow{margin-bottom:6px}.avrow input,.avrow select{min-width:0}
-.items{display:flex;flex-direction:column;gap:6px;margin-bottom:6px}.itemrow{display:flex;gap:6px;align-items:center}.itemrow input{flex:1}
+.items{display:flex;flex-direction:column;gap:6px;margin-bottom:6px}.itemrow{display:flex;gap:6px;align-items:center}.itemrow input{flex:1}.igrip{cursor:grab;color:#aeaeb2;font-size:18px;padding:8px 4px;touch-action:none;user-select:none}.itemrow.drag{opacity:.6}
 .itemadd{display:flex;gap:6px}.itemadd input{flex:1}
 .vchild{padding-left:14px;color:var(--ink2)}.vchild b{color:var(--ink)}
 .ccsteps{display:flex;align-items:center;gap:6px;margin-right:auto}
@@ -1917,7 +1917,7 @@ const CRUD = {
   },
   products: {
     col:"products", title:"Products", one:"Product", detail: r => productDetail(r), bulk:1,
-    tabs:[["all","All",live],["active","Active",r=>live(r)&&r.active!==false],["inactive","Inactive",r=>live(r)&&r.active===false],["deleted","Deleted",r=>r.deleted]],
+    tabs:[["all","All",live],["deleted","Deleted",r=>r.deleted]],
     // variants sit right under their product, in the set's order
     sort:(a,b)=>{ const pa = varParent(a.id), pb = varParent(b.id), ka = (pa||a).name||"", kb = (pb||b).name||"";
       if(ka !== kb || (pa||a).id !== (pb||b).id) return String(ka).localeCompare(String(kb)) || String((pa||a).id).localeCompare(String((pb||b).id));
@@ -1928,8 +1928,7 @@ const CRUD = {
       return par ? `<span class="vchild">↳ <b>${esc(r.name)}</b> <span class="tag">${esc(varGroup(par))} · ${esc(par.variants.find(v=>v.productId===r.id)?.name||"")}</span></span>`
         : `<b>${esc(r.name)}</b>${n ? ` <span class="tag cc">${n} variant${n===1?"":"s"}</span>` : ""}`; })()}</span>`],["SKU",r=>`<span class="code">${esc(r.sku||"")}</span>`],["Category",r=>esc(catName(r.categoryId))],
       ["Price",r=>{ const k = varKids(r); return k.length ? "From " + usd(Math.min(...k.map(x=>+x.price||0))) : r.pricingMethod==="open"?"Open":usd(r.price); }],
-      ["Tax Group",r=>varKids(r).length ? '<span class="note">Per variant</span>' : esc(tgName(r.taxGroup))],
-      ["Active",r=>`<label class="toggle" title="${r.active!==false ? "Active · tap to deactivate" : "Inactive · tap to activate"}"><input type="checkbox" data-pract="${esc(r.id)}" ${r.active!==false?"checked":""}><span class="trk"></span></label>`,"noedit"]],
+      ["Tax Group",r=>varKids(r).length ? '<span class="note">Per variant</span>' : esc(tgName(r.taxGroup))]],
     fields:[{k:"name",l:"Name",req:1},{k:"nameAr",l:"Name (Arabic)"},brandField,{k:"sku",l:"SKU",auto:()=>nextSku("products")},
       {k:"categoryId",l:"Category",t:"select",req:1,opts:()=>S.categories.filter(c=>live(c)&&!c.channel).sort(bySort).map(c=>[c.id,c.name])},
       {k:"pricingMethod",l:"Pricing method",t:"select",opts:()=>[["fixed","Fixed price"],["open","Open Price"]],def:"fixed",hideIf:r=>varKids(r).length},
@@ -1974,17 +1973,16 @@ const CRUD = {
   },
   "modifier-options": {
     col:"modifier_options", title:"Modifier Options", one:"Modifier Option", detail: r => optionDetail(r),
-    tabs:[["all","All",live],["active","Active",r=>live(r)&&r.active!==false],["inactive","Inactive",r=>live(r)&&r.active===false],["deleted","Deleted",r=>r.deleted]],
+    tabs:[["all","All",live],["deleted","Deleted",r=>r.deleted]],
     sort:(a,b)=>modName(a.modifierId).localeCompare(modName(b.modifierId)) || bySort(a,b),
     search:r=>r.name+" "+(r.sku||"")+" "+modName(r.modifierId),
     filter:r=>!state.modFilter || r.modifierId===state.modFilter,
     cols:[["Name",r=>`<b>${esc(r.name)}</b>`],["Modifier",r=>esc(modName(r.modifierId))],["SKU",r=>`<span class="code">${esc(r.sku||"")}</span>`],["Price",r=>+r.price?usd(r.price):'<span class="note">Free</span>',"num"],
-      ["Cost",r=>{ const c = productCost(r); return c ? fmtCost(c) : "—"; },"num"],["Active",r=>r.active===false?'<span class="tag off">Inactive</span>':'<span class="tag on">Active</span>']],
+      ["Cost",r=>{ const c = productCost(r); return c ? fmtCost(c) : "—"; },"num"]],
     fields:[{k:"name",l:"Name",req:1},{k:"nameAr",l:"Name (Arabic)"},
       {k:"modifierId",l:"Modifier",t:"select",req:1,opts:()=>S.modifiers.filter(live).sort((a,b)=>a.name.localeCompare(b.name)).map(m=>[m.id,m.name]),auto:()=>state.newOptMod||state.modFilter||""},
       {k:"sku",l:"SKU",auto:()=>nextSku("modifier_options")},{k:"price",l:"Price (USD)",t:"number",def:0},{k:"taxGroup",l:"Tax group",t:"select",opts:()=>taxGroupOpts(),def:"tg_vat",ph:"No tax"},
-      {k:"costingMethod",l:"Costing method",t:"select",opts:()=>[["ingredients","From ingredients"],["fixed","Fixed cost"]],def:"ingredients"},{k:"cost",l:"Fixed cost (USD)",t:"number",req:1,when:{k:"costingMethod",is:"fixed"}},
-      {k:"active",l:"Active",t:"chk",def:true}]
+      {k:"costingMethod",l:"Costing method",t:"select",opts:()=>[["ingredients","From ingredients"],["fixed","Fixed cost"]],def:"ingredients"},{k:"cost",l:"Fixed cost (USD)",t:"number",req:1,when:{k:"costingMethod",is:"fixed"}}]
   },
   suppliers: {
     col:"suppliers", title:"Suppliers", one:"Supplier",
@@ -2197,15 +2195,20 @@ document.addEventListener("change", e => { if(e.target.id==="srtScope" && SORTER
 
 /* generic modal */
 // "items" field: values added one by one, each its own row (rename in place, remove with ×, reorder with the arrows)
-const itemRow = v => `<div class="itemrow"><input value="${esc(v)}" data-item aria-label="Variant"><button type="button" class="btn sm" data-itemup aria-label="Move up">↑</button><button type="button" class="btn sm" data-itemrm aria-label="Remove">×</button></div>`;
+const itemRow = v => `<div class="itemrow"><span class="igrip" title="Drag to sort" aria-hidden="true">⋮⋮</span><input value="${esc(v)}" data-item aria-label="Option"><button type="button" class="btn sm" data-itemrm aria-label="Remove">×</button></div>`;
 function itemAdd(id){ const inp = $("#"+id+"_new"), v = (inp?.value || "").trim(); if(!v) return inp?.focus();
   const box = $("#"+id); if([...box.querySelectorAll("[data-item]")].some(i => i.value.trim().toLowerCase()===v.toLowerCase())){ $("#cErr").textContent = `"${v}" is already in the list.`; return; }
   box.insertAdjacentHTML("beforeend", itemRow(v)); inp.value = ""; inp.focus(); $("#cErr").textContent = ""; }
 document.addEventListener("click", e => {
   const a = e.target.closest("[data-itemadd]"); if(a){ e.preventDefault(); return itemAdd(a.dataset.itemadd); }
   const rm = e.target.closest("[data-itemrm]"); if(rm){ e.preventDefault(); rm.closest(".itemrow").remove(); return; }
-  const up = e.target.closest("[data-itemup]"); if(up){ e.preventDefault(); const r = up.closest(".itemrow"); if(r.previousElementSibling) r.parentNode.insertBefore(r, r.previousElementSibling); }
 });
+// drag the ⋮⋮ handle to sort the rows (mouse and touch)
+document.addEventListener("pointerdown", e => { const g = e.target.closest(".igrip"); if(!g) return; e.preventDefault(); const row = g.closest(".itemrow"), box = row.parentNode; row.classList.add("drag");
+  const move = ev => { const over = document.elementFromPoint(ev.clientX, ev.clientY)?.closest(".itemrow"); if(!over || over===row || over.parentNode!==box) return; const r = over.getBoundingClientRect();
+    box.insertBefore(row, ev.clientY > r.top + r.height/2 ? over.nextSibling : over); };
+  const up = () => { row.classList.remove("drag"); document.removeEventListener("pointermove", move); document.removeEventListener("pointerup", up); };
+  document.addEventListener("pointermove", move); document.addEventListener("pointerup", up); });
 document.addEventListener("click", e => {
   if(e.target.id==="avSave"){ e.preventDefault(); return addVariant(); }
   if(e.target.closest("[data-avadd]")){ e.preventDefault(); const p = S.products.find(x=>x.id===DET.id), last = [...document.querySelectorAll("#avRows .avrow")].pop(), src = { price: last?.querySelector('[data-ar="price"]').value ?? p?.price, taxGroup: last?.querySelector('[data-ar="tax"]').value ?? p?.taxGroup };
@@ -3100,7 +3103,7 @@ function viewBranchMenu(){
         <span class="sctypes">${types.map(([t,tl]) => `<label class="scchip${st.types[t]?" on":""}"><input type="checkbox" data-bmtype="${esc(r.id)}|${t}" ${st.types[t]?"checked":""}>${tl}</label>`).join("")}</span>
         ${vk.length ? "<span></span>" : `<label class="scchip scstock${st.stock?" on":" oos"}" title="In stock at ${esc(br.name)} (all channels)"><input type="checkbox" data-bmstock="${esc(r.id)}" ${st.stock?"checked":""} ${st.on?"":"disabled"}>${st.stock ? "In stock" : "Out of stock"}</label>`}
         ${par ? "<span></span>" : `<div class="ddwrap"><button type="button" class="mmdots" data-bmcmenu="p" aria-label="Product actions">⋯</button><div class="ddmenu" hidden><button type="button" class="danger" data-bmrm="${esc(cur.id)}|${esc(r.id)}">Remove from category</button></div></div>`}</div>`;
-      if(BM.mopen?.has(r.id)) h += `<div class="mmsub">${bmLinks(r).map(l => `<div class="mmsg">${esc(modName(l.modifierId))}</div>` + modOptions(l.modifierId).filter(o => o.active!==false).map(o => { const os = bmOptState(r, o);
+      if(BM.mopen?.has(r.id)) h += `<div class="mmsub">${bmLinks(r).map(l => `<div class="mmsg">${esc(modName(l.modifierId))}</div>` + modOptions(l.modifierId).map(o => { const os = bmOptState(r, o);
         return `<div class="mmorow${os.on?"":" off"}${BM.draft["mo:"+r.id+"|"+o.id]?" chg":""}"><span></span><span class="mmname"><label class="toggle" title="On the ${esc(ch[1])} menu for ${esc(r.name)}"><input type="checkbox" data-bmoon="${esc(r.id)}|${esc(o.id)}" ${os.on?"checked":""} aria-label="${esc(o.name)} with ${esc(r.name)}"><span class="trk"></span></label>${esc(o.name)}</span>
           <span class="scprice"><input type="number" min="0" step="any" class="sel" data-bmoprice="${esc(r.id)}|${esc(o.id)}" value="${esc(os.price)}" placeholder="${esc(String(+o.price||0))}" aria-label="Price of ${esc(o.name)} with ${esc(r.name)}"><span class="note">USD</span></span><span></span>
           <label class="scchip scstock${os.stock?" on":" oos"}"><input type="checkbox" data-bmostock="${esc(r.id)}|${esc(o.id)}" ${os.stock?"checked":""} ${os.on?"":"disabled"}>${os.stock ? "In stock" : "Out of stock"}</label><span></span></div>`; }).join("")).join("")}</div>`;
@@ -3142,7 +3145,7 @@ document.addEventListener("change", async e => { const t = e.target.closest?.("[
   try{ await put("products", id, { active: on }); toast(on ? "Product activated" : "Product deactivated"); }catch(err){ console.error(err); t.checked = !on; toast("Couldn't save."); } });
 
 // Products list: select rows, then act on all of them at once (Foodics style)
-const BULK_ACTS = [["activate","Activate"],["deactivate","Deactivate"],["brOn","Activate In Branches"],["brOff","Deactivate In Branches"],["taxSet","Assign Tax Group"],["taxClear","Remove Tax Group"],["delete","Delete"]];
+const BULK_ACTS = [["taxSet","Assign Tax Group"],["taxClear","Remove Tax Group"],["delete","Delete"]];
 document.addEventListener("change", e => {
   const a = e.target.closest?.("[data-bkall]"); if(a){ const key = a.dataset.bkall, sel = (state.sel ||= {})[key] ||= new Set(); document.querySelectorAll(`[data-bksel^="${key}:"]`).forEach(c => { const id = c.dataset.bksel.slice(key.length+1); a.checked ? sel.add(id) : sel.delete(id); }); render(); return; }
   const c = e.target.closest?.("[data-bksel]"); if(c){ const i = c.dataset.bksel.indexOf(":"), key = c.dataset.bksel.slice(0,i), id = c.dataset.bksel.slice(i+1), sel = (state.sel ||= {})[key] ||= new Set(); c.checked ? sel.add(id) : sel.delete(id); render(); }
@@ -4269,8 +4272,8 @@ function productDetail(p){
   const yes = (arr, id) => arr.includes(id);
   const usedIn = [];
   let h = `<div class="phead"><a href="#products" class="btn" data-detback style="text-decoration:none">← Back</a><h1 style="margin-left:10px">${esc(p.name)}</h1>
-    ${p.active===false?'<span class="tag off" style="margin-left:8px">Inactive</span>':'<span class="tag on" style="margin-left:8px">Active</span>'}<div class="sp"></div>
-    <button class="btn" data-dettoggle>${p.active===false?"Activate Product":"Deactivate Product"}</button><button class="btn pri" data-detedit>Edit Product</button></div>`;
+    <div class="sp"></div>
+    <button class="btn pri" data-detedit>Edit Product</button></div>`;
   h += infoGrid([info("Name", esc(p.name)), info("Name Localized", esc(p.nameAr||"—")), info("Brand", esc(brandName(p.brandId))), info("Category", esc(catName(p.categoryId))),
     info("SKU", `<span class="code">${esc(p.sku||"—")}</span>`), info("Tax Group", varKids(p).length ? "Set on each variant" : esc(tgName(p.taxGroup))),
     info("Pricing Method", p.pricingMethod==="open"?"Open Price":"Fixed Price"), info("Selling Method", p.sellingMethod==="weight"?"Weight":"Unit"),
@@ -4582,7 +4585,7 @@ function optionDetail(o){
   const cost = productCost(o), price = +o.price || 0;
   let h = `<div class="phead"><a href="#modifiers" class="btn" data-detopen="modifiers:${esc(o.modifierId)}" style="text-decoration:none">← Back to ${esc(modName(o.modifierId))}</a><h1 style="margin-left:10px">${esc(o.name)}</h1>
     ${o.active===false?'<span class="tag off" style="margin-left:8px">Inactive</span>':'<span class="tag on" style="margin-left:8px">Active</span>'}<div class="sp"></div>
-    <button class="btn" data-dettoggle>${o.active===false?"Activate Option":"Deactivate Option"}</button><button class="btn pri" data-detedit>Edit Option</button></div>`;
+    <button class="btn pri" data-detedit>Edit Option</button></div>`;
   h += infoGrid([info("Name", esc(o.name)), info("Name Localized", esc(o.nameAr||"—")),
     info("Modifier", o.modifierId ? `<a href="#modifiers" class="lnk" data-detopen="modifiers:${esc(o.modifierId)}">${esc(modName(o.modifierId))}</a>` : "—"),
     info("SKU", `<span class="code">${esc(o.sku||"—")}</span>`), info("Price", price ? usd(price) : "Free"), info("Tax Group", esc(tgName(o.taxGroup))),
@@ -4640,7 +4643,7 @@ document.addEventListener("change", e => { if(e.target.id==="modAdd" && e.target
 function ccModData(p){
   const b = $("#oBranch")?.value || "", groups = {}; S.modifiers.filter(live).forEach(m => groups[m.id] = { name:m.name, sort:m.sort });
   const ids = new Set((p.modifiers||[]).map(l=>l.modifierId));
-  const options = S.modifier_options.filter(o => live(o) && o.active!==false && ids.has(o.modifierId) && !offAt(o.inactiveBranchIds, b, "callcenter") && !(($("#oType .on")?.dataset.ot) && typeOff(o.inactiveBranchIds, b, "callcenter", $("#oType .on").dataset.ot)))
+  const options = S.modifier_options.filter(o => live(o) && ids.has(o.modifierId) && !offAt(o.inactiveBranchIds, b, "callcenter") && !(($("#oType .on")?.dataset.ot) && typeOff(o.inactiveBranchIds, b, "callcenter", $("#oType .on").dataset.ot)))
     .sort((x,y)=>(x.sort??999)-(y.sort??999) || x.name.localeCompare(y.name))
     .filter(o => !(linkOpt(p, o).off||[]).includes(b + ":callcenter"))
     .map(o => { const s = linkOpt(p, o), sp = (s.price||{})[b + ":callcenter"], c = sp!=null && sp!=="" ? sp : b && ((o.customPrices||{})[b + ":callcenter"] ?? (o.customPrices||{})[b]); return { id:o.id, modifierId:o.modifierId, name:o.name, price: c!=null && c!=="" ? +c : +o.price||0, oos: !!b && ((o.outOfStockBranchIds||[]).includes(b) || (s.oos||[]).includes(b)) }; });

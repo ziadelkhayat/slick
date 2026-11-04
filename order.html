@@ -124,7 +124,7 @@ const taxParts = () => cart.reduce((a,i) => { const p = products.find(x=>x.id===
 incl = !Object.values(taxDef).some(t => !t.inc);
 const taxIn = () => +taxParts().tax.toFixed(2);
 const grand = () => +(sub() + fee() + taxParts().add).toFixed(2);
-const mopts = (mo.data||[]).filter(o => o.active!==false && !o.deleted);
+const mopts = (mo.data||[]).filter(o => !o.deleted);
 if([st,br,ca,pr,zo].some(r => r.error)){ $("#main").innerHTML = `<div class="closed">We couldn't load the menu. Please try again in a moment.</div>`; return; }
 const cfg = st.data?.data || {}, branches = br.data, allCats = ca.data.filter(c => !c.deleted), webCats = allCats.filter(c => c.channel==="online"), useCh = webCats.length > 0, cats = useCh ? webCats : allCats.filter(c => !c.channel), products = pr.data, zones = zo.data.filter(z => branches.some(b => b.id === z.branch_id));
 const bcfg = id => (cfg.branches||{})[id] || {};
@@ -153,7 +153,7 @@ const chan = () => mode === "delivery" ? "delivery" : mode === "takeaway" ? "tak
 const chPos = (c, p) => { const ids = c.product_ids||[], k = [p.id, ...(p.variants||[]).map(v => v.productId)].map(x => ids.indexOf(x)).filter(i => i >= 0); return k.length ? Math.min(...k) : -1; };   // a main product is listed when it or one of its variants is
 const inCat = (c, p) => useCh ? chPos(c, p) >= 0 : p.category_id===c.id;
 const catOrder = c => (a, b) => useCh ? chPos(c, a) - chPos(c, b) : (a.sort??9999)-(b.sort??9999) || a.name.localeCompare(b.name);
-const visible = () => products.filter(p => p.active!==false && p.pricing_method!=="open" && (!curBranch() || (!(p.inactive_branch_ids||[]).includes(curBranch()) && !(p.inactive_branch_ids||[]).includes(curBranch() + ":online") && !(p.inactive_branch_ids||[]).includes(curBranch() + ":online:" + (mode==="takeaway" ? "pickup" : mode)) && !(cats.find(c=>c.id===p.category_id)?.inactive_branch_ids||[]).includes(curBranch()) && !(cats.find(c=>c.id===p.category_id)?.inactive_branch_ids||[]).includes(curBranch() + ":online"))));
+const visible = () => products.filter(p => p.pricing_method!=="open" && (!curBranch() || (!(p.inactive_branch_ids||[]).includes(curBranch()) && !(p.inactive_branch_ids||[]).includes(curBranch() + ":online") && !(p.inactive_branch_ids||[]).includes(curBranch() + ":online:" + (mode==="takeaway" ? "pickup" : mode)) && !(cats.find(c=>c.id===p.category_id)?.inactive_branch_ids||[]).includes(curBranch()) && !(cats.find(c=>c.id===p.category_id)?.inactive_branch_ids||[]).includes(curBranch() + ":online"))));
 const priceOf = p => { const b = curBranch(), cp = p.custom_prices||{}, w = b && cp[b + ":online"], c = b && cp[b];   // the web menu's own price, else the branch price
   return w!=null && w!=="" && w!==false ? +w : c!=null && c!=="" && c!==false ? +c : +p.price; };
 // variants are full products linked from their parent (variants = [{ name, productId }]); only the parent is listed and it asks for the variant
