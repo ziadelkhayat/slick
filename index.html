@@ -3013,7 +3013,7 @@ const BM_MENUS = [["pos","POS",["pos"]],["online","Web Ordering",["online"]],["c
 const CH_TYPES = { pos:["dinein","fast","pickup","delivery"], callcenter:["pickup","delivery"], online:["dinein","pickup","delivery"] };
 const ALL_CH = ["pos","callcenter","online"];
 // per order type inside a channel: "branch:pos:dinein", "branch:online:delivery"… (all three off = the channel is off: "branch:pos")
-const OTYPES = [["dinein","Dine-in"],["fast","Fast Sale"],["pickup","Pickup"],["delivery","Delivery"]];   // fast sale is POS only
+const OTYPES = [["fast","Fast Sale"],["dinein","Dine-in"],["pickup","Pickup"],["delivery","Delivery"]];   // fast sale is POS only
 const typeOff = (arr, b, ch, t) => offAt(arr, b, ch) || (arr||[]).includes(b + ":" + ch + ":" + (t==="takeaway" ? "pickup" : t));
 function typeModel(ia, b){ const m = {}; ALL_CH.forEach(c => m[c] = new Set(OTYPES.map(x=>x[0]).filter(t => typeOff(ia, b, c, t)))); return m; }
 function typeList(ia, b, m){ const rest = (ia||[]).filter(x => x!==b && !x.startsWith(b + ":")), all = c => CH_TYPES[c].every(t => m[c].has(t));
@@ -3038,7 +3038,7 @@ function viewBranchMenu(){
   const list = branches.filter(b=>b.active!==false && brandFilter(b));
   if(!list.some(b=>b.id===BM.branch)) BM.branch = (state.branch!=="all" && list.some(b=>b.id===state.branch)) ? state.branch : list[0]?.id || "";
   const br = branches.find(b=>b.id===BM.branch), ch = bmMenu(), types = bmTypes();
-  let h = `<div class="phead"><h1>Sales Channels</h1><div class="sp"></div>${scopeBar(false)}<span class="note" id="bmStat">${BM.stat || "Changes save automatically"}</span></div>
+  let h = `<div class="phead"><h1>Sales Channels</h1><div class="sp"></div>${scopeBar(false)}<span class="note" id="bmStat">${BM.stat || ""}</span>${Object.keys(BM.draft).length ? `<button type="button" class="btn" data-bmdiscard>Discard</button>` : ""}<button type="button" class="btn pri" data-bmsave ${Object.keys(BM.draft).length ? "" : "disabled"}>Save</button></div>
     <div class="scch">${BM_MENUS.map(([k,t]) => `<button type="button" data-bmmenu="${k}" class="${ch[0]===k?"on":""}">${svgIco(k==="pos"?"tablet":k==="callcenter"?"phone":"globe")}<b>${t}</b></button>`).join("")}</div>`;
   if(!br) return h + `<div class="card empty">No branches yet. Add them under Manage → Branches.</div>`;
   const q = BM.q.trim().toLowerCase(), all = bmItems(), items = all.filter(r => !q || r.name.toLowerCase().includes(q));
@@ -3074,7 +3074,7 @@ function viewBranchMenu(){
       h += `<div class="scrow${st.on?"":" off"}${BM.draft[r.id]?" chg":""}"${drag ? ` draggable="true" data-bmdrag="p:${esc(r.id)}" data-bmcatof="${esc(cat)}"` : ""}>
         ${drag ? '<span class="bmgrip" aria-hidden="true" title="Drag to move">⋮⋮</span>' : ""}
         <label class="toggle" title="On the ${esc(ch[1])} menu"><input type="checkbox" data-bmon="${esc(r.id)}" ${st.on?"checked":""} aria-label="${esc(r.name)} on the ${esc(ch[1])} menu"><span class="trk"></span></label>
-        <span class="scpn">${esc(r.name)}</span>
+        <span class="scimg">${r.imageUrl ? `<img src="${esc(r.imageUrl)}" alt="">` : ""}</span><span class="scpn">${esc(r.name)}</span>
         <span class="scprice"><input type="number" min="0" step="any" class="sel" data-bmprice="${esc(r.id)}" value="${esc(st.price)}" placeholder="${esc(String(st.fallback))}" aria-label="Price of ${esc(r.name)}"><span class="note">USD</span></span>
         <span class="sctypes">${types.map(([t,tl]) => `<label class="scchip${st.types[t]?" on":""}"><input type="checkbox" data-bmtype="${esc(r.id)}|${t}" ${st.types[t]?"checked":""}>${tl}</label>`).join("")}</span>
         <label class="scchip scstock${st.stock?" on":" oos"}" title="In stock at ${esc(br.name)} (all channels)"><input type="checkbox" data-bmstock="${esc(r.id)}" ${st.stock?"checked":""} ${st.on?"":"disabled"}>${st.stock ? "In stock" : "Out of stock"}</label>${BM.kind==="options" ? "" : `<button type="button" class="x scrm" data-bmrm="${esc(cat)}|${esc(r.id)}" title="Remove from this category" aria-label="Remove ${esc(r.name)} from this category">×</button>`}</div>`; });
@@ -3205,10 +3205,11 @@ document.addEventListener("drop", async e => { const t = e.target.closest?.("[da
   catch(err){ console.error(err); toast("Couldn't save the new order"); } });
 function bmSet(id, k, v){ const d = BM.draft[id] ||= {}; d[k] = v; }
 const bmCatOn = id => { const d = BM.draft["cat:"+id] || BM.saving?.["cat:"+id]; if(d && d.on!=null) return d.on; return !offAt(S.categories.find(c=>c.id===id)?.inactiveBranchIds, BM.branch, bmMenu()[2][0]); };
-// every change in Menus saves on its own: toggles right away, prices when the field is left
+// changes in Sales Channels are kept as a draft until Save is pressed
 let bmQueue = Promise.resolve();
 const bmStat = t => { BM.stat = t; const el = $("#bmStat"); if(el) el.textContent = t; };
-function bmAuto(){ bmQueue = bmQueue.then(saveBranchMenu, saveBranchMenu); }
+function bmAuto(){ const n = Object.keys(BM.draft).length; bmStat(n ? `${n} unsaved change${n===1?"":"s"}` : ""); }
+function bmSaveNow(){ bmQueue = bmQueue.then(saveBranchMenu, saveBranchMenu); }
 async function saveBranchMenu(){
   const work = BM.draft; if(!Object.keys(work).length) return;
   BM.draft = {}; BM.saving = work;
@@ -3249,7 +3250,9 @@ $("#view").addEventListener("change", e => {
 let bmQT; $("#view").addEventListener("input", e => { if(e.target.id==="bmQ"){ clearTimeout(bmQT); const v = e.target.value; bmQT = setTimeout(() => { BM.q = v; render(); const el = $("#bmQ"); if(el){ el.focus(); el.setSelectionRange(v.length, v.length); } }, 300); } });
 $("#view").addEventListener("click", e => {
   const k = e.target.closest("[data-bmkind]"); if(k){ e.preventDefault(); if(Object.keys(BM.draft).length && !confirm("Discard unsaved changes?")) return; BM.kind = k.dataset.bmkind; BM.draft = {}; return render(); }
-  const mn = e.target.closest("[data-bmmenu]"); if(mn){ e.preventDefault(); BM.menu = mn.dataset.bmmenu; BM.draft = {}; return render(); }
+  if(e.target.closest("[data-bmsave]")){ e.preventDefault(); return bmSaveNow(); }
+  if(e.target.closest("[data-bmdiscard]")){ e.preventDefault(); BM.draft = {}; BM.stat = ""; return render(); }
+  const mn = e.target.closest("[data-bmmenu]"); if(mn){ e.preventDefault(); if(Object.keys(BM.draft).length && !confirm("Discard unsaved changes?")) return; BM.menu = mn.dataset.bmmenu; BM.draft = {}; BM.stat = ""; return render(); }
   const ex = e.target.closest("[data-bmexp]"); if(ex){ e.preventDefault(); const g = ex.dataset.bmexp; BM.open ||= new Set(); BM.open.has(g) ? BM.open.delete(g) : BM.open.add(g); return render(); }
   if(e.target.closest("[data-bmnewcat]")){ e.preventDefault(); openCrud("chcat"); return; }
   const ce = e.target.closest("[data-bmcedit]"); if(ce){ e.preventDefault(); openCrud("chcat", ce.dataset.bmcedit); return; }
