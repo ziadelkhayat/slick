@@ -448,7 +448,7 @@ button,input,select,textarea{font-family:var(--f-ui)}
 <script src="supabase.js"></script>
 <script>if(!window.supabase) document.write('<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"><\/script>');</script>
 <script src="wokdb.js?v=29"></script>
-<script src="modpick.js?v=8"></script>
+<script src="modpick.js?v=9"></script>
 </head>
 <body>
 <div id="boot" class="center"><div class="panel"><div class="logo">S</div><h1>Slick POS</h1><p>Connecting…</p></div></div>
@@ -1093,7 +1093,7 @@ function openDiscount(){
   modal("disc", `<div class="mh"><h2>Discount</h2><button class="x" data-close aria-label="Close">×</button></div><div class="mb">
     <div class="dseg"><button type="button" data-dt="pct" class="${discType!=="amt"?"on":""}">Percentage %</button><button type="button" data-dt="amt" class="${discType==="amt"?"on":""}">Amount USD</button></div>
     <div class="dinput"><input id="discVal" inputmode="none" aria-label="Discount" value="${discount ? discount : ""}"><span id="discUnit">${discType==="amt" ? "USD" : "%"}</span></div>${numpad("discVal")}
-    <div class="mut" id="discNote" style="font-size:13px;margin-top:8px">Order subtotal ${usd(sub)}</div></div>
+    <div class="mut" id="discNote" style="font-size:13px;margin-top:8px">Order total ${usd(totals().total)}</div></div>
     <div class="mf"><button class="btn" data-close>Cancel</button><button class="btn pri" id="discApply" ${discount ? "" : "disabled"}>Apply</button></div>`);
   $("#discVal").addEventListener("input", e => { $("#discApply").disabled = !(+String(e.target.value).replace(",", ".") > 0); });
   setTimeout(() => $("#discVal")?.focus(), 30);
@@ -1825,8 +1825,9 @@ function openTables(){
 function askGuests(k){
   window.__gTable = k; const t = branchTables().find(x => String(x.name).trim()===String(k));
   modal("guests", `<div class="mh"><h2>${esc(tblLbl(k))} · how many guests?</h2><button class="x" data-close aria-label="Close">×</button></div><div class="mb">
-    <div class="gpad">${Array.from({ length:12 }, (_,i) => `<button data-guests="${i+1}" class="">${i+1}</button>`).join("")}</div>
-    <div style="display:flex;gap:8px;margin-top:12px"><input id="gNum" inputmode="none" maxlength="2" aria-label="Number of guests" style="flex:1;padding:12px;border:1px solid var(--line);border-radius:12px"><button class="btn pri" data-guests="custom">OK</button></div>${numpad("gNum", "int")}</div>`);
+    <div class="dinput"><input id="gNum" inputmode="none" maxlength="2" aria-label="Number of guests"><span>guests</span></div>${numpad("gNum", "int")}</div>
+    <div class="mf"><button class="btn" data-close>Cancel</button><button class="btn pri" data-guests="custom" disabled>Continue</button></div>`);
+  $("#gNum").addEventListener("input", e => { $("[data-guests=custom]").disabled = !(+e.target.value >= 1); });
 }
 function pickTable(k, guests){
   const l = tableOrders(k);

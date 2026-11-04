@@ -7,6 +7,7 @@
    options: [{ id, modifierId, name, price, oos }] already filtered for the branch and priced */
 (function(){
   const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
+  const touch = (() => { try{ return matchMedia("(any-pointer: coarse)").matches || navigator.maxTouchPoints > 0; }catch(e){ return false; } })();
   const css = `.smp-scrim{position:fixed;inset:0;background:rgba(20,16,40,.45);display:flex;align-items:flex-end;justify-content:center;z-index:9998;font-family:Inter,system-ui,sans-serif}
   @media(min-width:640px){.smp-scrim{align-items:center}}
   .smp{background:#fff;width:min(520px,100%);max-height:92vh;display:flex;flex-direction:column;border-radius:16px 16px 0 0;box-shadow:0 10px 40px rgba(30,20,60,.2)}
@@ -23,7 +24,8 @@
   .smp .qs button{width:30px;height:30px;border-radius:50%;border:1px solid #d9d4ee;background:#fff;color:#5b2bc4;font-size:17px;font-weight:700;cursor:pointer;line-height:1}
   .smp .qs button:disabled{opacity:.35;cursor:not-allowed}
   .smp footer .qs{gap:12px;font-weight:700}.smp footer .qs b{min-width:20px;font-size:17px}.smp footer .qs button{width:44px;height:44px;border-radius:12px;border:0;background:#f7f6fb;color:#1b1830;font-size:22px;font-weight:500}.smp footer .qs button:active{background:#efebff;color:#6a4cf5}.smp .qs b{min-width:16px;text-align:center}
-  .smp label.qrow.on{background:#f6f2ff}.smp .dz{display:flex;gap:6px;align-items:center}.smp .dz button{border:1px solid #d9d4ee;background:#fff;border-radius:8px;padding:8px 0;width:56px;text-align:center;font:inherit;font-weight:600;cursor:pointer}.smp .dz button.on{background:#efe9fb;border-color:#5b2bc4;color:#5b2bc4}.smp .dz input{flex:1;border:1px solid #ddd8ea;border-radius:10px;padding:9px 10px;font:inherit}
+  .smp label.qrow.on{background:#f6f2ff}.smp .smnp{display:none;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px}.smp.np .smnp{display:grid}.smp .smnp button{height:54px;border:1px solid #e4e1ef;border-radius:12px;background:#fff;font:inherit;font-size:20px;font-weight:600;cursor:pointer}.smp .smnp button:active{background:#efeaff}
+  .smp .dz{display:flex;gap:6px;align-items:center}.smp .dz button{border:1px solid #d9d4ee;background:#fff;border-radius:8px;padding:8px 0;width:56px;text-align:center;font:inherit;font-weight:600;cursor:pointer}.smp .dz button.on{background:#efe9fb;border-color:#5b2bc4;color:#5b2bc4}.smp .dz input{flex:1;border:1px solid #ddd8ea;border-radius:10px;padding:9px 10px;font:inherit}
   .smp textarea{width:100%;box-sizing:border-box;border:1px solid #ddd8ea;border-radius:10px;padding:9px 10px;font:inherit;font-size:14px;resize:vertical}
   .smp footer button{border:0;border-radius:10px;background:#5b2bc4;color:#fff;font:inherit;font-weight:600;padding:12px 18px;min-height:48px;cursor:pointer}.smp footer button.smc{background:#fff;color:#1c1b22;border:1px solid #e5e3ec}`;
   function pick(o){
@@ -53,12 +55,17 @@
               const dis = !on && ((full && !one) || x.oos);
               return `<label class="${dis?"dis":""}"><input type="checkbox" name="g${gi}" data-g="${gi}" value="${esc(x.id)}" ${on?"checked":""} ${dis?"disabled":""}>${esc(x.name)}${x.oos?'<span class="oos">Out of stock</span>':""}<span class="p">${+x.price ? "+" + money(x.price) : ""}</span></label>`; }).join("");
         }).join("")}${o.edit ? `<div class="g"><b>Item note</b><span>Shown to the kitchen</span></div><textarea data-note rows="2">${esc(note)}</textarea>` : ""}${o.edit && o.allowDiscount ? `<div class="g"><b>Item discount</b>${discOf() ? `<span>−${money(discOf())}</span>` : ""}</div>
-          <div class="dz"><button type="button" data-dt="pct" class="${discT==="pct"?"on":""}">%</button><button type="button" data-dt="amt" class="${discT==="amt"?"on":""}">USD</button><input data-dv inputmode="decimal" aria-label="${discT==="amt"?"Amount off":"Percent off"}" value="${esc(discV)}"></div>` : ""}</div><footer><span class="err" data-err></span><button type="button" data-x class="smc">Cancel</button><button type="button" data-ok>${o.edit ? "Save" : "Add · " + money(priceOf() * qty)}</button></footer></div>`;
+          <div class="dz"><button type="button" data-dt="pct" class="${discT==="pct"?"on":""}">%</button><button type="button" data-dt="amt" class="${discT==="amt"?"on":""}">USD</button><input data-dv inputmode="${touch ? "none" : "decimal"}" aria-label="${discT==="amt"?"Amount off":"Percent off"}" value="${esc(discV)}"></div><div class="smnp">${["1","2","3","4","5","6","7","8","9",".","0","⌫"].map(k => `<button type="button" data-np="${k}" aria-label="${k==="⌫"?"Delete":k}">${k}</button>`).join("")}</div>` : ""}</div><footer><span class="err" data-err></span><button type="button" data-x class="smc">Cancel</button><button type="button" data-ok>${o.edit ? "Save" : "Add · " + money(priceOf() * qty)}</button></footer></div>`;
       };
       const redraw = () => { const y = el.querySelector(".b")?.scrollTop; draw(); const b = el.querySelector(".b"); if(b) b.scrollTop = y; };
       const close = v => { el.remove(); document.removeEventListener("keydown", onKey); resolve(v); };
       const onKey = e => { if(e.key === "Escape") close(null); };
+      el.addEventListener("pointerdown", e => { if(e.target.closest("[data-np]")) e.preventDefault(); });
+      el.addEventListener("focusin", e => { if(e.target.matches("[data-dv]")) e.target.closest(".smp")?.classList.add("np"); });
       el.addEventListener("click", e => {
+        const np = e.target.closest("[data-np]"); if(np){ e.preventDefault(); const i = el.querySelector("[data-dv]"); if(!i) return; let v = i.value, k = np.dataset.np;
+          if(k==="⌫") v = v.slice(0, -1); else if(k==="."){ if(!v.includes(".")) v = (v || "0") + "."; } else v = v==="0" ? k : v + k;
+          i.value = v; i.dispatchEvent(new Event("input", { bubbles:true })); return; }
         if(e.target === el || e.target.closest("[data-x]")) return close(null);
         const dt = e.target.closest("[data-dt]"); if(dt){ e.preventDefault(); discT = dt.dataset.dt; return redraw(); }
         const qq = e.target.closest("[data-qq]"); if(qq){ e.preventDefault(); qty = Math.max(1, qty + (+qq.dataset.qq)); return redraw(); }
