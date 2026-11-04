@@ -2615,12 +2615,23 @@ function ccActions(o){
   if(!b.length) b.push(`<button type="button" class="btn" data-ccclose>Close</button>`);
   return b.join("");
 }
+// is the branch open right now? its weekly hours (Manage → Branches), with overnight hours running past midnight
+function brOpenNow(b, t){ t = t || new Date(); if(!b) return true;
+  const H = (b.settings||{}).hours, D = ["sun","mon","tue","wed","thu","fri","sat"], hm = s => { const m = /^(\d{1,2}):(\d{2})/.exec(String(s||"")); return m ? +m[1]*60 + +m[2] : null; };
+  const day = k => { const d = H && H[k]; if(d) return d.closed ? null : [hm(d.open), hm(d.close)]; return [hm(b.open_time ?? b.open), hm(b.close_time ?? b.close)]; };
+  const now = t.getHours()*60 + t.getMinutes(), a = day(D[t.getDay()]), y = day(D[(t.getDay()+6)%7]);
+  if(a && (a[0]==null || a[1]==null || a[0]===a[1])) return true;
+  if(a && (a[1] > a[0] ? now >= a[0] && now < a[1] : now >= a[0])) return true;
+  if(y && y[0]!=null && y[1]!=null && y[1] < y[0] && now < y[1]) return true;
+  return false; }
+function brHoursToday(b, t){ t = t || new Date(); const H = (b?.settings||{}).hours, k = ["sun","mon","tue","wed","thu","fri","sat"][t.getDay()], d = H && H[k];
+  if(d) return d.closed ? "closed today" : `${d.open}–${d.close}`; const o = b?.open_time ?? b?.open, c = b?.close_time ?? b?.close; return o && c ? `${o}–${c}` : ""; }
 function fillOrderBranches(sel){
   const bd = $("#oBrand").value;
   const list = branches.filter(b => (b.active!==false && b.callCenter!==false && !(brandSet(b.brandId).ccInactiveBranches||[]).includes(b.id) || b.id===sel) && (bd ? b.brandId===bd : !brandList().length));
   const ds = brandSet(bd || list[0]?.brandId || "").ccDefaultSource, os = $("#oSource"); if(ds && os && !os.value && [...os.options].some(x => x.value===ds)) os.value = ds;
   if(!sel && list.length===1) sel = list[0].id;   // only one branch takes call-center orders for this brand: pick it
-  $("#oBranch").innerHTML = `<option value="">${bd||!brandList().length?"Choose…":"Pick brand"}</option>` + list.map(b=>`<option value="${esc(b.id)}" ${sel===b.id?"selected":""}>${esc(b.name)}</option>`).join("");
+  $("#oBranch").innerHTML = `<option value="">${bd||!brandList().length?"Choose…":"Pick brand"}</option>` + list.map(b=>`<option value="${esc(b.id)}" ${sel===b.id?"selected":""}>${esc(b.name)}${brOpenNow(b) ? "" : " · closed now"}</option>`).join("");
 }
 function availableProducts(){
   const br = $("#oBranch")?.value, bd = $("#oBrand")?.value;
@@ -2677,6 +2688,7 @@ async function saveOrder(status){
   const type = $("#oType .on")?.dataset.ot || "", brandId = $("#oBrand").value, sent = status!=="draft", addr = ccAddrGet();
   if(!$("#oSource").value){ $("#oErr").textContent = "Choose the order source."; $("#oSource").focus(); return; }
   if(!type){ $("#oErr").textContent = "Choose the order type: delivery or pickup."; return; }
+  if(status==="pending" && (!o || o.status==="draft")){ const bb = branches.find(x => x.id===branchId); if(bb && !brOpenNow(bb)){ const hh = brHoursToday(bb); $("#oErr").textContent = `${bb.name} is closed now${hh ? " (" + hh + ")" : ""}. Save it as a draft and send it when the branch opens.`; return; } }
   if(sent && brandList().length && !brandId){ $("#oErr").textContent = "Choose the brand."; return; }
   if(sent && !branchId){ $("#oErr").textContent = "Pick the branch that will prepare this order."; return; }
   if(sent && !cart.length){ $("#oErr").textContent = "Add at least one product."; return; }
