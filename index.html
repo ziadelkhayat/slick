@@ -1743,13 +1743,6 @@ const PERMS = [
   ["@Dashboard Authorities"],["bo_dashboard","Access General Dashboard","Allows the user to view the general dashboard and graphs."],
   ["@Call Center Authorities"],["bo_callcenter","Access Call Center","Allows the user to take call center orders."],["bo_cc_edit","Edit Online Orders","Allows the user to edit placed call center orders (order source, order type, items)."],["bo_cc_discount","Apply Discounts in Call Center","Allows the user to give item discounts in the call center."],
   ["@Cashier & Waiter Apps Authorities"],["pos_access","Access Cash Register","Allows the user to sign in with their PIN and sell on the cashier."],["pos_settings","Access Devices Management","Allows the user to open device settings in the cashier."],["pos_reports","Access Reports","Allows the user to access sales and till reports in the cashier."],["pos_discount","Apply Open Discounts","Allows the user to apply open discounts on orders."],["pos_item_discount","Apply Item Discounts","Allows the user to apply discounts on products."],["pos_charges","Add Open Charge","Allows the user to add or remove charges on an order."],["pos_shift","Access Drawer Operations","Allows the user to open and close shifts and the cash drawer."],["pos_endday","Perform End of Day","Allows the user to end the day and generate EOD reports."],["pos_reprint","Print Receipt","Allows the user to reprint a receipt of a closed order."],["pos_return","Return Order","Allows the user to return a closed order and refund the customer."],["pos_orders","View Done Orders","Allows the user to view done orders history."],["pos_void","Void Orders and Products","Allows the user to cancel orders and products for a reason."],["pos_incoming","Accept Online Orders","Allows the user to accept, decline and complete call center and web orders."],["pos_open_price","Add Open Price Product","Allows the user to sell open price products."]];
-// ready-made starting points for a new role (tick or untick anything after)
-const ROLE_TPL = {
-  "Cashier": ["pos_access","pos_orders","pos_incoming","pos_shift","pos_reprint"],
-  "Supervisor": ["pos_access","pos_orders","pos_incoming","pos_shift","pos_reprint","pos_discount","pos_item_discount","pos_open_price","pos_charges","pos_void","pos_return","pos_endday","pos_reports"],
-  "Branch manager": ["bo_dashboard","bo_orders","bo_customers","bo_reports","bo_inventory","pos_access","pos_orders","pos_incoming","pos_shift","pos_reprint","pos_discount","pos_item_discount","pos_open_price","pos_charges","pos_void","pos_return","pos_endday","pos_reports","pos_settings"],
-  "Call center user": ["bo_callcenter","bo_customers","bo_cc_edit","bo_customers_edit"],
-  "Admin": null };
 const PERM_KEYS = PERMS.filter(p=>!p[0].startsWith("@")).map(p=>p[0]);
 const roleName = id => S.roles.find(r=>r.id===id)?.name || "—";
 const userRoleIds = u => (u?.roleIds||[]).length ? u.roleIds : (u?.roleId ? [u.roleId] : []);
@@ -1825,7 +1818,6 @@ const CRUD = {
       ["Users",r=>S.users.filter(u=>live(u)&&u.roleId===r.id).length,"num"]],
     fields:[{k:"name",l:"Name",req:1,ph:"The name of the role in the organization."},{k:"nameAr",l:"Name Localized",ph:"The localized name in a 2nd language"},
       {k:"permissions",l:"Authorities",t:"multi",toggle:1,opts:()=>PERMS,note:"Back-office screens decide which menus a user sees. \"Manage\" also allows changing menus, prices and settings. POS voids and returns are approved with the PIN of someone whose role allows them."}],
-    after: () => `<div class="f full"><label>Start from a template</label><div class="row" style="gap:6px;flex-wrap:wrap">${Object.keys(ROLE_TPL).map(k=>`<button type="button" class="btn sm" data-roletpl="${esc(k)}">${esc(k)}</button>`).join("")}<button type="button" class="btn sm" data-roletpl="">Clear all</button></div></div>`,
     unique:"name"
   },
   users: {
@@ -2393,10 +2385,6 @@ document.addEventListener("click", e => { const m = e.target.closest("[data-brme
 document.addEventListener("click", e => { const t = e.target.closest("[data-mtog]"); if(!t) return; e.preventDefault();
   const box = document.getElementById(t.dataset.mtog), g = t.dataset.mgrp, ins = [...box.querySelectorAll(g ? `.chk[data-grp="${CSS.escape(g)}"] input` : "input")];
   const on = !ins.every(i => i.checked); ins.forEach(i => i.checked = on); });
-document.addEventListener("click", e => { const t = e.target.closest("[data-roletpl]"); if(!t) return; e.preventDefault();
-  const set = t.dataset.roletpl ? ROLE_TPL[t.dataset.roletpl] : [], all = !set;
-  document.querySelectorAll("#cf_permissions input[type=checkbox]").forEach(c => c.checked = all || set.includes(c.value));
-  const n = $("#cf_name"); if(n && !n.value && t.dataset.roletpl) n.value = t.dataset.roletpl; });
 function crudWhen(){ const cfg = crudEdit && CRUD[crudEdit.key]; if(!cfg || !cfg.fields) return;
   cfg.fields.filter(f=>f.when).forEach(f => { const el = $("#cf_"+f.k), w = el?.closest(".f"); if(w) w.style.display = ($("#cf_"+f.when.k)?.value || "") === f.when.is ? "" : "none"; }); }
 document.addEventListener("change", e => { if(e.target.id?.startsWith("cf_") && e.target.tagName==="SELECT") crudWhen(); });
