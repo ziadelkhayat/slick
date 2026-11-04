@@ -1397,8 +1397,8 @@ function openIncoming(){
   if(!can("pos_orders") && !can("pos_incoming")) return deny("seeing orders");
   const t = v => v ? new Date(v).toLocaleTimeString("en-GB",{hour:"numeric",minute:"2-digit"}) : "";
   const chn = o => o.channel==="pos" ? "POS" : o.channel==="callcenter" ? "Call center" : "Web";
-  const card = o => `<button class="ocard" data-ov="${esc(o.id)}"><span class="oc1"><b>${esc(o.no ? "#" + o.no : (o.ref || ordRef(o)))}</b><span class="spill s-${o.status}">${stLbl(o)}</span></span>
-    ${o.invoiceNo && o.no ? `<span class="mut oc-s">${esc(invNo(o.invoiceNo))}</span>` : ""}
+  const card = o => `<button class="ocard" data-ov="${esc(o.id)}"><span class="oc1"><b>${esc(o.invoiceNo ? invNo(o.invoiceNo) : o.no ? "#" + o.no : (o.ref || ordRef(o)))}</b><span class="spill s-${o.status}">${stLbl(o)}</span></span>
+    ${o.invoiceNo && o.no ? `<span class="mut oc-s">Order #${esc(o.no)}</span>` : ""}
     ${o.customerName || o.phone ? `<span class="oc2">${ico("user")}<span>${esc(o.customerName||"")}<small>${esc(o.phone||"")}</small></span></span>` : ""}
     <span class="oc2 mut">${ico("clock")}<span>Created ${t(o.createdAt)}${o.updatedAt && o.updatedAt!==o.createdAt ? `<small>Modified ${t(o.updatedAt)}</small>` : ""}</span></span>
     <span class="oc2">${o.channel==="pos" ? "🧾" : o.channel==="callcenter" ? "🎧" : "🌐"} ${esc(o.source || chn(o))} · ${esc(typLbl(o.type))}${o.table ? " · T" + esc(o.table) : ""}<small>${esc(o.agent || "")}</small></span>
@@ -1443,8 +1443,8 @@ function openIncoming(){
       return `<div class="ocol"><div class="ochead" title="${esc(tip)}"><b>${title}</b><span class="cnt">${l.length}</span></div>${l.length ? l.map(card).join("") : `<div class="oempty">You don't have ${title.toLowerCase()} orders</div>`}</div>`; }).join("")}</div>`;
   else { const l = boardOrders(OV.tab);
     body = `<div class="otabs2">${TABS.map(([k,l2]) => `<button data-ovtab="${k}" class="${OV.tab===k?"on":""}">${l2}</button>`).join("")}</div>
-      <div class="olist2">${l.length ? `<div class="lrow ol5 lhead"><span>Invoice #</span><span>Order #</span><span>Customer</span><span>Status</span><span class="lc2">Sales channel</span><span class="lc2">Order type</span><span class="lc2">Order source</span><span class="lc2">Business day</span><span class="lc2">Payment type</span><span style="text-align:right">Total</span></div>` + l.map(row).join("") : `<div class="oempty" style="border-radius:0">No orders here</div>`}</div>`; }
-  modal("incoming", `${head}<div class="mb" style="display:flex;flex-direction:column;gap:12px">${filt}${body}<p class="mut" style="margin:0">${(OV.date||bizDate())===bizDate() ? `Today's business day (${bizDate()}) plus open orders from earlier days.` : `Business day ${OV.date}.`} Tap an order to open it in the billing section.</p></div>`, true);
+      <div class="olist2">${l.length ? `<div class="lrow ol5 lhead"><span>Invoice #</span><span>Order #</span><span>Customer</span><span>Status</span><span class="lc2">Sales channel</span><span class="lc2">Order type</span><span class="lc2">Order source</span><span class="lc2">Business date</span><span class="lc2">Payment type</span><span style="text-align:right">Total</span></div>` + l.map(row).join("") : `<div class="oempty" style="border-radius:0">No orders here</div>`}</div>`; }
+  modal("incoming", `${head}<div class="mb" style="display:flex;flex-direction:column;gap:12px">${filt}${body}<p class="mut" style="margin:0">${(OV.date||bizDate())===bizDate() ? `Today's business day (${bizDate()}) plus open orders from earlier days.` : `Business date ${OV.date}.`} Tap an order to open it in the billing section.</p></div>`, true);
   $("#modal").classList.add("full"); $("#scrim").classList.add("fullscr"); withNav();
   const q = $("#ovQ"); if(q && document.activeElement?.id!=="ovQ" && OV.q){ /* keep the list where it was */ }
 }
@@ -1709,8 +1709,8 @@ function openBoard(){
   if(!can("pos_orders") && !can("pos_incoming")) return deny("seeing orders");
   const t = v => v ? new Date(v).toLocaleTimeString("en-GB",{hour:"numeric",minute:"2-digit"}) : "";
   const chn = o => o.channel==="pos" ? "POS" : o.channel==="callcenter" ? "Call center" : "Web";
-  const card = o => `<div class="ocard" role="button" tabindex="0" data-ov="${esc(o.id)}"><span class="oc1"><b>${esc(o.no ? "#" + o.no : (o.ref || ordRef(o)))}</b><span class="spill s-${o.status}">${stLbl(o)}</span></span>
-    ${o.invoiceNo && o.no ? `<span class="mut oc-s">${esc(invNo(o.invoiceNo))}</span>` : ""}
+  const card = o => `<div class="ocard" role="button" tabindex="0" data-ov="${esc(o.id)}"><span class="oc1"><b>${esc(o.invoiceNo ? invNo(o.invoiceNo) : o.no ? "#" + o.no : (o.ref || ordRef(o)))}</b><span class="spill s-${o.status}">${stLbl(o)}</span></span>
+    ${o.invoiceNo && o.no ? `<span class="mut oc-s">Order #${esc(o.no)}</span>` : ""}
     ${o.customerName || o.phone ? `<span class="oc2">${ico("user")}<span>${esc(o.customerName||"")}<small>${esc(o.phone||"")}</small></span></span>` : ""}
     ${o.type==="delivery" && o.address ? `<span class="oc2 mut">${ico("pin")}<span>${esc(o.address)}</span></span>` : ""}
     <span class="oc2 mut">${ico("clock")}<span>Created ${t(o.createdAt)}${o.updatedAt && o.updatedAt!==o.createdAt ? `<small>Modified ${t(o.updatedAt)}</small>` : ""}</span></span>
@@ -1942,7 +1942,7 @@ function openReports(){
   const sec = (h, x) => `<div class="rsec"><h3>${h}</h3>${x}</div>`;
   modal("reports", `<div class="ohdr"><button class="hbtn" data-close>Back</button><b style="font-size:18px">Reports</b><span class="sp"></span>
     <div class="otabs2" style="box-shadow:none;border:1px solid var(--line)">${Object.entries(RP_L).map(([k,l]) => `<button data-rp="${k}" class="${RP===k?"on":""}">${l}</button>`).join("")}</div><button class="hbtn ghost" data-rprint>Print</button></div>
-    <div class="mb"><p class="mut" style="margin:0 0 12px">${RP==="shift" ? (d.sh ? `Shift opened ${new Date(d.sh.openedAt).toLocaleString("en-GB",{day:"numeric",month:"short",hour:"numeric",minute:"2-digit"})}${d.sh.cashier ? " by " + esc(d.sh.cashier) : ""}${d.sh.closedAt ? " · closed" : " · still open"}` : "No shift on this register yet.") : `Business day ${bizDate()}${RP==="device" ? " · " + esc(device.name) : " · " + esc(branch?.name||"")}`}</p>
+    <div class="mb"><p class="mut" style="margin:0 0 12px">${RP==="shift" ? (d.sh ? `Shift opened ${new Date(d.sh.openedAt).toLocaleString("en-GB",{day:"numeric",month:"short",hour:"numeric",minute:"2-digit"})}${d.sh.cashier ? " by " + esc(d.sh.cashier) : ""}${d.sh.closedAt ? " · closed" : " · still open"}` : "No shift on this register yet.") : `Business date ${bizDate()}${RP==="device" ? " · " + esc(device.name) : " · " + esc(branch?.name||"")}`}</p>
     <div class="rgrid"><div><span>Orders</span><b>${cnt}</b></div><div><span>Gross sales</span><b>${usd(d.gross)}</b></div><div><span>Returns</span><b>${usd(-d.ref)}</b></div><div><span>Net sales (after returns)</span><b>${usd(d.net)}</b></div>
       <div><span>Tax</span><b>${usd(d.tax)}</b></div><div><span>Discounts</span><b>${usd(d.disc)}</b></div><div><span>Charges</span><b>${usd(d.chg)}</b></div><div><span>Average order</span><b>${usd(cnt ? d.gross / cnt : 0)}</b></div>
       <div><span>Voided orders</span><b>${d.voids.length} · ${usd(d.voidTotal)}</b></div><div><span>Voided items</span><b>${d.voidItemsN} · ${usd(d.voidItemsTotal)}</b></div></div>
@@ -1971,7 +1971,7 @@ async function openDiag(){
   const s = syncSt, f = window.WOK?.sync?.failed?.() || [], est = await (navigator.storage?.estimate?.() || Promise.resolve(null)).catch(() => null), today = bizDate();
   const sw = "serviceWorker" in navigator ? (navigator.serviceWorker.controller ? "Active" : "Not active") : "Not supported";
   const rows = [["Connection", s.online ? "Online" : "Offline"], ["Waiting to sync", s.pending], ["Rejected by the server", f.length], ["Last synced", ago(s.lastSync)], ["Signed in", s.needsLogin ? "No · sign in to sync" : "Yes"],
-    ["Device", device.name + (isMaster() ? "" : " (sub-POS)")], ["Branch", branch?.name || "—"], ["Business day", today + (openDay() < today ? ` · ${openDay()} not ended` : "")], ["Shift", openShift() ? "Open" : "Closed"],
+    ["Device", device.name + (isMaster() ? "" : " (sub-POS)")], ["Branch", branch?.name || "—"], ["Business date", today + (openDay() < today ? ` · ${openDay()} not ended` : "")], ["Shift", openShift() ? "Open" : "Closed"],
     ["Menu loaded", `${products().length} products · ${S.categories.filter(live).length} categories`], ["Orders on this tablet", S.orders.filter(o => o.branchId===device.branchId).length], ["Users with a PIN", posUsers().length],
     ["Offline app", sw], ["Storage", est ? `${(est.usage/1048576).toFixed(1)} MB used of ${(est.quota/1048576/1024).toFixed(1)} GB` : "—"], ["Screen", `${innerWidth} × ${innerHeight}`], ["Clock", new Date().toLocaleString("en-GB") + " · " + (Intl.DateTimeFormat().resolvedOptions().timeZone || "")],
     ["Printing", window.Capacitor ? "Android app" : "Browser · printing works in the Android app"], ["App", "Slick POS · " + (document.querySelector('script[src^="wokdb.js"]')?.getAttribute("src").split("?v=")[1] ? "data v" + document.querySelector('script[src^="wokdb.js"]').getAttribute("src").split("?v=")[1] : "")]];
