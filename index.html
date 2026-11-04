@@ -4357,13 +4357,12 @@ function ingEditor(forKey, rec){
   const used = new Set(rows.map(l=>l.itemId));
   const avail = S.inv_items.filter(i => live(i) && !used.has(i.id) && i.id!==rec.id).sort((a,b)=>a.name.localeCompare(b.name));
   const total = recipeCost(rows);
-  const head = isProd ? `<th>Name</th><th>SKU</th><th class="num">Quantity</th><th class="num">Cost</th><th>Applies on</th><th></th>` : `<th>Name</th><th>SKU</th><th class="num">Quantity</th><th class="num">Cost</th><th></th>`;
+  const head = `<th>Name</th><th>SKU</th><th class="num">Quantity</th><th class="num">Cost</th><th></th>`;
   const body = rows.map((l, ix) => {
     const it = itemOf(l.itemId) || { name:"(deleted item)" }, types = l.types || ORDER_TYPES.map(t=>t[0]);
     return `<tr><td><b>${esc(it.name)}</b></td><td><span class="code">${esc(it.sku||"")}</span></td>
       <td class="num" style="white-space:nowrap"><input type="number" min="0" step="any" class="sel" data-ingq="${ix}" value="${esc(l.qty ?? "")}" style="width:100px;text-align:right" aria-label="Quantity of ${esc(it.name)}"> <span class="note">${esc(uomOf(it))}</span></td>
       <td class="num" data-ingc="${ix}">${fmtCost(ingCost(it, l.qty))}</td>
-      ${isProd ? `<td>${ORDER_TYPES.map(([k,t])=>`<label class="chk" style="display:inline-flex;margin-right:8px"><input type="checkbox" data-ingt="${ix}:${k}" ${types.includes(k)?"checked":""}> ${t}</label>`).join("")}</td>` : ""}
       <td><button class="btn sm" data-ingrm="${ix}" aria-label="Remove ${esc(it.name)}">×</button></td></tr>`;
   }).join("");
   const unit = forKey==="modifier-options" ? "this option (added on top of the product's own ingredients)" : isProd ? "1 portion of this product" : `1 ${esc(rec.storageUnit||"unit")} of this item`;
@@ -4371,7 +4370,7 @@ function ingEditor(forKey, rec){
   return `<div class="card tbl" style="margin-bottom:16px" id="ingCard"><div class="ttop"><b>Ingredients${vfor ? ` · ${esc(vfor)}` : ""}</b>${vfor ? ` <button class="btn sm" data-pvrec="" style="margin-left:8px">← Product recipe</button>` : ""}<span class="note" style="margin-left:8px">Quantities to make ${vfor ? "1 " + esc(vfor) : unit}, in each ingredient's ingredient unit.</span><div class="sp"></div>
       <input class="sel" id="ingAdd" list="ingAddL" placeholder="Add ingredient: name or SKU" style="min-width:240px"><datalist id="ingAddL">${avail.map(i=>`<option value="${esc(i.name)} · ${esc(i.sku||"")}">`).join("")}</datalist>
       <button class="btn pri sm" data-ingsave ${DET.dirtyIng && !DET.saving ? "" : "disabled"}>${DET.saving?"Saving…":"Save ingredients"}</button></div>
-    ${rows.length ? `<table><thead><tr>${head}</tr></thead><tbody>${body}</tbody><tfoot><tr><td colspan="3"><b>Total ingredients cost</b></td><td class="num"><b id="ingTotal">${fmtCost(total)}</b></td><td colspan="${isProd?2:1}"></td></tr></tfoot></table>`
+    ${rows.length ? `<table><thead><tr>${head}</tr></thead><tbody>${body}</tbody><tfoot><tr><td colspan="3"><b>Total ingredients cost</b></td><td class="num"><b id="ingTotal">${fmtCost(total)}</b></td><td></td></tr></tfoot></table>`
       : `<div class="empty">No ingredients yet. ${isProd ? "Add the inventory items (raw or produced) used to make this product." : "Add the inventory items needed to produce this item. Production batches use this list."}</div>`}</div>`;
 }
 
@@ -4594,7 +4593,7 @@ function ingLive(ix){
 async function saveIngredients(){
   const cfg = CRUD[DET.key], list = DET.ing.filter(l => l.itemId).map(l => {
     const o = { itemId:l.itemId, qty: l.qty===""||l.qty==null ? 0 : +l.qty };
-    if(DET.key==="products" || DET.key==="modifier-options") o.types = l.types || ORDER_TYPES.map(t=>t[0]);
+    if(DET.key==="products" || DET.key==="modifier-options") o.types = ORDER_TYPES.map(t=>t[0]);   // ingredients apply to every order type
     return o;
   });
   if(list.some(l => !(l.qty > 0))){ toast("Enter a quantity for every ingredient"); return; }
