@@ -738,7 +738,7 @@ function whistle(){
     note(t0, 0.32, [1100, 2600]); note(t0 + 0.45, 0.55, [1000, 2400, 1300]);   // "wheet-whee-oo"
   }catch(e){}
 }
-const canAccept = () => isMaster() || isAdminUser(cashier);
+const canAccept = () => true;   // every register in the branch can accept or decline incoming orders (the role still needs "incoming orders")
 const masterNote = () => `Accepted on the master POS${masterDev()?.name ? " (" + masterDev().name + ")" : ""}`;
 async function autoAccept(){
   if(!isMaster()) return;
@@ -820,9 +820,9 @@ function renderAll(){
   $("#shiftPill").textContent = sh ? "Shift open" : "Shift closed"; $("#shiftPill").classList.toggle("off", !sh);
   const blk = saleBlock(); $("#dayBtn span").textContent = (blk && openDay() < bizDate() ? "⚠ " : "") + "End of day (" + openDay().split("-").reverse().join("/") + ")"; $("#dayBtn").title = blk || "End the business day for this branch";
   $("#shiftBtn span").textContent = sh ? "Close till" : "Open till"; paintAbar();
-  const inc = incoming(), pend = isMaster() ? inc.filter(o=>o.status==="pending").length : 0;
+  const inc = incoming(), pend = inc.filter(o=>o.status==="pending").length;
   $("#incBadge").textContent = pend; $("#incBadge").classList.toggle("hide", !pend);
-  if(isMaster()){ const fresh = inc.filter(o => o.status==="pending" && !SEEN.has(o.id)); inc.forEach(o => SEEN.add(o.id));
+  { const fresh = inc.filter(o => o.status==="pending" && !SEEN.has(o.id)); inc.forEach(o => SEEN.add(o.id));
     if(fresh.length && SEEN_READY){ $("#boardBtn").classList.remove("ring"); void $("#boardBtn").offsetWidth; $("#boardBtn").classList.add("ring");
       toast(fresh.length===1 ? `New ${fresh[0].channel==="callcenter" ? "call-center" : "web"} order${fresh[0].customerName ? " · " + fresh[0].customerName : ""} · open Pickup & delivery to accept it` : `${fresh.length} new orders · open Pickup & delivery to accept them`);
       if(fresh.some(o => o.channel==="callcenter")) whistle();
