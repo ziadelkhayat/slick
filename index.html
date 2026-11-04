@@ -362,7 +362,7 @@ body[data-route="call-center"] .ocard{padding:10px 12px;gap:5px;font-size:13px}
 #oCatBack[hidden]{display:none}
 .ccside .cins-g{grid-template-columns:1fr 1fr}
 .bmexp{border:0;background:none;cursor:pointer;font-size:13px;width:22px;color:var(--ink2);padding:0}.bmg{cursor:pointer}
-.avhead,.avrow{display:grid;grid-template-columns:1.3fr .8fr 1.2fr 1fr 1fr 36px;gap:6px;align-items:center}.avhead{font-size:12px;color:var(--ink2);margin-bottom:4px}.avrow{margin-bottom:6px}.avrow input,.avrow select{min-width:0}
+.avhead,.avrow{display:grid;grid-template-columns:1.3fr .8fr 1.2fr 1fr 36px;gap:6px;align-items:center}.avhead{font-size:12px;color:var(--ink2);margin-bottom:4px}.avrow{margin-bottom:6px}.avrow input,.avrow select{min-width:0}
 .items{display:flex;flex-direction:column;gap:6px;margin-bottom:6px}.itemrow{display:flex;gap:6px;align-items:center}.itemrow input{flex:1}
 .itemadd{display:flex;gap:6px}.itemadd input{flex:1}
 .vchild{padding-left:14px;color:var(--ink2)}.vchild b{color:var(--ink)}
@@ -1744,8 +1744,8 @@ const live = r => !r.deleted;
 const catName = id => S.categories.find(c => c.id===id)?.name || "—";
 /* ---------- taxes ---------- */
 const taxRate = g => (g?.taxIds||[]).reduce((a,id) => { const t = S.taxes.find(x=>x.id===id && live(x)); return a + (t ? +t.rate||0 : 0); }, 0);
-const tgName = id => { if(!id) return "No tax"; const g = S.tax_groups.find(x=>x.id===id); return g ? `${g.name} (${+taxRate(g).toFixed(2)}%)` : (id==="TAX" ? "VAT" : id); };
-const taxGroupOpts = () => S.tax_groups.filter(live).map(g=>[g.id, `${g.name} (${+taxRate(g).toFixed(2)}%)`]);
+const tgName = id => { if(!id) return "No tax"; const g = S.tax_groups.find(x=>x.id===id); return g ? g.name : (id==="TAX" ? "VAT" : id); };
+const taxGroupOpts = () => S.tax_groups.filter(live).map(g=>[g.id, g.name]);
 const taxTabs = on => `<div class="tabs" style="margin-bottom:8px"><a href="#taxes" class="${on==="taxes"?"on":""}">Taxes</a><a href="#tax-groups" class="${on==="tax-groups"?"on":""}">Tax Groups</a></div>
   <p class="subt" style="margin-top:0">Each tax is either inclusive (already inside the menu price) or added on top at checkout; set it on the tax. A group can mix both.</p>`;
 
@@ -1811,10 +1811,10 @@ const CRUD = {
     tabs:[["all","All",live],["deleted","Deleted",r=>r.deleted]],
     sort:(a,b)=>a.name.localeCompare(b.name), search:r=>r.name+" "+(r.reference||""),
     cols:[["Name",r=>`<b>${esc(r.name)}</b>`],["Reference",r=>esc(r.reference||"—")],["Taxes",r=>(r.taxIds||[]).map(id=>esc(S.taxes.find(t=>t.id===id)?.name||"?")).join(" + ")||'<span class="note">None</span>'],
-      ["Total rate",r=>+taxRate(r).toFixed(2)+" %","num"],["Products",r=>S.products.filter(p=>live(p)&&p.taxGroup===r.id).length,"num"]],
+      ["Products",r=>S.products.filter(p=>live(p)&&p.taxGroup===r.id).length,"num"]],
     fields:[{k:"name",l:"Name",req:1},{k:"nameAr",l:"Name (Arabic)"},{k:"reference",l:"Reference"},
-      {k:"taxIds",l:"Taxes in this group",t:"multi",opts:()=>S.taxes.filter(live).map(t=>[t.id,`${t.name} (${+t.rate||0}%)`])}],
-    unique:"name", note:"Give each product a tax group (Menu → Products). Its taxes add up, e.g. VAT 11%."
+      {k:"taxIds",l:"Taxes in this group",t:"multi",opts:()=>S.taxes.filter(live).map(t=>[t.id,t.name])}],
+    unique:"name", note:"Give each product a tax group (Menu → Products). Its taxes add up."
   },
   "payment-methods": {
     col:"payment_methods", title:"Payment Methods", one:"Payment Method",
@@ -1926,7 +1926,7 @@ const CRUD = {
       {k:"pricingMethod",l:"Pricing method",t:"select",opts:()=>[["fixed","Fixed price"],["open","Open Price"]],def:"fixed",hideIf:r=>varKids(r).length},
       {k:"price",l:"Price (USD)",t:"number",req:1,hideIf:r=>varKids(r).length},{k:"taxGroup",l:"Tax group",t:"select",opts:()=>taxGroupOpts(),def:"tg_vat",ph:"No tax",hideIf:r=>varKids(r).length},
       {k:"costingMethod",l:"Costing method",t:"select",opts:()=>[["ingredients","From ingredients"],["fixed","Fixed cost"]],def:"ingredients",hideIf:r=>varKids(r).length},{k:"cost",l:"Fixed cost (USD)",t:"number",req:1,when:{k:"costingMethod",is:"fixed"},hideIf:r=>varKids(r).length},
-      {k:"sellingMethod",l:"Selling method",t:"select",opts:()=>[["unit","Unit"],["weight","Weight"]],def:"unit"},{k:"barcode",l:"Barcode"},
+      {k:"sellingMethod",l:"Selling method",t:"select",opts:()=>[["unit","Unit"],["weight","Weight"]],def:"unit"},
       {k:"prepTime",l:"Preparation time (minutes)",t:"number"},{k:"calories",l:"Calories (kCal)",t:"number"},
       {k:"imageUrl",l:"Image",t:"image",full:1},
       {k:"description",l:"Description",t:"textarea",full:1}]
@@ -1961,7 +1961,7 @@ const CRUD = {
         if(gone.length) return `${gone.join(", ")} can't be removed or renamed: it's used by ${used.filter(p => (p.variants||[]).some(v => gone.includes(v.name))).map(p=>p.name).slice(0,3).join(", ")}. Remove the variants from those products first.`; }
       data.options = list;
     },
-    note:"A variant set is a choice the customer must make, like Size: Small, Medium, Large. A product using it gets one full product per variant (own price, SKU, barcode, cost, recipe, tax and channel switches). The POS, call center and web ordering show the main product and ask which variant."
+    note:"A variant set is a choice the customer must make, like Size: Small, Medium, Large. A product using it gets one full product per variant (own price, SKU, cost, recipe, tax and channel switches). The POS, call center and web ordering show the main product and ask which variant."
   },
   "modifier-options": {
     col:"modifier_options", title:"Modifier Options", one:"Modifier Option", detail: r => optionDetail(r),
@@ -2001,7 +2001,7 @@ const CRUD = {
       {k:"storageUnit",l:"Storage unit",req:1,ph:"e.g. kg, box, gallon"},{k:"ingredientUnit",l:"Ingredient unit",req:1,ph:"e.g. g, ml, piece"},
       {k:"factor",l:"Storage → ingredient factor",t:"number",req:1,ph:"e.g. 1000"},
       {k:"costingMethod",l:"Costing method",t:"select",opts:()=>[["fixed","Fixed (enter the cost)"],["transactions","From transactions (production updates it)"]],def:"fixed"},{k:"cost",l:"Cost per storage unit (USD)",t:"number",req:1,when:{k:"costingMethod",is:"fixed"}},
-      {k:"minLevel",l:"Minimum level",t:"number"},{k:"parLevel",l:"Par level",t:"number"},{k:"maxLevel",l:"Maximum level",t:"number"},{k:"barcode",l:"Barcode"}]
+      {k:"minLevel",l:"Minimum level",t:"number"},{k:"parLevel",l:"Par level",t:"number"},{k:"maxLevel",l:"Maximum level",t:"number"}]
   },
   "inv-categories": {
     col:"inv_categories", title:"Inventory Categories", one:"Category",
@@ -2299,8 +2299,8 @@ const byName = (list, v) => { const t = String(v||"").trim().toLowerCase(); retu
 const tgByName = v => { const t = String(v||"").trim().toLowerCase(); if(!t) return null; return S.tax_groups.find(g => live(g) && (g.name.toLowerCase()===t || tgName(g.id).toLowerCase()===t)) || null; };
 // one spec per page: the columns, how to find an existing row, and how to turn a CSV line into a record
 const IMPEX = {
-  products: { file:"products", head:["SKU","Name","Name (Arabic)","Brand","Category","Price","Pricing Method","Tax Group","Costing Method","Cost","Barcode","Calories","Preparation Time","Description","Active"],
-    rows: () => S.products.filter(live).filter(brandFilter).sort(CRUD.products.sort).map(r => [r.sku, r.name, r.nameAr, brandName(r.brandId), catName(r.categoryId), r.price, r.pricingMethod||"fixed", r.taxGroup ? S.tax_groups.find(g=>g.id===r.taxGroup)?.name : "", r.costingMethod||"ingredients", r.cost, r.barcode, r.calories, r.prepTime, r.description, r.active===false?"No":"Yes"]),
+  products: { file:"products", head:["SKU","Name","Name (Arabic)","Brand","Category","Price","Pricing Method","Tax Group","Costing Method","Cost","Calories","Preparation Time","Description","Active"],
+    rows: () => S.products.filter(live).filter(brandFilter).sort(CRUD.products.sort).map(r => [r.sku, r.name, r.nameAr, brandName(r.brandId), catName(r.categoryId), r.price, r.pricingMethod||"fixed", r.taxGroup ? S.tax_groups.find(g=>g.id===r.taxGroup)?.name : "", r.costingMethod||"ingredients", r.cost, r.calories, r.prepTime, r.description, r.active===false?"No":"Yes"]),
     build: (x, ctx) => {
       const bl = brandList(), bySku = x.sku && S.products.find(p => live(p) && (p.sku||"").toLowerCase()===x.sku.toLowerCase()),
         cats = S.categories.filter(c => live(c) && !c.channel && c.name.trim().toLowerCase()===String(x.category||"").trim().toLowerCase()),
@@ -2318,7 +2318,7 @@ const IMPEX = {
       if(x["tax group"]){ const g = tgByName(x["tax group"]); if(!g) return { err:`tax group "${x["tax group"]}" not found` }; d.taxGroup = g.id; }
       if(x["costing method"]) d.costingMethod = /fix/i.test(x["costing method"]) ? "fixed" : "ingredients";
       [["cost","cost"],["calories","calories"],["preparation time","prepTime"]].forEach(([h,k]) => { if(x[h]!=="" && x[h]!=null) d[k] = numOr(x[h], null); });
-      if(x.barcode) d.barcode = x.barcode; if(x.description) d.description = x.description;
+      if(x.description) d.description = x.description;
       if(x.active!=="" && x.active!=null) d.active = yes(x.active);
       if(!ex){ d.sku = x.sku || nextSku("products", ctx.skus); ctx.skus.push(d.sku); if(d.active==null) d.active = true; if(!d.taxGroup && S.tax_groups.some(g=>g.id==="tg_vat"&&live(g))) d.taxGroup = "tg_vat"; d.channels = CHANNELS.map(c=>c[0]); d.sort = 999; }
       else if(x.sku) d.sku = x.sku;
@@ -2348,8 +2348,8 @@ const IMPEX = {
       else if(x["option sku"]) d.sku = x["option sku"];
       return { col:"modifier_options", id: ex?.id, data:d };
     } },
-  "inv-items": { file:"inventory-items", head:["SKU","Name","Name (Arabic)","Category","Storage Unit","Ingredient Unit","Factor","Costing Method","Cost","Minimum Level","Par Level","Maximum Level","Barcode"],
-    rows: () => S.inv_items.filter(live).sort(CRUD["inv-items"].sort).map(r => [r.sku, r.name, r.nameAr, r.category, r.storageUnit, r.ingredientUnit, r.factor, r.costingMethod==="transactions"?"Transactions":"Fixed", r.cost, r.minLevel, r.parLevel, r.maxLevel, r.barcode]),
+  "inv-items": { file:"inventory-items", head:["SKU","Name","Name (Arabic)","Category","Storage Unit","Ingredient Unit","Factor","Costing Method","Cost","Minimum Level","Par Level","Maximum Level"],
+    rows: () => S.inv_items.filter(live).sort(CRUD["inv-items"].sort).map(r => [r.sku, r.name, r.nameAr, r.category, r.storageUnit, r.ingredientUnit, r.factor, r.costingMethod==="transactions"?"Transactions":"Fixed", r.cost, r.minLevel, r.parLevel, r.maxLevel]),
     build: (x, ctx) => {
       const ex = (x.sku && S.inv_items.find(i => live(i) && (i.sku||"").toLowerCase()===x.sku.toLowerCase())) || byName(S.inv_items, x.name);
       const d = { name:x.name };
@@ -2357,7 +2357,6 @@ const IMPEX = {
       if(x["storage unit"]) d.storageUnit = x["storage unit"]; if(x["ingredient unit"]) d.ingredientUnit = x["ingredient unit"];
       if(x["costing method"]) d.costingMethod = /trans/i.test(x["costing method"]) ? "transactions" : "fixed";
       [["factor","factor"],["cost","cost"],["minimum level","minLevel"],["par level","parLevel"],["maximum level","maxLevel"]].forEach(([h,k]) => { if(x[h]!=="" && x[h]!=null) d[k] = numOr(x[h], null); });
-      if(x.barcode) d.barcode = x.barcode;
       if(!ex){ d.sku = x.sku || nextSku("inv_items", ctx.skus); ctx.skus.push(d.sku); if(!d.costingMethod) d.costingMethod = "fixed"; }
       else if(x.sku) d.sku = x.sku;
       return { col:"inv_items", id: ex?.id, data:d };
@@ -2913,7 +2912,6 @@ function openDeviceSettings(id){
     <div class="f"><label for="ds_kitchenPrinter">Kitchen printer (IP address or name)</label><input id="ds_kitchenPrinter" value="${esc(s.kitchenPrinter||"")}" placeholder="e.g. 192.168.1.50"></div>
     <div class="f"><label for="ds_receiptPrinter">Receipt printer (IP address or name)</label><input id="ds_receiptPrinter" value="${esc(s.receiptPrinter||"")}" placeholder="Built-in / 192.168.1.51"></div>
     <div class="f"><label for="ds_lockMinutes">Auto-lock after (minutes idle)</label><input id="ds_lockMinutes" type="number" min="0" max="240" value="${esc(s.lockMinutes ?? 10)}">${dhelp("0 = never lock.")}</div>
-    ${tg("barcode", "Enable Barcode Scanners", "Allow the cashier to use a barcode scanner.", true)}
     ${tg("autoAccept", "Auto Accept and Send Online Orders to Kitchen", "Accept call center and web orders and send them to the kitchen automatically.", false)}
     ${tg("printOnline", "Print Online Order Info When Received", "Print call center and web orders automatically when they arrive.", false)}
     ${tg("noAutoPrint", "Disable Automatic Receipt Printing", "Don't print receipts automatically after payments or closing orders.", s.receipt!=="print")}
@@ -2933,7 +2931,7 @@ async function saveDeviceSettings(){
   if(callReset && callReset <= callStart){ $("#cErr").textContent = "Call Number Reset must be bigger than Call Number Start."; return; }
   const settings = { ...(d.settings||{}), orderTypes, callStart, callReset, kitchenLang: v("kitchenLang"), copies: Math.max(1, +v("copies") || 1), eodEmail: v("eodEmail"), shiftEmail: v("shiftEmail"),
     tables: [...document.querySelectorAll("#ds_tables input:checked")].map(i=>i.value), kitchenPrinter: v("kitchenPrinter"), receiptPrinter: v("receiptPrinter"), lockMinutes: Math.max(0, +v("lockMinutes") || 0),
-    barcode: ck("barcode"), autoAccept: ck("autoAccept"), printOnline: ck("printOnline"), noAutoPrint: ck("noAutoPrint"), receipt: ck("noAutoPrint") ? "show" : "print", printDrawer: ck("printDrawer"), cashDrawer: ck("cashDrawer"), lockAfterSale: ck("lockAfterSale") };
+    autoAccept: ck("autoAccept"), printOnline: ck("printOnline"), noAutoPrint: ck("noAutoPrint"), receipt: ck("noAutoPrint") ? "show" : "print", printDrawer: ck("printDrawer"), cashDrawer: ck("cashDrawer"), lockAfterSale: ck("lockAfterSale") };
   try{ await put("devices", id, { settings }); toast("Device settings saved"); closeCrud(); render(); }
   catch(err){ console.error(err); $("#cErr").textContent = "Couldn't save. Only the owner or an admin can change devices."; }
 }
@@ -4180,7 +4178,7 @@ function productDetail(p){
     ${p.active===false?'<span class="tag off" style="margin-left:8px">Inactive</span>':'<span class="tag on" style="margin-left:8px">Active</span>'}<div class="sp"></div>
     <button class="btn" data-dettoggle>${p.active===false?"Activate Product":"Deactivate Product"}</button><button class="btn pri" data-detedit>Edit Product</button></div>`;
   h += infoGrid([info("Name", esc(p.name)), info("Name Localized", esc(p.nameAr||"—")), info("Brand", esc(brandName(p.brandId))), info("Category", esc(catName(p.categoryId))),
-    info("SKU", `<span class="code">${esc(p.sku||"—")}</span>`), info("Barcode", esc(p.barcode||"—")), info("Tax Group", varKids(p).length ? "Set on each variant" : esc(tgName(p.taxGroup))),
+    info("SKU", `<span class="code">${esc(p.sku||"—")}</span>`), info("Tax Group", varKids(p).length ? "Set on each variant" : esc(tgName(p.taxGroup))),
     info("Pricing Method", p.pricingMethod==="open"?"Open Price":"Fixed Price"), info("Selling Method", p.sellingMethod==="weight"?"Weight":"Unit"),
     info("Costing Method", p.costingMethod==="fixed"?"Fixed Cost":"From Ingredients"), info("Preparation Time", p.prepTime ? esc(p.prepTime)+" min" : "—"),
     info("Price", varKids(p).length ? "Set on each variant" : p.pricingMethod==="open" ? "Open" : usd(price)), info(p.costingMethod==="fixed"?"Fixed Cost":"Ingredients Cost", fmtCost(cost)),
@@ -4209,10 +4207,10 @@ function variantCard(p){
       <button class="btn pri sm" data-pvadd>+ Add attribute</button></div>
     <table><thead><tr><th>${esc(varGroup(p))}</th><th>Product</th><th>SKU</th><th class="num">Price</th><th>Tax</th><th class="num">Cost</th><th></th></tr></thead><tbody>${rows.map(({v,k}) => `<tr class="clk" data-detopen="products:${esc(k.id)}" title="Open ${esc(k.name)}"><td><b>${esc(v.name)}</b></td><td><a href="#products" class="lnk" data-detopen="products:${esc(k.id)}">${esc(k.name)}</a></td><td><span class="code">${esc(k.sku||"")}</span></td><td class="num">${usd(+k.price||0)}</td><td>${esc(tgName(k.taxGroup))}</td><td class="num">${fmtCost(productCost(k))}</td><td><button class="btn sm" data-pvrm="${esc(k.id)}" aria-label="Remove ${esc(v.name)}">×</button></td></tr>`).join("")}</tbody></table></div>`;
 }
-// one attribute row of the Add variant form: name, price, tax, SKU, barcode
+// one attribute row of the Add variant form: name, price, tax, SKU
 const avRow = (src, sku) => `<div class="avrow"><input class="sel" data-ar="name" placeholder="e.g. Large" aria-label="Attribute name"><input class="sel" data-ar="price" type="number" step="any" min="0" value="${esc(src.price ?? "")}" placeholder="Price" aria-label="Price">
   <select class="sel" data-ar="tax" aria-label="Tax group"><option value="">No tax</option>${taxGroupOpts().map(([k,t])=>`<option value="${esc(k)}" ${src.taxGroup===k?"selected":""}>${esc(t)}</option>`).join("")}</select>
-  <input class="sel" data-ar="sku" value="${esc(sku)}" placeholder="SKU" aria-label="SKU"><input class="sel" data-ar="barcode" placeholder="Barcode" aria-label="Barcode"><button type="button" class="btn sm" data-avrm aria-label="Remove">×</button></div>`;
+  <input class="sel" data-ar="sku" value="${esc(sku)}" placeholder="SKU" aria-label="SKU"><button type="button" class="btn sm" data-avrm aria-label="Remove">×</button></div>`;
 function avNextSku(){ const taken = [...S.products.filter(live).map(x=>x.sku).filter(Boolean), ...[...document.querySelectorAll('#avRows [data-ar="sku"]')].map(i=>i.value.trim()).filter(Boolean)]; return nextSku("products", taken); }
 // Add variant (first time): the variant's name (e.g. Size) and its attributes under it. Add attribute (later): more rows under the same variant
 function openAddVariant(){
@@ -4222,7 +4220,7 @@ function openAddVariant(){
   <div class="body" style="display:block">
     ${group ? "" : `<div class="f"><label for="av_group">Variant *</label><input id="av_group" placeholder="e.g. Size" autocomplete="off"></div>`}
     <h4 class="fsec" style="margin:14px 0 6px">${group ? esc(group) : "Attributes"}</h4>
-    <div class="avhead"><span>Name *</span><span>Price *</span><span>Tax group</span><span>SKU</span><span>Barcode</span><span></span></div>
+    <div class="avhead"><span>Name *</span><span>Price *</span><span>Tax group</span><span>SKU</span><span></span></div>
     <div id="avRows"></div>
     <button type="button" class="btn sm" data-avadd style="margin-top:6px">+ Add attribute</button>
     <p class="note" style="margin:10px 0 0">Each attribute becomes its own product, e.g. "${esc(p.name)} (Large)". ${varKids(p).length ? `Recipe and modifiers start as a copy of ${esc(src.name)}` : "Recipe and modifiers start as a copy of this product's"}; change them on each one after saving.</p>
@@ -4237,7 +4235,7 @@ async function addVariant(){
   const p = S.products.find(x=>x.id===DET.id); if(!p) return;
   const err = m => { $("#cErr").textContent = m; }, group = varKids(p).length ? varGroup(p) : ($("#av_group")?.value || "").trim();
   if(!group){ $("#av_group")?.focus(); return err("Enter the variant name, e.g. Size."); }
-  const rows = [...document.querySelectorAll("#avRows .avrow")].map(r => Object.fromEntries([...r.querySelectorAll("[data-ar]")].map(i => [i.dataset.ar, i.value.trim()]))).filter(r => r.name || r.barcode);
+  const rows = [...document.querySelectorAll("#avRows .avrow")].map(r => Object.fromEntries([...r.querySelectorAll("[data-ar]")].map(i => [i.dataset.ar, i.value.trim()]))).filter(r => r.name);
   if(!rows.length) return err("Add at least one attribute.");
   const have = (p.variants||[]).filter(v => S.products.some(x=>x.id===v.productId && live(x))).map(v => v.name.toLowerCase()), names = rows.map(r => r.name.toLowerCase());
   if(rows.some(r => !r.name)) return err("Every attribute needs a name.");
@@ -4251,7 +4249,7 @@ async function addVariant(){
     const links = (p.variants||[]).filter(v => S.products.some(x=>x.id===v.productId && live(x))).map(v => ({ ...v, group }));
     for(const r of rows){
       const id = uid("prd");
-      await put("products", id, { name:`${p.name} (${r.name})`, sku:r.sku || null, barcode:r.barcode || null, brandId:p.brandId||null, categoryId:p.categoryId||null, price:+r.price, taxGroup:r.tax || null,
+      await put("products", id, { name:`${p.name} (${r.name})`, sku:r.sku || null, brandId:p.brandId||null, categoryId:p.categoryId||null, price:+r.price, taxGroup:r.tax || null,
         pricingMethod:"fixed", costingMethod:src.costingMethod||"ingredients", cost:src.cost??null, sellingMethod:src.sellingMethod||"unit", prepTime:src.prepTime??null, calories:src.calories??null,
         description:p.description||"", imageUrl:p.imageUrl||"", ingredients: JSON.parse(JSON.stringify(src.ingredients||[])), modifiers: JSON.parse(JSON.stringify(src.modifiers||[])),
         inactiveBranchIds:[...(src.inactiveBranchIds||[])], customPrices:{ ...(src.customPrices||{}) }, sort:p.sort ?? null, active:true });
@@ -4360,7 +4358,7 @@ function invItemDetail(it){
   let h = `<div class="phead"><a href="#inv-items" class="btn" data-detback style="text-decoration:none">← Back</a><h1 style="margin-left:10px">${esc(it.name)}</h1>
 <div class="sp"></div>
     ${produced?`<a class="btn" href="#production" data-newprod="${esc(it.id)}" style="text-decoration:none">Produce</a>`:""}<button class="btn pri" data-detedit>Edit Item</button></div>`;
-  h += infoGrid([info("Name", esc(it.name)), info("Name Localized", esc(it.nameAr||"—")), info("SKU", `<span class="code">${esc(it.sku||"—")}</span>`), info("Barcode", esc(it.barcode||"—")),
+  h += infoGrid([info("Name", esc(it.name)), info("Name Localized", esc(it.nameAr||"—")), info("SKU", `<span class="code">${esc(it.sku||"—")}</span>`),
     info("Minimum Level", it.minLevel!=null&&it.minLevel!==""?n2(it.minLevel):"—"), info("Par Level", it.parLevel!=null&&it.parLevel!==""?n2(it.parLevel):"—"), info("Maximum Level", it.maxLevel!=null&&it.maxLevel!==""?n2(it.maxLevel):"—"),
     info("Storage Unit", esc(it.storageUnit||"—")), info("Ingredient Unit", esc(it.ingredientUnit||"—")),
     info("Factor", it.storageUnit && it.ingredientUnit ? `1 ${esc(it.storageUnit)} = ${n2(it.factor||1)} ${esc(it.ingredientUnit)}` : "—"),
