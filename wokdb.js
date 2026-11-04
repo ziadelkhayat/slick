@@ -261,7 +261,7 @@
   })();
 
   const userApi = { id: async () => staff?.user_id, email: async () => staff?.email || "", name: async () => staff?.name || staff?.email, role: async () => staff?.role, branchId: async () => staff?.branch_id,
-    canEdit: async () => ["owner","admin"].includes(staff?.role), isOwner: async () => staff?.role === "owner", signOut: async () => { if(OFF && outbox.length && !confirm(outbox.length + " change(s) haven't synced yet. Sign out anyway? They stay saved on this device.")) return; await sb.auth.signOut(); if(OFF) localStorage.removeItem("slick_staff"); location.reload(); } };
+    canEdit: async () => ["owner","admin"].includes(staff?.role), isOwner: async () => staff?.role === "owner", signOut: async () => { if(OFF && outbox.length && !(await (window.askYes ? window.askYes(outbox.length + " change(s) haven't synced yet. Sign out anyway? They stay saved on this device.") : Promise.resolve(confirm(outbox.length + " change(s) haven't synced yet. Sign out anyway? They stay saved on this device."))))) return; await sb.auth.signOut(); if(OFF) localStorage.removeItem("slick_staff"); location.reload(); } };
 
   window.WOK = { sb, cfg:{ url:SUPABASE_URL, key:SUPABASE_KEY }, ready, user: userApi, sync: { status, flush, failed: () => failed.slice(), retryFailed: () => { outbox.push(...failed.map(o => ({ ...o, tries:0 }))); failed = []; saveBox(); flush(); },
     // sales history was cleared in the back office: drop sales saved on this register before that moment
