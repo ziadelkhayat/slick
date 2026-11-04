@@ -565,6 +565,8 @@ td.code{background:none;font:inherit;padding:18px 20px}
 h1:has(.ib),h3:has(.ib){display:inline-flex;align-items:center}
 .ubdd{margin:8px 0 0 26px;position:relative}.ubdd.off{opacity:.5}.ubsel{display:flex;flex-wrap:wrap;gap:6px;align-items:center;width:100%;min-height:44px;padding:7px 34px 7px 10px;border:.8px solid #aeaeb2;border-radius:8px;background:#fff;cursor:pointer;text-align:left;position:relative;font:inherit}.ubcaret{position:absolute;right:12px;top:50%;transform:translateY(-50%);color:#636366}.ubchip{border:1px solid var(--accent-2);color:var(--accent);border-radius:8px;padding:2px 8px;font-size:13px}.ubmenu{position:absolute;left:0;right:0;top:calc(100% + 4px);background:#fff;border:.8px solid #d1d1d6;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.12);max-height:240px;overflow:auto;padding:6px 10px;z-index:5}.ubmenu .chk{display:flex;padding:7px 0}
 .mlist{display:flex;flex-direction:column}.mlist .chk{display:flex;align-items:center;gap:10px;padding:7px 0;font-size:14px}.mlist .mall{margin-bottom:6px}.mlist .mgh{margin-top:14px}.mlist .mgh b,.mlist .mall b{font-weight:600}.mlist .mitem .ib{margin-left:4px}
+.modal .body{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.modal .body .f{min-width:0}.modal .body .f>input,.modal .body .f>select,.modal .body .f>textarea{width:100%;max-width:100%}.modal .body .f div>input{min-width:0}
+@media(max-width:600px){.modal .body{grid-template-columns:minmax(0,1fr)}.modal .body .f,.modal .body .f.full{grid-column:1/-1}}
 </style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -1823,7 +1825,7 @@ const CRUD = {
     unique:"name"
   },
   users: {
-    col:"users", title:"Users", one:"User", detail: r => userDetail(r),
+    col:"users", title:"Users", one:"User", addLbl:"Add", detail: r => userDetail(r),
     tabs:[["all","All",live],["active","Active",r=>live(r)&&r.active!==false],["inactive","Inactive",r=>live(r)&&r.active===false],["deleted","Deleted",r=>r.deleted]],
     sort:(a,b)=>a.name.localeCompare(b.name), search:r=>r.name+" "+(r.email||"")+" "+(r.phone||""),
     cols:[["Name",r=>`<b>${esc(r.name)}</b>${r.active===false?' <span class="tag off">Inactive</span>':""}`],
@@ -1832,19 +1834,20 @@ const CRUD = {
       ["Roles",r=>esc(userRolesTxt(r))]],
     fields:[{k:"name",l:"Name",req:1,ph:"The user's name."},
       {k:"language",l:"Language",t:"select",opts:()=>[["en","English"],["ar","Arabic"]],def:"en"},
-      {k:"phone",l:"Phone Number",t:"phone",ph:"70 123 456"},
+      {k:"phone",l:"Phone Number",t:"phone",ph:"70 123 456",full:1},
       {k:"email",l:"Email",ph:"Needed only to log in to the back office"},
       {k:"password",l:"Back office password",t:"password",hideIf:r=>!!r.userId,note:"Only for users who work in the back office. They sign in with their email and this password. At least 8 characters. Once set, they change it themselves with Forgot password."},
       {k:"pin",l:"Login PIN",t:"pin",note:"A unique 5-digit PIN the user types to sign in on the cashier app. Generate a random PIN for better security."},
       {k:"displayLocalized",l:"Display Localized Names (show the apps in the localized language)",t:"chk",def:false},
-      {k:"roleIds",l:"Roles",t:"multi",get:r=>userRoleIds(r),opts:()=>S.roles.filter(live).map(r=>[r.id,r.name])},
-      {k:"active",l:"Active",t:"chk",def:true}],
+      {k:"roleIds",l:"Roles",t:"multi",get:r=>userRoleIds(r),opts:()=>S.roles.filter(live).map(r=>[r.id,r.name]),empty:"No roles yet. Create one in Manage → Roles first."},
+      {k:"active",l:"Active",t:"chk",def:true,editOnly:1}],
     note:"POS users sign in on the tablet with their PIN. For back-office access, add their email and a password: they sign in with them.",
     prep: async (data, id) => {
       const pin = data.pin, pw = data.password || ""; delete data.pin; delete data.password;
       if(pw){ if(!data.email) return "Add the user's email: they sign in to the back office with their email and password.";
         if(pw.length < 8) return "The password needs at least 8 characters."; }
-      data.roleIds = data.roleIds || []; if(!data.roleIds.length) return "Pick at least one role.";
+      data.roleIds = data.roleIds || []; if(!data.roleIds.length) return S.roles.some(live) ? "Pick at least one role." : "Create a role first in Manage → Roles, then add the user.";
+      if(!id) data.active = true;
       data.roleId = data.roleIds[0];   // older screens read the first role
       if(data.email) data.email = data.email.toLowerCase();
       if(data.email && S.users.some(u=>u.id!==id && live(u) && (u.email||"").toLowerCase()===data.email)) return "Another user already has this email.";
@@ -2073,7 +2076,7 @@ function crudView(key){
   list.sort(cfg.sort);
   const per = 50, pages = Math.max(1, Math.ceil(list.length/per)), pg = Math.min(state.page[key]||1, pages);
   const shown = list.slice((pg-1)*per, pg*per);
-  let h = `<div class="phead"><h1>${cfg.title}</h1><div class="sp"></div>${SORTABLE[key] && !SORTABLE[key].inside ? `<button class="btn" data-sorter="${key}">${svgIco("sort")} Sort</button>` : ""}${IMPEX[key] ? `<button class="btn" data-imp="${key}">Import</button><button class="btn" data-exp="${key}">Export</button>` : ""}<button class="btn pri" data-create="${key}">Create ${cfg.one}</button></div>`;
+  let h = `<div class="phead"><h1>${cfg.title}</h1><div class="sp"></div>${SORTABLE[key] && !SORTABLE[key].inside ? `<button class="btn" data-sorter="${key}">${svgIco("sort")} Sort</button>` : ""}${IMPEX[key] ? `<button class="btn" data-imp="${key}">Import</button><button class="btn" data-exp="${key}">Export</button>` : ""}<button class="btn pri" data-create="${key}">${cfg.addLbl||"Create"} ${cfg.one}</button></div>`;
   if(storeMode==="local") h += `<div class="banner">Preview mode: changes won't be saved.</div>`;
   if(cfg.note) h += `<p class="subt" style="margin-top:-6px">${esc(cfg.note)}</p>`;
   if(cfg.top) h += cfg.top();
@@ -2178,7 +2181,7 @@ document.addEventListener("click", e => {
 document.addEventListener("keydown", e => { if(crudEdit?.key==="addvar" && e.key==="Enter" && e.target.closest?.("#crudBox input")){ e.preventDefault(); if(e.target.closest(".avrow")) $("[data-avadd]")?.click(); else $('#avRows [data-ar="name"]')?.focus(); return; } const n = e.target.closest?.("[data-itemnew]"); if(n && e.key==="Enter"){ e.preventDefault(); itemAdd(n.dataset.itemnew); } });
 let crudEdit = null;
 // country codes for phone numbers (Lebanon first)
-const CC_CODES = [["+961","🇱🇧 LB"],["+971","🇦🇪 AE"],["+966","🇸🇦 SA"],["+974","🇶🇦 QA"],["+965","🇰🇼 KW"],["+973","🇧🇭 BH"],["+968","🇴🇲 OM"],["+962","🇯🇴 JO"],["+963","🇸🇾 SY"],["+964","🇮🇶 IQ"],["+20","🇪🇬 EG"],["+90","🇹🇷 TR"],["+357","🇨🇾 CY"],["+33","🇫🇷 FR"],["+44","🇬🇧 GB"],["+49","🇩🇪 DE"],["+39","🇮🇹 IT"],["+34","🇪🇸 ES"],["+1","🇺🇸 US"],["+1","🇨🇦 CA"],["+61","🇦🇺 AU"],["+55","🇧🇷 BR"],["+225","🇨🇮 CI"],["+234","🇳🇬 NG"],["+221","🇸🇳 SN"],["+243","🇨🇩 CD"],["+91","🇮🇳 IN"],["+63","🇵🇭 PH"],["+94","🇱🇰 LK"],["+880","🇧🇩 BD"],["+251","🇪🇹 ET"]];
+const CC_CODES = [["+961","🇱🇧 Lebanon"],["+971","🇦🇪 United Arab Emirates"],["+966","🇸🇦 Saudi Arabia"],["+974","🇶🇦 Qatar"],["+965","🇰🇼 Kuwait"],["+973","🇧🇭 Bahrain"],["+968","🇴🇲 Oman"],["+962","🇯🇴 Jordan"],["+963","🇸🇾 Syria"],["+964","🇮🇶 Iraq"],["+20","🇪🇬 Egypt"],["+90","🇹🇷 Turkey"],["+357","🇨🇾 Cyprus"],["+33","🇫🇷 France"],["+44","🇬🇧 United Kingdom"],["+49","🇩🇪 Germany"],["+39","🇮🇹 Italy"],["+34","🇪🇸 Spain"],["+1","🇺🇸 United States / Canada"],["+61","🇦🇺 Australia"],["+55","🇧🇷 Brazil"],["+225","🇨🇮 Ivory Coast"],["+234","🇳🇬 Nigeria"],["+221","🇸🇳 Senegal"],["+243","🇨🇩 DR Congo"],["+91","🇮🇳 India"],["+63","🇵🇭 Philippines"],["+94","🇱🇰 Sri Lanka"],["+880","🇧🇩 Bangladesh"],["+251","🇪🇹 Ethiopia"]];
 // a back-office login (email + password) for a user, made by the owner or an admin. A separate client is used so the admin stays signed in.
 async function createStaffLogin(email, password){
   try{
@@ -2195,7 +2198,8 @@ function openCrud(key, id){
   crudEdit = { key, id: r?.id || null };
   const val = f => r ? (f.get ? f.get(r) : r[f.k]) : (f.auto ? f.auto() : f.def);
   const field = f => {
-    if(f.hideIf && r && f.hideIf(r)) return "";   // e.g. price and tax of a product with variants: each variant has its own
+    if(f.hideIf && r && f.hideIf(r)) return "";
+    if(f.editOnly && !r) return "";   // e.g. price and tax of a product with variants: each variant has its own
     const v = val(f), idA = "cf_"+f.k, full = f.full||f.t==="textarea"||f.t==="multi" ? " full" : "";
     if(f.t==="polygon") return `<div class="f full"><label>${f.l}</label><div class="note">Click the map to add corners around the area this branch delivers to. Drag a corner to adjust it.</div><div id="zoneMap" class="zmap"></div><div class="row" style="margin:8px 0 0"><button type="button" class="btn sm" id="zUndo">Undo last point</button><button type="button" class="btn sm" id="zClear">Clear</button><span class="note" id="zInfo"></span></div></div>`;
     if(f.t==="chk") return `<div class="f full"><label class="chk"><input type="checkbox" id="${idA}" ${v!==false&&v!==undefined?"checked":""}> ${f.l}</label></div>`;
@@ -2205,11 +2209,11 @@ function openCrud(key, id){
         return `<div class="f full"><label>${f.l}</label><div class="mlist" id="${idA}"><label class="chk mall"><input type="checkbox" data-mall="${idA}"> <b>Toggle All</b></label>${o.map(([k,t,d]) => {
           if(k.startsWith("@")){ grp = k; return `<label class="chk mgh"><input type="checkbox" data-mgall="${idA}" data-mgrp="${esc(k)}"> <b>${esc(k.slice(1))}</b></label>`; }
           return `<label class="chk mitem" data-grp="${esc(grp)}"><input type="checkbox" value="${esc(k)}" ${set.has(k)?"checked":""}> ${esc(t)}${ib(d)}</label>`; }).join("")}</div></div>`; }
-      return `<div class="f full"><label>${f.l}${f.toggle ? ` <button type="button" class="lnk mtog" data-mtog="${idA}">Toggle All</button>` : ""}</label><div class="multi${hasD ? " mdesc" : ""}" id="${idA}">${o.map(([k,t,d])=>k.startsWith("@") ? `<div class="mhead">${esc(k.slice(1))}${f.toggle ? ` <button type="button" class="lnk mtog" data-mtog="${idA}" data-mgrp="${esc(k)}">Toggle</button>` : ""}</div>` : `<label class="chk" data-grp="${esc(o.filter(x=>x[0].startsWith("@")).reverse().find(x => o.indexOf(x) < o.findIndex(y=>y[0]===k))?.[0] || "")}"><input type="checkbox" value="${esc(k)}" ${set.has(k)?"checked":""}> <span><b>${esc(t)}</b>${d ? `<small>${esc(d)}</small>` : ""}</span></label>`).join("")}</div>${f.note?`<div class="note">${esc(f.note)}</div>`:""}</div>`; }
+      return `<div class="f full"><label>${f.l}${f.toggle ? ` <button type="button" class="lnk mtog" data-mtog="${idA}">Toggle All</button>` : ""}</label><div class="multi${hasD ? " mdesc" : ""}" id="${idA}">${!o.length && f.empty ? `<span class="note">${esc(f.empty)}</span>` : ""}${o.map(([k,t,d])=>k.startsWith("@") ? `<div class="mhead">${esc(k.slice(1))}${f.toggle ? ` <button type="button" class="lnk mtog" data-mtog="${idA}" data-mgrp="${esc(k)}">Toggle</button>` : ""}</div>` : `<label class="chk" data-grp="${esc(o.filter(x=>x[0].startsWith("@")).reverse().find(x => o.indexOf(x) < o.findIndex(y=>y[0]===k))?.[0] || "")}"><input type="checkbox" value="${esc(k)}" ${set.has(k)?"checked":""}> <span><b>${esc(t)}</b>${d ? `<small>${esc(d)}</small>` : ""}</span></label>`).join("")}</div>${f.note?`<div class="note">${esc(f.note)}</div>`:""}</div>`; }
     if(f.t==="image") return `<div class="f full"><label>${f.l}</label><div class="imgf"><div class="imgprev" id="${idA}_prev">${v ? `<img src="${esc(v)}" alt="">` : '<span class="note">No image</span>'}</div>
       <div><input type="file" accept="image/*" id="${idA}_file"><input type="hidden" id="${idA}" value="${esc(v||"")}"><div class="note" id="${idA}_st">JPG or PNG. It's resized automatically for the POS, call center and web menu.</div>${v ? `<button type="button" class="btn sm" data-imgclear="${idA}" style="margin-top:6px">Remove image</button>` : ""}</div></div></div>`;
     if(f.t==="phone"){ const m = /^(\+\d{1,4})\s*(.*)$/.exec(String(v||"").trim()), cc = m ? m[1] : "+961", num = m ? m[2] : String(v||"").replace(/^\+?961\s*/, "");
-      return `<div class="f"><label for="${idA}">${f.l}</label><div style="display:flex;gap:8px"><select id="${idA}_cc" class="sel" style="flex:none;width:112px" aria-label="Country code">${CC_CODES.map(([c,n])=>`<option value="${c}" ${c===cc?"selected":""} title="${n.split(" ")[1]}">${n.split(" ")[0]} ${c}</option>`).join("")}</select><input id="${idA}" type="tel" inputmode="tel" value="${esc(num)}" placeholder="${esc(f.ph||"")}" style="flex:1;min-width:0"></div></div>`; }
+      return `<div class="f${full}"><label for="${idA}">${f.l}</label><div style="display:flex;gap:8px"><select id="${idA}_cc" class="sel" style="flex:0 1 230px;max-width:60%;min-width:0" aria-label="Country code">${CC_CODES.map(([c,n])=>`<option value="${c}" ${c===cc?"selected":""}>${n} (${c})</option>`).join("")}</select><input id="${idA}" type="tel" inputmode="tel" value="${esc(num)}" placeholder="${esc(f.ph||"")}" style="flex:1;min-width:0"></div></div>`; }
     if(f.t==="password") return `<div class="f"><label for="${idA}">${f.l}</label><input id="${idA}" type="password" autocomplete="new-password" minlength="8" placeholder="At least 8 characters">${f.note?`<div class="note">${esc(f.note)}</div>`:""}</div>`;
     if(f.t==="pin") return `<div class="f"><label for="${idA}">${f.l}</label><div style="display:flex;gap:8px"><input id="${idA}" type="text" inputmode="numeric" maxlength="5" autocomplete="off" placeholder="${r?.pinHash?"••••• (set; type to change)":"5 digits"}" style="flex:1"><button type="button" class="btn" data-pingen="${idA}">Generate</button></div><div class="note">${esc(f.note||"")}</div></div>`;
     if(f.t==="items") return `<div class="f full"><label for="${idA}_new">${f.l}${f.req?" *":""}</label><div class="items" id="${idA}">${(Array.isArray(v) ? v : []).map(x => itemRow(x)).join("")}</div>
@@ -2218,7 +2222,7 @@ function openCrud(key, id){
     const list = f.t==="list" ? `<datalist id="${idA}_dl">${f.opts().map(o=>`<option value="${esc(o)}">`).join("")}</datalist>` : "";
     return `<div class="f${full}"><label for="${idA}">${f.l}${f.req?" *":""}</label><input id="${idA}" ${f.t==="number"?'type="number" step="any" min="0"':""} ${f.t==="list"?`list="${idA}_dl"`:""} value="${esc(v??"")}" placeholder="${esc(f.ph||"")}">${list}</div>`;
   };
-  $("#crudBox").innerHTML = `<header><h2>${r?"Edit":"Create"} ${cfg.one}</h2><button type="button" class="x" data-cclose aria-label="Close">×</button></header>
+  $("#crudBox").innerHTML = `<header><h2>${r?"Edit":(cfg.addLbl||"Create")} ${cfg.one}</h2><button type="button" class="x" data-cclose aria-label="Close">×</button></header>
     <div class="body">${cfg.fields.map(field).join("")}<div class="err" id="cErr"></div></div>
     <footer>${r ? (r.deleted ? `<button type="button" class="btn" id="cRestore" style="margin-right:auto">Restore</button>` : `<button type="button" class="btn danger" id="cDelete" style="margin-right:auto">Delete</button>`) : ""}
     <button type="button" class="btn" data-cclose>Close</button><button type="submit" class="btn pri">Save</button></footer>`;
