@@ -1937,7 +1937,7 @@ const CRUD = {
       {k:"costingMethod",l:"Costing method",t:"select",opts:()=>[["ingredients","From ingredients"],["fixed","Fixed cost"]],def:"ingredients",hideIf:r=>varKids(r).length},{k:"cost",l:"Fixed cost (USD)",t:"number",req:1,when:{k:"costingMethod",is:"fixed"},hideIf:r=>varKids(r).length},
       {k:"sellingMethod",l:"Selling method",t:"select",opts:()=>[["unit","Unit"],["weight","Weight"]],def:"unit"},
       {k:"prepTime",l:"Preparation time (minutes)",t:"number"},{k:"calories",l:"Calories (kCal)",t:"number"},
-      {k:"imageUrl",l:"Image",t:"image",full:1},
+      {k:"imageUrl",l:"Image",t:"image",full:1,hideIf:r=>!!(r && r.id && varParent(r.id))},   // variants use the main product's image
       {k:"description",l:"Description",t:"textarea",full:1}]
   },
   modifiers: {
@@ -4277,7 +4277,7 @@ function productDetail(p){
     info("Costing Method", p.costingMethod==="fixed"?"Fixed Cost":"From Ingredients"), info("Preparation Time", p.prepTime ? esc(p.prepTime)+" min" : "—"),
     info("Price", varKids(p).length ? "Set on each variant" : p.pricingMethod==="open" ? "Open" : usd(price)), info(p.costingMethod==="fixed"?"Fixed Cost":"Ingredients Cost", fmtCost(cost)),
     info("Cost %", price ? `<span style="${pct>40?"color:var(--accent-ink);font-weight:600":""}">${pct.toFixed(1)} %</span>` : "—"), info("Calories", p.calories ? esc(p.calories)+" kCal" : "—")]);
-  if(p.imageUrl || p.description) h += `<div class="card" style="margin-bottom:16px;display:flex;gap:16px;align-items:flex-start">${p.imageUrl?`<img src="${esc(p.imageUrl)}" alt="" style="width:160px;height:160px;object-fit:cover;border-radius:12px">`:""}<div>${p.description?`<div class="note">Description</div>${esc(p.description)}`:'<span class="note">No description</span>'}</div></div>`;
+  if((p.imageUrl && !varParent(p.id)) || p.description) h += `<div class="card" style="margin-bottom:16px;display:flex;gap:16px;align-items:flex-start">${p.imageUrl && !varParent(p.id)?`<img src="${esc(p.imageUrl)}" alt="" style="width:160px;height:160px;object-fit:cover;border-radius:12px">`:""}<div>${p.description?`<div class="note">Description</div>${esc(p.description)}`:'<span class="note">No description</span>'}</div></div>`;
   h += variantCard(p);
   // a product with variants isn't sold itself: each variant product has its own recipe
   const hasVar = (p.variants||[]).some(v => v.productId);
@@ -4345,7 +4345,7 @@ async function addVariant(){
       const id = uid("prd");
       await put("products", id, { name:`${p.name} (${r.name})`, sku:r.sku || null, brandId:p.brandId||null, categoryId:p.categoryId||null, price:+r.price, taxGroup:r.tax || null,
         pricingMethod:"fixed", costingMethod:src.costingMethod||"ingredients", cost:src.cost??null, sellingMethod:src.sellingMethod||"unit", prepTime:src.prepTime??null, calories:src.calories??null,
-        description:p.description||"", imageUrl:p.imageUrl||"", ingredients: JSON.parse(JSON.stringify(src.ingredients||[])), modifiers: JSON.parse(JSON.stringify(src.modifiers||[])),
+        description:p.description||"", imageUrl:"", ingredients: JSON.parse(JSON.stringify(src.ingredients||[])), modifiers: JSON.parse(JSON.stringify(src.modifiers||[])),
         inactiveBranchIds:[...(src.inactiveBranchIds||[])], customPrices:{ ...(src.customPrices||{}) }, sort:p.sort ?? null, active:true });
       links.push({ name:r.name, productId:id, group });
     }
