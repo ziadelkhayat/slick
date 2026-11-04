@@ -622,7 +622,7 @@ h1:has(.ib),h3:has(.ib){display:inline-flex;align-items:center}
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="wokdb.js?v=31"></script>
-<script src="modpick.js?v=9"></script>
+<script src="modpick.js?v=10"></script>
 </head>
 <body>
 <div class="app">
@@ -3962,7 +3962,6 @@ function viewAccount(){
     <div class="card"><h3 style="margin:0 0 12px;font-size:15px">Profile</h3>
       <div class="f" style="margin-bottom:12px"><label for="acName">Name</label><input id="acName" class="sel" value="${esc(n)}"></div>
       <div class="f" style="margin-bottom:12px"><label>Email (sign-in)</label><input class="sel" value="${esc(state.email||"")}" disabled></div>
-      <div class="f"><label>Password</label><div><button type="button" class="btn" id="acReset">Email me a password reset link</button></div><div class="note" style="margin-top:6px">Forgot it? Get a link by email instead.</div></div>
       <div class="err" id="acErr"></div></div>
     <div class="card"><h3 style="margin:0 0 12px;font-size:15px">Access</h3>
       ${owner ? `<p style="margin:0 0 8px"><span class="tag on">Owner</span> <b>Super user</b></p><p class="note" style="margin:0 0 12px">This account owns the business: it sees every brand, branch and screen and can change everything, including users, roles and permissions. Roles never restrict the owner.</p>`
@@ -3999,7 +3998,6 @@ document.addEventListener("click", async e => {
     try{ await put("users", id, { name: state.fullName || "Admin", email: (state.email||"").toLowerCase() || null, role: state.role, roleIds: [], branchIds: [], userId: state.userId, active: true, pinHash: await pinHash(id, pin) });
       lsSet("slick_mypin_" + state.userId, pin); err(""); toast("PIN saved · it works on every cashier device"); render(); }
     catch(e2){ console.error(e2); err("Couldn't save the PIN" + (e2?.message ? ": " + e2.message : ".")); } }
-  if(e.target.closest("#acReset")){ if(!state.email) return; const { error } = await WOK.sb.auth.resetPasswordForEmail(state.email, { redirectTo: location.href.split("#")[0] }); toast(error ? "Couldn't send the email: " + error.message : "Password reset link sent to " + state.email); }
 });
 
 /* ---------- Company: the business that owns every brand and branch ---------- */
