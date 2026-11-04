@@ -13,7 +13,7 @@
   @media(min-width:640px){.smp{border-radius:16px}}
   .smp header{display:flex;align-items:center;gap:10px;padding:16px 18px;border-bottom:1px solid #eee}.smp header h3{margin:0;font-size:17px;flex:1}
   .smp header button{border:1px solid #e5e3ec;background:#fff;border-radius:10px;height:40px;padding:0 16px;font:inherit;font-size:15px;font-weight:600;color:#1c1b22;cursor:pointer}
-  .smp .b{overflow:auto;padding:6px 18px 12px}.smp .g{margin:14px 0 4px;display:flex;align-items:baseline;gap:8px}.smp .g b{font-size:15px}
+  .smp .b{overflow:auto;padding:6px 18px 12px;flex:1 1 auto;min-height:0}.smp header,.smp footer{flex:none}.smp .g{margin:14px 0 4px;display:flex;align-items:baseline;gap:8px}.smp .g b{font-size:15px}
   .smp .g span{font-size:12px;color:#6b6a75}.smp .g .req{color:#b42318;font-weight:600}
   .smp label{display:flex;align-items:center;gap:10px;padding:10px 4px;border-bottom:1px solid #f1f0f5;cursor:pointer;font-size:15px}
   .smp label input{width:18px;height:18px;accent-color:#5b2bc4}.smp label .p{margin-left:auto;color:#5b5a66;font-size:14px}
