@@ -4004,6 +4004,16 @@ document.addEventListener("click", async e => {
 
 /* ---------- Company: the business that owns every brand and branch ---------- */
 const TZS = ["Asia/Beirut","Asia/Dubai","Asia/Riyadh","Asia/Amman","Asia/Baghdad","Africa/Cairo","Asia/Kuwait","Asia/Qatar","Europe/Istanbul","Europe/London","Europe/Paris","America/New_York","UTC"];
+// every time zone with its current UTC offset, e.g. "(UTC+02:00) Asia/Beirut", sorted by offset
+let TZ_CACHE;
+function tzOff(z){ try{ const p = new Intl.DateTimeFormat("en-US",{ timeZone:z, timeZoneName:"longOffset" }).formatToParts(new Date()).find(x=>x.type==="timeZoneName")?.value || ""; const m = /GMT([+-]\d{2}):?(\d{2})?/.exec(p); return m ? m[1] + ":" + (m[2]||"00") : "+00:00"; }catch(e){ return "+00:00"; } }
+function tzList(){
+  if(TZ_CACHE) return TZ_CACHE;
+  let all = []; try{ all = Intl.supportedValuesOf("timeZone"); }catch(e){} if(!all.length) all = TZS.slice();
+  if(!all.includes("UTC")) all.push("UTC");
+  const mins = o => { const m = /([+-])(\d{2}):(\d{2})/.exec(o); return m ? (m[1]==="-"?-1:1) * (+m[2]*60 + +m[3]) : 0; };
+  return TZ_CACHE = all.map(z => [z, tzOff(z)]).sort((a,b) => mins(a[1]) - mins(b[1]) || a[0].localeCompare(b[0]));
+}
 const CURRENCIES = [["USD","US Dollar (USD)"],["LBP","Lebanese Pound (LBP)"],["EUR","Euro (EUR)"],["AED","UAE Dirham (AED)"],["SAR","Saudi Riyal (SAR)"],["QAR","Qatari Riyal (QAR)"],["KWD","Kuwaiti Dinar (KWD)"],["BHD","Bahraini Dinar (BHD)"],["OMR","Omani Rial (OMR)"],["JOD","Jordanian Dinar (JOD)"],["SYP","Syrian Pound (SYP)"],["IQD","Iraqi Dinar (IQD)"],["EGP","Egyptian Pound (EGP)"],["TRY","Turkish Lira (TRY)"],["GBP","British Pound (GBP)"],["CAD","Canadian Dollar (CAD)"],["AUD","Australian Dollar (AUD)"],["BRL","Brazilian Real (BRL)"],["XOF","West African CFA Franc (XOF)"],["NGN","Nigerian Naira (NGN)"],["CDF","Congolese Franc (CDF)"],["INR","Indian Rupee (INR)"],["PHP","Philippine Peso (PHP)"],["LKR","Sri Lankan Rupee (LKR)"],["BDT","Bangladeshi Taka (BDT)"],["ETB","Ethiopian Birr (ETB)"]];
 // the usual menu currency for each country (Lebanon: restaurants price in US dollars); it can still be changed
 const COUNTRY_CUR = {"Lebanon":"USD","United Arab Emirates":"AED","Saudi Arabia":"SAR","Qatar":"QAR","Kuwait":"KWD","Bahrain":"BHD","Oman":"OMR","Jordan":"JOD","Syria":"SYP","Iraq":"IQD","Egypt":"EGP","Turkey":"TRY","Cyprus":"EUR","France":"EUR","United Kingdom":"GBP","Germany":"EUR","Italy":"EUR","Spain":"EUR","United States / Canada":"USD","Australia":"AUD","Brazil":"BRL","Ivory Coast":"XOF","Nigeria":"NGN","Senegal":"XOF","DR Congo":"CDF","India":"INR","Philippines":"PHP","Sri Lanka":"LKR","Bangladesh":"BDT","Ethiopia":"ETB"};
@@ -4025,7 +4035,7 @@ function viewCompany(){
         ${f("phone","Phone")}${f("email","Email","","email")}
         <div class="f"><label for="co_country">Country</label><select id="co_country" class="sel" ${admin?"":"disabled"}>${CC_CODES.map(([d,n])=>`<option value="${esc(n)}" ${(c.country||"Lebanon")===n?"selected":""}>${esc(n)}</option>`).join("")}</select></div>
         <div class="f"><label for="co_bcur">Currency</label><select id="co_bcur" class="sel" ${admin?"":"disabled"}>${CURRENCIES.map(([k,t])=>`<option value="${k}" ${(c.currency||COUNTRY_CUR[c.country||"Lebanon"]||"USD")===k?"selected":""}>${t}</option>`).join("")}</select></div>
-        <div class="f"><label for="co_timeZone">Time zone</label><select id="co_timeZone" class="sel" ${admin?"":"disabled"}>${TZS.map(z=>`<option value="${z}" ${(c.timeZone||"Asia/Beirut")===z?"selected":""}>${z.replace(/_/g," ")}</option>`).join("")}</select></div>
+        <div class="f"><label for="co_timeZone">Time zone</label><select id="co_timeZone" class="sel" ${admin?"":"disabled"}>${tzList().map(([z,off])=>`<option value="${z}" ${(c.timeZone||"Asia/Beirut")===z?"selected":""}>(UTC${off}) ${z.replace(/_/g," ")}</option>`).join("")}</select></div>
         ${f("logoUrl","Logo image link","https://…","url")}
         ${f("address","Address","","",1)}
       </div><div class="err" id="coErr"></div></div>`;
