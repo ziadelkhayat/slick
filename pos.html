@@ -723,7 +723,23 @@ const incoming = () => S.orders.filter(o => o.branchId===device.branchId && o.ch
 /* ---------- render ---------- */
 const autoDone = new Set();
 // one master POS per branch takes the call-center and web orders and ends the day; sub-POS sell and bill. No master set = every POS can
-const isMaster = () => { const m = (S.devices||[]).filter(d => !d.deleted && d.branchId===device?.branchId && d.settings?.master); return !m.length || m.some(d => d.id===device.id); };
+const masterDev = () => (S.devices||[]).find(d => !d.deleted && d.branchId===device?.branchId && d.settings?.master);
+// incoming orders are accepted on the branch's master POS; the owner/admin can accept them on any register
+const isMaster = () => { const m = (S.devices||[]).filter(d => !d.deleted && d.branchId===device?.branchId && d.settings?.master); return !m.length || m.some(d => d.id===device.id) };
+// a whistle when a call-center order arrives (browsers only allow sound after the screen was tapped once)
+let AUD = null;
+document.addEventListener("pointerdown", () => { try{ AUD ||= new (window.AudioContext || window.webkitAudioContext)(); if(AUD.state==="suspended") AUD.resume(); }catch(e){} }, { capture:true });
+function whistle(){
+  try{ AUD ||= new (window.AudioContext || window.webkitAudioContext)(); if(AUD.state==="suspended") AUD.resume();
+    const t0 = AUD.currentTime + 0.05, g = AUD.createGain(); g.connect(AUD.destination); g.gain.setValueAtTime(0.0001, t0);
+    const note = (start, dur, f) => { const o = AUD.createOscillator(); o.type = "sine"; o.connect(g); o.frequency.setValueAtTime(f[0], start);
+      f.slice(1).forEach((x, i) => o.frequency.exponentialRampToValueAtTime(x, start + dur * (i + 1) / (f.length - 1)));
+      g.gain.exponentialRampToValueAtTime(0.35, start + 0.04); g.gain.setValueAtTime(0.35, start + dur - 0.05); g.gain.exponentialRampToValueAtTime(0.0001, start + dur); o.start(start); o.stop(start + dur + 0.02); };
+    note(t0, 0.32, [1100, 2600]); note(t0 + 0.45, 0.55, [1000, 2400, 1300]);   // "wheet-whee-oo"
+  }catch(e){}
+}
+const canAccept = () => isMaster() || isAdminUser(cashier);
+const masterNote = () => `Accepted on the master POS${masterDev()?.name ? " (" + masterDev().name + ")" : ""}`;
 async function autoAccept(){
   if(!isMaster()) return;
   for(const o of S.orders.filter(o => o.branchId===device.branchId && o.channel!=="pos" && o.status==="pending" && !autoDone.has(o.id))){
@@ -809,6 +825,7 @@ function renderAll(){
   if(isMaster()){ const fresh = inc.filter(o => o.status==="pending" && !SEEN.has(o.id)); inc.forEach(o => SEEN.add(o.id));
     if(fresh.length && SEEN_READY){ $("#boardBtn").classList.remove("ring"); void $("#boardBtn").offsetWidth; $("#boardBtn").classList.add("ring");
       toast(fresh.length===1 ? `New ${fresh[0].channel==="callcenter" ? "call-center" : "web"} order${fresh[0].customerName ? " · " + fresh[0].customerName : ""} · open Pickup & delivery to accept it` : `${fresh.length} new orders · open Pickup & delivery to accept them`);
+      if(fresh.some(o => o.channel==="callcenter")) whistle();
       try{ navigator.vibrate?.(200); }catch(e){} }
     if(window.__ordLoaded) SEEN_READY = true; }
   renderMenu(); renderCart();
@@ -1183,7 +1200,7 @@ $("#modal").addEventListener("click", async e => {
   if(e.target.closest("#pdGo")) return pdContinue();
   const hg = e.target.closest("[data-hget]"); if(hg) return retrieveHeld(hg.dataset.hget);
   const hd = e.target.closest("[data-hdel]"); if(hd){ if(!(await askYes("Delete this held order?", "Delete", true))) return; heldSave(heldList().filter(x => x.id!==hd.dataset.hdel)); return openHeld(); }
-  const ov = e.target.closest("[data-ov]"); if(ov){ const o = S.orders.find(x=>x.id===ov.dataset.ov); if(!o) return; if(o.status==="pending") return toast(isMaster() ? "Accept or decline this order first" : "This order is accepted on the master POS"); return loadOrder(o.id); }
+  const ov = e.target.closest("[data-ov]"); if(ov){ const o = S.orders.find(x=>x.id===ov.dataset.ov); if(!o) return; if(o.status==="pending") return toast(canAccept() ? "Accept or decline this order first" : "This order is accepted on the master POS"); return loadOrder(o.id); }
   if(e.target.closest("[data-ovback]")) return closeModal();   // every Back returns to the cart
   const ovo = e.target.closest("[data-ovopen]"); if(ovo) return closeModal();
   const vr = e.target.closest("[data-vr]"); if(vr){ const [k,m] = vr.dataset.vr.split(":"); return openVR(k, m); }
@@ -1361,7 +1378,7 @@ function openIncoming(){
   if(!can("pos_orders") && !can("pos_incoming")) return deny("seeing orders");
   const t = v => v ? new Date(v).toLocaleTimeString("en-GB",{hour:"numeric",minute:"2-digit"}) : "";
   const chn = o => o.channel==="pos" ? "POS" : o.channel==="callcenter" ? "Call center" : "Web";
-  const card = o => `<button class="ocard" data-ov="${esc(o.id)}"><span class="oc1"><b>${esc(o.no ? "#" + o.no : ordRef(o))}</b><span class="spill s-${o.status}">${stLbl(o)}</span></span>
+  const card = o => `<button class="ocard" data-ov="${esc(o.id)}"><span class="oc1"><b>${esc(o.no ? "#" + o.no : (o.ref || ordRef(o)))}</b><span class="spill s-${o.status}">${stLbl(o)}</span></span>
     ${o.invoiceNo && o.no ? `<span class="mut oc-s">${esc(invNo(o.invoiceNo))}</span>` : ""}
     ${o.customerName || o.phone ? `<span class="oc2">${ico("user")}<span>${esc(o.customerName||"")}<small>${esc(o.phone||"")}</small></span></span>` : ""}
     <span class="oc2 mut">${ico("clock")}<span>Created ${t(o.createdAt)}${o.updatedAt && o.updatedAt!==o.createdAt ? `<small>Modified ${t(o.updatedAt)}</small>` : ""}</span></span>
@@ -1415,7 +1432,7 @@ function openIncoming(){
 function openOrderView(id){
   const o = S.orders.find(x=>x.id===id); if(!o) return; OV.open = id; const t = (+o.total||0) - (+o.tax||0);
   const acts = [];
-  if(o.status==="pending") acts.push(isMaster() ? `<button class="btn bad" data-inc="${esc(o.id)}:declined">Decline</button><button class="btn pri" data-inc="${esc(o.id)}:active">Accept</button>` : `<span class="mut">Accepted on the master POS</span>`);
+  if(o.status==="pending") acts.push(canAccept() ? `<button class="btn bad" data-inc="${esc(o.id)}:declined">Decline</button><button class="btn pri" data-inc="${esc(o.id)}:active">Accept</button>` : `<span class="mut">${esc(masterNote())}</span>`);
   if(o.status==="active"){ acts.push(`<button class="btn bad" data-vr="void:all">Void order</button>`, `<button class="btn" data-vr="void:items">Void items</button>`); if(o.channel!=="pos") acts.push(`<button class="btn pri" data-inc="${esc(o.id)}:closed">Mark done</button>`); }
   if(o.status==="closed" && !fullyBack(o)) acts.push(`<button class="btn bad" data-vr="return:all">${+o.refundTotal ? "Return the rest" : "Return order"}</button>`, `<button class="btn" data-vr="return:items">Return items</button>`);
   const src = o.refundOf && S.orders.find(x=>x.id===o.refundOf);
@@ -1673,13 +1690,13 @@ function openBoard(){
   if(!can("pos_orders") && !can("pos_incoming")) return deny("seeing orders");
   const t = v => v ? new Date(v).toLocaleTimeString("en-GB",{hour:"numeric",minute:"2-digit"}) : "";
   const chn = o => o.channel==="pos" ? "POS" : o.channel==="callcenter" ? "Call center" : "Web";
-  const card = o => `<div class="ocard" role="button" tabindex="0" data-ov="${esc(o.id)}"><span class="oc1"><b>${esc(o.no ? "#" + o.no : ordRef(o))}</b><span class="spill s-${o.status}">${stLbl(o)}</span></span>
+  const card = o => `<div class="ocard" role="button" tabindex="0" data-ov="${esc(o.id)}"><span class="oc1"><b>${esc(o.no ? "#" + o.no : (o.ref || ordRef(o)))}</b><span class="spill s-${o.status}">${stLbl(o)}</span></span>
     ${o.invoiceNo && o.no ? `<span class="mut oc-s">${esc(invNo(o.invoiceNo))}</span>` : ""}
     ${o.customerName || o.phone ? `<span class="oc2">${ico("user")}<span>${esc(o.customerName||"")}<small>${esc(o.phone||"")}</small></span></span>` : ""}
     ${o.type==="delivery" && o.address ? `<span class="oc2 mut">${ico("pin")}<span>${esc(o.address)}</span></span>` : ""}
     <span class="oc2 mut">${ico("clock")}<span>Created ${t(o.createdAt)}${o.updatedAt && o.updatedAt!==o.createdAt ? `<small>Modified ${t(o.updatedAt)}</small>` : ""}</span></span>
     <span class="oc2">${ico(o.channel==="pos" ? "receipt" : o.channel==="callcenter" ? "headset" : "globe")}<span>${esc(o.source || chn(o))} · ${esc(typLbl(o.type))}<small>${esc(o.agent || "")}</small></span></span>
-    <b class="oc-t">${usd(o.total)}</b>${o.status==="pending" ? (isMaster() ? `<span class="ocacts"><button class="btn bad" data-inc="${esc(o.id)}:declined">Decline</button><button class="btn pri" data-inc="${esc(o.id)}:active">Accept</button></span>` : `<span class="mut oc-s">Accepted on the master POS</span>`) : ""}</div>`;
+    <b class="oc-t">${usd(o.total)}</b>${o.status==="pending" ? (canAccept() ? `<span class="ocacts"><button class="btn bad" data-inc="${esc(o.id)}:declined">Decline</button><button class="btn pri" data-inc="${esc(o.id)}:active">Accept</button></span>` : `<span class="mut oc-s">${esc(masterNote())}</span>`) : ""}</div>`;
   const q = OV.q; OV.q = BQ;
   const PD_COLS = [...OV_COLS.slice(0,3), ["declined","Declined","Declined today"]];   // pickup & delivery: no void / returns column
   const cols = PD_COLS.map(([k,title,tip]) => [k, title, tip, boardOrders(k, true)]); OV.q = q;
