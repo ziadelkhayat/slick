@@ -564,6 +564,7 @@ td.code{background:none;font:inherit;padding:18px 20px}
 .ibub{position:fixed;z-index:9999;background:#fff;color:#636366;font-size:14px;font-weight:400;line-height:1.45;padding:10px 14px;border-radius:6px;box-shadow:0 2px 12px rgba(0,0,0,.14);pointer-events:none;text-align:left;letter-spacing:0;text-transform:none}
 h1:has(.ib),h3:has(.ib){display:inline-flex;align-items:center}
 .ubdd{margin:8px 0 0 26px;position:relative}.ubdd.off{opacity:.5}.ubsel{display:flex;flex-wrap:wrap;gap:6px;align-items:center;width:100%;min-height:44px;padding:7px 34px 7px 10px;border:.8px solid #aeaeb2;border-radius:8px;background:#fff;cursor:pointer;text-align:left;position:relative;font:inherit}.ubcaret{position:absolute;right:12px;top:50%;transform:translateY(-50%);color:#636366}.ubchip{border:1px solid var(--accent-2);color:var(--accent);border-radius:8px;padding:2px 8px;font-size:13px}.ubmenu{position:absolute;left:0;right:0;top:calc(100% + 4px);background:#fff;border:.8px solid #d1d1d6;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.12);max-height:240px;overflow:auto;padding:6px 10px;z-index:5}.ubmenu .chk{display:flex;padding:7px 0}
+.mlist{display:flex;flex-direction:column}.mlist .chk{display:flex;align-items:center;gap:10px;padding:7px 0;font-size:14px}.mlist .mall{margin-bottom:6px}.mlist .mgh{margin-top:14px}.mlist .mgh b,.mlist .mall b{font-weight:600}.mlist .mitem .ib{margin-left:4px}
 </style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -1818,7 +1819,7 @@ const CRUD = {
       ["POS",r=>{ const n = (r.permissions||[]).filter(p=>p.startsWith("pos_")).length; return n ? n+" permissions"+((r.permissions||[]).some(p=>p==="pos_void"||p==="pos_return") ? ' <span class="tag cc">Approves voids/returns</span>' : "") : '<span class="note">No access</span>'; }],
       ["Users",r=>S.users.filter(u=>live(u)&&u.roleId===r.id).length,"num"]],
     fields:[{k:"name",l:"Name",req:1,ph:"The name of the role in the organization."},{k:"nameAr",l:"Name Localized",ph:"The localized name in a 2nd language"},
-      {k:"permissions",l:"Authorities",t:"multi",toggle:1,opts:()=>PERMS,note:"Back-office screens decide which menus a user sees. \"Manage\" also allows changing menus, prices and settings. POS voids and returns are approved with the PIN of someone whose role allows them."}],
+      {k:"permissions",l:"Authorities",t:"multi",toggle:1,opts:()=>PERMS}],
     unique:"name"
   },
   users: {
@@ -2200,6 +2201,10 @@ function openCrud(key, id){
     if(f.t==="chk") return `<div class="f full"><label class="chk"><input type="checkbox" id="${idA}" ${v!==false&&v!==undefined?"checked":""}> ${f.l}</label></div>`;
     if(f.t==="select") return `<div class="f${full}"><label for="${idA}">${f.l}${f.req?" *":""}</label><select id="${idA}"><option value="">${esc(f.ph||"Choose…")}</option>${f.opts().map(([k,t])=>`<option value="${esc(k)}" ${k===v?"selected":""}>${esc(t)}</option>`).join("")}</select></div>`;
     if(f.t==="multi"){ const set = new Set(v||[]), o = f.opts(), hasD = o.some(x => x[2]);
+      if(f.toggle){ let grp = ""; const ib = d => d ? `<span class="ib" tabindex="0" role="button" aria-label="More info" data-tip="${esc(d)}">${IB_SVG}</span>` : "";
+        return `<div class="f full"><label>${f.l}</label><div class="mlist" id="${idA}"><label class="chk mall"><input type="checkbox" data-mall="${idA}"> <b>Toggle All</b></label>${o.map(([k,t,d]) => {
+          if(k.startsWith("@")){ grp = k; return `<label class="chk mgh"><input type="checkbox" data-mgall="${idA}" data-mgrp="${esc(k)}"> <b>${esc(k.slice(1))}</b></label>`; }
+          return `<label class="chk mitem" data-grp="${esc(grp)}"><input type="checkbox" value="${esc(k)}" ${set.has(k)?"checked":""}> ${esc(t)}${ib(d)}</label>`; }).join("")}</div></div>`; }
       return `<div class="f full"><label>${f.l}${f.toggle ? ` <button type="button" class="lnk mtog" data-mtog="${idA}">Toggle All</button>` : ""}</label><div class="multi${hasD ? " mdesc" : ""}" id="${idA}">${o.map(([k,t,d])=>k.startsWith("@") ? `<div class="mhead">${esc(k.slice(1))}${f.toggle ? ` <button type="button" class="lnk mtog" data-mtog="${idA}" data-mgrp="${esc(k)}">Toggle</button>` : ""}</div>` : `<label class="chk" data-grp="${esc(o.filter(x=>x[0].startsWith("@")).reverse().find(x => o.indexOf(x) < o.findIndex(y=>y[0]===k))?.[0] || "")}"><input type="checkbox" value="${esc(k)}" ${set.has(k)?"checked":""}> <span><b>${esc(t)}</b>${d ? `<small>${esc(d)}</small>` : ""}</span></label>`).join("")}</div>${f.note?`<div class="note">${esc(f.note)}</div>`:""}</div>`; }
     if(f.t==="image") return `<div class="f full"><label>${f.l}</label><div class="imgf"><div class="imgprev" id="${idA}_prev">${v ? `<img src="${esc(v)}" alt="">` : '<span class="note">No image</span>'}</div>
       <div><input type="file" accept="image/*" id="${idA}_file"><input type="hidden" id="${idA}" value="${esc(v||"")}"><div class="note" id="${idA}_st">JPG or PNG. It's resized automatically for the POS, call center and web menu.</div>${v ? `<button type="button" class="btn sm" data-imgclear="${idA}" style="margin-top:6px">Remove image</button>` : ""}</div></div></div>`;
@@ -2402,6 +2407,15 @@ function customerImport(){
 }
 document.addEventListener("click", e => { const m = e.target.closest("[data-brmenu]"); if(!m) return; e.preventDefault(); const b = branches.find(x=>x.id===m.dataset.brmenu);
   location.hash = "branch-menu"; setTimeout(() => { if(b){ state.brand = brandList().length ? (b.brandId || "all") : "all"; BM.branch = b.id; BM.kind = "products"; BM.draft = {}; } render(); }, 60); });
+// Toggle All and group checkboxes (roles' authorities): tick or untick a whole group, and show when a group is fully ticked
+function mlistSync(box){ if(!box) return; const items = [...box.querySelectorAll(".mitem input")];
+  box.querySelectorAll("[data-mgall]").forEach(g => { const ins = items.filter(i => i.closest(".mitem").dataset.grp===g.dataset.mgrp); g.checked = ins.length > 0 && ins.every(i => i.checked); g.indeterminate = !g.checked && ins.some(i => i.checked); });
+  const all = box.querySelector("[data-mall]"); if(all){ all.checked = items.length > 0 && items.every(i => i.checked); all.indeterminate = !all.checked && items.some(i => i.checked); } }
+document.addEventListener("change", e => { const box = e.target.closest(".mlist"); if(!box) return;
+  if(e.target.matches("[data-mall]")) box.querySelectorAll(".mitem input").forEach(i => i.checked = e.target.checked);
+  else if(e.target.matches("[data-mgall]")) box.querySelectorAll(`.mitem[data-grp="${CSS.escape(e.target.dataset.mgrp)}"] input`).forEach(i => i.checked = e.target.checked);
+  mlistSync(box); });
+new MutationObserver(() => document.querySelectorAll(".mlist:not([data-ms])").forEach(b => { b.dataset.ms = 1; mlistSync(b); })).observe(document.body, { childList:true, subtree:true });
 document.addEventListener("click", e => { const t = e.target.closest("[data-mtog]"); if(!t) return; e.preventDefault();
   const box = document.getElementById(t.dataset.mtog), g = t.dataset.mgrp, ins = [...box.querySelectorAll(g ? `.chk[data-grp="${CSS.escape(g)}"] input` : "input")];
   const on = !ins.every(i => i.checked); ins.forEach(i => i.checked = on); });
@@ -2421,7 +2435,7 @@ async function submitCrud(e){
     if(f.when && ($("#cf_"+f.when.k)?.value || "") !== f.when.is) continue;   // hidden: not asked, not changed
     if(f.t==="polygon"){ data[f.k] = zonePts.map(p=>[+p[0].toFixed(6), +p[1].toFixed(6)]); if(data[f.k].length < 3){ $("#cErr").textContent = "Draw the zone on the map (at least 3 points)."; return; } continue; }
     if(f.t==="chk") data[f.k] = el.checked;
-    else if(f.t==="multi") data[f.k] = [...el.querySelectorAll("input:checked")].map(i=>i.value);
+    else if(f.t==="multi") data[f.k] = [...el.querySelectorAll("input:checked:not([data-mall]):not([data-mgall])")].map(i=>i.value);
     else if(f.t==="items"){ const pending = ($("#cf_"+f.k+"_new")?.value || "").trim(); data[f.k] = [...el.querySelectorAll("[data-item]")].map(i => i.value.trim()).filter(Boolean); if(pending) data[f.k].push(pending); if(f.req && !data[f.k].length){ $("#cErr").textContent = f.l + " is required."; return; } continue; }
     else if(f.t==="number") data[f.k] = el.value==="" ? null : +el.value;
     else if(f.t==="phone"){ const n = el.value.replace(/[^\d]/g, "").replace(/^0+/, ""); data[f.k] = n ? ($("#cf_"+f.k+"_cc")?.value || "+961") + " " + n : ""; }
