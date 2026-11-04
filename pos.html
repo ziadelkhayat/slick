@@ -196,7 +196,7 @@ body{-webkit-font-smoothing:antialiased}
 .cart{border-left:0;border-right:1px solid var(--line);box-shadow:8px 0 30px rgba(21,19,31,.05);order:0}
 .chead{display:flex;align-items:center;gap:8px;padding:10px 12px;background:#13111c;color:#fff;flex-wrap:wrap}
 .chead .logo{width:30px;height:30px;font-size:14px;border-radius:9px;margin:0}.chead .cinfo{flex:1;min-width:0}.chead .cinfo b{font-size:14px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.chead .mut{color:#a9a5c0;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.lockb{border:1px solid #2c2840;background:#1f1c2c;color:#e3e0f0;border-radius:10px;padding:5px 9px;font-size:13px;font-weight:600}
+.lockb.who{display:inline-flex;align-items:center;gap:6px;cursor:default}.lockb.who.hide{display:none}.lockb{border:1px solid #2c2840;background:#1f1c2c;color:#e3e0f0;border-radius:10px;padding:5px 9px;font-size:13px;font-weight:600}
 .rside{display:flex;flex-direction:column;min-height:0;min-width:0}
 .abar{display:flex;gap:10px;padding:14px 16px 4px;justify-content:flex-end;flex-wrap:wrap}
 .abtn{width:84px;height:80px;border:0;border-radius:12px;background:linear-gradient(135deg,#6c47ff,#5130e8);color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;font-weight:600;font-size:13px;box-shadow:0 6px 16px rgba(108,71,255,.28);transition:transform .05s}
@@ -475,7 +475,7 @@ button,input,select,textarea{font-family:var(--f-ui)}
         <div class="logo">S</div><div class="cinfo"><b id="tBranch">—</b><div class="mut" id="tDevice">—</div></div>
         <span class="pill" id="shiftPill">Shift closed</span>
         <span class="sync" id="syncPill" role="status" title="Connection status">Online</span>
-        <button class="lockb hide" id="lockBtn" title="Lock the register and switch cashier">🔒 <span id="cashierName"></span></button>
+        <span class="lockb who hide" id="lockBtn" title="Signed in"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg><span id="cashierName"></span></span>
       </div>
       <div class="otype hide" id="otype"><button data-t="dinein" class="on">Dine-in</button><button data-t="fast">Fast sale</button><button data-t="pd" class="hide" title="From the Pickup &amp; delivery screen">Pickup</button></div>
       <div class="extra" id="extra"></div>
@@ -632,7 +632,6 @@ $("#lock").addEventListener("click", e => { const b = e.target.closest("[data-pi
   if(k==="c") pinBuf = ""; else if(k==="b") pinBuf = pinBuf.slice(0,-1); else if(pinBuf.length < 5) pinBuf += k;
   $("#pinErr").textContent = ""; paintPin(); if(pinBuf.length>=4) tryPin(); });
 document.addEventListener("keydown", e => { if($("#lock").classList.contains("hide")) return; if(/^\d$/.test(e.key) && pinBuf.length < 5){ pinBuf += e.key; paintPin(); if(pinBuf.length>=4) tryPin(); } else if(e.key==="Backspace"){ pinBuf = pinBuf.slice(0,-1); paintPin(); } });
-$("#lockBtn").addEventListener("click", () => lock());
 let idleT; ["pointerdown","keydown"].forEach(ev => document.addEventListener(ev, () => { clearTimeout(idleT); const mins = devSet().lockMinutes ?? appSet().logoutMinutes ?? 10; if(+mins > 0) idleT = setTimeout(() => { if(usePins() && cashier) lock(); }, mins*60*1000); }));
 const deny = what => { toast(`${cashier ? cashier.name + ", your" : "Your"} role doesn't allow ${what}.`); return true; };
 /* ---------- order numbers: each tablet counts 1, 2, 3… and starts again every business day ---------- */
