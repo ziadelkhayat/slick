@@ -110,6 +110,7 @@ button{cursor:pointer}
 .mf{display:flex;gap:8px;justify-content:flex-end;padding:14px 20px;border-top:1px solid var(--line)}
 .btn{border:1px solid var(--line);background:var(--s);border-radius:10px;padding:11px 16px;font-weight:600}
 .btn.pri{background:var(--acc);border-color:var(--acc);color:#fff}.btn.bad{color:var(--bad)}.btn:disabled{opacity:.5}
+.dline>span:last-child{display:inline-flex;align-items:center;gap:8px}.dlx{width:26px;height:26px;border:0;border-radius:8px;background:var(--sunk,#f3f2f8);color:var(--ink2);font-size:16px;line-height:1;cursor:pointer}
 .npad{margin-top:12px}.npad button{height:58px}
 .dinput{display:flex;align-items:center;margin-top:12px;border:1px solid var(--line);border-radius:14px;background:var(--s);padding:0 16px;height:60px}.dinput:focus-within{border-color:var(--acc);box-shadow:0 0 0 3px var(--accs)}.dinput input{flex:1;min-width:0;border:0!important;outline:0;background:none;font-size:24px;font-weight:600;padding:0!important;box-shadow:none!important}.dinput span{font-size:16px;font-weight:600;color:var(--mut)}
 .btn.pri:disabled{background:#e5e3ec!important;border-color:#e5e3ec!important;color:#8d8c98!important;box-shadow:none!important;opacity:1;cursor:not-allowed}
@@ -868,7 +869,7 @@ function renderCart(){
   const t = totals();
   const cl = chargeList(otype);
   $("#totals").innerHTML = `${cl.length ? `<div class="chgs">${cl.map(c => { const on = pickedCharges().includes(c); return `<button type="button" class="chg${on?" on":""}" data-chg="${c.id}" title="${on?"Remove":"Add"} this charge">${on?"✓ ":"+ "}${esc(c.name)}</button>`; }).join("")}</div>` : ""}
-    ${discount?`<div><span>${discLbl()}</span><span>−${usd(t.disc)}</span></div>`:""}${t.charges.filter(c=>c.amount).map(c=>`<div><span>${esc(c.name)}</span><span>${usd(c.amount)}</span></div>`).join("")}
+    ${discount?`<div class="dline"><span>${discLbl()}</span><span>−${usd(t.disc)}<button type="button" class="dlx" data-discx aria-label="Remove discount">×</button></span></div>`:""}${t.charges.filter(c=>c.amount).map(c=>`<div><span>${esc(c.name)}</span><span>${usd(c.amount)}</span></div>`).join("")}
     <div><span>Subtotal</span><span>${usd(t.net)}</span></div><div class="mut" style="font-size:13px"><span>Tax</span><span>${usd(t.tax)}</span></div><div class="g"><span>Total</span><span>${usd(t.total)}</span></div>${usd2(t.total) ? `<div class="mut" style="font-size:13px"><span></span><span>≈ ${usd2(t.total)}</span></div>` : ""}`;
   // actions: new order / open order / closed order
   const acts = $("#acts"), unsent = cart.some(i => i.qty > (i.saved||0));
@@ -1020,7 +1021,7 @@ $("#otype").addEventListener("click", e => { const b = e.target.closest("[data-t
   if((otype==="takeaway" || otype==="delivery") && (cust.name || cust.phone) && !confirm("Switch to " + (b.dataset.t==="fast" ? "Fast sale" : "Dine-in") + "? The customer details are removed.")) return;
   if(otype==="takeaway" || otype==="delivery") cust = { name:"", phone:"", addr:{} };
   otype = b.dataset.t; posChg = null; renderCart(); renderMenu(); });   // the menu can differ per order type
-$("#totals").addEventListener("click", e => { const b = e.target.closest("[data-chg]"); if(!b) return; if(!can("pos_charges")) return deny("changing charges");
+$("#totals").addEventListener("click", e => { if(e.target.closest("[data-discx]")){ discount = 0; renderCart(); toast("Discount removed"); return; } const b = e.target.closest("[data-chg]"); if(!b) return; if(!can("pos_charges")) return deny("changing charges");
   if(!posChg) posChg = new Set(pickedCharges().map(c=>c.id)); posChg.has(b.dataset.chg) ? posChg.delete(b.dataset.chg) : posChg.add(b.dataset.chg); renderCart(); });
 $("#extra").addEventListener("change", e => { if(e.target.id==="tbl") tableNo = e.target.value; });
 $("#extra").addEventListener("input", e => { if(e.target.id==="tbl") tableNo = e.target.value; if(e.target.id==="cPhone") cust.phone = e.target.value; if(e.target.id==="cName") cust.name = e.target.value; if(e.target.id.startsWith("cA_")) cust.addr[e.target.id.slice(3)] = e.target.value; });
@@ -1051,7 +1052,8 @@ function openDiscount(){
     <div class="dseg"><button type="button" data-dt="pct" class="${discType!=="amt"?"on":""}">Percentage %</button><button type="button" data-dt="amt" class="${discType==="amt"?"on":""}">Amount USD</button></div>
     <div class="dinput"><input id="discVal" inputmode="none" aria-label="Discount" value="${discount ? discount : ""}"><span id="discUnit">${discType==="amt" ? "USD" : "%"}</span></div>${numpad("discVal")}
     <div class="mut" id="discNote" style="font-size:13px;margin-top:8px">Order subtotal ${usd(sub)}</div></div>
-    <div class="mf">${discount ? `<button class="btn" data-disc="0" style="margin-right:auto">Remove discount</button>` : ""}<button class="btn" data-close>Cancel</button><button class="btn pri" id="discApply">Apply</button></div>`);
+    <div class="mf"><button class="btn" data-close>Cancel</button><button class="btn pri" id="discApply" ${discount ? "" : "disabled"}>Apply</button></div>`);
+  $("#discVal").addEventListener("input", e => { $("#discApply").disabled = !(+String(e.target.value).replace(",", ".") > 0); });
   setTimeout(() => $("#discVal")?.focus(), 30);
 }
 $("#modal").addEventListener("click", async e => {
@@ -1579,7 +1581,7 @@ function openNotes(kind){
   NOTEK = kind || (kitchenNote && !orderNote ? "k" : "o");
   const v = NOTEK==="k" ? kitchenNote : orderNote;
   modal("notes", `<div class="mh"><h2>Notes</h2><button class="x" data-close aria-label="Close">×</button></div><div class="mb">
-    <div class="dseg" style="margin-bottom:12px"><button type="button" data-nkind="k" class="${NOTEK==="k"?"on":""}">Kitchen note</button><button type="button" data-nkind="o" class="${NOTEK==="o"?"on":""}">Order note</button></div>
+    <div class="dseg" style="margin-bottom:12px"><button type="button" data-nkind="o" class="${NOTEK==="o"?"on":""}">Order note</button><button type="button" data-nkind="k" class="${NOTEK==="k"?"on":""}">Kitchen note</button></div>
     <div class="f"><textarea id="noteTxt" rows="4" aria-label="Note">${esc(v)}</textarea></div></div>
     <div class="mf"><button class="btn" data-close>Cancel</button><button class="btn pri" id="notesSave" ${v.trim() ? "" : "disabled"}>Save note</button></div>`);
   $("#noteTxt").addEventListener("input", e => { $("#notesSave").disabled = !e.target.value.trim(); });

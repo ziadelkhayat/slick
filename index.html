@@ -722,7 +722,7 @@ const NAV = [
   {id:"customers",t:"Customers",i:"users"},
   {t:"Reports",i:"chart",kids:[["sales-reports","Sales Reports"],["inventory-reports","Inventory Reports"],["business-reports","Business Reports"],["analysis-reports","Analysis Reports"]]},
   {t:"Inventory",i:"box",tabs:1,kids:[["inv-categories","Inventory Categories"],["inv-items","Items"],["warehouses","Locations"],["suppliers","Suppliers"],["purchase-orders","Purchase Orders"],["transfer-orders","Transfer Orders"],["transfers","Transfers"],["inventory-count","Inventory Count"],["production","Production"],["quantity-adjustments","Quantity Adjustment"],["cost-adjustments","Cost Adjustment"],["spot-check","Inventory Spot Check"],["count-sheets","Count Sheet"]]},
-  {t:"Menu",i:"book",tabs:1,kids:[["@Menu Builder"],["categories","Categories"],["products","Products"],["modifiers","Modifiers"],["combos","Combos"],["groups","Groups"],["@Menu Settings"],["price-tags","Price Tags"],["allergens","Allergens"]]},
+  {t:"Menu",i:"book",tabs:1,kids:[["@Menu Builder"],["categories","Categories"],["products","Products"],["variants","Variants"],["modifiers","Modifiers"],["combos","Combos"],["groups","Groups"],["@Menu Settings"],["price-tags","Price Tags"],["allergens","Allergens"]]},
   {id:"branch-menu",t:"Sales Channels",i:"globe"},
   {t:"Manage",i:"gear",kids:[["users","Users"],["roles","Roles"],["brands","Brands"],["branches","Branches"],["devices","Devices"],["taxes","Taxes & Groups"],["currency","Currency"],["payment-methods","Payment Methods"],["order-sources","Order Sources"],["charges","Charges"],["delivery-zones","Delivery Zones"],["online-ordering","Web Ordering"],["kitchen-flows","Kitchen Flows"],["reasons","Reasons"]]},
   {t:"Marketing",i:"tag",kids:[["loyalty","Loyalty"],["gift-cards","Gift Cards"],["discounts","Discounts"],["promotions","Promotions"],["coupons","Coupons"]]}
@@ -1952,14 +1952,14 @@ const CRUD = {
     note:"A modifier is a group of choices, like Sauce or Add Toppings. Add its options, then link it to products (open a product → Modifiers)."
   },
   variants: {
-    col:"variant_sets", title:"Variants", one:"Variant Set",
+    col:"variant_sets", title:"Variants", one:"Variant",
     tabs:[["all","All",live],["deleted","Deleted",r=>r.deleted]],
     sort:(a,b)=>a.name.localeCompare(b.name),
     search:r=>r.name+" "+(r.options||[]).join(" "),
-    cols:[["Name",r=>`<b>${esc(r.name)}</b>${r.nameAr?` <span class="note">${esc(r.nameAr)}</span>`:""}`],["Variants",r=>(r.options||[]).map(o=>`<span class="tag">${esc(o)}</span>`).join(" ") || "—"],
+    cols:[["Name",r=>`<b>${esc(r.name)}</b>${r.nameAr?` <span class="note">${esc(r.nameAr)}</span>`:""}`],["Options",r=>(r.options||[]).map(o=>`<span class="tag">${esc(o)}</span>`).join(" ") || "—"],
       ["Products",r=>S.products.filter(p=>live(p)&&p.variantSetId===r.id).length,"num"]],
     fields:[{k:"name",l:"Name",req:1,ph:"e.g. Size"},{k:"nameAr",l:"Name (Arabic)"},
-      {k:"options",l:"Variants",t:"items",req:1,ph:"e.g. Small",note:"Add each variant one by one (Small, then Medium, then Large). Then open a product and pick this set under Variants: each variant becomes its own product."}],
+      {k:"options",l:"Options",t:"items",req:1,note:"Add each option one by one (Small, then Medium, then Large). Then open a product and choose this variant: each option becomes its own product with its own price."}],
     unique:"name",
     canDelete: r => { const used = S.products.filter(p => live(p) && p.variantSetId===r.id); return used.length ? `This variant set is used by ${used.length} product${used.length===1?"":"s"} (${used.slice(0,3).map(p=>p.name).join(", ")}${used.length>3?"…":""}). Remove it from those products first.` : ""; },
     prep: async (data, id) => {
@@ -4290,14 +4290,15 @@ function productDetail(p){
 const varParent = id => S.products.find(x => live(x) && (x.variants||[]).some(v => v.productId===id));
 const varChildIds = () => new Set(S.products.filter(live).flatMap(x => (x.variants||[]).map(v => v.productId).filter(Boolean)));
 const varKids = p => (p?.variants||[]).map(v => S.products.find(x => x.id===v.productId && live(x))).filter(Boolean);
-const varGroup = p => (p?.variants||[]).find(v => v.group)?.group || "Variant";
+const varSetOf = p => p?.variantSetId ? S.variant_sets.find(x => x.id===p.variantSetId && live(x)) : null;
+const varGroup = p => varSetOf(p)?.name || (p?.variants||[]).find(v => v.group)?.group || "Variant";
 function variantCard(p){
   const par = varParent(p.id);
   if(par){ const v = par.variants.find(x => x.productId===p.id);
     return `<div class="card" style="margin-bottom:16px;display:flex;align-items:center;gap:10px"><b>${esc(varGroup(par))}</b><span>${esc(v?.name||"")} of <a href="#products" class="lnk" data-detopen="products:${esc(par.id)}">${esc(par.name)}</a></span><span class="note">The POS, call center and web ordering show ${esc(par.name)} and ask which ${esc(varGroup(par).toLowerCase())}; this product is what's sold.</span></div>`; }
   const rows = (p.variants||[]).map(v => ({ v, k: S.products.find(x => x.id===v.productId && live(x)) })).filter(x => x.k);
-  if(!rows.length) return `<div class="card tbl" style="margin-bottom:16px"><div class="ttop" style="gap:8px"><b>Variants</b><span class="note">Sold in sizes or versions? Add a variant (e.g. Size) and its attributes under it (Small, Medium, Large).</span><div class="sp"></div><button class="btn pri sm" data-pvadd>+ Add variant</button></div></div>`;
-  return `<div class="card tbl" style="margin-bottom:16px"><div class="ttop" style="flex-wrap:wrap;gap:8px"><b>Variant: ${esc(varGroup(p))}</b><button class="btn sm" data-pvrename>Rename</button><span class="note">Each attribute is sold as its own product with its own price, tax, SKU, recipe and modifiers. This product's price and tax aren't used.</span><div class="sp"></div>
+  if(!rows.length) return `<div class="card tbl" style="margin-bottom:16px"><div class="ttop" style="gap:8px"><b>Variants</b><span class="note">Sold in sizes or versions? Choose a variant made under Menu → Variants (e.g. Size: Small, Medium, Large).</span><div class="sp"></div><button class="btn pri sm" data-pvadd>+ Add variant</button></div></div>`;
+  return `<div class="card tbl" style="margin-bottom:16px"><div class="ttop" style="flex-wrap:wrap;gap:8px"><b>Variant: ${esc(varGroup(p))}</b><span class="note">Each attribute is sold as its own product with its own price, tax, SKU, recipe and modifiers. This product's price and tax aren't used.</span><div class="sp"></div>
       <button class="btn pri sm" data-pvadd>+ Add attribute</button></div>
     <table><thead><tr><th>${esc(varGroup(p))}</th><th>Product</th><th>SKU</th><th class="num">Price</th><th>Tax</th><th class="num">Cost</th><th></th></tr></thead><tbody>${rows.map(({v,k}) => `<tr class="clk" data-detopen="products:${esc(k.id)}" title="Open ${esc(k.name)}"><td><b>${esc(v.name)}</b></td><td><a href="#products" class="lnk" data-detopen="products:${esc(k.id)}">${esc(k.name)}</a></td><td><span class="code">${esc(k.sku||"")}</span></td><td class="num">${usd(+k.price||0)}</td><td>${esc(tgName(k.taxGroup))}</td><td class="num">${fmtCost(productCost(k))}</td><td><button class="btn sm" data-pvrm="${esc(k.id)}" aria-label="Remove ${esc(v.name)}">×</button></td></tr>`).join("")}</tbody></table></div>`;
 }
@@ -4309,26 +4310,31 @@ function avNextSku(){ const taken = [...S.products.filter(live).map(x=>x.sku).fi
 // Add variant (first time): the variant's name (e.g. Size) and its attributes under it. Add attribute (later): more rows under the same variant
 function openAddVariant(){
   const p = S.products.find(x=>x.id===DET.id); if(!p) return;
-  const group = varKids(p).length ? varGroup(p) : "", src = varKids(p)[0] || p;
-  $("#crudBox").innerHTML = `<header><h2>${group ? `Add ${esc(group.toLowerCase())} · ${esc(p.name)}` : `Add variant · ${esc(p.name)}`}</h2><button type="button" class="x" data-cclose aria-label="Close">×</button></header>
+  const has = varKids(p).length > 0, src = varKids(p)[0] || p, sets = S.variant_sets.filter(live).sort((a,b)=>a.name.localeCompare(b.name));
+  if(!has && !sets.length) return toast("Create a variant first under Menu → Variants");
+  const cur = has ? varSetOf(p) : (sets.find(x => x.id===DET.avSet) || sets[0]); DET.avSet = cur?.id || "";
+  const usedNames = new Set((p.variants||[]).filter(v => S.products.some(x => x.id===v.productId && live(x))).map(v => v.name.toLowerCase()));
+  const left = (cur?.options||[]).filter(n => !usedNames.has(String(n).toLowerCase()));
+  $("#crudBox").innerHTML = `<header><h2>${has ? `Add ${esc(varGroup(p).toLowerCase())} · ${esc(p.name)}` : `Add variant · ${esc(p.name)}`}</h2><button type="button" class="x" data-cclose aria-label="Close">×</button></header>
   <div class="body" style="display:block">
-    ${group ? "" : `<div class="f"><label for="av_group">Variant *</label><input id="av_group" placeholder="e.g. Size" autocomplete="off"></div>`}
-    <h4 class="fsec" style="margin:14px 0 6px">${group ? esc(group) : "Attributes"}</h4>
-    <div class="avhead"><span>Name *</span><span>Price *</span><span>Tax group</span><span>SKU</span><span></span></div>
+    ${has ? "" : `<div class="f"><label for="av_set">Variant *</label><select class="sel" id="av_set">${sets.map(x => `<option value="${esc(x.id)}" ${x.id===DET.avSet?"selected":""}>${esc(x.name)} (${(x.options||[]).map(esc).join(", ")})</option>`).join("")}</select></div>`}
+    ${!cur ? `<p class="note">This product's variant isn't in Menu → Variants. Create it there first.</p>` : !left.length ? `<p class="note">Every option of ${esc(cur.name)} is already used. Add more options to it under Menu → Variants.</p>` : `
+    <h4 class="fsec" style="margin:14px 0 6px">${esc(cur.name)}</h4>
+    <div class="avhead"><span>Option</span><span>Price *</span><span>Tax group</span><span>SKU</span><span></span></div>
     <div id="avRows"></div>
-    <button type="button" class="btn sm" data-avadd style="margin-top:6px">+ Add attribute</button>
-    <p class="note" style="margin:10px 0 0">Each attribute becomes its own product, e.g. "${esc(p.name)} (Large)". ${varKids(p).length ? `Recipe and modifiers start as a copy of ${esc(src.name)}` : "Recipe and modifiers start as a copy of this product's"}; change them on each one after saving.</p>
+    <p class="note" style="margin:10px 0 0">Each option becomes its own product, e.g. "${esc(p.name)} (${esc(left[0])})". Recipe and modifiers start as a copy of ${has ? esc(src.name) : "this product's"}; change them on each one after saving. Remove a row to leave that option out.</p>`}
     <div class="err" id="cErr"></div>
   </div>
-  <footer><button type="button" class="btn" data-cclose>Cancel</button><button type="button" class="btn pri" id="avSave">Save</button></footer>`;
+  <footer><button type="button" class="btn" data-cclose>Cancel</button><button type="button" class="btn pri" id="avSave" ${cur && left.length ? "" : "disabled"}>Save</button></footer>`;
   crudEdit = { key:"addvar", id:p.id }; $("#crudBox").className = "modal wide"; $("#crudScrim").classList.add("show");
-  $("#avRows").insertAdjacentHTML("beforeend", avRow(src, avNextSku()));
-  setTimeout(() => (group ? $('#avRows [data-ar="name"]') : $("#av_group"))?.focus(), 30);
+  const used = []; left.forEach(n => { const sku = nextSku("products", [...S.products.filter(live).map(x=>x.sku).filter(Boolean), ...used]); used.push(sku);
+    $("#avRows").insertAdjacentHTML("beforeend", avRow(src, sku).replace('<input class="sel" data-ar="name" placeholder="e.g. Large" aria-label="Attribute name">', `<input class="sel" data-ar="name" value="${esc(n)}" readonly aria-label="Option">`)); });
+  const av = $("#av_set"); if(av) av.onchange = () => { DET.avSet = av.value; openAddVariant(); };
 }
 async function addVariant(){
   const p = S.products.find(x=>x.id===DET.id); if(!p) return;
-  const err = m => { $("#cErr").textContent = m; }, group = varKids(p).length ? varGroup(p) : ($("#av_group")?.value || "").trim();
-  if(!group){ $("#av_group")?.focus(); return err("Enter the variant name, e.g. Size."); }
+  const set = varKids(p).length ? varSetOf(p) : S.variant_sets.find(x => x.id===DET.avSet), err = m => { $("#cErr").textContent = m; }, group = set?.name || "";
+  if(!set) return err("Choose a variant.");
   const rows = [...document.querySelectorAll("#avRows .avrow")].map(r => Object.fromEntries([...r.querySelectorAll("[data-ar]")].map(i => [i.dataset.ar, i.value.trim()]))).filter(r => r.name);
   if(!rows.length) return err("Add at least one attribute.");
   const have = (p.variants||[]).filter(v => S.products.some(x=>x.id===v.productId && live(x))).map(v => v.name.toLowerCase()), names = rows.map(r => r.name.toLowerCase());
@@ -4349,7 +4355,7 @@ async function addVariant(){
         inactiveBranchIds:[...(src.inactiveBranchIds||[])], customPrices:{ ...(src.customPrices||{}) }, sort:p.sort ?? null, active:true });
       links.push({ name:r.name, productId:id, group });
     }
-    const upd = { variants: links, ingredients: [], modifiers: [] };   // the attributes carry recipes and modifiers
+    const upd = { variantSetId: set.id, variants: links, ingredients: [], modifiers: [] };   // the attributes carry recipes and modifiers
     await put("products", p.id, upd); Object.assign(p, upd); closeCrud(); toast(`${rows.length} ${rows.length===1?"attribute":"attributes"} added`); render(); }
   catch(e){ console.error(e); err("Couldn't save."); $("#avSave").disabled = false; }
 }
