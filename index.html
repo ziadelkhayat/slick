@@ -576,6 +576,14 @@ h1:has(.ib),h3:has(.ib){display:inline-flex;align-items:center}
 .scrow{display:flex;align-items:center;gap:12px;padding:10px 10px 10px 34px;border-bottom:.8px solid #f0f0f3;flex-wrap:wrap}.scrow.off .scpn{color:#8e8e93}.scrow.chg{background:#fbf9ff}.scpn{flex:1;min-width:160px;font-size:14px}.scprice{display:flex;align-items:center;gap:6px}.scprice input{width:96px;text-align:right}.sctypes{display:flex;gap:6px;flex-wrap:wrap}
 .scchip{display:inline-flex;align-items:center;gap:6px;border:.8px solid #d1d1d6;border-radius:999px;padding:5px 12px;font-size:13px;cursor:pointer;color:#636366;background:#fff;user-select:none}.scchip input{display:none}.scchip.on{border-color:var(--accent);color:var(--accent);background:#f4effc}.scchip.oos{border-color:#f5c26b;color:#b45309;background:#fff8eb}.scstock{min-width:112px;justify-content:center}
 @media(max-width:700px){.scch{grid-template-columns:1fr}.scrow{padding-left:12px}}
+.mm{display:grid;grid-template-columns:320px minmax(0,1fr);min-height:420px;border-top:.8px solid #e5e5ea}.mmside{border-right:.8px solid #e5e5ea;padding:16px;display:flex;flex-direction:column;gap:12px}.mmhd{display:flex;align-items:center;justify-content:space-between;gap:8px}.mmhd b{font-size:14px}
+.mmside .search{width:100%}.mmcats{display:flex;flex-direction:column;gap:4px}.mmcat{display:flex;align-items:center;gap:8px;padding:8px 8px;border-radius:8px;cursor:pointer}.mmcat:hover{background:#f6f3fb}.mmcat.sel{background:#efe7fb}.mmcat b{flex:1;font-weight:500;font-size:14px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.mmcat.off b{color:#8e8e93}.mmcat .scimg{width:28px;height:28px}.mmn{font-size:13px;color:var(--ink2)}
+.mmdots{border:0;background:none;cursor:pointer;font-size:18px;line-height:1;padding:2px 6px;border-radius:6px;color:#3a3a3c}.mmdots:hover{background:#eee}.mm .ddmenu .danger{color:#d70015}
+.mmmain{padding:16px 20px;min-width:0}.mmbar{display:flex;gap:12px;margin-bottom:14px}.mmbar .search{flex:1}.mmtbl{border:.8px solid #e5e5ea;border-radius:12px;overflow:hidden}
+.mmth,.mmrow{display:grid;grid-template-columns:56px minmax(160px,1.4fr) 150px minmax(0,2fr) 120px 40px;gap:12px;align-items:center;padding:10px 14px}.mmth{background:#fafafc;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.03em;color:#3a3a3c}
+.mmrow{border-top:.8px solid #f0f0f3}.mmrow.chg{background:#fbf9ff}.mmrow.off .mmname{color:#8e8e93}.mmname{display:flex;align-items:center;gap:10px;font-size:14px;min-width:0}.mmimg{width:40px;height:40px;border-radius:8px;border:1.5px dashed #cdb8ec;background:#faf7fe;display:grid;place-items:center;overflow:hidden;color:#a58bd0}.mmimg img{width:100%;height:100%;object-fit:cover}.mmimg svg{width:18px;height:18px}
+.mmrow .scprice input{width:84px}.mmrow>.scstock,.mmrow>.ddwrap{justify-self:start}.mmbar .btn{white-space:nowrap}
+@media(max-width:1100px){.mm{grid-template-columns:1fr}.mmside{border-right:0;border-bottom:.8px solid #e5e5ea}.mmth{display:none}.mmrow{grid-template-columns:48px 1fr;}.mmrow>.scprice,.mmrow>.sctypes,.mmrow>.scstock,.mmrow>.ddwrap{grid-column:2}}
 .scadd{display:flex;align-items:center;gap:12px;padding:12px 10px}.scimg{width:34px;height:34px;border-radius:6px;background:#f2f2f7;overflow:hidden;flex:none}.scimg img{width:100%;height:100%;object-fit:cover}.scacts{display:flex;gap:6px}.scrm{width:28px;height:28px;font-size:16px;color:#8e8e93}
 .bkc{width:44px}.bkbar{text-align:left}.bkbar b{margin-right:16px}.bkbar .ddmenu{left:0;right:auto}
 </style>
@@ -694,6 +702,7 @@ const money2 = n => { const c = coSet(); if(!c.currency2 || !(+c.rate2)) return 
 
 /* ---------- navigation map (mirrors the Foodics structure) ---------- */
 const I = {
+  image:'<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="m21 17-5-5-9 8"/>',
   sort:'<path d="M7 4v16M3 8l4-4 4 4M17 20V4M13 16l4 4 4-4"/>',
   dash:'<path d="M3 3h7v9H3zM14 3h7v5h-7zM14 12h7v9h-7zM3 16h7v5H3z"/>',
   orders:'<path d="M3 4h2l2.4 11.2a2 2 0 0 0 2 1.6h7.7a2 2 0 0 0 2-1.5L21 8H6"/><circle cx="10" cy="20" r="1"/><circle cx="17" cy="20" r="1"/>',
@@ -3049,11 +3058,36 @@ function viewBranchMenu(){
       <select class="sel" id="bmBranch" aria-label="Branch">${list.map(b=>`<option value="${esc(b.id)}" ${b.id===BM.branch?"selected":""}>${brandList().length>1?esc(brandName(b.brandId))+" · ":""}${esc(b.name)}</option>`).join("")}</select>
       <div class="ttabs"><a href="#branch-menu" data-bmkind="products" class="${BM.kind==="products"?"on":""}">Products</a><a href="#branch-menu" data-bmkind="options" class="${BM.kind==="options"?"on":""}">Modifier Options</a></div>
       <span class="note"><b>${onN}</b> of ${all.length} on the ${esc(ch[1])} menu</span><div class="sp"></div>
-      <input class="sel search" id="bmQ" placeholder="Search" value="${esc(BM.q)}" aria-label="Search">
+      ${BM.kind==="options" ? `<input class="sel search" id="bmQ" placeholder="Search" value="${esc(BM.q)}" aria-label="Search">` : ""}
       <div class="ddwrap"><button type="button" class="btn" id="bmMore">Actions ▾</button><div class="ddmenu" id="bmMoreM" hidden>
         <button type="button" data-bmbulk="on">Turn everything on</button><button type="button" data-bmbulk="off">Turn everything off</button>
         ${others.map(([v,t]) => `<button type="button" data-bmcopy="${esc(v)}">Copy from ${esc(t)}</button>`).join("")}</div></div></div>`;
   if(BM.kind==="options" && !items.length) return h + `<div class="empty">${all.length ? "Nothing matches." : "No modifier options yet."}</div></div>`;
+  if(BM.kind!=="options"){   // menu management: categories on the left, the chosen category's products on the right
+    const cats = chCats(ch[0]), cq = (BM.cq||"").trim().toLowerCase();
+    if(!cats.some(c => c.id===BM.cat)) BM.cat = cats[0]?.id || "";
+    const cur = cats.find(c => c.id===BM.cat), rows = cur ? (cur.productIds||[]).map(chProd).filter(p => p && all.includes(p) && (!q || p.name.toLowerCase().includes(q))) : [];
+    h += `<div class="mm"><aside class="mmside"><div class="mmhd"><b>Menu Structure</b><button type="button" class="btn pri sm" data-bmnewcat>+ Add Category</button></div>
+      <input class="sel search" id="bmCatQ" placeholder="Search categories" value="${esc(BM.cq||"")}" aria-label="Search categories">
+      <div class="mmcats">${cats.filter(c => !cq || c.name.toLowerCase().includes(cq)).map(c => { const on = bmCatOn(c.id), n = (c.productIds||[]).map(chProd).filter(p => p && all.includes(p)).length;
+        return `<div class="mmcat${c.id===BM.cat?" sel":""}${on?"":" off"}" data-bmpick="${esc(c.id)}"${cq ? "" : ` draggable="true" data-bmdrag="c:${esc(c.id)}" title="Drag to move this category"`}>
+          <span class="bmgrip" aria-hidden="true">⋮⋮</span><label class="toggle" title="Show on the ${esc(ch[1])} menu"><input type="checkbox" data-bmcat="${esc(c.id)}" ${on?"checked":""}><span class="trk"></span></label>
+          <span class="scimg">${c.imageUrl ? `<img src="${esc(c.imageUrl)}" alt="">` : ""}</span><b>${esc(c.name)}</b><span class="mmn">${n}</span>
+          <div class="ddwrap"><button type="button" class="mmdots" data-bmcmenu="${esc(c.id)}" aria-label="Category actions">⋯</button><div class="ddmenu" hidden><button type="button" data-bmcedit="${esc(c.id)}">Edit</button><button type="button" class="danger" data-bmcdel="${esc(c.id)}">Delete</button></div></div></div>`; }).join("") || `<div class="note" style="padding:12px">${cats.length ? "No categories match." : `No categories on the ${esc(ch[1])} menu yet.`}</div>`}</div></aside>
+      <section class="mmmain"><div class="mmbar"><input class="sel search" id="bmQ" placeholder="Search products" value="${esc(BM.q)}" aria-label="Search products"><button type="button" class="btn pri" data-bmadd="${esc(BM.cat)}" ${cur?"":"disabled"}>+ Add Product</button></div>`;
+    if(!cur) return h + `<div class="empty">Add a category to start building the ${esc(ch[1])} menu.</div></section></div></div>`;
+    h += `<div class="mmtbl"><div class="mmth"><span></span><span>Product Name</span><span>Price</span><span>Order Types</span><span>Stock</span><span></span></div>`;
+    if(!rows.length) h += `<div class="empty">${q ? "No products match." : "No products in this category yet. Use Add Product."}</div>`;
+    rows.forEach(r => { const st = bmState(r);
+      h += `<div class="mmrow${st.on?"":" off"}${BM.draft[r.id]?" chg":""}"${q ? "" : ` draggable="true" data-bmdrag="p:${esc(r.id)}" data-bmcatof="${esc(cur.id)}"`}>
+        <span class="mmimg">${r.imageUrl ? `<img src="${esc(r.imageUrl)}" alt="">` : svgIco("image")}</span>
+        <span class="mmname"><label class="toggle" title="On the ${esc(ch[1])} menu"><input type="checkbox" data-bmon="${esc(r.id)}" ${st.on?"checked":""} aria-label="${esc(r.name)} on the ${esc(ch[1])} menu"><span class="trk"></span></label>${esc(r.name)}</span>
+        <span class="scprice"><input type="number" min="0" step="any" class="sel" data-bmprice="${esc(r.id)}" value="${esc(st.price)}" placeholder="${esc(String(st.fallback))}" aria-label="Price of ${esc(r.name)}"><span class="note">USD</span></span>
+        <span class="sctypes">${types.map(([t,tl]) => `<label class="scchip${st.types[t]?" on":""}"><input type="checkbox" data-bmtype="${esc(r.id)}|${t}" ${st.types[t]?"checked":""}>${tl}</label>`).join("")}</span>
+        <label class="scchip scstock${st.stock?" on":" oos"}" title="In stock at ${esc(br.name)} (all channels)"><input type="checkbox" data-bmstock="${esc(r.id)}" ${st.stock?"checked":""} ${st.on?"":"disabled"}>${st.stock ? "In stock" : "Out of stock"}</label>
+        <div class="ddwrap"><button type="button" class="mmdots" data-bmcmenu="p" aria-label="Product actions">⋯</button><div class="ddmenu" hidden><button type="button" class="danger" data-bmrm="${esc(cur.id)}|${esc(r.id)}">Remove from category</button></div></div></div>`; });
+    return h + `</div></section></div></div>`;
+  }
   BM.open ||= new Set();
   const groups = [];
   if(BM.kind==="options") items.forEach(r => { const g = grp(r); let x = groups.find(y => y.g===g); if(!x) groups.push(x = { g, cat:"", rows:[] }); x.rows.push(r); });
@@ -3247,12 +3281,16 @@ $("#view").addEventListener("change", e => {
   if(t.dataset.bmstock){ bmSet(t.dataset.bmstock, "stock", t.checked); render(); return bmAuto(); }
   if(t.dataset.bmprice!=null && t.dataset.bmprice){ bmSet(t.dataset.bmprice, "price", t.value.trim()); render(); return bmAuto(); }
 });
+$("#view").addEventListener("input", e => { if(e.target.id==="bmCatQ"){ const v = e.target.value; BM.cq = v; render(); const el = $("#bmCatQ"); if(el){ el.focus(); el.setSelectionRange(v.length, v.length); } } });
 let bmQT; $("#view").addEventListener("input", e => { if(e.target.id==="bmQ"){ clearTimeout(bmQT); const v = e.target.value; bmQT = setTimeout(() => { BM.q = v; render(); const el = $("#bmQ"); if(el){ el.focus(); el.setSelectionRange(v.length, v.length); } }, 300); } });
 $("#view").addEventListener("click", e => {
   const k = e.target.closest("[data-bmkind]"); if(k){ e.preventDefault(); if(Object.keys(BM.draft).length && !confirm("Discard unsaved changes?")) return; BM.kind = k.dataset.bmkind; BM.draft = {}; return render(); }
   if(e.target.closest("[data-bmsave]")){ e.preventDefault(); return bmSaveNow(); }
   if(e.target.closest("[data-bmdiscard]")){ e.preventDefault(); BM.draft = {}; BM.stat = ""; return render(); }
   const mn = e.target.closest("[data-bmmenu]"); if(mn){ e.preventDefault(); if(Object.keys(BM.draft).length && !confirm("Discard unsaved changes?")) return; BM.menu = mn.dataset.bmmenu; BM.draft = {}; BM.stat = ""; return render(); }
+  const dm = e.target.closest("[data-bmcmenu]"); if(dm){ e.preventDefault(); e.stopPropagation(); const m = dm.nextElementSibling, was = m.hidden; document.querySelectorAll(".mm .ddmenu").forEach(x => x.hidden = true); m.hidden = !was; return; }
+  if(!e.target.closest(".mm .ddmenu")) document.querySelectorAll(".mm .ddmenu").forEach(x => x.hidden = true);
+  const pk = e.target.closest("[data-bmpick]"); if(pk && !e.target.closest(".toggle,[data-bmcedit],[data-bmcdel]")){ e.preventDefault(); if(BM.cat !== pk.dataset.bmpick){ BM.cat = pk.dataset.bmpick; BM.q = ""; render(); } return; }
   const ex = e.target.closest("[data-bmexp]"); if(ex){ e.preventDefault(); const g = ex.dataset.bmexp; BM.open ||= new Set(); BM.open.has(g) ? BM.open.delete(g) : BM.open.add(g); return render(); }
   if(e.target.closest("[data-bmnewcat]")){ e.preventDefault(); openCrud("chcat"); return; }
   const ce = e.target.closest("[data-bmcedit]"); if(ce){ e.preventDefault(); openCrud("chcat", ce.dataset.bmcedit); return; }
