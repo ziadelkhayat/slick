@@ -560,6 +560,9 @@ tr.click:hover td,.otbl tr.clk:hover td{background:#f9f9fb}
 .cstats>div{border:0;box-shadow:var(--shadow);border-radius:8px}
 td.code{background:none;font:inherit;padding:18px 20px}
 @media(max-width:1000px){.app{grid-template-columns:1fr}.top{min-height:64px;padding:10px 14px}.content{padding:20px 14px 60px}h1{font-size:24px}}
+.ib{display:inline-flex;align-items:center;justify-content:center;vertical-align:middle;margin-left:6px;color:#8e8e93;cursor:pointer;border-radius:50%;width:18px;height:18px;flex:none}.ib:hover,.ib:focus{color:var(--ink);outline:0}
+.ibub{position:fixed;z-index:9999;background:#fff;color:#636366;font-size:14px;font-weight:400;line-height:1.45;padding:10px 14px;border-radius:6px;box-shadow:0 2px 12px rgba(0,0,0,.14);pointer-events:none;text-align:left;letter-spacing:0;text-transform:none}
+h1:has(.ib),h3:has(.ib){display:inline-flex;align-items:center}
 </style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -1473,6 +1476,46 @@ function viewBranches(){
   return h;
 }
 
+
+/* ---------- help text → ⓘ info icons (Foodics style): tap or hover the icon to read it ---------- */
+const IB_SVG = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v5"/><circle cx="12" cy="7.6" r=".6" fill="currentColor"/></svg>';
+function ibMake(html){ const s = document.createElement("span"); s.className = "ib"; s.tabIndex = 0; s.setAttribute("role", "button"); s.setAttribute("aria-label", "More info"); s.innerHTML = IB_SVG; s.dataset.tip = html; return s; }
+function ibAttach(target, html){ if(!target || !html.trim()) return false; const old = target.querySelector(":scope > .ib"); if(old){ old.dataset.tip += "<br><br>" + html; return true; } target.appendChild(ibMake(html)); return true; }
+const ibPlain = el => !el.id && !el.querySelector("a,button,input,select,textarea,img,svg,.ib") && !el.closest("td,th,.citem,.clist,.ocard,.cins,.pager,.kh,.ttop,.cart,.err,.ib,.ibub,.side,.top,.ccx .ccside,.acards,.pgrid,.rptbl,.odet") && el.textContent.trim().length > 0;
+function infoize(root){
+  if(!root) return;
+  // 1. help under a form field → icon beside the field's label
+  root.querySelectorAll(".f .note, .bsf .note, .f2 .note").forEach(n => {
+    if(n.dataset.iz || !ibPlain(n)) return; const f = n.closest(".f, .bsf"); if(!f) return;
+    let lab = f.querySelector(":scope > label:not(.chk)") || f.querySelector(":scope > label.chk b") || f.querySelector(":scope > label.chk"); if(!lab || lab.contains(n)) return;
+    if(ibAttach(lab, n.innerHTML)){ n.dataset.iz = 1; n.remove(); }
+  });
+  // 2. a card's explanation paragraph → icon beside the card title
+  root.querySelectorAll(".card > p.note, .brcard > p.note, .card > div.note, .card > p.subt").forEach(n => {
+    if(n.dataset.iz || !ibPlain(n) || n.textContent.trim().length < 30) return; const card = n.parentElement;
+    const h = card.querySelector(":scope > h3, :scope > .brch h3, :scope > .kh h3, :scope > h2"); if(!h) return;
+    if(ibAttach(h, n.innerHTML)){ n.dataset.iz = 1; n.remove(); }
+  });
+  // 3. a page's explanation (under the title, or a footnote) → icon beside the page title
+  const h1 = root.querySelector(".phead h1") || root.querySelector("h1");
+  if(h1 && document.body.dataset.route !== "dashboard") root.querySelectorAll("p.subt, :scope > p.note, :scope > .note, .phead + .note, .phead + p.note").forEach(n => {
+    if(n.dataset.iz || !ibPlain(n) || n.closest(".card,.modal,.bsbody") || n.textContent.trim().length < 45) return;
+    if(ibAttach(h1, n.innerHTML)){ n.dataset.iz = 1; n.remove(); }
+  });
+}
+let ibT = null; const ibRun = () => { ibT = null; infoize($("#view")); document.querySelectorAll(".modal, .scrim .body, .drawer").forEach(m => infoize(m)); };
+new MutationObserver(() => { if(!ibT) ibT = requestAnimationFrame(ibRun); }).observe(document.body, { childList:true, subtree:true });
+let ibBub = null, ibPin = null;
+function ibShow(ic){ ibHide(); ibBub = document.createElement("div"); ibBub.className = "ibub"; ibBub.innerHTML = ic.dataset.tip; document.body.appendChild(ibBub);
+  const r = ic.getBoundingClientRect(), w = Math.min(280, innerWidth - 24); ibBub.style.maxWidth = w + "px";
+  const bw = ibBub.offsetWidth, bh = ibBub.offsetHeight; let x = r.left + r.width/2 - bw/2; x = Math.max(12, Math.min(x, innerWidth - bw - 12));
+  let y = r.bottom + 8; if(y + bh > innerHeight - 8) y = Math.max(8, r.top - bh - 8); ibBub.style.left = x + "px"; ibBub.style.top = y + "px"; }
+function ibHide(){ if(ibBub){ ibBub.remove(); ibBub = null; } }
+document.addEventListener("click", e => { const ic = e.target.closest(".ib"); if(ic){ e.preventDefault(); e.stopPropagation(); if(ibPin===ic){ ibPin = null; ibHide(); } else { ibPin = ic; ibShow(ic); } return; } if(ibPin){ ibPin = null; ibHide(); } }, true);
+document.addEventListener("mouseover", e => { const ic = e.target.closest?.(".ib"); if(ic && !ibPin && matchMedia("(hover:hover)").matches) ibShow(ic); });
+document.addEventListener("mouseout", e => { const ic = e.target.closest?.(".ib"); if(ic && !ibPin) ibHide(); });
+document.addEventListener("keydown", e => { if(e.key==="Escape" && ibBub){ ibPin = null; ibHide(); } });
+addEventListener("scroll", () => { if(ibBub){ ibPin = null; ibHide(); } }, true);
 function render(){
   const route = (location.hash.slice(1) || "dashboard");
   renderNav(route); document.body.dataset.route = route;
@@ -3598,7 +3641,7 @@ $("#amSignOut").addEventListener("click", () => window.WOK && WOK.user.signOut()
 function viewAccount(){
   const owner = state.role==="owner", n = state.fullName || "", tab = state.acTab || "business";
   const tabs = `<div class="tabs" style="margin-bottom:14px"><a href="#account" data-actab="business" class="${tab==="business"?"on":""}">Business</a><a href="#account" data-actab="profile" class="${tab==="profile"?"on":""}">My profile</a></div>`;
-  if(tab==="business") return viewCompany().replace('<h1>Company</h1>', '<h1>Account settings</h1>').replace('<p class="subt"', tabs + '<p class="subt"');
+  if(tab==="business") return viewCompany().replace('<h1>Company</h1>', '<h1>Account settings</h1>').replace('<!--tabs-->', tabs);
   return `<div class="phead"><h1>Account settings</h1><div class="sp"></div><button class="btn pri" id="acSave">Save changes</button></div>${tabs}
     <div class="grid" style="grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;align-items:start">
     <div class="card"><h3 style="margin:0 0 12px;font-size:15px">Profile</h3>
@@ -3639,28 +3682,15 @@ function paintCompany(){
 function viewCompany(){
   const c = company(), admin = !state.role || state.role==="owner" || state.role==="admin";
   const f = (k, l, ph, type, full) => `<div class="f${full?" full":""}"><label for="co_${k}">${l}</label><input id="co_${k}" class="sel" ${type?`type="${type}"`:""} value="${esc(c[k]||"")}" placeholder="${esc(ph||"")}" ${admin?"":"disabled"}></div>`;
-  const nb = brandList().length, nbr = branches.length;
-  return `<div class="phead"><h1>Company</h1><div class="sp"></div>${admin?`<button class="btn pri" id="coSave">Save changes</button>`:""}</div>
-    <p class="subt" style="margin-top:-6px">Your company owns every brand and branch in Slick: ${nb} brand${nb===1?"":"s"} and ${nbr} branch${nbr===1?"":"es"} today. The main (owner) account belongs to it.</p>
+  return `<div class="phead"><h1>Company</h1><div class="sp"></div>${admin?`<button class="btn pri" id="coSave">Save changes</button>`:""}</div><!--tabs-->
     ${admin?"":`<div class="banner">Only the owner or an admin can change company details.</div>`}
-    <div class="card" style="margin-bottom:16px"><h3 style="margin:0 0 12px;font-size:15px">Company details</h3>
-      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px">
-        ${f("name","Company name *","e.g. Wok Group SAL")}${f("legalName","Legal name","As on the commercial register")}
-        ${f("taxNumber","Tax (VAT) number")}${f("crNumber","Commercial register number")}
+    <div class="card"><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px">
+        ${f("name","Company name *","e.g. Wok Group SAL")}${f("taxNumber","Tax (VAT) number")}
         ${f("phone","Phone")}${f("email","Email","","email")}
-        ${f("country","Country","Lebanon")}${f("taxName","Tax registration name","Name on the VAT certificate")}
-        ${f("address","Address","","",1)}${f("logoUrl","Logo image link (optional)","https://…","url",1)}
-      </div><div class="err" id="coErr"></div></div>
-    <div class="card" style="margin-bottom:16px"><h3 style="margin:0 0 12px;font-size:15px">Time zone</h3>
-      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px">
         <div class="f"><label for="co_timeZone">Time zone</label><select id="co_timeZone" class="sel" ${admin?"":"disabled"}>${TZS.map(z=>`<option value="${z}" ${(c.timeZone||"Asia/Beirut")===z?"selected":""}>${z.replace(/_/g," ")}</option>`).join("")}</select></div>
-        <div class="f"><div class="note" style="margin-top:22px">Tax inclusive pricing is set in Manage → Taxes & Groups.</div></div>
-      </div></div>
-    <div class="card" style="margin-bottom:16px"><h3 style="margin:0 0 8px;font-size:15px">Business day</h3>
-      <p class="note" style="margin:0">Each branch has its own business day start time. Set it under Manage → Branches.</p></div>
-    <div class="card"><h3 style="margin:0 0 8px;font-size:15px">Structure</h3>
-      <p class="note" style="margin:0 0 10px">Company → Brands → Branches. Manage them under Manage → Brands and Manage → Branches.</p>
-      <div style="font-size:14px"><b>${esc(c.name||"Your company")}</b>${brandList().map(b=>`<div style="margin:6px 0 0 16px">↳ ${esc(b.name)} <span class="note">· ${branches.filter(x=>x.brandId===b.id).map(x=>esc(x.name)).join(", ") || "no branches yet"}</span></div>`).join("") || `<div class="note" style="margin:6px 0 0 16px">No brands yet</div>`}</div></div>`;
+        ${f("logoUrl","Logo image link","https://…","url")}
+        ${f("address","Address","","",1)}
+      </div><div class="err" id="coErr"></div></div>`;
 }
 function dayExample(v){
   const m = /^(\d{1,2}):(\d{2})/.exec(v||""), c = m ? (+m[1])*60 + (+m[2]) : 0, t = t12(`${Math.floor(c/60)}:${String(c%60).padStart(2,"0")}`);
@@ -3670,8 +3700,7 @@ function dayExample(v){
 document.addEventListener("input", e => { if(e.target.id==="co_dayEnd" && $("#coDayEx")) $("#coDayEx").textContent = dayExample(e.target.value); });
 async function saveCompany(){
   const v = k => ($("#co_"+k)?.value || "").trim();
-  const data = { name:v("name"), legalName:v("legalName"), taxNumber:v("taxNumber"), crNumber:v("crNumber"), phone:v("phone"), email:v("email"), address:v("address"), logoUrl:v("logoUrl"),
-    country:v("country"), taxName:v("taxName"), timeZone:v("timeZone") || "Asia/Beirut" };
+  const data = { name:v("name"), taxNumber:v("taxNumber"), phone:v("phone"), email:v("email"), address:v("address"), logoUrl:v("logoUrl"), timeZone:v("timeZone") || "Asia/Beirut" };
   if(!data.name){ $("#coErr").textContent = "Company name is required."; $("#co_name").focus(); return; }
   try{ await put("settings", "company", data); toast("Company saved"); }
   catch(e){ console.error(e); $("#coErr").textContent = "Couldn't save. Only the owner or an admin can change this."; }
