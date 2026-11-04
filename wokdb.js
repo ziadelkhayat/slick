@@ -203,7 +203,7 @@
   .wk-card label{display:block;font-size:13px;color:#5b5a66;margin:10px 0 5px;font-weight:500}
   .wk-card input{width:100%;box-sizing:border-box;padding:11px 12px;border:1px solid #e5e3ec;border-radius:10px;font:inherit}
   .wk-card button{width:100%;margin-top:16px;padding:13px;border:0;border-radius:12px;background:linear-gradient(135deg,#6c47ff,#5130e8);box-shadow:0 6px 16px rgba(108,71,255,.3);color:#fff;font:inherit;font-weight:600;cursor:pointer}
-  .wk-card button:disabled{opacity:.6}.wk-err{color:#9e0c24;font-size:13px;min-height:18px;margin-top:10px;text-align:center}`;
+  .wk-card button:disabled{opacity:.6}.wk-forgot{display:block;text-align:center;margin-top:12px;font-size:13px;color:#5130e8;text-decoration:none}.wk-err{color:#9e0c24;font-size:13px;min-height:18px;margin-top:10px;text-align:center}`;
   function gate(msg){
     if(!document.body){ document.addEventListener("DOMContentLoaded", () => gate(msg), { once:true }); return; }   // page still loading
     let el = document.getElementById("wkGate");
@@ -211,15 +211,24 @@
       const st = document.createElement("style"); st.textContent = css; document.head.appendChild(st);
       el = document.createElement("div"); el.id = "wkGate"; el.className = "wk-gate";
       el.innerHTML = `<form class="wk-card" autocomplete="on"><div class="wk-logo">S</div><h1>Slick</h1><p>${document.title.includes("POS") ? "Sign in to start the register" : "Sign in to the back office"}</p>
+        <label for="wkAcct">Account number</label><input id="wkAcct" inputmode="numeric" autocomplete="organization" required value="${ls.get("slick_acct", "") || ""}">
         <label for="wkEmail">Email</label><input id="wkEmail" type="email" autocomplete="username" required>
         <label for="wkPass">Password</label><input id="wkPass" type="password" autocomplete="current-password" required>
-        <button id="wkBtn">Sign in</button><div class="wk-err" id="wkErr"></div></form>`;
+        <button id="wkBtn">Sign in</button><a href="#" class="wk-forgot" id="wkForgot">Forgot password?</a><div class="wk-err" id="wkErr"></div></form>`;
       document.body.appendChild(el);
+      el.querySelector("#wkForgot").addEventListener("click", async e => { e.preventDefault(); const em = el.querySelector("#wkEmail").value.trim(), er = el.querySelector("#wkErr");
+        if(!em){ er.textContent = "Type your email first, then tap Forgot password."; el.querySelector("#wkEmail").focus(); return; }
+        const { error } = await sb.auth.resetPasswordForEmail(em, { redirectTo: location.href.split("#")[0] });
+        er.style.color = error ? "" : "#1f7a3d"; er.textContent = error ? error.message : "Check your email for a link to set a new password."; });
       el.querySelector("form").addEventListener("submit", async e => {
         e.preventDefault(); const b = el.querySelector("#wkBtn"); b.disabled = true; el.querySelector("#wkErr").textContent = "";
+        const acct = el.querySelector("#wkAcct").value.replace(/\s+/g, "");
         const { error } = await sb.auth.signInWithPassword({ email: el.querySelector("#wkEmail").value.trim(), password: el.querySelector("#wkPass").value });
-        b.disabled = false;
-        if(error){ el.querySelector("#wkErr").textContent = error.message === "Invalid login credentials" ? "Wrong email or password." : error.message; return; }
+        if(error){ b.disabled = false; el.querySelector("#wkErr").textContent = error.message === "Invalid login credentials" ? "Wrong account number, email or password." : error.message; return; }
+        // the business's account number (given by Slick) must match
+        try{ const { data: co } = await sb.from("settings").select("data").eq("id", "company").maybeSingle(); const want = String(co?.data?.accountNo || "").replace(/\s+/g, "");
+          if(want && want !== acct){ await sb.auth.signOut(); b.disabled = false; el.querySelector("#wkErr").textContent = "Wrong account number, email or password."; return; } }catch(_){}
+        ls.set("slick_acct", acct); b.disabled = false;
         await afterLogin();
       });
     }

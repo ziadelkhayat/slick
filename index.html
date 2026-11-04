@@ -620,7 +620,7 @@ h1:has(.ib),h3:has(.ib){display:inline-flex;align-items:center}
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="wokdb.js?v=29"></script>
+<script src="wokdb.js?v=30"></script>
 <script src="modpick.js?v=9"></script>
 </head>
 <body>
@@ -974,12 +974,12 @@ async function paintBranchData(id){
 async function wipeBranch(kind){
   const b = branches.find(x => x.id===BD.id); if(!b || BD.busy) return;
   const what = kind==="orders" ? `all ${BD.orders} orders` : `all ${BD.inv} inventory transactions`;
-  const typed = prompt(`This permanently deletes ${what} of ${b.name}. It can't be undone.\n\nType the branch name to confirm:`);
+  const typed = prompt(`This permanently deletes ${what} of ${b.name}. It can't be undone.${kind==="orders" ? "\n\nReference numbers keep counting. This branch's invoices start again at INV-100001 and returns at RET-100001." : ""}\n\nType the branch name to confirm:`);
   if(typed==null) return; if(typed.trim().toLowerCase()!==b.name.trim().toLowerCase()) return toast("The name didn't match · nothing was deleted");
   BD.busy = true; paintBranchData(b.id);
   try{
     const sb = WOK.sb, chk = r => { if(r.error && !/does not exist|schema cache/i.test(r.error.message||"")) throw r.error; };
-    if(kind==="orders"){ for(const t of ["orders","shifts","day_closes"]) chk(await sb.from(t).delete().eq("branch_id", b.id)); }
+    if(kind==="orders"){ chk(await sb.rpc("slick_wipe_branch_orders", { p_branch: String(b.id) })); }   // references keep counting; this branch's invoices and returns start again
     else { chk(await sb.from("inventory_docs").delete().or(`location_id.eq.${b.id},dest_id.eq.${b.id}`)); chk(await sb.from("order_transactions").delete().eq("branch_id", b.id)); chk(await sb.from("stock_counts").delete().eq("branch_id", b.id)); }
     const left = await countBranchData(b.id), n = kind==="orders" ? left.orders : left.inv;
     toast(n ? `${n} record${n===1?"":"s"} couldn't be deleted. Only the owner or an admin can delete them.` : kind==="orders" ? `Orders of ${b.name} deleted` : `Inventory transactions of ${b.name} deleted`);
@@ -1489,7 +1489,7 @@ document.addEventListener("change", e => {
 function viewBranch(b){
   const st = b.settings || {}, more = state.brMore, row = (k, v) => `<div><span>${k}</span>${v}</div>`, t12o = v => v ? esc(t12(v)) : "—";
   const mon = st.hours?.mon || {}, tg = (S.tax_groups||[]).find(g => g.id===st.taxGroup)?.name;
-  const zones = (S.zones||[]).filter(z => !z.deleted && z.branchId===b.id), users = (S.users||[]).filter(u => !u.deleted && u.active!==false && (!(u.branchIds||[]).length || u.branchIds.includes(b.id)));
+  const zones = (S.zones||[]).filter(z => !z.deleted && z.branchId===b.id), users = (S.users||[]).filter(u => !u.deleted && !isAdminRow(u) && u.active!==false && (!(u.branchIds||[]).length || u.branchIds.includes(b.id)));
   const devs = S.devices.filter(d => live(d) && d.branchId===b.id), chs = (S.charges||[]).filter(c => !c.deleted && c.active!==false && (!(c.branchIds||[]).length || c.branchIds.includes(b.id)));
   const tl = tblList(b.id), secs = tblSecs(b.id), offPay = st.inactivePayments || [], pms = (S.payment_methods||[]).filter(m => !m.deleted && m.active!==false);
   const card = (title, btn, body) => `<div class="card brcard"><div class="brch"><h3>${title}</h3><span class="sp"></span>${btn||""}</div>${body}</div>`;
@@ -1806,6 +1806,7 @@ const userRoleIds = u => (u?.roleIds||[]).length ? u.roleIds : (u?.roleId ? [u.r
 const userRolesTxt = u => userRoleIds(u).map(roleName).join(", ") || "—";
 async function pinHash(id, pin){ const b = await crypto.subtle.digest("SHA-256", new TextEncoder().encode("slick:" + id + ":" + pin)); return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,"0")).join(""); }
 // an owner's / admin's own cashier-app PIN is kept on a user row marked with their account role
+const lsGet = k => { try{ return localStorage.getItem(k); }catch(e){ return null; } }, lsSet = (k, v) => { try{ localStorage.setItem(k, v); }catch(e){} };
 const isAdminRow = r => r && (r.role==="owner" || r.role==="admin");
 const myAdminRow = () => S.users.find(u => live(u) && isAdminRow(u) && state.userId && u.userId===state.userId);
 const newUserId = () => "usr_" + Date.now().toString(36) + Math.random().toString(36).slice(2,8);
@@ -1876,7 +1877,7 @@ const CRUD = {
     cols:[["Name",r=>`<b>${esc(r.name)}</b>${r.nameAr?` <span class="note">${esc(r.nameAr)}</span>`:""}${r.description?`<div class="note">${esc(r.description)}</div>`:""}`],
       ["Back office",r=>{ const n = (r.permissions||[]).filter(p=>p.startsWith("bo_")).length; return n ? (r.permissions.includes("bo_manage") ? '<span class="tag on">Full admin</span>' : n+" areas") : '<span class="note">No access</span>'; }],
       ["POS",r=>{ const n = (r.permissions||[]).filter(p=>p.startsWith("pos_")).length; return n ? n+" permissions"+((r.permissions||[]).some(p=>p==="pos_void"||p==="pos_return") ? ' <span class="tag cc">Approves voids/returns</span>' : "") : '<span class="note">No access</span>'; }],
-      ["Users",r=>S.users.filter(u=>live(u)&&u.roleId===r.id).length,"num"]],
+      ["Users",r=>S.users.filter(u=>live(u)&&!isAdminRow(u)&&u.roleId===r.id).length,"num"]],
     fields:[{k:"name",l:"Name",req:1,ph:"The name of the role in the organization."},{k:"nameAr",l:"Name Localized",ph:"The localized name in a 2nd language"},
       {k:"permissions",l:"Authorities",t:"multi",toggle:1,opts:()=>PERMS}],
     unique:"name"
@@ -2597,7 +2598,7 @@ function sourceList(cur){ const l = S.order_sources.filter(r=>live(r)&&r.active!
 state.ccBranch = "all"; state.ccAgent = "all"; state.ccTab = "today";
 function viewCallCenter(){
   // users who can use the call center (their role allows it, or they manage everything); the owner too
-  const ccUsers = S.users.filter(u => live(u) && u.active!==false && (() => { const r = { permissions: S.roles.filter(x => userRoleIds(u).includes(x.id) && live(x)).flatMap(x => x.permissions||[]) }; return r && ((r.permissions||[]).includes("bo_callcenter") || (r.permissions||[]).includes("bo_manage")); })()).map(u=>u.name);
+  const ccUsers = S.users.filter(u => live(u) && !isAdminRow(u) && u.active!==false && (() => { const r = { permissions: S.roles.filter(x => userRoleIds(u).includes(x.id) && live(x)).flatMap(x => x.permissions||[]) }; return r && ((r.permissions||[]).includes("bo_callcenter") || (r.permissions||[]).includes("bo_manage")); })()).map(u=>u.name);
   if(state.fullName && !ccUsers.includes(state.fullName)) ccUsers.unshift(state.fullName);
   const agents = [...new Set(ccUsers)].sort((a,b)=>a.localeCompare(b));
   const byUser = (o, n) => o.agent===n || o.agent===String(n).split(/\s+/)[0];
@@ -3938,7 +3939,7 @@ $("#amSignOut").addEventListener("click", () => window.WOK && WOK.user.signOut()
 function viewAccount(){
   const owner = state.role==="owner", n = state.fullName || "", tab = state.acTab || "business";
   const tabs = `<div class="tabs" style="margin-bottom:14px"><a href="#account" data-actab="business" class="${tab==="business"?"on":""}">Business</a><a href="#account" data-actab="profile" class="${tab==="profile"?"on":""}">My profile</a></div>`;
-  if(tab==="business") return viewCompany().replace('<h1>Company</h1>', '<h1>Account settings</h1>').replace('<!--tabs-->', tabs);
+  if(tab==="business") return viewCompany().replace('<h1>Business</h1>', '<h1>Account settings</h1>').replace('<!--tabs-->', tabs);
   return `<div class="phead"><h1>Account settings</h1><div class="sp"></div><button class="btn pri" id="acSave">Save changes</button></div>${tabs}
     <div class="grid" style="grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;align-items:start">
     <div class="card"><h3 style="margin:0 0 12px;font-size:15px">Profile</h3>
@@ -3956,8 +3957,7 @@ function viewAccount(){
       <div class="err" id="acPwErr"></div><button type="button" class="btn pri" id="acPwSave">Change password</button></div>
     ${["owner","admin"].includes(state.role) ? `<div class="card"><h3 style="margin:0 0 4px;font-size:15px">Cashier app PIN</h3>
       <p class="note" style="margin:0 0 12px">Your 5-digit PIN signs you in on every cashier device, in any branch and brand, with full access. Cashiers also ask you for it to approve a discount, void or return their role doesn't allow.</p>
-      <p style="margin:0 0 10px">${myAdminRow()?.pinHash ? '<span class="tag on">PIN set</span>' : '<span class="tag off">No PIN yet</span>'}</p>
-      <div class="f" style="margin-bottom:10px"><label for="acPin">${myAdminRow()?.pinHash ? "New PIN" : "PIN"}</label><div style="display:flex;gap:8px"><input id="acPin" class="sel" inputmode="numeric" maxlength="5" autocomplete="off" style="flex:1"><button type="button" class="btn" data-pingen="acPin">Generate</button></div></div>
+      <div class="f" style="margin-bottom:10px"><label for="acPin">PIN</label><div style="display:flex;gap:8px"><input id="acPin" class="sel" inputmode="numeric" maxlength="5" autocomplete="off" style="flex:1;letter-spacing:.2em" value="${esc(myAdminRow()?.pinHash ? (lsGet("slick_mypin_" + state.userId) || "•••••") : "")}"><button type="button" class="btn" data-pingen="acPin">Generate</button></div></div>
       <div class="err" id="acPinErr"></div><button type="button" class="btn pri" id="acPinSave">Save PIN</button></div>` : ""}
     </div>`;
 }
@@ -3976,11 +3976,11 @@ document.addEventListener("click", async e => {
     const { error } = await WOK.sb.auth.updateUser({ password:a }); if(error) return err(error.message);
     $("#acPw1").value = $("#acPw2").value = ""; err(""); return toast("Password changed"); }
   if(e.target.closest("#acPinSave")){ const pin = ($("#acPin").value || "").trim(), err = m => $("#acPinErr").textContent = m;
-    if(!/^\d{5}$/.test(pin)) return err("The PIN must be exactly 5 digits.");
+    if(pin==="•••••") return err("Type a new PIN or tap Generate."); if(!/^\d{5}$/.test(pin)) return err("The PIN must be exactly 5 digits.");
     const row = myAdminRow(), id = row?.id || newUserId();
     for(const u of S.users.filter(u => live(u) && u.id!==id && u.pinHash)){ if(await pinHash(u.id, pin)===u.pinHash || await pinHash(u.id, pin.slice(0,4))===u.pinHash) return err("This PIN clashes with another user's PIN. Pick a different one (Generate)."); }
     try{ await put("users", id, { name: state.fullName || "Admin", email: (state.email||"").toLowerCase() || null, role: state.role, roleIds: [], branchIds: [], userId: state.userId, active: true, pinHash: await pinHash(id, pin) });
-      $("#acPin").value = ""; err(""); toast("PIN saved · it works on every cashier device"); render(); }
+      lsSet("slick_mypin_" + state.userId, pin); err(""); toast("PIN saved · it works on every cashier device"); render(); }
     catch(e2){ console.error(e2); err("Couldn't save the PIN."); } }
   if(e.target.closest("#acReset")){ if(!state.email) return; const { error } = await WOK.sb.auth.resetPasswordForEmail(state.email, { redirectTo: location.href.split("#")[0] }); toast(error ? "Couldn't send the email: " + error.message : "Password reset link sent to " + state.email); }
 });
@@ -4000,10 +4000,11 @@ function paintCompany(){
 function viewCompany(){
   const c = company(), admin = !state.role || state.role==="owner" || state.role==="admin";
   const f = (k, l, ph, type, full) => `<div class="f${full?" full":""}"><label for="co_${k}">${l}</label><input id="co_${k}" class="sel" ${type?`type="${type}"`:""} value="${esc(c[k]||"")}" placeholder="${esc(ph||"")}" ${admin?"":"disabled"}></div>`;
-  return `<div class="phead"><h1>Company</h1><div class="sp"></div>${admin?`<button class="btn pri" id="coSave">Save changes</button>`:""}</div><!--tabs-->
-    ${admin?"":`<div class="banner">Only the owner or an admin can change company details.</div>`}
+  return `<div class="phead"><h1>Business</h1><div class="sp"></div>${admin?`<button class="btn pri" id="coSave">Save changes</button>`:""}</div><!--tabs-->
+    ${admin?"":`<div class="banner">Only the owner or an admin can change business details.</div>`}
     <div class="card"><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px">
-        ${f("name","Company name *","e.g. Wok Group SAL")}${f("taxNumber","Tax (VAT) number")}
+        <div class="f"><label>Account number</label><input class="sel" value="${esc(c.accountNo || "—")}" disabled title="Your business account number, given by Slick. Used on the sign-in page for every brand in this business."></div>
+        ${f("name","Business name *")}${f("taxNumber","Tax (VAT) number")}
         ${f("phone","Phone")}${f("email","Email","","email")}
         <div class="f"><label for="co_timeZone">Time zone</label><select id="co_timeZone" class="sel" ${admin?"":"disabled"}>${TZS.map(z=>`<option value="${z}" ${(c.timeZone||"Asia/Beirut")===z?"selected":""}>${z.replace(/_/g," ")}</option>`).join("")}</select></div>
         ${f("logoUrl","Logo image link","https://…","url")}
@@ -4018,7 +4019,7 @@ function dayExample(v){
 document.addEventListener("input", e => { if(e.target.id==="co_dayEnd" && $("#coDayEx")) $("#coDayEx").textContent = dayExample(e.target.value); });
 async function saveCompany(){
   const v = k => ($("#co_"+k)?.value || "").trim();
-  const data = { name:v("name"), taxNumber:v("taxNumber"), phone:v("phone"), email:v("email"), address:v("address"), logoUrl:v("logoUrl"), timeZone:v("timeZone") || "Asia/Beirut" };
+  const data = { name:v("name"), taxNumber:v("taxNumber"), phone:v("phone"), email:v("email"), address:v("address"), logoUrl:v("logoUrl"), timeZone:v("timeZone") || "Asia/Beirut", ...(company().accountNo ? { accountNo: company().accountNo } : {}) };
   if(!data.name){ $("#coErr").textContent = "Company name is required."; $("#co_name").focus(); return; }
   try{ await put("settings", "company", data); toast("Company saved"); }
   catch(e){ console.error(e); $("#coErr").textContent = "Couldn't save. Only the owner or an admin can change this."; }
@@ -4059,7 +4060,7 @@ const BRAND_DEF = { printLang:"main", mainLang:"en", locLang:"ar", invoiceTitle:
 const brandSet = id => { const app = S.settings.find(x=>x.id==="app") || {}, row = S.settings.find(x=>x.id==="brand_" + id) || {};
   return { ...BRAND_DEF, requireTableGuests: !!app.requireTable, ...appSet(), ...row }; };
 const BS_LANGS = [["ar","عربي"],["en","English"],["es","Español"],["fr","Français"]];
-const bsUsers = () => S.users.filter(u => live(u) && u.active!==false).map(u => [u.id, u.name]);
+const bsUsers = () => S.users.filter(u => live(u) && !isAdminRow(u) && u.active!==false).map(u => [u.id, u.name]);
 const BS_TABS = [
   ["receipt","Receipt","Receipt Settings",[
     {k:"logo",l:"Change Logo",t:"img",n:"Select an image to be used as the business logo."},
