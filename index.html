@@ -353,6 +353,7 @@ body[data-route="call-center"] .ocard{padding:10px 12px;gap:5px;font-size:13px}
 .cccart .clist{flex:1;overflow-y:auto;min-height:0}
 .cccart .ctot{margin-top:8px}
 .cccart .err{min-height:0;margin:6px 0 0}
+.ccdisc{background:#f7f7fa;border-radius:8px;padding:10px;margin:6px 0}.ccdq{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}.ccdq button{border:.8px solid #d1d1d6;background:#fff;border-radius:8px;padding:7px 0;cursor:pointer;font:inherit;font-size:13px}.ccdq button.on{background:var(--accent);color:#fff;border-color:var(--accent)}.ccdo{display:flex;gap:6px;margin-top:8px;align-items:center;flex-wrap:wrap}.ccdo .seg button{padding:5px 9px;font-size:12.5px}.ccdo input{flex:1;min-width:70px;padding:6px 9px;border:.8px solid #aeaeb2;border-radius:8px}
 .ccnotes{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px;padding-top:10px;border-top:1px solid var(--line)}.ccnotes .f{margin:0}.ccnotes label{font-size:12.5px}.ccnotes input{width:100%;padding:7px 10px}
 .ccacts{display:flex;flex-wrap:wrap;gap:8px;padding-top:10px;border-top:1px solid var(--line);margin-top:8px}
 .ccacts .btn{flex:1;justify-content:center}
@@ -2482,6 +2483,7 @@ function openOrder(id){
   ccEdit = o ? o.id : null; cart = o ? o.items.map(i=>({...i})) : [];
   ccOrig = o ? JSON.parse(JSON.stringify(o.items||[])) : [];
   ccChg = o ? new Set((o.charges||[]).map(c=>c.id)) : null;            // null = the charges that apply automatically
+  ccDiscType = o?.discountType==="amt" ? "amt" : "pct"; ccDisc = o ? (ccDiscType==="amt" ? +o.discount||0 : +o.discountPct||0) : 0; ccDiscOpen = false;
   const ro = !ccEditable(o), dis = ro ? "disabled" : "";
   ccLocked = !!o && o.status!=="draft";                                   // placed orders: only source, type and items change
   const ldis = ro || ccLocked ? "disabled" : "";
@@ -2568,7 +2570,14 @@ function ccAddrCards(){
     return `<button type="button" class="acard${addrJoin(p)===cur?" on":""}" data-useaddr="${i}" ${dis?"disabled":""}><b>${esc(p.label || "Address " + (i+1))}</b><span>${esc([p.street, p.building && "Bldg " + p.building, p.floor && "Floor " + p.floor].filter(Boolean).join(" · ") || ad.address)}</span></button>`; }).join("")
     + `<button type="button" class="acard new" data-newaddr ${dis?"disabled":""}><b>+ New address</b><span>Type it below</span></button>` : "";
 }
-let ccOrig = [], ccChg = null, ccLocked = false;
+let ccOrig = [], ccChg = null, ccLocked = false, ccDisc = 0, ccDiscType = "pct", ccDiscOpen = false;
+// order discount, same as the POS: a percentage of the items, or an amount in USD
+const ccGross = () => cart.reduce((a,i)=>a+lineNet(i),0);
+const ccDiscAmt = () => { const g = ccGross(); return +Math.min(g, ccDiscType==="amt" ? +ccDisc||0 : g * (+ccDisc||0) / 100).toFixed(2); };
+const ccMayDisc = () => mayDo("bo_cc_discount") && brandSet($("#oBrand")?.value || branches.find(b => b.id===$("#oBranch")?.value)?.brandId || "").ccDiscounts !== false;
+function ccDiscPanel(){ return `<div class="ccdisc"><div class="ccdq">${[0,5,10,15,20,25,50,100].map(p=>`<button type="button" data-ccdisc="${p}" class="${ccDiscType==="pct" && +ccDisc===p && (p || !ccDisc) ? "on" : ""}">${p ? p+"%" : "None"}</button>`).join("")}</div>
+  <div class="ccdo"><div class="seg"><button type="button" data-ccdt="pct" class="${ccDiscType!=="amt"?"on":""}">Percentage %</button><button type="button" data-ccdt="amt" class="${ccDiscType==="amt"?"on":""}">Amount USD</button></div>
+  <input id="ccDiscVal" inputmode="decimal" placeholder="${ccDiscType==="amt" ? "Amount in USD" : "Percent"}" value="${ccDisc && (ccDiscType==="amt" || ![5,10,15,20,25,50,100].includes(+ccDisc)) ? ccDisc : ""}"><button type="button" class="btn sm pri" data-ccdapply>Apply</button></div><div class="note" id="ccDiscNote"></div></div>`; }
 /* ---------- charges (Manage → Charges) and order totals, shared by the call center ---------- */
 const taxIncl = () => !S.taxes.some(x => live(x) && x.inclusive===false);
 const chargeList = (type, brandId, branchId) => S.charges.filter(c => live(c) && c.active!==false && (!(c.orderTypes||[]).length || c.orderTypes.includes(type==="takeaway" ? "pickup" : type))
@@ -2650,11 +2659,13 @@ function renderOrderMenu(){
     : `<div class="note" style="padding:12px">${S.products.length ? (q ? "No products match." : $("#oBrand")?.value ? "No products in this category." : "Choose a brand to see its menu.") : "No products yet. Add them under Menu → Products."}</div>`;
 }
 function renderCart(ro){
-  const ch = ccCharges(), c = orderCalc(cart, 0, ch.picked), qty = cart.reduce((a,i)=>a+i.qty,0);
+  const ch = ccCharges(), c = orderCalc(cart, ccDiscAmt(), ch.picked), qty = cart.reduce((a,i)=>a+i.qty,0);
   $("#oCart").innerHTML = `<div class="kh" style="display:flex;align-items:center;gap:8px"><h3 style="margin:0">Cart</h3><span class="note">${qty} item${qty===1?"":"s"}</span>${!ro && cart.length ? `<button type="button" class="btn sm" data-ccclear style="margin-left:auto">Clear</button>` : ""}</div><div class="clist">` +
     (cart.length ? cart.map((i,ix)=>`<div class="citem"><span class="cname">${ro ? esc(i.name) : `<a href="#call-center" class="lnk" data-cedit="${ix}" title="Edit item: options, note, discount">${esc(i.name)}</a>`}${modList(i)}${+i.disc?`<div class="note" style="color:var(--accent-ink)">Discount −${usd(i.disc)}</div>`:""}</span>${ro?`<span>× ${i.qty}</span>`:`<span class="qty"><button type="button" data-q="${ix}:-1" aria-label="Less">−</button>${i.qty}<button type="button" data-q="${ix}:1" aria-label="More">+</button></span>`}<span class="num">${usd(lineNet(i))}</span></div>`).join("") : `<div class="note" style="padding:18px 0;text-align:center">${ro?"No items.":"Pick a category, then tap products to add them."}</div>`) +
     `</div>${ch.list.length ? `<div class="cchg">${ch.list.map(x => `<label class="chk"><input type="checkbox" data-ochg="${esc(x.id)}" ${ch.picked.includes(x) ? "checked" : ""} ${ro?"disabled":""}> ${esc(x.name)} <span class="note">${x.type==="percent" ? (+x.value)+"%" : usd(x.value)}</span></label>`).join("")}</div>` : ""}
     ${c.charges.filter(x=>x.amount).map(x => `<div class="ctot sub"><span>${esc(x.name)}</span><span>${usd(x.amount)}</span></div>`).join("")}
+    ${!ro && cart.length && ccMayDisc() ? `<div class="ctot sub"><button type="button" class="lnk" data-ccdisctog style="background:none;border:0;padding:0;cursor:pointer;font:inherit">${c.disc ? "Edit discount" : "+ Add discount"}</button><span></span></div>${ccDiscOpen ? ccDiscPanel() : ""}` : ""}
+    ${c.disc ? `<div class="ctot sub" style="color:var(--accent-ink)"><span>${ccDiscType==="amt" ? "Discount" : "Discount " + ccDisc + "%"}</span><span>−${usd(c.disc)}</span></div>` : ""}
     <div class="ctot sub"><span>Subtotal</span><span>${usd(c.subtotal)}</span></div><div class="ctot sub"><span>Tax${taxIncl() ? " (included)" : ""}</span><span>${usd(c.tax)}</span></div><div class="ctot"><span>Total</span><b>${usd(c.total)}</b></div>${money2(c.total) ? `<div class="ctot sub"><span></span><span>≈ ${money2(c.total)}</span></div>` : ""}`;
   if(!ro && $("#oProducts")) renderOrderMenu();
 }
@@ -2673,7 +2684,7 @@ async function saveOrder(status){
   if(sent && type==="delivery"){ const miss = [["street","area / street"],["building","building"],["floor","floor"]].filter(([k]) => !addr[k]);
     if(miss.length){ $("#oErr").textContent = "Delivery address needs the " + miss.map(x=>x[1]).join(", ").replace(/, ([^,]*)$/, " and $1") + "."; $("#oA_"+miss[0][0])?.focus(); return; } }
   if(o && o.status!=="draft" && !ccEditable(S.orders.find(x=>x.id===ccEdit))){ $("#oErr").textContent = "The branch already closed this order, so it can't be changed."; return; }
-  const c = orderCalc(cart, 0, ccCharges().picked);
+  const c = orderCalc(cart, ccDiscAmt(), ccCharges().picked), dq = { discount: c.disc, discountType: ccDiscType, discountPct: ccDiscType==="pct" ? +ccDisc||0 : (c.gross ? +(c.disc/c.gross*100).toFixed(2) : 0) };
   let data;
   if(ccLocked && o){
     // placed order: source, type, items (and the address if it just became delivery); removed items are kept as voided
@@ -2681,11 +2692,11 @@ async function saveOrder(status){
     const left = cart.map(i => ({ k:key(i), q:+i.qty })), voided = [];
     ccOrig.forEach(i => { const m = left.find(x => x.k===key(i) && x.q > 0), keep = m ? Math.min(m.q, +i.qty) : 0; if(m) m.q -= keep; if(keep < +i.qty) voided.push({ ...i, qty: +i.qty - keep, voidedAt: new Date().toISOString(), voidedBy: state.userName || "Call center" }); });
     if(voided.length && !confirm(`Void ${voided.map(v => v.qty + " × " + v.name).join(", ")} from this order?`)) return;
-    data = { source:$("#oSource").value, type, items:cart, subtotal:c.gross, charges:c.charges, chargesTotal:c.chargesTotal, total:c.total,
+    data = { source:$("#oSource").value, type, items:cart, ...dq, subtotal:c.gross, charges:c.charges, chargesTotal:c.chargesTotal, total:c.total,
       ...(type==="delivery" && !o.address ? { address: addrJoin(addr) } : {}), ...(voided.length ? { voidedItems: [...(o.voidedItems||[]), ...voided] } : {}) };
   } else {
     data = { brandId, phone, customerName:name, source:$("#oSource").value, type, address: type==="delivery" ? addrJoin(addr) : "",
-      branchId, notes:$("#oNotes").value.trim(), receiptNotes:$("#oRNotes").value.trim(), items:cart, subtotal:c.gross, charges:c.charges, chargesTotal:c.chargesTotal, total:c.total, status };
+      branchId, notes:$("#oNotes").value.trim(), receiptNotes:$("#oRNotes").value.trim(), items:cart, ...dq, subtotal:c.gross, charges:c.charges, chargesTotal:c.chargesTotal, total:c.total, status };
   }
   if(!ccEdit){ data.agent = state.fullName || state.userName || "Operator"; data.channel = "callcenter"; }
   try{ await put("orders", ccEdit, data); toast(o && o.status!=="draft" ? `Order ${ordRef(o)} updated · ${branchName(o.branchId)} sees the changes` : status==="pending" ? `Order sent to ${branchName(branchId)}` : "Draft saved"); $("#ccScrim").classList.remove("show"); }
@@ -4817,7 +4828,15 @@ $("#ccScrim").addEventListener("click", e => { if(e.target.id==="repCsv") return
   if(e.target.id==="ccScrim" || e.target.closest("[data-ccclose]")) return $("#ccScrim").classList.remove("show");
   const ot = e.target.closest("[data-ot]"); if(ot && !ot.disabled){ document.querySelectorAll("#oType button").forEach(b=>b.classList.toggle("on", b===ot)); ccAddrVis(); ccAddrLock(); renderCart(false); }
   const oc = e.target.closest("[data-ocat]"); if(oc){ state.oCat = oc.dataset.ocat; if($("#oSearch")) $("#oSearch").value = ""; renderOrderMenu(); $("#oProducts").scrollTop = 0; }
-  if(e.target.closest("[data-ccclear]")){ e.preventDefault(); if(!cart.length || !confirm("Clear all items from the cart?")) return; cart = []; renderCart(false); return; }
+  if(e.target.closest("[data-ccclear]")){ e.preventDefault(); if(!cart.length || !confirm("Clear all items from the cart?")) return; cart = []; ccDisc = 0; ccDiscOpen = false; renderCart(false); return; }
+  if(e.target.closest("[data-ccdisctog]")){ e.preventDefault(); ccDiscOpen = !ccDiscOpen; renderCart(false); if(ccDiscOpen) setTimeout(() => $("#ccDiscVal")?.focus(), 20); return; }
+  const cdq = e.target.closest("[data-ccdisc]"); if(cdq){ ccDiscType = "pct"; ccDisc = +cdq.dataset.ccdisc; ccDiscOpen = false; renderCart(false); return; }
+  const cdt = e.target.closest("[data-ccdt]"); if(cdt){ document.querySelectorAll("[data-ccdt]").forEach(b => b.classList.toggle("on", b===cdt)); $("#ccDiscVal").placeholder = cdt.dataset.ccdt==="amt" ? "Amount in USD" : "Percent"; $("#ccDiscVal").focus(); return; }
+  if(e.target.closest("[data-ccdapply]")){ const ty = document.querySelector("[data-ccdt].on")?.dataset.ccdt || "pct", raw = $("#ccDiscVal").value.trim(), v = +raw.replace(",", "."), g = ccGross();
+    if(raw==="" || !(v >= 0)){ $("#ccDiscNote").textContent = "Enter a number."; return; }
+    if(ty==="pct" && v > 100){ $("#ccDiscNote").textContent = "A percentage can't be more than 100."; return; }
+    if(ty==="amt" && v > g){ $("#ccDiscNote").textContent = `The discount can't be more than the items (${usd(g)}).`; return; }
+    ccDiscType = ty; ccDisc = +v.toFixed(2); ccDiscOpen = false; renderCart(false); return; }
   const ce = e.target.closest("[data-cedit]"); if(ce){ e.preventDefault(); ccEditItem(+ce.dataset.cedit); return; }
   const add = e.target.closest("[data-add]"); if(add){ const p = S.products.find(x=>x.id===add.dataset.add); if(p) ccAdd(p); }
   const q = e.target.closest("[data-q]"); if(q){ const [ix,d] = q.dataset.q.split(":").map(Number); cart[ix].qty += d; if(cart[ix].qty<=0) cart.splice(ix,1); renderCart(false); }
