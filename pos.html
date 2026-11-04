@@ -110,6 +110,8 @@ button{cursor:pointer}
 .mf{display:flex;gap:8px;justify-content:flex-end;padding:14px 20px;border-top:1px solid var(--line)}
 .btn{border:1px solid var(--line);background:var(--s);border-radius:10px;padding:11px 16px;font-weight:600}
 .btn.pri{background:var(--acc);border-color:var(--acc);color:#fff}.btn.bad{color:var(--bad)}.btn:disabled{opacity:.5}
+.npad{margin-top:12px}.npad button{height:58px}
+.dinput{display:flex;align-items:center;margin-top:12px;border:1px solid var(--line);border-radius:14px;background:var(--s);padding:0 16px;height:60px}.dinput:focus-within{border-color:var(--acc);box-shadow:0 0 0 3px var(--accs)}.dinput input{flex:1;min-width:0;border:0!important;outline:0;background:none;font-size:24px;font-weight:600;padding:0!important;box-shadow:none!important}.dinput span{font-size:16px;font-weight:600;color:var(--mut)}
 .btn.pri:disabled{background:#e5e3ec!important;border-color:#e5e3ec!important;color:#8d8c98!important;box-shadow:none!important;opacity:1;cursor:not-allowed}
 .paym{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px}
 .paym button{border:1px solid var(--line);background:var(--s);border-radius:12px;padding:16px 6px;font-weight:600}.paym button.on{border-color:var(--acc);background:var(--accs);color:var(--acci)}
@@ -1035,20 +1037,26 @@ function modal(kind, html, wide){ modalKind = kind; hideMore(); paintNav(); $("#
 function closeModal(){ $("#scrim").classList.remove("show"); modalKind = null; paintNav(); }
 $("#scrim").addEventListener("click", e => { if(e.target.id==="scrim" && modalKind==="pdnew") return pdCancel(); if(e.target.id==="scrim" || e.target.closest("[data-close]")) closeModal(); });
 
+// on-screen number pad for touch screens: types into the field it belongs to
+const numpad = id => `<div class="pinpad npad" data-npfor="${id}">${["1","2","3","4","5","6","7","8","9",".","0","⌫"].map(k => `<button type="button" data-npk="${k}" aria-label="${k==="⌫" ? "Delete" : k}">${k}</button>`).join("")}</div>`;
+document.addEventListener("click", e => { const k = e.target.closest("[data-npk]"); if(!k) return; e.preventDefault();
+  const el = document.getElementById(k.closest("[data-npfor]").dataset.npfor); if(!el) return; let v = el.value, key = k.dataset.npk;
+  if(key==="⌫") v = v.slice(0, -1); else if(key==="."){ if(!v.includes(".")) v = (v || "0") + "."; } else v = v==="0" ? key : v + key;
+  el.value = v; el.dispatchEvent(new Event("input", { bubbles:true })); });
 function openDiscount(){
   if(!can("pos_discount")) return deny("discounts");
   const sub = totals().sub;
+  // set discounts (Marketing → Discounts) come from the back office; here the cashier enters an open one
   modal("disc", `<div class="mh"><h2>Discount</h2><button class="x" data-close aria-label="Close">×</button></div><div class="mb">
-    <div class="quick">${[0,5,10,15,20,25,50,100].map(p=>`<button data-disc="${p}">${p?p+"%":"None"}</button>`).join("")}</div>
-    <h3 style="margin:18px 0 8px;font-size:15px">Open discount</h3>
     <div class="dseg"><button type="button" data-dt="pct" class="${discType!=="amt"?"on":""}">Percentage %</button><button type="button" data-dt="amt" class="${discType==="amt"?"on":""}">Amount USD</button></div>
-    <div style="display:flex;gap:8px;margin-top:10px"><input id="discVal" inputmode="decimal" placeholder="${discType==="amt"?"Amount in USD":"Percent"}" value="${discount && ![5,10,15,20,25,50,100].includes(discount) || discType==="amt" && discount ? discount : ""}" style="flex:1"><button class="pay" id="discApply" style="flex:none;padding:0 22px">Apply</button></div>
-    <div class="mut" id="discNote" style="font-size:13px;margin-top:6px">Order subtotal ${usd(sub)}</div></div>`);
+    <div class="dinput"><input id="discVal" inputmode="none" aria-label="Discount" value="${discount ? discount : ""}"><span id="discUnit">${discType==="amt" ? "USD" : "%"}</span></div>${numpad("discVal")}
+    <div class="mut" id="discNote" style="font-size:13px;margin-top:8px">Order subtotal ${usd(sub)}</div></div>
+    <div class="mf">${discount ? `<button class="btn" data-disc="0" style="margin-right:auto">Remove discount</button>` : ""}<button class="btn" data-close>Cancel</button><button class="btn pri" id="discApply">Apply</button></div>`);
   setTimeout(() => $("#discVal")?.focus(), 30);
 }
 $("#modal").addEventListener("click", async e => {
   const d = e.target.closest("[data-disc]"); if(d){ if(+d.dataset.disc > 0 && appSet().discNeedsCustomer && !custGiven(cust.name, cust.phone)){ toast("Add the customer first: discounts need customer info"); return; } if(+d.dataset.disc > 0 && appSet().discountApproval && !(await approve("pos_discount", "Approve discount"))) return; discount = +d.dataset.disc; discType = "pct"; closeModal(); renderCart(); return; }
-  const dt = e.target.closest("[data-dt]"); if(dt){ document.querySelectorAll("[data-dt]").forEach(b => b.classList.toggle("on", b===dt)); $("#discVal").focus(); return; }
+  const dt = e.target.closest("[data-dt]"); if(dt){ document.querySelectorAll("[data-dt]").forEach(b => b.classList.toggle("on", b===dt)); if($("#discUnit")) $("#discUnit").textContent = dt.dataset.dt==="amt" ? "USD" : "%"; $("#discVal").focus(); return; }
   if(e.target.closest("#discApply")){ const ty = document.querySelector("[data-dt].on")?.dataset.dt || "pct", v = +String($("#discVal").value).replace(",", "."), sub = totals().sub;
     if(!(v >= 0) || $("#discVal").value.trim()==="") { $("#discNote").textContent = "Enter a number."; return; }
     if(ty==="pct" && v > 100){ $("#discNote").textContent = "A percentage can't be more than 100."; return; }
