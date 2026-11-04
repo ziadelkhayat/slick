@@ -107,7 +107,7 @@ let incl = true;   // set below: true when every tax is inclusive
 const [st, br, ca, pr, zo, mg, tx, tg, mo] = await Promise.all([
   sb.from("settings").select("data").eq("id","online_"+brandId).maybeSingle(),
   sb.from("branches").select("id,name,open_time,close_time,settings").eq("brand_id", brandId),
-  sb.from("categories").select("id,name,sort,inactive_branch_ids").eq("brand_id", brandId).order("sort").order("name"),
+  sb.from("categories").select("id,name,sort,inactive_branch_ids,deleted").order("sort").order("name"),
   sb.from("products").select("id,name,price,description,category_id,channels,branch_ids,pricing_method,custom_prices,inactive_branch_ids,out_of_stock_branch_ids,modifiers,sort,image_url,tax_group,variants").eq("brand_id", brandId).order("sort").order("name"),
   sb.from("delivery_zones").select("id,name,branch_id,fee,min_order,eta,polygon").order("name"),
   sb.from("modifiers").select("id,name,sort,deleted"),
@@ -125,7 +125,7 @@ const taxIn = () => +taxParts().tax.toFixed(2);
 const grand = () => +(sub() + fee() + taxParts().add).toFixed(2);
 const mopts = (mo.data||[]).filter(o => o.active!==false && !o.deleted);
 if([st,br,ca,pr,zo].some(r => r.error)){ $("#main").innerHTML = `<div class="closed">We couldn't load the menu. Please try again in a moment.</div>`; return; }
-const cfg = st.data?.data || {}, branches = br.data, cats = ca.data, products = pr.data, zones = zo.data.filter(z => branches.some(b => b.id === z.branch_id));
+const cfg = st.data?.data || {}, branches = br.data, cats = ca.data.filter(c => !c.deleted), products = pr.data, zones = zo.data.filter(z => branches.some(b => b.id === z.branch_id));
 const bcfg = id => (cfg.branches||{})[id] || {};
 const modeOn = (m, b) => (cfg.modes||{})[m] !== false && (!b || bcfg(b)[m] !== false);
 if(cfg.brandName){ $("#brand").textContent = cfg.brandName; document.title = cfg.brandName + " – Order Online"; }

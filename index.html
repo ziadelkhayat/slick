@@ -1886,11 +1886,10 @@ const CRUD = {
     tabs:[["all","All",live],["deleted","Deleted",r=>r.deleted]],
     sort:(a,b)=>a.name.localeCompare(b.name),
     search:r=>r.name+" "+(r.reference||""),
-    filter:brandFilter,
-    cols:[["Name",r=>`<b>${esc(r.name)}</b>`],["Brand",r=>esc(brandName(r.brandId))],["Reference",r=>esc(r.reference||"—")],
+    cols:[["Name",r=>`<b>${esc(r.name)}</b>`],["Reference",r=>esc(r.reference||"—")],
       ["Products",r=>`<a class="lnk" href="#products" data-catfilter="${esc(r.id)}">Products (${S.products.filter(p=>live(p)&&p.categoryId===r.id).length})</a>`],
       ["Created",r=>fmtDate(r.createdAt)]],
-    fields:[{k:"name",l:"Name",req:1},{k:"nameAr",l:"Name (Arabic)"},brandField,{k:"reference",l:"Reference"}]
+    fields:[{k:"name",l:"Name",req:1},{k:"nameAr",l:"Name (Arabic)"},{k:"reference",l:"Reference"}]
   },
   products: {
     col:"products", title:"Products", one:"Product", detail: r => productDetail(r),
@@ -1908,7 +1907,7 @@ const CRUD = {
       ["Cost %",r=>{ if(varKids(r).length) return '<span class="note">—</span>'; const c = productCost(r); return +r.price && c ? (c/r.price*100).toFixed(1)+" %" : '<span class="note">—</span>'; },"num"],
       ["Tax Group",r=>varKids(r).length ? '<span class="note">Per variant</span>' : esc(tgName(r.taxGroup))]],
     fields:[{k:"name",l:"Name",req:1},{k:"nameAr",l:"Name (Arabic)"},brandField,{k:"sku",l:"SKU",auto:()=>nextSku("products")},
-      {k:"categoryId",l:"Category",t:"select",req:1,opts:()=>S.categories.filter(c=>live(c)&&brandFilter(c)).map(c=>[c.id,(state.brand==="all"?brandName(c.brandId)+" · ":"")+c.name])},
+      {k:"categoryId",l:"Category",t:"select",req:1,opts:()=>S.categories.filter(live).sort(bySort).map(c=>[c.id,c.name])},
       {k:"pricingMethod",l:"Pricing method",t:"select",opts:()=>[["fixed","Fixed price"],["open","Open Price"]],def:"fixed",hideIf:r=>varKids(r).length},
       {k:"price",l:"Price (USD)",t:"number",req:1,hideIf:r=>varKids(r).length},{k:"taxGroup",l:"Tax group",t:"select",opts:()=>taxGroupOpts(),def:"tg_vat",ph:"No tax",hideIf:r=>varKids(r).length},
       {k:"costingMethod",l:"Costing method",t:"select",opts:()=>[["ingredients","From ingredients"],["fixed","Fixed cost"]],def:"ingredients",hideIf:r=>varKids(r).length},{k:"cost",l:"Fixed cost (USD)",t:"number",req:1,when:{k:"costingMethod",is:"fixed"},hideIf:r=>varKids(r).length},
@@ -2093,7 +2092,7 @@ function crudView(key){
   h += `<div class="card tbl"><div class="ttop"><div class="ttabs">${cfg.tabs.map(t=>`<a href="#${key}" data-tab="${key}:${t[0]}" class="${tab===t[0]?"on":""}">${t[1]}</a>`).join("")}</div>
     ${key==="modifier-options"&&state.modFilter?`<span class="chip">Modifier: ${esc(modName(state.modFilter))} <button data-clearmod aria-label="Clear">×</button></span>`:""}
     ${key==="inv-items" ? `<select class="sel" id="invCat" aria-label="Category"><option value="">All categories</option>${invCatNames().map(n=>`<option ${state.invCat===n?"selected":""}>${esc(n)}</option>`).join("")}</select>` : ""}
-    ${key==="products" ? `<select class="sel" id="prodCat" aria-label="Category"><option value="">All categories</option>${S.categories.filter(c=>live(c)&&brandFilter(c)).sort(bySort).map(c=>`<option value="${esc(c.id)}" ${state.catFilter===c.id?"selected":""}>${state.brand==="all"&&brandList().length>1?esc(brandName(c.brandId))+" · ":""}${esc(c.name)}</option>`).join("")}</select>` : ""}
+    ${key==="products" ? `<select class="sel" id="prodCat" aria-label="Category"><option value="">All categories</option>${S.categories.filter(live).sort(bySort).map(c=>`<option value="${esc(c.id)}" ${state.catFilter===c.id?"selected":""}>${state.brand==="all"&&brandList().length>1?esc(brandName(c.brandId))+" · ":""}${esc(c.name)}</option>`).join("")}</select>` : ""}
     <div class="sp"></div>${scopeHere ? scopeBar(false) : ""}<input class="sel search" data-search="${key}" placeholder="Search" value="${esc(state.q[key]||"")}" aria-label="Search ${cfg.title}"></div>`;
   if(!shown.length) h += `<div class="empty">${S[cfg.col].length ? "Nothing matches." : `No ${cfg.title.toLowerCase()} yet.`}</div>`;
   else h += `<table><thead><tr>${cfg.cols.map(c=>`<th class="${c[2]||""}">${c[0]}</th>`).join("")}</tr></thead><tbody>${
@@ -2239,7 +2238,7 @@ function openCrud(key, id){
     <div class="body">${cfg.fields.map(field).join("")}<div class="err" id="cErr"></div></div>
     <footer>${r ? (r.deleted ? `<button type="button" class="btn" id="cRestore" style="margin-right:auto">Restore</button>` : `<button type="button" class="btn danger" id="cDelete" style="margin-right:auto">Delete</button>`) : ""}
     <button type="button" class="btn" data-cclose>Close</button><button type="submit" class="btn pri">Save</button></footer>`;
-  if(cfg.after){ const g = $("#crudBox .body") || $("#crudBox form"); if(g) g.insertAdjacentHTML("afterbegin", cfg.after(r)); }
+  if(cfg.formTop){ const g = $("#crudBox .body") || $("#crudBox form"); if(g) g.insertAdjacentHTML("afterbegin", cfg.formTop(r)); }
   crudWhen();
   $("#crudScrim").classList.add("show");
   if(cfg.fields.some(f=>f.t==="polygon")) setTimeout(()=>{ try{ zoneEditor(r?.polygon || [], r?.id); }catch(err){ console.error(err); const z = $("#zInfo"); if(z) z.textContent = "The map couldn't start: " + err.message; } }, 60);
@@ -2289,7 +2288,7 @@ const IMPEX = {
         brand = x.brand ? byName(bl, x.brand) : (bl.length===1 ? bl[0] : state.brand!=="all" ? bl.find(b=>b.id===state.brand)
           : bySku ? bl.find(b=>b.id===bySku.brandId) : cats.length===1 ? bl.find(b=>b.id===cats[0].brandId) : null);   // no Brand column: work it out from the SKU or category
       if(bl.length && !brand) return { err: x.brand ? `brand "${x.brand}" not found` : "brand is required" };
-      const cat = S.categories.find(c => live(c) && c.name.trim().toLowerCase()===String(x.category||"").trim().toLowerCase() && (!brand || c.brandId===brand.id));
+      const cat = S.categories.find(c => live(c) && c.name.trim().toLowerCase()===String(x.category||"").trim().toLowerCase());
       const ex = (x.sku && S.products.find(p => live(p) && (p.sku||"").toLowerCase()===x.sku.toLowerCase())) || S.products.find(p => live(p) && p.name.trim().toLowerCase()===x.name.toLowerCase() && (!brand || p.brandId===brand.id));
       if(!cat && !ex) return { err: x.category ? `category "${x.category}" not found` : "category is required" };
       const d = { name:x.name };
@@ -3059,7 +3058,7 @@ document.addEventListener("dragover", e => { const t = e.target.closest?.("[data
 document.addEventListener("drop", async e => { const t = e.target.closest?.("[data-bmdrag]"); if(!bmDropOk(t)) return; e.preventDefault();
   const from = bmDrag.key.slice(2), to = bmTarget(t).slice(2), isCat = bmDrag.key.startsWith("c:"); bmDrag = null;
   const br = branches.find(b=>b.id===BM.branch);
-  const list = isCat ? S.categories.filter(c => live(c) && (!br?.brandId || c.brandId===br.brandId)).sort(bySort)
+  const list = isCat ? S.categories.filter(live).sort(bySort)
                      : S.products.filter(p => live(p) && p.categoryId===S.products.find(x=>x.id===from)?.categoryId).sort(bySort);
   const ids = list.map(x=>x.id), i = ids.indexOf(from), j = ids.indexOf(to); if(i<0 || j<0) return;
   ids.splice(i, 1); ids.splice(ids.indexOf(to) + (i < j ? 1 : 0), 0, from);
@@ -4994,7 +4993,7 @@ $("#view").addEventListener("click", async e => {
   const op = t.closest("[data-open]"); if(op && !t.closest("a")){ const i = op.dataset.open.indexOf(":"), k = op.dataset.open.slice(0,i), id = op.dataset.open.slice(i+1); return CRUD[k].detail ? openDetail(k, id) : openCrud(k, id); }
   const pg = t.closest("[data-page]"); if(pg){ const [k,v] = pg.dataset.page.split(":"); state.page[k] = +v; render(); window.scrollTo(0,0); return; }
   const cf = t.closest("[data-catfilter]"); if(cf){ e.preventDefault(); const id = cf.dataset.catfilter, c = S.categories.find(x=>x.id===id); location.hash = "products";
-    setTimeout(() => { if(c && state.brand!=="all" && c.brandId!==state.brand) state.brand = "all"; state.catFilter = id; state.tabs.products = "all"; state.page.products = 1; render(); }, 60); return; }
+    setTimeout(() => { state.catFilter = id; state.tabs.products = "all"; state.page.products = 1; render(); }, 60); return; }
   const ic = t.closest("[data-invcat]"); if(ic){ e.preventDefault(); const n = ic.dataset.invcat; location.hash = "inv-items";
     setTimeout(() => { state.invCat = n; state.tabs["inv-items"] = "all"; state.page["inv-items"] = 1; render(); }, 60); return; }
   if(t.closest("[data-clearcat]")){ state.catFilter = ""; render(); return; }
