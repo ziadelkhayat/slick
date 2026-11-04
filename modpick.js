@@ -7,6 +7,8 @@
    options: [{ id, modifierId, name, price, oos }] already filtered for the branch and priced */
 (function(){
   const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
+  // the number pad is for the POS (touch screen); the back office and call center use a keyboard
+  const PAD = /pos\.html/i.test(location.pathname) || !!window.SLICK_OFFLINE;
   const touch = (() => { try{ return matchMedia("(any-pointer: coarse)").matches || navigator.maxTouchPoints > 0; }catch(e){ return false; } })();
   const css = `.smp-scrim{position:fixed;inset:0;background:rgba(20,16,40,.45);display:flex;align-items:flex-end;justify-content:center;z-index:9998;font-family:Inter,system-ui,sans-serif}
   @media(min-width:640px){.smp-scrim{align-items:center}}
@@ -54,8 +56,8 @@
                 <span class="qs"><button type="button" data-q="${gi}:${esc(x.id)}:-1" ${on?"":"disabled"} aria-label="Less ${esc(x.name)}">−</button><b>${n}</b><button type="button" data-q="${gi}:${esc(x.id)}:1" ${full||x.oos?"disabled":""} aria-label="More ${esc(x.name)}">+</button></span></label>`;
               const dis = !on && ((full && !one) || x.oos);
               return `<label class="${dis?"dis":""}"><input type="checkbox" name="g${gi}" data-g="${gi}" value="${esc(x.id)}" ${on?"checked":""} ${dis?"disabled":""}>${esc(x.name)}${x.oos?'<span class="oos">Out of stock</span>':""}<span class="p">${+x.price ? "+" + money(x.price) : ""}</span></label>`; }).join("");
-        }).join("")}${o.edit ? `<div class="g"><b>Item note</b><span>Shown to the kitchen</span></div><textarea data-note rows="2">${esc(note)}</textarea>` : ""}${o.edit && o.allowDiscount ? `<div class="g"><b>Item discount</b>${discOf() ? `<span>−${money(discOf())}</span>` : ""}</div>
-          <div class="dz"><button type="button" data-dt="pct" class="${discT==="pct"?"on":""}">%</button><button type="button" data-dt="amt" class="${discT==="amt"?"on":""}">USD</button><input data-dv inputmode="${touch ? "none" : "decimal"}" aria-label="${discT==="amt"?"Amount off":"Percent off"}" value="${esc(discV)}"></div><div class="smnp">${["1","2","3","4","5","6","7","8","9",".","0","⌫"].map(k => `<button type="button" data-np="${k}" aria-label="${k==="⌫"?"Delete":k}">${k}</button>`).join("")}</div>` : ""}</div><footer><span class="err" data-err></span><button type="button" data-x class="smc">Cancel</button><button type="button" data-ok>${o.edit ? "Save" : "Add · " + money(priceOf() * qty)}</button></footer></div>`;
+        }).join("")}${o.edit ? `<div class="g"><b>Item note</b></div><textarea data-note rows="2">${esc(note)}</textarea>` : ""}${o.edit && o.allowDiscount ? `<div class="g"><b>Item discount</b>${discOf() ? `<span>−${money(discOf())}</span>` : ""}</div>
+          <div class="dz"><button type="button" data-dt="pct" class="${discT==="pct"?"on":""}">%</button><button type="button" data-dt="amt" class="${discT==="amt"?"on":""}">USD</button><input data-dv inputmode="${touch && PAD ? "none" : "decimal"}" aria-label="${discT==="amt"?"Amount off":"Percent off"}" value="${esc(discV)}"></div>${PAD ? `<div class="smnp">${["1","2","3","4","5","6","7","8","9",".","0","⌫"].map(k => `<button type="button" data-np="${k}" aria-label="${k==="⌫"?"Delete":k}">${k}</button>`).join("")}</div>` : ""}` : ""}</div><footer><span class="err" data-err></span><button type="button" data-x class="smc">Cancel</button><button type="button" data-ok>${o.edit ? "Save" : "Add · " + money(priceOf() * qty)}</button></footer></div>`;
       };
       const redraw = () => { const y = el.querySelector(".b")?.scrollTop; draw(); const b = el.querySelector(".b"); if(b) b.scrollTop = y; };
       const close = v => { el.remove(); document.removeEventListener("keydown", onKey); resolve(v); };
