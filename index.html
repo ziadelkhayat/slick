@@ -1847,16 +1847,16 @@ const CRUD = {
       {k:"password",l:"Password",t:"password",hideIf:r=>!!r.userId,note:"Only for users who work in the back office. They sign in with their email and this password. At least 8 characters. Once set, they change it themselves with Forgot password."},
       {k:"pin",l:"Login PIN",t:"pin",note:"A unique 5-digit PIN the user types to sign in on the cashier app. Generate a random PIN for better security."},
       {k:"displayLocalized",l:"Display Localized Names (show the apps in the localized language)",t:"chk",def:false},
-      {k:"roleIds",l:"Roles",t:"multi",get:r=>userRoleIds(r),opts:()=>S.roles.filter(live).map(r=>[r.id,r.name])},
+      {k:"roleIds",l:"Roles",t:"multi",get:r=>userRoleIds(r),opts:()=>S.roles.filter(live).map(r=>[r.id,r.name]),editOnly:1},
       {k:"active",l:"Active",t:"chk",def:true,editOnly:1}],
     note:"POS users sign in on the tablet with their PIN. For back-office access, add their email and a password: they sign in with them.",
     prep: async (data, id) => {
       const pin = data.pin, pw = data.password || ""; delete data.pin; delete data.password;
       if(pw){ if(!data.email) return "Add the user's email: they sign in to the back office with their email and password.";
         if(pw.length < 8) return "The password needs at least 8 characters."; }
-      data.roleIds = data.roleIds || []; if(!data.roleIds.length) return S.roles.some(live) ? "Pick at least one role." : "Create a role first in Manage → Roles, then add the user.";
+      if(id){ data.roleIds = data.roleIds || []; if(!data.roleIds.length) return "Pick at least one role."; } else data.roleIds = [];
       if(!id) data.active = true;
-      data.roleId = data.roleIds[0];   // older screens read the first role
+      data.roleId = data.roleIds[0] || null;   // older screens read the first role
       if(data.email) data.email = data.email.toLowerCase();
       if(data.email && S.users.some(u=>u.id!==id && live(u) && (u.email||"").toLowerCase()===data.email)) return "Another user already has this email.";
       if(!id) data.id = newUserId();
@@ -1909,7 +1909,7 @@ const CRUD = {
       ["Tax Group",r=>varKids(r).length ? '<span class="note">Per variant</span>' : esc(tgName(r.taxGroup))]],
     fields:[{k:"name",l:"Name",req:1},{k:"nameAr",l:"Name (Arabic)"},brandField,{k:"sku",l:"SKU",auto:()=>nextSku("products")},
       {k:"categoryId",l:"Category",t:"select",req:1,opts:()=>S.categories.filter(c=>live(c)&&brandFilter(c)).map(c=>[c.id,(state.brand==="all"?brandName(c.brandId)+" · ":"")+c.name])},
-      {k:"pricingMethod",l:"Pricing method",t:"select",opts:()=>[["fixed","Fixed price"],["open","Open price (cashier enters it)"]],def:"fixed",hideIf:r=>varKids(r).length},
+      {k:"pricingMethod",l:"Pricing method",t:"select",opts:()=>[["fixed","Fixed price"],["open","Open Price"]],def:"fixed",hideIf:r=>varKids(r).length},
       {k:"price",l:"Price (USD)",t:"number",req:1,hideIf:r=>varKids(r).length},{k:"taxGroup",l:"Tax group",t:"select",opts:()=>taxGroupOpts(),def:"tg_vat",ph:"No tax",hideIf:r=>varKids(r).length},
       {k:"costingMethod",l:"Costing method",t:"select",opts:()=>[["ingredients","From ingredients"],["fixed","Fixed cost"]],def:"ingredients",hideIf:r=>varKids(r).length},{k:"cost",l:"Fixed cost (USD)",t:"number",req:1,when:{k:"costingMethod",is:"fixed"},hideIf:r=>varKids(r).length},
       {k:"sellingMethod",l:"Selling method",t:"select",opts:()=>[["unit","Unit"],["weight","Weight"]],def:"unit"},{k:"barcode",l:"Barcode"},
@@ -2662,9 +2662,8 @@ let ccOrig = [], ccChg = null, ccLocked = false, ccDisc = 0, ccDiscType = "pct",
 const ccGross = () => cart.reduce((a,i)=>a+lineNet(i),0);
 const ccDiscAmt = () => { const g = ccGross(); return +Math.min(g, ccDiscType==="amt" ? +ccDisc||0 : g * (+ccDisc||0) / 100).toFixed(2); };
 const ccMayDisc = () => mayDo("bo_cc_discount") && brandSet($("#oBrand")?.value || branches.find(b => b.id===$("#oBranch")?.value)?.brandId || "").ccDiscounts !== false;
-function ccDiscPanel(){ return `<div class="ccdisc"><div class="ccdq">${[0,5,10,15,20,25,50,100].map(p=>`<button type="button" data-ccdisc="${p}" class="${ccDiscType==="pct" && +ccDisc===p && (p || !ccDisc) ? "on" : ""}">${p ? p+"%" : "None"}</button>`).join("")}</div>
-  <div class="ccdo"><div class="seg"><button type="button" data-ccdt="pct" class="${ccDiscType!=="amt"?"on":""}">Percentage %</button><button type="button" data-ccdt="amt" class="${ccDiscType==="amt"?"on":""}">Amount USD</button></div>
-  <input id="ccDiscVal" inputmode="decimal" placeholder="${ccDiscType==="amt" ? "Amount in USD" : "Percent"}" value="${ccDisc && (ccDiscType==="amt" || ![5,10,15,20,25,50,100].includes(+ccDisc)) ? ccDisc : ""}"><button type="button" class="btn sm pri" data-ccdapply>Apply</button></div><div class="note" id="ccDiscNote"></div></div>`; }
+function ccDiscPanel(){ return `<div class="ccdisc"><div class="ccdo"><div class="seg"><button type="button" data-ccdt="pct" class="${ccDiscType!=="amt"?"on":""}">Percentage %</button><button type="button" data-ccdt="amt" class="${ccDiscType==="amt"?"on":""}">Amount USD</button></div>
+  <input id="ccDiscVal" inputmode="decimal" placeholder="${ccDiscType==="amt" ? "Amount in USD" : "Percent"}" value="${+ccDisc ? ccDisc : ""}"><button type="button" class="btn sm pri" data-ccdapply>Apply</button>${+ccDisc ? `<button type="button" class="btn sm" data-ccdisc="0">Remove</button>` : ""}</div><div class="note" id="ccDiscNote"></div></div>`; }
 /* ---------- charges (Manage → Charges) and order totals, shared by the call center ---------- */
 const taxIncl = () => !S.taxes.some(x => live(x) && x.inclusive===false);
 const chargeList = (type, brandId, branchId) => S.charges.filter(c => live(c) && c.active!==false && (!(c.orderTypes||[]).length || c.orderTypes.includes(type==="takeaway" ? "pickup" : type))
