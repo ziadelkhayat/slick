@@ -563,11 +563,12 @@ td.code{background:none;font:inherit;padding:18px 20px}
 .ib{display:inline-flex;align-items:center;justify-content:center;vertical-align:middle;margin-left:6px;color:#8e8e93;cursor:pointer;border-radius:50%;width:18px;height:18px;flex:none}.ib:hover,.ib:focus{color:var(--ink);outline:0}
 .ibub{position:fixed;z-index:9999;background:#fff;color:#636366;font-size:14px;font-weight:400;line-height:1.45;padding:10px 14px;border-radius:6px;box-shadow:0 2px 12px rgba(0,0,0,.14);pointer-events:none;text-align:left;letter-spacing:0;text-transform:none}
 h1:has(.ib),h3:has(.ib){display:inline-flex;align-items:center}
+.ubdd{margin:8px 0 0 26px;position:relative}.ubdd.off{opacity:.5}.ubsel{display:flex;flex-wrap:wrap;gap:6px;align-items:center;width:100%;min-height:44px;padding:7px 34px 7px 10px;border:.8px solid #aeaeb2;border-radius:8px;background:#fff;cursor:pointer;text-align:left;position:relative;font:inherit}.ubcaret{position:absolute;right:12px;top:50%;transform:translateY(-50%);color:#636366}.ubchip{border:1px solid var(--accent-2);color:var(--accent);border-radius:8px;padding:2px 8px;font-size:13px}.ubmenu{position:absolute;left:0;right:0;top:calc(100% + 4px);background:#fff;border:.8px solid #d1d1d6;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.12);max-height:240px;overflow:auto;padding:6px 10px;z-index:5}.ubmenu .chk{display:flex;padding:7px 0}
 </style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="wokdb.js?v=27"></script>
+<script src="wokdb.js?v=28"></script>
 <script src="modpick.js?v=5"></script>
 </head>
 <body>
@@ -1448,7 +1449,7 @@ function viewBranch(b){
         + row("Location", b.lat && b.lng ? `<a class="lnk" target="_blank" rel="noopener" href="https://www.google.com/maps?q=${b.lat},${b.lng}">${b.lat}, ${b.lng}</a>` : "—") + row("Receives call center and web orders", b.callCenter ? "Yes" : "No") + row("Automatic end of day", st.autoDayEnd===false ? "No" : "Yes") + row("Status", b.active===false ? "Inactive" : "Active") : ""}
       <div style="grid-column:1/-1"><button class="lnk" data-brmore style="background:none;border:0;padding:0;cursor:pointer">${more ? "Show Less" : "Show More"}</button></div></div>
     ${card("Delivery Zones", `<button class="btn sm" data-edit="${esc(b.id)}" data-sec="fDZones">Edit Delivery Zones</button>`, tbl(["Name","Delivery fee","Min. order"], zones.map(z => [esc(z.name), money(+z.fee||0), money(+z.minOrder||0)])))}
-    ${card("Users", "", tbl(["Name","Email","Employee Number","Phone"], users.map(u => [esc(u.name), esc(u.email||"—"), esc(u.employeeNo||"—"), esc(u.phone||"—")])))}
+    ${card("Users", "", tbl(["Name","Email","Phone"], users.map(u => [esc(u.name), esc(u.email||"—"), esc(u.phone||"—")])))}
     ${card("Sections", `<button class="btn sm" data-brtables="${esc(b.id)}">${tl.length ? "Edit Sections" : "Add Section"}</button>`, tbl(["Section","Tables"], secs.map(sc => [esc(sc || "No section"), tl.filter(t => (t.section||"")===sc).map(t => esc(tblLbl(t.name))).join(", ")])))}
     ${card("Assigned Devices", "", tbl(["Name","Reference","Type","Status"], devs.map(d => [`<a href="#devices" class="lnk" data-devgo="${esc(d.id)}">${esc(d.name)}</a>`, esc(d.reference||"—"), esc(devType(d.type)), devStatus(d)])))}
     ${card("Assigned Charges", `<button class="btn sm" data-edit="${esc(b.id)}" data-sec="fCharges">Edit Charges</button>`, tbl(["Name","Value","Applies On"], chs.map(c => [esc(c.name), c.type==="percent" ? (+c.value||0)+"%" : money(+c.value||0), typesOf(c)])))}
@@ -1823,23 +1824,25 @@ const CRUD = {
   users: {
     col:"users", title:"Users", one:"User", detail: r => userDetail(r),
     tabs:[["all","All",live],["active","Active",r=>live(r)&&r.active!==false],["inactive","Inactive",r=>live(r)&&r.active===false],["deleted","Deleted",r=>r.deleted]],
-    sort:(a,b)=>a.name.localeCompare(b.name), search:r=>r.name+" "+(r.email||"")+" "+(r.phone||"")+" "+(r.employeeNo||""),
-    cols:[["Name",r=>`<b>${esc(r.name)}</b>${r.employeeNo?` <span class="note">#${esc(r.employeeNo)}</span>`:""}${r.active===false?' <span class="tag off">Inactive</span>':""}`],
+    sort:(a,b)=>a.name.localeCompare(b.name), search:r=>r.name+" "+(r.email||"")+" "+(r.phone||""),
+    cols:[["Name",r=>`<b>${esc(r.name)}</b>${r.active===false?' <span class="tag off">Inactive</span>':""}`],
       ["Console Access",r=>r.email ? (r.userId ? '<span class="tag on">Active</span>' : '<span class="tag off">Invited</span>') : '<span class="tag off">Inactive</span>'],
       ["App Access",r=>r.pinHash ? '<span class="tag on">Active</span>' : '<span class="tag off">Inactive</span>'],
       ["Roles",r=>esc(userRolesTxt(r))]],
     fields:[{k:"name",l:"Name",req:1,ph:"The user's name."},
       {k:"language",l:"Language",t:"select",opts:()=>[["en","English"],["ar","Arabic"]],def:"en"},
-      {k:"employeeNo",l:"Employee Number",ph:"The user's employment number in your organization"},{k:"phone",l:"Phone Number",ph:"With country code, e.g. +961 70 123 456"},
+      {k:"phone",l:"Phone Number",t:"phone",ph:"70 123 456"},
       {k:"email",l:"Email",ph:"Needed only to log in to the back office"},
+      {k:"password",l:"Back office password",t:"password",hideIf:r=>!!r.userId,note:"Only for users who work in the back office. They sign in with their email and this password. At least 8 characters. Once set, they change it themselves with Forgot password."},
       {k:"pin",l:"Login PIN",t:"pin",note:"A unique 5-digit PIN the user types to sign in on the cashier app. Generate a random PIN for better security."},
       {k:"displayLocalized",l:"Display Localized Names (show the apps in the localized language)",t:"chk",def:false},
       {k:"roleIds",l:"Roles",t:"multi",get:r=>userRoleIds(r),opts:()=>S.roles.filter(live).map(r=>[r.id,r.name])},
-      {k:"branchIds",l:"Branches (leave all unticked = every branch)",t:"multi",opts:()=>branches.filter(b=>b.active!==false).map(b=>[b.id,(brandList().length>1?brandName(b.brandId)+" · ":"")+b.name])},
       {k:"active",l:"Active",t:"chk",def:true}],
-    note:"POS users sign in on the tablet with their PIN. For back-office access, add their email here, then create a login with that same email in Supabase (Authentication → Add user); the first time they sign in, it links automatically.",
+    note:"POS users sign in on the tablet with their PIN. For back-office access, add their email and a password: they sign in with them.",
     prep: async (data, id) => {
-      const pin = data.pin; delete data.pin;
+      const pin = data.pin, pw = data.password || ""; delete data.pin; delete data.password;
+      if(pw){ if(!data.email) return "Add the user's email: they sign in to the back office with their email and password.";
+        if(pw.length < 8) return "The password needs at least 8 characters."; }
       data.roleIds = data.roleIds || []; if(!data.roleIds.length) return "Pick at least one role.";
       data.roleId = data.roleIds[0];   // older screens read the first role
       if(data.email) data.email = data.email.toLowerCase();
@@ -1849,6 +1852,7 @@ const CRUD = {
         const myId = id || data.id;
         for(const u of S.users.filter(u=>live(u) && u.id!==myId && u.pinHash)){ if(await pinHash(u.id, pin)===u.pinHash || await pinHash(u.id, pin.slice(0,4))===u.pinHash) return "This PIN clashes with another user's PIN. Pick a different one (Generate)."; }
         data.pinHash = await pinHash(myId, pin); }
+      if(pw && storeMode==="db"){ const r = await createStaffLogin(data.email, pw); if(r.error) return r.error; if(r.userId) data.userId = r.userId; if(r.confirm) toast("Login created · they confirm their email once, then sign in"); }
       if(id) delete data.id;
       return "";
     }
@@ -2172,6 +2176,19 @@ document.addEventListener("click", e => {
 });
 document.addEventListener("keydown", e => { if(crudEdit?.key==="addvar" && e.key==="Enter" && e.target.closest?.("#crudBox input")){ e.preventDefault(); if(e.target.closest(".avrow")) $("[data-avadd]")?.click(); else $('#avRows [data-ar="name"]')?.focus(); return; } const n = e.target.closest?.("[data-itemnew]"); if(n && e.key==="Enter"){ e.preventDefault(); itemAdd(n.dataset.itemnew); } });
 let crudEdit = null;
+// country codes for phone numbers (Lebanon first)
+const CC_CODES = [["+961","🇱🇧 LB"],["+971","🇦🇪 AE"],["+966","🇸🇦 SA"],["+974","🇶🇦 QA"],["+965","🇰🇼 KW"],["+973","🇧🇭 BH"],["+968","🇴🇲 OM"],["+962","🇯🇴 JO"],["+963","🇸🇾 SY"],["+964","🇮🇶 IQ"],["+20","🇪🇬 EG"],["+90","🇹🇷 TR"],["+357","🇨🇾 CY"],["+33","🇫🇷 FR"],["+44","🇬🇧 GB"],["+49","🇩🇪 DE"],["+39","🇮🇹 IT"],["+34","🇪🇸 ES"],["+1","🇺🇸 US"],["+1","🇨🇦 CA"],["+61","🇦🇺 AU"],["+55","🇧🇷 BR"],["+225","🇨🇮 CI"],["+234","🇳🇬 NG"],["+221","🇸🇳 SN"],["+243","🇨🇩 CD"],["+91","🇮🇳 IN"],["+63","🇵🇭 PH"],["+94","🇱🇰 LK"],["+880","🇧🇩 BD"],["+251","🇪🇹 ET"]];
+// a back-office login (email + password) for a user, made by the owner or an admin. A separate client is used so the admin stays signed in.
+async function createStaffLogin(email, password){
+  try{
+    const cfg = WOK.cfg || {}, url = cfg.url, key = cfg.key; if(!url || !key) return { error:"Couldn't reach the login service. Reload and try again." };
+    const tmp = window.supabase.createClient(url, key, { auth:{ persistSession:false, autoRefreshToken:false, detectSessionInUrl:false, storageKey:"slick-staff-signup" } });
+    const { data, error } = await tmp.auth.signUp({ email, password, options:{ emailRedirectTo: location.href.split("#")[0] } });
+    if(error) return { error: /registered|exists/i.test(error.message) ? "This email already has a login. They sign in with it (or use Forgot password)." : "Couldn't create the login: " + error.message };
+    if(data?.user && !(data.user.identities||[]).length) return { error:"This email already has a login. They sign in with it (or use Forgot password)." };
+    return { userId: data?.user?.id || null, confirm: !data?.session };
+  }catch(e){ console.error(e); return { error:"Couldn't create the login: " + e.message }; }
+}
 function openCrud(key, id){
   const cfg = CRUD[key], r = id ? S[cfg.col].find(x=>x.id===id) : null;
   crudEdit = { key, id: r?.id || null };
@@ -2186,6 +2203,9 @@ function openCrud(key, id){
       return `<div class="f full"><label>${f.l}${f.toggle ? ` <button type="button" class="lnk mtog" data-mtog="${idA}">Toggle All</button>` : ""}</label><div class="multi${hasD ? " mdesc" : ""}" id="${idA}">${o.map(([k,t,d])=>k.startsWith("@") ? `<div class="mhead">${esc(k.slice(1))}${f.toggle ? ` <button type="button" class="lnk mtog" data-mtog="${idA}" data-mgrp="${esc(k)}">Toggle</button>` : ""}</div>` : `<label class="chk" data-grp="${esc(o.filter(x=>x[0].startsWith("@")).reverse().find(x => o.indexOf(x) < o.findIndex(y=>y[0]===k))?.[0] || "")}"><input type="checkbox" value="${esc(k)}" ${set.has(k)?"checked":""}> <span><b>${esc(t)}</b>${d ? `<small>${esc(d)}</small>` : ""}</span></label>`).join("")}</div>${f.note?`<div class="note">${esc(f.note)}</div>`:""}</div>`; }
     if(f.t==="image") return `<div class="f full"><label>${f.l}</label><div class="imgf"><div class="imgprev" id="${idA}_prev">${v ? `<img src="${esc(v)}" alt="">` : '<span class="note">No image</span>'}</div>
       <div><input type="file" accept="image/*" id="${idA}_file"><input type="hidden" id="${idA}" value="${esc(v||"")}"><div class="note" id="${idA}_st">JPG or PNG. It's resized automatically for the POS, call center and web menu.</div>${v ? `<button type="button" class="btn sm" data-imgclear="${idA}" style="margin-top:6px">Remove image</button>` : ""}</div></div></div>`;
+    if(f.t==="phone"){ const m = /^(\+\d{1,4})\s*(.*)$/.exec(String(v||"").trim()), cc = m ? m[1] : "+961", num = m ? m[2] : String(v||"").replace(/^\+?961\s*/, "");
+      return `<div class="f"><label for="${idA}">${f.l}</label><div style="display:flex;gap:8px"><select id="${idA}_cc" class="sel" style="flex:none;width:112px" aria-label="Country code">${CC_CODES.map(([c,n])=>`<option value="${c}" ${c===cc?"selected":""} title="${n.split(" ")[1]}">${n.split(" ")[0]} ${c}</option>`).join("")}</select><input id="${idA}" type="tel" inputmode="tel" value="${esc(num)}" placeholder="${esc(f.ph||"")}" style="flex:1;min-width:0"></div></div>`; }
+    if(f.t==="password") return `<div class="f"><label for="${idA}">${f.l}</label><input id="${idA}" type="password" autocomplete="new-password" minlength="8" placeholder="At least 8 characters">${f.note?`<div class="note">${esc(f.note)}</div>`:""}</div>`;
     if(f.t==="pin") return `<div class="f"><label for="${idA}">${f.l}</label><div style="display:flex;gap:8px"><input id="${idA}" type="text" inputmode="numeric" maxlength="5" autocomplete="off" placeholder="${r?.pinHash?"••••• (set; type to change)":"5 digits"}" style="flex:1"><button type="button" class="btn" data-pingen="${idA}">Generate</button></div><div class="note">${esc(f.note||"")}</div></div>`;
     if(f.t==="items") return `<div class="f full"><label for="${idA}_new">${f.l}${f.req?" *":""}</label><div class="items" id="${idA}">${(Array.isArray(v) ? v : []).map(x => itemRow(x)).join("")}</div>
       <div class="itemadd"><input id="${idA}_new" placeholder="${esc(f.ph||"")}" data-itemnew="${idA}"><button type="button" class="btn sm" data-itemadd="${idA}">+ Add</button></div>${f.note?`<div class="note">${esc(f.note)}</div>`:""}</div>`;
@@ -2404,6 +2424,8 @@ async function submitCrud(e){
     else if(f.t==="multi") data[f.k] = [...el.querySelectorAll("input:checked")].map(i=>i.value);
     else if(f.t==="items"){ const pending = ($("#cf_"+f.k+"_new")?.value || "").trim(); data[f.k] = [...el.querySelectorAll("[data-item]")].map(i => i.value.trim()).filter(Boolean); if(pending) data[f.k].push(pending); if(f.req && !data[f.k].length){ $("#cErr").textContent = f.l + " is required."; return; } continue; }
     else if(f.t==="number") data[f.k] = el.value==="" ? null : +el.value;
+    else if(f.t==="phone"){ const n = el.value.replace(/[^\d]/g, "").replace(/^0+/, ""); data[f.k] = n ? ($("#cf_"+f.k+"_cc")?.value || "+961") + " " + n : ""; }
+    else if(f.t==="password") data[f.k] = el.value;
     else data[f.k] = el.value.trim();
     if(f.req && (data[f.k]===""||data[f.k]===null)){ $("#cErr").textContent = f.l + " is required."; el.focus(); return; }
     if(f.k==="factor" && !(data.factor > 0)){ $("#cErr").textContent = "The factor must be more than 0 (how many ingredient units are in one storage unit)."; el.focus(); return; }
@@ -4085,10 +4107,10 @@ function userDetail(u){
   return `<div class="phead"><a href="#users" class="btn" data-detback style="text-decoration:none">← Back</a><h1 style="margin-left:10px">${esc(u.name)}</h1><div class="sp"></div>
       <button class="btn" data-usrpin>Change PIN</button><button class="btn pri" data-detedit>Edit User</button></div>
     <div class="card odet" style="margin-bottom:16px">${row("Name", esc(u.name))}${row("Status", u.active===false ? "Inactive" : "Active")}${row("Console Access", u.email ? (u.userId ? "Active" : "Invited · waiting for first sign-in") : "Inactive")}${row("App Access", u.pinHash ? "Active" : "Inactive")}
-      ${more ? row("Email", esc(u.email || "—")) + row("Employee Number", esc(u.employeeNo || "—")) + row("Phone", esc(u.phone || "—")) + row("Language", u.language==="ar" ? "Arabic" : "English") + row("Display Localized Names", u.displayLocalized ? "Yes" : "No") + row("Created", dt(u.createdAt)) : ""}
+      ${more ? row("Email", esc(u.email || "—")) + row("Phone", esc(u.phone || "—")) + row("Language", u.language==="ar" ? "Arabic" : "English") + row("Display Localized Names", u.displayLocalized ? "Yes" : "No") + row("Created", dt(u.createdAt)) : ""}
       <div style="grid-column:1/-1"><button class="lnk" data-usrmore style="background:none;border:0;padding:0;cursor:pointer">${more ? "Show Less" : "Show More"}</button></div></div>
     <div class="card brcard"><div class="brch"><h3>Roles</h3><span class="sp"></span><button class="btn sm" data-detedit data-sec="cf_roleIds">Edit Roles</button></div>${tbl(["Name","Authorities"], rs.map(r => [esc(r.name), `${(r.permissions||[]).length}`]))}</div>
-    <div class="card brcard"><div class="brch"><h3>Branches</h3><span class="sp"></span><button class="btn sm" data-detedit data-sec="cf_branchIds">Edit Branches</button></div>${(u.branchIds||[]).length ? "" : '<p class="note" style="margin:0 0 8px">No branch picked: the user can work at every branch.</p>'}${tbl(["Name","Reference"], brs.map(b => [esc(b.name), esc(b.code||"—")]))}</div>`;
+    <div class="card brcard"><div class="brch"><h3>Branches</h3><span class="sp"></span><button class="btn sm" data-usrbr="${esc(u.id)}">Edit Branches</button></div>${(u.branchIds||[]).length ? "" : '<p class="note" style="margin:0 0 8px">Automatically applied on all existing and new branches.</p>'}${tbl(["Name","Reference"], brs.map(b => [esc(b.name), esc(b.code||"—")]))}</div>`;
 }
 document.addEventListener("click", e => { const g = e.target.closest("[data-pingen]"); if(!g) return; e.preventDefault(); document.getElementById(g.dataset.pingen).value = String(Math.floor(10000 + Math.random()*90000)); });
 document.addEventListener("click", e => {
@@ -4096,6 +4118,34 @@ document.addEventListener("click", e => {
   if(e.target.closest("[data-usrpin]")){ if(DET.key==="users") openCrud("users", DET.id); setTimeout(() => { const f = $("#cf_pin"); f?.scrollIntoView({ block:"center" }); f?.focus(); }, 120); return; }
   const sec = e.target.closest("[data-detedit][data-sec]"); if(sec){ const id = sec.dataset.sec; setTimeout(() => document.getElementById(id)?.scrollIntoView({ block:"center" }), 150); }
 });
+
+// Users → Edit Branches: every branch automatically, or only the picked ones
+function openUserBranches(id){
+  const u = S.users.find(x => x.id===id); if(!u) return; const sel = new Set(u.branchIds||[]), auto = !sel.size;
+  const list = branches.filter(b => b.active!==false || sel.has(b.id)), lbl = b => `${(brandList().length>1 ? brandName(b.brandId) + " · " : "")}${b.name}${b.code ? " (" + b.code + ")" : ""}`;
+  const box = $("#ccBox"); box.className = "modal";
+  box.innerHTML = `<header><h2>Edit Branches</h2><button type="button" class="x" data-ccclose aria-label="Close">×</button></header>
+  <div class="body" style="display:block">
+    <label class="chk" style="margin-bottom:14px"><input type="radio" name="ubMode" value="auto" ${auto?"checked":""}> Automatically apply on all existing and new branches</label>
+    <label class="chk"><input type="radio" name="ubMode" value="pick" ${auto?"":"checked"}> Branches</label>
+    <div class="ubdd${auto?" off":""}" id="ubDD"><button type="button" class="ubsel" id="ubSel">${[...sel].map(i => list.find(b=>b.id===i)).filter(Boolean).map(b=>`<span class="ubchip">${esc(lbl(b))}</span>`).join("") || '<span class="note">Choose branches…</span>'}<span class="ubcaret">▾</span></button>
+      <div class="ubmenu" id="ubMenu" hidden>${list.map(b => `<label class="chk"><input type="checkbox" value="${esc(b.id)}" ${sel.has(b.id)?"checked":""}> ${esc(lbl(b))}</label>`).join("") || '<span class="note">No branches yet.</span>'}</div></div>
+    <div class="err" id="ubErr"></div></div>
+  <footer><span style="flex:1"></span><button type="button" class="btn" data-ccclose>Close</button><button type="button" class="btn pri" data-ubapply="${esc(id)}">Apply</button></footer>`;
+  $("#ccScrim").classList.add("show");
+}
+function ubPaint(){ const picked = [...document.querySelectorAll("#ubMenu input:checked")].map(i => i.parentElement.textContent.trim());
+  $("#ubSel").innerHTML = (picked.map(t => `<span class="ubchip">${esc(t)}</span>`).join("") || '<span class="note">Choose branches…</span>') + '<span class="ubcaret">▾</span>'; }
+document.addEventListener("click", async e => {
+  const o = e.target.closest("[data-usrbr]"); if(o){ e.preventDefault(); openUserBranches(o.dataset.usrbr); return; }
+  if(e.target.closest("#ubSel")){ const pick = document.querySelector('input[name="ubMode"][value="pick"]'); pick.checked = true; $("#ubDD").classList.remove("off"); $("#ubMenu").hidden = !$("#ubMenu").hidden; return; }
+  if(e.target.matches?.('input[name="ubMode"]')){ const auto = e.target.value==="auto"; $("#ubDD").classList.toggle("off", auto); if(auto) $("#ubMenu").hidden = true; return; }
+  const ap = e.target.closest("[data-ubapply]"); if(ap){ const auto = document.querySelector('input[name="ubMode"]:checked')?.value !== "pick", ids = auto ? [] : [...document.querySelectorAll("#ubMenu input:checked")].map(i => i.value);
+    if(!auto && !ids.length){ $("#ubErr").textContent = "Pick at least one branch, or choose Automatically apply."; return; }
+    try{ await put("users", ap.dataset.ubapply, { branchIds: ids }); toast("Branches saved"); $("#ccScrim").classList.remove("show"); render(); }catch(err){ console.error(err); $("#ubErr").textContent = "Couldn't save."; } return; }
+  if($("#ubMenu") && !$("#ubMenu").hidden && !e.target.closest("#ubDD")) $("#ubMenu").hidden = true;
+});
+document.addEventListener("change", e => { if(e.target.closest("#ubMenu")) ubPaint(); });
 function invItemDetail(it){
   const prodCost = recipeCost(DET.ing), produced = hasRecipe(it);
   const inProducts = S.products.filter(p => live(p) && (p.ingredients||[]).some(l=>l.itemId===it.id));
