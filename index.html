@@ -4016,6 +4016,9 @@ const CURRENCIES = [["USD","US Dollar (USD)"],["LBP","Lebanese Pound (LBP)"],["E
 // the usual menu currency for each country (Lebanon: restaurants price in US dollars); it can still be changed
 const COUNTRY_CUR = {"Lebanon":"USD","United Arab Emirates":"AED","Saudi Arabia":"SAR","Qatar":"QAR","Kuwait":"KWD","Bahrain":"BHD","Oman":"OMR","Jordan":"JOD","Syria":"SYP","Iraq":"IQD","Egypt":"EGP","Turkey":"TRY","Cyprus":"EUR","France":"EUR","United Kingdom":"GBP","Germany":"EUR","Italy":"EUR","Spain":"EUR","United States / Canada":"USD","Australia":"AUD","Brazil":"BRL","Ivory Coast":"XOF","Nigeria":"NGN","Senegal":"XOF","DR Congo":"CDF","India":"INR","Philippines":"PHP","Sri Lanka":"LKR","Bangladesh":"BDT","Ethiopia":"ETB"};
 const company = () => S.settings.find(x=>x.id==="company") || {};
+// country and currency are chosen when the business is set up; after that they can't be changed
+const bizLocked = () => !!company().country;
+const LOCK_NOTE = "Set when the business was created. It can't be changed.";
 function paintCompany(){
   const c = company(), n = $("#coName"), l = $("#coLogo"), sub = $("#coSub"); if(!n) return;
   n.textContent = "Slick"; sub.textContent = "Restaurant ERP"; l.textContent = "S";   // the sidebar always shows the Slick logo
@@ -4031,12 +4034,12 @@ function viewCompany(){
         <div class="f"><label>Account number</label><input class="sel" value="${esc(c.accountNo || "—")}" disabled title="Your business account number, given by Slick. Used on the sign-in page for every brand in this business."></div>
         ${f("name","Business name *")}${f("taxNumber","Tax (VAT) number")}
         ${f("phone","Phone")}${f("email","Email","","email")}
-        <div class="f"><label for="co_country">Country</label><select id="co_country" class="sel" ${admin?"":"disabled"}>${CC_CODES.map(([d,n])=>`<option value="${esc(n)}" ${(c.country||"Lebanon")===n?"selected":""}>${esc(n)}</option>`).join("")}</select></div>
-        <div class="f"><label for="co_bcur">Currency</label><select id="co_bcur" class="sel" ${admin?"":"disabled"}>${CURRENCIES.map(([k,t])=>`<option value="${k}" ${(c.currency||COUNTRY_CUR[c.country||"Lebanon"]||"USD")===k?"selected":""}>${t}</option>`).join("")}</select></div>
+        <div class="f"><label for="co_country">Country</label><select id="co_country" class="sel" ${admin && !bizLocked() ? "" : "disabled"} ${bizLocked() ? `title="${LOCK_NOTE}"` : ""}>${CC_CODES.map(([d,n])=>`<option value="${esc(n)}" ${(c.country||"Lebanon")===n?"selected":""}>${esc(n)}</option>`).join("")}</select></div>
+        <div class="f"><label for="co_bcur">Currency</label><select id="co_bcur" class="sel" ${admin && !bizLocked() ? "" : "disabled"} ${bizLocked() ? `title="${LOCK_NOTE}"` : ""}>${CURRENCIES.map(([k,t])=>`<option value="${k}" ${(c.currency||COUNTRY_CUR[c.country||"Lebanon"]||"USD")===k?"selected":""}>${t}</option>`).join("")}</select></div>
         <div class="f"><label for="co_timeZone">Time zone</label><select id="co_timeZone" class="sel" ${admin?"":"disabled"}>${tzList().map(([z,off])=>`<option value="${z}" ${(c.timeZone||"Asia/Beirut")===z?"selected":""}>(UTC${off}) ${z.replace(/_/g," ")}</option>`).join("")}</select></div>
         ${f("logoUrl","Logo image link","https://…","url")}
         ${f("address","Address","","",1)}
-      </div><div class="err" id="coErr"></div></div>`;
+      </div>${bizLocked() ? `<p class="note" style="margin:10px 0 0">Country and currency were set when the business was created and can't be changed.</p>` : `<p class="note" style="margin:10px 0 0">Pick the country and currency carefully: once you save, they can't be changed.</p>`}<div class="err" id="coErr"></div></div>`;
 }
 function dayExample(v){
   const m = /^(\d{1,2}):(\d{2})/.exec(v||""), c = m ? (+m[1])*60 + (+m[2]) : 0, t = t12(`${Math.floor(c/60)}:${String(c%60).padStart(2,"0")}`);
@@ -4046,7 +4049,7 @@ function dayExample(v){
 document.addEventListener("input", e => { if(e.target.id==="co_dayEnd" && $("#coDayEx")) $("#coDayEx").textContent = dayExample(e.target.value); });
 async function saveCompany(){
   const v = k => ($("#co_"+k)?.value || "").trim();
-  const data = { name:v("name"), taxNumber:v("taxNumber"), phone:v("phone"), email:v("email"), address:v("address"), logoUrl:v("logoUrl"), timeZone:v("timeZone") || "Asia/Beirut", country:v("country") || "Lebanon", currency:v("bcur") || "USD", ...(company().accountNo ? { accountNo: company().accountNo } : {}) };
+  const data = { name:v("name"), taxNumber:v("taxNumber"), phone:v("phone"), email:v("email"), address:v("address"), logoUrl:v("logoUrl"), timeZone:v("timeZone") || "Asia/Beirut", country: company().country || v("country") || "Lebanon", currency: bizLocked() ? (company().currency || "USD") : (v("bcur") || "USD"), ...(company().accountNo ? { accountNo: company().accountNo } : {}) };
   if(!data.name){ $("#coErr").textContent = "Business name is required."; $("#co_name").focus(); return; }
   try{ await put("settings", "company", data); toast("Business saved"); }
   catch(e){ console.error(e); $("#coErr").textContent = "Couldn't save. Only the owner or an admin can change this."; }
@@ -4223,7 +4226,7 @@ function viewCurrency(){
     ${admin?"":`<div class="banner">Only the owner or an admin can change the currency.</div>`}
     <div class="card" style="margin-bottom:16px"><h3 style="margin:0 0 12px;font-size:15px">Prices & currencies</h3>
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px">
-        <div class="f"><label for="co_currency">Currency</label><select id="co_currency" class="sel" ${admin?"":"disabled"}>${CURRENCIES.map(([k,t])=>`<option value="${k}" ${(c.currency||"USD")===k?"selected":""}>${t}</option>`).join("")}</select></div>
+        <div class="f"><label for="co_currency">Currency</label><select id="co_currency" class="sel" ${admin && !bizLocked() ? "" : "disabled"} ${bizLocked() ? `title="${LOCK_NOTE}"` : ""}>${CURRENCIES.map(([k,t])=>`<option value="${k}" ${(c.currency||"USD")===k?"selected":""}>${t}</option>`).join("")}</select></div>
         <div class="f"><label for="co_priceDecimals">Price decimals</label><select id="co_priceDecimals" class="sel" ${admin?"":"disabled"}>${[0,1,2,3].map(n=>`<option value="${n}" ${String(c.priceDecimals ?? 2)===String(n)?"selected":""}>${n} (${(12.5).toFixed(n)})</option>`).join("")}</select></div>
         <div class="f"><label for="co_currency2">Second currency</label><select id="co_currency2" class="sel" ${admin?"":"disabled"}><option value="">None</option>${CURRENCIES.map(([k,t])=>`<option value="${k}" ${c.currency2===k?"selected":""}>${t}</option>`).join("")}</select></div>
         <div class="f"><label for="co_rate2">Exchange rate (1 ${esc(c.currency||"USD")} =)</label><input id="co_rate2" class="sel" type="number" min="0" step="any" value="${esc(c.rate2??"")}" placeholder="e.g. 89500" ${admin?"":"disabled"}></div>
@@ -4233,7 +4236,7 @@ function viewCurrency(){
 }
 async function saveCurrency(){
   const v = k => ($("#co_"+k)?.value || "").trim();
-  const data = { currency: v("currency") || "USD", priceDecimals: +v("priceDecimals"), currency2: v("currency2"), rate2: v("rate2")==="" ? null : +v("rate2"), decimals2: +v("decimals2") || 0 };
+  const data = { currency: bizLocked() ? (company().currency || "USD") : (v("currency") || "USD"), priceDecimals: +v("priceDecimals"), currency2: v("currency2"), rate2: v("rate2")==="" ? null : +v("rate2"), decimals2: +v("decimals2") || 0 };
   if(data.currency2 && !(data.rate2 > 0)){ $("#curErr").textContent = "Enter the exchange rate for the second currency."; $("#co_rate2").focus(); return; }
   try{ await put("settings", "company", data); toast("Currency saved"); }
   catch(e){ console.error(e); $("#curErr").textContent = "Couldn't save. Only the owner or an admin can change this."; }
