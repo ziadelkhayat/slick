@@ -606,11 +606,13 @@ const products = () => S.products.filter(p => live(p) && !(p.inactiveBranchIds||
 const openShift = () => S.shifts.find(s => s.deviceId===device.id && !s.closedAt);
 /* ---------- cashiers: PIN sign-in and what each role may do ---------- */
 let cashier = null, pinBuf = "";
-const posUsers = () => S.users.filter(u => live(u) && u.active!==false && u.pinHash && (!(u.branchIds||[]).length || u.branchIds.includes(device.branchId)));
+const posUsers = () => S.users.filter(u => live(u) && u.active!==false && u.pinHash && (isAdminUser(u) || !(u.branchIds||[]).length || u.branchIds.includes(device.branchId)));
 const usePins = () => S.users.some(u => live(u) && u.pinHash);           // no PIN users yet = the register stays open, as before
 // a user can have several roles (Foodics-style); a permission from any of them counts
+// owners and admins (their PIN is set in the back office under My profile) may do everything, on any device
+const isAdminUser = u => !!u && (u.role==="owner" || u.role==="admin");
 const userPerms = u => { const ids = (u?.roleIds||[]).length ? u.roleIds : [u?.roleId]; return S.roles.filter(r => ids.includes(r.id) && !r.deleted).flatMap(r => r.permissions||[]); };
-const can = perm => { if(!usePins()) return true; if(!cashier) return false; return userPerms(cashier).includes(perm); };
+const can = perm => { if(!usePins()) return true; if(!cashier) return false; return isAdminUser(cashier) || userPerms(cashier).includes(perm); };
 async function pinHash(id, pin){ const b = await crypto.subtle.digest("SHA-256", new TextEncoder().encode("slick:" + id + ":" + pin)); return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,"0")).join(""); }
 function lockIfNeeded(){ if(usePins() && !cashier) lock(); paintCashier(); }
 function lock(){ cashier = null; pinBuf = ""; paintPin(); $("#pinErr").textContent = ""; $("#lock").classList.remove("hide"); paintCashier(); }
@@ -623,7 +625,7 @@ async function tryPin(){
   if(!u && pin.length < 5) return;
   pinBuf = ""; paintPin();
   if(!u){ $("#pinErr").textContent = "Wrong PIN. Try again."; return; }
-  if(!userPerms(u).includes("pos_access")){ $("#pinErr").textContent = "Your role doesn't allow using the POS."; return; }
+  if(!isAdminUser(u) && !userPerms(u).includes("pos_access")){ $("#pinErr").textContent = "Your role doesn't allow using the POS."; return; }
   cashier = u; $("#lock").classList.add("hide"); paintCashier(); toast("Signed in as " + u.name);
 }
 $("#lock").addEventListener("click", e => { const b = e.target.closest("[data-pin]"); if(!b) return; const k = b.dataset.pin;
@@ -1271,7 +1273,7 @@ function approve(perm, title){
   if(!usePins()) return Promise.resolve({ name: cashier?.name || device.name });
   return new Promise(resolve => {
     let buf = ""; const el = document.createElement("div"); el.className = "apv";
-    const draw = err => { el.innerHTML = `<div class="apvbox"><h2>${esc(title)}</h2><p class="mut">A manager whose role allows this types their PIN.</p><div class="pindots">${[0,1,2,3,4].map(i=>`<i class="${i<buf.length?"on":""}"></i>`).join("")}</div>
+    const draw = err => { el.innerHTML = `<div class="apvbox"><h2>${esc(title)}</h2><p class="mut">A manager whose role allows this, or an admin, types their PIN.</p><div class="pindots">${[0,1,2,3,4].map(i=>`<i class="${i<buf.length?"on":""}"></i>`).join("")}</div>
       <div class="err" style="min-height:20px;color:#b42318">${esc(err||"")}</div><div class="pinpad">${[1,2,3,4,5,6,7,8,9].map(n=>`<button data-ap="${n}">${n}</button>`).join("")}<button data-ap="c">C</button><button data-ap="0">0</button><button data-ap="b">⌫</button></div>
       <button class="btn" data-apx style="margin-top:12px;width:100%">Cancel</button></div>`; };
     const done = v => { el.remove(); document.removeEventListener("keydown", key, true); resolve(v); };
@@ -1279,7 +1281,7 @@ function approve(perm, title){
       if(!u && pin.length < 5) return;
       buf = "";
       if(!u) return draw("Wrong PIN. Try again.");
-      if(userPerms(u).includes(perm)) return done(u);
+      if(isAdminUser(u) || userPerms(u).includes(perm)) return done(u);
       return draw(`${u.name}'s role can't approve this.`); };
     const press = k => { if(k==="c") buf = ""; else if(k==="b") buf = buf.slice(0,-1); else if(buf.length < 5) buf += k; draw(); if(buf.length>=4) check(); };
     const key = e => { if(/^\d$/.test(e.key)){ e.stopPropagation(); press(e.key); } else if(e.key==="Backspace"){ e.stopPropagation(); press("b"); } else if(e.key==="Escape") done(null); };

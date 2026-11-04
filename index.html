@@ -1805,6 +1805,9 @@ const roleName = id => S.roles.find(r=>r.id===id)?.name || "—";
 const userRoleIds = u => (u?.roleIds||[]).length ? u.roleIds : (u?.roleId ? [u.roleId] : []);
 const userRolesTxt = u => userRoleIds(u).map(roleName).join(", ") || "—";
 async function pinHash(id, pin){ const b = await crypto.subtle.digest("SHA-256", new TextEncoder().encode("slick:" + id + ":" + pin)); return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,"0")).join(""); }
+// an owner's / admin's own cashier-app PIN is kept on a user row marked with their account role
+const isAdminRow = r => r && (r.role==="owner" || r.role==="admin");
+const myAdminRow = () => S.users.find(u => live(u) && isAdminRow(u) && state.userId && u.userId===state.userId);
 const newUserId = () => "usr_" + Date.now().toString(36) + Math.random().toString(36).slice(2,8);
 // what the signed-in person may open in the back office (the owner and legacy admins see everything)
 function myPerms(){
@@ -1880,7 +1883,7 @@ const CRUD = {
   },
   users: {
     col:"users", title:"Users", one:"User", addLbl:"Add", detail: r => userDetail(r),
-    tabs:[["all","All",live],["active","Active",r=>live(r)&&r.active!==false],["inactive","Inactive",r=>live(r)&&r.active===false],["deleted","Deleted",r=>r.deleted]],
+    tabs:[["all","All",r=>live(r)&&!isAdminRow(r)],["active","Active",r=>live(r)&&r.active!==false&&!isAdminRow(r)],["inactive","Inactive",r=>live(r)&&r.active===false&&!isAdminRow(r)],["deleted","Deleted",r=>r.deleted&&!isAdminRow(r)]],
     sort:(a,b)=>a.name.localeCompare(b.name), search:r=>r.name+" "+(r.email||"")+" "+(r.phone||""),
     cols:[["Name",r=>`<b>${esc(r.name)}</b>${r.active===false?' <span class="tag off">Inactive</span>':""}`],
       ["Console Access",r=>r.email ? (r.userId ? '<span class="tag on">Active</span>' : '<span class="tag off">Invited</span>') : '<span class="tag off">Inactive</span>'],
@@ -3941,12 +3944,22 @@ function viewAccount(){
     <div class="card"><h3 style="margin:0 0 12px;font-size:15px">Profile</h3>
       <div class="f" style="margin-bottom:12px"><label for="acName">Name</label><input id="acName" class="sel" value="${esc(n)}"></div>
       <div class="f" style="margin-bottom:12px"><label>Email (sign-in)</label><input class="sel" value="${esc(state.email||"")}" disabled></div>
-      <div class="f"><label>Password</label><div><button type="button" class="btn" id="acReset">Email me a password reset link</button></div><div class="note" style="margin-top:6px">You set the new password yourself from the link; Slick never sees it.</div></div>
+      <div class="f"><label>Password</label><div><button type="button" class="btn" id="acReset">Email me a password reset link</button></div><div class="note" style="margin-top:6px">Forgot it? Get a link by email instead.</div></div>
       <div class="err" id="acErr"></div></div>
     <div class="card"><h3 style="margin:0 0 12px;font-size:15px">Access</h3>
       ${owner ? `<p style="margin:0 0 8px"><span class="tag on">Owner</span> <b>Super user</b></p><p class="note" style="margin:0 0 12px">This account owns the business: it sees every brand, branch and screen and can change everything, including users, roles and permissions. Roles never restrict the owner.</p>`
         : `<p style="margin:0 0 8px"><span class="tag">${esc(ROLE_LBL[state.role] || state.role || "—")}</span></p><p class="note" style="margin:0 0 12px">Your access comes from your role. Ask the owner to change it.</p>`}
-    </div></div>`;
+    </div>
+    <div class="card"><h3 style="margin:0 0 4px;font-size:15px">Change password</h3><p class="note" style="margin:0 0 12px">For signing in to the back office.</p>
+      <div class="f" style="margin-bottom:10px"><label for="acPw1">New password</label><input id="acPw1" class="sel" type="password" autocomplete="new-password"></div>
+      <div class="f" style="margin-bottom:10px"><label for="acPw2">Repeat new password</label><input id="acPw2" class="sel" type="password" autocomplete="new-password"></div>
+      <div class="err" id="acPwErr"></div><button type="button" class="btn pri" id="acPwSave">Change password</button></div>
+    ${["owner","admin"].includes(state.role) ? `<div class="card"><h3 style="margin:0 0 4px;font-size:15px">Cashier app PIN</h3>
+      <p class="note" style="margin:0 0 12px">Your 5-digit PIN signs you in on every cashier device, in any branch and brand, with full access. Cashiers also ask you for it to approve a discount, void or return their role doesn't allow.</p>
+      <p style="margin:0 0 10px">${myAdminRow()?.pinHash ? '<span class="tag on">PIN set</span>' : '<span class="tag off">No PIN yet</span>'}</p>
+      <div class="f" style="margin-bottom:10px"><label for="acPin">${myAdminRow()?.pinHash ? "New PIN" : "PIN"}</label><div style="display:flex;gap:8px"><input id="acPin" class="sel" inputmode="numeric" maxlength="5" autocomplete="off" style="flex:1"><button type="button" class="btn" data-pingen="acPin">Generate</button></div></div>
+      <div class="err" id="acPinErr"></div><button type="button" class="btn pri" id="acPinSave">Save PIN</button></div>` : ""}
+    </div>`;
 }
 async function saveAccount(){
   const name = ($("#acName")?.value || "").trim(); if(!name){ $("#acErr").textContent = "Enter your name."; return; }
@@ -3958,6 +3971,17 @@ async function saveAccount(){
 document.addEventListener("click", async e => {
   const at = e.target.closest("[data-actab]"); if(at){ e.preventDefault(); state.acTab = at.dataset.actab; return render(); }
   if(e.target.closest("#acSave")) return saveAccount();
+  if(e.target.closest("#acPwSave")){ const a = $("#acPw1").value, b = $("#acPw2").value, err = m => $("#acPwErr").textContent = m;
+    if(a.length < 8) return err("Use at least 8 characters."); if(a !== b) return err("The two passwords don't match.");
+    const { error } = await WOK.sb.auth.updateUser({ password:a }); if(error) return err(error.message);
+    $("#acPw1").value = $("#acPw2").value = ""; err(""); return toast("Password changed"); }
+  if(e.target.closest("#acPinSave")){ const pin = ($("#acPin").value || "").trim(), err = m => $("#acPinErr").textContent = m;
+    if(!/^\d{5}$/.test(pin)) return err("The PIN must be exactly 5 digits.");
+    const row = myAdminRow(), id = row?.id || newUserId();
+    for(const u of S.users.filter(u => live(u) && u.id!==id && u.pinHash)){ if(await pinHash(u.id, pin)===u.pinHash || await pinHash(u.id, pin.slice(0,4))===u.pinHash) return err("This PIN clashes with another user's PIN. Pick a different one (Generate)."); }
+    try{ await put("users", id, { name: state.fullName || "Admin", email: (state.email||"").toLowerCase() || null, role: state.role, roleIds: [], branchIds: [], userId: state.userId, active: true, pinHash: await pinHash(id, pin) });
+      $("#acPin").value = ""; err(""); toast("PIN saved · it works on every cashier device"); render(); }
+    catch(e2){ console.error(e2); err("Couldn't save the PIN."); } }
   if(e.target.closest("#acReset")){ if(!state.email) return; const { error } = await WOK.sb.auth.resetPasswordForEmail(state.email, { redirectTo: location.href.split("#")[0] }); toast(error ? "Couldn't send the email: " + error.message : "Password reset link sent to " + state.email); }
 });
 
