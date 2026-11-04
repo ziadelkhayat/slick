@@ -2466,7 +2466,7 @@ function viewCallCenter(){
   return h;
 }
 // order number comes from the POS that bills the order; until then call-center / web orders go by invoice number
-const ordRef = o => o.status==="refund" ? "RET-" + String(o.returnNo || o.return_no || "…").padStart(6,"0") : o.no ? "#" + o.no : (o.ref || (o.invoiceNo || o.invoice_no ? invNo(o.invoiceNo || o.invoice_no) : "—"));
+const ordRef = o => o.status==="draft" && !o.no ? "Draft" : o.status==="refund" ? "RET-" + String(o.returnNo || o.return_no || "…").padStart(6,"0") : o.no ? "#" + o.no : (o.ref || (o.invoiceNo || o.invoice_no ? invNo(o.invoiceNo || o.invoice_no) : "—"));
 const invNo = n => n ? "INV-" + String(n).padStart(6,"0") : "";   // invoice number as shown
 const ccTime = t => { if(!t) return "—"; const d = new Date(t), today = bizDate()===bizDate(d); return d.toLocaleString("en-GB", today ? { hour:"2-digit", minute:"2-digit" } : { day:"numeric", month:"short", hour:"2-digit", minute:"2-digit" }); };
 const ccCard = o => `<button class="ocard" data-order="${esc(o.id)}"><div class="orow"><b>${esc(ordRef(o))}</b><span class="spill s-${o.status}">${CC_SUB[o.status]}</span></div>
@@ -2607,7 +2607,7 @@ const addrSplit = v => { const a = { label:"", street:"", building:"", floor:"",
 const ccAddrGet = () => { const a = {}; ADDR_K.forEach(k => a[k] = ($("#oA_"+k)?.value || "").trim()); return a; };
 const ccAddrSet = v => { const a = addrSplit(v); ADDR_K.forEach(k => { const el = $("#oA_"+k); if(el) el.value = a[k]; }); };
 function ccActions(o){
-  if(!o || o.status==="draft") return `<button type="button" class="btn" data-osave="draft">Save as Draft</button><button type="button" class="btn pri" data-osave="pending">Send to Branch</button>`;
+  if(!o || o.status==="draft") return `<button type="button" class="btn" data-osave="draft">Save as Draft</button><button type="button" class="btn pri" data-osave="pending">Send to Branch</button>${o ? `<button type="button" class="btn danger" data-ccdeldraft>Cancel Draft</button>` : ""}`;
   const b = [];
   if(ccEditable(o)) b.push(`<button type="button" class="btn pri" data-osave="keep">Save changes</button>`);
   // the branch accepts and completes orders on its POS; the call center can only cancel one the branch hasn't accepted yet
@@ -4842,6 +4842,9 @@ $("#ccScrim").addEventListener("click", e => { if(e.target.id==="repCsv") return
   const q = e.target.closest("[data-q]"); if(q){ const [ix,d] = q.dataset.q.split(":").map(Number); cart[ix].qty += d; if(cart[ix].qty<=0) cart.splice(ix,1); renderCart(false); }
   const sv = e.target.closest("[data-osave]"); if(sv) saveOrder(sv.dataset.osave);
   const st = e.target.closest("[data-ostatus]"); if(st) setOrderStatus(st.dataset.ostatus);
+  if(e.target.closest("[data-ccdeldraft]")){ const o = ccEdit && S.orders.find(x => x.id===ccEdit); if(!o || o.status!=="draft" || !confirm("Cancel this draft? It is deleted and never reaches a branch.")) return;
+    (async () => { try{ if(storeMode==="db") await db.collection("orders").doc(o.id).delete(); else S.orders = S.orders.filter(x => x.id!==o.id); toast("Draft cancelled"); $("#ccScrim").classList.remove("show"); render(); }
+      catch(err){ console.error(err); $("#oErr").textContent = "Couldn't cancel the draft."; } })(); }
 });
 $("#ccScrim").addEventListener("input", e => { if(e.target.id==="oSearch") renderOrderMenu(); if(e.target.closest(".ccleft") && $("#oErr1")) $("#oErr1").textContent = ""; });
 $("#ccScrim").addEventListener("click", e => { if(e.target.closest("#oCatBack")){ state.oCat = ""; if($("#oSearch")) $("#oSearch").value = ""; renderOrderMenu(); } });
