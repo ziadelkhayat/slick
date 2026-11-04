@@ -1813,8 +1813,9 @@ const CRUD = {
     unique:"name", note:"These are the buttons the cashier sees on the POS payment screen, in the order you sort them. Cash lets the cashier enter the amount received and gives change. Renaming a method renames it on past orders too."
   },
   roles: {
-    col:"roles", title:"Roles", one:"Role",
-    tabs:[["all","All",live],["deleted","Deleted",r=>r.deleted]],
+    col:"roles", title:"Roles", one:"Role", hardDelete:1,
+    tabs:[["all","All",live]],
+    canDelete: r => { const n = S.users.filter(u => !u.deleted && userRoleIds(u).includes(r.id)).length; return n ? `This role is used by ${n} user${n===1?"":"s"}. Remove it from ${n===1?"that user":"those users"} first (Manage → Users).` : ""; },
     sort:(a,b)=>a.name.localeCompare(b.name), search:r=>r.name,
     cols:[["Name",r=>`<b>${esc(r.name)}</b>${r.nameAr?` <span class="note">${esc(r.nameAr)}</span>`:""}${r.description?`<div class="note">${esc(r.description)}</div>`:""}`],
       ["Back office",r=>{ const n = (r.permissions||[]).filter(p=>p.startsWith("bo_")).length; return n ? (r.permissions.includes("bo_manage") ? '<span class="tag on">Full admin</span>' : n+" areas") : '<span class="note">No access</span>'; }],
@@ -1836,10 +1837,10 @@ const CRUD = {
       {k:"language",l:"Language",t:"select",opts:()=>[["en","English"],["ar","Arabic"]],def:"en"},
       {k:"phone",l:"Phone Number",t:"phone",ph:"70 123 456",full:1},
       {k:"email",l:"Email",ph:"Needed only to log in to the back office"},
-      {k:"password",l:"Back office password",t:"password",hideIf:r=>!!r.userId,note:"Only for users who work in the back office. They sign in with their email and this password. At least 8 characters. Once set, they change it themselves with Forgot password."},
+      {k:"password",l:"Password",t:"password",hideIf:r=>!!r.userId,note:"Only for users who work in the back office. They sign in with their email and this password. At least 8 characters. Once set, they change it themselves with Forgot password."},
       {k:"pin",l:"Login PIN",t:"pin",note:"A unique 5-digit PIN the user types to sign in on the cashier app. Generate a random PIN for better security."},
       {k:"displayLocalized",l:"Display Localized Names (show the apps in the localized language)",t:"chk",def:false},
-      {k:"roleIds",l:"Roles",t:"multi",get:r=>userRoleIds(r),opts:()=>S.roles.filter(live).map(r=>[r.id,r.name]),empty:"No roles yet. Create one in Manage → Roles first."},
+      {k:"roleIds",l:"Roles",t:"multi",get:r=>userRoleIds(r),opts:()=>S.roles.filter(live).map(r=>[r.id,r.name])},
       {k:"active",l:"Active",t:"chk",def:true,editOnly:1}],
     note:"POS users sign in on the tablet with their PIN. For back-office access, add their email and a password: they sign in with them.",
     prep: async (data, id) => {
@@ -2193,6 +2194,11 @@ async function createStaffLogin(email, password){
     return { userId: data?.user?.id || null, confirm: !data?.session };
   }catch(e){ console.error(e); return { error:"Couldn't create the login: " + e.message }; }
 }
+
+// roles deleted with the older "move to Deleted" are removed for good, unless a user still has them
+let rolesPurged = false;
+async function purgeDeletedRoles(){ if(rolesPurged || storeMode!=="db" || !(state.role==="owner" || state.role==="admin")) return; rolesPurged = true;
+  for(const r of S.roles.filter(x => x.deleted && !S.users.some(u => !u.deleted && userRoleIds(u).includes(x.id)))){ try{ await db.collection("roles").doc(r.id).delete(); }catch(e){ console.error(e); } } }
 function openCrud(key, id){
   const cfg = CRUD[key], r = id ? S[cfg.col].find(x=>x.id===id) : null;
   crudEdit = { key, id: r?.id || null };
@@ -2459,6 +2465,9 @@ async function submitCrud(e){
 async function softDelete(flag){
   const cfg = CRUD[crudEdit.key];
   if(flag && cfg.canDelete){ const msg = cfg.canDelete(S[cfg.col].find(r=>r.id===crudEdit.id) || {}); if(msg){ $("#cErr").textContent = msg; return; } }
+  if(flag && cfg.hardDelete){ const r = S[cfg.col].find(x=>x.id===crudEdit.id); if(!confirm(`Delete ${r?.name || "this " + cfg.one.toLowerCase()} permanently? This can't be undone.`)) return;
+    try{ if(storeMode==="db") await db.collection(cfg.col).doc(crudEdit.id).delete(); else S[cfg.col] = S[cfg.col].filter(x=>x.id!==crudEdit.id); toast(cfg.one + " deleted"); closeCrud(); render(); }
+    catch(err){ console.error(err); $("#cErr").textContent = "Couldn't delete."; } return; }
   try{ await put(cfg.col, crudEdit.id, { deleted: flag }); toast(flag ? cfg.one + " moved to Deleted" : cfg.one + " restored"); closeCrud(); }
   catch(err){ console.error(err); $("#cErr").textContent = "Couldn't update."; }
 }
@@ -3105,6 +3114,7 @@ $("#view").addEventListener("click", e => {
 
 /* ---------- wiring ---------- */
 function moduleRoute(route){
+  if(route==="roles") setTimeout(purgeDeletedRoles, 1500);
   if(CRUD[route]) return crudView(route);
   if(route==="call-center") return viewCallCenter();
   if(route==="devices") return viewDevices();
