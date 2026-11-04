@@ -466,6 +466,7 @@ button,input,select,textarea{font-family:var(--f-ui)}
 .incnote button{border:0;border-radius:12px;font:inherit;font-weight:700;cursor:pointer;padding:11px 16px}.incnote .iv{background:#6c47ff;color:#fff}.incnote .ix{background:#f2f0f8;color:#4b4760;padding:11px 13px}
 @keyframes incIn{from{opacity:0;transform:translate(-50%,-12px)}to{opacity:1;transform:translate(-50%,0)}}
 .chead .cpills{flex-basis:100%;display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding-left:46px;margin-top:2px}.chead .cinfo{flex:1;min-width:0}
+.rpaper{width:400px;max-width:100%;margin:0 auto;background:#fff;color:#111;padding:20px 18px 18px;border-radius:6px;box-shadow:0 2px 14px rgba(21,19,31,.1);font-size:14px;line-height:1.4}
 </style>
 <script>
 /* ---------- Slick's own Yes / No message (instead of the browser's) ---------- */
@@ -784,7 +785,6 @@ function saleBlock(){
 }
 const fmtDay = d => new Date(d + "T12:00:00").toLocaleDateString("en-GB", { weekday:"short", day:"numeric", month:"short" });
 function openDayEnd(){
-  if(!isMaster()) return toast("The day is ended on the master POS");
   if(!can("pos_endday")) return deny("ending the day");
   const day = openDay(), act = S.orders.filter(o => o.branchId===device.branchId && ["pending","active"].includes(o.status));
   const shifts = S.shifts.filter(x => x.branchId===device.branchId && !x.closedAt);
@@ -835,7 +835,7 @@ function renderAll(){
   const bn = S.brands.find(b=>b.id===branch?.brandId)?.name;
   $("#tBranch").textContent = (bn ? bn + " · " : "") + (branch?.name || "Unknown branch");
   $("#tDevice").textContent = device.name + ((S.devices||[]).some(d => !d.deleted && d.branchId===device.branchId && d.settings?.master) ? (isMaster() ? " · Master POS" : " · Sub-POS") : "");
-  $("#dayBtn").style.display = isMaster() ? "" : "none";
+  $("#dayBtn").style.display = "";   // any register can end the branch's day (the role needs "end of day")
   const sh = openShift();
   $("#shiftPill").textContent = sh ? "Shift open" : "Shift closed"; $("#shiftPill").classList.toggle("off", !sh);
   const blk = saleBlock(); $("#dayBtn span").textContent = (blk && openDay() < bizDate() ? "⚠ " : "") + "End of day (" + openDay().split("-").reverse().join("/") + ")"; $("#dayBtn").title = blk || "End the business day for this branch";
@@ -1202,6 +1202,7 @@ $("#modal").addEventListener("click", async e => {
   const gq = e.target.closest("[data-guests]"); if(gq){ const n = gq.dataset.guests==="custom" ? +$("#gNum").value : +gq.dataset.guests; if(!(n >= 1)) return $("#gNum")?.focus(); return pickTable(window.__gTable, n); }
   if(e.target.closest("#tblGo")){ const v = $("#tblNo").value.trim(); if(v) return pickTable(v); return; }
   const rp = e.target.closest("[data-rp]"); if(rp){ RP = rp.dataset.rp; return openReports(); }
+  if(e.target.closest("[data-rprint]") && !window.Capacitor) return printReport();
   if(e.target.closest("[data-rprint]")) return modal("receipt", `<div class="mh"><h2>Report</h2><button class="x" data-rback aria-label="Back">←</button></div><div class="mb"><div class="receipt">${esc(reportText())}</div><p class="mut" style="margin-top:10px">Printing starts working in the installed Android app.</p></div><div class="mf"><button class="btn pri" data-rback>Done</button></div>`);
   if(e.target.closest("[data-rback]")) return openReports();
   const nk = e.target.closest("[data-nkind]"); if(nk){ NOTEK = nk.dataset.nkind; document.querySelectorAll("[data-nkind]").forEach(b => b.classList.toggle("on", b===nk)); $("#noteTxt").value = NOTEK==="k" ? kitchenNote : orderNote; $("#notesSave").disabled = !$("#noteTxt").value.trim(); $("#noteTxt").focus(); return; }
@@ -1943,19 +1944,36 @@ function openReports(){
   const sec = (h, x) => `<div class="rsec"><h3>${h}</h3>${x}</div>`;
   modal("reports", `<div class="ohdr"><button class="hbtn" data-close>Back</button><b style="font-size:18px">Reports</b><span class="sp"></span>
     <div class="otabs2" style="box-shadow:none;border:1px solid var(--line)">${Object.entries(RP_L).map(([k,l]) => `<button data-rp="${k}" class="${RP===k?"on":""}">${l}</button>`).join("")}</div><button class="hbtn ghost" data-rprint>Print</button></div>
-    <div class="mb"><p class="mut" style="margin:0 0 12px">${RP==="shift" ? (d.sh ? `Shift opened ${new Date(d.sh.openedAt).toLocaleString("en-GB",{day:"numeric",month:"short",hour:"numeric",minute:"2-digit"})}${d.sh.cashier ? " by " + esc(d.sh.cashier) : ""}${d.sh.closedAt ? " · closed" : " · still open"}` : "No shift on this register yet.") : `Business date ${bizDate()}${RP==="device" ? " · " + esc(device.name) : " · " + esc(branch?.name||"")}`}</p>
-    <div class="rgrid"><div><span>Orders</span><b>${cnt}</b></div><div><span>Gross sales</span><b>${usd(d.gross)}</b></div><div><span>Returns</span><b>${usd(-d.ref)}</b></div><div><span>Net sales (after returns)</span><b>${usd(d.net)}</b></div>
-      <div><span>Tax</span><b>${usd(d.tax)}</b></div><div><span>Discounts</span><b>${usd(d.disc)}</b></div><div><span>Charges</span><b>${usd(d.chg)}</b></div><div><span>Average order</span><b>${usd(cnt ? d.gross / cnt : 0)}</b></div>
-      <div><span>Voided orders</span><b>${d.voids.length} · ${usd(d.voidTotal)}</b></div><div><span>Voided items</span><b>${d.voidItemsN} · ${usd(d.voidItemsTotal)}</b></div></div>
-    <div class="rsecs">${sec("Payments", tbl(d.pay))}${sec("Order types", tbl(d.types))}${sec("Channels", tbl(d.chans))}${sec("Categories", tbl(d.catRows))}${sec("Top products", tbl(d.prodRows.slice(0, 15)))}${sec("Staff", tbl(d.staff))}</div></div>`, true);
+    <div class="mb">
+    <style>${RP_CSS.replace(/(^|\n|\})\./g, "$1.rpaper .")}</style><div class="rpaper">${reportHtml(d)}</div></div>`, true);
   $("#modal").classList.add("full"); $("#scrim").classList.add("fullscr");
 }
+// the report as one list, laid out like an 80 mm receipt: on screen and when printed
+function reportHtml(d){
+  d = d || reportData(); const cnt = d.sales.length, m = n => usd(n);
+  const head = RP==="shift" ? (d.sh ? `Shift opened ${new Date(d.sh.openedAt).toLocaleString("en-GB",{day:"numeric",month:"short",hour:"numeric",minute:"2-digit"})}${d.sh.cashier ? " by " + esc(d.sh.cashier) : ""}${d.sh.closedAt ? " · closed" : " · still open"}` : "No shift on this register yet.") : `Business date ${bizDate()}`;
+  const r = (k, v, n) => `<div class="rl"><span>${esc(k)}</span>${n !== undefined ? `<i>${esc(n)}</i>` : ""}<b>${v}</b></div>`;
+  const sec = (h, rows, money = true) => `<div class="rh">${h}</div>${rows.length ? rows.map(([k,c]) => r(k, money ? m(c.v) : esc(c.v), c.n)).join("") : `<div class="rl rmut"><span>Nothing yet</span></div>`}`;
+  return `<div class="rc"><b class="rt">${esc(branch?.name || "")}</b><div>Report · ${esc(RP_L[RP])}</div><div>${esc(device.name)}${RP==="branch" ? "" : ""}</div><div>${head}</div><div>Printed ${new Date().toLocaleString("en-GB",{day:"numeric",month:"short",year:"numeric",hour:"numeric",minute:"2-digit"})}</div></div>
+    <div class="rh">Summary</div>${r("Orders", cnt)}${r("Gross sales", m(d.gross))}${r("Returns", m(-d.ref))}${r("Net sales (after returns)", m(d.net))}${r("Tax", m(d.tax))}${r("Discounts", m(d.disc))}${r("Charges", m(d.chg))}${r("Average order", m(cnt ? d.gross / cnt : 0))}${r("Voided orders", m(d.voidTotal), d.voids.length)}${r("Voided items", m(d.voidItemsTotal), d.voidItemsN)}
+    ${sec("Payments", d.pay)}${sec("Order types", d.types)}${sec("Channels", d.chans)}${sec("Categories", d.catRows)}${sec("Top products", d.prodRows.slice(0, 15))}${sec("Staff", d.staff)}<div class="rend">— End of report —</div>`;
+}
+const RP_CSS = `.rc{text-align:center;display:flex;flex-direction:column;gap:2px;padding-bottom:8px;border-bottom:1px dashed #999}.rc .rt{font-size:16px}
+.rh{margin:10px 0 4px;padding-bottom:3px;border-bottom:1px dashed #999;font-weight:800;text-transform:uppercase;letter-spacing:.04em;font-size:12px}
+.rl{display:flex;align-items:baseline;gap:8px;padding:3px 0;font-variant-numeric:tabular-nums}.rl span{flex:1;min-width:0}.rl i{font-style:normal;min-width:28px;text-align:right}.rl b{min-width:86px;text-align:right;font-weight:600}.rmut span{color:#888}
+.rend{text-align:center;margin-top:12px;padding-top:8px;border-top:1px dashed #999;font-size:11px}`;
+function printReport(){
+  const f = document.createElement("iframe"); f.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0"; document.body.appendChild(f);
+  const doc = f.contentWindow.document;
+  doc.open(); doc.write(`<!doctype html><html><head><meta charset="utf-8"><title>Report</title><style>@page{size:80mm auto;margin:2mm 3mm}html,body{margin:0}body{width:72mm;font:12px/1.35 Arial,Helvetica,sans-serif;color:#000}${RP_CSS}</style></head><body>${reportHtml()}</body></html>`); doc.close();
+  setTimeout(() => { try{ f.contentWindow.focus(); f.contentWindow.print(); }catch(e){ toast("Couldn't print on this device"); } setTimeout(() => f.remove(), 2000); }, 250);
+}
 function reportText(){
-  const d = reportData(), w = 32, row = (a,b) => String(a).slice(0, w-String(b).length-1).padEnd(w-String(b).length) + b, m = n => (+n||0).toFixed(2);
+  const d = reportData(), w = 42, row = (a,b) => String(a).slice(0, w-String(b).length-1).padEnd(w-String(b).length) + b, m = n => (+n||0).toFixed(2);
   const L = [ (branch?.name||"").padStart((w+(branch?.name||"").length)/2), ("REPORT · " + RP_L[RP].toUpperCase()).slice(0,w), device.name, new Date().toLocaleString("en-GB"), "-".repeat(w),
     row("Orders", d.sales.length), row("Gross sales", m(d.gross)), row("Returns", d.ref ? "-" + m(d.ref) : m(0)), row("Net sales", m(d.net)), row("Tax", m(d.tax)), row("Discounts", m(d.disc)), row("Charges", m(d.chg)),
     row("Voided orders " + d.voids.length, m(d.voidTotal)), row("Voided items " + d.voidItemsN, m(d.voidItemsTotal)), "-".repeat(w), "PAYMENTS", ...d.pay.map(([k,c]) => row(k + " (" + c.n + ")", m(c.v))),
-    "-".repeat(w), "ORDER TYPES", ...d.types.map(([k,c]) => row(k + " (" + c.n + ")", m(c.v))), "-".repeat(w), "CATEGORIES", ...d.catRows.map(([k,c]) => row(k + " x" + c.n, m(c.v))), "-".repeat(w) ];
+    "-".repeat(w), "ORDER TYPES", ...d.types.map(([k,c]) => row(k + " (" + c.n + ")", m(c.v))), "-".repeat(w), "CHANNELS", ...d.chans.map(([k,c]) => row(k + " (" + c.n + ")", m(c.v))), "-".repeat(w), "CATEGORIES", ...d.catRows.map(([k,c]) => row(k + " x" + c.n, m(c.v))), "-".repeat(w), "TOP PRODUCTS", ...d.prodRows.slice(0, 15).map(([k,c]) => row(k + " x" + c.n, m(c.v))), "-".repeat(w), "STAFF", ...d.staff.map(([k,c]) => row(k + " (" + c.n + ")", m(c.v))), "-".repeat(w) ];
   return L.join("\n");
 }
 
