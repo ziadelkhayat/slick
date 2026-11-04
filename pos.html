@@ -430,7 +430,7 @@ button,input,select,textarea{font-family:var(--f-ui)}
 <script>window.SLICK_OFFLINE = true;</script>
 <script src="supabase.js"></script>
 <script>if(!window.supabase) document.write('<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"><\/script>');</script>
-<script src="wokdb.js?v=28"></script>
+<script src="wokdb.js?v=29"></script>
 <script src="modpick.js?v=5"></script>
 </head>
 <body>
@@ -581,7 +581,7 @@ const prodPrice = p => { const c = (p.customPrices||{})[device.branchId]; return
 const kidIds = () => new Set(S.products.flatMap(p => (p.variants||[]).map(v => v.productId).filter(Boolean)));
 const kidsOf = p => { const ok = products(); return (p.variants||[]).map(v => ({ name:v.name, p: ok.find(x => x.id===v.productId) })).filter(x => x.p); };
 const tilePrice = p => { const k = kidsOf(p); return k.length ? Math.min(...k.map(x => prodPrice(x.p))) : prodPrice(p); };
-const products = () => S.products.filter(p => live(p) && !(p.inactiveBranchIds||[]).includes(device.branchId) && !(p.inactiveBranchIds||[]).includes(device.branchId + ":pos") && !(p.inactiveBranchIds||[]).includes(device.branchId + ":pos:" + menuType()) && (!p.brandId || !branch?.brandId || p.brandId===branch.brandId)); // which channels sell it is set per branch in Menus
+const products = () => S.products.filter(p => live(p) && p.active!==false && !(p.inactiveBranchIds||[]).includes(device.branchId) && !(p.inactiveBranchIds||[]).includes(device.branchId + ":pos") && !(p.inactiveBranchIds||[]).includes(device.branchId + ":pos:" + menuType()) && (!p.brandId || !branch?.brandId || p.brandId===branch.brandId)); // which channels sell it is set per branch in Menus
 const openShift = () => S.shifts.find(s => s.deviceId===device.id && !s.closedAt);
 /* ---------- cashiers: PIN sign-in and what each role may do ---------- */
 let cashier = null, pinBuf = "";
@@ -799,23 +799,26 @@ const CAT_ICON = [[/noodle|mein|udon|ramen|pasta|chow/i,"noodles","#d9822b"],[/r
 const catStyle = (c, i) => { const m = CAT_ICON.find(([r]) => r.test(c?.name||"")); const hue = c?.color || (m ? m[2] : CAT_HUES[i % CAT_HUES.length]); return { icon: m ? m[1] : "bowl", hue, tint: `color-mix(in srgb, ${hue} 14%, #fff)` }; };
 function renderMenu(){
   const kids = kidIds(), prods = products().filter(p => !kids.has(p.id) && (!(p.variants||[]).some(v => v.productId) || kidsOf(p).length));
-  const cats = S.categories.filter(c => live(c) && !(c.inactiveBranchIds||[]).includes(device.branchId) && !(c.inactiveBranchIds||[]).includes(device.branchId + ":pos") && prods.some(p => p.categoryId===c.id)).sort((a,b)=>(a.sort??999)-(b.sort??999) || a.name.localeCompare(b.name));
+  // the POS menu's own categories (Sales Channels); older setups without them use the menu categories
+  const chc = S.categories.filter(c => live(c) && c.channel==="pos"), useCh = chc.length > 0, has = (c, p) => useCh ? (c.productIds||[]).includes(p.id) : p.categoryId===c.id;
+  const cats = (useCh ? chc : S.categories.filter(c => live(c) && !c.channel)).filter(c => !(c.inactiveBranchIds||[]).includes(device.branchId) && !(c.inactiveBranchIds||[]).includes(device.branchId + ":pos") && prods.some(p => has(c, p))).sort((a,b)=>(a.sort??999)-(b.sort??999) || a.name.localeCompare(b.name));
+  const inOrder = c => (a, b) => useCh ? (c.productIds||[]).indexOf(a.id) - (c.productIds||[]).indexOf(b.id) : (a.sort??9999)-(b.sort??9999) || a.name.localeCompare(b.name);
   if(cat && !cats.some(c=>c.id===cat)) cat = "";
   const q = $("#q").value.trim().toLowerCase();
   const cs = {}; cats.forEach((c,i) => cs[c.id] = catStyle(c, i));
   const inCart = {}; cart.forEach(l => { if(l.productId) inCart[l.productId] = (inCart[l.productId]||0) + (+l.qty||0); });
-  const tile = p => { const s = cs[p.categoryId] || catStyle(null, 0), n = inCart[p.id] || kidsOf(p).reduce((a,k) => a + (inCart[k.p?.id]||0), 0);
+  const tile = p => { const s = cs[cat] || cs[cats.find(c => has(c, p))?.id] || catStyle(null, 0), n = inCart[p.id] || kidsOf(p).reduce((a,k) => a + (inCart[k.p?.id]||0), 0);
     return `<button class="prod${p.imageUrl?" hasimg":""}" data-add="${esc(p.id)}" style="--hue:${s.hue};--tint:${s.tint}">${p.imageUrl?`<img src="${esc(p.imageUrl)}" alt="" loading="lazy">`:`<span class="pic">${ico(s.icon)}</span>`}<span>${esc(p.name)}</span><b>${p.pricingMethod==="open"?"Open price":(kidsOf(p).length?"From ":"")+usd(tilePrice(p))}</b>${n ? `<i class="inc">${n}</i>` : ""}</button>`; };
   $("#mcats").innerHTML = "" && cats.length ? `<button class="mcat${cat?"":" on"}" role="tab" aria-selected="${!cat}" data-cat="" style="--hue:#6a4cf5;--tint:#efebff"><span class="cdot">${ico("star")}</span>Quick picks</button>` + cats.map(c => `<button class="mcat${c.id===cat?" on":""}" role="tab" aria-selected="${c.id===cat}" data-cat="${esc(c.id)}" style="--hue:${cs[c.id].hue};--tint:${cs[c.id].tint}"><span class="cdot">${ico(cs[c.id].icon)}</span>${esc(c.name)}</button>`).join("") : "";
-  const inCats = p => cats.some(c => c.id===p.categoryId);
+  const inCats = p => cats.some(c => has(c, p));
   if(q){   // searching looks through every category
     const l = prods.filter(p => inCats(p) && p.name.toLowerCase().includes(q)).sort((a,b)=>a.name.localeCompare(b.name));
     $("#grid").innerHTML = l.length ? l.map(tile).join("") : `<div class="empty">No items match.</div>`; return; }
-  const byCat = id => prods.filter(p => p.categoryId===id).sort((a,b)=>(a.sort??9999)-(b.sort??9999) || a.name.localeCompare(b.name));
+  const byCat = id => { const c = cats.find(x => x.id===id); return prods.filter(p => has(c, p)).sort(inOrder(c)); };
   if(!cat){   // the categories, as tiles to open
-    $("#grid").innerHTML = cats.length ? cats.map(c => `<button class="ctile ctile2" data-cat="${esc(c.id)}" style="--hue:${cs[c.id].hue};--tint:${cs[c.id].tint}"><span class="pic">${ico(cs[c.id].icon)}</span><span>${esc(c.name)}</span><small>${byCat(c.id).length} items</small></button>`).join("") : `<div class="empty">No menu for this branch yet. Set it up under Menu → Menus in the back office.</div>`;
+    $("#grid").innerHTML = cats.length ? cats.map(c => `<button class="ctile ctile2" data-cat="${esc(c.id)}" style="--hue:${cs[c.id].hue};--tint:${cs[c.id].tint}">${c.imageUrl ? `<img src="${esc(c.imageUrl)}" alt="" loading="lazy">` : `<span class="pic">${ico(cs[c.id].icon)}</span>`}<span>${esc(c.name)}</span><small>${byCat(c.id).length} items</small></button>`).join("") : `<div class="empty">No menu for this branch yet. Set it up under Menu → Menus in the back office.</div>`;
     return; }
-  const c = cats.find(x=>x.id===cat), l = prods.filter(p => p.categoryId===cat).sort((a,b)=>(a.sort??9999)-(b.sort??9999) || a.name.localeCompare(b.name));   // order set in Menu → Menus
+  const c = cats.find(x=>x.id===cat), l = byCat(cat);   // order set in Sales Channels
   $("#grid").innerHTML = `<div class="cback"><button class="cbtn" data-cat="" style="--hue:${cs[cat].hue}">${ico("back")} BACK</button><b>${esc(c.name)}</b></div>` + l.map(tile).join("");
 }
 function totals(){

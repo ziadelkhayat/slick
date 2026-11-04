@@ -576,11 +576,13 @@ h1:has(.ib),h3:has(.ib){display:inline-flex;align-items:center}
 .scrow{display:flex;align-items:center;gap:12px;padding:10px 10px 10px 34px;border-bottom:.8px solid #f0f0f3;flex-wrap:wrap}.scrow.off .scpn{color:#8e8e93}.scrow.chg{background:#fbf9ff}.scpn{flex:1;min-width:160px;font-size:14px}.scprice{display:flex;align-items:center;gap:6px}.scprice input{width:96px;text-align:right}.sctypes{display:flex;gap:6px;flex-wrap:wrap}
 .scchip{display:inline-flex;align-items:center;gap:6px;border:.8px solid #d1d1d6;border-radius:999px;padding:5px 12px;font-size:13px;cursor:pointer;color:#636366;background:#fff;user-select:none}.scchip input{display:none}.scchip.on{border-color:var(--accent);color:var(--accent);background:#f4effc}
 @media(max-width:700px){.scch{grid-template-columns:1fr}.scrow{padding-left:12px}}
+.scadd{display:flex;align-items:center;gap:12px;padding:12px 10px}.scimg{width:34px;height:34px;border-radius:6px;background:#f2f2f7;overflow:hidden;flex:none}.scimg img{width:100%;height:100%;object-fit:cover}.scacts{display:flex;gap:6px}.scrm{width:28px;height:28px;font-size:16px;color:#8e8e93}
+.bkc{width:44px}.bkbar{text-align:left}.bkbar b{margin-right:16px}.bkbar .ddmenu{left:0;right:auto}
 </style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="wokdb.js?v=28"></script>
+<script src="wokdb.js?v=29"></script>
 <script src="modpick.js?v=5"></script>
 </head>
 <body>
@@ -1887,18 +1889,26 @@ const CRUD = {
   },
   categories: {
     col:"categories", title:"Categories", one:"Category",
-    note:"Set the order of categories and their items in Menu → Sales Channels: that order is used by the POS, call center and web ordering.",
-    tabs:[["all","All",live],["deleted","Deleted",r=>r.deleted]],
+    note:"Menu categories group your products for reports and inventory. What the POS, call center and web ordering show is built per channel in Sales Channels.",
+    tabs:[["all","All",r=>live(r)&&!r.channel],["deleted","Deleted",r=>r.deleted&&!r.channel]],
     sort:(a,b)=>a.name.localeCompare(b.name),
     search:r=>r.name+" "+(r.reference||""),
     cols:[["Name",r=>`<b>${esc(r.name)}</b>`],["Reference",r=>esc(r.reference||"—")],
       ["Products",r=>`<a class="lnk" href="#products" data-catfilter="${esc(r.id)}">Products (${S.products.filter(p=>live(p)&&p.categoryId===r.id).length})</a>`],
       ["Created",r=>fmtDate(r.createdAt)]],
-    fields:[{k:"name",l:"Name",req:1},{k:"nameAr",l:"Name (Arabic)"},{k:"reference",l:"Reference"}]
+    fields:[{k:"name",l:"Name",req:1},{k:"nameAr",l:"Name (Arabic)"},{k:"reference",l:"Reference"},{k:"imageUrl",l:"Image",t:"image",full:1}]
+  },
+  // a sales channel's own category (Sales Channels): its name, picture and the products in it
+  chcat: {
+    col:"categories", title:"Channel categories", one:"Category", hardDelete:1, addLbl:"Add",
+    tabs:[["all","All",r=>live(r)&&!!r.channel]],
+    fields:[{k:"name",l:"Name",req:1},{k:"nameAr",l:"Name (Arabic)"},{k:"imageUrl",l:"Image",t:"image",full:1}],
+    prep: async (data, id) => { if(!id){ const ch = bmMenu()[0], mine = S.categories.filter(c => live(c) && c.channel===ch);
+      data.channel = ch; data.productIds = []; data.sort = (Math.max(0, ...mine.map(c => +c.sort||0)) + 10); data.id = "cat_" + ch + "_" + Date.now().toString(36); } return ""; }
   },
   products: {
-    col:"products", title:"Products", one:"Product", detail: r => productDetail(r),
-    tabs:[["all","All",live],["deleted","Deleted",r=>r.deleted]],
+    col:"products", title:"Products", one:"Product", detail: r => productDetail(r), bulk:1,
+    tabs:[["all","All",live],["active","Active",r=>live(r)&&r.active!==false],["inactive","Inactive",r=>live(r)&&r.active===false],["deleted","Deleted",r=>r.deleted]],
     // variants sit right under their product, in the set's order
     sort:(a,b)=>{ const pa = varParent(a.id), pb = varParent(b.id), ka = (pa||a).name||"", kb = (pb||b).name||"";
       if(ka !== kb || (pa||a).id !== (pb||b).id) return String(ka).localeCompare(String(kb)) || String((pa||a).id).localeCompare(String((pb||b).id));
@@ -1907,12 +1917,12 @@ const CRUD = {
     filter:r=>brandFilter(r) && (!state.catFilter || r.categoryId===state.catFilter),
     cols:[["Name",r=>`<span class="pname">${r.imageUrl?`<img class="pthumb" src="${esc(r.imageUrl)}" alt="" loading="lazy">`:`<span class="pthumb none"></span>`}${(() => { const par = varParent(r.id), n = (r.variants||[]).filter(v=>v.productId).length;
       return par ? `<span class="vchild">↳ <b>${esc(r.name)}</b> <span class="tag">${esc(varGroup(par))} · ${esc(par.variants.find(v=>v.productId===r.id)?.name||"")}</span></span>`
-        : `<b>${esc(r.name)}</b>${n ? ` <span class="tag cc">${n} variant${n===1?"":"s"}</span>` : ""}`; })()}</span>`],["Brand",r=>esc(brandName(r.brandId))],["SKU",r=>`<span class="code">${esc(r.sku||"")}</span>`],["Category",r=>esc(catName(r.categoryId))],
+        : `<b>${esc(r.name)}</b>${n ? ` <span class="tag cc">${n} variant${n===1?"":"s"}</span>` : ""}`; })()}</span>`],["SKU",r=>`<span class="code">${esc(r.sku||"")}</span>`],["Category",r=>esc(catName(r.categoryId))],
       ["Price",r=>{ const k = varKids(r); return k.length ? "From " + usd(Math.min(...k.map(x=>+x.price||0))) : r.pricingMethod==="open"?"Open":usd(r.price); }],
-      ["Cost %",r=>{ if(varKids(r).length) return '<span class="note">—</span>'; const c = productCost(r); return +r.price && c ? (c/r.price*100).toFixed(1)+" %" : '<span class="note">—</span>'; },"num"],
-      ["Tax Group",r=>varKids(r).length ? '<span class="note">Per variant</span>' : esc(tgName(r.taxGroup))]],
+      ["Tax Group",r=>varKids(r).length ? '<span class="note">Per variant</span>' : esc(tgName(r.taxGroup))],
+      ["Active",r=>`<label class="toggle" title="${r.active!==false ? "Active · tap to deactivate" : "Inactive · tap to activate"}"><input type="checkbox" data-pract="${esc(r.id)}" ${r.active!==false?"checked":""}><span class="trk"></span></label>`,"noedit"]],
     fields:[{k:"name",l:"Name",req:1},{k:"nameAr",l:"Name (Arabic)"},brandField,{k:"sku",l:"SKU",auto:()=>nextSku("products")},
-      {k:"categoryId",l:"Category",t:"select",req:1,opts:()=>S.categories.filter(live).sort(bySort).map(c=>[c.id,c.name])},
+      {k:"categoryId",l:"Category",t:"select",req:1,opts:()=>S.categories.filter(c=>live(c)&&!c.channel).sort(bySort).map(c=>[c.id,c.name])},
       {k:"pricingMethod",l:"Pricing method",t:"select",opts:()=>[["fixed","Fixed price"],["open","Open Price"]],def:"fixed",hideIf:r=>varKids(r).length},
       {k:"price",l:"Price (USD)",t:"number",req:1,hideIf:r=>varKids(r).length},{k:"taxGroup",l:"Tax group",t:"select",opts:()=>taxGroupOpts(),def:"tg_vat",ph:"No tax",hideIf:r=>varKids(r).length},
       {k:"costingMethod",l:"Costing method",t:"select",opts:()=>[["ingredients","From ingredients"],["fixed","Fixed cost"]],def:"ingredients",hideIf:r=>varKids(r).length},{k:"cost",l:"Fixed cost (USD)",t:"number",req:1,when:{k:"costingMethod",is:"fixed"},hideIf:r=>varKids(r).length},
@@ -2097,11 +2107,15 @@ function crudView(key){
   h += `<div class="card tbl"><div class="ttop"><div class="ttabs">${cfg.tabs.map(t=>`<a href="#${key}" data-tab="${key}:${t[0]}" class="${tab===t[0]?"on":""}">${t[1]}</a>`).join("")}</div>
     ${key==="modifier-options"&&state.modFilter?`<span class="chip">Modifier: ${esc(modName(state.modFilter))} <button data-clearmod aria-label="Clear">×</button></span>`:""}
     ${key==="inv-items" ? `<select class="sel" id="invCat" aria-label="Category"><option value="">All categories</option>${invCatNames().map(n=>`<option ${state.invCat===n?"selected":""}>${esc(n)}</option>`).join("")}</select>` : ""}
-    ${key==="products" ? `<select class="sel" id="prodCat" aria-label="Category"><option value="">All categories</option>${S.categories.filter(live).sort(bySort).map(c=>`<option value="${esc(c.id)}" ${state.catFilter===c.id?"selected":""}>${state.brand==="all"&&brandList().length>1?esc(brandName(c.brandId))+" · ":""}${esc(c.name)}</option>`).join("")}</select>` : ""}
+    ${key==="products" ? `<select class="sel" id="prodCat" aria-label="Category"><option value="">All categories</option>${S.categories.filter(c=>live(c)&&!c.channel).sort(bySort).map(c=>`<option value="${esc(c.id)}" ${state.catFilter===c.id?"selected":""}>${state.brand==="all"&&brandList().length>1?esc(brandName(c.brandId))+" · ":""}${esc(c.name)}</option>`).join("")}</select>` : ""}
     <div class="sp"></div>${scopeHere ? scopeBar(false) : ""}<input class="sel search" data-search="${key}" placeholder="Search" value="${esc(state.q[key]||"")}" aria-label="Search ${cfg.title}"></div>`;
   if(!shown.length) h += `<div class="empty">${S[cfg.col].length ? "Nothing matches." : `No ${cfg.title.toLowerCase()} yet.`}</div>`;
-  else h += `<table><thead><tr>${cfg.cols.map(c=>`<th class="${c[2]||""}">${c[0]}</th>`).join("")}</tr></thead><tbody>${
-    shown.map(r=>`<tr class="click" data-open="${key}:${esc(r.id)}">${cfg.cols.map(c=>`<td class="${c[2]||""}">${c[1](r)}</td>`).join("")}</tr>`).join("")}</tbody></table>`;
+  else { const sel = (state.sel ||= {})[key] ||= new Set(), bk = cfg.bulk && tab!=="deleted", allOn = bk && shown.every(r => sel.has(r.id));
+    if(bk) [...sel].forEach(id => { if(!list.some(r => r.id===id)) sel.delete(id); });
+    h += `<table><thead><tr>${bk ? `<th class="noedit bkc"><input type="checkbox" data-bkall="${key}" ${allOn?"checked":""} aria-label="Select all on this page"></th>` : ""}${bk && sel.size
+      ? `<th colspan="${cfg.cols.length}" class="bkbar"><b>${sel.size} Selected</b><span class="ddwrap"><button type="button" class="btn sm" id="bkAct">Actions ▾</button><span class="ddmenu" id="bkActM" hidden>${BULK_ACTS.map(([k,t]) => `<button type="button" data-bkdo="${key}:${k}">${t}</button>`).join("")}</span></span></th>`
+      : cfg.cols.map(c=>`<th class="${c[2]||""}">${c[0]}</th>`).join("")}</tr></thead><tbody>${
+    shown.map(r=>`<tr class="click" data-open="${key}:${esc(r.id)}">${bk ? `<td class="noedit bkc"><input type="checkbox" data-bksel="${key}:${esc(r.id)}" ${sel.has(r.id)?"checked":""} aria-label="Select ${esc(r.name||"")}"></td>` : ""}${cfg.cols.map(c=>`<td class="${c[2]||""}">${c[1](r)}</td>`).join("")}</tr>`).join("")}</tbody></table>`; }
   h += `<div class="pager"><span class="note">Showing ${list.length?(pg-1)*per+1:0} to ${Math.min(pg*per,list.length)} out of ${list.length}</span><div class="sp"></div>
     <button class="btn sm" data-page="${key}:${pg-1}" ${pg<=1?"disabled":""}>Previous</button><button class="btn sm" data-page="${key}:${pg+1}" ${pg>=pages?"disabled":""}>Next</button></div></div>`;
   return h;
@@ -2289,11 +2303,11 @@ const IMPEX = {
     rows: () => S.products.filter(live).filter(brandFilter).sort(CRUD.products.sort).map(r => [r.sku, r.name, r.nameAr, brandName(r.brandId), catName(r.categoryId), r.price, r.pricingMethod||"fixed", r.taxGroup ? S.tax_groups.find(g=>g.id===r.taxGroup)?.name : "", r.costingMethod||"ingredients", r.cost, r.barcode, r.calories, r.prepTime, r.description, r.active===false?"No":"Yes"]),
     build: (x, ctx) => {
       const bl = brandList(), bySku = x.sku && S.products.find(p => live(p) && (p.sku||"").toLowerCase()===x.sku.toLowerCase()),
-        cats = S.categories.filter(c => live(c) && c.name.trim().toLowerCase()===String(x.category||"").trim().toLowerCase()),
+        cats = S.categories.filter(c => live(c) && !c.channel && c.name.trim().toLowerCase()===String(x.category||"").trim().toLowerCase()),
         brand = x.brand ? byName(bl, x.brand) : (bl.length===1 ? bl[0] : state.brand!=="all" ? bl.find(b=>b.id===state.brand)
           : bySku ? bl.find(b=>b.id===bySku.brandId) : cats.length===1 ? bl.find(b=>b.id===cats[0].brandId) : null);   // no Brand column: work it out from the SKU or category
       if(bl.length && !brand) return { err: x.brand ? `brand "${x.brand}" not found` : "brand is required" };
-      const cat = S.categories.find(c => live(c) && c.name.trim().toLowerCase()===String(x.category||"").trim().toLowerCase());
+      const cat = S.categories.find(c => live(c) && !c.channel && c.name.trim().toLowerCase()===String(x.category||"").trim().toLowerCase());
       const ex = (x.sku && S.products.find(p => live(p) && (p.sku||"").toLowerCase()===x.sku.toLowerCase())) || S.products.find(p => live(p) && p.name.trim().toLowerCase()===x.name.toLowerCase() && (!brand || p.brandId===brand.id));
       if(!cat && !ex) return { err: x.category ? `category "${x.category}" not found` : "category is required" };
       const d = { name:x.name };
@@ -2726,7 +2740,14 @@ function fillOrderBranches(sel){
 function availableProducts(){
   const br = $("#oBranch")?.value, bd = $("#oBrand")?.value;
   if(brandList().length && !bd) return [];
-  return S.products.filter(p => live(p) && (!bd || p.brandId===bd) && (!br || (!offAt(p.inactiveBranchIds, br, "callcenter") && !(($("#oType .on")?.dataset.ot) && typeOff(p.inactiveBranchIds, br, "callcenter", $("#oType .on").dataset.ot)) && !offAt(S.categories.find(c=>c.id===p.categoryId)?.inactiveBranchIds, br, "callcenter"))));
+  const chc = ccCats(br), useCh = chCats("callcenter").length > 0;
+  return S.products.filter(p => live(p) && p.active!==false && (!bd || p.brandId===bd) && (!br || (!offAt(p.inactiveBranchIds, br, "callcenter") && !(($("#oType .on")?.dataset.ot) && typeOff(p.inactiveBranchIds, br, "callcenter", $("#oType .on").dataset.ot))
+    && (useCh ? chc.some(c => (c.productIds||[]).includes(p.id) || varParent(p.id) && (c.productIds||[]).includes(varParent(p.id).id)) : !offAt(S.categories.find(c=>c.id===p.categoryId)?.inactiveBranchIds, br, "callcenter")))));
+}
+// the call center menu's own categories at this branch (Sales Channels); older setups use the menu categories
+function ccCats(br){ const chc = chCats("callcenter"); return (chc.length ? chc : S.categories.filter(c => live(c) && !c.channel)).filter(c => !br || !offAt(c.inactiveBranchIds, br, "callcenter")); }
+function ccHas(c, p){ return c.channel ? (c.productIds||[]).includes(p.id) : p.categoryId===c.id; }
+function ccOrder(c){ return (a, b) => c && c.channel ? (c.productIds||[]).indexOf(a.id) - (c.productIds||[]).indexOf(b.id) : bySort(a, b);
 }
 const prodRates = (id, branchId) => { const p = S.products.find(x=>x.id===id), bg = branches.find(b=>b.id===branchId)?.settings?.taxGroup, g = p && S.tax_groups.find(x=>x.id===(p.taxGroup || bg) && live(x)), r = { inc:0, exc:0 };
   (g?.taxIds||[]).forEach(t => { const x = S.taxes.find(y=>y.id===t && live(y)); if(x) r[x.inclusive===false ? "exc" : "inc"] += (+x.rate||0)/100; }); return r; };
@@ -2737,9 +2758,9 @@ function renderOrderMenu(){
   const box = $("#oProducts"); if(!box) return;
   const kidIds = varChildIds(), q = ($("#oSearch").value||"").trim().toLowerCase(), okIds = new Set(availableProducts().map(x=>x.id)),
     prods = availableProducts().filter(p => !kidIds.has(p.id) && (!(p.variants||[]).some(v => v.productId) || p.variants.some(v => okIds.has(v.productId))));   // a product with variants shows only when one of them is available
-  const cats = S.categories.filter(c => live(c) && prods.some(p=>p.categoryId===c.id)).sort(bySort);   // the order set in Menu → Menus
+  const cats = ccCats($("#oBranch")?.value).filter(c => prods.some(p => ccHas(c, p))).sort(bySort);   // the order set in Sales Channels
   if(state.oCat && !cats.some(c=>c.id===state.oCat)) state.oCat = "";
-  const n = id => prods.filter(p=>id==="_none" ? !cats.some(c=>c.id===p.categoryId) : p.categoryId===id).length;
+  const n = id => prods.filter(p=>id==="_none" ? !cats.some(c=>ccHas(c, p)) : ccHas(cats.find(c=>c.id===id) || {}, p)).length;
   const back = $("#oCatBack"); if(back) back.hidden = !state.oCat || !!q;
   if(!state.oCat && !q){   // POS style: category tiles first
     const tiles = [...cats.map(c => [c.id, c.name, c.imageUrl]), ...(n("_none") ? [["_none","Other",""]] : [])];
@@ -2751,10 +2772,10 @@ function renderOrderMenu(){
   }
   box.className = "pgrid";
   const list = q ? prods.filter(p => p.name.toLowerCase().includes(q) || (p.nameAr||"").includes(q))
-    : prods.filter(p => state.oCat==="_none" ? !cats.some(c=>c.id===p.categoryId) : p.categoryId===state.oCat);
+    : prods.filter(p => state.oCat==="_none" ? !cats.some(c=>ccHas(c, p)) : ccHas(cats.find(c=>c.id===state.oCat) || {}, p));
   $("#oCatTitle").textContent = q ? `${list.length} result${list.length===1?"":"s"} for “${q}”` : (cats.find(c=>c.id===state.oCat)?.name || (state.oCat==="_none" ? "Other" : ""));
   const inCart = id => cart.filter(i=>i.productId===id).reduce((a,i)=>a+i.qty,0);
-  box.innerHTML = list.length ? list.sort((a,b)=>(q ? catRank(a.categoryId)-catRank(b.categoryId) : 0) || bySort(a,b)).map(p=>{ const c = inCart(p.id), oos = false && (p.outOfStockBranchIds||[]).includes($("#oBranch")?.value);
+  box.innerHTML = list.length ? list.sort(q ? ((a,b)=>catRank(a.categoryId)-catRank(b.categoryId) || bySort(a,b)) : ccOrder(cats.find(c=>c.id===state.oCat))).map(p=>{ const c = inCart(p.id), oos = false && (p.outOfStockBranchIds||[]).includes($("#oBranch")?.value);
     return `<button type="button" class="pbtn${c?" sel":""}" data-add="${esc(p.id)}" ${oos?"disabled title=\"Out of stock at this branch\"":""}>${c?`<em>${c}</em>`:""}${p.imageUrl?`<img class="ccimg" src="${esc(p.imageUrl)}" alt="" loading="lazy">`:""}<span>${esc(p.name)}</span><b>${oos?"Out of stock":usd(ccPrice(p))}</b>${(p.modifiers||[]).length?`<small>Options</small>`:""}</button>`; }).join("")
     : `<div class="note" style="padding:12px">${S.products.length ? (q ? "No products match." : $("#oBrand")?.value ? "No products in this category." : "Choose a brand to see its menu.") : "No products yet. Add them under Menu → Products."}</div>`;
 }
@@ -2977,10 +2998,15 @@ document.addEventListener("click", e => { const t = e.target.closest("[data-olbr
 
 /* ---------- Branch Menus: what each branch sells, at what price, and what's out of stock ---------- */
 const BM = { branch:"", kind:"products", q:"", draft:{} };
+// the categories of a sales channel, in menu order
+const chCats = ch => S.categories.filter(c => live(c) && c.channel===ch).sort(bySort);
+const chProd = id => { const p = S.products.find(x => x.id===id); return p && live(p) ? p : null; };
 function bmItems(){
   const br = branches.find(b=>b.id===BM.branch); if(!br) return [];
   if(BM.kind==="options") return S.modifier_options.filter(o=>live(o)&&o.active!==false).sort((a,b)=>modName(a.modifierId).localeCompare(modName(b.modifierId))||bySort(a,b));
-  return S.products.filter(p=>live(p)&&!varKids(p).length&&(!br.brandId||!p.brandId||p.brandId===br.brandId)).sort((a,b)=>{ const ca = S.categories.find(c=>c.id===a.categoryId)||{}, cb = S.categories.find(c=>c.id===b.categoryId)||{}; return bySort(ca, cb) || String(a.categoryId).localeCompare(String(b.categoryId)) || bySort(a,b); });   // same order as every channel
+  const seen = new Set(), out = [];
+  chCats(bmMenu()[0]).forEach(c => (c.productIds||[]).forEach(id => { const p = chProd(id); if(p && !seen.has(id) && !varKids(p).length && (!br.brandId||!p.brandId||p.brandId===br.brandId)){ seen.add(id); out.push(p); } }));
+  return out;
 }
 // an item can be switched off per channel at a branch: inactiveBranchIds holds "branch" (off everywhere) or "branch:pos" / "branch:callcenter" / "branch:online"
 // each channel has its own menu per branch: "POS & Call center" and "Web ordering". Prices: customPrices[branch] (POS & call center), customPrices["branch:online"] (web)
@@ -3029,28 +3055,98 @@ function viewBranchMenu(){
       <div class="ddwrap"><button type="button" class="btn" id="bmMore">Actions ▾</button><div class="ddmenu" id="bmMoreM" hidden>
         <button type="button" data-bmbulk="on">Turn everything on</button><button type="button" data-bmbulk="off">Turn everything off</button>
         ${others.map(([v,t]) => `<button type="button" data-bmcopy="${esc(v)}">Copy from ${esc(t)}</button>`).join("")}</div></div></div>`;
-  if(!items.length) return h + `<div class="empty">${all.length ? "Nothing matches." : "Nothing on this brand's menu yet."}</div></div>`;
+  if(BM.kind==="options" && !items.length) return h + `<div class="empty">${all.length ? "Nothing matches." : "No modifier options yet."}</div></div>`;
   BM.open ||= new Set();
-  const groups = []; items.forEach(r => { const g = grp(r); let x = groups.find(y => y.g===g); if(!x) groups.push(x = { g, cat:r.categoryId, rows:[] }); x.rows.push(r); });
+  const groups = [];
+  if(BM.kind==="options") items.forEach(r => { const g = grp(r); let x = groups.find(y => y.g===g); if(!x) groups.push(x = { g, cat:"", rows:[] }); x.rows.push(r); });
+  else chCats(ch[0]).forEach(c => { const rows = (c.productIds||[]).map(chProd).filter(p => p && items.includes(p)); if(q && !rows.length) return; groups.push({ g:c.id, name:c.name, img:c.imageUrl, cat:c.id, rows }); });
   h += `<div class="sclist">`;
-  groups.forEach(({ g, cat, rows }) => {
+  if(BM.kind!=="options") h += `<div class="scadd"><button type="button" class="btn pri" data-bmnewcat>+ Add Category</button>${groups.length ? "" : `<span class="note">No categories on the ${esc(ch[1])} menu yet.</span>`}</div>`;
+  groups.forEach(({ g, name, img, cat, rows }) => {
     const open = !!q || BM.open.has(g), cOn = BM.kind==="options" || bmCatOn(cat), drag = BM.kind!=="options" && !q, n = rows.filter(r => bmState(r).on).length;
     h += `<div class="scgrp${cOn?"":" off"}"${drag ? ` draggable="true" data-bmdrag="c:${esc(cat)}" title="Drag to move this category"` : ""}>
       ${drag ? '<span class="bmgrip" aria-hidden="true">⋮⋮</span>' : ""}
       ${BM.kind==="options" ? "" : `<label class="toggle" title="Show this category on the ${esc(ch[1])} menu"><input type="checkbox" data-bmcat="${esc(cat)}" ${cOn?"checked":""}><span class="trk"></span></label>`}
-      <button type="button" class="scname" data-bmexp="${esc(g)}"><b>${esc(g)}</b><span class="note">${cOn ? `${n} of ${rows.length} on` : "Hidden"}</span><span class="sccar">${open ? "▾" : "▸"}</span></button></div>`;
+      ${BM.kind==="options" ? "" : `<span class="scimg">${img ? `<img src="${esc(img)}" alt="">` : ""}</span>`}
+      <button type="button" class="scname" data-bmexp="${esc(g)}"><b>${esc(name || g)}</b><span class="note">${cOn ? `${n} of ${rows.length} on` : "Hidden"}</span><span class="sccar">${open ? "▾" : "▸"}</span></button>
+      ${BM.kind==="options" ? "" : `<span class="scacts"><button type="button" class="btn sm" data-bmadd="${esc(cat)}">Add Items</button><button type="button" class="btn sm" data-bmcedit="${esc(cat)}">Edit</button><button type="button" class="btn sm danger" data-bmcdel="${esc(cat)}">Delete</button></span>`}</div>`;
     if(!cOn || !open) return;
+    if(!rows.length) h += `<div class="scrow"><span class="note">No items yet. Use Add Items.</span></div>`;
     rows.forEach(r => { const st = bmState(r);
-      h += `<div class="scrow${st.on?"":" off"}${BM.draft[r.id]?" chg":""}"${drag ? ` draggable="true" data-bmdrag="p:${esc(r.id)}" data-bmcatof="${esc(r.categoryId)}"` : ""}>
+      h += `<div class="scrow${st.on?"":" off"}${BM.draft[r.id]?" chg":""}"${drag ? ` draggable="true" data-bmdrag="p:${esc(r.id)}" data-bmcatof="${esc(cat)}"` : ""}>
         ${drag ? '<span class="bmgrip" aria-hidden="true" title="Drag to move">⋮⋮</span>' : ""}
         <label class="toggle" title="On the ${esc(ch[1])} menu"><input type="checkbox" data-bmon="${esc(r.id)}" ${st.on?"checked":""} aria-label="${esc(r.name)} on the ${esc(ch[1])} menu"><span class="trk"></span></label>
         <span class="scpn">${esc(r.name)}</span>
         <span class="scprice"><input type="number" min="0" step="any" class="sel" data-bmprice="${esc(r.id)}" value="${esc(st.price)}" placeholder="${esc(String(st.fallback))}" aria-label="Price of ${esc(r.name)}"><span class="note">USD</span></span>
         <span class="sctypes">${types.map(([t,tl]) => `<label class="scchip${st.types[t]?" on":""}"><input type="checkbox" data-bmtype="${esc(r.id)}|${t}" ${st.types[t]?"checked":""}>${tl}</label>`).join("")}</span>
-        ${BM.kind==="options" ? `<label class="scchip${st.stock?" on":""}" title="In stock at ${esc(br.name)}"><input type="checkbox" data-bmstock="${esc(r.id)}" ${st.stock?"checked":""} ${st.on?"":"disabled"}>${st.stock ? "In stock" : "Out of stock"}</label>` : ""}</div>`; });
+        ${BM.kind==="options" ? `<label class="scchip${st.stock?" on":""}" title="In stock at ${esc(br.name)}"><input type="checkbox" data-bmstock="${esc(r.id)}" ${st.stock?"checked":""} ${st.on?"":"disabled"}>${st.stock ? "In stock" : "Out of stock"}</label>` : `<button type="button" class="x scrm" data-bmrm="${esc(cat)}|${esc(r.id)}" title="Remove from this category" aria-label="Remove ${esc(r.name)} from this category">×</button>`}</div>`; });
   });
   return h + `</div></div>`;
 }
+
+
+// Products list: switch a product on or off everywhere (POS, call center, web)
+document.addEventListener("change", async e => { const t = e.target.closest?.("[data-pract]"); if(!t) return; const id = t.dataset.pract, on = t.checked;
+  try{ await put("products", id, { active: on }); toast(on ? "Product activated" : "Product deactivated"); }catch(err){ console.error(err); t.checked = !on; toast("Couldn't save."); } });
+
+// Products list: select rows, then act on all of them at once (Foodics style)
+const BULK_ACTS = [["activate","Activate"],["deactivate","Deactivate"],["brOn","Activate In Branches"],["brOff","Deactivate In Branches"],["taxSet","Assign Tax Group"],["taxClear","Remove Tax Group"],["delete","Delete"]];
+document.addEventListener("change", e => {
+  const a = e.target.closest?.("[data-bkall]"); if(a){ const key = a.dataset.bkall, sel = (state.sel ||= {})[key] ||= new Set(); document.querySelectorAll(`[data-bksel^="${key}:"]`).forEach(c => { const id = c.dataset.bksel.slice(key.length+1); a.checked ? sel.add(id) : sel.delete(id); }); render(); return; }
+  const c = e.target.closest?.("[data-bksel]"); if(c){ const i = c.dataset.bksel.indexOf(":"), key = c.dataset.bksel.slice(0,i), id = c.dataset.bksel.slice(i+1), sel = (state.sel ||= {})[key] ||= new Set(); c.checked ? sel.add(id) : sel.delete(id); render(); }
+});
+document.addEventListener("click", async e => {
+  if(e.target.closest("#bkAct")){ e.stopPropagation(); const m = $("#bkActM"); m.hidden = !m.hidden; return; }
+  const d = e.target.closest("[data-bkdo]"); if(!d){ const m = $("#bkActM"); if(m && !e.target.closest("#bkActM")) m.hidden = true; return; }
+  e.stopPropagation(); $("#bkActM").hidden = true;
+  const [key, act] = d.dataset.bkdo.split(":"), cfg = CRUD[key], ids = [...(state.sel?.[key] || [])], rows = ids.map(id => S[cfg.col].find(r => r.id===id)).filter(Boolean); if(!rows.length) return;
+  const run = async (fn, msg) => { let n = 0; try{ for(const r of rows){ const ch = fn(r); if(ch && Object.keys(ch).length){ await put(cfg.col, r.id, ch); n++; } } toast(msg.replace("#", n)); state.sel[key] = new Set(); render(); }catch(err){ console.error(err); toast("Couldn't save. You may not have edit access."); render(); } };
+  if(act==="activate") return run(r => r.active===false ? { active:true } : null, "# activated");
+  if(act==="deactivate") return run(r => r.active!==false ? { active:false } : null, "# deactivated");
+  if(act==="delete"){ if(!confirm(`Delete ${rows.length} ${rows.length===1 ? cfg.one.toLowerCase() : cfg.title.toLowerCase()}? They move to the Deleted tab.`)) return; return run(() => ({ deleted:true }), "# deleted"); }
+  if(act==="taxClear") return run(r => r.taxGroup ? { taxGroup:null } : null, "Tax group removed from #");
+  if(act==="taxSet" || act==="brOn" || act==="brOff"){
+    const isTax = act==="taxSet", opts = isTax ? taxGroupOpts() : branches.filter(b => b.active!==false).map(b => [b.id, b.name]);
+    const box = $("#ccBox"); box.className = "modal";
+    box.innerHTML = `<header><h2>${isTax ? "Assign Tax Group" : act==="brOn" ? "Activate In Branches" : "Deactivate In Branches"}</h2><button type="button" class="x" data-ccclose aria-label="Close">×</button></header>
+      <div class="body" style="display:block"><p class="note" style="margin:0 0 10px">${rows.length} selected</p>${isTax ? `<select class="sel" id="bkTax" style="width:100%">${opts.map(([v,t]) => `<option value="${esc(v)}">${esc(t)}</option>`).join("")}</select>`
+        : `<div class="mlist">${opts.map(([v,t]) => `<label class="chk mitem"><input type="checkbox" value="${esc(v)}"> ${esc(t)}</label>`).join("")}</div>`}<div class="err" id="bkErr"></div></div>
+      <footer><span style="flex:1"></span><button type="button" class="btn" data-ccclose>Close</button><button type="button" class="btn pri" id="bkGo">Apply</button></footer>`;
+    $("#ccScrim").classList.add("show");
+    $("#bkGo").onclick = () => {
+      if(isTax){ const g = $("#bkTax").value; $("#ccScrim").classList.remove("show"); return run(r => r.taxGroup!==g ? { taxGroup:g } : null, "Tax group assigned to #"); }
+      const bs = [...document.querySelectorAll("#ccBox .mlist input:checked")].map(i => i.value); if(!bs.length){ $("#bkErr").textContent = "Pick at least one branch."; return; }
+      $("#ccScrim").classList.remove("show");
+      return run(r => { const ia = r.inactiveBranchIds||[]; const next = act==="brOff" ? [...new Set([...ia, ...bs])] : ia.filter(x => !bs.some(b => x===b || x.startsWith(b + ":")));
+        return JSON.stringify(next)!==JSON.stringify(ia) ? { inactiveBranchIds:next } : null; }, act==="brOn" ? "# activated in the branches" : "# deactivated in the branches"); };
+  }
+}, true);
+// Sales Channels: delete a channel category for good (its products stay in Menu → Products)
+async function bmDelCat(id){
+  const c = S.categories.find(x => x.id===id); if(!c) return;
+  if(!confirm(`Delete the category "${c.name}" from the ${bmMenu()[1]} menu? It is removed for good. Its products stay in Menu → Products.`)) return;
+  try{ if(storeMode==="db") await db.collection("categories").doc(id).delete(); else S.categories = S.categories.filter(x => x.id!==id); toast("Category deleted"); render(); }
+  catch(err){ console.error(err); toast("Couldn't delete. Only the owner or an admin can change the menu."); }
+}
+// Sales Channels: pick products to put in a channel category
+function bmAddItems(id){
+  const c = S.categories.find(x => x.id===id); if(!c) return; const br = branches.find(b => b.id===BM.branch), have = new Set(c.productIds||[]);
+  const prods = S.products.filter(p => live(p) && !varKids(p).length && !have.has(p.id) && (!br?.brandId || !p.brandId || p.brandId===br.brandId));
+  const groups = {}; prods.forEach(p => (groups[catName(p.categoryId)] ||= []).push(p));
+  const box = $("#ccBox"); box.className = "modal";
+  box.innerHTML = `<header><h2>Add Items · ${esc(c.name)}</h2><button type="button" class="x" data-ccclose aria-label="Close">×</button></header>
+  <div class="body" style="display:block"><input class="sel search" id="baQ" placeholder="Search" style="width:100%;margin-bottom:10px">
+    <div class="mlist" id="baList" style="max-height:52vh;overflow:auto">${prods.length ? Object.keys(groups).sort().map(g => `<div class="mgh" style="padding:10px 0 4px"><b>${esc(g)}</b></div>${groups[g].sort(bySort).map(p => `<label class="chk mitem" data-n="${esc(p.name.toLowerCase())}"><input type="checkbox" value="${esc(p.id)}"> ${esc(p.name)}</label>`).join("")}`).join("") : '<span class="note">Every product is already in this category.</span>'}</div>
+    <div class="err" id="baErr"></div></div>
+  <footer><span style="flex:1"></span><button type="button" class="btn" data-ccclose>Close</button><button type="button" class="btn pri" data-baapply="${esc(id)}">Add</button></footer>`;
+  $("#ccScrim").classList.add("show"); setTimeout(() => $("#baQ")?.focus(), 30);
+}
+document.addEventListener("input", e => { if(e.target.id!=="baQ") return; const q = e.target.value.trim().toLowerCase(); document.querySelectorAll("#baList .mitem").forEach(l => l.style.display = !q || l.dataset.n.includes(q) ? "" : "none"); });
+document.addEventListener("click", async e => { const ap = e.target.closest("[data-baapply]"); if(!ap) return; const c = S.categories.find(x => x.id===ap.dataset.baapply); if(!c) return;
+  const add = [...document.querySelectorAll("#baList input:checked")].map(i => i.value); if(!add.length){ $("#baErr").textContent = "Tick at least one product."; return; }
+  const ids = [...(c.productIds||[]), ...add.filter(x => !(c.productIds||[]).includes(x))];
+  try{ await put("categories", c.id, { productIds:ids }); c.productIds = ids; BM.open ||= new Set(); BM.open.add(c.id); toast(`${add.length} item${add.length===1?"":"s"} added to ${c.name}`); $("#ccScrim").classList.remove("show"); render(); }
+  catch(err){ console.error(err); $("#baErr").textContent = "Couldn't save."; } });
 // copy one channel's menu (items on/off, order types and prices) from another channel or branch onto this one
 async function bmCopy(src){
   const [sch, sb] = src.split("|"), b = BM.branch, ch = bmMenu()[0], col = BM.kind==="options" ? "modifier_options" : "products";
@@ -3066,8 +3162,12 @@ async function bmCopy(src){
       const cps = r.customPrices||{}, sp = cps[bmPriceKey(sb, sch)] ?? (sch!=="pos" ? cps[sb] : undefined), cp = { ...cps }, k = bmPriceKey(b, ch);
       if(sp==null || sp==="") delete cp[k]; else cp[k] = +sp; if(JSON.stringify(cp)!==JSON.stringify(cps)) ch2.customPrices = cp;
       if(Object.keys(ch2).length){ await put(col, r.id, ch2); Object.assign(r, ch2); n++; } }
-    if(BM.kind!=="options") for(const c of S.categories.filter(live)){ const off = offSetOf(c.inactiveBranchIds, b), srcOff = offAt(c.inactiveBranchIds, sb, sch); srcOff ? off.add(ch) : off.delete(ch);
+    if(BM.kind!=="options" && sch===ch) for(const c of chCats(ch)){ const off = offSetOf(c.inactiveBranchIds, b), srcOff = offAt(c.inactiveBranchIds, sb, sch); srcOff ? off.add(ch) : off.delete(ch);
       const next = chList(c.inactiveBranchIds, b, off); if(JSON.stringify(next)!==JSON.stringify(c.inactiveBranchIds||[])){ await put("categories", c.id, { inactiveBranchIds:next }); c.inactiveBranchIds = next; } }
+    if(BM.kind!=="options" && sch!==ch){   // another channel: its categories replace this channel's
+      for(const c of chCats(ch)) await db.collection("categories").doc(c.id).delete();
+      for(const [k, c] of chCats(sch).entries()) await put("categories", "cat_" + ch + "_" + Date.now().toString(36) + k, { name:c.name, nameAr:c.nameAr||null, brandId:c.brandId||null, imageUrl:c.imageUrl||null, sort:c.sort, channel:ch, productIds:[...(c.productIds||[])],
+        inactiveBranchIds:(c.inactiveBranchIds||[]).map(x => x.endsWith(":" + sch) ? x.slice(0, -sch.length) + ch : x) }); }
     bmStat("All changes saved"); toast(n ? `Copied ${label} · ${n} item${n===1?"":"s"} changed` : "Already the same"); render();
   }catch(err){ console.error(err); bmStat("Not saved"); toast("Couldn't copy. Only the owner or an admin can change the menu."); render(); }
 }
@@ -3095,13 +3195,15 @@ document.addEventListener("dragover", e => { const t = e.target.closest?.("[data
 document.addEventListener("drop", async e => { const t = e.target.closest?.("[data-bmdrag]"); if(!bmDropOk(t)) return; e.preventDefault();
   const from = bmDrag.key.slice(2), to = bmTarget(t).slice(2), isCat = bmDrag.key.startsWith("c:"); bmDrag = null;
   const br = branches.find(b=>b.id===BM.branch);
-  const list = isCat ? S.categories.filter(live).sort(bySort)
-                     : S.products.filter(p => live(p) && p.categoryId===S.products.find(x=>x.id===from)?.categoryId).sort(bySort);
+  if(!isCat){ const c = S.categories.find(x => x.id===t.dataset.bmcatof); if(!c) return; const ids = [...(c.productIds||[])], i = ids.indexOf(from), j = ids.indexOf(to); if(i<0 || j<0) return;
+    ids.splice(i, 1); ids.splice(ids.indexOf(to) + (i < j ? 1 : 0), 0, from);
+    try{ await put("categories", c.id, { productIds:ids }); c.productIds = ids; toast("Item order saved"); render(); }catch(err){ console.error(err); toast("Couldn't save the new order"); } return; }
+  const list = chCats(bmMenu()[0]);
   const ids = list.map(x=>x.id), i = ids.indexOf(from), j = ids.indexOf(to); if(i<0 || j<0) return;
   ids.splice(i, 1); ids.splice(ids.indexOf(to) + (i < j ? 1 : 0), 0, from);
   const col = isCat ? "categories" : "products"; let n = 0;
   try{ for(const [k, id] of ids.entries()){ const r = S[col].find(x=>x.id===id); if(r && r.sort !== (k+1)*10){ await put(col, id, { sort:(k+1)*10 }); n++; } }
-    toast(isCat ? "Category order saved for every channel" : "Item order saved for every channel"); render(); }
+    toast("Category order saved"); render(); }
   catch(err){ console.error(err); toast("Couldn't save the new order"); } });
 function bmSet(id, k, v){ const d = BM.draft[id] ||= {}; d[k] = v; }
 const bmCatOn = id => { const d = BM.draft["cat:"+id] || BM.saving?.["cat:"+id]; if(d && d.on!=null) return d.on; return !offAt(S.categories.find(c=>c.id===id)?.inactiveBranchIds, BM.branch, bmMenu()[2][0]); };
@@ -3151,6 +3253,12 @@ $("#view").addEventListener("click", e => {
   const k = e.target.closest("[data-bmkind]"); if(k){ e.preventDefault(); if(Object.keys(BM.draft).length && !confirm("Discard unsaved changes?")) return; BM.kind = k.dataset.bmkind; BM.draft = {}; return render(); }
   const mn = e.target.closest("[data-bmmenu]"); if(mn){ e.preventDefault(); BM.menu = mn.dataset.bmmenu; BM.draft = {}; return render(); }
   const ex = e.target.closest("[data-bmexp]"); if(ex){ e.preventDefault(); const g = ex.dataset.bmexp; BM.open ||= new Set(); BM.open.has(g) ? BM.open.delete(g) : BM.open.add(g); return render(); }
+  if(e.target.closest("[data-bmnewcat]")){ e.preventDefault(); openCrud("chcat"); return; }
+  const ce = e.target.closest("[data-bmcedit]"); if(ce){ e.preventDefault(); openCrud("chcat", ce.dataset.bmcedit); return; }
+  const cd = e.target.closest("[data-bmcdel]"); if(cd){ e.preventDefault(); return bmDelCat(cd.dataset.bmcdel); }
+  const ad = e.target.closest("[data-bmadd]"); if(ad){ e.preventDefault(); return bmAddItems(ad.dataset.bmadd); }
+  const rm = e.target.closest("[data-bmrm]"); if(rm){ e.preventDefault(); const [cid, pid] = rm.dataset.bmrm.split("|"), c = S.categories.find(x => x.id===cid); if(!c) return;
+    const ids = (c.productIds||[]).filter(x => x!==pid); put("categories", cid, { productIds:ids }).then(() => { c.productIds = ids; toast("Removed from " + c.name); render(); }, err => { console.error(err); toast("Couldn't save."); }); return; }
   if(e.target.closest("#bmMore")){ const m = $("#bmMoreM"); m.hidden = !m.hidden; return; }
   const bk = e.target.closest("[data-bmbulk]"); if(bk){ $("#bmMoreM").hidden = true; const on = bk.dataset.bmbulk==="on";
     if(!confirm(`Turn every ${BM.kind==="options" ? "modifier option" : "product"} ${on ? "on" : "off"} on the ${bmMenu()[1]} menu at ${branches.find(x=>x.id===BM.branch)?.name}?`)) return;
@@ -5033,7 +5141,7 @@ $("#view").addEventListener("click", async e => {
   const t = e.target;
   const tab = t.closest("[data-tab]"); if(tab){ e.preventDefault(); const [k,v] = tab.dataset.tab.split(":"); state.tabs[k] = v; state.page[k] = 1; render(); return; }
   const cr = t.closest("[data-create]"); if(cr) return openCrud(cr.dataset.create);
-  const op = t.closest("[data-open]"); if(op && !t.closest("a")){ const i = op.dataset.open.indexOf(":"), k = op.dataset.open.slice(0,i), id = op.dataset.open.slice(i+1); return CRUD[k].detail ? openDetail(k, id) : openCrud(k, id); }
+  const op = t.closest("[data-open]"); if(op && !t.closest("a") && !t.closest(".noedit")){ const i = op.dataset.open.indexOf(":"), k = op.dataset.open.slice(0,i), id = op.dataset.open.slice(i+1); return CRUD[k].detail ? openDetail(k, id) : openCrud(k, id); }
   const pg = t.closest("[data-page]"); if(pg){ const [k,v] = pg.dataset.page.split(":"); state.page[k] = +v; render(); window.scrollTo(0,0); return; }
   const cf = t.closest("[data-catfilter]"); if(cf){ e.preventDefault(); const id = cf.dataset.catfilter, c = S.categories.find(x=>x.id===id); location.hash = "products";
     setTimeout(() => { state.catFilter = id; state.tabs.products = "all"; state.page.products = 1; render(); }, 60); return; }
