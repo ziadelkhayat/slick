@@ -455,6 +455,16 @@ button,input,select,textarea{font-family:var(--f-ui)}
 .slk-ask-yes.red{background:#dc2626;border-color:#dc2626}
 @keyframes slkAskIn{from{opacity:0}to{opacity:1}}
 .pdph{display:flex;gap:8px}.pdph select{flex:0 0 auto;max-width:42%;border:1px solid var(--line,#e4e1ef);border-radius:12px;background:#fff;font:inherit;font-size:15px;padding:0 10px}.pdph input{flex:1;min-width:0}
+.bnav .badge{position:static!important;display:inline-grid;place-items:center;min-width:22px;height:22px;margin-left:8px;padding:0 6px!important;border-radius:999px;background:#dc2626;color:#fff;font-size:12px!important;font-weight:800;letter-spacing:0;animation:incPulse 1.6s ease-in-out infinite}
+.bnav .badge.hide{display:none!important}
+@keyframes incPulse{0%,100%{box-shadow:0 0 0 0 rgba(220,38,38,.45)}50%{box-shadow:0 0 0 7px rgba(220,38,38,0)}}
+.incnote{position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:900;display:flex;align-items:center;gap:14px;min-width:min(520px,92vw);padding:14px 16px;border-radius:18px;background:#fff;box-shadow:0 18px 50px rgba(21,19,31,.25);border:2px solid #6c47ff;animation:incIn .25s ease-out}
+.incnote .ii{width:46px;height:46px;border-radius:14px;background:#f1ecff;color:#6c47ff;display:grid;place-items:center;flex:none;font-size:22px;font-weight:800;position:relative}
+.incnote .ii svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.8}
+.incnote .ii em{position:absolute;top:-7px;right:-7px;min-width:22px;height:22px;border-radius:999px;background:#dc2626;color:#fff;font-style:normal;font-size:12px;display:grid;place-items:center;padding:0 5px}
+.incnote .it{flex:1;min-width:0}.incnote .it b{display:block;font-size:16px}.incnote .it span{color:#6b6880;font-size:13.5px}
+.incnote button{border:0;border-radius:12px;font:inherit;font-weight:700;cursor:pointer;padding:11px 16px}.incnote .iv{background:#6c47ff;color:#fff}.incnote .ix{background:#f2f0f8;color:#4b4760;padding:11px 13px}
+@keyframes incIn{from{opacity:0;transform:translate(-50%,-12px)}to{opacity:1;transform:translate(-50%,0)}}
 </style>
 <script>
 /* ---------- Slick's own Yes / No message (instead of the browser's) ---------- */
@@ -738,6 +748,15 @@ function whistle(){
     note(t0, 0.32, [1100, 2600]); note(t0 + 0.45, 0.55, [1000, 2400, 1300]);   // "wheet-whee-oo"
   }catch(e){}
 }
+// a notification card for new call-center and online orders, with how many are waiting; stays until viewed or closed
+function incNote(fresh){
+  const pend = incoming().filter(o => o.status==="pending"), o = fresh[fresh.length-1], n = pend.length || fresh.length;
+  const src = x => x.channel==="callcenter" ? "call-center" : "online";
+  let el = document.getElementById("incNote"); if(!el){ el = document.createElement("div"); el.id = "incNote"; el.className = "incnote"; el.setAttribute("role","alert"); document.body.appendChild(el); }
+  el.innerHTML = `<span class="ii">${ico(o.channel==="callcenter" ? "headset" : "globe")}<em>${n}</em></span><span class="it"><b>${fresh.length===1 ? `New ${src(o)} order` : `${fresh.length} new orders`}</b><span>${esc([o.customerName, o.type==="delivery" ? "Delivery" : "Pickup", usd(o.total)].filter(Boolean).join(" · "))}${n > 1 ? ` · ${n} waiting` : ""}</span></span><button type="button" class="iv" data-incview>View</button><button type="button" class="ix" data-incx aria-label="Dismiss">✕</button>`;
+}
+document.addEventListener("click", e => { if(e.target.closest("[data-incx]")){ document.getElementById("incNote")?.remove(); return; }
+  if(e.target.closest("[data-incview]")){ document.getElementById("incNote")?.remove(); $("#boardBtn")?.click(); } });
 const canAccept = () => true;   // every register in the branch can accept or decline incoming orders (the role still needs "incoming orders")
 const masterNote = () => `Accepted on the master POS${masterDev()?.name ? " (" + masterDev().name + ")" : ""}`;
 async function autoAccept(){
@@ -821,11 +840,11 @@ function renderAll(){
   const blk = saleBlock(); $("#dayBtn span").textContent = (blk && openDay() < bizDate() ? "⚠ " : "") + "End of day (" + openDay().split("-").reverse().join("/") + ")"; $("#dayBtn").title = blk || "End the business day for this branch";
   $("#shiftBtn span").textContent = sh ? "Close till" : "Open till"; paintAbar();
   const inc = incoming(), pend = inc.filter(o=>o.status==="pending").length;
-  $("#incBadge").textContent = pend; $("#incBadge").classList.toggle("hide", !pend);
+  $("#incBadge").textContent = pend; $("#incBadge").classList.toggle("hide", !pend); if(!pend) document.getElementById("incNote")?.remove();
   { const fresh = inc.filter(o => o.status==="pending" && !SEEN.has(o.id)); inc.forEach(o => SEEN.add(o.id));
     if(fresh.length && SEEN_READY){ $("#boardBtn").classList.remove("ring"); void $("#boardBtn").offsetWidth; $("#boardBtn").classList.add("ring");
       toast(fresh.length===1 ? `New ${fresh[0].channel==="callcenter" ? "call-center" : "web"} order${fresh[0].customerName ? " · " + fresh[0].customerName : ""} · open Pickup & delivery to accept it` : `${fresh.length} new orders · open Pickup & delivery to accept them`);
-      if(fresh.some(o => o.channel==="callcenter")) whistle();
+      whistle(); incNote(fresh);
       try{ navigator.vibrate?.(200); }catch(e){} }
     if(window.__ordLoaded) SEEN_READY = true; }
   renderMenu(); renderCart();
