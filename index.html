@@ -620,7 +620,7 @@ h1:has(.ib),h3:has(.ib){display:inline-flex;align-items:center}
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="wokdb.js?v=30"></script>
+<script src="wokdb.js?v=31"></script>
 <script src="modpick.js?v=9"></script>
 </head>
 <body>
@@ -895,7 +895,7 @@ async function initStore(){
     if(!window.claude || !window.claude.use) { clearTimeout(timer); return fallback(); }
     db = await window.claude.use("db");
     if(!db){ clearTimeout(timer); return fallback(); }
-    try{ const user = await window.claude.use("user"); if(user){ const n = await user.name?.(); if(n){ $("#who").textContent = n; $("#avatar").textContent = String(n).trim().split(/\s+/).map(w=>w[0]).join("").slice(0,2).toUpperCase(); state.userName = String(n).split(" ")[0]; } state.role = await user.role?.(); state.userId = await user.id?.(); state.email = await user.email?.() || ""; state.fullName = n || ""; paintAcct(); } }catch(e){}
+    try{ const user = await window.claude.use("user"); if(user){ const n = await user.name?.(); if(n){ $("#who").textContent = n; $("#avatar").textContent = String(n).trim().split(/\s+/).map(w=>w[0]).join("").slice(0,2).toUpperCase(); state.userName = String(n).split(" ")[0]; } state.role = await user.role?.(); state.userId = await user.id?.(); state.email = await user.email?.() || ""; state.fullName = n || ""; paintAcct(); setTimeout(() => ensureAdminPin(), 1500); } }catch(e){}
     col = db.collection("branches");
     subscribeAll();
     col.onSnapshot(snap => {
@@ -1759,6 +1759,7 @@ function subscribeAll(){
     if(c==="orders" && DASH.key) dashSoon();
     if(c==="orders" && ORD.key) ordSoon();
     if(c==="orders" && CUS.key && location.hash.slice(1)==="customers"){ clearTimeout(CUS.t); CUS.t = setTimeout(()=>loadCustomers(true), 2000); }
+    if(c==="users") ensureAdminPin();
     softRender();
   }, err => console.error("load " + c, err)));
 }
@@ -1807,8 +1808,18 @@ const userRolesTxt = u => userRoleIds(u).map(roleName).join(", ") || "—";
 async function pinHash(id, pin){ const b = await crypto.subtle.digest("SHA-256", new TextEncoder().encode("slick:" + id + ":" + pin)); return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,"0")).join(""); }
 // an owner's / admin's own cashier-app PIN is kept on a user row marked with their account role
 const lsGet = k => { try{ return localStorage.getItem(k); }catch(e){ return null; } }, lsSet = (k, v) => { try{ localStorage.setItem(k, v); }catch(e){} };
-const isAdminRow = r => r && (r.role==="owner" || r.role==="admin");
+const isAdminRow = r => !!r && (r.role==="owner" || r.role==="admin" || (!r.role && !!r.userId && r.userId===state.userId && (state.role==="owner" || state.role==="admin") && !r.roleId && !(r.roleIds||[]).length));
 const myAdminRow = () => S.users.find(u => live(u) && isAdminRow(u) && state.userId && u.userId===state.userId);
+// the owner/admin gets a cashier PIN from the start: 12345 until they change it in My profile
+let adminPinDone = false;
+async function ensureAdminPin(){
+  if(adminPinDone || storeMode!=="db" || !state.userId || !(state.role==="owner" || state.role==="admin")) return; adminPinDone = true;
+  const row = myAdminRow(); if(row && row.role && row.pinHash) return;
+  const id = row?.id || newUserId(), pin = "12345";
+  for(const u of S.users.filter(u => live(u) && u.id!==id && u.pinHash)){ if(await pinHash(u.id, pin)===u.pinHash || await pinHash(u.id, pin.slice(0,4))===u.pinHash) return; }
+  try{ await put("users", id, { name: state.fullName || row?.name || "Admin", email: (state.email||"").toLowerCase() || null, role: state.role, roleIds: [], branchIds: [], userId: state.userId, active: true, pinHash: await pinHash(id, pin) }); lsSet("slick_mypin_" + state.userId, pin); }
+  catch(e){ console.error(e); adminPinDone = false; }
+}
 const newUserId = () => "usr_" + Date.now().toString(36) + Math.random().toString(36).slice(2,8);
 // what the signed-in person may open in the back office (the owner and legacy admins see everything)
 function myPerms(){
