@@ -3257,7 +3257,18 @@ document.addEventListener("drop", async e => { const t = e.target.closest?.("[da
   try{ for(const [k, id] of ids.entries()){ const r = S[col].find(x=>x.id===id); if(r && r.sort !== (k+1)*10){ await put(col, id, { sort:(k+1)*10 }); n++; } }
     toast("Category order saved"); render(); }
   catch(err){ console.error(err); toast("Couldn't save the new order"); } });
-function bmSet(id, k, v){ const d = BM.draft[id] ||= {}; d[k] = v; }
+function bmSet(id, k, v){ const d = BM.draft[id] ||= {}; d[k] = v; bmPrune(id); }
+// a change put back the way it was is no longer a change: drop draft values that match what is saved
+function bmPrune(id){
+  const d = BM.draft[id]; if(!d) return; delete BM.draft[id];
+  const same = (k, a, b) => k==="price" ? String(a ?? "").trim()==="" ? String(b ?? "").trim()==="" : String(b ?? "").trim()!=="" && +a===+b : a===b;
+  let base = null;
+  if(id.startsWith("cat:")) base = { on: bmCatOn(id.slice(4)) };
+  else if(id.startsWith("mo:")){ const [pid, oid] = id.slice(3).split("|"), r = S.products.find(x => x.id===pid), o = S.modifier_options.find(x => x.id===oid); if(r && o) base = bmOptState(r, o); }
+  else { const r = S.products.find(x => x.id===id) || S.modifier_options.find(x => x.id===id); if(r){ const st = bmState(r); base = { on: st.on, stock: st.stock, price: st.price }; Object.entries(st.types).forEach(([t, v]) => base["t_"+t] = v); } }
+  const left = {}; Object.entries(d).forEach(([k, v]) => { if(!base || !(k in base) || !same(k, base[k], v)) left[k] = v; });
+  if(Object.keys(left).length) BM.draft[id] = left;
+}
 const bmCatOn = id => { const d = BM.draft["cat:"+id] || BM.saving?.["cat:"+id]; if(d && d.on!=null) return d.on; return !offAt(S.categories.find(c=>c.id===id)?.inactiveBranchIds, BM.branch, bmMenu()[2][0]); };
 // changes in Sales Channels are kept as a draft until Save is pressed
 let bmQueue = Promise.resolve();
@@ -4210,12 +4221,18 @@ const recipeCost = (list, depth=0) => (list||[]).reduce((s,l) => s + ingCost(ite
 const productCost = p => p.costingMethod==="fixed" ? (+p.cost||0) : recipeCost(p.ingredients);
 const fmtCost = n => "USD " + (+n||0).toLocaleString("en-US",{maximumFractionDigits:5});
 
+// a stable text form of a value for "did anything change?" checks: object keys sorted, empty values dropped, lists of ids sorted
+const canonJ = v => JSON.stringify((function c(x){ if(Array.isArray(x)) return x.every(y => typeof y==="string") ? [...x].sort() : x.map(c);
+  if(x && typeof x==="object"){ const o = {}; Object.keys(x).sort().forEach(k => { const y = x[k]; if(y===undefined || y===null || y==="" || y===false) return; o[k] = c(y); }); return o; }
+  return typeof x==="string" && x.trim()!=="" && !isNaN(+x) ? +x : x; })(v));
+const detChanged = () => !!DET.snap && ((DET.dirtyIng && canonJ(DET.ing)!==DET.snap.ing) || (DET.dirtyBr && canonJ(DET.br)!==DET.snap.br) || (DET.dirtyMods && canonJ(DET.mods)!==DET.snap.mods));
 function openDetail(key, id){
   const r = S[CRUD[key].col].find(x=>x.id===id); if(!r) return;
   DET.key = key; DET.id = id; DET.dirtyIng = false; DET.dirtyBr = false; DET.var = null; DET.ingFor = "";
   DET.ing = JSON.parse(JSON.stringify(Array.isArray(r.ingredients) ? r.ingredients : []));
   DET.br = { customPrices: { ...(r.customPrices||{}) }, inactive: [...(r.inactiveBranchIds||[])], oos: [...(r.outOfStockBranchIds||[])] };
   DET.mods = JSON.parse(JSON.stringify(Array.isArray(r.modifiers) ? r.modifiers : [])); DET.dirtyMods = false;
+  DET.snap = { ing: canonJ(DET.ing), br: canonJ(DET.br), mods: canonJ(DET.mods) };
   if(key==="inv-items") loadStock();
   render(); window.scrollTo(0,0);
 }
@@ -4468,7 +4485,7 @@ async function saveIngredients(){
     if(DET.key==="products" && DET.ingFor){ const p = S.products.find(x=>x.id===DET.id), vr = { ...(p?.variantRecipes||{}), [DET.ingFor]: list };
       await put(cfg.col, DET.id, { variantRecipes: vr }); if(p) p.variantRecipes = vr; }
     else await put(cfg.col, DET.id, { ingredients: list });
-    DET.ing = list; DET.dirtyIng = false; toast(DET.ingFor ? `Recipe for ${DET.ingFor} saved` : "Ingredients saved"); }
+    DET.ing = list; DET.dirtyIng = false; if(DET.snap) DET.snap.ing = canonJ(list); toast(DET.ingFor ? `Recipe for ${DET.ingFor} saved` : "Ingredients saved"); }
   catch(e){ console.error(e); toast("Couldn't save. Only owners and admins can edit recipes."); }
   finally{ DET.saving = false; render(); }
 }
@@ -4502,7 +4519,7 @@ async function saveBranchSettings(){
   const B = DET.br, cp = {};
   Object.entries(B.customPrices).forEach(([k,v]) => { if(v!=="" && v!=null && !isNaN(+v)) cp[k] = +v; });
   DET.saving = true; render();
-  try{ await put(CRUD[DET.key].col, DET.id, { customPrices: cp, inactiveBranchIds: B.inactive, outOfStockBranchIds: B.oos }); B.customPrices = cp; DET.dirtyBr = false; toast("Branch settings saved"); }
+  try{ await put(CRUD[DET.key].col, DET.id, { customPrices: cp, inactiveBranchIds: B.inactive, outOfStockBranchIds: B.oos }); B.customPrices = cp; DET.dirtyBr = false; if(DET.snap) DET.snap.br = canonJ(B); toast("Branch settings saved"); }
   catch(e){ console.error(e); toast("Couldn't save branch settings"); }
   finally{ DET.saving = false; render(); }
 }
@@ -4512,7 +4529,7 @@ document.addEventListener("click", e => {
   const dop = t.closest("[data-detopen]"); if(dop){ e.preventDefault(); const [k, id] = dop.dataset.detopen.split(":"), rt = k==="modifier-options" ? "modifiers" : k; if(location.hash.slice(1)!==rt){ location.hash = rt; setTimeout(()=>openDetail(k, id), 60); } else openDetail(k, id); return; }
   const np = t.closest("[data-newprod]"); if(np){ e.preventDefault(); const id = np.dataset.newprod; location.hash = "production"; setTimeout(() => { newDoc("production"); docAddItems([id]); render(); }, 60); return; }
   if(!DET.id) return;
-  if(t.closest("[data-detback]")){ e.preventDefault(); if((DET.dirtyIng||DET.dirtyBr||DET.dirtyMods) && !confirm("Leave without saving your changes?")) return; closeDetail(); return render(); }
+  if(t.closest("[data-detback]")){ e.preventDefault(); if(detChanged() && !confirm("Leave without saving your changes?")) return; closeDetail(); return render(); }
   if(t.closest("[data-detedit]")) return openCrud(DET.key, DET.id);
   if(t.closest("[data-dettoggle]")){ const col = CRUD[DET.key].col, r = S[col].find(x=>x.id===DET.id); return put(col, DET.id, { active: r.active===false }).then(()=>toast(r.active===false?"Activated":"Deactivated")).catch(()=>toast("Couldn't update")); }
   if(t.closest("[data-ingsave]")){ const pp = DET.key==="products" && S.products.find(x=>x.id===DET.id); if(pp && (pp.variants||[]).some(v=>v.productId)) return toast("This product has variants: set the recipe on each variant"); return saveIngredients(); }
@@ -4595,7 +4612,7 @@ async function saveModLinks(){
   const list = DET.mods.map(l => ({ modifierId:l.modifierId, min: Math.max(0, parseInt(l.min)||0), max: Math.max(0, parseInt(l.max)||0), free: Math.max(0, parseInt(l.free)||0), ...(l.multi ? { multi:true } : {}), ...(l.opts ? { opts:l.opts } : {}) }));   // opts: per-channel option settings from Sales Channels
   const bad = list.find(l => l.max && l.min > l.max); if(bad){ toast(`${modName(bad.modifierId)}: minimum can't be more than maximum`); return; }
   DET.saving = true; render();
-  try{ await put("products", DET.id, { modifiers: list }); DET.mods = list; DET.dirtyMods = false; toast("Modifiers saved"); }
+  try{ await put("products", DET.id, { modifiers: list }); DET.mods = list; DET.dirtyMods = false; if(DET.snap) DET.snap.mods = canonJ(list); toast("Modifiers saved"); }
   catch(e){ console.error(e); toast("Couldn't save modifiers"); }
   finally{ DET.saving = false; render(); }
 }
