@@ -53,6 +53,7 @@ button{cursor:pointer}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
 .prod{background:var(--s);border:1px solid var(--line);border-radius:12px;padding:14px 12px;text-align:left;min-height:92px;display:flex;flex-direction:column;justify-content:space-between;gap:8px;transition:transform .05s}
 .prod:active{transform:scale(.97);border-color:var(--acc)}
+.prod.oos{opacity:.5;cursor:not-allowed}.prod.oos b{color:#b45309!important}
 .prod span{font-weight:500;line-height:1.25}.prod b{color:var(--acci)}
 .cart{background:var(--s);border-left:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
 .otype{display:grid;grid-template-columns:repeat(auto-fit,minmax(0,1fr));gap:6px;padding:12px;border-bottom:1px solid var(--line)}
@@ -645,7 +646,7 @@ const appSet = () => { const a = { ...APP_DEF, ...BRAND_POS_DEF, ...(S.settings.
   if(a.requireTableGuests !== undefined) a.requireTable = !!a.requireTableGuests; return a; };
 const custGiven = (n, p) => !!(String(n||"").trim() || String(p||"").replace(/[^0-9]/g,"").length >= 6);
 const typeKey = t => t==="takeaway" ? "pickup" : t;
-const menuType = () => otype==="takeaway" || otype==="fast" ? "pickup" : otype;   // fast orders sell the pickup menu
+const menuType = () => otype==="takeaway" ? "pickup" : otype;   // fast sale has its own menu switch in Sales Channels
 const chargeList = type => S.charges.filter(c => !c.deleted && c.active!==false && (!(c.orderTypes||[]).length || c.orderTypes.includes(typeKey(type)))
   && (!(c.brandIds||[]).length || c.brandIds.includes(branch?.brandId)) && (!(c.branchIds||[]).length || c.branchIds.includes(device.branchId))).sort((a,b)=>(a.sort??999)-(b.sort??999)||a.name.localeCompare(b.name));
 const pickedCharges = () => chargeList(otype).filter(c => posChg ? posChg.has(c.id) : c.auto!==false);
@@ -808,7 +809,8 @@ function renderMenu(){
   const cs = {}; cats.forEach((c,i) => cs[c.id] = catStyle(c, i));
   const inCart = {}; cart.forEach(l => { if(l.productId) inCart[l.productId] = (inCart[l.productId]||0) + (+l.qty||0); });
   const tile = p => { const s = cs[cat] || cs[cats.find(c => has(c, p))?.id] || catStyle(null, 0), n = inCart[p.id] || kidsOf(p).reduce((a,k) => a + (inCart[k.p?.id]||0), 0);
-    return `<button class="prod${p.imageUrl?" hasimg":""}" data-add="${esc(p.id)}" style="--hue:${s.hue};--tint:${s.tint}">${p.imageUrl?`<img src="${esc(p.imageUrl)}" alt="" loading="lazy">`:`<span class="pic">${ico(s.icon)}</span>`}<span>${esc(p.name)}</span><b>${p.pricingMethod==="open"?"Open price":(kidsOf(p).length?"From ":"")+usd(tilePrice(p))}</b>${n ? `<i class="inc">${n}</i>` : ""}</button>`; };
+    const oos = prodOos(p);
+    return `<button class="prod${p.imageUrl?" hasimg":""}${oos?" oos":""}" data-add="${esc(p.id)}" ${oos?'disabled title="Out of stock"':""} style="--hue:${s.hue};--tint:${s.tint}">${p.imageUrl?`<img src="${esc(p.imageUrl)}" alt="" loading="lazy">`:`<span class="pic">${ico(s.icon)}</span>`}<span>${esc(p.name)}</span><b>${oos?"Out of stock":p.pricingMethod==="open"?"Open price":(kidsOf(p).length?"From ":"")+usd(tilePrice(p))}</b>${n ? `<i class="inc">${n}</i>` : ""}</button>`; };
   $("#mcats").innerHTML = "" && cats.length ? `<button class="mcat${cat?"":" on"}" role="tab" aria-selected="${!cat}" data-cat="" style="--hue:#6a4cf5;--tint:#efebff"><span class="cdot">${ico("star")}</span>Quick picks</button>` + cats.map(c => `<button class="mcat${c.id===cat?" on":""}" role="tab" aria-selected="${c.id===cat}" data-cat="${esc(c.id)}" style="--hue:${cs[c.id].hue};--tint:${cs[c.id].tint}"><span class="cdot">${ico(cs[c.id].icon)}</span>${esc(c.name)}</button>`).join("") : "";
   const inCats = p => cats.some(c => has(c, p));
   if(q){   // searching looks through every category
@@ -941,7 +943,10 @@ function modData(p){
     .map(o => { const c = (o.customPrices||{})[device.branchId]; return { id:o.id, modifierId:o.modifierId, name:o.name, price: c!=null && c!=="" ? +c : +o.price||0, oos:(o.outOfStockBranchIds||[]).includes(device.branchId) }; });
   return { links:(p.modifiers||[]).filter(l => groups[l.modifierId]), groups, options };   // in the order set on the product
 }
+// out of stock at this branch (set in Sales Channels); a product with variants is out when every variant is
+const prodOos = p => { const k = kidsOf(p); return k.length ? k.every(x => prodOos(x.p)) : (p.outOfStockBranchIds||[]).includes(device?.branchId); };
 async function addProduct(p){
+  if(prodOos(p)){ toast(p.name + " is out of stock"); return; }
   let price = prodPrice(p);
   if(p.pricingMethod==="open"){ if(!can("pos_open_price")){ deny("open-price items"); return; } const v = prompt("Price for " + p.name, price || ""); if(v===null || v==="" || isNaN(+v) || +v<0) return; price = +v; }
   const kids = kidsOf(p);
