@@ -1944,7 +1944,7 @@ $("#branchSel").addEventListener("change", e => { state.branch = e.target.value;
 $("#brandSel").addEventListener("change", e => { state.brand = e.target.value; state.branch = "all"; try{ localStorage.setItem("slickBrand", state.brand); }catch(err){} render(); });
 $("#view").addEventListener("click", e => {
   if(e.target.closest("#dashRefresh")){ loadDash(true); render(); return; }
-  const rp = e.target.closest("[data-report]"); if(rp){ e.preventDefault(); openReport(rp.dataset.report); return; }
+  const rp = e.target.closest("[data-report]"); if(rp){ e.preventDefault(); dashToReport(rp.dataset.report); return; }
   const dr = e.target.closest("#dashRange"); if(dr){ if(DRP.el) return drpClose(); drpOpen(dr, state.date, state.date, (f, t) => { state.date = t; state.days = 1; state.dateSet = t !== todayStr(); state.cmpDate = ""; render(); }); DRP.single = true; drpDraw(); return; }
   const t2 = e.target.closest("[data-dt2]"); if(t2){ e.preventDefault(); state.dashTab = t2.dataset.dt2; render(); return; }
   const t = e.target.closest("[data-dt]"); if(t){ e.preventDefault(); state.dashTab = t.dataset.dt; render(); return; }
@@ -4835,7 +4835,7 @@ document.addEventListener("keydown", e => { if(e.key==="Enter" && e.target.id?.s
 
 /* filters belong to the page: leaving a page puts its filters back to the defaults */
 function resetPageFilters(){
-  Object.assign(state, { range:"day", days:1, date:todayStr(), dateSet:false, compare:false, cmpDate:"", dashTab:"general", branch:"all", brand:"all", devOpen:null, brOpen:null }); RPT.key = ""; DASH.key = "";
+  Object.assign(state, { range:"day", days:1, date:todayStr(), dateSet:false, compare:false, cmpDate:"", dashTab:"general", branch:"all", brand:"all", devOpen:null, brOpen:null }); if(!RPT.keep) RPT.key = ""; RPT.keep = false; DASH.key = "";
   Object.assign(ORD, { tab:"all", range:"week", q:"", from:"", to:"", channel:"", type:"", pay:"", source:"", brand:"", branch:"", page:1, key:"", open:null });
   Object.assign(CUS, { filter:"all", q:"", sort:"last", page:1, key:"", open:null, det:null, more:false, fopen:false, flt:{} });
   Object.assign(BM, { q:"", draft:{} });
@@ -5928,6 +5928,13 @@ $("#view").addEventListener("click", async e => {
 });
 
 /* ---------- KPI breakdown ("View Report") ---------- */
+// Foodics-style: "View Report" opens the matching report in Reports, for the dashboard's dates and branch, grouped by hour
+function dashToReport(title){
+  const pay = /payment/i.test(title), from = dashFrom(), to = state.date;
+  Object.assign(RPT, { keep:true, key: pay ? "payments" : "sales", hub:"sales-reports", from, to, branch: state.branch==="all" ? "" : state.branch, loaded:"", rows:null });
+  if(!pay){ RPT.dim = "branch"; RPT.group = from===to ? "hour" : "day"; }
+  location.hash = "sales-reports"; setTimeout(() => { render(); window.scrollTo(0,0); }, 0);
+}
 function openReport(title){
   const D = DASH.cur; if(!D) return;
   const hr = Array.from({length:24}, (_,h) => D.hours.find(x=>x.h===h) || { h, n:0, net:0, pay:0, disc:0 }).filter(x => x.n).sort((a,b) => (a.h-dayStartH()+24)%24 - (b.h-dayStartH()+24)%24);
