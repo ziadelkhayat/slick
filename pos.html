@@ -469,6 +469,13 @@ button,input,select,textarea{font-family:var(--f-ui)}
 .acard.new{border-style:dashed;align-items:center}.acard.new .aci{background:#fff;border:1.5px dashed #cfc9de}
 .tseg{display:flex;gap:4px;background:#f1f0f6;border-radius:14px;padding:4px}.tseg button{flex:1;display:inline-flex;align-items:center;justify-content:center;gap:10px;min-height:52px;border:0;border-radius:11px;background:none;font:inherit;font-size:16px;font-weight:600;color:#55535f;cursor:pointer;transition:background .2s,color .2s,box-shadow .2s}
 .tseg button svg{width:20px;height:20px}.tseg button.on{background:#fff;color:#5b2bc4;box-shadow:0 1px 3px rgba(20,18,30,.14)}
+.cal{width:300px}.calh{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}.calh b{font-size:15px}
+.calh button{width:40px;height:40px;border:1px solid var(--line);border-radius:12px;background:#fff;font-size:18px;cursor:pointer}.calh button:disabled{opacity:.35}
+.calg{display:grid;grid-template-columns:repeat(7,1fr);row-gap:4px;text-align:center}.cw{font-size:11px;font-weight:700;color:#8d8c98;padding:4px 0;text-transform:uppercase}
+.calg .cd{height:40px;border:0;background:none;font:inherit;font-size:14px;font-weight:600;color:var(--ink);cursor:pointer;border-radius:999px;transition:background .15s}
+.calg .cd:hover:not(:disabled){background:#f1ecff}.calg .cd:disabled{color:#c8c6d0;cursor:default}
+.calg .cd.in{background:#efe9fd;border-radius:0}.calg .cd.ed{background:var(--acc,#6a4cf5);color:#fff}.calg .cd.today:not(.ed){box-shadow:inset 0 0 0 1.5px var(--acc,#6a4cf5)}
+.caln{font-size:12.5px;color:#8d8c98;text-align:center;margin-top:8px}
 .ovrw{position:relative}
 .ovrange{display:inline-flex;align-items:center;gap:8px;height:56px;padding:0 18px;border:1px solid var(--line);border-radius:14px;background:var(--s,#fff);font:inherit;font-weight:700;font-size:15px;color:var(--ink);white-space:nowrap;cursor:pointer}
 .ovrange svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}.ovrange.on{border-color:var(--acc,#6a4cf5);color:var(--acc,#6a4cf5);background:#f3efff}
@@ -492,6 +499,19 @@ button,input,select,textarea{font-family:var(--f-ui)}
 @keyframes incIn{from{opacity:0;transform:translate(-50%,-12px)}to{opacity:1;transform:translate(-50%,0)}}
 .chead .cpills{flex-basis:100%;display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding-left:46px;margin-top:2px}.chead .cinfo{flex:1;min-width:0}
 .rpaper{width:400px;max-width:100%;margin:0 auto;background:#fff;color:#111;padding:20px 18px 18px;border-radius:6px;box-shadow:0 2px 14px rgba(21,19,31,.1);font-size:14px;line-height:1.4}
+.ovrcus .calh b{text-transform:none;letter-spacing:0;color:var(--ink);font-size:15px}
+
+/* ===== Slick motion: one feel across the back office and the POS ===== */
+:root{--ease-out:cubic-bezier(.16,1,.3,1)}
+.scrim{display:flex!important;visibility:hidden;opacity:0;pointer-events:none;transition:opacity .22s var(--ease-out),visibility 0s linear .22s;animation:none!important}
+.scrim.show{visibility:visible;opacity:1;pointer-events:auto;transition:opacity .22s var(--ease-out),visibility 0s}
+.scrim>.modal,.scrim>#modal,.scrim>form.modal{transform:translateY(12px) scale(.975);transition:transform .32s var(--ease-out);animation:none!important}
+.scrim.show>.modal,.scrim.show>#modal,.scrim.show>form.modal{transform:none}
+.toast,#toast{transform:translate(-50%,14px)!important;opacity:0;transition:opacity .25s var(--ease-out),transform .35s var(--ease-out)!important}
+.toast.show,#toast.show{transform:translate(-50%,0)!important;opacity:1}
+button,.btn{transition:background-color .15s,border-color .15s,color .15s,box-shadow .2s,transform .12s var(--ease-out),opacity .15s}
+button:active:not(:disabled),.btn:active:not(:disabled){transform:scale(.97)}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}}
 </style>
 <script>
 /* ---------- naming: menu "products" are called Items; inventory "items" are called Products ----------
@@ -1245,8 +1265,11 @@ $("#modal").addEventListener("click", async e => {
     await db.collection("orders").doc(id).update({ status:s, updatedAt:new Date().toISOString(), handledBy:cashier?.name || device.name, ...bill }); toast(s==="active"?(bill.no ? "Order #"+bill.no+" accepted · sent to kitchen" : "Order accepted · sent to kitchen"):s==="declined"?"Order declined":"Order completed"); }catch(err){ console.error(err); toast("Couldn't update the order"); } return; }
   const ovt = e.target.closest("[data-ovtab]"); if(ovt){ OV.tab = ovt.dataset.ovtab; return openIncoming(); }
   if(e.target.closest("[data-ofilt]")){ OV.filt = !OV.filt; return openIncoming(); }
-  if(e.target.closest("[data-ovrcancel]")){ OV.rpop = false; return openIncoming(); }
-  if(e.target.closest("[data-ovrange]")){ OV.rpop = !OV.rpop; return openIncoming(); }
+  if(OV.rpop && !e.target.closest(".ovrw")){ OV.rpop = false; OV.ca = null; return openIncoming(); }
+  if(e.target.closest("[data-ovrcancel]")){ OV.rpop = false; OV.ca = null; return openIncoming(); }
+  const ovm = e.target.closest("[data-ovm]"); if(ovm && !ovm.disabled){ OV.cm = ovm.dataset.ovm; return openIncoming(); }
+  const ovd = e.target.closest("[data-ovd]"); if(ovd && !ovd.disabled){ const v = ovd.dataset.ovd; if(!OV.ca){ OV.ca = v; return openIncoming(); } [OV.from, OV.to] = v < OV.ca ? [v, OV.ca] : [OV.ca, v]; OV.ca = null; OV.rpop = false; return openIncoming(); }
+  if(e.target.closest("[data-ovrange]")){ OV.rpop = !OV.rpop; OV.ca = null; OV.cm = ""; return openIncoming(); }
   const ovp = e.target.closest("[data-ovpre]"); if(ovp){ [OV.from, OV.to] = ovPreset(ovp.dataset.ovpre); OV.rpop = false; return openIncoming(); }
   if(e.target.closest("[data-ovrapply]")){ let f = $("#ovFrom")?.value || "", t = $("#ovTo")?.value || ""; if(f && t && f > t) [f, t] = [t, f]; OV.from = f; OV.to = t; OV.rpop = false; return openIncoming(); }
   const of = e.target.closest("[data-of]"); if(of){ const i = of.dataset.of.indexOf(":"); OV[of.dataset.of.slice(0,i)] = of.dataset.of.slice(i+1); return openIncoming(); }
@@ -1461,6 +1484,16 @@ const OV_PRE = [["","All time"],["today","Today"],["yday","Yesterday"],["7","Las
 function ovPreset(k){ const t = bizDate(), d = n => { const x = new Date(t + "T12:00:00"); x.setDate(x.getDate() + n); return x.toISOString().slice(0,10); };
   if(!k) return ["",""]; if(k==="today") return [t,t]; if(k==="yday") return [d(-1), d(-1)]; if(k==="7") return [d(-6), t]; if(k==="30") return [d(-29), t];
   if(k==="month") return [t.slice(0,8) + "01", t]; if(k==="lmonth"){ const x = new Date(t.slice(0,8) + "01T12:00:00"); x.setDate(0); const e = x.toISOString().slice(0,10); return [e.slice(0,8) + "01", e]; } return ["",""]; }
+// the range calendar (same as the back office): tap the first day, then the last
+function ovCal(){
+  const max = bizDate(), m = OV.cm || (OV.to || max).slice(0,7), [y, mo] = m.split("-").map(Number), first = new Date(y, mo-1, 1), days = new Date(y, mo, 0).getDate(), lead = (first.getDay() + 6) % 7;
+  const a = OV.ca, lo = a || OV.from, hi = a ? (OV.hov && OV.hov > a ? OV.hov : a) : OV.to;
+  const k = d => `${y}-${String(mo).padStart(2,"0")}-${String(d).padStart(2,"0")}`, prev = new Date(y, mo-2, 1), next = new Date(y, mo, 1), ym = x => `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,"0")}`;
+  let cells = ""; for(let i = 0; i < lead; i++) cells += "<span></span>";
+  for(let d = 1; d <= days; d++){ const v = k(d); cells += `<button class="cd${v===lo||v===hi?" ed":v>lo&&v<hi?" in":""}${v===max?" today":""}" data-ovd="${v}" ${v>max?"disabled":""}>${d}</button>`; }
+  return `<div class="cal"><div class="calh"><button data-ovm="${ym(prev)}" aria-label="Previous month">‹</button><b>${first.toLocaleDateString("en-GB",{month:"long",year:"numeric"})}</b><button data-ovm="${ym(next)}" aria-label="Next month" ${ym(next) > max.slice(0,7) ? "disabled" : ""}>›</button></div>
+    <div class="calg">${["Mo","Tu","We","Th","Fr","Sa","Su"].map(w=>`<span class="cw">${w}</span>`).join("")}${cells}</div><div class="caln">${a ? "Now tap the last day" : "Tap the first day, then the last day"}</div></div>`;
+}
 function ovRangeLbl(){ if(!OV.from && !OV.to) return "All time"; const hit = OV_PRE.find(([k]) => k && ovPreset(k).join()===[OV.from,OV.to].join()); if(hit) return hit[1];
   return OV.from===OV.to ? fmtDay(OV.from) : `${OV.from ? fmtDay(OV.from) : "…"} – ${OV.to ? fmtDay(OV.to) : "…"}`; }
 function boardOrders(col, pd){
@@ -1517,7 +1550,7 @@ function openIncoming(){
     <div class="ovsrch">${ico("search")}<input id="ovQ" placeholder="Search reference, order no., invoice no., customer, phone or table" value="${esc(OV.q)}"></div>
     <div class="ovrw"><button class="ovrange${OV.from||OV.to ? " on" : ""}" data-ovrange aria-expanded="${!!OV.rpop}">${ico("calendar")}<span>${esc(ovRangeLbl())}</span></button>
       ${OV.rpop ? `<div class="ovrpop"><div class="ovrpre">${OV_PRE.map(([k,l]) => `<button class="${ovPreset(k).join()===[OV.from||"",OV.to||""].join() ? "on" : ""}" data-ovpre="${k}">${l}</button>`).join("")}</div>
-        <div class="ovrcus"><b>Custom range</b><label>From<input type="date" id="ovFrom" value="${esc(OV.from||"")}" max="${bizDate()}"></label><label>To<input type="date" id="ovTo" value="${esc(OV.to||"")}" max="${bizDate()}"></label><div class="ovract"><button class="btn" data-ovrcancel>Cancel</button><button class="btn pri" data-ovrapply>Apply</button></div></div></div>` : ""}</div>
+        <div class="ovrcus">${ovCal()}<div class="ovract"><button class="btn" data-ovrcancel>Cancel</button></div></div></div>` : ""}</div>
     <button class="ovfbtn${OV.filt || active.length ? " on" : ""}" data-ofilt aria-expanded="${!!OV.filt}">${ico("filter")}Filters${active.length ? ` <span class="ofn">${active.length}</span>` : ""}</button></div>`;
   const grp = (k, title, opts) => `<div class="ofrow"><b>${title}</b><div class="ofchips2">${[["", "All"], ...opts].map(([v,l]) => `<button class="chip${(OV[k]||"")===v ? " on" : ""}" data-of="${k}:${esc(v)}">${esc(l)}</button>`).join("")}</div></div>`;
   const srcs = [...new Set([...posSources(), ...S.orders.map(o => o.source).filter(x => x && x.toUpperCase()!=="POS")])];
