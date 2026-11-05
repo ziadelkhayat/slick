@@ -133,6 +133,7 @@ tr:last-child td{border-bottom:0}
 .f{display:flex;flex-direction:column;gap:5px}
 .f.full{grid-column:1/-1}
 .f label{font-size:12px;font-weight:500;color:var(--ink2)}
+p.subt{display:none!important}
 .detform{padding:0!important;margin-bottom:16px;overflow:hidden}
 .dsec{padding:20px 22px;border-bottom:1px solid var(--line,#ecebf2)}.dsec h3{margin:0 0 14px;font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--mut,#8b8996)}
 .dgrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px 18px;align-items:start}.dgrid.d2{grid-template-columns:repeat(2,minmax(0,1fr))}
@@ -1487,7 +1488,7 @@ function filterBar(){
   return `<div class="row fbar"><button type="button" class="sel drpbtn" id="dashRange" aria-haspopup="dialog">${svgIco("calendar")}<span>${esc(drpLabel(state.date, state.date))}</span></button>${scopeBar(true)}
     <label class="toggle"><input type="checkbox" id="cmpToggle" ${state.compare?"checked":""}><span class="trk"></span>Compare</label>
     ${state.compare ? `<label class="note">with <input type="date" class="sel" id="cmpDate" value="${state.cmpDate || cmpDefault()}" max="${todayStr()}" aria-label="Compare with business date" title="Business date to compare with${rangeDays()>1 ? " (the " + rangeDays() + " days ending on it)" : ""}"></label>` : ""}
-    <span class="sp"></span><span class="note">${DASH.loading ? "Updating…" : DASH.at ? "Live · updated " + new Date(DASH.at).toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"}) : ""}</span>
+    <span class="sp"></span>
     <button class="btn" id="dashRefresh" title="Refresh now">↻ Refresh</button></div>`;
 }
 // what the numbers are compared with: the previous period, or the business date picked
@@ -1523,7 +1524,7 @@ function viewDashboard(){
   if(storeMode!=="db") return h + placeholder("Dashboard", "Sign in to see live sales.");
   loadDash();
   const D = DASH.cur, P = state.compare ? DASH.prev : null;
-  h += state.dashTab==="inventory" ? `<div class="row fbar"><span class="note">Based on the latest inventory count of each item${state.branch==="all"?" across your branches":""}.</span><span class="sp"></span><span class="note">${DASH.loading ? "Updating…" : DASH.at ? "Updated " + new Date(DASH.at).toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"}) : ""}</span><a class="btn" href="#inventory-count" style="text-decoration:none">Start inventory count</a><button class="btn" id="dashRefresh">↻ Refresh</button></div>` : filterBar();
+  h += state.dashTab==="inventory" ? `<div class="row fbar"><span class="sp"></span><button class="btn" id="dashRefresh">↻ Refresh</button></div>` : filterBar();
   if(DASH.err && !D) return h + `<div class="card empty">Couldn't load the dashboard: ${esc(DASH.err)}<br><br><button class="btn" id="dashRefresh">Try again</button></div>`;
   if(!D) return h + `<div class="card ph"><div>Loading live numbers…</div></div>`;
   const avg = x => x && x.orders ? x.net/x.orders : 0;
@@ -1612,7 +1613,7 @@ function viewInventoryDash(I, bname){
   const hints = [];
   if(I.items && I.withCost < I.items) hints.push(`${I.items - I.withCost} of ${I.items} items have no cost, so their stock value shows as zero.`);
   if(I.items && !I.withMin) hints.push("No item has a minimum level yet. Set one to get low-stock alerts.");
-  let h = hints.length ? `<div class="card" style="margin-bottom:16px;border-color:#f3d9a4;background:#fffaf0"><b>Finish setting up inventory</b><ul style="margin:6px 0 0 18px;padding:0">${hints.map(x=>`<li>${esc(x)}</li>`).join("")}</ul><a href="#inv-items" class="vr" style="display:inline-block;margin-top:8px">Open Inventory → Items</a></div>` : "";
+  let h = false ? `<div class="card" style="margin-bottom:16px;border-color:#f3d9a4;background:#fffaf0"><b>Finish setting up inventory</b><ul style="margin:6px 0 0 18px;padding:0">${hints.map(x=>`<li>${esc(x)}</li>`).join("")}</ul><a href="#inv-items" class="vr" style="display:inline-block;margin-top:8px">Open Inventory → Items</a></div>` : "";
   h += `<div class="grid kpis">
     ${kpiX("Stock value", money(+I.value), "Latest counts × item cost")}
     ${kpiX("Items counted", `${I.counted} <span class="note" style="font-size:14px">of ${I.items}</span>`, I.counted ? "" : "No counts yet")}
