@@ -3063,8 +3063,8 @@ const mapLink = o => (o.lat && o.lng) ? `<a class="lnk" href="https://www.google
 
 /* ---------- Call Center (Foodics board) ---------- */
 const CC_COLS = [["draft","Draft","Orders that are not yet sent to the branch"],["pending","Pending","Orders that are not yet accepted by the branch"],
-  ["active","Active","Orders that are currently being prepared in the branch"],["declined","Declined","Orders that have been declined from the branch or the call center"],
-  ["closed","Closed","Orders that are completed, voided, joined or returned"]];
+  ["active","Active","Orders that are currently being prepared in the branch"],["closed","Closed","Orders that are completed, voided, joined or returned"],
+  ["declined","Declined","Orders that have been declined from the branch or the call center"]];
 const CC_SUB = { draft:"Draft", pending:"Sent to branch", active:"Sent To Kitchen", declined:"Declined", closed:"Done" };
 const SOURCES_DEF = ["Phone","Toters","NokNok","Talabat","WhatsApp","Website","Walk-in"];
 function sourceList(cur){ const l = S.order_sources.filter(r=>live(r)&&r.active!==false&&String(r.name||"").toUpperCase()!=="POS").sort(CRUD["order-sources"].sort).map(r=>r.name); const out = l.length ? l : SOURCES_DEF; return cur && !out.includes(cur) ? [cur, ...out] : out; }
@@ -3078,7 +3078,7 @@ function viewCallCenter(){
   const list = S.orders.filter(o => o.channel!=="pos" && brandFilter(o) && (bizDate(o.createdAt, o.branchId)===bizDate(new Date(), o.branchId) || ["draft","pending","active"].includes(o.status)))
     .filter(o => state.ccBranch==="all" || o.branchId===state.ccBranch).filter(o => state.ccAgent==="all" || byUser(o, state.ccAgent))
     .sort((a,b)=> b.createdAt.localeCompare(a.createdAt));
-  let h = `<div class="phead"><h1>Call Center</h1><span class="note">Today's orders · open orders stay until closed</span><div class="sp"></div>
+  let h = `<div class="phead"><h1>Call Center</h1><div class="sp"></div>
     ${scopeBar(false)}<select class="sel" id="ccBranch" aria-label="Branch"><option value="all">All Branches</option>${branches.filter(brandFilter).map(b=>`<option value="${esc(b.id)}" ${state.ccBranch===b.id?"selected":""}>${esc(b.name)}</option>`).join("")}</select>
     <select class="sel" id="ccAgent" aria-label="User"><option value="all">All users</option>${agents.map(a=>`<option ${state.ccAgent===a?"selected":""}>${esc(a)}</option>`).join("")}</select>
     <button class="btn pri" id="ccNew">${svgIco("phone")} New Call Center Order</button></div>
