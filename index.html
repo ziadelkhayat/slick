@@ -774,6 +774,19 @@ h1:has(.ib),h3:has(.ib){display:inline-flex;align-items:center}
 .cc1.pdstyle #oInsights .cins{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px 18px}
 .rchips{display:flex;flex-wrap:wrap;gap:8px}.rchips button{min-height:42px;padding:0 16px;border-radius:999px;border:1.5px solid var(--line2,#d7d4e2);background:var(--surface);font:inherit;font-weight:600;font-size:14px;color:var(--ink);cursor:pointer;transition:all .15s}
 .rchips button:hover{border-color:#bdb8cd}.rchips button.on{border-color:var(--accent);background:var(--accent-soft);color:var(--accent-ink)}.rchips button:disabled{opacity:.5;cursor:default}
+.pol{display:flex;flex-direction:column;gap:8px;margin-top:12px}.polh{display:flex;align-items:center;gap:8px}.polh b{font-size:14px}
+.poc{position:relative;display:flex;flex-direction:column;gap:4px;text-align:left;width:100%;border:1px solid var(--line);background:var(--surface);border-radius:14px;padding:12px 34px 12px 14px;font:inherit;color:inherit;cursor:pointer;transition:border-color .15s,box-shadow .2s,transform .15s}
+.poc:hover{border-color:var(--accent);box-shadow:0 6px 18px rgba(23,21,31,.07);transform:translateY(-1px)}
+.poc1{display:flex;align-items:center;gap:8px}.poc1 b{font-size:14px}.poc1 .sp{flex:1}.poc2{font-size:12.5px;color:var(--muted)}.poc3{font-size:13px;color:var(--ink2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.poca{position:absolute;right:12px;top:50%;transform:translateY(-50%);font-style:normal;font-size:20px;color:var(--muted)}
+.pod{display:flex;flex-direction:column;gap:12px;margin-top:12px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px 16px;animation:popIn .2s var(--ease,ease)}
+.podback{align-self:flex-start;border:0;background:none;color:var(--accent-ink);font:inherit;font-weight:600;font-size:13px;padding:0;cursor:pointer}
+.podh{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}.podh b{display:block;font-size:17px}.podh .note{font-size:12.5px}
+.podm{display:flex;flex-wrap:wrap;gap:6px}.podm span{font-size:12px;font-weight:600;background:#f3f1f8;color:var(--ink2);border-radius:999px;padding:4px 10px}
+.podi{display:flex;flex-direction:column;border-top:1px solid var(--line)}.podi>div{display:grid;grid-template-columns:34px 1fr auto;gap:8px;padding:9px 0;border-bottom:1px dashed var(--line);font-size:14px}
+.podi .q{font-weight:700;color:var(--accent-ink)}.podi small{display:block;color:var(--muted);font-size:12px;margin-top:2px}
+.podt{display:flex;justify-content:space-between;font-size:16px}.podt b{font-size:17px}
+.podre{justify-content:center;width:100%;padding:12px!important}.podre svg{width:16px;height:16px}
 /* ================= Modern polish layer ================= */
 :root{
   --bg:#f6f6fa; --surface:#fff; --ink:#17151f; --ink2:#45424f; --muted:#8a8796; --line:#e6e4ee; --line2:#d7d4e2;
@@ -3009,7 +3022,7 @@ function openOrder(id){
       <div id="oInsights"></div>
      </div>
     </div>
-    <div class="ccnext"><span class="err" id="oErr1"></span><button type="button" class="btn" data-ccclose>Cancel</button><button type="button" class="btn pri" data-ccstep="2">Continue to cart →</button></div>
+    <div class="ccnext"><span class="err" id="oErr1"></span><button type="button" class="btn" data-ccclose>Cancel</button><button type="button" class="btn pri" data-ccstep="2">Continue</button></div>
    </section>
    <aside class="ccside" id="oSide"></aside>
    ${ro ? "" : `<section class="ccmenu"><div class="ccprods"><div class="cctools"><button type="button" class="cctool" data-cctool="disc" id="ccToolDisc">${ccIco("pct")}<span>Discount</span></button><button type="button" class="cctool" data-cctool="notes">${ccIco("note")}<span>Notes</span></button></div><div class="ccbar"><button type="button" class="btn sm" id="oCatBack" hidden>← Categories</button><div class="cchead" id="oCatTitle"></div><input class="sel search" id="oSearch" placeholder="Search all products" autocomplete="off"></div><div class="pgrid" id="oProducts"></div></div></section>`}
@@ -4456,7 +4469,7 @@ async function ccLookup(view){
   if(!view){ if($("#oName") && !$("#oName").value && data.name) $("#oName").value = data.name;
     if($("#oA_street") && !ADDR_K.some(k => $("#oA_"+k)?.value) && data.addresses?.[0]?.address) ccAddrSet(data.addresses[0].address); }
   hint.innerHTML = `${data.blacklisted ? '<b style="color:#9e0c24">⚠ Blacklisted customer.</b> ' : ""}${(data.tags||[]).map(t=>`<span class="tag">${esc(t)}</span>`).join(" ")}${data.notes ? ` <i>${esc(data.notes)}</i>` : ""}`;
-  window.__ccCust = data; window.__ccPast = past || []; ccAddrCards();
+  window.__ccCust = data; window.__ccPast = past || []; window.__ccOk = null; ccAddrCards();
   const ok = (past||[]).filter(o => ["pending","active","closed"].includes(o.status)), spent = ok.reduce((a,o)=>a+(+o.total||0),0);
   const fav = {}; ok.forEach(o => (o.items||[]).forEach(i => fav[i.name] = (fav[i.name]||0) + (+i.qty||1)));
   const top = Object.entries(fav).sort((a,b)=>b[1]-a[1]).slice(0,3), last = ok[0], first = ok[ok.length-1];
@@ -4464,7 +4477,8 @@ async function ccLookup(view){
   $("#oInsights").innerHTML = `<div class="cins"><div class="cins-h"><b>Customer insights</b><span class="note">Customer since ${d(data.created_at || first?.created_at)}</span></div>
     <div class="cins-g"><div><span>Orders</span><b>${ok.length}</b></div><div><span>Total spent</span><b>${usd(spent)}</b></div><div><span>Avg. order</span><b>${usd(ok.length ? spent/ok.length : 0)}</b></div><div><span>Last order</span><b>${last ? ago2(last.created_at) : "—"}</b></div></div>
     </div>
-    ${ok.length ? `<div class="cpast"><b>Previous orders</b>${ok.slice(0,6).map(o => `<div class="cpo"><div><span>${esc(o.ref || ordRef(o))} · ${d(o.created_at)}</span><div class="note">${esc(branchName(o.branch_id))} · ${(o.items||[]).slice(0,3).map(i=>`${i.qty}× ${esc(i.name)}`).join(", ")}${(o.items||[]).length>3?"…":""}</div></div><b>${usd(+o.total||0)}</b>${!view ? `<button type="button" class="btn sm" data-reorder="${esc(o.id)}">Reorder</button>` : ""}</div>`).join("")}</div>` : ""}`;
+    <div id="ccPast"></div>`;
+  window.__ccView = !!view; window.__ccDet = null; ccPastRender();
   if($("#ccX")?.classList.contains("s2")) ccSide();   // blacklisted flag
 }
 document.addEventListener("change", e => { if(e.target.id==="oCc"){ clearTimeout(ccLookT); ccLookT = setTimeout(ccLookup, 50); } });
@@ -4488,6 +4502,28 @@ document.addEventListener("click", e => {
   if(e.target.id==="cuSave") return saveCustomer();
   const co = e.target.closest("tr[data-coid]"); if(co) return openOrderDetail(co.dataset.coid);
 });
+
+// previous orders: a clear list; tap one to see what was in it, then reorder it
+function ccPastRender(){
+  const box = $("#ccPast"); if(!box) return;
+  const ok = (window.__ccPast||[]).filter(o => !["draft"].includes(o.status)), det = window.__ccDet && ok.find(o => o.id===window.__ccDet);
+  const d = t => t ? new Date(t).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"}) : "—";
+  const num = o => o.status==="refund" ? ordRef(o) : o.invoice_no ? invNo(o.invoice_no) : (o.ref || ordRef(o));
+  const items = o => (o.items||[]).filter(i => !i.voided);
+  if(det){ const it = items(det);
+    box.innerHTML = `<div class="pod"><button type="button" class="podback" data-ccpast="">‹ Previous orders</button>
+      <div class="podh"><div><b>${esc(num(det))}</b><span class="note">${det.no ? "Order #" + esc(det.no) + " · " : ""}${new Date(det.created_at).toLocaleString("en-GB",{day:"numeric",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"})}</span></div><span class="spill s-${det.status}">${ORD_ST[det.status]||det.status}</span></div>
+      <div class="podm">${[branchName(det.branch_id), ordTypeLbl(det.type), srcOf(det)].filter(Boolean).map(x => `<span>${esc(x)}</span>`).join("")}</div>
+      <div class="podi">${it.map(i => `<div><span class="q">${+i.qty||1}×</span><span class="n">${esc(i.name)}${modLines(i).length ? `<small>${modLines(i).map(esc).join(", ")}</small>` : ""}</span><b>${usd((+i.price||0)*(+i.qty||1))}</b></div>`).join("") || '<p class="note">No items</p>'}</div>
+      <div class="podt"><span>Total</span><b>${usd(+det.total||0)}</b></div>
+      ${window.__ccView ? "" : `<button type="button" class="btn pri podre" data-reorder="${esc(det.id)}">${svgIco("refresh")} Reorder these items</button>`}</div>`;
+    return; }
+  box.innerHTML = ok.length ? `<div class="pol"><div class="polh"><b>Previous orders</b><span class="note">${ok.length}</span></div>${ok.slice(0,10).map(o => { const it = items(o);
+    return `<button type="button" class="poc" data-ccpast="${esc(o.id)}"><div class="poc1"><b>${esc(num(o))}</b><span class="spill s-${o.status}">${ORD_ST[o.status]||o.status}</span><span class="sp"></span><b>${usd(+o.total||0)}</b></div>
+      <div class="poc2">${esc(d(o.created_at))} · ${esc(branchName(o.branch_id) || "")} · ${esc(ordTypeLbl(o.type))}${srcOf(o) ? " · " + esc(srcOf(o)) : ""}</div>
+      <div class="poc3">${it.slice(0,3).map(i => `${+i.qty||1}× ${esc(i.name)}`).join(", ")}${it.length > 3 ? ` +${it.length-3} more` : ""}</div><i class="poca">›</i></button>`; }).join("")}</div>` : "";
+}
+document.addEventListener("click", e => { const b = e.target.closest?.("[data-ccpast]"); if(!b) return; e.preventDefault(); window.__ccDet = b.dataset.ccpast || null; ccPastRender(); });
 // the customer page's orders: open the order details
 document.addEventListener("click", e => { const co = e.target.closest?.("tr[data-coid]"); if(co && !co.closest("#ccScrim")) openOrderDetail(co.dataset.coid); });
 

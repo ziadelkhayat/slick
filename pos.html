@@ -453,6 +453,12 @@ button,input,select,textarea{font-family:var(--f-ui)}
 .slk-ask-yes{background:var(--accent,#6c47ff);border:1px solid var(--accent,#6c47ff);color:#fff}
 .slk-ask-yes.red{background:#dc2626;border-color:#dc2626}
 @keyframes slkAskIn{from{opacity:0}to{opacity:1}}
+.cpast>b{font-size:14px}.poc{position:relative;display:flex;flex-direction:column;gap:4px;text-align:left;width:100%;border:1px solid var(--line);background:#fff;border-radius:14px;padding:12px 34px 12px 14px;font:inherit;color:inherit;cursor:pointer;transition:border-color .15s,box-shadow .2s}
+.poc:hover,.poc:active{border-color:var(--acc,#6a4cf5);box-shadow:0 6px 18px rgba(23,21,31,.07)}
+.poc1{display:flex;align-items:center;gap:8px}.poc1 b{font-size:15px}.poc1 .sp{flex:1}.poc2{font-size:12.5px;color:#8d8c98}.poc3{font-size:13px;color:#5b5a66;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.poca{position:absolute;right:12px;top:50%;transform:translateY(-50%);font-style:normal;font-size:22px;color:#a3a1b0}
+.podback{align-self:flex-start;border:0;background:none;color:var(--acc,#6a4cf5);font:inherit;font-weight:700;font-size:14px;padding:4px 0;min-height:36px;cursor:pointer}
+.podre{width:100%;min-height:52px;font-size:15px}
 .ovrw{position:relative}
 .ovrange{display:inline-flex;align-items:center;gap:8px;height:56px;padding:0 18px;border:1px solid var(--line);border-radius:14px;background:var(--s,#fff);font:inherit;font-weight:700;font-size:15px;color:var(--ink);white-space:nowrap;cursor:pointer}
 .ovrange svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}.ovrange.on{border-color:var(--acc,#6a4cf5);color:var(--acc,#6a4cf5);background:#f3efff}
@@ -1255,6 +1261,10 @@ $("#modal").addEventListener("click", async e => {
   const pda = e.target.closest("[data-pdaddr]"); if(pda){ pdKeep(); const a = (PD.cust?.addresses||[]).filter(x => x.address)[+pda.dataset.pdaddr]; if(a){ PD.addr = addrParts(a.address); if(PD.type!=="delivery" && allowedTypes().includes("delivery")) PD.type = "delivery"; } return openPDNew(); }
   const cvd = e.target.closest("[data-cvdet]"); if(cvd){ CV.det = cvd.dataset.cvdet || null; return drawCust(); }
   const psrc = e.target.closest("[data-pdsrc]"); if(psrc){ PD.source = psrc.dataset.pdsrc; document.querySelectorAll("[data-pdsrc]").forEach(x => x.classList.toggle("on", x===psrc)); if($("#pdErr")) $("#pdErr").textContent = ""; pdRefresh(); return; }
+  const pdr = e.target.closest("[data-pdreorder]"); if(pdr){ const o = (PD?.past||[]).find(x => x.id===pdr.dataset.pdreorder); if(!o) return; const miss = []; let n = 0;
+    (o.items||[]).filter(i => !i.voided).forEach(i => { const p = S.products.find(x => x.id===i.productId); if(!p || p.active===false || prodOos(p)){ miss.push(i.name); return; }
+      const opt = (i.options||[]).reduce((a,x) => a + (+x.price||0), 0); cart.push({ productId:p.id, name:i.name, price: +(prodPrice(p) + (Array.isArray(i.options) && i.options.length ? opt : 0)).toFixed(2), qty:+i.qty||1, ...(i.options?.length ? { options:i.options, mods:i.mods } : {}), ...(i.note ? { note:i.note } : {}) }); n++; });
+    renderCart(); toast(n ? (miss.length ? `Added to the cart · not available now: ${miss.join(", ")}` : "Order added to the cart · press Continue") : "None of these items are available now"); return; }
   const pdd = e.target.closest("[data-pddet]"); if(pdd){ pdKeep(); PD.det = pdd.dataset.pddet || null; return openPDNew(); }
   if(e.target.closest("[data-pdnewaddr]")){ pdKeep(); PD.addr = {}; openPDNew(); return $("#pdA_label")?.focus(); }
   if(e.target.closest("[data-pdcancel]")) return pdCancel();
@@ -1872,15 +1882,19 @@ function custPanel(c, ok, det, key, extra = "", noIns = false){
   const sel = det && ok.find(o => o.id===det);
   const ins = noIns ? "" : insCard(c, ok);
   if(sel){ const brn = S.branches?.find(b => b.id===sel.branchId)?.name || "";
-    return `<div class="pdside">${ins}${extra}<button type="button" class="btn" data-${key}="" style="align-self:flex-start">← Orders history</button>
+    return `<div class="pdside">${ins}${extra}<button type="button" class="podback" data-${key}="">‹ Previous orders</button>
     <div class="cins"><div class="cins-h"><b>${sel.inv ? esc(invNo(sel.inv)) : "#" + esc(sel.no || "—")}</b><span class="mut">${esc(stLbl(sel))}</span></div>
       <div class="mut">Order #${esc(sel.no || "—")} · ${tl[sel.type] || esc(sel.type||"")} · ${new Date(sel.at).toLocaleString("en-GB", { day:"numeric", month:"short", year:"numeric", hour:"2-digit", minute:"2-digit" })}${brn ? " · " + esc(brn) : ""}${sel.source && sel.source.toUpperCase()!=="POS" ? " · " + esc(sel.source) : ""}</div>
       ${sel.address ? `<div class="mut">📍 ${esc(adShort(sel.address))}</div>` : ""}</div>
     <div class="cdet">${(sel.items||[]).map(i => `<div class="cdl${i.voided ? " vd" : ""}"><span>${+i.qty||1}× ${esc(i.name)}${modLines(i).length ? `<small>${modLines(i).map(esc).join(", ")}</small>` : ""}</span><b>${usd(lineNet(i))}</b></div>`).join("")}
       ${sel.discount ? `<div class="cdl"><span>Discount</span><b>-${usd(sel.discount)}</b></div>` : ""}${(sel.charges||[]).filter(c => +c.amount).map(c => `<div class="cdl"><span>${esc(c.name)}</span><b>${usd(+c.amount)}</b></div>`).join("")}${sel.fee ? `<div class="cdl"><span>Delivery fee</span><b>${usd(sel.fee)}</b></div>` : ""}
-      <div class="cdl tot"><span>Total</span><b>${usd(sel.total)}</b></div>${sel.payment?.method ? `<div class="mut">Paid by ${esc(sel.payment.method)}</div>` : ""}</div></div>`; }
+      <div class="cdl tot"><span>Total</span><b>${usd(sel.total)}</b></div>${sel.payment?.method ? `<div class="mut">Paid by ${esc(sel.payment.method)}</div>` : ""}</div>
+    ${key==="pddet" ? `<button type="button" class="btn pri podre" data-pdreorder="${esc(sel.id)}">↻ Reorder these items</button>` : ""}</div>`; }
   return `<div class="pdside">${ins}${extra}
-    <div class="cpast"><b>Orders history</b>${ok.length ? ok.slice(0,20).map(o => `<button type="button" class="cpo" data-${key}="${esc(o.id)}"><span>${o.inv ? esc(invNo(o.inv)) : "#" + esc(o.no || "—")} · ${d(o.at)} · ${tl[o.type] || esc(o.type||"")}${o.address ? `<small class="cpoa">📍 ${esc(adShort(o.address))}</small>` : ""}</span><b>${usd(o.total)}</b><i>›</i></button>`).join("") : '<div class="mut">No orders yet</div>'}</div></div>`;
+    <div class="cpast"><b>Previous orders · ${ok.length}</b>${ok.length ? ok.slice(0,20).map(o => { const it = (o.items||[]).filter(i => !i.voided), brn = S.branches?.find(b => b.id===o.branchId)?.name || "";
+      return `<button type="button" class="poc" data-${key}="${esc(o.id)}"><span class="poc1"><b>${o.inv ? esc(invNo(o.inv)) : "#" + esc(o.no || "—")}</b><span class="spill s-${o.status}">${esc(stLbl(o))}</span><span class="sp"></span><b>${usd(o.total)}</b></span>
+        <span class="poc2">${d(o.at)}${brn ? " · " + esc(brn) : ""} · ${tl[o.type] || esc(o.type||"")}${o.source && o.source.toUpperCase()!=="POS" ? " · " + esc(o.source) : ""}</span>
+        <span class="poc3">${it.slice(0,3).map(i => `${+i.qty||1}× ${esc(i.name)}`).join(", ")}${it.length > 3 ? ` +${it.length-3} more` : ""}</span><i class="poca">›</i></button>`; }).join("") : '<div class="mut">No orders yet</div>'}</div></div>`;
 }
 const adShort = a => { const p = addrParts(a); return [p.label, p.street, p.building && "Bldg " + p.building, p.floor && "Floor " + p.floor].filter(Boolean).join(" · ") || a; };
 const pdSide = (extra) => custPanel(PD.cust, PD.past, PD.det, "pddet", extra);
