@@ -3773,7 +3773,7 @@ function viewBranchMenu(){
       <label class="scbr"><span>Branch</span><select class="sel" id="bmBranch" aria-label="Branch">${list.map(b=>`<option value="${esc(b.id)}" ${b.id===BM.branch?"selected":""}>${brandList().length>1?esc(brandName(b.brandId))+" · ":""}${esc(b.name)}</option>`).join("")}</select></label>
       <div class="sp"></div>${bmSaveBtns(nDraft)}
       <div class="ddwrap"><button type="button" class="btn" id="bmMore">Actions ▾</button><div class="ddmenu" id="bmMoreM" hidden>
-        <button type="button" data-bmbulk="on">Turn everything on</button><button type="button" data-bmbulk="off">Turn everything off</button>
+        <button type="button" data-bmorder>Use this order on all channels</button><div class="ddsep"></div><button type="button" data-bmbulk="on">Turn everything on</button><button type="button" data-bmbulk="off">Turn everything off</button>
         ${others.length ? `<div class="ddsep"></div>` : ""}${others.map(([v,t]) => `<button type="button" data-bmcopy="${esc(v)}">Copy from ${esc(t)}</button>`).join("")}</div></div></div>`;
   const cats = chCats(ch[0]), cq = (BM.cq||"").trim().toLowerCase();
   if(!cats.some(c => c.id===BM.cat)) BM.cat = cats[0]?.id || "";
@@ -4026,10 +4026,13 @@ $("#view").addEventListener("click", async e => {
   const dm = e.target.closest("[data-bmcmenu]"); if(dm){ e.preventDefault(); e.stopPropagation(); const m = dm.nextElementSibling, was = m.hidden; document.querySelectorAll(".mm .ddmenu").forEach(x => x.hidden = true); m.hidden = !was; return; }
   if(!e.target.closest(".mm .ddmenu")) document.querySelectorAll(".mm .ddmenu").forEach(x => x.hidden = true);
   const pk = e.target.closest("[data-bmpick]"); if(pk && !e.target.closest(".toggle,.ddwrap")){ e.preventDefault(); if(BM.cat !== pk.dataset.bmpick){ BM.cat = pk.dataset.bmpick; BM.q = ""; render(); } return; }
+  if(e.target.closest("[data-bmorder]")){ e.preventDefault(); $("#bmMoreM").hidden = true; const cs = chCats(bmMenu()[0]);
+    try{ await bmSyncCats(cs.map(c => c.id)); for(const c of cs) await bmSyncItems(c, [...new Set((c.productIds||[]).map(bmRoot))]); toast("Category and item order copied to all sales channels"); render(); }
+    catch(err){ console.error(err); toast("Couldn't save the new order"); } return; }
   const so = e.target.closest("[data-bmcsort]"); if(so){ e.preventDefault(); const [cid, how] = so.dataset.bmcsort.split("|"), c = S.categories.find(x => x.id===cid); if(!c) return;
     const pr = p => { const k = varKids(p), x = k.length ? Math.min(...k.map(y => +y.price||0)) : +p.price||0; return x; };
     const list = bmCatProds(c).sort((a, b) => how==="price" ? pr(a) - pr(b) || a.name.localeCompare(b.name) : (how==="za" ? -1 : 1) * a.name.localeCompare(b.name)), ids = list.map(p => p.id);
-    put("categories", c.id, { productIds:ids }).then(() => { c.productIds = ids; toast("Products sorted"); render(); }, err => { console.error(err); toast("Couldn't save the new order"); }); return; }
+    put("categories", c.id, { productIds:ids }).then(() => bmSyncItems(c, ids)).then(() => { c.productIds = ids; toast("Products sorted on all sales channels"); render(); }, err => { console.error(err); toast("Couldn't save the new order"); }); return; }
   const mo = e.target.closest("[data-bmmods]"); if(mo){ e.preventDefault(); BM.mopen ||= new Set(); const id = mo.dataset.bmmods; BM.mopen.has(id) ? BM.mopen.delete(id) : BM.mopen.add(id); return render(); }
   const ex = e.target.closest("[data-bmexp]"); if(ex){ e.preventDefault(); const g = ex.dataset.bmexp; BM.open ||= new Set(); BM.open.has(g) ? BM.open.delete(g) : BM.open.add(g); return render(); }
   if(e.target.closest("[data-bmnewcat]")){ e.preventDefault(); openCrud("chcat"); return; }
@@ -4391,8 +4394,40 @@ $("#view").addEventListener("click", e => {
 });
 
 /* ---------- Customers (Foodics format): one record per phone, filled automatically from orders ---------- */
-const CUS = { filter:"all", q:"", sort:"last", page:1, per:50, rows:[], all:null, count:0, summary:null, loading:false, err:"", key:"", t:null, open:null, det:null, more:false, fopen:false, flt:{} };
+const CUS = { sel:new Set(), filter:"all", q:"", sort:"last", page:1, per:50, rows:[], all:null, count:0, summary:null, loading:false, err:"", key:"", t:null, open:null, det:null, more:false, fopen:false, flt:{} };
 const CUS_TABS = [["all","All"],["blacklisted","Blacklisted"],["deleted","Deleted"]];
+const CUS_BULK = [["loyOn","Enable Loyalty"],["loyOff","Disable Loyalty"],["haOn","Enable House Account"],["haOff","Disable House Account"],["tagAdd","Add tags"],["tagDel","Remove tags"],["delete","Delete"]];
+// customers list: tick rows, then act on all of them at once (Foodics style)
+document.addEventListener("click", e => { if(e.target.closest?.("[data-cusel],[data-cusall]")) e.stopPropagation(); }, true);
+document.addEventListener("change", e => {
+  const a = e.target.closest?.("[data-cusall]"); if(a){ document.querySelectorAll("[data-cusel]").forEach(c => a.checked ? CUS.sel.add(c.dataset.cusel) : CUS.sel.delete(c.dataset.cusel)); render(); return; }
+  const c = e.target.closest?.("[data-cusel]"); if(c){ c.checked ? CUS.sel.add(c.dataset.cusel) : CUS.sel.delete(c.dataset.cusel); render(); }
+});
+async function cusBulk(act){
+  const ids = [...CUS.sel]; if(!ids.length) return;
+  const now = new Date().toISOString(), upd = patch => WOK.sb.from("customers").update({ ...patch, updated_at: now }).in("id", ids);
+  const done = msg => { toast(msg); CUS.sel = new Set(); CUS.key = ""; render(); };
+  const flags = { loyOn:[{ loyalty:true }, "Loyalty enabled"], loyOff:[{ loyalty:false }, "Loyalty disabled"], haOn:[{ house_account:true }, "House account enabled"], haOff:[{ house_account:false }, "House account disabled"], restore:[{ deleted_at:null }, "restored"] };
+  if(act==="delete"){ if(!(await askYes("Are you sure you want to delete this?"))) return; const { error } = await upd({ deleted_at: now }); if(error) return toast("Couldn't delete: " + error.message); return done(`${ids.length} deleted`); }
+  if(flags[act]){ const { error } = await upd(flags[act][0]); if(error) return toast("Couldn't save: " + error.message); return done(act==="restore" ? `${ids.length} restored` : `${flags[act][1]} for ${ids.length}`); }
+  if(act==="tagAdd" || act==="tagDel"){
+    const box = $("#ccBox"); box.className = "modal";
+    box.innerHTML = `<header><h2>${act==="tagAdd" ? "Add Tags" : "Remove Tags"}</h2><button type="button" class="x" data-ccclose aria-label="Close">×</button></header>
+      <div class="body"><div class="f" style="grid-column:1/-1"><label for="cbTag">Tags</label><input id="cbTag" placeholder="e.g. VIP, corporate"><span class="note">${ids.length} selected · separate tags with commas.</span></div></div>
+      <footer><span style="flex:1"></span><button type="button" class="btn" data-ccclose>Cancel</button><button type="button" class="btn pri" id="cbTagGo">Save</button></footer>`;
+    $("#ccScrim").classList.add("show"); setTimeout(() => $("#cbTag")?.focus(), 50);
+    $("#cbTagGo").onclick = async () => { const tg = $("#cbTag").value.split(",").map(s => s.trim()).filter(Boolean); if(!tg.length) return; $("#ccScrim").classList.remove("show");
+      const { data, error } = await WOK.sb.from("customers").select("id,tags").in("id", ids); if(error) return toast("Couldn't save: " + error.message);
+      try{ for(const r of data||[]){ const cur = r.tags||[], next = act==="tagAdd" ? [...new Set([...cur, ...tg])] : cur.filter(t => !tg.some(x => x.toLowerCase()===String(t).toLowerCase()));
+          if(next.join("|")!==cur.join("|")){ const { error:e2 } = await WOK.sb.from("customers").update({ tags:next, updated_at: now }).eq("id", r.id); if(e2) throw e2; } }
+        done(act==="tagAdd" ? "Tags added" : "Tags removed"); }catch(err){ toast("Couldn't save: " + err.message); } };
+  }
+}
+document.addEventListener("click", e => {
+  if(e.target.closest("#cusBk")){ e.stopPropagation(); const m = $("#cusBkM"); m.hidden = !m.hidden; return; }
+  const d = e.target.closest("[data-cusbk]"); if(d){ e.stopPropagation(); $("#cusBkM").hidden = true; cusBulk(d.dataset.cusbk); return; }
+  const m = $("#cusBkM"); if(m && !m.hidden) m.hidden = true;
+}, true);
 // birthday: Day · Month · Year pickers instead of the browser's mm/dd/yyyy box; the hidden input keeps YYYY-MM-DD
 const BD_M = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 function bdSel(id, val){ const [y, m, d] = String(val||"").slice(0,10).split("-"), Y = new Date().getFullYear(), o = (v, t, s) => `<option value="${v}" ${s?"selected":""}>${t}</option>`;
@@ -4460,10 +4495,12 @@ function viewCustomers(){
     <select class="sel" id="cusSort">${[["last","Last order"],["spent","Total spent"],["orders","Most orders"],["new","Newest"],["name","Name A–Z"]].map(([v,t])=>`<option value="${v}" ${CUS.sort===v?"selected":""}>Sort: ${t}</option>`).join("")}</select>
     <button class="btn${nAdv?" pri":""}" id="cusFlt">Filter${nAdv?` (${nAdv})`:""}</button></div>
   ${CUS.fopen ? `<div class="cflt"><div class="body" style="padding:0">${CUS_FLT.map(fld).join("")}</div><div class="cfltb"><button class="btn" id="cusFClr">Clear</button><button class="btn pri" id="cusFApply">Apply</button></div></div>` : ""}
-  ${CUS.err ? `<p class="note" style="padding:16px">Couldn't load customers: ${esc(CUS.err)}</p>` : `<table><thead><tr><th>Name</th><th>Phone</th><th>Email</th><th class="num">Total Orders</th><th>Last Order</th></tr></thead><tbody>${
-    rows.length ? rows.map(c => `<tr class="clk" data-cid="${esc(c.id)}"><td><b>${esc(c.name || "Unnamed")}</b>${c.blacklisted?' <span class="spill s-declined">Blacklisted</span>':""}${(c.tags||[]).length?`<div>${c.tags.map(t=>`<span class="tag cc">${esc(t)}</span>`).join(" ")}</div>`:""}</td><td>${esc(c.phone)}</td><td>${esc(c.email || "—")}</td>
+  ${CUS.err ? `<p class="note" style="padding:16px">Couldn't load customers: ${esc(CUS.err)}</p>` : `<table><thead><tr><th class="bkc"><input type="checkbox" data-cusall ${rows.length && rows.every(c => CUS.sel.has(c.id)) ? "checked" : ""} aria-label="Select all on this page"></th>${CUS.sel.size
+      ? `<th colspan="5" class="bkbar"><b>${CUS.sel.size} Selected</b><span class="ddwrap"><button type="button" class="btn sm" id="cusBk">Actions ▾</button><span class="ddmenu" id="cusBkM" hidden>${(CUS.filter==="deleted" ? [["restore","Restore"]] : CUS_BULK).map(([k,t]) => `<button type="button" data-cusbk="${k}">${t}</button>`).join("")}</span></span></th>`
+      : `<th>Name</th><th>Phone</th><th>Email</th><th class="num">Total Orders</th><th>Last Order</th>`}</tr></thead><tbody>${
+    rows.length ? rows.map(c => `<tr class="clk" data-cid="${esc(c.id)}"><td class="bkc"><input type="checkbox" data-cusel="${esc(c.id)}" ${CUS.sel.has(c.id)?"checked":""} aria-label="Select ${esc(c.name||c.phone||"")}"></td><td><b>${esc(c.name || "Unnamed")}</b>${c.blacklisted?' <span class="spill s-declined">Blacklisted</span>':""}${(c.tags||[]).length?`<div>${c.tags.map(t=>`<span class="tag cc">${esc(t)}</span>`).join(" ")}</div>`:""}</td><td>${esc(c.phone)}</td><td>${esc(c.email || "—")}</td>
       <td class="num">${c.n}</td><td>${ago2(c.last_at)}</td></tr>`).join("")
-    : `<tr><td colspan="5" class="note" style="padding:24px;text-align:center">${CUS.loading ? "Loading customers…" : CUS.q || CUS.filter!=="all" || adv ? "No customers match." : "No customers yet. They're added automatically when an order has a phone number."}</td></tr>`
+    : `<tr><td colspan="6" class="note" style="padding:24px;text-align:center">${CUS.loading ? "Loading customers…" : CUS.q || CUS.filter!=="all" || adv ? "No customers match." : "No customers yet. They're added automatically when an order has a phone number."}</td></tr>`
   }</tbody></table>`}
   <div class="pager"><span class="note">${a}–${b} of ${CUS.count.toLocaleString()}</span><span class="sp"></span><button class="btn" id="cusPrev" ${CUS.page<=1?"disabled":""}>‹ Previous</button><span class="note">Page ${CUS.page} of ${pages}</span><button class="btn" id="cusNext" ${CUS.page>=pages?"disabled":""}>Next ›</button></div></div>`;
 }
@@ -4476,6 +4513,8 @@ async function openCustomer(id){
   if(CUS.open!==id) return;
   if(r1.error || !r1.data){ CUS.open = null; render(); return toast("Couldn't open this customer"); }
   const c = r1.data; c.__orders = r2.data || []; c.addresses = c.addresses || []; c.tags = c.tags || [];
+  const r3 = await WOK.sb.from("house_account_txns").select("*").eq("customer_id", id).order("created_at", { ascending:false }).limit(500); c.__ha = r3.error ? [] : r3.data || [];
+  if(CUS.open!==id) return;
   CUS.det = c; window.__cus = c; render();
 }
 const cusNum = v => v && typeof v==="object" ? +(v.amount ?? v.value ?? 0) || 0 : +v || 0;
@@ -4494,7 +4533,7 @@ function viewCustomer(){
   const desc = v => { const a = addrSplit(v); return esc([a.street, a.building && "Bldg " + a.building, a.floor && "Floor " + a.floor, a.extra].filter(Boolean).join(" · ") || v); };
   const admin = ["owner","admin"].includes(state.role);
   return `<div class="phead"><a href="#customers" class="btn" data-cusback style="text-decoration:none">← Back</a><h1 style="margin-left:10px">${esc(c.name || c.phone)}</h1>${c.blacklisted?' <span class="spill s-declined" style="margin-left:8px">Blacklisted</span>':""}<div class="sp"></div>
-      ${c.deleted_at ? `<span class="spill s-declined" style="margin-right:8px">Deleted</span>${admin ? `<button class="btn pri" id="cuRestore">Restore</button>` : ""}` : `${admin ? `<button class="btn" id="cuDel">Delete Customer</button>` : ""}<button class="btn pri" id="cuEdit">Edit Customer</button>`}</div>
+      ${c.deleted_at ? `<span class="spill s-declined" style="margin-right:8px">Deleted</span>${admin ? `<button class="btn pri" id="cuRestore">Restore</button>` : ""}` : `${admin ? `<button class="btn" id="cuHa">${c.house_account ? "Disable House Account" : "Enable House Account"}</button><button class="btn" id="cuDel">Delete Customer</button>` : ""}<button class="btn pri" id="cuEdit">Edit Customer</button>`}</div>
     <div class="cstats">
       <div><span>Done Orders</span><b>${done.length}</b></div>
       <div><span>Last Order</span><b>${orders.length ? dtf(orders[0].created_at) : "—"}</b></div>
@@ -4502,8 +4541,11 @@ function viewCustomer(){
       <div><span>Favourite Branch</span><b>${esc(fb ? branchName(fb) || "—" : "—")}</b></div>
       ${more ? `<div><span>Total Spent (${esc(CUR())})</span><b>${money(spent)}</b></div><div><span>Total Discounts (${esc(CUR())})</span><b>${money(disc)}</b></div><div><span>Average Order (${esc(CUR())})</span><b>${money(done.length ? spent/done.length : 0)}</b></div><div><span>First Order</span><b>${orders.length ? dtf(orders[orders.length-1].created_at) : "—"}</b></div>` : ""}</div>
     <div class="card odet" style="margin-bottom:16px;padding:16px 18px">${row("Name", esc(c.name || "—"))}${row("Email", esc(c.email || "—"))}${row("Phone", esc(c.phone || "—"))}${row("Birth Date", c.birthday ? dtf(c.birthday + "T12:00:00") : "—")}
-      ${row("Gender", esc({ male:"Male", female:"Female" }[c.gender] || "—"))}${row("Loyalty", "Disabled")}${row("House Account", "Disabled")}${row("Blacklist", c.blacklisted ? "Yes" : "No")}
+      ${row("Gender", esc({ male:"Male", female:"Female" }[c.gender] || "—"))}${row("Loyalty", c.loyalty ? "Enabled" : "Disabled")}${row("House Account", c.house_account ? `Enabled · balance <b class="${haBal(c) < 0 ? "neg" : ""}">${money(haBal(c))}</b>` : "Disabled")}${c.house_account ? row("Credit Limit", `${c.house_limit!=null ? money(+c.house_limit) : "No limit"} <a href="#customers" class="lnk" id="cuHaLim">Change</a>`) : ""}${row("Blacklist", c.blacklisted ? "Yes" : "No")}
       ${row("Created", dtf(c.created_at))}${c.notes ? `<div style="grid-column:1/-1"><span>Customer Notes</span>${esc(c.notes)}</div>` : ""}</div>
+    ${c.house_account || (c.__ha||[]).length ? `<div class="card brcard"><div class="brch"><h3>House Account Transactions</h3><span class="note" style="margin-left:6px">Balance ${money(haBal(c))}</span><span class="sp"></span>${c.house_account ? `<button class="btn sm" id="cuHaPay">Add Payment</button>` : ""}</div>
+      ${(c.__ha||[]).length ? tbl(["Date","Type","Payment Method","Reference","Branch","By",`<span class="num">Amount</span>`], c.__ha.map(t => `<tr><td>${new Date(t.created_at).toLocaleString("en-GB",{day:"numeric",month:"short",year:"numeric",hour:"numeric",minute:"2-digit"})}</td><td>${t.kind==="payment" ? "Payment" : "Order"}</td><td>${esc(t.method || "—")}</td><td>${esc(t.order_ref || t.note || "—")}</td><td>${esc(t.branch_id ? branchName(t.branch_id) || "—" : "—")}</td><td>${esc(t.created_by || "—")}</td><td class="num" style="color:${t.kind==="payment" ? "#067647" : "#b42318"}">${t.kind==="payment" ? "+" : "−"}${money(+t.amount)}</td></tr>`))
+        : '<p class="note brempty">Here you can register debit payments and see all credit and debit payments made by this customer.</p>'}</div>` : ""}
     <div class="card brcard"><div class="brch"><h3>Tags</h3><span class="sp"></span><button class="btn sm" id="cuTagBtn">Add Tags</button></div>${c.tags.length ? `<div>${c.tags.map((t,i)=>`<span class="tag cc">${esc(t)} <a href="#customers" class="lnk" data-cdtag="${i}" aria-label="Remove tag" style="text-decoration:none">×</a></span>`).join(" ")}</div>` : '<p class="note brempty">No data to display!</p>'}</div>
     <div class="card brcard"><div class="brch"><h3>Addresses</h3><span class="sp"></span><button class="btn sm" id="cuAddrBtn">Add Address</button></div>${tbl(["Name","Description","Delivery Zone","Created",""],
       c.addresses.map((a,i) => `<tr><td>${esc(addrSplit(a.address).label || "—")}</td><td>${desc(a.address)} ${a.lat ? mapLink(a) : ""}</td><td>${esc(zn(a.zoneId) || "—")}</td><td>${dtf(a.createdAt)}</td><td class="num"><a href="#customers" class="lnk" data-cdaddr="${i}">Remove</a></td></tr>`)
@@ -4563,6 +4605,30 @@ async function restoreCustomer(){
   if(error) return toast("Couldn't restore: " + error.message);
   c.deleted_at = null; toast("Customer restored"); CUS.key = ""; render();
 }
+// house account: payments add, orders charged to it subtract; a negative balance is what the customer owes
+const haBal = c => +((c.__ha||[]).reduce((s, t) => s + (t.kind==="payment" ? +t.amount : -t.amount), 0)).toFixed(2);
+function openHaPay(){
+  const c = CUS.det; if(!c) return; const pms = (S.payment_methods||[]).filter(m => !m.deleted && m.active!==false).map(m => m.name); if(!pms.length) pms.push("Cash", "Card");
+  const box = $("#ccBox"); box.className = "modal";
+  box.innerHTML = `<header><h2>Add Payment</h2><button type="button" class="x" data-ccclose aria-label="Close">×</button></header>
+  <div class="body"><div class="f"><label for="haAmt">Value (${esc(CUR())}) *</label><input id="haAmt" type="number" inputmode="decimal" min="0" step="0.01" value="${haBal(c) < 0 ? (-haBal(c)).toFixed(2) : ""}"></div>
+    <div class="f"><label for="haPm">Payment Method *</label><select id="haPm">${pms.map(n => `<option>${esc(n)}</option>`).join("")}</select></div>
+    <div class="f" style="grid-column:1/-1"><label for="haNote">Notes</label><input id="haNote" placeholder="Optional"></div><div class="err" id="haErr" style="grid-column:1/-1"></div></div>
+  <footer><span style="flex:1"></span><button type="button" class="btn" data-ccclose>Cancel</button><button type="button" class="btn pri" id="haSave">Save</button></footer>`;
+  $("#ccScrim").classList.add("show"); setTimeout(() => $("#haAmt")?.focus(), 50);
+  $("#haSave").onclick = async () => { const v = +(+$("#haAmt").value).toFixed(2); if(!(v > 0)){ $("#haErr").textContent = "Enter an amount above 0."; return; }
+    const row = { customer_id:c.id, kind:"payment", amount:v, method:$("#haPm").value, note:$("#haNote").value.trim() || null, created_by: state.userName || state.email || null };
+    const { data, error } = await WOK.sb.from("house_account_txns").insert(row).select().single(); if(error){ $("#haErr").textContent = error.message; return; }
+    c.__ha = [data, ...(c.__ha||[])]; $("#ccScrim").classList.remove("show"); toast("Payment added"); render(); };
+}
+function openHaLimit(){
+  const c = CUS.det; if(!c) return; const box = $("#ccBox"); box.className = "modal";
+  box.innerHTML = `<header><h2>Credit Limit</h2><button type="button" class="x" data-ccclose aria-label="Close">×</button></header>
+  <div class="body"><div class="f" style="grid-column:1/-1"><label for="haLim">How much this customer can owe (${esc(CUR())})</label><input id="haLim" type="number" inputmode="decimal" min="0" step="0.01" value="${c.house_limit ?? ""}" placeholder="No limit"><span class="note">Leave empty for no limit. The POS stops a house account sale that goes over it.</span></div></div>
+  <footer><span style="flex:1"></span><button type="button" class="btn" data-ccclose>Cancel</button><button type="button" class="btn pri" id="haLimGo">Save</button></footer>`;
+  $("#ccScrim").classList.add("show");
+  $("#haLimGo").onclick = () => { const s = $("#haLim").value.trim(); $("#ccScrim").classList.remove("show"); cusPatch({ house_limit: s==="" ? null : Math.max(0, +s) }, "Credit limit saved"); };
+}
 function openCusTags(){
   const box = $("#ccBox"); box.className = "modal";
   box.innerHTML = `<header><h2>Add Tags</h2><button type="button" class="x" data-ccclose aria-label="Close">×</button></header>
@@ -4592,7 +4658,7 @@ let cusQT; $("#view").addEventListener("input", e => { if(e.target.id==="cusQ"){
 $("#view").addEventListener("change", e => { if(e.target.id==="cusSort"){ CUS.sort = e.target.value; CUS.page = 1; render(); } });
 document.addEventListener("click", e => { const m = $("#cusIEm"); if(m && !e.target.closest("#cusIE")) m.hidden = true; });
 $("#view").addEventListener("click", async e => {
-  const tb = e.target.closest("[data-ctab]"); if(tb){ e.preventDefault(); CUS.filter = tb.dataset.ctab; CUS.page = 1; render(); return; }
+  const tb = e.target.closest("[data-ctab]"); if(tb){ e.preventDefault(); CUS.filter = tb.dataset.ctab; CUS.page = 1; CUS.sel = new Set(); render(); return; }
   if(e.target.id==="cusPrev"){ CUS.page--; if(!cusAdv()) CUS.key = ""; render(); return; }
   if(e.target.id==="cusNext"){ CUS.page++; render(); return; }
   if(e.target.id==="cusAdd"){ openCustomerEdit(null); return; }
@@ -4607,6 +4673,9 @@ $("#view").addEventListener("click", async e => {
   if(e.target.id==="cuDel"){ deleteCustomer(); return; }
   if(e.target.id==="cuRestore"){ restoreCustomer(); return; }
   if(e.target.id==="cuTagBtn"){ openCusTags(); return; }
+  if(e.target.id==="cuHa"){ const on = !CUS.det?.house_account; cusPatch({ house_account:on }, on ? "House account enabled" : "House account disabled"); return; }
+  if(e.target.id==="cuHaPay"){ openHaPay(); return; }
+  if(e.target.id==="cuHaLim"){ e.preventDefault(); openHaLimit(); return; }
   if(e.target.id==="cuAddrBtn"){ openCusAddr(); return; }
   const dt = e.target.closest("[data-cdtag]"); if(dt){ e.preventDefault(); const t = [...CUS.det.tags]; t.splice(+dt.dataset.cdtag, 1); cusPatch({ tags:t }, "Tag removed"); return; }
   const da = e.target.closest("[data-cdaddr]"); if(da){ e.preventDefault(); if(!(await askYes("Remove this address?"))) return; const a = [...CUS.det.addresses]; a.splice(+da.dataset.cdaddr, 1); cusPatch({ addresses:a }, "Address removed"); return; }

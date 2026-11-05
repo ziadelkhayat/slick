@@ -808,7 +808,19 @@ function orderTax(items, disc){ return orderTaxParts(items, disc).tax; }
 const taxIncl = () => !S.taxes.some(x => live(x) && x.inclusive===false);
 /* ---------- payment methods (Manage → Payment Methods; Cash / Card / Other until some are added) ---------- */
 const payMethods = () => { const l = S.payment_methods.filter(m => live(m) && m.active!==false && !(brSet().inactivePayments||[]).includes(m.id)).sort((a,b)=>(a.sort??999)-(b.sort??999)||a.name.localeCompare(b.name));
-  return l.length ? l.map(m => ({ id:m.id, name:m.name, type:m.type||"other" })) : [{ id:"cash", name:"Cash", type:"cash" },{ id:"card", name:"Card", type:"card" },{ id:"other", name:"Other", type:"other" }]; };
+  const out = l.length ? l.map(m => ({ id:m.id, name:m.name, type:m.type||"other" })) : [{ id:"cash", name:"Cash", type:"cash" },{ id:"card", name:"Card", type:"card" },{ id:"other", name:"Other", type:"other" }];
+  if(String(cust?.phone||"").replace(/\D/g,"").length >= 6 && window.WOK?.sb) out.push({ id:"house", name:"House Account", type:"house" });   // charged to the customer's house account, paid later
+  return out; };
+// house account of the order's customer: enabled? balance and credit limit
+let HA = null;
+async function haLookup(){
+  const ph = normPhone(cust.phone); HA = null;
+  const { data: list, error } = await window.WOK.sb.from("customers").select("id,name,house_account,house_limit").in("phone", phoneVariants(ph)).is("deleted_at", null).limit(1); if(error) throw error;
+  const c = list?.[0]; if(!c || !c.house_account) return null;
+  const { data: tx } = await window.WOK.sb.from("house_account_txns").select("kind,amount").eq("customer_id", c.id);
+  const bal = (tx||[]).reduce((s, t) => s + (t.kind==="payment" ? +t.amount : -t.amount), 0);
+  return HA = { id:c.id, name:c.name, balance:+bal.toFixed(2), limit: c.house_limit==null ? null : +c.house_limit };
+}
 const incoming = () => S.orders.filter(o => o.branchId===device.branchId && o.channel!=="pos" && (o.status==="pending" || o.status==="active"));
 
 /* ---------- render ---------- */
@@ -1267,7 +1279,15 @@ $("#modal").addEventListener("click", async e => {
     if(v > 0 && appSet().discNeedsCustomer && !custGiven(cust.name, cust.phone)){ $("#discNote").textContent = "Add the customer first: discounts need customer info."; return; }
     if(v > 0 && appSet().discountApproval && !(await approve("pos_discount", "Approve discount"))) return;
     discount = +v.toFixed(2); discType = ty; closeModal(); renderCart(); return; }
-  const pm = e.target.closest("[data-pm]"); if(pm){ payMethod = payMethods().find(m=>m.id===pm.dataset.pm); document.querySelectorAll("[data-pm]").forEach(b=>b.classList.toggle("on", b===pm)); $("#cashBox").style.display = payMethod?.type==="cash" ? "flex" : "none"; if($("#cardNote")) $("#cardNote").style.display = payMethod?.type==="cash" ? "none" : "grid"; updChange(); return; }
+  const pm = e.target.closest("[data-pm]"); if(pm){ payMethod = payMethods().find(m=>m.id===pm.dataset.pm); document.querySelectorAll("[data-pm]").forEach(b=>b.classList.toggle("on", b===pm)); $("#cashBox").style.display = payMethod?.type==="cash" ? "flex" : "none"; if($("#cardNote")) $("#cardNote").style.display = payMethod?.type==="cash" ? "none" : "grid"; updChange();
+    if(payMethod?.type==="house"){ const cn = $("#cardNote"), cp = $("#confirmPay"); cp.disabled = true; cn.innerHTML = `<div>Checking the house account…</div>`;
+      haLookup().then(h => { if(payMethod?.type!=="house") return; const t = totals().total;
+        if(!h){ cn.innerHTML = `<div><b style="color:#b42318">No house account</b><br>Enable it for this customer in the back office (Customers)</div>`; return; }
+        const after = h.balance - t, over = h.limit!=null && after < -h.limit - 0.001;
+        cn.innerHTML = `<div><b style="color:var(--ink)">Charge to ${esc(h.name || "the customer")}'s house account</b><br>Balance ${usd(h.balance)} → ${usd(after)}${h.limit!=null ? ` · limit ${usd(h.limit)}` : ""}${over ? `<br><b style="color:#b42318">Over the credit limit</b>` : ""}</div>`;
+        cp.disabled = over; }, err => { console.error(err); cn.innerHTML = `<div><b style="color:#b42318">Couldn't check the house account</b><br>House account needs a connection</div>`; }); }
+    else if($("#cardNote")) $("#cardNote").innerHTML = `<div><b style="color:var(--ink)">Take the payment on the card machine</b><br>then complete the sale</div>`;
+    return; }
   const qk = e.target.closest("[data-qk]"); if(qk){ $("#tender").value = qk.dataset.qk; KP = true; updChange(); return; }
   const kp = e.target.closest("[data-kp]"); if(kp){ const el = $("#tender"), k = kp.dataset.kp; let v = KP ? "" : el.value; KP = false;
     v = k==="⌫" ? v.slice(0,-1) : k==="." ? (v.includes(".") ? v : (v || "0") + ".") : (v==="0" ? k : v + k); el.value = v.slice(0,9); updChange(); return; }
@@ -1348,7 +1368,7 @@ function openPay(){
   const t = totals(), pms = payMethods(); payMethod = pms[0];
   const q = [t.total, Math.ceil(t.total/5)*5, Math.ceil(t.total/10)*10, Math.ceil(t.total/20)*20, ...String(appSet().presetTender||"").split(",").map(x=>+x.trim()).filter(x => x > t.total)].filter((v,i,a)=>a.indexOf(v)===i);
   KP = true;   // the first key typed replaces the prefilled amount
-  const pmIco = m => ico(m.type==="cash" ? "cash" : m.type==="card" ? "card" : "wallet");
+  HA = null; const pmIco = m => ico(m.type==="cash" ? "cash" : m.type==="card" ? "card" : "wallet");
   modal("pay", `<div class="payx"><div class="payl"><div class="ptop"><div><div class="dlbl">Amount due</div><div class="damt">${usd(t.total)}</div>${usd2(t.total) ? `<div class="d2">≈ ${usd2(t.total)}</div>` : ""}</div></div>
       <div class="paym">${pms.map((m,i)=>`<button data-pm="${esc(m.id)}" class="${i?"":"on"}">${pmIco(m)}${esc(m.name)}</button>`).join("")}</div>
       <div class="psum">${cart.map(i => `<div><span>${+i.qty||1}× ${esc(i.name)}</span><span>${usd(lineNet(i))}</span></div>`).join("")}${t.disc ? `<div class="m"><span>${esc(discLbl())}</span><span>−${usd(t.disc)}</span></div>` : ""}${t.charges.filter(c=>c.amount).map(c => `<div class="m"><span>${esc(c.name)}</span><span>${usd(c.amount)}</span></div>`).join("")}${t.fee ? `<div class="m"><span>Delivery fee</span><span>${usd(t.fee)}</span></div>` : ""}<div class="m" style="border-top:1px dashed var(--line);padding-top:6px"><span>Tax</span><span>${usd(t.tax)}</span></div></div></div>
@@ -1377,8 +1397,11 @@ async function completeSale(){
       await db.collection("orders").doc(eo.id).update(order); EDIT = null;
     } else {
     const id = "pos_" + Date.now().toString(36) + Math.random().toString(36).slice(2,5);
-    await db.collection("orders").doc(id).set(order);
+    await db.collection("orders").doc(id).set(order); order.id = id;
     }
+    if(payMethod?.type==="house" && HA){ const oid = order.id || editOrder()?.id || eo?.id;   // the sale goes on the customer's house account
+      const { error: he } = await window.WOK.sb.from("house_account_txns").insert({ customer_id: HA.id, kind:"charge", amount:+t.total.toFixed(2), method:"House Account", order_id: oid || null, order_ref: order.no ? "#" + order.no : null, branch_id: device.branchId, created_by: cashier?.name || device.name });
+      if(he){ console.error(he); toast("Sale saved, but the house account charge failed: " + he.message); } HA = null; }
     closeModal(); toast(`Sale complete · ${usd(order.total)}${order.payment.change ? " · change " + usd(order.payment.change) : ""}`);   // no receipt preview on screen
     resetOrder(); if(devSet().lockAfterSale && usePins()) lock(); if(!syncSt.online) toast("Saved on this tablet · will sync when online");
   }catch(err){ console.error(err); if(!eo0?.no) giveBackNo(no); toast("Couldn't save the sale. Try again."); $("#confirmPay").disabled = false; }
