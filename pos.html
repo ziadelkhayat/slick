@@ -238,10 +238,10 @@ body{-webkit-font-smoothing:antialiased}
 .lrow{display:grid;grid-template-columns:110px 1.2fr 1.2fr 140px;gap:12px;align-items:center;width:100%;border:0;border-bottom:1px solid var(--line);background:none;padding:14px 20px;text-align:left;font:inherit;color:inherit;cursor:pointer}
 .lrow:hover{background:#faf9fe}.lrow:last-child{border-bottom:0}.lrow .lno{font-size:17px;font-weight:600}.lrow .lc{display:flex;flex-direction:column;gap:3px;color:#5b5a66;font-size:14px}.lrow .lc b{color:var(--ink);font-weight:500;text-transform:uppercase;font-size:13.5px;letter-spacing:.02em}.lrow .lr{text-align:right;display:flex;flex-direction:column;gap:4px;align-items:flex-end}.lrow .lr b{text-transform:uppercase;font-size:13.5px;letter-spacing:.03em}
 .modal.full .mb>*{flex-shrink:0}.otabs2{flex-shrink:0;overflow-x:auto;overflow-y:hidden}.otabs2 button{min-height:52px}.fdot{display:inline-grid;place-items:center;min-width:18px;height:18px;border-radius:9px;background:#fff;color:var(--acci);font-size:11px;margin-left:4px;padding:0 4px}.hbtn.ghost .fdot{background:var(--acc);color:#fff}
-.lrow.ol5{grid-template-columns:.95fr .6fr 1.15fr .75fr .85fr .85fr .8fr .95fr .8fr .85fr}.lrow.lhead{cursor:default;padding-top:10px;padding-bottom:10px;font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:#8d8c98}.lrow.lhead:hover{background:none}
+.lrow.ol5{grid-template-columns:.95fr .95fr .6fr 1.15fr .75fr .85fr .85fr .8fr .95fr .8fr .85fr}.lrow.lhead{cursor:default;padding-top:10px;padding-bottom:10px;font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:#8d8c98}.lrow.lhead:hover{background:none}
 
 .lst-pending{color:#2c5fb8}.lst-active{color:var(--warn)}.lst-closed{color:var(--good)}.lst-void,.lst-refund,.lst-declined,.lst-returned{color:var(--bad)}
-@media(max-width:800px){.lrow{grid-template-columns:80px 1fr 110px}.lrow .lc2{display:none}}@media(max-width:800px){.lrow.ol5{grid-template-columns:1fr .6fr 1fr .8fr .9fr}}
+@media(max-width:800px){.lrow{grid-template-columns:80px 1fr 110px}.lrow .lc2{display:none}}@media(max-width:800px){.lrow.ol5{grid-template-columns:1fr 1fr .6fr 1fr .8fr .9fr}}
 /* tables */
 .tgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:12px}
 .ttile{min-height:96px;border:2px solid transparent;border-radius:16px;background:var(--s);box-shadow:0 1px 3px rgba(21,19,31,.08);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font:inherit;color:inherit;cursor:pointer;padding:10px}
@@ -968,7 +968,7 @@ function renderCart(){
   const rf = eo0 && eo0.status==="refund" ? eo0 : null, rfInv = rf && invNo(rf.invoiceRef || S.orders.find(x => x.id===rf.refundOf)?.invoiceNo);
   const ctx = rf ? `<div class="ctx"><span class="ci ci-svg">${ico("undo")}</span><div><b>RETURN</b><small>${rfInv ? "Original invoice " + esc(rfInv) : esc(typLbl(rf.type))}</small></div><span class="sp"></span></div>`
     : otype==="dinein" ? `<div class="ctx"><span class="ci ci-svg">${ico("dine")}</span><div><b>${esc(tblLbl(tableNo || "—"))}</b><small>Dine-in${GUESTS ? ` · ${GUESTS} guest${GUESTS===1?"":"s"}` : ""}</small></div><span class="sp"></span>${canSwitch ? `<button data-ctx="table">Change table</button><button data-ctx="fast">Remove table</button>` : ""}</div>`
-    : otype==="takeaway" || otype==="delivery" ? `<div class="ctx"><span class="ci ci-svg">${ico(otype==="delivery" ? "scooter" : "bag")}</span><div><b>${otype==="delivery" ? "Delivery" : "Pickup"}</b><small>${esc([cust.name, cust.source].filter(Boolean).join(" · "))}</small></div><span class="sp"></span>${cust.phone || cust.name ? `<button data-ctx="custpage">Customer details</button>` : ""}${canSwitch ? `<button data-ctx="pddetails">Details</button>` : ""}</div>`
+    : otype==="takeaway" || otype==="delivery" ? `<div class="ctx"><span class="ci ci-svg">${ico(otype==="delivery" ? "scooter" : "bag")}</span><div><b>${esc(cust.name || (otype==="delivery" ? "Delivery" : "Pickup"))}</b><small>${esc([branch?.name, otype==="delivery" ? "Delivery" : "Pickup", cust.source].filter(Boolean).join(" · "))}</small></div><span class="sp"></span>${cust.phone || cust.name ? `<button data-ctx="custpage">Customer details</button>` : ""}${canSwitch ? `<button data-ctx="pddetails">Details</button>` : ""}</div>`
     : `<div class="ctx"><span class="ci ci-svg"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12v18l-2-1.5L14 21l-2-1.5L10 21l-2-1.5L6 21z"/><path d="M9 8h6M9 12h6M9 16h3"/></svg></span><div><b>FAST SALE</b></div><span class="sp"></span></div>`;
   const held = device ? heldList() : [];
   const htabs = held.length ? `<div class="htabs" role="tablist" aria-label="Held orders">${held.map(h => `<button type="button" class="htab" data-hgettab="${esc(h.id)}" title="Retrieve held order H${h.n}"><b>H${h.n}</b><span>${usd(h.total)}</span></button>`).join("")}</div>` : "";
@@ -1475,6 +1475,7 @@ function openIncoming(){
   // columns: order no. · invoice no. · customer · total (dine-in and fast orders have no customer: "-")
   const custOf = o => o.type==="dinein" || o.type==="fast" ? "" : o.customerName || o.phone || "";
   const row = o => `<button class="lrow ol5" data-ov="${esc(o.id)}">
+    <span class="lc"><b style="text-transform:none">${esc(o.ref || "—")}</b></span>
     <span class="lc"><b style="text-transform:none">${esc(invOf(o)) || `<span class="mut">${o.status==="pending" ? "Not accepted yet" : "—"}</span>`}</b></span>
     <span class="lc"><b class="lno" style="text-transform:none">${esc(o.status==="refund" ? "–" : o.no ? "#" + o.no : "—")}</b></span>
     <span class="lc"><b style="text-transform:none">${esc(custOf(o) ? (o.customerName || o.phone) : "-")}</b>${custOf(o) && o.customerName && o.phone ? `<span>${esc(o.phone)}</span>` : ""}</span>
@@ -1493,7 +1494,7 @@ function openIncoming(){
   const TYL = { dinein:"Dine-in", pickup:"Pickup", delivery:"Delivery", fast:"Fast sale" }, CHL = { pos:"POS", callcenter:"Call center", web:"Web" };
   const active = [["ft", TYL[OV.ft]], ["fc", CHL[OV.fc]], ["fs", OV.fs], ["fp", OV.fp]].filter(x => x[1]);
   const head = `<div class="ohdr"><button class="hbtn" data-close>Back</button>
-    <div class="ovsrch">${ico("search")}<input id="ovQ" placeholder="Search order no., invoice no., customer, phone or table" value="${esc(OV.q)}"></div>
+    <div class="ovsrch">${ico("search")}<input id="ovQ" placeholder="Search reference, order no., invoice no., customer, phone or table" value="${esc(OV.q)}"></div>
     <div class="ovrw"><button class="ovrange${OV.from||OV.to ? " on" : ""}" data-ovrange aria-expanded="${!!OV.rpop}">${ico("calendar")}<span>${esc(ovRangeLbl())}</span></button>
       ${OV.rpop ? `<div class="ovrpop"><div class="ovrpre">${OV_PRE.map(([k,l]) => `<button class="${ovPreset(k).join()===[OV.from||"",OV.to||""].join() ? "on" : ""}" data-ovpre="${k}">${l}</button>`).join("")}</div>
         <div class="ovrcus"><b>Custom range</b><label>From<input type="date" id="ovFrom" value="${esc(OV.from||"")}" max="${bizDate()}"></label><label>To<input type="date" id="ovTo" value="${esc(OV.to||"")}" max="${bizDate()}"></label><div class="ovract"><button class="btn" data-ovrcancel>Cancel</button><button class="btn pri" data-ovrapply>Apply</button></div></div></div>` : ""}</div>
@@ -1511,7 +1512,7 @@ function openIncoming(){
       return `<div class="ocol"><div class="ochead" title="${esc(tip)}"><b>${title}</b><span class="cnt">${l.length}</span></div>${l.length ? l.map(card).join("") : `<div class="oempty">You don't have ${title.toLowerCase()} orders</div>`}</div>`; }).join("")}</div>`;
   else { const l = boardOrders(OV.tab);
     body = `<div class="otabs2">${TABS.map(([k,l2]) => `<button data-ovtab="${k}" class="${OV.tab===k?"on":""}">${l2}</button>`).join("")}</div>
-      <div class="olist2">${l.length ? `<div class="lrow ol5 lhead"><span>Invoice #</span><span>Order #</span><span>Customer</span><span>Status</span><span class="lc2">Sales channel</span><span class="lc2">Order type</span><span class="lc2">Order source</span><span class="lc2">Business date</span><span class="lc2">Payment type</span><span style="text-align:right">Total</span></div>` + l.map(row).join("") : `<div class="oempty" style="border-radius:0">No orders here</div>`}</div>`; }
+      <div class="olist2">${l.length ? `<div class="lrow ol5 lhead"><span>Reference #</span><span>Invoice #</span><span>Order #</span><span>Customer</span><span>Status</span><span class="lc2">Sales channel</span><span class="lc2">Order type</span><span class="lc2">Order source</span><span class="lc2">Business date</span><span class="lc2">Payment type</span><span style="text-align:right">Total</span></div>` + l.map(row).join("") : `<div class="oempty" style="border-radius:0">No orders here</div>`}</div>`; }
   modal("incoming", `${head}<div class="mb" style="display:flex;flex-direction:column;gap:12px">${filt}${body}<p class="mut" style="margin:0">${OV.loading ? "Loading older orders… " : ""}${OV.from||OV.to ? `Orders by business date · ${esc(ovRangeLbl())}.` : "All orders of this branch, newest first."} Tap an order to open it in the billing section.</p></div>`, true);
   $("#modal").classList.add("full"); $("#scrim").classList.add("fullscr"); withNav();
   const q = $("#ovQ"); if(q && document.activeElement?.id!=="ovQ" && OV.q){ /* keep the list where it was */ }
