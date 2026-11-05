@@ -2509,7 +2509,7 @@ function crudView(key){
   list.sort(cfg.sort);
   const per = 50, pages = Math.max(1, Math.ceil(list.length/per)), pg = Math.min(state.page[key]||1, pages);
   const shown = list.slice((pg-1)*per, pg*per);
-  let h = `<div class="phead"><h1>${cfg.title}</h1><div class="sp"></div>${SORTABLE[key] && !SORTABLE[key].inside ? `<button class="btn" data-sorter="${key}">${svgIco("sort")} Sort</button>` : ""}${IMPEX[key] ? `<button class="btn" data-imp="${key}">Import</button><button class="btn" data-exp="${key}">Export</button>` : ""}<button class="btn pri" data-create="${key}">${cfg.addLbl||"Create"} ${cfg.one}</button></div>`;
+  let h = `<div class="phead"><h1>${cfg.title}</h1><div class="sp"></div>${SORTABLE[key] && !SORTABLE[key].inside ? `<button class="btn" data-sorter="${key}">${svgIco("sort")} Sort</button>` : ""}${["products","categories"].includes(key) ? `<button class="btn" data-bulkimg="${key}">Upload photos</button>` : ""}${IMPEX[key] ? `<button class="btn" data-imp="${key}">Import</button><button class="btn" data-exp="${key}">Export</button>` : ""}<button class="btn pri" data-create="${key}">${cfg.addLbl||"Create"} ${cfg.one}</button></div>`;
   if(storeMode==="local") h += `<div class="banner">Preview mode: changes won't be saved.</div>`;
   if(cfg.note) h += `<p class="subt" style="margin-top:-6px">${esc(cfg.note)}</p>`;
   if(cfg.top) h += cfg.top();
@@ -2795,6 +2795,44 @@ function impexDialog(title, body, okText){
     <footer><span style="flex:1"></span><button type="button" class="btn" data-ccclose>Cancel</button>${okText ? `<button type="button" class="btn pri" id="impGo">${okText}</button>` : ""}</footer>`;
   $("#ccScrim").classList.add("show");
 }
+/* ---------- photos in bulk: pick a folder (or many photos), each file goes to the item / category with the same name ---------- */
+const BI = { key:"", list:[], files:[] };
+const imgNorm = s => String(s||"").toLowerCase().replace(/(\.(jpe?g|png|webp|gif|heic))+$/i, "").replace(/&/g, " and ").replace(/[^a-z0-9؀-ۿ]+/g, " ").trim();
+const imgBase = s => imgNorm(String(s||"").replace(/\([^)]*\)/g, " "));
+function bulkImgStart(key){
+  BI.key = key;
+  impexDialog(`Upload ${key==="products" ? "item" : "category"} photos`, `<p>Choose your photos folder (sub-folders are included) or select the photos. Each photo is matched to the ${key==="products" ? "item" : "category"} with the same name, for example <b>Beef Noodles.jpg</b> → Beef Noodles.</p>
+    <p style="display:flex;gap:10px;flex-wrap:wrap;margin-top:14px"><label class="btn pri" style="cursor:pointer">Choose folder<input type="file" id="biDir" webkitdirectory multiple hidden></label><label class="btn" style="cursor:pointer">Choose photos<input type="file" id="biFiles" accept="image/*" multiple hidden></label></p><div class="note" id="impSt"></div>`, "");
+}
+function bulkImgMatch(files){
+  const key = BI.key, rows = S[CRUD[key].col].filter(r => live(r) && (key!=="categories" || !r.channel));
+  files = [...files].filter(f => /^image\//.test(f.type) || /\.(jpe?g|png|webp|gif)$/i.test(f.name));
+  const byExact = new Map(), used = new Set(), out = [];
+  files.forEach(f => { const n = imgNorm(f.name); if(n && !byExact.has(n)) byExact.set(n, f); });
+  rows.forEach(r => { const f = byExact.get(imgNorm(r.name)); if(f){ out.push({ r, f }); used.add(f); } });
+  rows.filter(r => !out.some(m => m.r===r)).forEach(r => { const b = imgBase(r.name), f = files.find(x => !used.has(x) && imgBase(x.name)===b) || files.find(x => imgBase(x.name)===b); if(b && f){ out.push({ r, f }); used.add(f); } });
+  BI.list = out.sort((a,b) => a.r.name.localeCompare(b.r.name)); BI.files = files.filter(f => !out.some(m => m.f===f));
+  const had = out.filter(m => m.r.imageUrl).length, missing = rows.filter(r => !r.imageUrl && !out.some(m => m.r===r));
+  impexDialog(`Upload ${key==="products" ? "item" : "category"} photos`, `<p><b>${out.length}</b> of ${files.length} photo${files.length===1?"":"s"} match ${key==="products" ? "items" : "categories"}.${had ? ` ${had} already ${had===1?"has":"have"} a photo.` : ""}</p>
+    ${had ? `<label style="display:flex;gap:8px;align-items:center;margin:8px 0"><input type="checkbox" id="biRep"> Replace the photos they already have</label>` : ""}
+    <div style="max-height:46vh;overflow:auto;border:1px solid var(--line);border-radius:10px;margin-top:8px">${out.map((m,i) => `<label style="display:flex;gap:10px;align-items:center;padding:8px 10px;border-bottom:1px solid var(--line)"><input type="checkbox" data-bi="${i}" checked><img data-bith="${i}" alt="" style="width:40px;height:40px;object-fit:cover;border-radius:8px;background:#f2f1f6"><span style="flex:1;min-width:0"><b>${esc(m.r.name)}</b>${state.brand==="all" && brandList().length>1 && m.r.brandId ? ` <span class="note">${esc(brandName(m.r.brandId))}</span>` : ""}<br><span class="note">${esc(m.f.webkitRelativePath || m.f.name)}${m.r.imageUrl ? " · has a photo" : ""}</span></span></label>`).join("") || `<div class="empty">No photo names match.</div>`}</div>
+    ${BI.files.length ? `<details style="margin-top:10px"><summary class="note">${BI.files.length} photo${BI.files.length===1?"":"s"} with no matching name</summary><p class="note">${BI.files.map(f => esc(f.name)).join(" · ")}</p></details>` : ""}
+    ${missing.length ? `<details style="margin-top:6px"><summary class="note">${missing.length} ${key==="products" ? "item" : "categor"}${missing.length===1 ? (key==="products" ? "" : "y") : (key==="products" ? "s" : "ies")} still without a photo</summary><p class="note">${missing.map(r => esc(r.name)).join(" · ")}</p></details>` : ""}
+    <div class="note" id="impSt" style="margin-top:10px"></div>`, out.length ? "Upload photos" : "");
+  out.forEach((m, i) => { const im = document.querySelector(`[data-bith="${i}"]`); if(im){ im.src = URL.createObjectURL(m.f); im.onload = () => URL.revokeObjectURL(im.src); } });
+  const go = $("#impGo"); if(!go) return;
+  go.onclick = async () => {
+    const rep = $("#biRep")?.checked, todo = BI.list.filter((m, i) => document.querySelector(`[data-bi="${i}"]`)?.checked && (rep || !m.r.imageUrl));
+    if(!todo.length) return $("#impSt").textContent = "Nothing to upload: tick a photo, or choose to replace existing photos.";
+    go.disabled = true; let ok = 0, bad = 0;
+    for(const m of todo){ $("#impSt").textContent = `Uploading ${ok + bad + 1} of ${todo.length} · ${m.r.name}…`;
+      try{ const url = await uploadImage(m.f); await db.collection(CRUD[BI.key].col).doc(m.r.id).update({ imageUrl:url, updatedAt:new Date().toISOString() }); ok++; }
+      catch(err){ console.error(err); bad++; } }
+    $("#impSt").textContent = `Done: ${ok} photo${ok===1?"":"s"} uploaded${bad ? `, ${bad} failed (only the owner or an admin can add photos)` : ""}.`;
+    go.textContent = "Close"; go.disabled = false; go.onclick = () => $("#ccScrim").classList.remove("show"); toast(`${ok} photo${ok===1?"":"s"} uploaded`);
+  };
+}
+document.addEventListener("change", e => { if(e.target.id==="biDir" || e.target.id==="biFiles"){ const fs = e.target.files; if(fs?.length) bulkImgMatch(fs); } });
 function impexStart(key){
   const X = IMPEX[key], cfg = CRUD[key];
   impexDialog(`Import ${cfg.title.toLowerCase()}`, `<p>Upload a CSV file (Excel → Save As → CSV) with these columns. Only <b>${key==="modifiers"?"Modifier":"Name"}</b> is required${key==="products"?", plus <b>Category</b> (and <b>Brand</b> when you have more than one)":""}.</p>
@@ -2827,6 +2865,7 @@ async function impexPreview(key, text){
 }
 document.addEventListener("click", e => {
   const ex = e.target.closest("[data-exp]"); if(ex){ e.preventDefault(); return impexExport(ex.dataset.exp); }
+  const bim = e.target.closest("[data-bulkimg]"); if(bim){ e.preventDefault(); return bulkImgStart(bim.dataset.bulkimg); }
   const im = e.target.closest("[data-imp]"); if(im){ e.preventDefault(); return impexStart(im.dataset.imp); }
   if(e.target.id==="cusImp"){ const m = $("#cusIEm"); if(m) m.hidden = true; return customerImport(); }
 });
