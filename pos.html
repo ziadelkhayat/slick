@@ -1514,7 +1514,7 @@ function ordersFor(tab){
   return l.filter(m).sort((a,b)=>(a.status==="pending"?0:1)-(b.status==="pending"?0:1) || String(b.createdAt).localeCompare(String(a.createdAt)));
 }
 // Orders: full-screen board, one column per state (like the call center). Tap an order to open it in the billing section
-const OV_COLS = [["pending","Pending","Waiting for this branch to accept"],["active","Active","Open orders: add or void items, then bill"],["closed","Closed","Billed today: return items or the invoice"],["void","Void & returns","Voided, declined, returned or refunded today"]];
+const OV_COLS = [["pending","Pending","Waiting for this branch to accept"],["active","Active","Open orders: add or void items, then bill"],["closed","Done","Billed today: return items or the invoice"],["void","Void & returns","Voided, declined, returned or refunded today"]];
 // the Orders list: every order of this branch (lifetime), or a date range. Older orders come from the server
 const ovRow = r => { const o = {}; for(const [k,v] of Object.entries(r)) o[k.replace(/_([a-z])/g,(_,c)=>c.toUpperCase())] = v; if(o.tableNo!=null && o.table==null) o.table = o.tableNo; if(o.no!=null) o.no = +o.no; return o; };
 function ovAll(){ const seen = new Set(), out = []; [...S.orders, ...(OV.hist||[])].forEach(o => { if(o.branchId===device.branchId && !seen.has(o.id)){ seen.add(o.id); out.push(o); } }); return out; }
@@ -1589,7 +1589,7 @@ function openIncoming(){
     <span class="lc lc2"><b style="text-transform:none">${o.createdAt ? fmtDay(bizDate(o.createdAt)) : "—"}</b></span>
     <span class="lc lc2"><b style="text-transform:none">${esc(o.payment?.method || "-")}</b></span>
     <span class="lr"><b style="text-transform:none;font-size:15px">${usd(o.total)}</b></span></button>`;
-  const TABS = [["all","All"],["active","Active"],["closed","Closed"],["void","Void & returns"]];
+  const TABS = [["all","All"],["active","Active"],["closed","Done"],["void","Void & returns"]];
   if(!TABS.some(x => x[0]===OV.tab)) OV.tab = "all";
   const chip = (k, v, l) => `<button class="chip${OV[k]===v?" on":""}" data-of="${k}:${v}">${l}</button>`;
   const day = OV.date || bizDate(), shift = n => { const d = new Date(day + "T12:00:00"); d.setDate(d.getDate() + n); return d.toISOString().slice(0,10); };
@@ -2081,7 +2081,7 @@ function openTables(){
   const busy = all.filter(t => tableOrders(t.name).length).length;
   modal("tables", `<div class="ohdr"><button class="hbtn" data-close>Back</button><b style="font-size:18px">Tables</b><span class="sp"></span>
     <span class="tleg"><span><i style="background:#fff;border:1px solid #ccc"></i>Free</span><span><i style="background:#f3c18f"></i>Occupied</span><span><i style="background:#f2a3ae"></i>Over 1 hour</span></span></div>
-    <div class="mb"><p class="mut" style="margin:0 0 12px">${all.length ? `${busy} of ${all.length} tables occupied. Tap a free table to start a dine-in order, or an occupied one to open its order.` : "No tables set up for this branch yet. Add them in the back office under Manage → Tables."}</p>
+    <div class="mb">${all.length ? "" : `<p class="mut" style="margin:0 0 12px">No tables set up for this branch yet. Add them in the back office under Manage → Tables.</p>`}
     ${secs.map(sc => { const l = all.filter(t => (t.section||"")===sc); return `${secs.length > 1 || sc ? `<h3 class="tsec">${esc(sc || "Tables")}<span class="mut"> · ${l.filter(t => tableOrders(t.name).length).length}/${l.length} occupied</span></h3>` : ""}<div class="tgrid">${l.map(tile).join("")}</div>`; }).join("")}</div>`, true);
   $("#modal").classList.add("full"); $("#scrim").classList.add("fullscr"); withNav();
 }
