@@ -1211,7 +1211,7 @@ function modal(kind, html, wide){ if(kind!=="incoming"){ OV.rpop = false; OV.ca 
 // every Cancel button in the POS is red
 function tagCancels(root){ (root || document).querySelectorAll("button:not(.cancelb)").forEach(b => { if(/^cancel$/i.test(b.textContent.trim())) b.classList.add("cancelb"); }); }
 let tagQ = 0; new MutationObserver(() => { if(tagQ) return; tagQ = requestAnimationFrame(() => { tagQ = 0; tagCancels(); }); }).observe(document.documentElement, { childList:true, subtree:true, characterData:true });
-function closeModal(){ $("#scrim").classList.remove("show"); modalKind = null; OV.rpop = false; OV.ca = null; paintNav(); }
+function closeModal(){ $("#scrim").classList.remove("show"); modalKind = null; OV.back = ""; OV.rpop = false; OV.ca = null; paintNav(); }
 $("#scrim").addEventListener("click", e => { if(e.target.id==="scrim" && modalKind==="pdnew") return pdCancel(); if(e.target.id==="scrim" || e.target.closest("[data-close]")) closeModal(); });
 
 /* on-screen keyboard for text fields on touch screens without their own (Windows / Linux touch registers).
@@ -1270,7 +1270,7 @@ $("#modal").addEventListener("click", async e => {
     v = k==="⌫" ? v.slice(0,-1) : k==="." ? (v.includes(".") ? v : (v || "0") + ".") : (v==="0" ? k : v + k); el.value = v.slice(0,9); updChange(); return; }
   if(e.target.closest("#confirmPay")) return completeSale();
   const ia = e.target.closest("[data-inc]"); if(ia){ if(!can("pos_incoming")) return deny("handling incoming orders"); const [id,s] = ia.dataset.inc.split(":"); try{ const o = S.orders.find(x=>x.id===id), bill = (s==="active" || s==="closed") && o && !o.no ? { no: nextOrderNo(), deviceId: device.id } : {};   // this register bills it, so it numbers it
-    await db.collection("orders").doc(id).update({ status:s, updatedAt:new Date().toISOString(), ...(s==="active" && !S.orders.find(x=>x.id===id)?.acceptedAt ? { acceptedAt:new Date().toISOString() } : {}), ...(s==="closed"||s==="declined" ? { doneAt:new Date().toISOString() } : {}), handledBy:cashier?.name || device.name, ...bill }); toast(s==="active"?(bill.no ? "Order #"+bill.no+" accepted · sent to kitchen" : "Order accepted · sent to kitchen"):s==="declined"?"Order declined":"Order completed"); }catch(err){ console.error(err); toast("Couldn't update the order"); } return; }
+    await db.collection("orders").doc(id).update({ status:s, updatedAt:new Date().toISOString(), ...(s==="active" && !S.orders.find(x=>x.id===id)?.acceptedAt ? { acceptedAt:new Date().toISOString() } : {}), ...(s==="closed"||s==="declined" ? { doneAt:new Date().toISOString() } : {}), handledBy:cashier?.name || device.name, ...bill }); toast(s==="active"?(bill.no ? "Order #"+bill.no+" accepted · sent to kitchen" : "Order accepted · sent to kitchen"):s==="declined"?"Order declined":"Order completed"); if(modalKind==="orderview" && OV.back){ const b = OV.back; OV.back = ""; b==="board" ? openBoard() : openIncoming(); } }catch(err){ console.error(err); toast("Couldn't update the order"); } return; }
   const ovt = e.target.closest("[data-ovtab]"); if(ovt){ OV.tab = ovt.dataset.ovtab; return openIncoming(); }
   if(e.target.closest("[data-ofilt]")){ OV.filt = !OV.filt; return openIncoming(); }
   if(modalKind==="incoming" && OV.rpop && !e.target.closest(".ovrw")){ OV.rpop = false; OV.ca = null; return openIncoming(); }
@@ -1312,8 +1312,9 @@ $("#modal").addEventListener("click", async e => {
   if(e.target.closest("#pdGo")) return pdContinue();
   const hg = e.target.closest("[data-hget]"); if(hg) return retrieveHeld(hg.dataset.hget);
   const hd = e.target.closest("[data-hdel]"); if(hd){ if(!(await askYes("Delete this held order?", "Delete", true))) return; heldSave(heldList().filter(x => x.id!==hd.dataset.hdel)); return openHeld(); }
-  const ov = e.target.closest("[data-ov]"); if(ov){ const o = S.orders.find(x=>x.id===ov.dataset.ov); if(!o) return (OV.hist||[]).some(x => x.id===ov.dataset.ov) ? openOrderView(ov.dataset.ov) : undefined; if(o.status==="pending") return toast(canAccept() ? "Accept or decline this order first" : "This order is accepted on the master POS"); return loadOrder(o.id); }
-  if(e.target.closest("[data-ovback]")) return closeModal();   // every Back returns to the cart
+  const ov = e.target.closest("[data-ov]"); if(ov){ const o = S.orders.find(x=>x.id===ov.dataset.ov); if(!o) return (OV.hist||[]).some(x => x.id===ov.dataset.ov) ? openOrderView(ov.dataset.ov) : undefined; if(o.status==="pending" || modalKind==="board" && o.status!=="active"){ OV.back = ["board","incoming"].includes(modalKind) ? modalKind : ""; return openOrderView(o.id); }   // a waiting order opens its details, with Accept / Decline
+    return loadOrder(o.id); }
+  if(e.target.closest("[data-ovback]")){ const b = OV.back; OV.back = ""; if(b==="board") return openBoard(); if(b==="incoming") return openIncoming(); return closeModal(); }   // every Back returns to the cart
   const ovo = e.target.closest("[data-ovopen]"); if(ovo) return closeModal();
   const vr = e.target.closest("[data-vr]"); if(vr){ const [k,m] = vr.dataset.vr.split(":"); return openVR(k, m); }
   const vq = e.target.closest("[data-vq]"); if(vq){ const [ix,d] = vq.dataset.vq.split(":").map(Number), o = S.orders.find(x=>x.id===OV.open); window.__vq[ix] = Math.max(0, Math.min(window.__vmax?.[ix] ?? +o.items[ix].qty, (window.__vq[ix]||0) + d)); $("#vq"+ix).textContent = window.__vq[ix]; if($("#vrAmt")) $("#vrAmt").textContent = usd(retAmt(o, window.__vq)); return; }
