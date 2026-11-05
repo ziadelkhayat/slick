@@ -6,6 +6,13 @@
 <title>Order Online</title>
 <meta name="description" content="Order online for delivery, pickup or at your table.">
 <meta name="theme-color" content="#5b2bc4">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Order">
+<meta name="format-detection" content="telephone=no">
+<link rel="manifest" id="mfLink">
+<link rel="apple-touch-icon" id="atIcon">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -323,6 +330,22 @@ h2.ch{font-size:22px;margin:24px 0 6px}
 .ipft .primary{flex:1;border-radius:12px;padding:15px 12px}
 .ipq{display:flex;align-items:center;gap:8px}.ipq button{width:42px;height:42px;border-radius:50%;border:1.5px solid var(--line);background:var(--s);font-size:21px;font-weight:600;color:var(--acc);line-height:1}.ipq button:disabled{opacity:.35}.ipq b{min-width:20px;text-align:center;font-size:17px}
 .addt{position:fixed;left:50%;bottom:96px;max-width:calc(min(480px,100%) - 32px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:999px;font-size:14px;font-weight:600;z-index:50;animation:up .25s var(--ease);pointer-events:none}
+/* ---------- works like an app on phones ---------- */
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+body{-webkit-tap-highlight-color:transparent;overscroll-behavior-y:contain}
+button,a,.item,[role=button]{touch-action:manipulation}
+input,select,textarea{font-size:16px!important}   /* no zoom-in when a field is tapped (iOS) */
+.sheet{max-height:92dvh}
+.app .topbar{padding-top:calc(14px + env(safe-area-inset-top))}
+.app .ipx{top:calc(12px + env(safe-area-inset-top))}
+.app body,.app{overscroll-behavior-y:none}
+.inst{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(14px + env(safe-area-inset-bottom));width:min(456px,calc(100% - 24px));background:var(--s);color:var(--ink);border-radius:16px;box-shadow:0 12px 40px rgba(20,18,30,.22);padding:12px 12px 12px 14px;display:flex;align-items:center;gap:12px;z-index:30;animation:up .35s var(--ease)}
+.inst img,.inst .ii{width:44px;height:44px;border-radius:11px;flex:none;object-fit:cover;background:var(--acc);color:var(--on-acc);display:grid;place-items:center;font-weight:800}
+.inst div{flex:1;min-width:0}.inst b{display:block;font-size:14.5px}.inst small{display:block;color:var(--mut);font-size:12.5px;line-height:1.35;margin-top:2px}
+.inst .ib{border:0;background:var(--acc);color:var(--on-acc);border-radius:999px;padding:9px 14px;font-weight:700;font-size:13.5px;flex:none}
+.inst .ix{border:0;background:none;color:var(--mut);font-size:20px;width:30px;height:30px;flex:none}
+.bar:not([hidden])~.inst,.inst.up{bottom:calc(86px + env(safe-area-inset-bottom))}
+.inst svg{width:15px;height:15px;vertical-align:-3px}
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
 </head>
@@ -1003,6 +1026,45 @@ async function placeOrder(e){
   cart = []; renderMenu();
 }
 render();
+/* ---------- install as an app: home-screen icon, full-screen window, the brand's name and colour ---------- */
+const STANDALONE = matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
+if(STANDALONE) document.documentElement.classList.add("app");
+function appIcon(size){ const t = cfg.theme || {}; if(t.logo) return t.logo;
+  const c = document.createElement("canvas"); c.width = c.height = size; const x = c.getContext("2d");
+  x.fillStyle = getComputedStyle(document.documentElement).getPropertyValue("--acc").trim() || "#5b2bc4"; x.fillRect(0, 0, size, size);
+  x.fillStyle = getComputedStyle(document.documentElement).getPropertyValue("--on-acc").trim() || "#fff"; x.font = `800 ${Math.round(size * .5)}px Inter, system-ui, sans-serif`; x.textAlign = "center"; x.textBaseline = "middle";
+  x.fillText((brand.name.trim()[0] || "·").toUpperCase(), size / 2, size / 2 + size * .03); return c.toDataURL("image/png"); }
+function setupApp(){
+  if(PREVIEW) return;
+  const t = cfg.theme || {}, acc = getComputedStyle(document.documentElement).getPropertyValue("--acc").trim() || "#5b2bc4";
+  const start = location.origin + location.pathname + "?brand=" + encodeURIComponent(brandId) + (qrBranch ? "&branch=" + encodeURIComponent(qrBranch) + (qrTable ? "&table=" + encodeURIComponent(qrTable) : "") : "");
+  const i192 = appIcon(192), i512 = appIcon(512), typ = /^data:/.test(i192) ? "image/png" : undefined;
+  const m = { name: brand.name, short_name: brand.name.length > 12 ? brand.name.split(/\s+/)[0] : brand.name, description: cfg.tagline || "Order online", id: start, start_url: start, scope: location.origin + location.pathname.replace(/[^/]*$/, ""),
+    display: "standalone", orientation: "portrait", background_color: t.bg==="dark" ? "#0f0e13" : "#ffffff", theme_color: acc,
+    icons: [{ src: i192, sizes: "192x192", ...(typ ? { type: typ } : {}), purpose: "any" }, { src: i512, sizes: "512x512", ...(typ ? { type: typ } : {}), purpose: "any maskable" }] };
+  $("#mfLink").href = "data:application/manifest+json," + encodeURIComponent(JSON.stringify(m));
+  $("#atIcon").href = appIcon(180);
+  document.querySelector('meta[name="apple-mobile-web-app-title"]').content = m.short_name;
+}
+setupApp();
+// offer to install: Android / Chrome show their own prompt; iPhone gets "Share → Add to Home Screen"
+let instEvt = null; const IK = "slick_inst_" + brandId;
+const iOS = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+const mobile = iOS || /android/i.test(navigator.userAgent);
+function instBar(kind){
+  if(STANDALONE || PREVIEW || $("#inst") || (+lsGet(IK, 0) > Date.now())) return;
+  const t = cfg.theme || {}, d = document.createElement("div"); d.id = "inst"; d.className = "inst"; d.setAttribute("role", "dialog"); d.setAttribute("aria-label", "Install the app");
+  const share = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M8 7l4-4 4 4"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/></svg>';
+  d.innerHTML = `${t.logo ? `<img src="${esc(t.logo)}" alt="">` : `<span class="ii">${esc((brand.name.trim()[0]||"·").toUpperCase())}</span>`}<div><b>${esc(brand.name)} app</b><small>${kind==="ios" ? `Tap ${share} Share, then “Add to Home Screen”` : "Install it to order faster"}</small></div>${kind==="ios" ? "" : `<button type="button" class="ib" data-inst>Install</button>`}<button type="button" class="ix" data-instx aria-label="Not now">×</button>`;
+  document.body.appendChild(d);
+}
+addEventListener("beforeinstallprompt", e => { e.preventDefault(); instEvt = e; if(mobile) setTimeout(() => instBar("prompt"), 2500); });
+addEventListener("appinstalled", () => { $("#inst")?.remove(); lsSet(IK, Date.now() + 3650*864e5); });
+if(iOS && !STANDALONE && /safari/i.test(navigator.userAgent) && !/crios|fxios|edgios/i.test(navigator.userAgent)) setTimeout(() => instBar("ios"), 4000);
+document.addEventListener("click", async e => {
+  if(e.target.closest("[data-instx]")){ $("#inst")?.remove(); lsSet(IK, Date.now() + 7*864e5); return; }   // ask again in a week
+  if(e.target.closest("[data-inst]") && instEvt){ instEvt.prompt(); const r = await instEvt.userChoice.catch(() => null); instEvt = null; $("#inst")?.remove(); if(r?.outcome !== "accepted") lsSet(IK, Date.now() + 7*864e5); }
+});
 if(!qrBranch && !PREVIEW && mode==="delivery" && !addr) setTimeout(() => openLoc("main"), 500);   // first visit: where should we deliver?
 // live preview from the back office (Web Ordering): the settings being edited, before they're saved
 if(PREVIEW){ addEventListener("message", e => { if(e.origin !== location.origin || e.data?.type !== "slick-web-cfg") return; Object.keys(cfg).forEach(k => delete cfg[k]); Object.assign(cfg, e.data.cfg || {}); $("#main").innerHTML = shell(); render(); }); parent.postMessage({ type:"slick-web-ready" }, location.origin); }
