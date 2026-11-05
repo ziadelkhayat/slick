@@ -766,6 +766,14 @@ h1:has(.ib),h3:has(.ib){display:inline-flex;align-items:center}
 .olframe.desk{width:100%;border-radius:14px;border-width:6px}
 .olframe iframe{width:100%;height:100%;border:0;display:block}
 .olframe.desk iframe{width:200%;height:200%;transform:scale(.5);transform-origin:0 0}
+.cc1.pdstyle{grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);max-width:1400px;width:100%;margin:0 auto;align-items:start}
+.cc1.pdstyle>.cc1b{background:none;border:0;padding:0}
+.ccside0{display:none;border:1px dashed var(--line2,#d7d4e2);border-radius:16px;padding:28px 22px;flex-direction:column;gap:6px;color:var(--muted);font-size:14px;text-align:center;justify-content:center;min-height:240px;background:var(--surface)}
+.ccside0 b{color:var(--ink);font-size:16px}
+.cc1b:has(#oInsights:empty) .ccside0{display:flex}
+.cc1.pdstyle #oInsights .cins{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px 18px}
+.rchips{display:flex;flex-wrap:wrap;gap:8px}.rchips button{min-height:42px;padding:0 16px;border-radius:999px;border:1.5px solid var(--line2,#d7d4e2);background:var(--surface);font:inherit;font-weight:600;font-size:14px;color:var(--ink);cursor:pointer;transition:all .15s}
+.rchips button:hover{border-color:#bdb8cd}.rchips button.on{border-color:var(--accent);background:var(--accent-soft);color:var(--accent-ink)}.rchips button:disabled{opacity:.5;cursor:default}
 /* ================= Modern polish layer ================= */
 :root{
   --bg:#f6f6fa; --surface:#fff; --ink:#17151f; --ink2:#45424f; --muted:#8a8796; --line:#e6e4ee; --line2:#d7d4e2;
@@ -2979,19 +2987,14 @@ function openOrder(id){
   ${o && !ro && ccLocked ? `<div class="ccbanner">Placed order: you can change the order source, order type and items. Changes go straight to ${esc(branchName(o.branchId))}.</div>` : ""}
   <div class="ccx" id="ccX">
    <section class="ccleft">
-    <div class="cc1">
+    <div class="cc1 pdstyle">
      <div class="cc1a">
-      <h4>Customer</h4>
+      <div class="f"><label>Order type *</label><div class="seg tiles" id="oType">${[["pickup","Pickup"],["delivery","Delivery"]].map(([k,t])=>`<button type="button" data-ot="${k}" class="${o?.type===k?"on":""}" ${dis}>${svgIco(k==="delivery"?"truck":"store")}${t}</button>`).join("")}</div></div>
+      <div class="f"><label>Order source *</label><div class="rchips" id="oSrcChips">${sourceList(o?.source).map(x=>`<button type="button" data-ccsrc="${esc(x)}" class="${o?.source===x?"on":""}" ${dis}>${esc(x)}</button>`).join("")}</div><select id="oSource" ${dis} hidden aria-hidden="true" tabindex="-1"><option value="">Choose…</option>${sourceList(o?.source).map(s=>`<option ${o?.source===s?"selected":""}>${esc(s)}</option>`).join("")}</select></div>
       <div class="f"><label for="oPhone">Phone *</label>${(() => { const sp = ccSplit(o?.phone); return `<div class="phrow"><select id="oCc" class="sel big" ${ldis} aria-label="Country code">${CC_CODES.map(([d,n])=>`<option value="${d}" ${d===sp.cc?"selected":""}>${esc(n)} (${d})</option>`).join("")}</select><input id="oPhone" class="big" value="${esc(sp.num)}" ${ldis} placeholder="Search by phone" autocomplete="off" inputmode="tel"></div>`; })()}</div>
       <div class="f"><label for="oName">Name *</label><input id="oName" value="${esc(o?.customerName||"")}" ${ldis} placeholder="Customer name"></div>
-      <div id="oInsights"></div>
-     </div>
-     <div class="cc1b">
-      <h4>Order</h4>
-      <div class="f"><label>Order type *</label><div class="seg tiles" id="oType">${[["pickup","Pickup"],["delivery","Delivery"]].map(([k,t])=>`<button type="button" data-ot="${k}" class="${o?.type===k?"on":""}" ${dis}>${svgIco(k==="delivery"?"truck":"store")}${t}</button>`).join("")}</div></div>
       <div class="f2"><div class="f"><label for="oBrand">Brand *</label><select id="oBrand" ${ldis}><option value="">Choose…</option>${brandList().filter(b=>b.active!==false || b.id===o?.brandId).map(b=>`<option value="${esc(b.id)}" ${o?.brandId===b.id?"selected":""}>${esc(b.name)}</option>`).join("")}</select></div>
       <div class="f"><label for="oBranch">Branch *</label><select id="oBranch" ${ldis}></select></div></div>
-      <div class="f"><label for="oSource">Order source *</label><select id="oSource" ${dis}><option value="">Choose…</option>${sourceList(o?.source).map(s=>`<option ${o?.source===s?"selected":""}>${esc(s)}</option>`).join("")}</select></div>
       <div id="oAddrF">${(() => { const a = addrSplit(o?.address), ad = ro || (ccLocked && o?.address) ? "disabled" : ""; return `<h4>Delivery address</h4>
         <div class="acards" id="oAddrCards"></div>
         <div class="f2"><div class="f"><label for="oA_label">Address name</label><input id="oA_label" value="${esc(a.label)}" ${ad} placeholder="Home, Work…"></div>
@@ -3000,6 +3003,10 @@ function openOrder(id){
         <div class="f"><label for="oA_floor">Floor *</label><input id="oA_floor" value="${esc(a.floor)}" ${ad}></div></div>
         <div class="f"><label for="oA_extra">Additional info</label><input id="oA_extra" value="${esc(a.extra)}" ${ad} placeholder="Apartment, landmark, directions"></div>`; })()}</div>
       ${o?.lat ? `<div class="f"><label>Pinned location</label>${mapLink(o)}</div>` : ""}
+     </div>
+     <div class="cc1b">
+      <div class="ccside0"><b>Customer details</b><span>Enter the customer's phone number to see their details, saved addresses and previous orders here.</span></div>
+      <div id="oInsights"></div>
      </div>
     </div>
     <div class="ccnext"><span class="err" id="oErr1"></span><button type="button" class="btn" data-ccclose>Cancel</button><button type="button" class="btn pri" data-ccstep="2">Continue to cart →</button></div>
@@ -3027,7 +3034,7 @@ function ccStep1Err(){
   { const bs = brandSet($("#oBrand")?.value || branches.find(b => b.id===$("#oBranch").value)?.brandId || "");
     if((bs.ccInactiveTypes||[]).includes(type)) return [`${ordTypeLbl(type)} orders aren't taken by the call center for this brand.`, null];
     if((bs.ccAgents||[]).length && storeMode==="db" && state.role!=="owner"){ const me = S.users.find(x => live(x) && x.userId && x.userId===state.userId); if(!me || !bs.ccAgents.includes(me.id)) return ["You aren't one of this brand's call center agents (Manage → Brands → Settings → Call Center).", null]; } }
-  if(!$("#oSource").value) return ["Choose the order source.", "oSource"];
+  if(!$("#oSource").value) return ["Choose the order source.", null];
   if(type==="delivery"){ const miss = [["street","area / street"],["building","building"],["floor","floor"]].filter(([k]) => !a[k]);
     if(miss.length) return ["The delivery address needs the " + miss.map(x=>x[1]).join(", ").replace(/, ([^,]*)$/, " and $1") + ".", "oA_"+miss[0][0]]; }
   return null;
@@ -3111,7 +3118,7 @@ function brHoursToday(b, t){ t = t || new Date(); const H = (b?.settings||{}).ho
 function fillOrderBranches(sel){
   const bd = $("#oBrand").value;
   const list = branches.filter(b => (b.active!==false && b.callCenter!==false && !(brandSet(b.brandId).ccInactiveBranches||[]).includes(b.id) || b.id===sel) && (bd ? b.brandId===bd : !brandList().length));
-  const ds = brandSet(bd || list[0]?.brandId || "").ccDefaultSource, os = $("#oSource"); if(ds && os && !os.value && [...os.options].some(x => x.value===ds)) os.value = ds;
+  const ds = brandSet(bd || list[0]?.brandId || "").ccDefaultSource, os = $("#oSource"); if(ds && os && !os.value && [...os.options].some(x => x.value===ds)){ os.value = ds; document.querySelectorAll("[data-ccsrc]").forEach(b => b.classList.toggle("on", b.dataset.ccsrc===ds)); }
   if(!sel && list.length===1) sel = list[0].id;   // only one branch takes call-center orders for this brand: pick it
   $("#oBranch").innerHTML = `<option value="">${bd||!brandList().length?"Choose…":"Pick brand"}</option>` + list.map(b=>`<option value="${esc(b.id)}" ${sel===b.id?"selected":""}>${esc(b.name)}${brOpenNow(b) ? "" : " · closed now"}</option>`).join("");
 }
@@ -3260,7 +3267,7 @@ async function saveOrder(status){
   if(!phone){ $("#oErr").textContent = "Customer phone is required."; $("#oPhone").focus(); return; }
   if(!name){ $("#oErr").textContent = "Customer name is required."; $("#oName").focus(); return; }
   const type = $("#oType .on")?.dataset.ot || "", brandId = $("#oBrand").value, sent = status!=="draft", addr = ccAddrGet();
-  if(!$("#oSource").value){ $("#oErr").textContent = "Choose the order source."; $("#oSource").focus(); return; }
+  if(!$("#oSource").value){ $("#oErr").textContent = "Choose the order source."; return; }
   if(!type){ $("#oErr").textContent = "Choose the order type: delivery or pickup."; return; }
   if(status==="pending" && (!o || o.status==="draft")){ const bb = branches.find(x => x.id===branchId); if(bb && !brOpenNow(bb)){ const hh = brHoursToday(bb); $("#oErr").textContent = `${bb.name} is closed now${hh ? " (" + hh + ")" : ""}. Save it as a draft and send it when the branch opens.`; return; } }
   if(sent && brandList().length && !brandId){ $("#oErr").textContent = "Choose the brand."; return; }
@@ -3527,6 +3534,7 @@ function olCollect(){
     checkout:{ schedule:on("olSched"), scheduleDays:+v("olDays"), slot:+v("olSlot")||30, pay:{ cash:on("olPayCash"), card:on("olPayCard") }, email:rv("olEmail")||"off", notes:on("olNotes"), whatsapp:on("olWaBtn"), terms:v("olTerms") },
     branches: bc };
 }
+document.addEventListener("click", e => { const c = e.target.closest("[data-ccsrc]"); if(!c || c.disabled) return; const sel = $("#oSource"); if(!sel) return; sel.value = c.dataset.ccsrc; document.querySelectorAll("[data-ccsrc]").forEach(b => b.classList.toggle("on", b===c)); sel.dispatchEvent(new Event("change", { bubbles:true })); });
 let olT = null;
 function olPreview(){ clearTimeout(olT); olT = setTimeout(() => { if(!$("#olOn")) return; const cfg = olCollect(); state.olDraft = { brand:olBrand(), cfg }; $("#olFrame")?.contentWindow?.postMessage({ type:"slick-web-cfg", cfg }, location.origin); }, 120); }
 async function saveOnline(){
