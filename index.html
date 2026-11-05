@@ -133,6 +133,11 @@ tr:last-child td{border-bottom:0}
 .f{display:flex;flex-direction:column;gap:5px}
 .f.full{grid-column:1/-1}
 .f label{font-size:12px;font-weight:500;color:var(--ink2)}
+.detform{padding:0!important;margin-bottom:16px;overflow:hidden}.detform .body{padding:20px 22px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px 18px}
+.detform .body .f{min-width:0;margin:0;display:flex;flex-direction:column;gap:5px}.detform .body .f.full{grid-column:1/-1}.detform .body .f>input,.detform .body .f>select,.detform .body .f>textarea{width:100%;max-width:100%}
+.detfoot{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:12px 22px;border-top:1px solid var(--line,#ecebf2);background:#fafafd;position:sticky;bottom:0;z-index:2}.detfoot .err{margin:0}.detfoot .note{font-size:13px}
+@media(max-width:900px){.detform .body{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:600px){.detform .body{grid-template-columns:minmax(0,1fr);padding:16px}.detfoot{padding:12px 16px}.detfoot .note{flex-basis:100%}}
 .f input,.f select,.f textarea{padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--surface)}
 .f input:focus,.f select:focus,.f textarea:focus{outline:2px solid var(--chart-soft);border-color:var(--chart)}
 .chk{display:flex;align-items:center;gap:8px;font-size:13px}
@@ -2640,10 +2645,10 @@ async function createStaffLogin(email, password){
 let rolesPurged = false;
 async function purgeDeletedRoles(){ if(rolesPurged || storeMode!=="db" || !(state.role==="owner" || state.role==="admin")) return; rolesPurged = true;
   for(const r of S.roles.filter(x => x.deleted && !S.users.some(u => !u.deleted && userRoleIds(u).includes(x.id)))){ try{ await db.collection("roles").doc(r.id).delete(); }catch(e){ console.error(e); } } }
-function openCrud(key, id){
+function openCrud(key, id, inline, draft){
   const cfg = CRUD[key], r = id ? S[cfg.col].find(x=>x.id===id) : null;
-  crudEdit = { key, id: r?.id || null };
-  const val = f => r ? (f.get ? f.get(r) : r[f.k]) : (f.auto ? f.auto() : f.def);
+  if(!inline) crudEdit = { key, id: r?.id || null };
+  const val = f => draft && f.k in draft ? draft[f.k] : r ? (f.get ? f.get(r) : r[f.k]) : (f.auto ? f.auto() : f.def);
   const field = f => {
     if(f.hideIf && r && f.hideIf(r)) return "";
     if(f.editOnly && !r) return "";   // e.g. price and tax of a product with variants: each variant has its own
@@ -2672,6 +2677,7 @@ function openCrud(key, id){
     const list = f.t==="list" ? `<datalist id="${idA}_dl">${f.opts().map(o=>`<option value="${esc(o)}">`).join("")}</datalist>` : "";
     return `<div class="f${full}"><label for="${idA}">${f.l}${f.req?" *":""}</label><input id="${idA}" ${f.t==="number"?'type="number" step="any" min="0"':""} ${f.t==="list"?`list="${idA}_dl"`:""} value="${esc(v??"")}" placeholder="${esc(f.ph||"")}">${list}</div>`;
   };
+  if(inline) return cfg.fields.map(field).join("");   // the item page edits in place (no pop-up)
   $("#crudBox").innerHTML = `<header><h2>${r?"Edit":(cfg.addLbl||"Create")} ${cfg.one}</h2><button type="button" class="x" data-cclose aria-label="Close">×</button></header>
     <div class="body">${cfg.fields.map(field).join("")}<div class="err" id="cErr"></div></div>
     <footer>${r ? (r.deleted ? `<button type="button" class="btn" id="cRestore" style="margin-right:auto">Restore</button>` : `<button type="button" class="btn danger" id="cDelete" style="margin-right:auto">Delete</button>`) : ""}
@@ -2921,10 +2927,11 @@ new MutationObserver(() => document.querySelectorAll(".mlist:not([data-ms])").fo
 document.addEventListener("click", e => { const t = e.target.closest("[data-mtog]"); if(!t) return; e.preventDefault();
   const box = document.getElementById(t.dataset.mtog), g = t.dataset.mgrp, ins = [...box.querySelectorAll(g ? `.chk[data-grp="${CSS.escape(g)}"] input` : "input")];
   const on = !ins.every(i => i.checked); ins.forEach(i => i.checked = on); });
-function crudWhen(){ const cfg = crudEdit && CRUD[crudEdit.key]; if(!cfg || !cfg.fields) return;
-  cfg.fields.filter(f=>f.when).forEach(f => { const el = $("#cf_"+f.k), w = el?.closest(".f"); if(w) w.style.display = ($("#cf_"+f.when.k)?.value || "") === f.when.is ? "" : "none"; }); }
-document.addEventListener("change", e => { if(e.target.id?.startsWith("cf_") && e.target.tagName==="SELECT") crudWhen(); });
+function crudWhen(root, key){ const cfg = CRUD[key || crudEdit?.key]; root = root || $("#crudBox"); if(!cfg || !cfg.fields || !root) return;
+  cfg.fields.filter(f=>f.when).forEach(f => { const el = root.querySelector("#cf_"+f.k), w = el?.closest(".f"); if(w) w.style.display = (root.querySelector("#cf_"+f.when.k)?.value || "") === f.when.is ? "" : "none"; }); }
+document.addEventListener("change", e => { if(e.target.id?.startsWith("cf_") && e.target.tagName==="SELECT"){ const fm = e.target.closest("#detForm"); fm ? crudWhen(fm, DET.key) : crudWhen(); } });
 const closeCrud = () => { $("#crudScrim").classList.remove("show"); crudEdit = null; $("#crudBox").className = "modal"; };
+const CQ = sel => (crudEdit?.inline ? document.getElementById("detForm") : $("#crudBox"))?.querySelector(sel) || null;
 async function submitCrud(e){
   e.preventDefault();
   if(crudEdit?.key==="devset") return saveDeviceSettings();
@@ -2932,27 +2939,27 @@ async function submitCrud(e){
   if(!crudEdit || !CRUD[crudEdit.key]) return;
   const cfg = CRUD[crudEdit.key], data = {};
   for(const f of cfg.fields){
-    const el = $("#cf_"+f.k);
+    const el = CQ("#cf_"+f.k);
     if(!el && f.t!=="polygon") continue;   // not shown on this form
-    if(f.when && ($("#cf_"+f.when.k)?.value || "") !== f.when.is) continue;   // hidden: not asked, not changed
-    if(f.t==="polygon"){ data[f.k] = zonePts.map(p=>[+p[0].toFixed(6), +p[1].toFixed(6)]); if(data[f.k].length < 3){ $("#cErr").textContent = "Draw the zone on the map (at least 3 points)."; return; } continue; }
+    if(f.when && (CQ("#cf_"+f.when.k)?.value || "") !== f.when.is) continue;   // hidden: not asked, not changed
+    if(f.t==="polygon"){ data[f.k] = zonePts.map(p=>[+p[0].toFixed(6), +p[1].toFixed(6)]); if(data[f.k].length < 3){ CQ("#cErr").textContent = "Draw the zone on the map (at least 3 points)."; return; } continue; }
     if(f.t==="chk") data[f.k] = el.checked;
     else if(f.t==="multi") data[f.k] = [...el.querySelectorAll("input:checked:not([data-mall]):not([data-mgall])")].map(i=>i.value);
-    else if(f.t==="items"){ const pending = ($("#cf_"+f.k+"_new")?.value || "").trim(); data[f.k] = [...el.querySelectorAll("[data-item]")].map(i => i.value.trim()).filter(Boolean); if(pending) data[f.k].push(pending); if(f.req && !data[f.k].length){ $("#cErr").textContent = f.l + " is required."; return; } continue; }
+    else if(f.t==="items"){ const pending = (CQ("#cf_"+f.k+"_new")?.value || "").trim(); data[f.k] = [...el.querySelectorAll("[data-item]")].map(i => i.value.trim()).filter(Boolean); if(pending) data[f.k].push(pending); if(f.req && !data[f.k].length){ CQ("#cErr").textContent = f.l + " is required."; return; } continue; }
     else if(f.t==="number") data[f.k] = el.value==="" ? null : +el.value;
-    else if(f.t==="phone"){ const n = el.value.replace(/[^\d]/g, "").replace(/^0+/, ""); data[f.k] = n ? ($("#cf_"+f.k+"_cc")?.value || "+961") + " " + n : ""; }
+    else if(f.t==="phone"){ const n = el.value.replace(/[^\d]/g, "").replace(/^0+/, ""); data[f.k] = n ? (CQ("#cf_"+f.k+"_cc")?.value || "+961") + " " + n : ""; }
     else if(f.t==="password") data[f.k] = el.value;
     else data[f.k] = el.value.trim();
-    if(f.req && (data[f.k]===""||data[f.k]===null)){ $("#cErr").textContent = f.l + " is required."; el.focus(); return; }
-    if(f.k==="factor" && !(data.factor > 0)){ $("#cErr").textContent = "The factor must be more than 0 (how many ingredient units are in one storage unit)."; el.focus(); return; }
+    if(f.req && (data[f.k]===""||data[f.k]===null)){ CQ("#cErr").textContent = f.l + " is required."; el.focus(); return; }
+    if(f.k==="factor" && !(data.factor > 0)){ CQ("#cErr").textContent = "The factor must be more than 0 (how many ingredient units are in one storage unit)."; el.focus(); return; }
   }
-  if(cfg.prep){ const msg = await cfg.prep(data, crudEdit.id); if(msg){ $("#cErr").textContent = msg; return; } }
-  if(cfg.fields.some(f=>f.k==="sku") && data.sku && S[cfg.col].some(r=>r.id!==crudEdit.id && live(r) && r.sku===data.sku)){ $("#cErr").textContent = "That SKU is already used."; return; }
-  if(cfg.unique && S[cfg.col].some(r=>r.id!==crudEdit.id && live(r) && String(r[cfg.unique]||"").toLowerCase()===String(data[cfg.unique]||"").toLowerCase())){ $("#cErr").textContent = `That ${cfg.unique} is already used by another ${cfg.one.toLowerCase()}.`; return; }
+  if(cfg.prep){ const msg = await cfg.prep(data, crudEdit.id); if(msg){ CQ("#cErr").textContent = msg; return; } }
+  if(cfg.fields.some(f=>f.k==="sku") && data.sku && S[cfg.col].some(r=>r.id!==crudEdit.id && live(r) && r.sku===data.sku)){ CQ("#cErr").textContent = "That SKU is already used."; return; }
+  if(cfg.unique && S[cfg.col].some(r=>r.id!==crudEdit.id && live(r) && String(r[cfg.unique]||"").toLowerCase()===String(data[cfg.unique]||"").toLowerCase())){ CQ("#cErr").textContent = `That ${cfg.unique} is already used by another ${cfg.one.toLowerCase()}.`; return; }
   const old = crudEdit.id ? { ...S[cfg.col].find(r=>r.id===crudEdit.id) } : null;
   const newId = !crudEdit.id && data.id ? data.id : null; delete data.id;
   try{ await put(cfg.col, crudEdit.id || newId, data); if(cfg.after) await cfg.after(old, data); if(cfg.saved) await cfg.saved(old, data); toast(cfg.one + " saved"); closeCrud(); }
-  catch(err){ console.error(err); $("#cErr").textContent = "Couldn't save. You may not have edit access."; }
+  catch(err){ console.error(err); CQ("#cErr").textContent = "Couldn't save. You may not have edit access."; }
 }
 async function softDelete(flag){
   const cfg = CRUD[crudEdit.key];
@@ -5014,16 +5021,20 @@ function productDetail(p){
   const brs = branches.filter(b => !p.brandId || !b.brandId || b.brandId===p.brandId);
   const yes = (arr, id) => arr.includes(id);
   const usedIn = [];
+  // keep what is being typed when the page redraws (new orders, other changes)
+  const old = document.getElementById("detForm"); let draft = null;
+  if(old && old.dataset.id===p.id && old.dataset.dirty){ draft = {}; old.querySelectorAll("[id^=cf_]").forEach(el => { const k = el.id.slice(3); if(/_(file|prev|cc|new|dl)$/.test(k)) return; draft[k] = el.type==="checkbox" ? el.checked : el.value; }); }
   let h = `<div class="phead"><a href="#products" class="btn" data-detback style="text-decoration:none">← Back</a><h1 style="margin-left:10px">${esc(p.name)}</h1>
-    <div class="sp"></div>
-    <button class="btn pri" data-detedit>Edit Product</button></div>`;
-  h += infoGrid([info("Name", esc(p.name)), info("Name Localized", esc(p.nameAr||"—")), info("Brand", esc(brandName(p.brandId))), info("Category", esc(catName(p.categoryId))),
+    <div class="sp"></div>${p.deleted ? `<button type="button" class="btn" data-detrestore>Restore</button>` : `<button type="button" class="btn danger" data-detdelete>Delete</button>`}</div>`;
+  h += `<form id="detForm" class="card detform" data-id="${esc(p.id)}"${draft ? ' data-dirty="1"' : ""} novalidate><div class="body">${openCrud("products", p.id, true, draft)}</div>
+    <div class="detfoot"><span class="note">${varKids(p).length ? "Price and tax are set on each variant. " : ""}${p.costingMethod==="fixed" ? "Fixed cost" : "Ingredients cost"} ${fmtCost(cost)}${price && !varKids(p).length ? ` · cost ${pct.toFixed(1)} % of the price` : ""}</span><span class="sp"></span><div class="err" id="cErr"></div><button type="button" class="btn" data-detrevert ${draft ? "" : "disabled"}>Discard</button><button type="submit" class="btn pri" id="detSave" ${draft ? "" : "disabled"}>Save changes</button></div></form>`;
+  if(false) h += infoGrid([info("Name", esc(p.name)), info("Name Localized", esc(p.nameAr||"—")), info("Brand", esc(brandName(p.brandId))), info("Category", esc(catName(p.categoryId))),
     info("SKU", `<span class="code">${esc(p.sku||"—")}</span>`), info("Tax Group", varKids(p).length ? "Set on each variant" : esc(tgName(p.taxGroup))),
     info("Pricing Method", p.pricingMethod==="open"?"Open Price":"Fixed Price"), info("Selling Method", p.sellingMethod==="weight"?"Weight":"Unit"),
     info("Costing Method", p.costingMethod==="fixed"?"Fixed Cost":"From Ingredients"), info("Preparation Time", p.prepTime ? esc(p.prepTime)+" min" : "—"),
     info("Price", varKids(p).length ? "Set on each variant" : p.pricingMethod==="open" ? "Open" : usd(price)), info(p.costingMethod==="fixed"?"Fixed Cost":"Ingredients Cost", fmtCost(cost)),
     info("Cost %", price ? `<span style="${pct>40?"color:var(--accent-ink);font-weight:600":""}">${pct.toFixed(1)} %</span>` : "—")]);
-  if((p.imageUrl && !varParent(p.id)) || p.description) h += `<div class="card" style="margin-bottom:16px;display:flex;gap:16px;align-items:flex-start">${p.imageUrl && !varParent(p.id)?`<img src="${esc(p.imageUrl)}" alt="" style="width:160px;height:160px;object-fit:cover;border-radius:12px">`:""}<div>${p.description?`<div class="note">Description</div>${esc(p.description)}`:'<span class="note">No description</span>'}</div></div>`;
+  if(false) h += `<div class="card" style="margin-bottom:16px;display:flex;gap:16px;align-items:flex-start">${p.imageUrl && !varParent(p.id)?`<img src="${esc(p.imageUrl)}" alt="" style="width:160px;height:160px;object-fit:cover;border-radius:12px">`:""}<div>${p.description?`<div class="note">Description</div>${esc(p.description)}`:'<span class="note">No description</span>'}</div></div>`;
   h += variantCard(p);
   // a product with variants isn't sold itself: each variant product has its own recipe
   const hasVar = (p.variants||[]).some(v => v.productId);
@@ -6078,6 +6089,23 @@ function downloadReportCsv(){
 document.body.insertAdjacentHTML("beforeend", `<div class="scrim" id="crudScrim"><form class="modal" id="crudBox" autocomplete="off"></form></div>
   <div class="scrim" id="ccScrim"><div class="modal wide" id="ccBox"></div></div>`);
 $("#crudBox").addEventListener("submit", submitCrud);
+// item page edited in place: Save / Discard light up once something changes
+const detDirty = () => { const fm = $("#detForm"); if(!fm || fm.dataset.dirty) return; fm.dataset.dirty = "1"; $("#detSave").disabled = false; fm.querySelector("[data-detrevert]").disabled = false; };
+document.addEventListener("input", e => { if(e.target.closest?.("#detForm")) detDirty(); });
+document.addEventListener("change", e => { if(e.target.closest?.("#detForm")) detDirty(); });
+document.addEventListener("submit", async e => { if(e.target.id !== "detForm") return; e.preventDefault();
+  const prev = crudEdit; crudEdit = { key: DET.key, id: DET.id, inline: true }; const b = $("#detSave"); b.disabled = true; b.textContent = "Saving…";
+  await submitCrud(e); crudEdit = prev && $("#crudScrim").classList.contains("show") ? prev : null; const fm = $("#detForm");
+  if(fm && fm.querySelector("#cErr")?.textContent){ b.disabled = false; b.textContent = "Save changes"; return; }   // a field needs fixing
+  if(fm) delete fm.dataset.dirty; render(); });
+// after a redraw, hide the fields that only apply to another choice (e.g. fixed cost)
+new MutationObserver(() => { const fm = document.getElementById("detForm"); if(fm && !fm.dataset.w){ fm.dataset.w = "1"; crudWhen(fm, DET.key); } }).observe(document.body, { childList:true, subtree:true });
+document.addEventListener("click", async e => {
+  if(e.target.closest("[data-detrevert]")){ const fm = $("#detForm"); if(fm) delete fm.dataset.dirty; return render(); }
+  if(e.target.closest("[data-detdelete]") || e.target.closest("[data-detrestore]")){ const cfg = CRUD[DET.key], r = S[cfg.col].find(x => x.id===DET.id); if(!r) return;
+    const del = !!e.target.closest("[data-detdelete]"); if(del){ const msg = cfg.canDelete?.(r); if(msg) return toast(msg); if(!(await askYes(`Delete ${r.name}? You can restore it from the Deleted tab.`))) return; }
+    try{ await put(cfg.col, r.id, { deleted: del }); toast(del ? cfg.one + " moved to Deleted" : cfg.one + " restored"); if(del){ closeDetail(); location.hash = DET.key || "products"; render(); } }catch(err){ console.error(err); toast("Couldn't save"); } }
+});
 $("#crudScrim").addEventListener("click", async e => {
   if(e.target.id==="crudScrim" || e.target.closest("[data-cclose]")) return closeCrud();
   if(e.target.closest("#cDelete")) return softDelete(true);
