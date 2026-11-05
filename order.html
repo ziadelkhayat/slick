@@ -440,7 +440,7 @@ const curLay = () => VIEW || (cfg.theme||{}).layout || "grid";
 let addrs = lsGet(AK, []), addr = null, LS = { view:"main", draft:null, res:[], menu:"" }, lmap = null, lsT = null;
 { const s = lsGet(AK + "_sel", null); addr = typeof s==="string" ? addrs.find(a => a.id===s) || null : s?.temp || null; if(addr) pin = [addr.lat, addr.lng]; }
 /* ---------- customer accounts: ordering needs an account. Supabase Auth keeps the password; Slick never sees it ---------- */
-let USER = null, PROF = null, AU = { view:"in", then:null, msg:"", email:"" }, AC = { view:"home", pts:null };
+let USER = null, PROF = null, AU = { view:"in", then:null, msg:"", email:"" }, AC = { view:"home", pts:null, then:null, msg:"" };
 const fullName = () => [PROF?.first_name, PROF?.last_name].filter(Boolean).join(" ");
 const inits = () => ((((PROF?.first_name||"")[0]||"") + ((PROF?.last_name||"")[0]||"")) || (USER?.email||"?")[0]).toUpperCase();
 const backUrl = () => location.href.split("#")[0];
@@ -534,7 +534,7 @@ function drawAcct(){
   sh.className = "sheet locsheet acsheet";
   const head = t => `<div class="grab"></div><div class="lshead">${v==="home" ? "<span></span>" : `<button type="button" class="x" data-acv="home" aria-label="Back">‹</button>`}<h3>${t}</h3><button type="button" class="x" data-close aria-label="Close">×</button></div>`;
   const fld = (id, lbl, type, ac, val, ph) => `<div class="f"><label for="${id}">${lbl}</label><input id="${id}" type="${type||"text"}"${ac ? ` autocomplete="${ac}"` : ""} value="${esc(val||"")}"${ph ? ` placeholder="${esc(ph)}"` : ""}></div>`;
-  if(v==="profile"){ sh.innerHTML = head("Profile") + `<form id="acF" novalidate>
+  if(v==="profile"){ sh.innerHTML = head("Profile") + (AC.msg ? `<p class="info" style="margin:-4px 0 14px">${esc(AC.msg)}</p>` : "") + `<form id="acF" novalidate>
       <div class="f2">${fld("pFirst","First name *","text","given-name",p.first_name)}${fld("pLast","Last name *","text","family-name",p.last_name)}</div>
       <div class="f2">${fld("pNick","Nickname","text","nickname",p.nickname)}${fld("pDob","Date of birth","date","bday",p.dob)}</div>
       ${fld("pEmail","Email *","email","email",USER.email)}${phField("pPhone","Phone number *",p.phone)}
@@ -571,6 +571,7 @@ async function acctSubmit(){
     if(x.error) return err(x.error.message);
     renderTop(); return ok("Saved. Open the link we sent to " + email + " to confirm your new email."); }
   busy(); renderTop(); ok("Saved.");
+  if(AC.then){ const t = AC.then; AC.then = null; AC.msg = ""; setTimeout(t, 400); }
 }
 $("#sheet").addEventListener("submit", e => { if(e.target.id==="auF"){ e.preventDefault(); authSubmit(); } else if(e.target.id==="acF"){ e.preventDefault(); acctSubmit(); } });
 $("#sheet").addEventListener("click", async e => {
@@ -585,7 +586,7 @@ $("#sheet").addEventListener("click", async e => {
   if(t = g("[data-adel]")){ const a = addrs.find(x => x.id===t.dataset.adel); if(!a || !confirm(`Delete “${a.label || "this address"}”?`)) return;
     addrs = addrs.filter(x => x.id!==a.id); await saveAddrs(); if(addr?.id===a.id) setAddr(null); return drawAcct(); }
 });
-document.addEventListener("click", e => { if(e.target.closest("[data-acct]")) USER ? openAcct("home") : openAuth("in", null, ""); });
+document.addEventListener("click", e => { if(e.target.closest("[data-acct]")){ AC.then = null; AC.msg = ""; } if(e.target.closest("[data-acct]")) USER ? openAcct("home") : openAuth("in", null, ""); });
 if(RECOV && USER) setTimeout(() => openAuth("reset", null, ""), 300);
 const addrLine = a => [a.street, a.building && "Bldg " + a.building, a.floor && "Floor " + a.floor].filter(Boolean).join(", ") || (a.lat ? "Pinned on the map" : "");
 const zoneAt = (lat, lng) => zoneList().find(z => inside([lat, lng], z.polygon));
@@ -600,7 +601,7 @@ function renderTop(){
     ${mode==="delivery" && addr ? (z ? `<span class="tchip ok">${ic("bike")}${z.eta ? "~" + esc(z.eta) + " min · " : ""}${usd(z.fee)}</span>` : `<span class="tchip bad">Not delivering here</span>`) : ""}${ab}`;
 }
 function openLoc(view){ if(view) LS.view = view; if(view==="main"){ LS.res = []; LS.menu = ""; LS.ret = ""; } drawLoc(); $("#scrim").classList.add("show"); }
-function closeLoc(){ if(lmap){ lmap.remove(); lmap = null; } $("#scrim").classList.remove("show"); }
+function closeLoc(){ if(typeof AC !== "undefined"){ AC.then = null; AC.msg = ""; } if(lmap){ lmap.remove(); lmap = null; } $("#scrim").classList.remove("show"); }
 function drawLoc(){
   if(lmap){ lmap.remove(); lmap = null; }
   const modes = [["delivery","Delivery","bike"],["takeaway","Pickup","bag"],["dinein","Dine-in","dine"]].filter(([m]) => modeOn(m)), sh = $("#sheet");
@@ -789,6 +790,7 @@ function openCart(){
   const em = CO().email || "off", pays = payList();
   if(mode==="delivery" && !addr && !qrBranch) return openLoc("main");   // pick where to deliver first
   if(!USER && !PREVIEW) return openAuth("in", openCart, "Sign in or create an account to place your order.");
+  if(USER && PROF && !PREVIEW && (!PROF.first_name || !PROF.last_name || String(PROF.phone||"").replace(/\D/g,"").length < 8)){ AC.then = openCart; AC.msg = "Add your name and phone number to finish your profile before ordering."; return openAcct("profile"); }
   $("#sheet").className = "sheet";
   $("#sheet").innerHTML = `<h3>Your order <button class="x" data-close aria-label="Close">×</button></h3>
     ${cartLines()}${totals()}
@@ -798,7 +800,7 @@ function openCart(){
       <div class="f2" id="whenBox" style="margin-top:10px" ${canNow?"hidden":""}><div class="f"><label for="sDay">Day</label><select id="sDay">${sl.map((s,i)=>`<option value="${i}">${dayLbl(s.day)}</option>`).join("")}</select></div><div class="f"><label for="sTime">Time</label><select id="sTime">${(sl[0]?.ts||[]).map(t=>`<option value="${t.getTime()}">${timeLbl(t)}</option>`).join("")}</select></div></div>` : ""}
     <div class="sec">Your details</div>
     <div class="f"><label for="cName">Name *</label><input id="cName" required autocomplete="name"></div>
-    <div class="f"><label for="cPhone">Phone *</label><input id="cPhone" required type="tel" autocomplete="tel" placeholder="+961 …"></div>
+    ${phField("cPhone","Phone *",PROF?.phone||"")}
     ${em !== "off" ? `<div class="f"><label for="cEmail">Email${em==="required" ? " *" : " (optional)"}</label><input id="cEmail" type="email" autocomplete="email"></div>` : ""}
     ${mode==="delivery"?`<div class="sec">Delivery address</div><div class="f"><label for="cA_label">Address name</label><input id="cA_label" placeholder="Home, Work…"></div>
     <div class="f"><label for="cA_street">Area / street *</label><input id="cA_street" required autocomplete="street-address"></div>
@@ -811,7 +813,7 @@ function openCart(){
   $("#scrim").classList.add("show");
   if(mode==="delivery" && addr){ const set = (id, v) => { const el = $("#" + id); if(el && v) el.value = v; };
     if(!["gps","pin"].includes(addr.id)) set("cA_label", addr.label); set("cA_street", addr.street); set("cA_building", addr.building); set("cA_floor", addr.floor); set("cA_extra", addr.extra); }
-  if(PROF){ const put = (id, v) => { const el = $("#" + id); if(el && v) el.value = v; }; put("cName", fullName()); put("cPhone", PROF.phone); put("cEmail", USER.email); }
+  if(PROF){ const put = (id, v) => { const el = $("#" + id); if(el && v) el.value = v; }; put("cName", fullName()); put("cEmail", USER.email); }
   $("#co").addEventListener("submit", placeOrder);
   $("#co").addEventListener("change", e => { if(e.target.name==="when") $("#whenBox").hidden = e.target.value!=="later"; if(e.target.id==="sDay") $("#sTime").innerHTML = sl[+e.target.value].ts.map(t=>`<option value="${t.getTime()}">${timeLbl(t)}</option>`).join(""); });
 }
@@ -827,7 +829,7 @@ async function placeOrder(e){
   if(!later && bb && !brOpenNow(bb)){ const hh = brHoursToday(bb); return err(`${bb.name} is closed now${hh && hh!=="closed today" ? " · opening hours today " + hh : ""}.${CO().schedule ? " Schedule your order instead." : " Please order when it's open."}`); }
   if(later && !(at && +at)) return err("Pick a time for your order.");
   for(const id of ["cName","cPhone","cA_street","cA_building","cA_floor"]){ const el = $("#"+id); if(el && !el.value.trim()){ el.focus(); return err("Please fill in the required fields."); } }
-  const phone = $("#cPhone").value.trim(); if(phone.replace(/\D/g,"").length < 7) return err("Enter a valid phone number.");
+  const phone = phVal("cPhone"); if(phone.replace(/\D/g,"").length < 8) return err("Enter a valid phone number.");
   const email = $("#cEmail")?.value.trim() || ""; if((CO().email==="required" || email) && !/^\S+@\S+\.\S+$/.test(email)) return err("Enter a valid email.");
   const pay = document.querySelector('input[name="pay"]:checked')?.value || "Cash";
   const extra = [later ? `Scheduled for ${dayLbl(at)} ${timeLbl(at)}` : "", payList().length > 1 ? `Pay by ${pay}` : "", email ? `Email: ${email}` : ""].filter(Boolean);
