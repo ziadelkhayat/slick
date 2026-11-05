@@ -1219,7 +1219,7 @@ function barList(rows, fmt){ // horizontal bars, single measure
 /* ---------- views ---------- */
 const hourLbl = i => String(i%12||12).padStart(2,"0") + ":00 " + (i<12?"AM":"PM");
 function filterBar(){
-  return `<div class="row fbar"><button type="button" class="sel drpbtn" id="dashRange" aria-haspopup="dialog">${svgIco("calendar")}<span>${esc(drpLabel(dashFrom(), state.date))}</span></button>${scopeBar(true)}
+  return `<div class="row fbar"><button type="button" class="sel drpbtn" id="dashRange" aria-haspopup="dialog">${svgIco("calendar")}<span>Business date · ${esc(drpLabel(state.date, state.date))}</span></button>${scopeBar(true)}
     <label class="toggle"><input type="checkbox" id="cmpToggle" ${state.compare?"checked":""}><span class="trk"></span>Compare</label>
     ${state.compare ? `<label class="note">with <input type="date" class="sel" id="cmpDate" value="${state.cmpDate || cmpDefault()}" max="${todayStr()}" aria-label="Compare with business date" title="Business date to compare with${rangeDays()>1 ? " (the " + rangeDays() + " days ending on it)" : ""}"></label>` : ""}
     <span class="sp"></span><span class="note">${DASH.loading ? "Updating…" : DASH.at ? "Live · updated " + new Date(DASH.at).toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"}) : ""}</span>
@@ -1729,7 +1729,7 @@ $("#brandSel").addEventListener("change", e => { state.brand = e.target.value; s
 $("#view").addEventListener("click", e => {
   if(e.target.closest("#dashRefresh")){ loadDash(true); render(); return; }
   const rp = e.target.closest("[data-report]"); if(rp){ e.preventDefault(); openReport(rp.dataset.report); return; }
-  const dr = e.target.closest("#dashRange"); if(dr){ if(DRP.el) return drpClose(); drpOpen(dr, dashFrom(), state.date, (f, t) => { state.date = t; state.days = Math.round((new Date(t+"T12:00:00") - new Date(f+"T12:00:00")) / 86400000) + 1; state.dateSet = t !== todayStr(); state.cmpDate = ""; render(); }); return; }
+  const dr = e.target.closest("#dashRange"); if(dr){ if(DRP.el) return drpClose(); drpOpen(dr, state.date, state.date, (f, t) => { state.date = t; state.days = 1; state.dateSet = t !== todayStr(); state.cmpDate = ""; render(); }); DRP.single = true; drpDraw(); return; }
   const t2 = e.target.closest("[data-dt2]"); if(t2){ e.preventDefault(); state.dashTab = t2.dataset.dt2; render(); return; }
   const t = e.target.closest("[data-dt]"); if(t){ e.preventDefault(); state.dashTab = t.dataset.dt; render(); return; }
   if(e.target.closest("#addBranch")) openForm();
@@ -3842,7 +3842,7 @@ document.addEventListener("click", e => { const it = e.target.closest?.(".ddmenu
   const m = it.closest(".ddmenu, #acctMenu, #ubMenu"); if(m && m.id === "ubMenu" && it.matches("label")) return;   // the branch picker stays open while ticking branches
   setTimeout(() => { if(m && m.isConnected && !m.hidden){ m.hidden = true; if(m.id==="acctMenu") $("#acctBtn")?.setAttribute("aria-expanded","false"); } }, 0); });
 document.addEventListener("keydown", e => { if(e.key==="Escape") closeMenus(); });
-function drpClose(){ DRP.el?.remove(); DRP.el = null; DRP.a = null; DRP.all = false; }
+function drpClose(){ DRP.el?.remove(); DRP.el = null; DRP.a = null; DRP.all = false; DRP.single = false; }
 function drpOpen(anchor, from, to, onPick){
   drpClose(); Object.assign(DRP, { anchor, from, to, onPick, a:null, hover:null, m:(to || todayStr()).slice(0,7) });
   DRP.el = document.createElement("div"); DRP.el.className = "drp"; DRP.el.setAttribute("role","dialog"); DRP.el.setAttribute("aria-label","Choose dates");
@@ -3858,8 +3858,8 @@ function drpDraw(){
     cells += `<button type="button" class="dd${k===lo||k===hi?" ed":k>lo&&k<hi?" in":""}${k===max?" today":""}" data-drpd="${k}" ${k>max?"disabled":""}>${d}</button>`; }
   DRP.el.innerHTML = `<div class="dh"><button type="button" data-drpm="-1" aria-label="Previous month">‹</button><span>${first.toLocaleDateString("en-GB",{month:"long",year:"numeric"})}</span><button type="button" data-drpm="1" aria-label="Next month" ${DRP.m>=max.slice(0,7)?"disabled":""}>›</button></div>
     <div class="dg">${["Mo","Tu","We","Th","Fr","Sa","Su"].map(w=>`<span class="dw">${w}</span>`).join("")}${cells}</div>
-    <div class="dn">${DRP.a ? "Now pick the end date" : "Pick the start date"}</div>
-    <div class="dq">${[...(DRP.all ? [["All time","all"]] : []), ["Today",0],["Yesterday",-1],["Last 7 days",6],["Last 30 days",29],["This month","m"]].map(([t,n])=>`<button type="button" data-drpq="${n}">${t}</button>`).join("")}</div>`;
+    <div class="dn">${DRP.single ? "Pick a business date" : DRP.a ? "Now pick the end date" : "Pick the start date"}</div>
+    <div class="dq">${(DRP.single ? [["Today",0],["Yesterday",-1]] : [...(DRP.all ? [["All time","all"]] : []), ["Today",0],["Yesterday",-1],["Last 7 days",6],["Last 30 days",29],["This month","m"]]).map(([t,n])=>`<button type="button" data-drpq="${n}">${t}</button>`).join("")}</div>`;
 }
 function drpDone(f, t){ const cb = DRP.onPick; drpClose(); cb && cb(f, t); }
 document.addEventListener("click", e => {
@@ -3868,7 +3868,7 @@ document.addEventListener("click", e => {
   const m = e.target.closest("[data-drpm]"); if(m){ const [y, mo] = DRP.m.split("-").map(Number), d = new Date(y, mo-1 + +m.dataset.drpm, 1); DRP.m = ymd(d).slice(0,7); drpDraw(); return; }
   const q = e.target.closest("[data-drpq]"); if(q){ const v = q.dataset.drpq, t = todayStr(); if(v==="all") return drpDone("", "");
     if(v==="m") return drpDone(t.slice(0,8)+"01", t); if(v==="-1") return drpDone(daysAgo(1), daysAgo(1)); return drpDone(daysAgo(+v), t); }
-  const d = e.target.closest("[data-drpd]"); if(d){ const k = d.dataset.drpd;
+  const d = e.target.closest("[data-drpd]"); if(d){ const k = d.dataset.drpd; if(DRP.single) return drpDone(k, k);
     if(!DRP.a){ DRP.a = k; drpDraw(); return; }
     return drpDone(k < DRP.a ? k : DRP.a, k < DRP.a ? DRP.a : k); }
 });
