@@ -461,6 +461,7 @@ button,input,select,textarea{font-family:var(--f-ui)}
 .ovrpre button{border:0;background:none;text-align:left;padding:12px 14px;border-radius:10px;font:inherit;font-size:15px;font-weight:600;color:var(--ink);cursor:pointer}.ovrpre button.on{background:var(--acc,#6a4cf5);color:#fff}
 .ovrcus{display:flex;flex-direction:column;gap:10px;padding:16px;min-width:240px}.ovrcus b{font-size:13px;text-transform:uppercase;letter-spacing:.05em;color:#8d8c98}
 .ovrcus label{display:flex;flex-direction:column;gap:4px;font-size:13px;font-weight:600;color:#6b6880}.ovrcus input{height:48px;border:1px solid var(--line);border-radius:12px;padding:0 12px;font:inherit;font-size:15px}
+.ovract{display:flex;gap:8px;margin-top:4px}.ovract .btn{flex:1;min-height:48px}
 @keyframes fadeUp{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
 .pdph{display:flex;gap:8px}.pdph select{flex:0 0 auto;max-width:42%;border:1px solid var(--line,#e4e1ef);border-radius:12px;background:#fff;font:inherit;font-size:15px;padding:0 10px}.pdph input{flex:1;min-width:0}
 .bnav .badge{position:static!important;display:inline-grid;place-items:center;min-width:22px;height:22px;margin-left:8px;padding:0 6px!important;border-radius:999px;background:#dc2626;color:#fff;font-size:12px!important;font-weight:800;letter-spacing:0;animation:incPulse 1.6s ease-in-out infinite}
@@ -1228,6 +1229,7 @@ $("#modal").addEventListener("click", async e => {
     await db.collection("orders").doc(id).update({ status:s, updatedAt:new Date().toISOString(), handledBy:cashier?.name || device.name, ...bill }); toast(s==="active"?(bill.no ? "Order #"+bill.no+" accepted · sent to kitchen" : "Order accepted · sent to kitchen"):s==="declined"?"Order declined":"Order completed"); }catch(err){ console.error(err); toast("Couldn't update the order"); } return; }
   const ovt = e.target.closest("[data-ovtab]"); if(ovt){ OV.tab = ovt.dataset.ovtab; return openIncoming(); }
   if(e.target.closest("[data-ofilt]")){ OV.filt = !OV.filt; return openIncoming(); }
+  if(e.target.closest("[data-ovrcancel]")){ OV.rpop = false; return openIncoming(); }
   if(e.target.closest("[data-ovrange]")){ OV.rpop = !OV.rpop; return openIncoming(); }
   const ovp = e.target.closest("[data-ovpre]"); if(ovp){ [OV.from, OV.to] = ovPreset(ovp.dataset.ovpre); OV.rpop = false; return openIncoming(); }
   if(e.target.closest("[data-ovrapply]")){ let f = $("#ovFrom")?.value || "", t = $("#ovTo")?.value || ""; if(f && t && f > t) [f, t] = [t, f]; OV.from = f; OV.to = t; OV.rpop = false; return openIncoming(); }
@@ -1494,7 +1496,7 @@ function openIncoming(){
     <div class="ovsrch">${ico("search")}<input id="ovQ" placeholder="Search order no., invoice no., customer, phone or table" value="${esc(OV.q)}"></div>
     <div class="ovrw"><button class="ovrange${OV.from||OV.to ? " on" : ""}" data-ovrange aria-expanded="${!!OV.rpop}">${ico("calendar")}<span>${esc(ovRangeLbl())}</span></button>
       ${OV.rpop ? `<div class="ovrpop"><div class="ovrpre">${OV_PRE.map(([k,l]) => `<button class="${ovPreset(k).join()===[OV.from||"",OV.to||""].join() ? "on" : ""}" data-ovpre="${k}">${l}</button>`).join("")}</div>
-        <div class="ovrcus"><b>Custom range</b><label>From<input type="date" id="ovFrom" value="${esc(OV.from||"")}" max="${bizDate()}"></label><label>To<input type="date" id="ovTo" value="${esc(OV.to||"")}" max="${bizDate()}"></label><button class="btn pri" data-ovrapply>Apply</button></div></div>` : ""}</div>
+        <div class="ovrcus"><b>Custom range</b><label>From<input type="date" id="ovFrom" value="${esc(OV.from||"")}" max="${bizDate()}"></label><label>To<input type="date" id="ovTo" value="${esc(OV.to||"")}" max="${bizDate()}"></label><div class="ovract"><button class="btn" data-ovrcancel>Cancel</button><button class="btn pri" data-ovrapply>Apply</button></div></div></div>` : ""}</div>
     <button class="ovfbtn${OV.filt || active.length ? " on" : ""}" data-ofilt aria-expanded="${!!OV.filt}">${ico("filter")}Filters${active.length ? ` <span class="ofn">${active.length}</span>` : ""}</button></div>`;
   const grp = (k, title, opts) => `<div class="ofrow"><b>${title}</b><div class="ofchips2">${[["", "All"], ...opts].map(([v,l]) => `<button class="chip${(OV[k]||"")===v ? " on" : ""}" data-of="${k}:${esc(v)}">${esc(l)}</button>`).join("")}</div></div>`;
   const srcs = [...new Set([...posSources(), ...S.orders.map(o => o.source).filter(x => x && x.toUpperCase()!=="POS")])];
