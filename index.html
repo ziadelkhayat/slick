@@ -49,19 +49,26 @@ h1{font-size:22px;margin:0 0 4px}
 .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:18px}
 .drpbtn{display:inline-flex;align-items:center;gap:8px;cursor:pointer;font:inherit;color:inherit}
 .drpbtn svg{width:16px;height:16px}
-.drp{position:absolute;z-index:80;background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:0 12px 32px rgba(21,19,31,.16);padding:14px;width:300px}
-.drp .dh{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;font-weight:600}
-.drp .dh button{border:0;background:none;cursor:pointer;font-size:18px;padding:2px 10px;border-radius:8px;color:inherit}
-.drp .dh button:hover{background:var(--line)}
-.drp .dg{display:grid;grid-template-columns:repeat(7,1fr);gap:2px 0;text-align:center}
-.drp .dw{font-size:11px;color:var(--ink2);padding:4px 0}
-.drp .dd{border:0;background:none;padding:7px 0;cursor:pointer;font:inherit;color:inherit;border-radius:0}
+.drp{position:absolute;z-index:80;background:var(--surface,#fff);border:1px solid var(--line);border-radius:16px;box-shadow:0 18px 44px rgba(21,19,31,.18);padding:0;display:flex;overflow:hidden}
+.drp .dq{display:flex;flex-direction:column;gap:2px;padding:12px 8px;border-right:1px solid var(--line);background:#faf9fd;min-width:150px}
+.drp .dq button{border:0;background:none;border-radius:10px;padding:9px 12px;font:inherit;font-size:13.5px;text-align:left;cursor:pointer;color:#3a3550;white-space:nowrap}
+.drp .dq button:hover{background:#f1ecff}.drp .dq button.on{background:var(--accent);color:#fff;font-weight:600}
+.drp .dc{padding:14px 16px 12px;width:300px}
+.drp .dh{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;font-weight:700;font-size:15px}
+.drp .dh button{border:1px solid var(--line);background:#fff;cursor:pointer;width:32px;height:32px;border-radius:10px;color:inherit;font-size:16px;display:grid;place-items:center}
+.drp .dh button:hover:not(:disabled){background:#f1ecff;border-color:#d9ccff}.drp .dh button:disabled{opacity:.35;cursor:default}
+.drp .dg{display:grid;grid-template-columns:repeat(7,1fr);row-gap:4px;text-align:center}
+.drp .dw{font-size:11.5px;font-weight:600;color:#8e8a9f;padding:4px 0 6px;text-transform:uppercase}
+.drp .dd{position:relative;border:0;background:none;height:36px;cursor:pointer;font:inherit;font-size:13.5px;color:inherit;padding:0;z-index:0}
+.drp .dd::after{content:"";position:absolute;inset:2px calc(50% - 16px);border-radius:50%;z-index:-1}
+.drp .dd:hover:not(:disabled)::after{background:#f1ecff}
 .drp .dd:disabled{opacity:.3;cursor:default}
-.drp .dd.in{background:var(--chart-soft,#f3efff)}
-.drp .dd.ed{background:var(--accent);color:#fff;border-radius:8px}
-.drp .dd.today:not(.ed){font-weight:700;text-decoration:underline}
-.drp .dq{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;border-top:1px solid var(--line);padding-top:10px}
-.drp .dq button{border:1px solid var(--line);background:none;border-radius:999px;padding:4px 10px;font-size:12px;cursor:pointer;color:inherit}
+.drp .dd.in{background:#efe9ff}
+.drp .dd.ed::after{background:var(--accent)}.drp .dd.ed{color:#fff;font-weight:700}
+.drp .dd.ed.st{background:linear-gradient(90deg,transparent 50%,#efe9ff 50%)}.drp .dd.ed.en{background:linear-gradient(90deg,#efe9ff 50%,transparent 50%)}.drp .dd.ed.st.en{background:none}
+.drp .dd.today:not(.ed)::after{box-shadow:inset 0 0 0 1.5px var(--accent)}.drp .dd.today:not(.ed){color:var(--accent);font-weight:700}
+.drp .dn{margin-top:10px;font-size:12px;color:#8e8a9f;text-align:center}
+@media(max-width:560px){.drp{flex-direction:column}.drp .dq{flex-direction:row;flex-wrap:wrap;border-right:0;border-bottom:1px solid var(--line)}.drp .dc{width:auto}}
 .drp .dn{font-size:12px;color:var(--ink2);margin-top:8px}
 .seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--surface)}
 .seg button{border:0;background:none;padding:7px 14px;cursor:pointer;color:var(--ink2)}
@@ -2158,7 +2165,7 @@ const CRUD = {
     sort:(a,b)=>a.name.localeCompare(b.name),
     search:r=>r.name+" "+(r.reference||""),
     cols:[["Name",r=>`<b>${esc(r.name)}</b>${r.nameAr?` <span class="note">${esc(r.nameAr)}</span>`:""}`],["Reference",r=>esc(r.reference||"—")],
-      ["Items (#)",r=>`<a class="lnk" href="#inv-items" data-invcat="${esc(r.name)}">${S.inv_items.filter(i=>live(i)&&i.category===r.name).length}</a>`,"num"],["Created",r=>fmtDate(r.createdAt)]],
+      ["Items",r=>`<a class="lnk" href="#inv-items" data-invcat="${esc(r.name)}">Items (${S.inv_items.filter(i=>live(i)&&i.category===r.name).length})</a>`],["Created",r=>fmtDate(r.createdAt)]],
     fields:[{k:"name",l:"Name",req:1},{k:"nameAr",l:"Name (Arabic)"},{k:"reference",l:"Reference"}],
     unique:"name",
     async after(old, data){   // keep items attached when a category is renamed
@@ -3847,7 +3854,7 @@ function drpOpen(anchor, from, to, onPick){
   drpClose(); Object.assign(DRP, { anchor, from, to, onPick, a:null, hover:null, m:(to || todayStr()).slice(0,7) });
   DRP.el = document.createElement("div"); DRP.el.className = "drp"; DRP.el.setAttribute("role","dialog"); DRP.el.setAttribute("aria-label","Choose dates");
   document.body.appendChild(DRP.el); drpDraw();
-  const r = anchor.getBoundingClientRect(); DRP.el.style.top = (r.bottom + scrollY + 6) + "px"; DRP.el.style.left = Math.max(8, Math.min(r.left + scrollX, innerWidth - 316)) + "px";
+  const r = anchor.getBoundingClientRect(); DRP.el.style.top = (r.bottom + scrollY + 6) + "px"; DRP.el.style.left = Math.max(8, Math.min(r.left + scrollX, innerWidth - DRP.el.offsetWidth - 12)) + "px";
 }
 function drpDraw(){
   const [y, mo] = DRP.m.split("-").map(Number), first = new Date(y, mo-1, 1), days = new Date(y, mo, 0).getDate(), lead = (first.getDay() + 6) % 7, max = todayStr();
@@ -3855,19 +3862,27 @@ function drpDraw(){
   let cells = "";
   for(let i=0;i<lead;i++) cells += "<span></span>";
   for(let d=1; d<=days; d++){ const k = `${y}-${String(mo).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
-    cells += `<button type="button" class="dd${k===lo||k===hi?" ed":k>lo&&k<hi?" in":""}${k===max?" today":""}" data-drpd="${k}" ${k>max?"disabled":""}>${d}</button>`; }
-  DRP.el.innerHTML = `<div class="dh"><button type="button" data-drpm="-1" aria-label="Previous month">‹</button><span>${first.toLocaleDateString("en-GB",{month:"long",year:"numeric"})}</span><button type="button" data-drpm="1" aria-label="Next month" ${DRP.m>=max.slice(0,7)?"disabled":""}>›</button></div>
+    cells += `<button type="button" class="dd${k===lo||k===hi?" ed":k>lo&&k<hi?" in":""}${k===lo&&hi&&hi!==lo?" st":""}${k===hi&&lo&&hi!==lo?" en":""}${k===max?" today":""}" data-drpd="${k}" ${k>max?"disabled":""}>${d}</button>`; }
+  const Q = DRP.single ? [["Today","0"],["Yesterday","-1"]] : [...(DRP.all ? [["All time","all"]] : []), ["Today","0"],["Yesterday","-1"],["This week","w"],["Last week","lw"],["Last 7 days","6"],["Last 30 days","29"],["This month","m"],["Last month","lm"]];
+  const on = v => { const r = drpQRange(v); return r && r[0]===DRP.from && r[1]===DRP.to; };
+  DRP.el.innerHTML = `<div class="dq">${Q.map(([t,n])=>`<button type="button" data-drpq="${n}" class="${!DRP.a && (n==="all" ? !DRP.from : on(n)) ? "on" : ""}">${t}</button>`).join("")}</div>
+    <div class="dc"><div class="dh"><button type="button" data-drpm="-1" aria-label="Previous month">‹</button><span>${first.toLocaleDateString("en-GB",{month:"long",year:"numeric"})}</span><button type="button" data-drpm="1" aria-label="Next month" ${DRP.m>=max.slice(0,7)?"disabled":""}>›</button></div>
     <div class="dg">${["Mo","Tu","We","Th","Fr","Sa","Su"].map(w=>`<span class="dw">${w}</span>`).join("")}${cells}</div>
-    <div class="dn">${DRP.single ? "Pick a business date" : DRP.a ? "Now pick the end date" : "Pick the start date"}</div>
-    <div class="dq">${(DRP.single ? [["Today",0],["Yesterday",-1]] : [...(DRP.all ? [["All time","all"]] : []), ["Today",0],["Yesterday",-1],["Last 7 days",6],["Last 30 days",29],["This month","m"]]).map(([t,n])=>`<button type="button" data-drpq="${n}">${t}</button>`).join("")}</div>`;
+    <div class="dn">${DRP.single ? "Pick a business date" : DRP.a ? "Now pick the end date" : "Pick the start date, then the end date"}</div></div>`;
 }
+// the dates a quick choice stands for
+function drpQRange(v){ const t = todayStr(), d = new Date(t + "T12:00:00"), iso = x => x.toISOString().slice(0,10), dow = (d.getDay() + 6) % 7;
+  if(v==="all") return null; if(v==="m") return [t.slice(0,8) + "01", t]; if(v==="-1") return [daysAgo(1), daysAgo(1)]; if(v==="0") return [t, t];
+  if(v==="w") return [daysAgo(dow), t];
+  if(v==="lw") return [daysAgo(dow + 7), daysAgo(dow + 1)];
+  if(v==="lm"){ const a = new Date(d.getFullYear(), d.getMonth() - 1, 1, 12), b = new Date(d.getFullYear(), d.getMonth(), 0, 12); return [iso(a), iso(b)]; }
+  return [daysAgo(+v), t]; }
 function drpDone(f, t){ const cb = DRP.onPick; drpClose(); cb && cb(f, t); }
 document.addEventListener("click", e => {
   if(!DRP.el) return;
   if(!DRP.el.contains(e.target)){ if(!DRP.anchor.contains(e.target)) drpClose(); return; }
   const m = e.target.closest("[data-drpm]"); if(m){ const [y, mo] = DRP.m.split("-").map(Number), d = new Date(y, mo-1 + +m.dataset.drpm, 1); DRP.m = ymd(d).slice(0,7); drpDraw(); return; }
-  const q = e.target.closest("[data-drpq]"); if(q){ const v = q.dataset.drpq, t = todayStr(); if(v==="all") return drpDone("", "");
-    if(v==="m") return drpDone(t.slice(0,8)+"01", t); if(v==="-1") return drpDone(daysAgo(1), daysAgo(1)); return drpDone(daysAgo(+v), t); }
+  const q = e.target.closest("[data-drpq]"); if(q){ const v = q.dataset.drpq; if(v==="all") return drpDone("", ""); const r = drpQRange(v); return drpDone(r[0], r[1]); }
   const d = e.target.closest("[data-drpd]"); if(d){ const k = d.dataset.drpd; if(DRP.single) return drpDone(k, k);
     if(!DRP.a){ DRP.a = k; drpDraw(); return; }
     return drpDone(k < DRP.a ? k : DRP.a, k < DRP.a ? DRP.a : k); }
