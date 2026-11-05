@@ -3696,6 +3696,21 @@ const chCats = ch => S.categories.filter(c => live(c) && c.channel===ch).sort(by
 const chProd = id => { const p = S.products.find(x => x.id===id); return p && live(p) ? p : null; };
 // a variant is listed under its main product: categories hold the main product (older ones may hold variants)
 const bmRoot = id => varParent(id)?.id || id;
+// the order set in one sales channel is copied to the others: categories match by name, items by the item itself
+const bmKey = c => String(c?.name||"").trim().toLowerCase();
+async function bmSyncCats(ids){
+  const rank = new Map(ids.map((id, i) => [bmKey(S.categories.find(x => x.id===id)), i]));
+  for(const [ch] of BM_MENUS){ if(ch===bmMenu()[0]) continue;
+    const list = chCats(ch), sorted = list.map((c, i) => [c, rank.has(bmKey(c)) ? rank.get(bmKey(c)) : 1e6 + i]).sort((a, b) => a[1] - b[1]).map(x => x[0]);
+    for(const [k, c] of sorted.entries()) if(c.sort !== (k+1)*10){ await put("categories", c.id, { sort:(k+1)*10 }); c.sort = (k+1)*10; } }
+}
+async function bmSyncItems(cat, ids){
+  const rank = new Map(ids.map((id, i) => [id, i]));
+  for(const [ch] of BM_MENUS){ if(ch===cat.channel) continue;
+    const o = chCats(ch).find(x => bmKey(x)===bmKey(cat)); if(!o) continue;
+    const cur = [...new Set((o.productIds||[]).map(bmRoot))], next = cur.map((id, i) => [id, rank.has(id) ? rank.get(id) : 1e6 + i]).sort((a, b) => a[1] - b[1]).map(x => x[0]);
+    if(next.join() !== cur.join()){ await put("categories", o.id, { productIds:next }); o.productIds = next; } }
+}
 function bmCatProds(c){ const seen = new Set(), out = []; (c.productIds||[]).forEach(id => { const p = chProd(bmRoot(id)); if(p && !seen.has(p.id)){ seen.add(p.id); out.push(p); } }); return out; }
 function bmItems(){
   const br = branches.find(b=>b.id===BM.branch); if(!br) return [];
@@ -3922,13 +3937,14 @@ document.addEventListener("drop", async e => { const t = e.target.closest?.("[da
   const br = branches.find(b=>b.id===BM.branch);
   if(!isCat){ const c = S.categories.find(x => x.id===t.dataset.bmcatof); if(!c) return; const ids = [...new Set((c.productIds||[]).map(bmRoot))], i = ids.indexOf(from), j = ids.indexOf(to); if(i<0 || j<0) return;
     ids.splice(i, 1); ids.splice(ids.indexOf(to) + (i < j ? 1 : 0), 0, from);
-    try{ await put("categories", c.id, { productIds:ids }); c.productIds = ids; toast("Item order saved"); render(); }catch(err){ console.error(err); toast("Couldn't save the new order"); } return; }
+    try{ await put("categories", c.id, { productIds:ids }); c.productIds = ids; await bmSyncItems(c, ids); toast("Item order saved on all sales channels"); render(); }catch(err){ console.error(err); toast("Couldn't save the new order"); } return; }
   const list = chCats(bmMenu()[0]);
   const ids = list.map(x=>x.id), i = ids.indexOf(from), j = ids.indexOf(to); if(i<0 || j<0) return;
   ids.splice(i, 1); ids.splice(ids.indexOf(to) + (i < j ? 1 : 0), 0, from);
   const col = isCat ? "categories" : "products"; let n = 0;
   try{ for(const [k, id] of ids.entries()){ const r = S[col].find(x=>x.id===id); if(r && r.sort !== (k+1)*10){ await put(col, id, { sort:(k+1)*10 }); n++; } }
-    toast("Category order saved"); render(); }
+    if(isCat) await bmSyncCats(ids);
+    toast("Category order saved on all sales channels"); render(); }
   catch(err){ console.error(err); toast("Couldn't save the new order"); } });
 function bmSet(id, k, v){ const d = BM.draft[id] ||= {}; d[k] = v; bmPrune(id); }
 // a change put back the way it was is no longer a change: drop draft values that match what is saved
