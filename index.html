@@ -479,6 +479,21 @@ tr[draggable="true"].dragging{opacity:.45}tr.dropto td{box-shadow:inset 0 2px 0 
 .ofg{display:flex;flex-direction:column;gap:10px}.ofg h4{margin:0;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
 .ofg label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--ink2);font-weight:500}.ofg .sel{width:100%;font-size:14px;color:var(--ink)}
 .ofact{grid-column:1/-1;display:flex;justify-content:flex-end;gap:8px;border-top:1px solid var(--line);padding-top:12px}
+.ofpills{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:-2px 0 12px}
+.ofpw{position:relative;display:inline-flex;align-items:center}
+.ofpill{display:inline-flex;align-items:center;gap:6px;height:34px;border:1px dashed #cfc9de;background:var(--surface,#fff);color:var(--ink2);border-radius:999px;padding:0 12px 0 14px;font:inherit;font-size:13px;font-weight:500;cursor:pointer;white-space:nowrap}
+.ofpill:hover,.ofpill.open{border-color:var(--accent);color:var(--accent-ink)}
+.ofpill.on{border-style:solid;border-color:var(--accent);background:var(--accent-soft);color:var(--accent-ink);font-weight:600;padding-right:30px}
+.ofpill .ofk{font-weight:500;opacity:.75}.ofpill .ofk::after{content:":"}
+.ofpill .ofcar{opacity:.7;transition:transform .15s}.ofpill.open .ofcar{transform:rotate(180deg)}.ofpill.on .ofcar{display:none}
+.ofpx{position:absolute;right:6px;top:50%;transform:translateY(-50%);width:20px;height:20px;border:0;border-radius:50%;background:rgba(108,71,255,.15);color:var(--accent-ink);font-size:14px;line-height:1;cursor:pointer;display:grid;place-items:center;padding:0}.ofpx:hover{background:var(--accent);color:#fff}
+.ofpop{position:absolute;top:calc(100% + 6px);left:0;z-index:30;min-width:220px;max-width:300px;background:var(--surface,#fff);border:1px solid var(--line);border-radius:14px;box-shadow:0 18px 44px rgba(21,19,31,.18);padding:6px;animation:ofIn .12s ease-out}
+@keyframes ofIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+.ofps{display:flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:10px;padding:0 10px;margin:2px 2px 6px}.ofps svg{width:14px;height:14px;color:var(--muted);flex:none}.ofps input{border:0;outline:0;background:transparent;font:inherit;font-size:13px;padding:8px 0;width:100%}
+.ofpl{max-height:280px;overflow:auto;display:flex;flex-direction:column;gap:1px}
+.ofo{display:flex;align-items:center;gap:8px;border:0;background:none;text-align:left;font:inherit;font-size:13.5px;padding:8px 10px 8px 30px;border-radius:9px;cursor:pointer;color:var(--ink);position:relative}
+.ofo:hover{background:#f4f1fb}.ofo.on{color:var(--accent-ink);font-weight:600}.ofo.on::before{content:"";position:absolute;left:11px;top:50%;width:5px;height:9px;border:solid var(--accent);border-width:0 2px 2px 0;transform:translateY(-65%) rotate(45deg)}
+.ofo[hidden]{display:none}
 .ofchips{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:-2px 0 12px}
 .ofchip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--accent);background:var(--accent-soft);color:var(--accent-ink);border-radius:999px;padding:4px 6px 4px 12px;font:inherit;font-size:13px;font-weight:600;cursor:pointer}
 .ofchip span{display:inline-grid;place-items:center;width:18px;height:18px;border-radius:50%;background:rgba(108,71,255,.15);font-size:13px;line-height:1}.ofchip:hover span{background:var(--accent);color:#fff}
@@ -3716,22 +3731,18 @@ function viewOrders(){
   const CHL = { pos:"POS", callcenter:"Call center", online:"Web ordering" }, TYL = { dinein:"Dine-in", fast:"Fast sale", pickup:"Pickup", delivery:"Delivery" };
   const chips = [["brand", ORD.brand && (brandName(ORD.brand) || "Brand")], ["branch", ORD.branch && (branches.find(b=>b.id===ORD.branch)?.name || "Branch")], ["channel", ORD.channel && CHL[ORD.channel]], ["type", ORD.type && TYL[ORD.type]], ["source", ORD.source], ["pay", ORD.pay]].filter(x => x[1]);
   const nF = chips.length;
+  const FP = [["brand","Brand","All brands", brandList().map(b=>[b.id,b.name])], ["branch","Branch","All branches", branches.filter(b=>!ORD.brand || b.brandId===ORD.brand).map(b=>[b.id,b.name])],
+    ["channel","Sales channel","All sales channels", Object.entries(CHL)], ["type","Order type","All order types", Object.entries(TYL)],
+    ["source","Order source","All order sources", ordSources().map(x=>[x,x])], ["pay","Payment","All payment types", ordPays().map(x=>[x,x])]];
   return `<div class="ostick"><div class="phead"><h1>Orders</h1><span class="sp"></span><button class="btn" id="ordCsv">Export CSV</button><button class="btn" id="ordRefresh">↻ Refresh</button></div>
   <div class="row fbar ofb">
     <div class="osrch">${svgIco("search")}<input id="ordQ" placeholder="Search reference, order #, invoice #, customer or phone" value="${esc(ORD.q)}"></div>
     <button type="button" class="sel drpbtn" id="ordRange" aria-haspopup="dialog">${svgIco("calendar")}<span>${esc(ORD.from ? drpLabel(ORD.from, ORD.to) : "All time")}</span></button>
-    <button type="button" class="btn ofbtn${ORD.fopen || nF ? " on" : ""}" id="ordFilt" aria-expanded="${ORD.fopen}">${svgIco("filter")}Filters${nF ? ` <span class="ofn">${nF}</span>` : ""}</button>
   </div>
-  ${ORD.fopen ? `<div class="card ofpanel">
-    <div class="ofg"><h4>Location</h4><label>Brand${sel("ordBrand", ORD.brand, [["","All brands"], ...brandList().map(b=>[b.id,esc(b.name)])])}</label>
-      <label>Branch${sel("ordBranch", ORD.branch, [["","All branches"], ...branches.filter(b=>!ORD.brand || b.brandId===ORD.brand).map(b=>[b.id,esc(b.name)])])}</label></div>
-    <div class="ofg"><h4>Order</h4><label>Sales channel${sel("ordChannel", ORD.channel, [["","All sales channels"],["pos","POS"],["callcenter","Call center"],["online","Web ordering"]])}</label>
-      <label>Order type${sel("ordType", ORD.type, [["","All order types"],["dinein","Dine-in"],["fast","Fast sale"],["pickup","Pickup"],["delivery","Delivery"]])}</label>
-      <label>Order source${sel("ordSource", ORD.source, [["","All order sources"], ...ordSources().map(x=>[esc(x),esc(x)])])}</label></div>
-    <div class="ofg"><h4>Payment</h4><label>Payment type${sel("ordPay", ORD.pay, [["","All payment types"], ...ordPays().map(x=>[esc(x),esc(x)])])}</label></div>
-    <div class="ofact">${nF ? `<button type="button" class="btn" data-ofclear>Clear all</button>` : ""}<button type="button" class="btn pri" id="ordFiltDone">Done</button></div>
-  </div>` : ""}
-  ${nF ? `<div class="ofchips">${chips.map(([k,l]) => `<button type="button" class="ofchip" data-ofx="${k}" title="Remove this filter">${esc(l)}<span aria-hidden="true">×</span></button>`).join("")}<button type="button" class="ofclr" data-ofclear>Clear all</button></div>` : ""}
+  <div class="ofpills">${FP.map(([k,t,all,opts]) => { const cur = opts.find(o => o[0]===ORD[k]); const open = ORD.fpop===k;
+    return `<div class="ofpw"><button type="button" class="ofpill${cur ? " on" : ""}${open ? " open" : ""}" data-ofp="${k}" aria-expanded="${open}">${cur ? `<span class="ofk">${t}</span>${esc(cur[1])}` : t}<svg class="ofcar" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>${cur ? `<button type="button" class="ofpx" data-ofx="${k}" aria-label="Remove ${t} filter">×</button>` : ""}
+    ${open ? `<div class="ofpop" role="listbox">${opts.length > 6 ? `<div class="ofps">${svgIco("search")}<input data-ofsearch placeholder="Search ${t.toLowerCase()}"></div>` : ""}<div class="ofpl"><button type="button" class="ofo${!ORD[k] ? " on" : ""}" data-ofv="" data-ofk="${k}">${all}</button>${opts.map(([v,l]) => `<button type="button" class="ofo${ORD[k]===v ? " on" : ""}" data-ofv="${esc(v)}" data-ofk="${k}">${esc(l)}</button>`).join("")}</div></div>` : ""}</div>`; }).join("")}
+    ${nF ? `<button type="button" class="ofclr" data-ofclear>Clear all</button>` : ""}</div>
   <div class="card otabsc"><div class="ttop"><div class="ttabs">${ORD_TABS.map(([k,t])=>`<a href="#orders" data-otab="${k}" class="${ORD.tab===k?"on":""}">${t} <span class="note">${ORD.counts[k] ?? ""}</span></a>`).join("")}</div><span class="sp"></span><span class="note">${ORD.loading ? "Loading…" : ""}</span></div></div></div>
   <div class="card tbl otbl obody">${ORD.err ? `<p class="note" style="padding:16px">Couldn't load orders: ${esc(ORD.err)}</p>` : `<table><thead><tr><th>Reference #</th><th>Invoice #</th><th>Order #</th><th>Brand</th><th>Branch</th><th>Customer</th><th>Status</th><th>Sales channel</th><th>Order type</th><th>Order source</th><th>Business date</th><th>Payment type</th><th class="num">Total</th></tr></thead><tbody>${
     ORD.rows.length ? ORD.rows.map(o => `<tr class="clk" data-oid="${esc(o.id)}"><td><b>${esc(o.ref || "—")}</b></td><td>${o.status==="refund" ? esc(ordRef(o)) : o.invoiceNo ? esc(invNo(o.invoiceNo)) : '<span class="note" title="Gets its invoice number when a POS accepts it">—</span>'}</td><td>${o.status==="refund" ? "–" : o.no ? `#${esc(o.no)}` : '<span class="note" title="Gets its number when a POS bills it">—</span>'}</td>
@@ -3844,6 +3855,10 @@ const DRP = { el:null, anchor:null, m:null, a:null, hover:null, onPick:null, fro
 // every dropdown menu closes when you tap anywhere outside it, or press Escape
 function closeMenus(except){ document.querySelectorAll(".ddmenu:not([hidden]), #acctMenu:not([hidden]), #ubMenu:not([hidden])").forEach(m => { const w = m.closest(".ddwrap, .acct, #ubDD") || m.parentElement; if(except && w.contains(except)) return; m.hidden = true; if(m.id==="acctMenu") $("#acctBtn")?.setAttribute("aria-expanded", "false"); }); }
 document.addEventListener("pointerdown", e => closeMenus(e.target), true);
+// orders filter pills: close the open list on an outside click or Escape; the search box narrows the list in place
+document.addEventListener("pointerdown", e => { if(typeof ORD!=="undefined" && ORD.fpop && !e.target.closest(".ofpw")){ ORD.fpop = ""; render(); } }, true);
+document.addEventListener("keydown", e => { if(e.key==="Escape" && typeof ORD!=="undefined" && ORD.fpop){ ORD.fpop = ""; render(); } });
+document.addEventListener("input", e => { if(!e.target.matches?.("[data-ofsearch]")) return; const q = e.target.value.trim().toLowerCase(); e.target.closest(".ofpop").querySelectorAll(".ofo").forEach((b, i) => b.hidden = i>0 && !!q && !b.textContent.toLowerCase().includes(q)); });
 // dropdown menus float above everything (so a card or table edge never cuts them off) and open upward near the bottom of the screen
 function ddPlace(m){
   if(!m || m.hidden || !m.classList.contains("ddmenu")) return;
@@ -3909,10 +3924,10 @@ $("#view").addEventListener("change", e => { if(e.target.id==="ordDay" && e.targ
 $("#view").addEventListener("click", e => {
   const orb = e.target.closest("#ordRange"); if(orb){ if(DRP.el) return drpClose(); drpOpen(orb, ORD.from, ORD.to, (f, t) => { ORD.from = f; ORD.to = t; ORD.page = 1; render(); }); DRP.all = true; drpDraw(); return; }
   const rg = e.target.closest("[data-ordrange]"); if(rg){ ordSetRange(rg.dataset.ordrange); ORD.page = 1; render(); return; }
-  if(e.target.closest("#ordFilt")){ ORD.fopen = !ORD.fopen; render(); return; }
-  if(e.target.closest("#ordFiltDone")){ ORD.fopen = false; render(); return; }
-  if(e.target.closest("[data-ofclear]")){ Object.assign(ORD, { brand:"", branch:"", channel:"", type:"", source:"", pay:"", page:1 }); render(); return; }
-  const ofx = e.target.closest("[data-ofx]"); if(ofx){ ORD[ofx.dataset.ofx] = ""; ORD.page = 1; render(); return; }
+  const ofp = e.target.closest("[data-ofp]"); if(ofp){ ORD.fpop = ORD.fpop===ofp.dataset.ofp ? "" : ofp.dataset.ofp; render(); $("#view [data-ofsearch]")?.focus(); return; }
+  const ofo = e.target.closest("[data-ofk]"); if(ofo){ const k = ofo.dataset.ofk; ORD[k] = ofo.dataset.ofv; if(k==="brand") ORD.branch = ""; ORD.fpop = ""; ORD.page = 1; render(); return; }
+  if(e.target.closest("[data-ofclear]")){ Object.assign(ORD, { fpop:"", brand:"", branch:"", channel:"", type:"", source:"", pay:"", page:1 }); render(); return; }
+  const ofx = e.target.closest("[data-ofx]"); if(ofx){ ORD[ofx.dataset.ofx] = ""; if(ofx.dataset.ofx==="brand") ORD.branch = ""; ORD.fpop = ""; ORD.page = 1; render(); return; }
   const tb = e.target.closest("[data-otab]"); if(tb){ e.preventDefault(); ORD.tab = tb.dataset.otab; ORD.page = 1; render(); return; }
   if(e.target.id==="ordPrev"){ ORD.page--; render(); return; }
   if(e.target.id==="ordNext"){ ORD.page++; render(); return; }
