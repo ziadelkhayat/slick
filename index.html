@@ -4836,7 +4836,7 @@ document.addEventListener("keydown", e => { if(e.key==="Enter" && e.target.id?.s
 /* filters belong to the page: leaving a page puts its filters back to the defaults */
 function resetPageFilters(){
   Object.assign(state, { range:"day", days:1, date:todayStr(), dateSet:false, compare:false, cmpDate:"", dashTab:"general", branch:"all", brand:"all", devOpen:null, brOpen:null }); if(!RPT.keep) RPT.key = ""; RPT.keep = false; DASH.key = "";
-  Object.assign(ORD, { tab:"all", range:"week", q:"", from:"", to:"", channel:"", type:"", pay:"", source:"", brand:"", branch:"", page:1, key:"", open:null });
+  if(ORD.keep) ORD.keep = false; else Object.assign(ORD, { tab:"all", range:"week", q:"", from:"", to:"", channel:"", type:"", pay:"", source:"", brand:"", branch:"", page:1, key:"", open:null });
   Object.assign(CUS, { filter:"all", q:"", sort:"last", page:1, key:"", open:null, det:null, more:false, fopen:false, flt:{} });
   Object.assign(BM, { q:"", draft:{} });
   state.tabs = {}; state.q = {}; state.page = {}; state.catFilter = ""; state.modFilter = ""; state.invCat = "";
@@ -5930,6 +5930,9 @@ $("#view").addEventListener("click", async e => {
 /* ---------- KPI breakdown ("View Report") ---------- */
 // Foodics-style: "View Report" opens the matching report in Reports, for the dashboard's dates and branch, grouped by hour
 function dashToReport(title){
+  if(/^orders$/i.test(title)){   // Orders: the orders list for the dashboard's dates, brand and branch
+    Object.assign(ORD, { keep:true, tab:"all", q:"", from:dashFrom(), to:state.date, channel:"", type:"", pay:"", source:"", brand: state.brand==="all" ? "" : state.brand, branch: state.branch==="all" ? "" : state.branch, page:1, key:"", open:null });
+    location.hash = "orders"; setTimeout(() => { render(); window.scrollTo(0,0); }, 0); return; }
   const pay = /payment/i.test(title), from = dashFrom(), to = state.date;
   Object.assign(RPT, { keep:true, key: pay ? "payments" : "sales", hub:"sales-reports", from, to, branch: state.branch==="all" ? "" : state.branch, loaded:"", rows:null });
   if(!pay){ RPT.dim = "branch"; RPT.group = from===to ? "hour" : "day"; }
