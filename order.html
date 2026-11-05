@@ -2,89 +2,229 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Order Online</title>
 <meta name="description" content="Order online for delivery, pickup or at your table.">
+<meta name="theme-color" content="#5b2bc4">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="modpick.js?v=5"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link id="fontLink" rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+<script src="modpick.js?v=11"></script>
 <style>
-:root{--bg:#f6f5f9;--s:#fff;--ink:#1c1b22;--ink2:#5b5a66;--mut:#8d8c98;--line:#e7e5ee;--acc:#5b2bc4;--accs:#efe9fc;--acci:#47209e;--bad:#9e0c24}
-*{box-sizing:border-box}html,body{margin:0}body{font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif;background:var(--bg);color:var(--ink);font-size:15px;padding-bottom:90px}
+:root{--acc:#5b2bc4;--on-acc:#fff;--accs:color-mix(in srgb,var(--acc) 12%,#fff);--acci:color-mix(in srgb,var(--acc) 82%,#000);
+  --bg:#f6f5f9;--s:#fff;--s2:#faf9fc;--ink:#18171f;--ink2:#55535f;--mut:#8b8996;--line:#e9e7ef;--bad:#b42318;--ok:#1f8a4c;
+  --r:18px;--r2:12px;--font:Inter;--hfont:Inter;--shadow:0 1px 2px rgba(20,18,30,.04),0 6px 20px rgba(20,18,30,.06);--ease:cubic-bezier(.2,.8,.2,1)}
+:root.dark{--bg:#0f0e13;--s:#1a1921;--s2:#22212a;--ink:#f3f2f7;--ink2:#c3c1cc;--mut:#8f8d99;--line:#2c2b35;--accs:color-mix(in srgb,var(--acc) 22%,#1a1921);--acci:color-mix(in srgb,var(--acc) 55%,#fff);--shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.35)}
+:root.warm{--bg:#f8f3ec;--s:#fffdf9;--s2:#fbf6ef;--line:#ece3d6}
+*{box-sizing:border-box}[hidden]{display:none!important}html,body{margin:0}html{scroll-behavior:smooth;scroll-padding-top:120px}
+body{font-family:var(--font),Inter,system-ui,-apple-system,"Segoe UI",sans-serif;background:var(--bg);color:var(--ink);font-size:15px;-webkit-font-smoothing:antialiased;padding-bottom:100px;transition:background .3s}
+h1,h2,h3{font-family:var(--hfont),var(--font),system-ui,sans-serif;letter-spacing:-.01em}
 button,input,select,textarea{font:inherit;color:inherit}button{cursor:pointer}
-.hero{background:var(--acc);color:#fff;padding:22px 18px 18px}
-.hero .row{display:flex;align-items:center;gap:12px;max-width:900px;margin:0 auto}
-.logo{width:46px;height:46px;border-radius:12px;background:#fff;color:var(--acc);display:grid;place-items:center;font-weight:800;font-size:20px}
-.hero h1{margin:0;font-size:21px}.hero p{margin:2px 0 0;opacity:.85;font-size:14px}
-.banner{max-width:900px;margin:12px auto 0;background:rgba(255,255,255,.15);border-radius:10px;padding:8px 12px;font-size:14px}
-.wrap{max-width:900px;margin:0 auto;padding:14px}
-.card{background:var(--s);border:1px solid var(--line);border-radius:14px;padding:14px}
-.modes{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px}
-.modes button{border:1px solid var(--line);background:var(--s);border-radius:12px;padding:12px;font-weight:600}
-.modes button.on{background:var(--acc);border-color:var(--acc);color:#fff}
-.where{margin-top:12px}.where label{display:block;font-size:13px;color:var(--ink2);margin-bottom:6px;font-weight:500}
-.where select{width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:10px;background:var(--s)}
-.info{font-size:13px;color:var(--ink2);margin-top:8px}
-.cats{position:sticky;top:0;z-index:5;background:var(--bg);display:flex;gap:8px;overflow-x:auto;padding:12px 14px;max-width:900px;margin:0 auto;scrollbar-width:none}
-.cats button{flex:none;border:1px solid var(--line);background:var(--s);border-radius:999px;padding:7px 14px;font-weight:500;font-size:14px}
-.cimg{width:40px;height:40px;border-radius:10px;object-fit:cover;vertical-align:middle;margin-right:10px}
-.cats button.on{background:var(--ink);border-color:var(--ink);color:#fff}
-h2{font-size:17px;margin:20px 0 10px}
-.items{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px}
-.item{background:var(--s);border:1px solid var(--line);border-radius:14px;padding:14px;display:flex;justify-content:space-between;align-items:center;gap:12px}
-.item b{display:block;font-weight:600}.item small{color:var(--mut);display:block;margin-top:2px}.item .pr{color:var(--acci);font-weight:600;margin-top:6px}
-.add{flex:none;width:38px;height:38px;border-radius:50%;border:0;background:var(--accs);color:var(--acci);font-size:22px;font-weight:600;line-height:1}
-.qtyc{display:inline-flex;align-items:center;gap:8px;flex:none}.qtyc button{width:32px;height:32px;border-radius:50%;border:1px solid var(--line);background:var(--s);font-size:18px}
-.bar{position:fixed;left:0;right:0;bottom:0;padding:12px 14px;background:linear-gradient(transparent,var(--bg) 30%)}
-.bar button{display:flex;justify-content:space-between;width:100%;max-width:900px;margin:0 auto;border:0;border-radius:14px;background:var(--acc);color:#fff;padding:15px 18px;font-weight:600;font-size:16px;box-shadow:0 8px 24px rgba(91,43,196,.3)}
-.scrim{position:fixed;inset:0;background:rgba(20,16,35,.45);display:none;align-items:flex-end;justify-content:center;z-index:20}
-.scrim.show{display:flex}
-.sheet{background:var(--s);width:min(560px,100%);max-height:92vh;overflow:auto;border-radius:18px 18px 0 0;padding:18px}
-@media(min-width:700px){.scrim{align-items:center}.sheet{border-radius:18px}}
-.sheet h3{margin:0 0 12px;font-size:19px;display:flex;justify-content:space-between;align-items:center}
-.x{border:0;background:none;font-size:26px;color:var(--mut)}
-.line{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}
-.tot{display:grid;gap:6px;margin:14px 0}.tot div{display:flex;justify-content:space-between}.tot .g{font-size:18px;font-weight:700}
-.f{margin-bottom:10px}.f label{display:block;font-size:13px;color:var(--ink2);margin-bottom:5px;font-weight:500}
-.f input,.f textarea{width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:10px}
-.primary{width:100%;border:0;border-radius:12px;background:var(--acc);color:#fff;padding:14px;font-weight:600;font-size:16px}
-.primary:disabled{opacity:.5}
-.err{color:var(--bad);font-size:13px;min-height:18px;margin:6px 0}
-.done{text-align:center;padding:30px 10px}.done .ok{width:64px;height:64px;border-radius:50%;background:#e5f5ec;color:#1f8a4c;display:grid;place-items:center;font-size:32px;margin:0 auto 12px}
-.closed{text-align:center;padding:60px 20px;color:var(--ink2)}
-.dmap{height:280px;border-radius:12px;border:1px solid var(--line);margin-top:8px;z-index:0}
-.locbtn{border:1px solid var(--acc);background:var(--accs);color:var(--acci);border-radius:10px;padding:9px 14px;font-weight:600}
-.locbtn:disabled{opacity:.6}.ok2{color:#1f8a4c}
-.tblin{width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:10px}
-/* ===== Slick modern theme (web ordering) ===== */
-:root{--bg:#f4f5fa;--line:#e8e8f0;--acc:#6c47ff;--accs:#f0ecff;--acci:#5130e8}
-body{-webkit-font-smoothing:antialiased}
-.hero{background:linear-gradient(135deg,#6c47ff,#8b5cf6 60%,#a855f7);padding:26px 18px 22px}
-.logo{border-radius:14px;box-shadow:0 6px 18px rgba(0,0,0,.15)}
-.item{border-radius:18px;border-color:transparent;box-shadow:0 1px 2px rgba(21,19,31,.04),0 4px 14px rgba(21,19,31,.06);transition:transform .15s}
-.item:hover{transform:translateY(-2px)}
-.add,.primary{background:linear-gradient(135deg,#6c47ff,#5130e8)!important;color:#fff!important;border-color:transparent!important;box-shadow:0 6px 16px rgba(108,71,255,.3)}
-.bar button{background:linear-gradient(135deg,#6c47ff,#5130e8)}
-.sheet{border-radius:24px 24px 0 0}
-.scrim{backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)}
-.item .pimg{width:72px;height:72px;object-fit:cover;border-radius:12px;flex:none}.item .pimg+div{flex:1}
+a{color:inherit}
+@keyframes up{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+@keyframes pop{0%{transform:scale(.6)}60%{transform:scale(1.15)}100%{transform:scale(1)}}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+@keyframes sheet{from{transform:translateY(40px);opacity:0}to{transform:none;opacity:1}}
+@keyframes shimmer{to{background-position:-200% 0}}
+
+/* header */
+.hero{position:relative;color:#fff}
+.cover{height:210px;background:linear-gradient(135deg,var(--acc),color-mix(in srgb,var(--acc) 60%,#ff7a59));background-size:cover;background-position:center;position:relative}
+.cover::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.05),rgba(0,0,0,.35))}
+.hstyle-solid .cover{background:var(--acc)!important;height:150px}.hstyle-solid .cover::after{display:none}
+.hstyle-minimal .cover{height:0}.hstyle-minimal .cover::after{display:none}
+.hcard{max-width:1180px;margin:-56px auto 0;padding:0 16px;position:relative;z-index:2;animation:up .5s var(--ease)}
+.hstyle-minimal .hcard{margin-top:44px}
+.hin{background:var(--s);color:var(--ink);border-radius:calc(var(--r) + 4px);box-shadow:var(--shadow);padding:18px 20px;display:flex;gap:16px;align-items:center;flex-wrap:wrap;border:1px solid var(--line)}
+.logo{width:76px;height:76px;border-radius:calc(var(--r) - 2px);background:var(--acc);color:var(--on-acc);display:grid;place-items:center;font-weight:800;font-size:30px;flex:none;overflow:hidden;box-shadow:0 6px 18px rgba(0,0,0,.12);margin-top:-44px;border:4px solid var(--s)}
+.logo img{width:100%;height:100%;object-fit:cover}
+.hmeta{flex:1;min-width:220px}
+.hmeta h1{margin:0;font-size:24px;font-weight:800}
+.hmeta p{margin:4px 0 0;color:var(--ink2);font-size:14px;line-height:1.45}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.chip{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;padding:5px 10px;border-radius:999px;background:var(--s2);border:1px solid var(--line);color:var(--ink2);text-decoration:none}
+.chip svg{width:14px;height:14px}
+.chip.open{background:color-mix(in srgb,var(--ok) 12%,var(--s));color:var(--ok);border-color:transparent}
+.chip.open i{width:7px;height:7px;border-radius:50%;background:var(--ok);box-shadow:0 0 0 3px color-mix(in srgb,var(--ok) 25%,transparent)}
+.chip.shut{background:color-mix(in srgb,var(--bad) 10%,var(--s));color:var(--bad);border-color:transparent}
+a.chip:hover{border-color:var(--acc);color:var(--acci)}
+.banner{max-width:1180px;margin:12px auto 0;padding:0 16px}
+.banner div{display:flex;gap:10px;align-items:center;background:var(--accs);color:var(--acci);border-radius:var(--r2);padding:11px 14px;font-size:14px;font-weight:600;animation:up .5s .1s var(--ease) both}
+.banner svg{width:18px;height:18px;flex:none}
+
+/* layout */
+.shell{max-width:1180px;margin:0 auto;padding:0 16px;display:grid;grid-template-columns:minmax(0,1fr);gap:24px}
+@media(min-width:1060px){.shell{grid-template-columns:minmax(0,1fr) 360px}body{padding-bottom:40px}.bar{display:none!important}}
+.side{display:none}
+@media(min-width:1060px){.side{display:block;position:sticky;top:16px;align-self:start;margin-top:16px}}
+.card{background:var(--s);border:1px solid var(--line);border-radius:var(--r);padding:16px;box-shadow:var(--shadow)}
+.where{margin-top:16px;animation:up .5s .05s var(--ease) both}
+.seg{display:flex;background:var(--s2);border:1px solid var(--line);border-radius:999px;padding:4px;gap:4px;margin-bottom:14px}
+.seg button{flex:1;border:0;background:none;border-radius:999px;padding:10px 12px;font-weight:600;color:var(--ink2);display:flex;align-items:center;justify-content:center;gap:8px;transition:color .2s,background .25s var(--ease),box-shadow .25s}
+.seg button svg{width:17px;height:17px}
+.seg button.on{background:var(--acc);color:var(--on-acc);box-shadow:0 4px 14px color-mix(in srgb,var(--acc) 35%,transparent)}
+.wbody label.l{display:block;font-size:13px;color:var(--ink2);margin-bottom:6px;font-weight:600}
+.selw{position:relative}.selw select,.tblin{width:100%;padding:12px 14px;border:1px solid var(--line);border-radius:var(--r2);background:var(--s);appearance:none;-webkit-appearance:none}
+.selw::after{content:"";position:absolute;right:16px;top:50%;width:8px;height:8px;border:solid var(--mut);border-width:0 2px 2px 0;transform:translateY(-70%) rotate(45deg);pointer-events:none}
+.info{font-size:13px;color:var(--ink2);margin-top:8px;line-height:1.45}
+.ok2{color:var(--ok)}
+.dmap{height:260px;border-radius:var(--r2);border:1px solid var(--line);margin-top:8px;z-index:0}
+.locbtn{border:1px solid color-mix(in srgb,var(--acc) 40%,transparent);background:var(--accs);color:var(--acci);border-radius:999px;padding:7px 13px;font-weight:600;font-size:13px;display:inline-flex;gap:6px;align-items:center}
+.locbtn svg{width:15px;height:15px}.locbtn:disabled{opacity:.6}
+
+/* search + categories */
+.tools{position:sticky;top:0;z-index:8;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);margin:16px -16px 0;padding:10px 16px 8px}
+.srch{display:flex;align-items:center;gap:8px;background:var(--s);border:1px solid var(--line);border-radius:999px;padding:0 14px;transition:border-color .2s,box-shadow .2s}
+.srch:focus-within{border-color:var(--acc);box-shadow:0 0 0 4px color-mix(in srgb,var(--acc) 15%,transparent)}
+.srch svg{width:18px;height:18px;color:var(--mut);flex:none}.srch input{border:0;outline:0;background:none;padding:11px 0;width:100%}
+.cats{display:flex;gap:8px;overflow-x:auto;padding:10px 0 2px;scrollbar-width:none}.cats::-webkit-scrollbar{display:none}
+.cats button{flex:none;border:1px solid var(--line);background:var(--s);border-radius:999px;padding:8px 15px;font-weight:600;font-size:13.5px;color:var(--ink2);transition:all .2s var(--ease)}
+.cats button:hover{border-color:var(--acc);color:var(--acci)}
+.cats button.on{background:var(--ink);border-color:var(--ink);color:var(--bg)}
+section.cat{animation:up .45s var(--ease) both}
+h2.ch{font-size:20px;margin:26px 0 12px;display:flex;align-items:center;gap:10px;font-weight:800}
+h2.ch small{font-size:13px;color:var(--mut);font-weight:500;font-family:var(--font)}
+.cimg{width:40px;height:40px;border-radius:12px;object-fit:cover}
+
+/* items */
+.items{display:grid;gap:14px}
+.lay-grid .items{grid-template-columns:repeat(auto-fill,minmax(210px,1fr))}
+.lay-list .items{grid-template-columns:repeat(auto-fill,minmax(330px,1fr))}
+.lay-compact .items{grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:8px}
+.item{background:var(--s);border:1px solid var(--line);border-radius:var(--r);overflow:hidden;position:relative;cursor:pointer;transition:transform .25s var(--ease),box-shadow .25s var(--ease),border-color .2s;display:flex}
+.item:hover{transform:translateY(-3px);box-shadow:0 14px 34px rgba(20,18,30,.1);border-color:color-mix(in srgb,var(--acc) 30%,var(--line))}
+.item .ph{background:var(--s2);flex:none;overflow:hidden;display:grid;place-items:center;color:var(--mut)}
+.item .ph img{width:100%;height:100%;object-fit:cover;transition:transform .5s var(--ease)}.item:hover .ph img{transform:scale(1.05)}
+.item .tx{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
+.item b{font-weight:700;font-size:15px;line-height:1.3}
+.item small{color:var(--mut);font-size:13px;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.item .pr{font-weight:700;color:var(--ink);margin-top:auto;padding-top:6px}
+.lay-grid .item{flex-direction:column}.lay-grid .item .ph{aspect-ratio:4/3;width:100%}.lay-grid .item .tx{padding:12px 14px 14px}
+.lay-grid .item .act{position:absolute;right:10px;bottom:12px}
+.lay-list .item{padding:14px;gap:14px;align-items:stretch;min-height:128px}.lay-list .item .ph{width:104px;height:104px;border-radius:calc(var(--r) - 6px);order:2}.lay-list .item.noimg .ph{display:none}.lay-list .item .tx{padding-right:4px}
+.lay-list .item .act{position:absolute;right:20px;bottom:20px}.lay-list .item.noimg .act{right:14px;bottom:14px}
+.lay-compact .item{padding:12px 14px;align-items:center;gap:12px}.lay-compact .item .ph{display:none}.lay-compact .item small{-webkit-line-clamp:1}.lay-compact .item .act{position:static}
+.add{width:38px;height:38px;border-radius:50%;border:0;background:var(--acc);color:var(--on-acc);display:grid;place-items:center;box-shadow:0 6px 16px color-mix(in srgb,var(--acc) 35%,transparent);transition:transform .15s}
+.add:hover{transform:scale(1.08)}.add:active{transform:scale(.92)}.add svg{width:18px;height:18px}
+.qtyc{display:inline-flex;align-items:center;gap:4px;background:var(--acc);color:var(--on-acc);border-radius:999px;padding:3px;box-shadow:0 6px 16px color-mix(in srgb,var(--acc) 35%,transparent);animation:pop .3s var(--ease)}
+.qtyc button{width:30px;height:30px;border-radius:50%;border:0;background:rgba(255,255,255,.2);color:inherit;font-size:17px;font-weight:700;line-height:1}
+.qtyc b{min-width:18px;text-align:center;font-size:14px}
+.soldout{font-size:12px;font-weight:700;color:var(--bad);background:color-mix(in srgb,var(--bad) 10%,var(--s));padding:4px 9px;border-radius:999px}
+.item.oos{opacity:.6;cursor:default}.item.oos:hover{transform:none;box-shadow:none}
+.empty{text-align:center;color:var(--mut);padding:40px 10px}
+.skel{height:180px;border-radius:var(--r);background:linear-gradient(90deg,var(--s2) 25%,var(--line) 37%,var(--s2) 63%);background-size:400% 100%;animation:shimmer 1.4s infinite}
+
+/* cart */
+.bar{position:fixed;left:0;right:0;bottom:0;padding:12px 14px calc(12px + env(safe-area-inset-bottom));z-index:12;pointer-events:none}
+.bar button{pointer-events:auto;display:flex;align-items:center;gap:12px;width:100%;max-width:640px;margin:0 auto;border:0;border-radius:999px;background:var(--acc);color:var(--on-acc);padding:10px 12px 10px 10px;font-weight:700;font-size:16px;box-shadow:0 12px 30px color-mix(in srgb,var(--acc) 40%,transparent);animation:up .35s var(--ease)}
+.bar .n{min-width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,.22);display:grid;place-items:center;font-size:14px}
+.bar .t{margin-left:auto;padding-right:8px}
+.side h3{margin:0 0 6px;font-size:18px;display:flex;align-items:center;gap:8px}
+.side .empt{display:grid;place-items:center;gap:8px;text-align:center;color:var(--mut);padding:26px 6px;font-size:14px}.side .empt svg{width:40px;height:40px;opacity:.5}
+.line{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;padding:12px 0;border-bottom:1px dashed var(--line);animation:fade .25s}
+.line .q{min-width:26px;height:26px;border-radius:8px;background:var(--accs);color:var(--acci);display:grid;place-items:center;font-size:13px;font-weight:700;flex:none}
+.line .nm{flex:1;min-width:0;font-weight:600;font-size:14px}
+.line .rt{text-align:right;white-space:nowrap;font-weight:600;font-size:14px}
+.rm{display:block;border:0;background:none;color:var(--mut);font-size:12px;padding:2px 0;text-decoration:underline}
+.mlist{margin:3px 0 0;padding:0 0 0 16px;font-size:12px;line-height:1.45;color:var(--mut);font-weight:400;list-style:disc;text-align:left}.mlist li.mn{list-style:none;margin-left:-16px;font-style:italic}
+.tot{display:grid;gap:7px;margin:14px 0;font-size:14px}.tot div{display:flex;justify-content:space-between;color:var(--ink2)}.tot .g{font-size:18px;font-weight:800;color:var(--ink);padding-top:8px;border-top:1px solid var(--line)}
+.primary{width:100%;border:0;border-radius:999px;background:var(--acc);color:var(--on-acc);padding:15px;font-weight:700;font-size:16px;box-shadow:0 10px 24px color-mix(in srgb,var(--acc) 35%,transparent);transition:transform .15s,filter .2s}
+.primary:hover{filter:brightness(1.06)}.primary:active{transform:scale(.98)}.primary:disabled{opacity:.5;box-shadow:none}
+.ghost{width:100%;border:1px solid var(--line);border-radius:999px;background:var(--s);padding:13px;font-weight:600;margin-top:8px;display:flex;align-items:center;justify-content:center;gap:8px;text-decoration:none}
+.ghost svg{width:18px;height:18px}
+.warn{background:color-mix(in srgb,#f5a700 14%,var(--s));color:#8a5a00;border-radius:var(--r2);padding:10px 12px;font-size:13px;margin:8px 0}
+:root.dark .warn{color:#ffcf6b}
+
+/* sheet */
+.scrim{position:fixed;inset:0;background:rgba(15,12,30,.5);backdrop-filter:blur(5px);-webkit-backdrop-filter:blur(5px);display:none;align-items:flex-end;justify-content:center;z-index:40}
+.scrim.show{display:flex;animation:fade .2s}
+.sheet{background:var(--s);color:var(--ink);width:min(560px,100%);max-height:94vh;overflow:auto;border-radius:26px 26px 0 0;padding:20px 20px calc(20px + env(safe-area-inset-bottom));animation:sheet .35s var(--ease)}
+@media(min-width:700px){.scrim{align-items:center}.sheet{border-radius:26px}}
+.sheet h3{margin:0 0 10px;font-size:21px;display:flex;justify-content:space-between;align-items:center;font-weight:800}
+.x{border:0;background:var(--s2);width:36px;height:36px;border-radius:50%;font-size:20px;color:var(--ink2);display:grid;place-items:center;line-height:1}
+.sec{margin:18px 0 8px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--mut)}
+.f{margin-bottom:12px}.f label{display:block;font-size:13px;color:var(--ink2);margin-bottom:6px;font-weight:600}
+.f input,.f textarea,.f select{width:100%;padding:12px 14px;border:1px solid var(--line);border-radius:var(--r2);background:var(--s);outline:0;transition:border-color .2s,box-shadow .2s}
+.f input:focus,.f textarea:focus,.f select:focus{border-color:var(--acc);box-shadow:0 0 0 4px color-mix(in srgb,var(--acc) 15%,transparent)}
 .f2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.mlist{margin:3px 0 0;padding:0 0 0 16px;font-size:12px;line-height:1.45;color:#6b6a75;list-style:disc;text-align:left}.mlist li.mn{list-style:none;margin-left:-16px;font-style:italic}
+.opts{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}
+.opt{position:relative;border:1.5px solid var(--line);border-radius:var(--r2);padding:12px 14px;display:flex;align-items:center;gap:10px;cursor:pointer;font-weight:600;font-size:14px;transition:all .2s var(--ease);background:var(--s)}
+.opt input{position:absolute;opacity:0;pointer-events:none}
+.opt svg{width:20px;height:20px;color:var(--mut);flex:none}
+.opt:has(input:checked){border-color:var(--acc);background:var(--accs);color:var(--acci)}.opt:has(input:checked) svg{color:var(--acc)}
+.opt:has(input:disabled){opacity:.5;cursor:not-allowed}
+.opt small{display:block;font-weight:500;color:var(--mut);font-size:12px}
+.err{color:var(--bad);font-size:13px;min-height:18px;margin:6px 0}
+.done{text-align:center;padding:24px 6px}
+.done .ok{width:76px;height:76px;border-radius:50%;background:color-mix(in srgb,var(--ok) 14%,var(--s));color:var(--ok);display:grid;place-items:center;margin:0 auto 14px;animation:pop .5s var(--ease)}
+.done .ok svg{width:38px;height:38px}
+.done h3{justify-content:center}
+.closed{text-align:center;padding:70px 20px;color:var(--ink2)}
+.closed b{display:block;font-size:20px;color:var(--ink);margin-bottom:6px}
+
+/* branches */
+.locs{margin:40px 0 10px}
+.locs .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px}
+.loc{background:var(--s);border:1px solid var(--line);border-radius:var(--r);padding:14px 16px}
+.loc b{display:block;font-size:15px}.loc div{font-size:13px;color:var(--ink2);margin-top:5px;display:flex;gap:6px;align-items:center}.loc svg{width:14px;height:14px;color:var(--mut);flex:none}
+.loc a{color:var(--acci);text-decoration:none;font-weight:600}
+footer.ft{text-align:center;color:var(--mut);font-size:12px;padding:26px 0 10px}
+
+/* modifier picker in the brand colors */
+.smp{background:var(--s)!important;color:var(--ink);font-family:var(--font),Inter,system-ui,sans-serif;border-radius:24px 24px 0 0!important;animation:sheet .3s var(--ease)}
+@media(min-width:640px){.smp{border-radius:24px!important}}
+.smp label input{accent-color:var(--acc)!important}.smp label.qrow.on{background:var(--accs)!important}
+.smp .qs button{color:var(--acc)!important}
+.smp footer button:not(.smc){background:var(--acc)!important;color:var(--on-acc)!important;border-radius:999px!important}
+.smp header,.smp footer{border-color:var(--line)!important}.smp label{border-color:var(--line)!important}
+.smp header button,.smp footer button.smc{background:var(--s)!important;color:var(--ink)!important;border-color:var(--line)!important}
+
+/* corner styles */
+.rad-sharp{--r:6px;--r2:4px}.rad-soft{--r:12px;--r2:9px}
+.rad-sharp .seg,.rad-sharp .seg button,.rad-sharp .srch,.rad-sharp .cats button,.rad-sharp .primary,.rad-sharp .ghost,.rad-sharp .bar button,.rad-sharp .chip,.rad-sharp .qtyc,.rad-sharp .add,.rad-sharp .locbtn{border-radius:6px}
+.rad-sharp .qtyc button,.rad-sharp .bar .n{border-radius:4px}
+@media(max-width:600px){.cover{height:160px}.hmeta h1{font-size:21px}.logo{width:64px;height:64px;font-size:26px}.lay-grid .items{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.lay-grid .item b{font-size:14px}.lay-grid .item .tx{padding:10px 10px 12px}.lay-grid .item small{display:none}.lay-grid .item .act{right:8px;bottom:auto;top:8px}.add{width:34px;height:34px}.lay-list .items,.lay-compact .items{grid-template-columns:1fr}.seg button{padding:9px 6px;font-size:14px}}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
 </head>
-<body>
-<header class="hero"><div class="row"><div class="logo" id="logo">·</div><div><h1 id="brand">Order online</h1><p id="sub">Delivery · Pickup · Dine-in</p></div></div><div class="banner" id="banner" hidden></div></header>
-<main id="main"><div class="closed">Loading the menu…</div></main>
-<div class="bar" id="bar" hidden><button id="cartBtn"><span id="cartCount">0 items</span><span id="cartTotal">USD 0</span></button></div>
-<footer style="text-align:center;color:#8d8c98;font-size:12px;padding:20px 0 0">Powered by Slick</footer>
-<div class="scrim" id="scrim"><div class="sheet" id="sheet"></div></div>
+<body class="lay-grid">
+<header class="hero" id="hero"><div class="cover" id="cover"></div>
+  <div class="hcard"><div class="hin"><div class="logo" id="logo">·</div><div class="hmeta"><h1 id="brand">Order online</h1><p id="sub"></p><div class="chips" id="chips"></div></div></div></div>
+  <div class="banner" id="banner" hidden></div>
+</header>
+<div class="shell"><main id="main"><div class="items" style="margin-top:24px;grid-template-columns:repeat(auto-fill,minmax(210px,1fr))"><div class="skel"></div><div class="skel"></div><div class="skel"></div></div></main><aside class="side" id="side"></aside></div>
+<div class="bar" id="bar" hidden><button id="cartBtn"><span class="n" id="cartCount">0</span><span>View order</span><span class="t" id="cartTotal">USD 0</span></button></div>
+<div class="scrim" id="scrim"><div class="sheet" id="sheet" role="dialog" aria-modal="true"></div></div>
 
 <script>
 (async () => {
 const sb = supabase.createClient("https://akrezmxgtorkuwxxctyk.supabase.co", "sb_publishable_tL62keD2HdovsMpI8XAkWg_TPdjaUVh");
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const ICO = {
+  bike:'<circle cx="5.5" cy="17" r="3"/><circle cx="18.5" cy="17" r="3"/><path d="M8.5 17h5l3-6h-4l-2-4H8M15 7h2l1.5 4"/>',
+  bag:'<path d="M5 8h14l-1 12H6zM9 8V6a3 3 0 0 1 6 0v2"/>',
+  dine:'<path d="M7 3v8a2 2 0 0 0 2 2v8M5 3v5M9 3v5M17 3c-2 2-2 6 0 8v10"/>',
+  search:'<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>',
+  plus:'<path d="M12 5v14M5 12h14"/>',
+  clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+  phone:'<path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/>',
+  chat:'<path d="M4 20l1.5-4A8 8 0 1 1 8 19z"/>',
+  cam:'<rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r=".6"/>',
+  link:'<path d="M10 14a4 4 0 0 0 6 0l3-3a4 4 0 0 0-6-6l-1 1M14 10a4 4 0 0 0-6 0l-3 3a4 4 0 0 0 6 6l1-1"/>',
+  pin:'<path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/>',
+  mega:'<path d="M3 11v2a1 1 0 0 0 1 1h2l5 4V6L6 10H4a1 1 0 0 0-1 1zM15 9a4 4 0 0 1 0 6M18 6a8 8 0 0 1 0 12"/>',
+  cart:'<path d="M3 4h2l2.5 11h10L20 8H6.5"/><circle cx="9" cy="19" r="1.4"/><circle cx="17" cy="19" r="1.4"/>',
+  check:'<path d="m5 12 5 5 9-10"/>',
+  cash:'<rect x="3" y="6" width="18" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/>',
+  card:'<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18M7 15h3"/>',
+  now:'<path d="M13 3 5 14h6l-1 7 8-11h-6z"/>',
+  cal:'<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>',
+  img:'<rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="2"/><path d="m21 16-5-5-9 9"/>'
+};
+const ic = (k, st) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"${st ? ` style="${st}"` : ""}>${ICO[k]||""}</svg>`;
 // modifiers shown as a list under the product: one line per option ("2× Cheese"), then the item note
 const modLines = i => { if(Array.isArray(i.options) && i.options.length){ const t = []; i.options.forEach(x => { const f = t.find(y => y.name===x.name); if(f) f.n++; else t.push({ name:x.name, n:1 }); }); return [...t.map(x => (x.n > 1 ? x.n + "× " : "") + x.name), ...(i.note ? ["Note: " + i.note] : [])]; }
   return String(i.mods||"").split(" · ").flatMap(p => p.startsWith("Note: ") ? [p] : p.split(", ")).map(x => x.trim()).filter(Boolean); };
@@ -93,15 +233,32 @@ let PUB = { decimals:2, currency:"USD" };   // price display settings (Account s
 const usd = n => (PUB.currency || "USD") + " " + (+n||0).toLocaleString("en-US",{minimumFractionDigits:PUB.decimals,maximumFractionDigits:PUB.decimals});
 const usd2 = n => PUB.currency2 && +PUB.rate2 ? PUB.currency2 + " " + ((+n||0) * +PUB.rate2).toLocaleString("en-US",{minimumFractionDigits:+PUB.decimals2||0,maximumFractionDigits:+PUB.decimals2||0}) : "";
 const params = new URLSearchParams(location.search);
-const qrBranch = params.get("branch"), qrTable = params.get("table");
+const qrBranch = params.get("branch"), qrTable = params.get("table"), PREVIEW = params.has("preview");
+
+/* ---------- theme: colors, fonts, corners, menu layout, header (Web Ordering → Appearance) ---------- */
+const FONTS = { inter:["Inter","Inter"], jakarta:["Plus Jakarta Sans","Plus Jakarta Sans"], poppins:["Poppins","Poppins"], dm:["DM Sans","DM Serif Display"], nunito:["Nunito","Nunito"], cairo:["Cairo","Cairo"] };
+function lum(hex){ const m = /^#?([\da-f]{2})([\da-f]{2})([\da-f]{2})$/i.exec(hex||""); if(!m) return 0; const c = [1,2,3].map(i => { const v = parseInt(m[i],16)/255; return v <= .03928 ? v/12.92 : Math.pow((v+.055)/1.055, 2.4); }); return .2126*c[0] + .7152*c[1] + .0722*c[2]; }
+function applyTheme(t){
+  t = t || {}; const root = document.documentElement, acc = /^#[\da-f]{6}$/i.test(t.accent||"") ? t.accent : "#5b2bc4";
+  root.style.setProperty("--acc", acc); root.style.setProperty("--on-acc", lum(acc) > .45 ? "#16151c" : "#fff");
+  root.classList.toggle("dark", t.bg==="dark"); root.classList.toggle("warm", t.bg==="warm");
+  document.querySelector('meta[name="theme-color"]').content = acc;
+  const f = FONTS[t.font] || FONTS.inter; root.style.setProperty("--font", `"${f[0]}"`); root.style.setProperty("--hfont", `"${f[1]}"`);
+  const fam = [...new Set(f)].map(n => "family=" + n.replace(/ /g,"+") + (n==="DM Serif Display" ? "" : ":wght@400;500;600;700;800")).join("&");
+  const href = "https://fonts.googleapis.com/css2?" + fam + "&display=swap"; if($("#fontLink").href !== href) $("#fontLink").href = href;
+  document.body.classList.remove("rad-sharp","rad-soft","rad-round"); document.body.classList.add("rad-" + (t.radius || "round"));
+  document.body.classList.remove("lay-grid","lay-list","lay-compact"); document.body.classList.add("lay-" + (t.layout || "grid"));
+  $("#hero").className = "hero hstyle-" + (t.header || "cover");
+  $("#cover").style.backgroundImage = t.cover && (t.header||"cover")==="cover" ? `url("${t.cover.replace(/"/g,"%22")}")` : "";
+}
+
 let brandId = params.get("brand");
 const bl = await sb.from("brands").select("id,name").eq("active", true).order("name");
-if(bl.error){ $("#main").innerHTML = `<div class="closed">We couldn't load the menu. Please try again in a moment.</div>`; return; }
+if(bl.error){ $("#main").innerHTML = `<div class="closed"><b>We couldn't load the menu.</b>Please try again in a moment.</div>`; return; }
 if(!brandId && bl.data.length === 1) brandId = bl.data[0].id;
-if(!brandId){ $("#main").innerHTML = `<div class="wrap"><h2>Choose a restaurant</h2><div class="items">${bl.data.map(b=>`<a class="item" style="text-decoration:none;color:inherit" href="?brand=${encodeURIComponent(b.id)}"><b>${esc(b.name)}</b><span class="add" style="display:grid;place-items:center">›</span></a>`).join("")}</div></div>`; return; }
+if(!brandId){ $("#hero").hidden = true; $("#main").innerHTML = `<h2 class="ch" style="margin-top:30px">Choose a restaurant</h2><div class="items" style="grid-template-columns:repeat(auto-fill,minmax(240px,1fr))">${bl.data.map(b=>`<a class="item" style="text-decoration:none;color:inherit;padding:16px;align-items:center;justify-content:space-between" href="?brand=${encodeURIComponent(b.id)}"><b>${esc(b.name)}</b><span class="add">${ic("plus")}</span></a>`).join("")}</div>`; return; }
 const brand = bl.data.find(b => b.id === brandId);
-if(!brand){ $("#main").innerHTML = `<div class="closed">This restaurant isn't taking web orders.</div>`; return; }
-$("#brand").textContent = brand.name; $("#logo").textContent = brand.name.trim()[0].toUpperCase(); document.title = brand.name + " – Order Online";
+if(!brand){ $("#main").innerHTML = `<div class="closed"><b>This restaurant isn't taking web orders.</b></div>`; return; }
 
 PUB = await sb.rpc("slick_public_settings").then(r => (!r.error && r.data) ? { ...PUB, ...r.data, decimals: r.data.decimals ?? 2 } : PUB, () => PUB);
 let incl = true;   // set below: true when every tax is inclusive
@@ -116,7 +273,6 @@ const [st, br, ca, pr, zo, mg, tx, tg, mo] = await Promise.all([
   sb.from("modifier_options").select("id,modifier_id,name,price,custom_prices,inactive_branch_ids,out_of_stock_branch_ids,sort,active,deleted")
 ]);
 const mgroups = {}; (mg.data||[]).forEach(m => { if(!m.deleted) mgroups[m.id] = { name:m.name, sort:m.sort }; });
-// tax included in the prices (shown on the order summary)
 // each tax is inclusive (inside the price) or added on top
 const taxDef = {}; (tx?.data||[]).filter(t=>!t.deleted).forEach(t => taxDef[t.id] = { rate:(+t.rate||0)/100, inc: t.inclusive !== false });
 const groupRate = {}; (tg?.data||[]).filter(g=>!g.deleted).forEach(g => { const r = { inc:0, exc:0 }; (g.tax_ids||[]).forEach(id => { const t = taxDef[id]; if(t) r[t.inc ? "inc" : "exc"] += t.rate; }); groupRate[g.id] = r; });
@@ -125,18 +281,39 @@ incl = !Object.values(taxDef).some(t => !t.inc);
 const taxIn = () => +taxParts().tax.toFixed(2);
 const grand = () => +(sub() + fee() + taxParts().add).toFixed(2);
 const mopts = (mo.data||[]).filter(o => !o.deleted);
-if([st,br,ca,pr,zo].some(r => r.error)){ $("#main").innerHTML = `<div class="closed">We couldn't load the menu. Please try again in a moment.</div>`; return; }
+if([st,br,ca,pr,zo].some(r => r.error)){ $("#main").innerHTML = `<div class="closed"><b>We couldn't load the menu.</b>Please try again in a moment.</div>`; return; }
 const cfg = st.data?.data || {}, branches = br.data, allCats = ca.data.filter(c => !c.deleted), webCats = allCats.filter(c => c.channel==="online"), useCh = webCats.length > 0, cats = useCh ? webCats : allCats.filter(c => !c.channel), products = pr.data, zones = zo.data.filter(z => branches.some(b => b.id === z.branch_id));
 const bcfg = id => (cfg.branches||{})[id] || {};
 const modeOn = (m, b) => (cfg.modes||{})[m] !== false && (!b || bcfg(b)[m] !== false);
-if(cfg.brandName){ $("#brand").textContent = cfg.brandName; document.title = cfg.brandName + " – Order Online"; }
-if(cfg.banner){ $("#banner").textContent = cfg.banner; $("#banner").hidden = false; }
-if(!cfg.enabled){ $("#main").innerHTML = `<div class="closed"><b>Web ordering is closed right now.</b><br>Please call us or try again later.</div>`; return; }
+const CO = () => cfg.checkout || {};
+const SH = () => cfg.show || {};
 
-let mode = qrBranch ? "dinein" : (modeOn("delivery") ? "delivery" : "takeaway");
-let zoneId = "", branchId = qrBranch || "", tableNo = qrTable || "", cat = "", cart = [], pin = null, map = null, marker = null;
+/* ---------- header: brand name, logo, tagline, open status, contact links ---------- */
+function renderHead(){
+  const t = cfg.theme || {}; applyTheme(t);
+  $("#brand").textContent = brand.name; document.title = brand.name + " · Order online";
+  $("#logo").innerHTML = t.logo ? `<img src="${esc(t.logo)}" alt="${esc(brand.name)}">` : esc(brand.name.trim()[0]?.toUpperCase() || "·");
+  $("#sub").textContent = cfg.tagline || [["delivery","Delivery"],["takeaway","Pickup"],["dinein","Dine-in"]].filter(([m]) => modeOn(m)).map(x => x[1]).join(" · ");
+  const b = branches.find(x => x.id === curBranch()), anyOpen = branches.some(x => brOpenNow(x) && !bcfg(x.id).paused);
+  const open = b ? brOpenNow(b) && !bcfg(b.id).paused : anyOpen, hrs = b ? brHoursToday(b) : "";
+  const s = cfg.social || {}, url = (v, base) => /^https?:\/\//i.test(v) ? v : base + String(v).replace(/^@/, "");
+  const wa = String(s.whatsapp||"").replace(/[^\d]/g, ""), z = zones.find(x=>x.id===zoneId);
+  $("#chips").innerHTML = `<span class="chip ${open ? "open" : "shut"}">${open ? "<i></i>Open now" : "Closed now"}${hrs && hrs!=="closed today" ? ` · ${esc(hrs)}` : ""}</span>`
+    + (mode==="delivery" && z?.eta ? `<span class="chip">${ic("clock")}~${esc(z.eta)} min</span>` : "")
+    + (mode==="takeaway" && b && bcfg(b.id).prep ? `<span class="chip">${ic("clock")}Ready in ~${esc(bcfg(b.id).prep)} min</span>` : "")
+    + (s.phone ? `<a class="chip" href="tel:${esc(String(s.phone).replace(/[^\d+]/g,""))}">${ic("phone")}Call</a>` : "")
+    + (wa ? `<a class="chip" href="https://wa.me/${esc(wa)}" target="_blank" rel="noopener">${ic("chat")}WhatsApp</a>` : "")
+    + (s.instagram ? `<a class="chip" href="${esc(url(s.instagram, "https://instagram.com/"))}" target="_blank" rel="noopener">${ic("cam")}Instagram</a>` : "")
+    + (s.facebook ? `<a class="chip" href="${esc(url(s.facebook, "https://facebook.com/"))}" target="_blank" rel="noopener">${ic("link")}Facebook</a>` : "")
+    + (s.tiktok ? `<a class="chip" href="${esc(url(s.tiktok, "https://tiktok.com/@"))}" target="_blank" rel="noopener">${ic("link")}TikTok</a>` : "")
+    + (s.website ? `<a class="chip" href="${esc(url(s.website, "https://"))}" target="_blank" rel="noopener">${ic("link")}Website</a>` : "");
+  $("#banner").hidden = !cfg.banner; $("#banner").innerHTML = cfg.banner ? `<div>${ic("mega")}<span>${esc(cfg.banner)}</span></div>` : "";
+}
+
+let mode = qrBranch ? "dinein" : (modeOn("delivery") ? "delivery" : modeOn("takeaway") ? "takeaway" : "dinein");
+let zoneId = "", branchId = qrBranch || "", tableNo = qrTable || "", q = "", cart = [], pin = null, map = null, marker = null;
 const zoneList = () => zones.filter(z => modeOn("delivery", z.branch_id) && Array.isArray(z.polygon) && z.polygon.length >= 3);
-// is the branch open right now? its weekly hours (Manage → Branches), with overnight hours running past midnight
+// is the branch open at a time? its weekly hours (Manage → Branches), with overnight hours running past midnight
 function brOpenNow(b, t){ t = t || new Date(); if(!b) return true;
   const H = (b.settings||{}).hours, D = ["sun","mon","tue","wed","thu","fri","sat"], hm = s => { const m = /^(\d{1,2}):(\d{2})/.exec(String(s||"")); return m ? +m[1]*60 + +m[2] : null; };
   const day = k => { const d = H && H[k]; if(d) return d.closed ? null : [hm(d.open), hm(d.close)]; return [hm(b.open_time ?? b.open), hm(b.close_time ?? b.close)]; };
@@ -145,12 +322,12 @@ function brOpenNow(b, t){ t = t || new Date(); if(!b) return true;
   if(a && (a[1] > a[0] ? now >= a[0] && now < a[1] : now >= a[0])) return true;
   if(y && y[0]!=null && y[1]!=null && y[1] < y[0] && now < y[1]) return true;
   return false; }
+const t12 = s => { const m = /^(\d{1,2}):(\d{2})/.exec(String(s||"")); if(!m) return s||""; const h = +m[1]; return `${h%12||12}:${m[2]} ${h<12?"AM":"PM"}`; };
 function brHoursToday(b, t){ t = t || new Date(); const H = (b?.settings||{}).hours, k = ["sun","mon","tue","wed","thu","fri","sat"][t.getDay()], d = H && H[k];
-  if(d) return d.closed ? "closed today" : `${d.open}–${d.close}`; const o = b?.open_time ?? b?.open, c = b?.close_time ?? b?.close; return o && c ? `${o}–${c}` : ""; }
+  if(d) return d.closed ? "closed today" : `${t12(d.open)} – ${t12(d.close)}`; const o = b?.open_time ?? b?.open, c = b?.close_time ?? b?.close; return o && c ? `${t12(o)} – ${t12(c)}` : ""; }
 const curBranch = () => mode === "delivery" ? (zones.find(z=>z.id===zoneId)?.branch_id || "") : branchId;
-const chan = () => mode === "delivery" ? "delivery" : mode === "takeaway" ? "takeaway" : "dinein";
 // the web menu's own categories (Sales Channels); older setups use the menu categories
-const chPos = (c, p) => { const ids = c.product_ids||[], k = [p.id, ...(p.variants||[]).map(v => v.productId)].map(x => ids.indexOf(x)).filter(i => i >= 0); return k.length ? Math.min(...k) : -1; };   // a main product is listed when it or one of its variants is
+const chPos = (c, p) => { const ids = c.product_ids||[], k = [p.id, ...(p.variants||[]).map(v => v.productId)].map(x => ids.indexOf(x)).filter(i => i >= 0); return k.length ? Math.min(...k) : -1; };
 const inCat = (c, p) => useCh ? chPos(c, p) >= 0 : p.category_id===c.id;
 const catOrder = c => (a, b) => useCh ? chPos(c, a) - chPos(c, b) : (a.sort??9999)-(b.sort??9999) || a.name.localeCompare(b.name);
 const visible = () => products.filter(p => p.pricing_method!=="open" && (!curBranch() || (!(p.inactive_branch_ids||[]).includes(curBranch()) && !(p.inactive_branch_ids||[]).includes(curBranch() + ":online") && !(p.inactive_branch_ids||[]).includes(curBranch() + ":online:" + (mode==="takeaway" ? "pickup" : mode)) && !(cats.find(c=>c.id===p.category_id)?.inactive_branch_ids||[]).includes(curBranch()) && !(cats.find(c=>c.id===p.category_id)?.inactive_branch_ids||[]).includes(curBranch() + ":online"))));
@@ -159,7 +336,7 @@ const priceOf = p => { const b = curBranch(), cp = p.custom_prices||{}, w = b &&
 // variants are full products linked from their parent (variants = [{ name, productId }]); only the parent is listed and it asks for the variant
 const kidIds = () => new Set(products.flatMap(p => (p.variants||[]).map(v => v.productId).filter(Boolean)));
 const kidsOf = p => { const ok = visible(); return (p.variants||[]).map(v => ({ name:v.name, p: ok.find(x => x.id===v.productId) })).filter(x => x.p && !oos(x.p)); };
-const oos = p => !!branchId && (p.out_of_stock_branch_ids||[]).includes(branchId);   // marked out of stock in Sales Channels
+const oos = p => !!curBranch() && (p.out_of_stock_branch_ids||[]).includes(curBranch());   // marked out of stock in Sales Channels
 
 /* point-in-polygon (ray casting) — polygon is [[lat,lng],...] */
 function inside(pt, poly){
@@ -173,10 +350,10 @@ function inside(pt, poly){
 function locate(){
   zoneId = "";
   if(pin){ const z = zoneList().find(z => inside(pin, z.polygon)); if(z) zoneId = z.id; }
-  $("#zoneStatus").innerHTML = !pin ? `<div class="info">Finding your location… If it doesn't appear, allow location access or tap the map where you are.</div>`
-    : zoneId ? zoneInfo() : `<div class="err">Sorry, we don't deliver to this location yet.${modeOn("takeaway") ? " You can order for pickup instead." : ""}</div>`;
+  const zs = $("#zoneStatus"); if(zs) zs.innerHTML = !pin ? `<div class="info">Finding your location… If it doesn't appear, allow location access or tap the map where you are.</div>`
+    : zoneId ? zoneInfo() : `<div class="warn">Sorry, we don't deliver to this location yet.${modeOn("takeaway") ? " You can order for pickup instead." : ""}</div>`;
   cart = cart.filter(i => visible().some(p=>p.id===i.productId));
-  renderMenu();
+  renderHead(); renderMenu();
 }
 function setPin(latlng, pan){
   pin = [latlng.lat ?? latlng[0], latlng.lng ?? latlng[1]];
@@ -189,50 +366,60 @@ function initMap(){
   if(map){ map.remove(); map = null; marker = null; }
   map = L.map("dmap", { zoomControl:true }).setView([33.89, 35.52], 11);
   L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom:19, attribution:"© OpenStreetMap" }).addTo(map);
-  const zl = zoneList();
-  if(zl.length){ const g = L.featureGroup(zl.map(z => L.polygon(z.polygon, { color:"#5b2bc4", weight:1, fillOpacity:.06, interactive:false }))).addTo(map); map.fitBounds(g.getBounds(), { padding:[10,10] }); }
+  const zl = zoneList(), acc = getComputedStyle(document.documentElement).getPropertyValue("--acc").trim() || "#5b2bc4";
+  if(zl.length){ const g = L.featureGroup(zl.map(z => L.polygon(z.polygon, { color:acc, weight:1, fillOpacity:.07, interactive:false }))).addTo(map); map.fitBounds(g.getBounds(), { padding:[10,10] }); }
   map.on("click", e => setPin(e.latlng));
   if(pin) setPin(pin, true);
 }
 function useLocation(){
   const b = $("#locBtn");
-  if(!navigator.geolocation){ $("#zoneStatus").innerHTML = `<div class="err">Your browser can't share location. Tap the map to place the pin.</div>`; return; }
-  b.disabled = true; b.textContent = "Finding you…";
-  navigator.geolocation.getCurrentPosition(p => { b.disabled = false; b.textContent = "📍 Locate me again"; setPin([p.coords.latitude, p.coords.longitude], true); },
-    () => { b.disabled = false; b.textContent = "📍 Use my location"; $("#zoneStatus").innerHTML = `<div class="err">We couldn't get your location. Tap the map to place the pin instead.</div>`; },
+  if(!navigator.geolocation){ $("#zoneStatus").innerHTML = `<div class="warn">Your browser can't share location. Tap the map to place the pin.</div>`; return; }
+  b.disabled = true; b.innerHTML = `${ic("pin")}Finding you…`;
+  navigator.geolocation.getCurrentPosition(p => { b.disabled = false; b.innerHTML = `${ic("pin")}Locate me again`; setPin([p.coords.latitude, p.coords.longitude], true); },
+    () => { b.disabled = false; b.innerHTML = `${ic("pin")}Use my location`; $("#zoneStatus").innerHTML = `<div class="warn">We couldn't get your location. Tap the map to place the pin instead.</div>`; },
     { enableHighAccuracy:true, timeout:12000 });
 }
 
 function renderWhere(){
-  const modes = qrBranch ? [] : [["delivery","Delivery"],["takeaway","Pickup"],["dinein","Dine-in"]].filter(([m]) => modeOn(m));
-  let h = `<div class="wrap"><div class="card">`;
-  if(qrBranch){ h += `<b>Dine-in at ${esc(branches.find(b=>b.id===qrBranch)?.name || brand.name)}</b>${qrTable?` · Table ${esc(qrTable)}`:""}<div class="info">Order from your table. We'll bring it to you.</div>`; }
+  const modes = qrBranch ? [] : [["delivery","Delivery","bike"],["takeaway","Pickup","bag"],["dinein","Dine-in","dine"]].filter(([m]) => modeOn(m));
+  let h = `<div class="card">`;
+  if(qrBranch){ h += `<div style="display:flex;gap:12px;align-items:center"><span class="add" style="flex:none;box-shadow:none">${ic("dine")}</span><div><b>Dine-in at ${esc(branches.find(b=>b.id===qrBranch)?.name || brand.name)}${qrTable?` · Table ${esc(qrTable)}`:""}</b><div class="info" style="margin:2px 0 0">Order from your table. We'll bring it to you.</div></div></div>`; }
   else {
-    h += `<div class="modes">${modes.map(([m,t])=>`<button data-mode="${m}" class="${mode===m?"on":""}">${t}</button>`).join("")}</div><div class="where">`;
+    h += modes.length > 1 ? `<div class="seg" role="tablist">${modes.map(([m,t,i])=>`<button type="button" role="tab" aria-selected="${mode===m}" data-mode="${m}" class="${mode===m?"on":""}">${ic(i)}${t}</button>`).join("")}</div>` : "";
+    h += `<div class="wbody">`;
     if(mode==="delivery"){
-      h += zoneList().length ? `<label>Your delivery location <span style="font-weight:400;color:#8d8c98">· drag the pin if it's not exact</span></label><button class="locbtn" id="locBtn" type="button">📍 Locate me again</button><div id="dmap" class="dmap"></div><div id="zoneStatus"></div>`
+      h += zoneList().length ? `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap"><label class="l" style="margin:0">Your delivery location <span style="font-weight:400;color:var(--mut)">· drag the pin if it's not exact</span></label><button class="locbtn" id="locBtn" type="button">${ic("pin")}Locate me</button></div><div id="dmap" class="dmap"></div><div id="zoneStatus"></div>`
         : `<div class="info">Delivery areas are being set up.${modeOn("takeaway")?" Pickup is available.":""}</div>`;
     } else {
       const list = branches.filter(b=>modeOn(mode, b.id));
-      h += `<label for="branch">${mode==="takeaway"?"Pick up from":"Eat in at"}</label><select id="branch"><option value="">Choose a branch…</option>${list.map(b=>`<option value="${esc(b.id)}" ${b.id===branchId?"selected":""} ${brOpenNow(b)?"":"disabled"}>${esc(b.name)}${brOpenNow(b) ? "" : " · closed now" + (brHoursToday(b) && brHoursToday(b)!=="closed today" ? " (" + brHoursToday(b) + ")" : "")}</option>`).join("")}</select>${branchId?`<div class="info">Open ${esc(branches.find(b=>b.id===branchId)?.open_time||"")}–${esc(branches.find(b=>b.id===branchId)?.close_time||"")}</div>`:""}`;
-      if(mode==="dinein") h += `<label for="tbl" style="margin-top:10px">Table number (optional)</label><input id="tbl" class="tblin" inputmode="numeric" value="${esc(tableNo)}" placeholder="e.g. 4">`;
+      const lbl = b => { const p = bcfg(b.id).paused, o = brOpenNow(b), hh = brHoursToday(b); return esc(b.name) + (p ? " · not taking orders now" : o ? "" : " · closed now" + (hh && hh!=="closed today" ? " (" + hh + ")" : "")); };
+      h += `<label class="l" for="branch">${mode==="takeaway"?"Pick up from":"Eat in at"}</label><div class="selw"><select id="branch"><option value="">Choose a branch…</option>${list.map(b=>`<option value="${esc(b.id)}" ${b.id===branchId?"selected":""} ${(brOpenNow(b) || CO().schedule) && !bcfg(b.id).paused ? "" : "disabled"}>${lbl(b)}</option>`).join("")}</select></div>`;
+      const sel = branches.find(b=>b.id===branchId);
+      if(sel) h += `<div class="info">${ic("clock","width:14px;height:14px;vertical-align:-2px;margin-right:4px")}Today ${esc(brHoursToday(sel) || "")}${mode==="takeaway" && bcfg(sel.id).prep ? ` · ready in about ${esc(bcfg(sel.id).prep)} min` : ""}${bcfg(sel.id).note ? `<br>${esc(bcfg(sel.id).note)}` : ""}</div>`;
+      if(mode==="dinein") h += `<label class="l" for="tbl" style="margin-top:12px">Table number (optional)</label><input id="tbl" class="tblin" inputmode="numeric" value="${esc(tableNo)}" placeholder="e.g. 4">`;
     }
     h += `</div>`;
   }
-  h += `</div></div>`;
-  $("#whereBox").innerHTML = h;
-  if(mode==="delivery" && !qrBranch && zoneList().length){ initMap(); locate(); if(!pin) useLocation(); }
-}
-function renderMenu(){
-  const kids = kidIds(), vis = visible().filter(p => !kids.has(p.id) && (!(p.variants||[]).some(v => v.productId) || kidsOf(p).length)), vcats = cats.filter(c => !(curBranch() && ((c.inactive_branch_ids||[]).includes(curBranch()) || (c.inactive_branch_ids||[]).includes(curBranch() + ":online"))) && vis.some(p => inCat(c, p)));
-  let h = `<nav class="cats">${vcats.map(c=>`<button data-cat="${esc(c.id)}">${esc(c.name)}</button>`).join("")}</nav><div class="wrap">`;
-  h += vcats.map(c => `<section id="c_${esc(c.id)}"><h2>${c.image_url ? `<img class="cimg" src="${esc(c.image_url)}" alt="" loading="lazy">` : ""}${esc(c.name)}</h2><div class="items">${vis.filter(p => inCat(c, p)).sort(catOrder(c)).map(itemCard).join("")}</div></section>`).join("");
   h += `</div>`;
-  $("#menuBox").innerHTML = h; renderBar();
+  $("#whereBox").innerHTML = h;
+  if(mode==="delivery" && !qrBranch && zoneList().length){ initMap(); locate(); if(!pin && !PREVIEW) useLocation(); }
 }
-function render(){ renderWhere(); renderMenu(); }
+let catObs = null;
+function renderMenu(){
+  const kids = kidIds(), ql = q.trim().toLowerCase();
+  const vis = visible().filter(p => !kids.has(p.id) && (!(p.variants||[]).some(v => v.productId) || kidsOf(p).length) && (SH().soldOut !== false || !oos(p)) && (!ql || (p.name + " " + (p.description||"")).toLowerCase().includes(ql)));
+  const vcats = cats.filter(c => !(curBranch() && ((c.inactive_branch_ids||[]).includes(curBranch()) || (c.inactive_branch_ids||[]).includes(curBranch() + ":online"))) && vis.some(p => inCat(c, p)));
+  $("#catBar").innerHTML = vcats.map(c=>`<button type="button" data-cat="${esc(c.id)}">${esc(c.name)}</button>`).join("");
+  let h = vcats.map((c, i) => { const list = vis.filter(p => inCat(c, p)).sort(catOrder(c)); return `<section class="cat" id="c_${esc(c.id)}" style="animation-delay:${Math.min(i,6)*40}ms"><h2 class="ch">${c.image_url ? `<img class="cimg" src="${esc(c.image_url)}" alt="" loading="lazy">` : ""}${esc(c.name)} <small>${list.length}</small></h2><div class="items">${list.map(itemCard).join("")}</div></section>`; }).join("");
+  if(!vcats.length) h = `<div class="empty">${ql ? `Nothing matches “${esc(q)}”.` : "The menu isn't available here yet."}</div>`;
+  $("#menuBox").innerHTML = h;
+  // highlight the category in view
+  catObs?.disconnect(); catObs = new IntersectionObserver(es => { es.forEach(e => { if(e.isIntersecting){ document.querySelectorAll("#catBar button").forEach(b => b.classList.toggle("on", b.dataset.cat === e.target.id.slice(2))); const on = document.querySelector("#catBar button.on"); if(on){ const bar = $("#catBar"); bar.scrollTo({ left: on.offsetLeft - bar.clientWidth/2 + on.clientWidth/2, behavior:"smooth" }); } } }); }, { rootMargin:"-130px 0px -65% 0px" });
+  document.querySelectorAll("section.cat").forEach(s => catObs.observe(s));
+  renderBar();
+}
+function render(){ renderHead(); renderWhere(); renderMenu(); renderLocs(); }
 function zoneInfo(){ const z = zones.find(x=>x.id===zoneId); return `<div class="info ok2">✓ Delivered by <b>${esc(branches.find(b=>b.id===z.branch_id)?.name||"")}</b> · Delivery ${usd(z.fee)}${z.min_order?` · Minimum ${usd(z.min_order)}`:""}${z.eta?` · About ${z.eta} min`:""}</div>`; }
-// the product's modifier options this branch sells, at this branch's price
 // the product's own settings for an option (Sales Channels)
 const linkOpt = (p, o) => ((p.modifiers||[]).find(l => l.modifierId===o.modifier_id)?.opts || {})[o.id] || {};
 function modData(p){
@@ -245,7 +432,7 @@ function modData(p){
 }
 const hasMods = p => (p.modifiers||[]).some(l => mgroups[l.modifierId]);
 async function addItem(p){
-  if(oos(p)) return;
+  if(!p || oos(p)) return;
   const kids = kidsOf(p);
   if(kids.length && SlickMods.variant){ const v = await SlickMods.variant({ name:p.name, setName:(p.variants||[]).find(v=>v.group)?.group, variants: kids.map(k => ({ name:k.name, price:priceOf(k.p), id:k.p.id })), money:usd }); if(!v) return; return addItem(kids.find(k => k.p.id===v.id).p); }
   let options = [], mods = "", price = priceOf(p);
@@ -255,67 +442,117 @@ async function addItem(p){
   if(ex) ex.qty++; else cart.push({ productId:p.id, name:nm, price, qty:1, ...(options.length ? { options, mods, optPrice: +(price - base).toFixed(2) } : {}) });
   const y = scrollY; renderMenu(); scrollTo(0,y);
 }
-function itemCard(p){ const q = cart.filter(i=>i.productId===p.id).reduce((a,i)=>a+i.qty,0);
-  return `<div class="item">${p.image_url?`<img class="pimg" src="${esc(p.image_url)}" alt="" loading="lazy">`:""}<div><b>${esc(p.name)}</b>${p.description?`<small>${esc(p.description)}</small>`:""}<div class="pr">${kidsOf(p).length ? "From " + usd(Math.min(...kidsOf(p).map(k => priceOf(k.p)))) : usd(priceOf(p))}</div></div>${oos(p) ? `<span class="pr" style="color:#b45309">Out of stock</span>` : q ? `<span class="qtyc"><button data-q="${esc(p.id)}:-1" aria-label="Remove one">−</button>${q}<button data-q="${esc(p.id)}:1" aria-label="Add one">+</button></span>` : `<button class="add" data-q="${esc(p.id)}:1" aria-label="Add ${esc(p.name)}">+</button>`}</div>`; }
+function itemCard(p){ const n = cart.filter(i=>i.productId===p.id).reduce((a,i)=>a+i.qty,0), out = oos(p), lay = (cfg.theme||{}).layout || "grid", img = p.image_url && lay !== "compact";
+  const price = kidsOf(p).length ? "From " + usd(Math.min(...kidsOf(p).map(k => priceOf(k.p)))) : usd(priceOf(p));
+  const act = out ? `<span class="soldout">Sold out</span>` : n ? `<span class="qtyc"><button type="button" data-q="${esc(p.id)}:-1" aria-label="Remove one">−</button><b>${n}</b><button type="button" data-q="${esc(p.id)}:1" aria-label="Add one">+</button></span>` : `<button type="button" class="add" data-q="${esc(p.id)}:1" aria-label="Add ${esc(p.name)}">${ic("plus")}</button>`;
+  return `<div class="item${out?" oos":""}${img?"":" noimg"}" data-item="${esc(p.id)}"><div class="ph">${img ? `<img src="${esc(p.image_url)}" alt="" loading="lazy">` : lay==="grid" ? ic("img","width:34px;height:34px;opacity:.35") : ""}</div>
+    <div class="tx"><b>${esc(p.name)}</b>${p.description && SH().desc !== false ? `<small>${esc(p.description)}</small>` : ""}<div class="pr">${price}</div></div><div class="act">${act}</div></div>`; }
 const sub = () => cart.reduce((a,i)=>a+i.price*i.qty,0);
 const fee = () => mode==="delivery" ? (+zones.find(z=>z.id===zoneId)?.fee||0) : 0;
-function renderBar(){ const n = cart.reduce((a,i)=>a+i.qty,0); $("#bar").hidden = !n; $("#cartCount").textContent = `View order · ${n} item${n>1?"s":""}`; $("#cartTotal").textContent = usd(sub()); }
+const minOrder = () => mode==="delivery" ? (+zones.find(x=>x.id===zoneId)?.min_order||0) : mode==="takeaway" ? (+bcfg(branchId).minPickup||0) : 0;
+function cartLines(){ return cart.map((i,ix)=>`<div class="line"><span class="q">${i.qty}</span><div class="nm">${esc(i.name)}${modList(i)}<button type="button" class="rm" data-rm="${ix}">Remove</button></div><div class="rt">${usd(i.price*i.qty)}</div></div>`).join(""); }
+function totals(){ return `<div class="tot">${mode==="delivery"?`<div><span>Delivery</span><span>${zoneId?usd(fee()):"—"}</span></div>`:""}<div><span>Subtotal</span><span>${usd(grand()-taxIn())}</span></div><div><span>Tax${incl?" (included)":""}</span><span>${usd(taxIn())}</span></div><div class="g"><span>Total</span><span>${usd(grand())}</span></div>${usd2(grand()) ? `<div><span></span><span>≈ ${usd2(grand())}</span></div>` : ""}</div>`; }
+function renderBar(){ const n = cart.reduce((a,i)=>a+i.qty,0); $("#bar").hidden = !n; $("#cartCount").textContent = n; $("#cartTotal").textContent = usd(sub());
+  const min = minOrder();
+  $("#side").innerHTML = `<div class="card"><h3>${ic("cart","width:20px;height:20px")}Your order</h3>${n ? cartLines() + totals() + (min && sub()<min ? `<div class="warn">Minimum order is ${usd(min)}.</div>` : "") + `<button type="button" class="primary" data-checkout ${min && sub()<min ? "disabled" : ""}>Checkout · ${usd(grand())}</button>`
+    : `<div class="empt">${ic("bag")}Your bag is empty.<br>Add items to start your order.</div>`}</div>`; }
+function renderLocs(){
+  const list = branches.filter(b => ["delivery","takeaway","dinein"].some(m => modeOn(m, b.id)));
+  if(SH().branches === false || !list.length){ $("#locBox").innerHTML = ""; return; }
+  $("#locBox").innerHTML = `<div class="locs"><h2 class="ch">Our branches</h2><div class="grid">${list.map(b => { const x = bcfg(b.id), o = brOpenNow(b) && !x.paused;
+    return `<div class="loc"><b>${esc(b.name)}</b><div>${ic("clock")}${o ? '<span class="ok2">Open</span>' : "Closed"} · ${esc(brHoursToday(b) || "")}</div>${x.address ? `<div>${ic("pin")}${esc(x.address)}</div>` : ""}${x.phone ? `<div>${ic("phone")}<a href="tel:${esc(String(x.phone).replace(/[^\d+]/g,""))}">${esc(x.phone)}</a></div>` : ""}</div>`; }).join("")}</div></div>`;
+}
 
-$("#main").innerHTML = `<div id="whereBox"></div><div id="menuBox"></div>`;
+const shell = () => `<div id="whereBox" class="where"></div><div class="tools">${SH().search !== false ? `<div class="srch">${ic("search")}<input id="q" type="search" placeholder="Search the menu" autocomplete="off" value="${esc(q)}"></div>` : ""}<nav class="cats" id="catBar" aria-label="Menu categories"></nav></div><div id="menuBox"></div><div id="locBox"></div><footer class="ft">${cfg.footer ? esc(cfg.footer) + " · " : ""}Powered by Slick</footer>`;
+if(!cfg.enabled && !PREVIEW){ renderHead(); $("#main").innerHTML = `<div class="closed"><b>Web ordering is closed right now.</b>Please call us or try again later.</div>`; return; }
+$("#main").innerHTML = shell();
 $("#main").addEventListener("click", e => {
   const m = e.target.closest("[data-mode]"); if(m){ mode = m.dataset.mode; if(mode!=="delivery") zoneId = ""; cart = cart.filter(i => visible().some(p=>p.id===i.productId)); render(); return; }
   if(e.target.closest("#locBtn")) return useLocation();
   const c = e.target.closest("[data-cat]"); if(c){ document.getElementById("c_"+c.dataset.cat)?.scrollIntoView({ behavior:"smooth", block:"start" }); return; }
-  const q = e.target.closest("[data-q]"); if(q){ const [id,d] = q.dataset.q.split(":"); const p = products.find(x=>x.id===id);
+  const qb = e.target.closest("[data-q]"); if(qb){ const [id,d] = qb.dataset.q.split(":"); const p = products.find(x=>x.id===id);
     if(+d > 0) return addItem(p);
     const ex = [...cart].reverse().find(i=>i.productId===id); if(ex){ ex.qty--; if(ex.qty<=0) cart = cart.filter(i=>i!==ex); }
-    const y = scrollY; renderMenu(); scrollTo(0,y); }
+    const y = scrollY; renderMenu(); scrollTo(0,y); return; }
+  const it = e.target.closest("[data-item]"); if(it && !it.classList.contains("oos") && !e.target.closest(".qtyc")) addItem(products.find(x => x.id===it.dataset.item));
 });
 $("#main").addEventListener("change", e => { if(e.target.id==="branch"){ branchId = e.target.value; cart = cart.filter(i => visible().some(p=>p.id===i.productId) && !oos(products.find(p=>p.id===i.productId))); cart.forEach(i => i.price = +(priceOf(products.find(p=>p.id===i.productId)) + (+i.optPrice||0)).toFixed(2)); render(); } });
-$("#main").addEventListener("input", e => { if(e.target.id==="tbl") tableNo = e.target.value.trim(); });
+$("#main").addEventListener("input", e => { if(e.target.id==="tbl") tableNo = e.target.value.trim(); if(e.target.id==="q"){ q = e.target.value; renderMenu(); } });
 $("#cartBtn").addEventListener("click", openCart);
-$("#scrim").addEventListener("click", e => { const r = e.target.closest("[data-rm]"); if(!r) return; cart.splice(+r.dataset.rm, 1); renderMenu(); if(cart.length) openCart(); else $("#scrim").classList.remove("show"); });
+document.addEventListener("click", e => { if(e.target.closest("[data-checkout]")) return openCart(); const r = e.target.closest("[data-rm]"); if(r){ cart.splice(+r.dataset.rm, 1); renderMenu(); if($("#scrim").classList.contains("show")){ if(cart.length) openCart(); else $("#scrim").classList.remove("show"); } } });
 $("#scrim").addEventListener("click", e => { if(e.target.id==="scrim" || e.target.closest("[data-close]")) $("#scrim").classList.remove("show"); });
+document.addEventListener("keydown", e => { if(e.key==="Escape") $("#scrim").classList.remove("show"); });
+
+// scheduled orders: the next days and the times the branch is open
+function slots(b){ const out = [], prep = +bcfg(b?.id).prep || 20, days = Math.max(0, Math.min(14, +(CO().scheduleDays ?? 3))), step = +CO().slot || 30, now = Date.now() + prep*60000;
+  for(let d = 0; d <= days; d++){ const day = new Date(); day.setHours(0,0,0,0); day.setDate(day.getDate() + d);
+    const ts = []; for(let m = 0; m < 1440; m += step){ const t = new Date(day.getTime() + m*60000); if(t.getTime() > now && brOpenNow(b, t)) ts.push(t); }
+    if(ts.length) out.push({ day, ts }); }
+  return out; }
+const dayLbl = d => { const t = new Date(); t.setHours(0,0,0,0); const x = new Date(d); x.setHours(0,0,0,0); const n = Math.round((x - t) / 864e5); return n===0 ? "Today" : n===1 ? "Tomorrow" : x.toLocaleDateString("en-GB",{ weekday:"short", day:"numeric", month:"short" }); };
+const timeLbl = t => t.toLocaleTimeString("en-US",{ hour:"numeric", minute:"2-digit" });
+function payList(){ const p = CO().pay || {}; const l = []; if(p.cash !== false) l.push(["Cash", mode==="delivery" ? "Pay the driver" : "Pay at the counter", "cash"]); if(p.card) l.push(["Card", mode==="delivery" ? "Card machine on delivery" : "Pay by card at the counter", "card"]); return l.length ? l : [["Cash","","cash"]]; }
 
 function openCart(){
-  const z = zones.find(x=>x.id===zoneId), min = mode==="delivery" ? (+z?.min_order||0) : 0;
+  const min = minOrder(), b = branches.find(x => x.id===curBranch()), canNow = !b || brOpenNow(b), sl = CO().schedule && b ? slots(b) : [];
+  const em = CO().email || "off", pays = payList();
   $("#sheet").innerHTML = `<h3>Your order <button class="x" data-close aria-label="Close">×</button></h3>
-    ${cart.map((i,ix)=>`<div class="line"><span>${i.qty} × ${esc(i.name)}${modList(i)}</span><span>${usd(i.price*i.qty)} <button type="button" class="x" data-rm="${ix}" aria-label="Remove ${esc(i.name)}" style="width:26px;height:26px;font-size:14px">×</button></span></div>`).join("")}
-    <div class="tot">${mode==="delivery"?`<div><span>Delivery</span><span>${zoneId?usd(fee()):"—"}</span></div>`:""}<div><span>Subtotal</span><span>${usd(grand()-taxIn())}</span></div><div style="font-size:13px;color:#6b6a75"><span>Tax${incl?" (included)":""}</span><span>${usd(taxIn())}</span></div><div class="g"><span>Total</span><span>${usd(grand())}</span></div>${usd2(grand()) ? `<div style="font-size:13px;color:#6b6a75"><span></span><span>≈ ${usd2(grand())}</span></div>` : ""}</div>
-    ${min && sub()<min ? `<div class="err">Minimum order for this area is ${usd(min)}.</div>` : ""}
-    <form id="co"><div class="f"><label for="cName">Your name *</label><input id="cName" required autocomplete="name"></div>
+    ${cartLines()}${totals()}
+    ${min && sub()<min ? `<div class="warn">Minimum order ${mode==="delivery" ? "for this area " : ""}is ${usd(min)}.</div>` : ""}
+    <form id="co" novalidate>
+    ${CO().schedule && b ? `<div class="sec">When</div><div class="opts"><label class="opt"><input type="radio" name="when" value="now" ${canNow?"checked":"disabled"}>${ic("now")}<span>As soon as possible${canNow ? "" : "<small>Closed now</small>"}</span></label><label class="opt"><input type="radio" name="when" value="later" ${canNow?"":"checked"} ${sl.length?"":"disabled"}>${ic("cal")}<span>Schedule<small>${sl.length ? "Pick a time" : "No times available"}</small></span></label></div>
+      <div class="f2" id="whenBox" style="margin-top:10px" ${canNow?"hidden":""}><div class="f"><label for="sDay">Day</label><select id="sDay">${sl.map((s,i)=>`<option value="${i}">${dayLbl(s.day)}</option>`).join("")}</select></div><div class="f"><label for="sTime">Time</label><select id="sTime">${(sl[0]?.ts||[]).map(t=>`<option value="${t.getTime()}">${timeLbl(t)}</option>`).join("")}</select></div></div>` : ""}
+    <div class="sec">Your details</div>
+    <div class="f"><label for="cName">Name *</label><input id="cName" required autocomplete="name"></div>
     <div class="f"><label for="cPhone">Phone *</label><input id="cPhone" required type="tel" autocomplete="tel" placeholder="+961 …"></div>
-    ${mode==="delivery"?`<div class="f"><label for="cA_label">Address name</label><input id="cA_label" placeholder="Home, Work…"></div>
+    ${em !== "off" ? `<div class="f"><label for="cEmail">Email${em==="required" ? " *" : " (optional)"}</label><input id="cEmail" type="email" autocomplete="email"></div>` : ""}
+    ${mode==="delivery"?`<div class="sec">Delivery address</div><div class="f"><label for="cA_label">Address name</label><input id="cA_label" placeholder="Home, Work…"></div>
     <div class="f"><label for="cA_street">Area / street *</label><input id="cA_street" required autocomplete="street-address"></div>
     <div class="f2"><div class="f"><label for="cA_building">Building name / no. *</label><input id="cA_building" required></div><div class="f"><label for="cA_floor">Floor *</label><input id="cA_floor" required></div></div>
     <div class="f"><label for="cA_extra">Additional info</label><input id="cA_extra" placeholder="Apartment, landmark, directions"></div>`:""}
-    <div class="f"><label for="cNote">Notes for the kitchen</label><input id="cNote" placeholder="e.g. extra spicy, no onions"></div>
-    <div class="err" id="coErr"></div><button class="primary" id="place" ${min && sub()<min?"disabled":""}>Place order · ${usd(grand())}</button>
-    <p class="info" style="text-align:center">Pay ${mode==="delivery"?"on delivery":"at the counter"}.</p></form>`;
+    ${CO().notes !== false ? `<div class="f"><label for="cNote">Notes for the kitchen</label><textarea id="cNote" rows="2" placeholder="e.g. extra spicy, no onions"></textarea></div>` : ""}
+    <div class="sec">Payment</div><div class="opts">${pays.map(([t,s,i],k)=>`<label class="opt"><input type="radio" name="pay" value="${t}" ${k?"":"checked"}>${ic(i)}<span>${t}${s?`<small>${s}</small>`:""}</span></label>`).join("")}</div>
+    ${CO().terms ? `<p class="info">${esc(CO().terms)}</p>` : ""}
+    <div class="err" id="coErr"></div><button class="primary" id="place" ${min && sub()<min?"disabled":""}>Place order · ${usd(grand())}</button></form>`;
   $("#scrim").classList.add("show");
   $("#co").addEventListener("submit", placeOrder);
+  $("#co").addEventListener("change", e => { if(e.target.name==="when") $("#whenBox").hidden = e.target.value!=="later"; if(e.target.id==="sDay") $("#sTime").innerHTML = sl[+e.target.value].ts.map(t=>`<option value="${t.getTime()}">${timeLbl(t)}</option>`).join(""); });
 }
 // one line the branch and call center can read and split again: "[Home] Hamra · Bldg: … · Floor: … · Info: …"
 const addrJoin = a => { const c = v => String(v||"").replace(/\s*·\s*/g, ", ").trim(); return [c(a.label) ? "[" + c(a.label).replace(/[\[\]]/g,"") + "]" : "", [c(a.street), c(a.building) && "Bldg: " + c(a.building), c(a.floor) && "Floor: " + c(a.floor), c(a.extra) && "Info: " + c(a.extra)].filter(Boolean).join(" · ")].filter(Boolean).join(" "); };
 async function placeOrder(e){
   e.preventDefault();
+  const err = t => { $("#coErr").textContent = t; };
   const b = curBranch();
-  if(!b){ $("#coErr").textContent = mode==="delivery" ? (pin ? "We don't deliver to the pinned location." : "Pin your delivery location on the map first.") : "Choose a branch first."; return; }
-  { const bb = branches.find(x => x.id===b); if(bb && !brOpenNow(bb)){ const hh = brHoursToday(bb); $("#coErr").textContent = `${bb.name} is closed now${hh && hh!=="closed today" ? " · opening hours today " + hh : ""}. Please order when it's open.`; return; } }
-  const phone = $("#cPhone").value.trim(); if(phone.replace(/\D/g,"").length < 7){ $("#coErr").textContent = "Enter a valid phone number."; return; }
-  $("#place").disabled = true;
+  if(!b){ return err(mode==="delivery" ? (pin ? "We don't deliver to the pinned location." : "Pin your delivery location on the map first.") : "Choose a branch first."); }
+  const bb = branches.find(x => x.id===b), later = document.querySelector('input[name="when"]:checked')?.value === "later", at = later ? new Date(+$("#sTime")?.value) : null;
+  if(bcfg(b).paused) return err(`${bb?.name || "This branch"} isn't taking web orders right now.`);
+  if(!later && bb && !brOpenNow(bb)){ const hh = brHoursToday(bb); return err(`${bb.name} is closed now${hh && hh!=="closed today" ? " · opening hours today " + hh : ""}.${CO().schedule ? " Schedule your order instead." : " Please order when it's open."}`); }
+  if(later && !(at && +at)) return err("Pick a time for your order.");
+  for(const id of ["cName","cPhone","cA_street","cA_building","cA_floor"]){ const el = $("#"+id); if(el && !el.value.trim()){ el.focus(); return err("Please fill in the required fields."); } }
+  const phone = $("#cPhone").value.trim(); if(phone.replace(/\D/g,"").length < 7) return err("Enter a valid phone number.");
+  const email = $("#cEmail")?.value.trim() || ""; if((CO().email==="required" || email) && !/^\S+@\S+\.\S+$/.test(email)) return err("Enter a valid email.");
+  const pay = document.querySelector('input[name="pay"]:checked')?.value || "Cash";
+  const extra = [later ? `Scheduled for ${dayLbl(at)} ${timeLbl(at)}` : "", payList().length > 1 ? `Pay by ${pay}` : "", email ? `Email: ${email}` : ""].filter(Boolean);
+  const note = [$("#cNote")?.value.trim(), ...extra].filter(Boolean).join(" · ");
+  if(PREVIEW) return err("This is a preview. Orders can't be placed here.");
+  $("#place").disabled = true; $("#place").textContent = "Placing your order…";
   const row = { brand_id: brandId, channel:"online", status:"pending", source: qrBranch ? "Table QR" : "Website", type: mode==="takeaway" ? "pickup" : mode,
     branch_id:b, zone_id: mode==="delivery" ? zoneId : null, table_no: mode==="dinein" ? (tableNo||null) : null,
     lat: mode==="delivery" ? pin[0] : null, lng: mode==="delivery" ? pin[1] : null,
-    customer_name:$("#cName").value.trim(), phone, address: mode==="delivery" ? addrJoin(Object.fromEntries(["label","street","building","floor","extra"].map(k => [k, $("#cA_"+k).value]))) : null, notes:$("#cNote").value.trim() || null,
+    customer_name:$("#cName").value.trim(), phone, address: mode==="delivery" ? addrJoin(Object.fromEntries(["label","street","building","floor","extra"].map(k => [k, $("#cA_"+k).value]))) : null, notes: note || null,
     items: cart, subtotal:+sub().toFixed(2), delivery_fee:fee(), discount:0, total:grand() };
   const { error } = await sb.from("orders").insert(row);
-  if(error){ console.error(error); $("#coErr").textContent = "We couldn't place your order. Please try again or call us."; $("#place").disabled = false; return; }
-  const bn = branches.find(x=>x.id===b)?.name || "";
-  $("#sheet").innerHTML = `<div class="done"><div class="ok">✓</div><h3 style="justify-content:center">Order received</h3><p>${esc(bn)} has your order and will confirm it shortly.</p><p class="info">${mode==="delivery"?"We'll call you if we need directions.":mode==="takeaway"?"We'll have it ready for pickup.":"We'll bring it to your table."}</p><button class="primary" data-close>Done</button></div>`;
+  if(error){ console.error(error); err("We couldn't place your order. Please try again or call us."); $("#place").disabled = false; $("#place").textContent = `Place order · ${usd(grand())}`; return; }
+  const bn = bb?.name || "", wa = String(bcfg(b).whatsapp || (cfg.social||{}).whatsapp || "").replace(/[^\d]/g, "");
+  const waText = encodeURIComponent(`Hi ${brand.name}! I just placed an order on your website.\n${cart.map(i => `${i.qty} × ${i.name}`).join("\n")}\nTotal: ${usd(grand())}\nName: ${row.customer_name}`);
+  $("#sheet").innerHTML = `<div class="done"><div class="ok">${ic("check")}</div><h3>Order received</h3><p>${esc(bn)} has your order and will confirm it shortly.</p><p class="info">${later ? "We'll have it ready for " + esc(dayLbl(at)) + " at " + esc(timeLbl(at)) + "." : mode==="delivery"?"We'll call you if we need directions.":mode==="takeaway"?"We'll have it ready for pickup" + (bcfg(b).prep ? " in about " + esc(bcfg(b).prep) + " min" : "") + ".":"We'll bring it to your table."}</p>
+    <button class="primary" data-close>Done</button>${CO().whatsapp && wa ? `<a class="ghost" href="https://wa.me/${esc(wa)}?text=${waText}" target="_blank" rel="noopener">${ic("chat")}Send it on WhatsApp</a>` : ""}</div>`;
   cart = []; renderMenu();
 }
 render();
+// live preview from the back office (Web Ordering): the settings being edited, before they're saved
+if(PREVIEW){ addEventListener("message", e => { if(e.origin !== location.origin || e.data?.type !== "slick-web-cfg") return; Object.keys(cfg).forEach(k => delete cfg[k]); Object.assign(cfg, e.data.cfg || {}); $("#main").innerHTML = shell(); render(); }); parent.postMessage({ type:"slick-web-ready" }, location.origin); }
 })();
 </script>
 </body>
