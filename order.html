@@ -400,6 +400,9 @@ h2.ch{font:800 20px/30px var(--hfont),sans-serif;margin:0;padding:24px 0 12px}h2
 .spin{width:26px;height:26px;border-radius:50%;border:3px solid color-mix(in srgb,var(--acc) 20%,transparent);border-top-color:var(--acc);animation:spin .8s linear infinite;margin-top:6px}
 @keyframes spin{to{transform:rotate(360deg)}}
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+.bdsel{display:grid;grid-template-columns:1fr 1.4fr 1.2fr;gap:8px}.bdsel select{width:100%;min-width:0}
+/* lists scroll without a visible scroll bar */
+*{scrollbar-width:none!important;-ms-overflow-style:none}*::-webkit-scrollbar{display:none!important;width:0!important;height:0!important}
 </style>
 </head>
 <body class="lay-grid">
@@ -634,6 +637,15 @@ async function saveAddrs(){
 sb.auth.onAuthStateChange((ev, s) => { if(s?.user) USER = s.user; if(ev==="SIGNED_OUT"){ USER = null; PROF = null; } if(ev==="PASSWORD_RECOVERY") setTimeout(() => openAuth("reset", null, ""), 0); });
 { const { data } = await sb.auth.getSession(); USER = data?.session?.user || null; if(USER) await loadProf(); }
 async function afterAuth(){ await loadProf(); setAddr(addr); const t = AU.then; AU.then = null; AU.msg = ""; if(t) t(); else openAcct("home"); }
+// birthday: Day · Month · Year pickers instead of the browser's mm/dd/yyyy box; the hidden input keeps YYYY-MM-DD
+const BD_M = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+function bdSel(id, val){ const [y, m, d] = String(val||"").slice(0,10).split("-"), Y = new Date().getFullYear(), o = (v, t, s) => `<option value="${v}" ${s?"selected":""}>${t}</option>`;
+  return `<div class="bdsel" data-bdfor="${id}"><select class="sel" data-bd="d" aria-label="Day">${o("","Day")}${Array.from({length:31},(_,i)=>o(String(i+1).padStart(2,"0"), i+1, +d===i+1)).join("")}</select>`
+    + `<select class="sel" data-bd="m" aria-label="Month">${o("","Month")}${BD_M.map((t,i)=>o(String(i+1).padStart(2,"0"), t, +m===i+1)).join("")}</select>`
+    + `<select class="sel" data-bd="y" aria-label="Year">${o("","Year")}${Array.from({length:100},(_,i)=>o(Y-i, Y-i, +y===Y-i)).join("")}</select>`
+    + `<input type="hidden" id="${id}" value="${y&&m&&d ? `${y}-${m}-${d}` : ""}"></div>`; }
+document.addEventListener("change", e => { const w = e.target.closest?.(".bdsel"); if(!w) return; const g = k => w.querySelector(`[data-bd="${k}"]`).value, d = g("d"), m = g("m"), y = g("y");
+  w.querySelector("input[type=hidden]").value = d && m && y ? `${y}-${m}-${d}` : ""; });
 function openAuth(view, then, msg){ if(lmap){ lmap.remove(); lmap = null; } AU.view = view || "in"; if(then !== undefined) AU.then = then; if(msg !== undefined) AU.msg = msg; drawAuth(); $("#scrim").classList.add("show"); }
 function drawAuth(){
   const sh = $("#sheet"), v = AU.view, back = v==="forgot";
@@ -644,7 +656,7 @@ function drawAuth(){
   if(v==="check"){ sh.innerHTML = head("") + `<div class="done"><div class="ok">${ic("mail")}</div><h3>Check your email</h3><p>We sent a link to <b>${esc(AU.email)}</b>. Open it to confirm your account, then sign in.</p><button type="button" class="primary" data-av="in">Sign in</button></div>`; return; }
   if(v==="up"){ sh.innerHTML = head("Create your account") + `<p class="info" style="margin:-4px 0 14px">You need an account to order. It keeps your addresses and loyalty points.</p><form id="auF" novalidate>
       <div class="f2">${fld("aFirst","First name *","text","given-name")}${fld("aLast","Last name *","text","family-name")}</div>
-      <div class="f2">${fld("aNick","Nickname","text","nickname")}${fld("aDob","Date of birth","date","bday")}</div>
+      <div class="f2">${fld("aNick","Nickname","text","nickname")}<div class="f"><label>Date of birth</label>${bdSel("aDob")}</div></div>
       ${fld("aEmail","Email *","email","email",AU.email)}${phField("aPhone","Phone number *","")}${fld("aPw","Password *","password","new-password","","At least 6 characters")}
       ${btn("Create account")}</form><div class="aswitch">Already have an account? <button type="button" class="lnk2" data-av="in">Sign in</button></div>`; return; }
   if(v==="forgot"){ sh.innerHTML = head("Reset password") + `<p class="info" style="margin:-4px 0 14px">Enter your email and we'll send you a link to set a new password.</p><form id="auF" novalidate>${fld("aEmail","Email","email","email",AU.email)}${btn("Send reset link")}</form>`; return; }
@@ -695,7 +707,7 @@ function drawAcct(){
   const fld = (id, lbl, type, ac, val, ph) => `<div class="f"><label for="${id}">${lbl}</label><input id="${id}" type="${type||"text"}"${ac ? ` autocomplete="${ac}"` : ""} value="${esc(val||"")}"${ph ? ` placeholder="${esc(ph)}"` : ""}></div>`;
   if(v==="profile"){ sh.innerHTML = head("Profile") + (AC.msg ? `<p class="info" style="margin:-4px 0 14px">${esc(AC.msg)}</p>` : "") + `<form id="acF" novalidate>
       <div class="f2">${fld("pFirst","First name *","text","given-name",p.first_name)}${fld("pLast","Last name *","text","family-name",p.last_name)}</div>
-      <div class="f2">${fld("pNick","Nickname","text","nickname",p.nickname)}${fld("pDob","Date of birth","date","bday",p.dob)}</div>
+      <div class="f2">${fld("pNick","Nickname","text","nickname",p.nickname)}<div class="f"><label>Date of birth</label>${bdSel("pDob", p.dob)}</div></div>
       ${fld("pEmail","Email *","email","email",USER.email)}${phField("pPhone","Phone number *",p.phone)}
       <div class="aok" id="acOk"></div><div class="err" id="acErr"></div><button class="primary" id="acGo">Save changes</button></form>`; return; }
   if(v==="pw"){ sh.innerHTML = head("Change password") + `<form id="acF" novalidate>${fld("pPw","New password","password","new-password","","At least 6 characters")}${fld("pPw2","Confirm new password","password","new-password")}

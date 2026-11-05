@@ -937,6 +937,9 @@ button:active:not(:disabled),.btn:active:not(:disabled){transform:scale(.97)}
 /* one font everywhere: Plus Jakarta Sans */
 html body{font-family:"Plus Jakarta Sans","IBM Plex Sans Arabic",system-ui,sans-serif;font-feature-settings:normal}
 button,input,select,textarea,h1,h2,h3,h4,.modal header h2,.brand b{font-family:"Plus Jakarta Sans","IBM Plex Sans Arabic",system-ui,sans-serif}
+.bdsel{display:grid;grid-template-columns:1fr 1.4fr 1.2fr;gap:8px}.bdsel select{width:100%;min-width:0}
+/* lists scroll without a visible scroll bar */
+*{scrollbar-width:none!important;-ms-overflow-style:none}*::-webkit-scrollbar{display:none!important;width:0!important;height:0!important}
 </style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -4388,7 +4391,17 @@ $("#view").addEventListener("click", e => {
 
 /* ---------- Customers (Foodics format): one record per phone, filled automatically from orders ---------- */
 const CUS = { filter:"all", q:"", sort:"last", page:1, per:50, rows:[], all:null, count:0, summary:null, loading:false, err:"", key:"", t:null, open:null, det:null, more:false, fopen:false, flt:{} };
-const CUS_TABS = [["all","All"],["repeat","Repeat"],["new","New (30 days)"],["inactive","Inactive (60+ days)"],["blacklisted","Blacklisted"]];
+const CUS_TABS = [["all","All"],["blacklisted","Blacklisted"],["deleted","Deleted"]];
+// birthday: Day · Month · Year pickers instead of the browser's mm/dd/yyyy box; the hidden input keeps YYYY-MM-DD
+const BD_M = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+function bdSel(id, val){ const [y, m, d] = String(val||"").slice(0,10).split("-"), Y = new Date().getFullYear(), o = (v, t, s) => `<option value="${v}" ${s?"selected":""}>${t}</option>`;
+  return `<div class="bdsel" data-bdfor="${id}"><select class="sel" data-bd="d" aria-label="Day">${o("","Day")}${Array.from({length:31},(_,i)=>o(String(i+1).padStart(2,"0"), i+1, +d===i+1)).join("")}</select>`
+    + `<select class="sel" data-bd="m" aria-label="Month">${o("","Month")}${BD_M.map((t,i)=>o(String(i+1).padStart(2,"0"), t, +m===i+1)).join("")}</select>`
+    + `<select class="sel" data-bd="y" aria-label="Year">${o("","Year")}${Array.from({length:100},(_,i)=>o(Y-i, Y-i, +y===Y-i)).join("")}</select>`
+    + `<input type="hidden" id="${id}" value="${y&&m&&d ? `${y}-${m}-${d}` : ""}"></div>`; }
+document.addEventListener("change", e => { const w = e.target.closest?.(".bdsel"); if(!w) return; const g = k => w.querySelector(`[data-bd="${k}"]`).value, d = g("d"), m = g("m"), y = g("y");
+  w.querySelector("input[type=hidden]").value = d && m && y ? `${y}-${m}-${d}` : ""; });
+
 const CUS_FLT = [["name","Name","text"],["phone","Phone","text"],["email","Email","text"],["tag","Tag","text"],["hasOrders","Has Orders","yn"],["black","Blacklisted","yn"],["updated","Updated After","date"]];
 function imgPh(){ return `<span class="imgph"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg><span>Choose photo</span></span>`; }
 const normPhone = p => String(p||"").replace(/[^0-9+]/g, "");
@@ -4480,7 +4493,7 @@ function viewCustomer(){
   const desc = v => { const a = addrSplit(v); return esc([a.street, a.building && "Bldg " + a.building, a.floor && "Floor " + a.floor, a.extra].filter(Boolean).join(" · ") || v); };
   const admin = ["owner","admin"].includes(state.role);
   return `<div class="phead"><a href="#customers" class="btn" data-cusback style="text-decoration:none">← Back</a><h1 style="margin-left:10px">${esc(c.name || c.phone)}</h1>${c.blacklisted?' <span class="spill s-declined" style="margin-left:8px">Blacklisted</span>':""}<div class="sp"></div>
-      ${admin ? `<button class="btn" id="cuDel">Delete Customer</button>` : ""}<button class="btn pri" id="cuEdit">Edit Customer</button></div>
+      ${c.deleted_at ? `<span class="spill s-declined" style="margin-right:8px">Deleted</span>${admin ? `<button class="btn pri" id="cuRestore">Restore</button>` : ""}` : `${admin ? `<button class="btn" id="cuDel">Delete Customer</button>` : ""}<button class="btn pri" id="cuEdit">Edit Customer</button>`}</div>
     <div class="cstats">
       <div><span>Done Orders</span><b>${done.length}</b></div>
       <div><span>Last Order</span><b>${orders.length ? dtf(orders[0].created_at) : "—"}</b></div>
@@ -4512,7 +4525,7 @@ function openCustomerEdit(c){
     <div class="f" style="grid-column:1/-1"><label for="cuName">Name *</label><input id="cuName" value="${esc(c.name||"")}"></div>
     <div class="f"><label for="cuPhone">Phone Number *</label>${(() => { const sp = ccSplit(c.phone); return `<div class="phrow"><select id="cuCc" class="sel" aria-label="Country code">${CC_CODES.map(([d,n])=>`<option value="${d}" ${d===sp.cc?"selected":""}>${esc(n)} (${d})</option>`).join("")}</select><input id="cuPhone" type="tel" inputmode="tel" value="${esc(sp.num)}"></div>`; })()}</div>
     <div class="f"><label for="cuEmail">Email</label><input id="cuEmail" type="email" value="${esc(c.email||"")}"></div>
-    <div class="f"><label for="cuBday">Birth Date</label><input id="cuBday" type="date" value="${esc(c.birthday||"")}"></div>
+    <div class="f"><label>Birth Date</label>${bdSel("cuBday", c.birthday)}</div>
     <div class="f"><label for="cuGender">Gender</label><select id="cuGender"><option value="">—</option><option value="male" ${c.gender==="male"?"selected":""}>Male</option><option value="female" ${c.gender==="female"?"selected":""}>Female</option></select></div>
     <div class="f" style="grid-column:1/-1"><label for="cuNotes">Customer Notes</label><textarea id="cuNotes" rows="2" placeholder="Allergies, preferences, gate code…">${esc(c.notes||"")}</textarea><span class="note">Shown to the cashier and call center when this customer orders.</span></div>
     <div class="f" style="grid-column:1/-1"><label class="chk"><input type="checkbox" id="cuBlack" ${c.blacklisted?"checked":""}> Blacklist</label><span class="note">Blacklisted customers are flagged on the POS and call center when they order.</span></div>
@@ -4532,17 +4545,22 @@ async function saveCustomer(){
   const go = r => c.id ? WOK.sb.from("customers").update(r).eq("id", c.id) : WOK.sb.from("customers").insert(r).select("id").maybeSingle();
   let res = await go(row);
   if(res.error && /gender/i.test(res.error.message)){ delete row.gender; res = await go(row); if(!res.error) toast("Saved · gender needs a database update first"); }
-  if(res.error){ $("#cuErr").textContent = /duplicate|unique/i.test(res.error.message) ? "A customer with this phone already exists." : res.error.message; return; }
+  if(res.error){ $("#cuErr").textContent = /duplicate|unique/i.test(res.error.message) ? "A customer with this phone already exists (check the Deleted tab)." : res.error.message; return; }
   $("#ccScrim").classList.remove("show"); CUS.key = "";
   if(c.id){ if(CUS.det && CUS.det.id===c.id){ Object.assign(CUS.det, row); } toast("Customer saved"); render(); }
   else { toast("Customer added"); if(res.data?.id) openCustomer(res.data.id); else loadCustomers(true); }
 }
 async function deleteCustomer(){
-  const c = CUS.det; if(!c || !(await askYes(`Delete ${c.name || c.phone}? Their past orders stay in Orders.`))) return;
-  const { error } = await WOK.sb.from("customers").delete().eq("id", c.id);
+  const c = CUS.det; if(!c || !(await askYes("Are you sure you want to delete this?"))) return;
+  const { error } = await WOK.sb.from("customers").update({ deleted_at: new Date().toISOString() }).eq("id", c.id);   // moves to the Deleted tab; Restore brings it back
   if(error) return toast("Couldn't delete: " + error.message);
-  await WOK.sb.from("orders").update({ customer_id: null }).eq("customer_id", c.id);
   toast("Customer deleted"); CUS.open = null; CUS.det = null; CUS.key = ""; render();
+}
+async function restoreCustomer(){
+  const c = CUS.det; if(!c) return;
+  const { error } = await WOK.sb.from("customers").update({ deleted_at: null, updated_at: new Date().toISOString() }).eq("id", c.id);
+  if(error) return toast("Couldn't restore: " + error.message);
+  c.deleted_at = null; toast("Customer restored"); CUS.key = ""; render();
 }
 function openCusTags(){
   const box = $("#ccBox"); box.className = "modal";
@@ -4586,6 +4604,7 @@ $("#view").addEventListener("click", async e => {
   if(e.target.closest("[data-cusmore]")){ CUS.more = !CUS.more; render(); return; }
   if(e.target.id==="cuEdit"){ openCustomerEdit(CUS.det); return; }
   if(e.target.id==="cuDel"){ deleteCustomer(); return; }
+  if(e.target.id==="cuRestore"){ restoreCustomer(); return; }
   if(e.target.id==="cuTagBtn"){ openCusTags(); return; }
   if(e.target.id==="cuAddrBtn"){ openCusAddr(); return; }
   const dt = e.target.closest("[data-cdtag]"); if(dt){ e.preventDefault(); const t = [...CUS.det.tags]; t.splice(+dt.dataset.cdtag, 1); cusPatch({ tags:t }, "Tag removed"); return; }
