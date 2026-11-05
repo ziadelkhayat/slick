@@ -12,7 +12,7 @@
     brands: "id name name_ar active deleted created_at",
     branches: "id brand_id name code address city phone open_time close_time active call_center production created_at name_ar tax_number lat lng settings",
     categories: "id brand_id name name_ar reference sort deleted created_at inactive_branch_ids channel product_ids image_url",
-    products: "id brand_id name name_ar sku category_id price tax_group description image_url channels branch_ids active deleted created_at ingredients pricing_method costing_method selling_method cost barcode prep_time calories custom_prices inactive_branch_ids out_of_stock_branch_ids modifiers sort variant_set_id variants variant_recipes",
+    products: "id brand_id name name_ar sku category_id price tax_group description image_url channels branch_ids active deleted created_at ingredients pricing_method costing_method selling_method cost barcode prep_time calories custom_prices inactive_branch_ids out_of_stock_branch_ids modifiers sort variant_set_id variants variant_recipes nutrition allergens",
     inventory_items: "id name sku category kind storage_unit ingredient_unit factor cost min_level par_level barcode deleted created_at ingredients max_level name_ar costing_method",
     delivery_zones: "id name branch_id fee min_order eta polygon active deleted created_at",
     devices: "id name type branch_id code activated_at last_seen deleted created_at reference settings",

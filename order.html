@@ -320,6 +320,9 @@ h2.ch{font-size:21px;margin:22px 0 2px}
 .ipimg{height:min(44vh,330px);background:var(--s);display:grid;place-items:center}.ipimg img{max-width:100%;max-height:100%;object-fit:contain;display:block}.ipnoimg{height:64px}
 .iphd{padding:22px 18px 24px;border-bottom:12px solid var(--bg)}
 .iphd h2{margin:0;font-size:26px;font-weight:500;line-height:1.25}.iphd .ipp{color:var(--ink);font-weight:500;font-size:16px;margin-top:14px}.iphd p{margin:12px 0 0;color:var(--ink2);line-height:1.55}
+.ipcal{margin-left:10px;color:var(--mut);font-size:14px}
+.ipalg{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:12px;font-size:13px}.ipalg b{font-size:13px;margin-right:2px}.ipalg span{background:#fff4e5;color:#8a4b00;border-radius:999px;padding:3px 10px;font-weight:600}
+.ipnut{margin-top:12px;font-size:14px}.ipnut summary{cursor:pointer;color:var(--acci);font-weight:600}.ipnut table{width:100%;border-collapse:collapse;margin-top:8px}.ipnut td{padding:6px 0;border-bottom:1px solid var(--line)}.ipnut td+td{text-align:right;color:var(--ink2)}
 .ipgg{padding:20px 18px 8px;border-bottom:12px solid var(--bg);scroll-margin-top:70px}.ipgg:last-child{border-bottom:0}
 .ipqty{padding:22px 18px 26px}.ipqty>b{display:block;font-size:17px;font-weight:700;margin-bottom:18px}.ipqty .ipq{justify-content:center;gap:20px}.ipqty .ipq button{width:44px;height:44px}.ipqty .ipq b{font-size:24px;font-weight:700;min-width:24px}
 .ipgg.bad{background:color-mix(in srgb,var(--bad) 5%,var(--s))}.ipgg.bad .ght b,.ipgg.bad .rq{color:var(--bad)}
@@ -498,7 +501,7 @@ const [st, br, ca, pr, zo, mg, tx, tg, mo] = await Promise.all([
   sb.from("settings").select("data").eq("id","online_"+brandId).maybeSingle(),
   sb.from("branches").select("id,name,open_time,close_time,settings,active").eq("brand_id", brandId),
   sb.from("categories").select("id,name,sort,inactive_branch_ids,deleted,channel,product_ids,image_url").order("sort").order("name"),
-  sb.from("products").select("id,deleted,name,price,description,category_id,active,channels,branch_ids,pricing_method,custom_prices,inactive_branch_ids,out_of_stock_branch_ids,modifiers,sort,image_url,tax_group,variants").eq("brand_id", brandId).order("sort").order("name"),
+  sb.from("products").select("id,deleted,name,price,description,category_id,active,channels,branch_ids,pricing_method,custom_prices,inactive_branch_ids,out_of_stock_branch_ids,modifiers,sort,image_url,tax_group,variants,nutrition,allergens").eq("brand_id", brandId).order("sort").order("name"),
   sb.from("delivery_zones").select("id,name,branch_id,fee,min_order,eta,polygon,active,deleted").order("name"),
   sb.from("modifiers").select("id,name,sort,deleted"),
   sb.from("taxes").select("*"), sb.from("tax_groups").select("id,tax_ids,deleted"),
@@ -933,6 +936,8 @@ function openItem(p){
   d.classList.add("show"); document.body.style.overflow = "hidden"; drawItem(true);
   try{ history.pushState({ slickItem:1 }, ""); }catch(e){}
 }
+const NUTL = [["calories","Calories","kcal"],["fat","Total fat","g"],["satFat","Saturated fat","g"],["transFat","Trans fat","g"],["cholesterol","Cholesterol","mg"],["carbs","Carbohydrate","g"],["fiber","Fiber","g"],["sugars","Total sugars","g"],["addedSugars","Added sugars","g"],["protein","Protein","g"],["salt","Salt","g"],["sodium","Sodium","mg"],["caffeine","Caffeine","mg"]];
+const nutRows = p => NUTL.filter(([k]) => p?.nutrition?.[k] != null && p.nutrition[k] !== "").map(([k,l,u]) => `<tr><td>${l}</td><td>${esc(p.nutrition[k])} ${u}</td></tr>`).join("");
 function drawItem(first){
   const p = IT.p, b = itBase(), el = $("#ipg"), y = el.querySelector(".pg")?.scrollTop || 0;
   const vg = IT.kids.length > 1 ? `<div class="ipgg${IT.err===-2 ? " bad" : ""}" id="ig-v"><div class="ght"><div><b>${esc((p.variants||[]).find(v => v.group)?.group || "Choose one")}</b><small>Choose 1</small></div><span class="rq${IT.kid ? " ok" : ""}">${IT.kid ? "✓" : "Required"}</span></div>${IT.kids.map(k => `<button type="button" class="opt2${IT.kid===k.p ? " on" : ""}" data-iv="${esc(k.p.id)}"><span class="ck rd">${ic("check")}</span><span>${esc(k.name)}</span><span class="op">${usd(priceOf(k.p))}</span></button>`).join("")}</div>` : "";
@@ -944,7 +949,9 @@ function drawItem(first){
   const needLoc = !qrBranch && !curBranch() && !PREVIEW;
   const shown = IT.kids.length && !IT.kid ? "From " + usd(Math.min(...IT.kids.map(k => priceOf(k.p)))) : usd(b ? priceOf(b) : 0);
   el.innerHTML = `<div class="pg"><button type="button" class="ipx" data-ix aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button>${p.image_url ? `<div class="ipimg"><img src="${esc(p.image_url)}" alt=""></div>` : `<div class="ipnoimg"></div>`}
-    <div class="iphd"><h2>${esc(p.name)}</h2><div class="ipp">${shown}</div>${p.description ? `<p>${esc(p.description)}</p>` : ""}</div>${vg}${gs}
+    <div class="iphd"><h2>${esc(p.name)}</h2><div class="ipp">${shown}${(b||p).nutrition?.calories != null ? `<span class="ipcal">${esc((b||p).nutrition.calories)} kcal</span>` : ""}</div>${p.description ? `<p>${esc(p.description)}</p>` : ""}
+      ${((b||p).allergens||[]).length ? `<div class="ipalg"><b>Contains</b>${(b||p).allergens.map(a => `<span>${esc(a)}</span>`).join("")}</div>` : ""}
+      ${nutRows(b||p) ? `<details class="ipnut"><summary>Nutritional values</summary><table>${nutRows(b||p)}</table></details>` : ""}</div>${vg}${gs}
     ${CO().notes !== false ? `<div class="ipgg"><div class="ght"><div><b>Special instructions</b><small>Optional</small></div></div><textarea id="ipNote" rows="2" placeholder="e.g. no onions, extra spicy">${esc(IT.note)}</textarea></div>` : ""}
     ${needLoc ? "" : `<div class="ipgg ipqty"><b>Quantity</b><div class="ipq"><button type="button" data-iq="-1" ${IT.qty <= 1 ? "disabled" : ""} aria-label="Less">−</button><b>${IT.qty}</b><button type="button" data-iq="1" aria-label="More">+</button></div></div>`}</div>
     <div class="ipft">${needLoc ? `<button type="button" class="primary" data-iloc>${mode==="delivery" ? "Select your location" : "Select a branch"}</button>`
