@@ -134,6 +134,7 @@ html{touch-action:manipulation;-webkit-tap-highlight-color:transparent}button,.b
 .ilist{display:grid;gap:10px}
 .icard{border:1px solid var(--line);border-radius:12px;padding:12px 14px;display:grid;gap:6px}
 .icard .r{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.chtag{display:inline-block;font-size:12px;font-weight:700;color:#5b2bc4;background:#efeafd;padding:1px 9px;border-radius:999px}
 .spill{font-size:12px;padding:2px 9px;border-radius:999px;font-weight:500}.s-pending{background:#e8f0fd;color:#2c5fb8}.s-active{background:var(--warns);color:var(--warn)}
 .mut{color:var(--mut);font-size:13px}
 .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;padding:12px 18px;border-radius:10px;opacity:0;transition:opacity .2s;z-index:20;pointer-events:none}.toast.show{opacity:1}
@@ -1591,8 +1592,8 @@ function openOrderView(id){
   const src = o.refundOf && S.orders.find(x=>x.id===o.refundOf);
   S.orders.filter(x => x.refundOf===o.id).forEach(x => acts.push(`<button class="btn" data-ov="${esc(x.id)}">Return ${esc(ordRef(x))}</button>`));
   if(o.status==="refund" && src) acts.push(`<button class="btn" data-ov="${esc(src.id)}">Open original order</button>`);
-  modal("orderview", `<div class="mh"><h2>Order ${esc(ordRef(o))} <span class="spill s-${o.status}">${stLbl(o)}</span></h2><button class="x" data-ovback aria-label="Back">←</button></div><div class="mb">
-    <p class="mut">${o.invoiceNo && o.no?`${esc(invNo(o.invoiceNo))} · `:""}${esc(typLbl(o.type))}${o.table?" T"+esc(o.table):""} · ${esc(o.source || (o.channel==="pos"?"POS":"Call center"))} · ${new Date(o.createdAt).toLocaleString("en-GB",{day:"numeric",month:"short",hour:"numeric",minute:"2-digit"})}${o.agent?` · ${esc(o.agent)}`:""}</p>
+  modal("orderview", `<div class="mh"><h2>Order ${esc(ordRef(o)==="—" && o.ref ? o.ref : ordRef(o))} <span class="spill s-${o.status}">${stLbl(o)}</span></h2><button class="x" data-ovback aria-label="Back">←</button></div><div class="mb">
+    <p class="mut">${o.invoiceNo && o.no?`${esc(invNo(o.invoiceNo))} · `:""}${esc(typLbl(o.type))}${o.table?" T"+esc(o.table):""} · <b class="chtag">${o.channel==="pos" ? "POS" : o.channel==="callcenter" ? "Call center" : "Web ordering"}</b>${o.source && !["POS","Call center"].includes(o.source) ? " · " + esc(o.source) : ""} · ${new Date(o.createdAt).toLocaleString("en-GB",{day:"numeric",month:"short",hour:"numeric",minute:"2-digit"})}${o.agent?` · ${esc(o.agent)}`:""}</p>
     ${o.customerName||o.phone ? `<p><b>${esc(o.customerName||"")}</b> ${o.phone?`<a href="tel:${esc(o.phone)}" style="color:#5b2bc4">${esc(o.phone)}</a>`:""}${o.address?`<br><span class="mut">${esc(o.address)}</span>`:""}${o.lat?`<br><a href="https://www.google.com/maps?q=${o.lat},${o.lng}" target="_blank" rel="noopener" style="color:#5b2bc4">📍 Open pinned location</a>`:""}</p>` : ""}
     <div class="vlines">${(o.items||[]).map(i=>`<div><span>${i.qty} × ${esc(i.name)}${modList(i)}${+i.disc?`<small style="display:block;color:#b45309">Discount −${usd(i.disc)}</small>`:""}</span><b>${usd(lineNet(i))}</b></div>`).join("")}
       ${(o.voidedItems||[]).map(i=>`<div class="mut"><span><s>${i.qty} × ${esc(i.name)}</s> · voided${i.reason?" ("+esc(i.reason)+")":""}</span><s>${usd((+i.price||0)*(+i.qty||1))}</s></div>`).join("")}
@@ -1602,7 +1603,7 @@ function openOrderView(id){
     ${o.notes?`<p class="mut">Kitchen: ${esc(o.notes)}</p>`:""}${o.receiptNotes?`<p class="mut">Receipt: ${esc(o.receiptNotes)}</p>`:""}
     ${o.status==="void"?`<p style="color:#b42318">Voided${o.voidedBy?" by "+esc(o.voidedBy):""}${o.approvedBy?", approved by "+esc(o.approvedBy):""}${o.voidReason?" — "+esc(o.voidReason):""}${o.stockAction?` · ${o.stockAction==="waste"?"wasted":"back to stock"}`:""}</p>`:""}
     ${o.status==="returned"?`<p style="color:#b42318">Returned${o.returnedBy?" by "+esc(o.returnedBy):""}${o.approvedBy?", approved by "+esc(o.approvedBy):""}${o.returnReason?" — "+esc(o.returnReason):""}${o.stockAction?` · ${o.stockAction==="waste"?"wasted":"back to stock"}`:""}</p>`:""}</div>
-    <div class="mf"><button class="btn" data-reprint>Reprint</button><button class="btn" data-kticket style="margin-right:auto">Kitchen ticket</button>${acts.join("")}</div>`, true);
+    <div class="mf">${["pending","declined"].includes(o.status) ? `<span style="margin-right:auto"></span>` : `<button class="btn" data-reprint>Reprint</button><button class="btn" data-kticket style="margin-right:auto">Kitchen ticket</button>`}${acts.join("")}</div>`, true);
 }
 const retLeft = (o, ix) => Math.max(0, +((o.items||[])[ix]?.qty||0) - (o.returnedItems||[]).filter(r => r.ix===ix).reduce((s,r)=>s+(+r.qty||0),0));
 // refund for the picked quantities: each item's price after the order discount, never more than what's left to refund
