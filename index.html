@@ -4341,8 +4341,8 @@ function viewCustomer(){
     <div class="card brcard"><div class="brch"><h3>Addresses</h3><span class="sp"></span><button class="btn sm" id="cuAddrBtn">Add Address</button></div>${tbl(["Name","Description","Delivery Zone","Created",""],
       c.addresses.map((a,i) => `<tr><td>${esc(addrSplit(a.address).label || "—")}</td><td>${desc(a.address)} ${a.lat ? mapLink(a) : ""}</td><td>${esc(zn(a.zoneId) || "—")}</td><td>${dtf(a.createdAt)}</td><td class="num"><a href="#customers" class="lnk" data-cdaddr="${i}">Remove</a></td></tr>`)
       .concat(used.map((v,i) => `<tr><td>${esc(addrSplit(v).label || "—")}</td><td>${desc(v)} <span class="tag">from orders</span></td><td>—</td><td>—</td><td class="num"><a href="#customers" class="lnk" data-csaddr="${i}">Save</a></td></tr>`)))}</div>
-    <div class="card brcard otbl"><div class="brch"><h3>Orders</h3></div>${tbl(["Order","Business date","Branch","Sales channel","Order type","Order source","Payment type","Status",`<span class="num">Total</span>`],
-      orders.slice(0, 100).map(o=>`<tr class="clk" data-coid="${esc(o.id)}"><td><b>${esc(ordRef(o))}</b></td><td>${o.created_at ? new Date(bizDate(o.created_at, o.branch_id) + "T12:00:00").toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"}) : "—"}</td><td>${esc(branchName(o.branch_id) || "—")}</td><td>${esc(CH_LBL[o.channel]||cap(o.channel))}</td><td>${esc(ordTypeLbl(o.type))}${o.type==="dinein" && o.table_no ? `<div class="note">${esc(/^\d+$/.test(String(o.table_no).trim()) ? "Table " + String(o.table_no).trim() : o.table_no)}</div>` : ""}</td><td>${esc(srcOf(o) || "-")}</td><td>${esc(o.payment?.method || "-")}</td><td><span class="spill s-${o.status}">${ORD_ST[o.status]||o.status}</span></td><td class="num">${money(+o.total||0)}</td></tr>`))}</div>`;
+    <div class="card brcard otbl"><div class="brch"><h3>Orders</h3></div>${tbl(["Reference #","Invoice #","Order #","Business date","Branch","Sales channel","Order type","Order source","Payment type","Status",`<span class="num">Total</span>`],
+      orders.slice(0, 100).map(o=>`<tr class="clk" data-coid="${esc(o.id)}"><td><b>${esc(o.ref || "—")}</b></td><td>${o.status==="refund" ? esc(ordRef(o)) : o.invoice_no ? esc(invNo(o.invoice_no)) : '<span class="note" title="Gets its invoice number when a POS accepts it">—</span>'}</td><td>${o.status==="refund" ? "–" : o.no ? `#${esc(o.no)}` : '<span class="note" title="Gets its number when a POS bills it">—</span>'}</td><td>${o.created_at ? new Date(bizDate(o.created_at, o.branch_id) + "T12:00:00").toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"}) : "—"}</td><td>${esc(branchName(o.branch_id) || "—")}</td><td>${esc(CH_LBL[o.channel]||cap(o.channel))}</td><td>${esc(ordTypeLbl(o.type))}${o.type==="dinein" && o.table_no ? `<div class="note">${esc(/^\d+$/.test(String(o.table_no).trim()) ? "Table " + String(o.table_no).trim() : o.table_no)}</div>` : ""}</td><td>${esc(srcOf(o) || "-")}</td><td>${esc(o.payment?.method || "-")}</td><td><span class="spill s-${o.status}">${ORD_ST[o.status]||o.status}</span></td><td class="num">${money(+o.total||0)}</td></tr>`))}</div>`;
 }
 // save a change made on the customer page straight away
 async function cusPatch(patch, msg){
@@ -4488,6 +4488,8 @@ document.addEventListener("click", e => {
   if(e.target.id==="cuSave") return saveCustomer();
   const co = e.target.closest("tr[data-coid]"); if(co) return openOrderDetail(co.dataset.coid);
 });
+// the customer page's orders: open the order details
+document.addEventListener("click", e => { const co = e.target.closest?.("tr[data-coid]"); if(co && !co.closest("#ccScrim")) openOrderDetail(co.dataset.coid); });
 
 
 /* ---------- Account (top-right name, like Foodics): the signed-in user's own settings ---------- */
