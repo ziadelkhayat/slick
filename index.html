@@ -429,11 +429,15 @@ body[data-route="call-center"] .ocard{padding:10px 12px;gap:5px;font-size:13px}
 @media(max-width:1000px){.modal.ccfull{inset:0;border-radius:0;overflow:auto}.ccx{grid-template-columns:1fr;overflow:visible}.ccmenu{grid-template-columns:1fr;height:70vh}.cccats{flex-direction:row;overflow-x:auto;border-right:0;border-bottom:1px solid var(--line)}.catb{flex:none}.ccx .cccart.wide{grid-column:auto}
   body[data-route="call-center"] .board{grid-template-columns:repeat(5,minmax(220px,1fr));overflow-x:auto;height:auto}}
 .sortbody{padding:16px 22px;max-height:66vh;overflow:auto}
-.sortl{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.sortl{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;position:relative}
+.sortl li.ph{border:2px dashed var(--accent,#6c47ff)!important;background:var(--chart-soft,#f3efff)!important;box-shadow:none!important;cursor:grabbing;padding:0!important}
+.sortl .sn{width:26px;height:26px;border-radius:8px;background:var(--bg,#f6f5f9);color:var(--ink2,#55535f);display:grid;place-items:center;font-size:12.5px;font-weight:700;flex:none;font-variant-numeric:tabular-nums}
+.sortl.dragging li:not(.drag):not(.ph){cursor:grabbing}
+.sortl li.drag .sn{background:var(--accent,#6c47ff);color:#fff}
 .sortl li{display:flex;align-items:center;gap:12px;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:11px 12px;cursor:grab;user-select:none;touch-action:none;transition:box-shadow .12s}
 .sortl li:hover{border-color:#d9d0ff}
-.sortl li.drag{cursor:grabbing;border-color:var(--accent);box-shadow:0 8px 22px rgba(91,43,196,.18);background:var(--chart-soft,#f3efff);position:relative;z-index:2}
-.sortl .grip{color:var(--ink3,#8d8c98);letter-spacing:-2px;font-weight:700}
+.sortl li.drag{cursor:grabbing;border-color:var(--accent);box-shadow:0 18px 40px rgba(91,43,196,.25);background:#fff;transition:box-shadow .15s}
+.sortl .grip{color:var(--ink3,#8d8c98);display:grid;place-items:center;margin-left:auto}
 .sortl .st{flex:1;font-weight:500}
 tr.grp td{background:var(--bg,#f6f6fa);font-size:13px;padding-top:12px}
 tr.off td:first-child b{color:var(--ink3,#8d8c98);text-decoration:line-through}
@@ -2354,9 +2358,7 @@ const CRUD = {
       return par ? `<span class="vchild">↳ <b>${esc(r.name)}</b> <span class="tag">${esc(varGroup(par))} · ${esc(par.variants.find(v=>v.productId===r.id)?.name||"")}</span></span>`
         : `<b>${esc(r.name)}</b>${n ? ` <span class="tag cc">${n} variant${n===1?"":"s"}</span>` : ""}`; })()}</span>`],["SKU",r=>`<span class="code">${esc(r.sku||"")}</span>`],["Category",r=>esc(catName(r.categoryId))],
       ["Price",r=>{ const k = varKids(r); return k.length ? "From " + usd(Math.min(...k.map(x=>+x.price||0))) : r.pricingMethod==="open"?"Open":usd(r.price); }],
-      ["Tax Group",r=>varKids(r).length ? '<span class="note">Per variant</span>' : esc(tgName(r.taxGroup))],
-      ["Cost",r=>{ if(varKids(r).length) return '<span class="note">Per variant</span>'; if(r.costingMethod!=="fixed" && !(r.ingredients||[]).length) return '<span class="note">No recipe</span>'; return fmtCost(productCost(r)); },"num"],
-      ["Cost %",r=>{ if(varKids(r).length || r.pricingMethod==="open" || !(+r.price)) return "—"; const c = productCost(r); if(!c) return "—"; const pc = c / (+r.price) * 100; return `<span style="color:${pc>35?"#dc2626":pc>28?"#b45309":"#15803d"};font-weight:600">${pc.toFixed(1)}%</span>`; },"num"]],
+      ["Tax Group",r=>varKids(r).length ? '<span class="note">Per variant</span>' : esc(tgName(r.taxGroup))]],
     fields:[{k:"name",l:"Name",req:1},{k:"nameAr",l:"Name (Arabic)"},brandField,{k:"sku",l:"SKU",auto:()=>nextSku("products")},
       {k:"categoryId",l:"Category",t:"select",req:1,opts:()=>S.categories.filter(c=>live(c)&&!c.channel).sort(bySort).map(c=>[c.id,c.name])},
       {k:"pricingMethod",l:"Pricing method",t:"select",opts:()=>[["fixed","Fixed price"],["open","Open Price"]],def:"fixed",hideIf:r=>varKids(r).length},
@@ -2581,9 +2583,9 @@ function paintSorter(){
   const one = CRUD[key].title.toLowerCase();
   $("#crudBox").innerHTML = `<header><h2>Sort ${esc(CRUD[key].title)}</h2><button type="button" class="x" data-cclose aria-label="Close">×</button></header>
     <div class="sortbody">
-      <p class="note" style="margin:0 0 10px">Drag ${esc(one)} up or down into place. The POS, call center and web ordering show them in this order.</p>
+      
       ${sc && cfg.inside ? `<p style="margin:0 0 10px"><b>${esc(sc[0])}:</b> ${esc((sc[1].find(x=>x[0]===v)||[,""])[1])}</p>` : ""}${sc && !cfg.inside ? `<div class="f" style="margin-bottom:10px"><label for="srtScope">${sc[0]}</label><select id="srtScope" class="sel">${sc[1].map(([k,t])=>`<option value="${esc(k)}" ${k===v?"selected":""}>${esc(t)}</option>`).join("")}</select></div>` : ""}
-      ${ids.length ? `<ol class="sortl" id="srtList">${ids.map((id,i)=>`<li data-sid="${esc(id)}" tabindex="0" aria-label="${esc(name(id))}. Drag to move, or use the arrow keys"><span class="grip" aria-hidden="true">⋮⋮</span><span class="st">${esc(name(id))}</span></li>`).join("")}</ol>`
+      ${ids.length ? `<ol class="sortl" id="srtList">${ids.map((id,i)=>`<li data-sid="${esc(id)}" tabindex="0" aria-label="${esc(name(id))}. Drag to move, or use the arrow keys"><span class="sn">${i+1}</span><span class="st">${esc(name(id))}</span><span class="grip" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg></span></li>`).join("")}</ol>`
         : `<div class="empty">Nothing to sort here.</div>`}
       <div class="err" id="cErr"></div>
     </div>
@@ -2591,23 +2593,37 @@ function paintSorter(){
   wireSortDrag();
 }
 function wireSortDrag(){
-  // pointer-based drag: works with a mouse and on touch screens (tablets)
+  // pointer drag (mouse and touch): the row lifts and follows the finger, a dashed slot shows where it will land,
+  // the other rows slide out of the way, and the numbers update as you go
   const ol = $("#srtList"); if(!ol) return;
-  const box = ol.closest(".sortbody"); let drag = null, scrollT = null;
-  const done = () => { if(!drag) return; drag.classList.remove("drag"); drag = null; clearInterval(scrollT); SORTER.ids = [...ol.querySelectorAll("li")].map(li=>li.dataset.sid); };
-  ol.addEventListener("pointerdown", e => { const li = e.target.closest("li"); if(!li || e.button>0) return; e.preventDefault(); drag = li; li.classList.add("drag"); li.setPointerCapture(e.pointerId); });
-  ol.addEventListener("pointermove", e => {
-    if(!drag) return;
+  const box = ol.closest(".sortbody"); let D = null, scrollT = null;
+  const num = () => { let k = 0; [...ol.children].forEach(li => { if(D && li === D.li) return; k++; const n = (li.classList.contains("ph") && D ? D.li : li).querySelector(".sn"); if(n) n.textContent = k; }); };
+  const rows = () => [...ol.children].filter(li => li !== D?.li);
+  const slide = mv => { const before = new Map(rows().filter(li => !li.classList.contains("ph")).map(li => [li, li.getBoundingClientRect().top])); mv();
+    before.forEach((t, li) => { const d = t - li.getBoundingClientRect().top; if(!d) return; li.style.transition = "none"; li.style.transform = `translateY(${d}px)`; requestAnimationFrame(() => { li.style.transition = "transform .18s cubic-bezier(.2,.8,.2,1)"; li.style.transform = ""; }); }); };
+  const place = y => { const list = rows(), ph = D.ph; let target = null;
+    for(const li of list){ if(li === ph) continue; const b = li.getBoundingClientRect(); if(y < b.top + b.height / 2){ target = li; break; } }
+    let nx = ph.nextElementSibling; if(nx === D.li) nx = nx.nextElementSibling; if(nx === target) return;
+    slide(() => ol.insertBefore(ph, target)); num(); };
+  const move = e => { if(!D) return; const dy = e.clientY - D.y0 + (box.scrollTop - D.s0); D.li.style.transform = `translateY(${dy}px) scale(1.02)`;
     const r = box.getBoundingClientRect(); clearInterval(scrollT);
-    if(e.clientY < r.top + 40) scrollT = setInterval(() => box.scrollTop -= 12, 16); else if(e.clientY > r.bottom - 40) scrollT = setInterval(() => box.scrollTop += 12, 16);
-    const over = [...ol.children].find(li => { if(li===drag) return false; const b = li.getBoundingClientRect(); return e.clientY >= b.top && e.clientY <= b.bottom; });
-    if(!over) return; const b = over.getBoundingClientRect();
-    ol.insertBefore(drag, e.clientY > b.top + b.height/2 ? over.nextSibling : over);
-  });
+    if(e.clientY < r.top + 48) scrollT = setInterval(() => { box.scrollTop -= 10; move({ clientY:e.clientY }); }, 16);
+    else if(e.clientY > r.bottom - 48) scrollT = setInterval(() => { box.scrollTop += 10; move({ clientY:e.clientY }); }, 16);
+    place(e.clientY); };
+  const done = () => { if(!D) return; clearInterval(scrollT); const { li, ph } = D, b = ph.getBoundingClientRect(), a = li.getBoundingClientRect();
+    li.style.transition = "transform .16s ease-out"; li.style.transform = `translateY(${parseFloat((li.style.transform.match(/translateY\(([-\d.]+)px/)||[,0])[1]) + (b.top - a.top)}px)`;
+    const end = () => { ol.insertBefore(li, ph); ph.remove(); li.classList.remove("drag"); li.removeAttribute("style"); ol.classList.remove("dragging"); SORTER.ids = [...ol.querySelectorAll("li")].map(x => x.dataset.sid); num(); };
+    D = null; setTimeout(end, 170); };
+  ol.addEventListener("pointerdown", e => { const li = e.target.closest("li"); if(!li || e.button > 0 || D) return; e.preventDefault();
+    const top = li.offsetTop, h = li.offsetHeight, ph = document.createElement("li"); ph.className = "ph"; ph.style.height = h + "px";
+    ol.insertBefore(ph, li); D = { li, ph, y0:e.clientY, s0:box.scrollTop };
+    Object.assign(li.style, { position:"absolute", left:0, right:0, top: top + "px", height: h + "px", zIndex:5 }); li.classList.add("drag"); ol.classList.add("dragging");
+    li.setPointerCapture(e.pointerId); try{ navigator.vibrate?.(10); }catch(err){} });
+  ol.addEventListener("pointermove", move);
   ol.addEventListener("pointerup", done); ol.addEventListener("pointercancel", done);
   ol.addEventListener("keydown", e => { const li = e.target.closest("li"); if(!li || !["ArrowUp","ArrowDown"].includes(e.key)) return; e.preventDefault();
-    if(e.key==="ArrowUp" && li.previousElementSibling) ol.insertBefore(li, li.previousElementSibling); else if(e.key==="ArrowDown" && li.nextElementSibling) ol.insertBefore(li.nextElementSibling, li);
-    li.focus(); SORTER.ids = [...ol.querySelectorAll("li")].map(x=>x.dataset.sid); });
+    D = { li:null }; slide(() => { if(e.key==="ArrowUp" && li.previousElementSibling) ol.insertBefore(li, li.previousElementSibling); else if(e.key==="ArrowDown" && li.nextElementSibling) ol.insertBefore(li.nextElementSibling, li); }); D = null;
+    li.focus(); SORTER.ids = [...ol.querySelectorAll("li")].map(x=>x.dataset.sid); [...ol.children].forEach((x, k) => { const n = x.querySelector(".sn"); if(n) n.textContent = k + 1; }); });
 }
 async function saveSorter(){
   const { key, ids } = SORTER, cfg = SORTABLE[key], col = S[cfg.col];
@@ -5076,7 +5092,7 @@ function productDetail(p){
     <div class="dsec"><h3>Price</h3>${vk ? `<p class="note" style="margin:0">Each variant has its own price and tax: open it from Variants below.</p>` : `<div class="dgrid">${F(["pricingMethod","price","taxGroup"])}</div>`}</div>
     <div class="dsec"><h3>Nutritional values</h3>${F(["nutrition"])}</div>
     <div class="dsec"><h3>Allergens</h3><div class="algs">${F(["allergens"])}</div></div>
-    ${vk ? "" : `<div class="dsec"><h3>Cost</h3><div class="dgrid">${F(["costingMethod","cost"])}<div class="dstat"><span class="note">${p.costingMethod==="fixed" ? "Fixed cost" : "Ingredients cost"}</span><b>${fmtCost(cost)}</b>${price ? `<span class="note">${pct.toFixed(1)} % of the price</span>` : ""}</div></div></div>`}
+
     <div class="err" id="cErr" style="padding:0 22px 14px"></div></form>`;
   if(false) h += infoGrid([info("Name", esc(p.name)), info("Name Localized", esc(p.nameAr||"—")), info("Brand", esc(brandName(p.brandId))), info("Category", esc(catName(p.categoryId))),
     info("SKU", `<span class="code">${esc(p.sku||"—")}</span>`), info("Tax Group", varKids(p).length ? "Set on each variant" : esc(tgName(p.taxGroup))),
