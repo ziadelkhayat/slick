@@ -696,6 +696,13 @@ h1:has(.ib),h3:has(.ib){display:inline-flex;align-items:center}
 .bizcard{padding:22px 24px!important;margin-bottom:6px}.bizgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px 28px}.bizgrid .f{margin:0}.bizgrid .f.full{grid-column:1/-1}
 .bizgrid .tip{color:#8e8e93;font-size:12px;cursor:help}.bizn{margin:14px 0 0}@media(max-width:760px){.bizgrid{grid-template-columns:1fr}}
 .oinv{display:inline-flex;align-items:center;gap:8px;min-width:0}
+.modal.zonebig{width:min(1320px,100%)}
+.modal.zonebig .body{grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,2.1fr);align-items:start}
+.modal.zonebig .body > .f,.modal.zonebig .body > .f.full{grid-column:auto}
+.modal.zonebig .body > .f.full{grid-column:1 / 3}
+.modal.zonebig .body > .f:has(#zoneMap){grid-column:3;grid-row:1 / span 12}
+.modal.zonebig .zmap{height:min(68vh,640px)}
+@media(max-width:1000px){.modal.zonebig .body{grid-template-columns:minmax(0,1fr)}.modal.zonebig .body > .f,.modal.zonebig .body > .f.full,.modal.zonebig .body > .f:has(#zoneMap){grid-column:1/-1;grid-row:auto}.modal.zonebig .zmap{height:60vh}}
 /* ================= Modern polish layer ================= */
 :root{
   --bg:#f6f6fa; --surface:#fff; --ink:#17151f; --ink2:#45424f; --muted:#8a8796; --line:#e6e4ee; --line2:#d7d4e2;
@@ -848,9 +855,9 @@ tr.click:hover td,.otbl tr.clk:hover td,tr.clk:hover td{background:#f8f6fd}
         <iframe id="fGMap" title="Branch location" style="display:none;width:100%;height:220px;border:1px solid var(--line);border-radius:10px;margin-top:8px" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe></div>
       <div class="f"><label for="fTaxGroup">Tax group</label><select id="fTaxGroup" class="sel"></select><div class="note">Used for items that have no tax group of their own.</div></div>
       <h4 class="fsec">Business day</h4>
-      <div class="f"><label for="fDayStart">New business day starts at</label><input id="fDayStart" type="time" class="sel" value="00:00"></div>
+      <div class="f"><label for="fDayStart">New business day starts at</label><select id="fDayStart" class="sel"></select></div>
       <div class="f"><label>Example</label><div class="note" style="padding-top:8px" id="fDayEx"></div></div>
-      <div class="f"><label for="fInvEnd">Inventory end of day</label><input id="fInvEnd" type="time" class="sel"><div class="note">Inventory transactions after this time are added to the next business day. Empty = same as the business day start.</div></div>
+      <div class="f"><label for="fInvEnd">Inventory end of day</label><select id="fInvEnd" class="sel"></select><div class="note">Inventory transactions after this time are added to the next business day. Empty = same as the business day start.</div></div>
       <div class="f full"><label class="chk"><input type="checkbox" id="fAutoDay"> Automatic end of day</label><div class="note">At the start time, if the previous day wasn't ended manually and all its orders are closed, the branch POS ends it automatically.</div></div>
       <div class="f full"><div class="note">Sales before this time count on the previous business day. Set it after your closing time, e.g. 03:00 if you close at 2 AM. Must be between 12:00 AM and 11:59 AM.</div></div>
       <h4 class="fsec">Opening hours</h4>
@@ -1888,7 +1895,7 @@ function openForm(id){
   $("#fAddr").value = b?.address || ""; $("#fCity").value = b?.city || ""; $("#fPhone").value = b?.phone || "";
   $("#fOpen").value = b?.open || "11:00"; $("#fClose").value = b?.close || "23:30"; $("#fZones").value = b?.zones || "";
   const st = b?.settings || {};
-  $("#fNameAr").value = b?.nameAr || ""; $("#fTaxNo").value = b?.taxNumber || ""; $("#fTaxName").value = b?.settings?.taxName || ""; $("#fInvEnd").value = b?.settings?.invEnd || ""; $("#fLat").value = b?.lat ?? ""; $("#fLng").value = b?.lng ?? "";
+  $("#fNameAr").value = b?.nameAr || ""; $("#fTaxNo").value = b?.taxNumber || ""; $("#fTaxName").value = b?.settings?.taxName || ""; timeSel($("#fInvEnd"), b?.settings?.invEnd || "", { empty:"Same as business day start" }); $("#fLat").value = b?.lat ?? ""; $("#fLng").value = b?.lng ?? "";
   $("#fRHead").value = st.receiptHeader || ""; $("#fRFoot").value = st.receiptFooter || ""; paintMapLink();
   $("#fTaxGroup").innerHTML = `<option value="">None</option>` + (S.tax_groups||[]).filter(g => !g.deleted).map(g => `<option value="${esc(g.id)}" ${st.taxGroup===g.id?"selected":""}>${esc(g.name)}</option>`).join(""); $("#fGLink").value = "";
   if(b){ const tl = tblList(b.id), secs = tblSecs(b.id);
@@ -1901,11 +1908,11 @@ function openForm(id){
   const chOn = c => !(c.branchIds||[]).length || (b && c.branchIds.includes(b.id));
   const chs = (S.charges||[]).filter(c => !c.deleted && c.active!==false);
   $("#fCharges").innerHTML = chs.length ? chs.map(c => `<label class="chk"><input type="checkbox" value="${esc(c.id)}" ${chOn(c)?"checked":""}> ${esc(c.name)} <span class="note">${c.type==="percent" ? (+c.value||0) + "%" : money(+c.value||0)}</span></label>`).join("") : '<span class="note">No charges yet.</span>';
-  $("#fDayStart").value = st.dayStart || company().dayEnd || "00:00"; $("#fDayEx").textContent = dayExample($("#fDayStart").value); $("#fAutoDay").checked = st.autoDayEnd !== false;
+  timeSel($("#fDayStart"), st.dayStart || company().dayEnd || "00:00", { maxH:12 }); $("#fDayEx").textContent = dayExample($("#fDayStart").value); $("#fAutoDay").checked = st.autoDayEnd !== false;
 
   const H = st.hours || {}, o0 = b?.open || "11:00", c0 = b?.close || "23:30";
   $("#fHours").innerHTML = DAYS.map(([k,t]) => { const d = H[k] || { open:o0, close:c0, closed:false };
-    return `<div class="hrow" data-day="${k}"><b>${t}</b><input type="time" class="sel" data-h="open" value="${esc(d.open||o0)}" ${d.closed?"disabled":""} aria-label="${t} opens"><span class="note">to</span><input type="time" class="sel" data-h="close" value="${esc(d.close||c0)}" ${d.closed?"disabled":""} aria-label="${t} closes"><label class="chk"><input type="checkbox" data-h="closed" ${d.closed?"checked":""}> Closed</label></div>`; }).join("")
+    return `<div class="hrow" data-day="${k}"><b>${t}</b><select class="sel" data-h="open" ${d.closed?"disabled":""} aria-label="${t} opens">${timeOpts(d.open||o0)}</select><span class="note">to</span><select class="sel" data-h="close" ${d.closed?"disabled":""} aria-label="${t} closes">${timeOpts(d.close||c0)}</select><label class="chk"><input type="checkbox" data-h="closed" ${d.closed?"checked":""}> Closed</label></div>`; }).join("")
     + `<button type="button" class="btn sm" id="fHoursAll" style="margin-top:6px">Copy Monday to every day</button>`;
   $("#fActive").checked = b ? b.active!==false : true; $("#fCC").checked = b ? !!b.callCenter : true;
   $("#delBtn").style.display = b ? "" : "none"; $("#fErr").textContent = ""; paintBranchData(b?.id);
@@ -1925,9 +1932,9 @@ $("#branchForm").addEventListener("input", e => { if(e.target.id==="fGLink"){ co
     return; }
   if(e.target.id==="fLat" || e.target.id==="fLng"){ const m = /^\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*$/.exec(e.target.value); if(m){ $("#fLat").value = m[1]; $("#fLng").value = m[2]; } paintMapLink(); } });
 $("#branchForm").addEventListener("input", e => { if(e.target.id==="fDayStart") $("#fDayEx").textContent = dayExample(e.target.value || "00:00"); });
-$("#branchForm").addEventListener("change", e => { if(e.target.dataset.h==="closed"){ e.target.closest(".hrow").querySelectorAll("input[type=time]").forEach(i => i.disabled = e.target.checked); } });
+$("#branchForm").addEventListener("change", e => { if(e.target.dataset.h==="closed"){ e.target.closest(".hrow").querySelectorAll("select[data-h]").forEach(i => i.disabled = e.target.checked); } });
 $("#branchForm").addEventListener("click", e => { if(e.target.id==="fHoursAll"){ const rows = [...document.querySelectorAll("#fHours .hrow")], m = rows[0];
-  rows.slice(1).forEach(r => { ["open","close"].forEach(k => { r.querySelector(`[data-h="${k}"]`).value = m.querySelector(`[data-h="${k}"]`).value; }); const c = m.querySelector('[data-h="closed"]').checked; r.querySelector('[data-h="closed"]').checked = c; r.querySelectorAll("input[type=time]").forEach(i => i.disabled = c); }); } });
+  rows.slice(1).forEach(r => { ["open","close"].forEach(k => { r.querySelector(`[data-h="${k}"]`).value = m.querySelector(`[data-h="${k}"]`).value; }); const c = m.querySelector('[data-h="closed"]').checked; r.querySelector('[data-h="closed"]').checked = c; r.querySelectorAll("select[data-h]").forEach(i => i.disabled = c); }); } });
 function closeForm(){ $("#scrim").classList.remove("show"); editing = null; }
 document.querySelectorAll("[data-close]").forEach(b => b.addEventListener("click", closeForm));
 $("#scrim").addEventListener("click", e => { if(e.target.id==="scrim") closeForm(); });
@@ -2017,6 +2024,12 @@ const taxGroupOpts = () => S.tax_groups.filter(live).map(g=>[g.id, g.name]);
 const taxTabs = on => `<div class="tabs" style="margin-bottom:8px"><a href="#taxes" class="${on==="taxes"?"on":""}">Taxes</a><a href="#tax-groups" class="${on==="tax-groups"?"on":""}">Tax Groups</a></div>
   <p class="subt" style="margin-top:0">Each tax is either inclusive (already inside the menu price) or added on top at checkout; set it on the tax. A group can mix both.</p>`;
 
+// time pickers: fixed 15-minute steps (12:00 AM … 11:45 PM); a saved time off the grid is kept as its own option
+const tLbl = v => { const [h, m] = v.split(":").map(Number); return `${String(h % 12 || 12).padStart(2,"0")}:${String(m).padStart(2,"0")} ${h < 12 ? "AM" : "PM"}`; };
+function timeOpts(cur, o = {}){ const L = []; for(let q = 0; q < (o.maxH || 24) * 4; q++) L.push(`${String(q/4|0).padStart(2,"0")}:${String(q%4*15).padStart(2,"0")}`);
+  cur = String(cur || "").slice(0,5); if(cur && !L.includes(cur)){ L.push(cur); L.sort(); }
+  return (o.empty != null ? `<option value="" ${!cur?"selected":""}>${esc(o.empty)}</option>` : "") + L.map(v => `<option value="${v}" ${v===cur?"selected":""}>${tLbl(v)}</option>`).join(""); }
+function timeSel(el, cur, o){ if(el) el.innerHTML = timeOpts(cur, o); }
 /* ---------- users & roles ---------- */
 // Foodics-style authorities: [key, title, description]; keys already used across Slick are kept
 const PERMS = [
@@ -2550,6 +2563,7 @@ function openCrud(key, id){
     <div class="body">${cfg.fields.map(field).join("")}<div class="err" id="cErr"></div></div>
     <footer>${r ? (r.deleted ? `<button type="button" class="btn" id="cRestore" style="margin-right:auto">Restore</button>` : `<button type="button" class="btn danger" id="cDelete" style="margin-right:auto">Delete</button>`) : ""}
     <button type="button" class="btn" data-cclose>Cancel</button><button type="submit" class="btn pri">Save</button></footer>`;
+  if(key==="delivery-zones") $("#crudBox").classList.add("zonebig");
   if(cfg.formTop){ const g = $("#crudBox .body") || $("#crudBox form"); if(g) g.insertAdjacentHTML("afterbegin", cfg.formTop(r)); }
   crudWhen();
   $("#crudScrim").classList.add("show");
