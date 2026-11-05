@@ -4459,10 +4459,10 @@ function viewCustomers(){
     <select class="sel" id="cusSort">${[["last","Last order"],["spent","Total spent"],["orders","Most orders"],["new","Newest"],["name","Name A–Z"]].map(([v,t])=>`<option value="${v}" ${CUS.sort===v?"selected":""}>Sort: ${t}</option>`).join("")}</select>
     <button class="btn${nAdv?" pri":""}" id="cusFlt">Filter${nAdv?` (${nAdv})`:""}</button></div>
   ${CUS.fopen ? `<div class="cflt"><div class="body" style="padding:0">${CUS_FLT.map(fld).join("")}</div><div class="cfltb"><button class="btn" id="cusFClr">Clear</button><button class="btn pri" id="cusFApply">Apply</button></div></div>` : ""}
-  ${CUS.err ? `<p class="note" style="padding:16px">Couldn't load customers: ${esc(CUS.err)}</p>` : `<table><thead><tr><th>Name</th><th>Phone</th><th>Email</th><th class="num">Total Orders</th><th>Last Order</th><th class="num">Account Balance</th></tr></thead><tbody>${
+  ${CUS.err ? `<p class="note" style="padding:16px">Couldn't load customers: ${esc(CUS.err)}</p>` : `<table><thead><tr><th>Name</th><th>Phone</th><th>Email</th><th class="num">Total Orders</th><th>Last Order</th></tr></thead><tbody>${
     rows.length ? rows.map(c => `<tr class="clk" data-cid="${esc(c.id)}"><td><b>${esc(c.name || "Unnamed")}</b>${c.blacklisted?' <span class="spill s-declined">Blacklisted</span>':""}${(c.tags||[]).length?`<div>${c.tags.map(t=>`<span class="tag cc">${esc(t)}</span>`).join(" ")}</div>`:""}</td><td>${esc(c.phone)}</td><td>${esc(c.email || "—")}</td>
-      <td class="num">${c.n}</td><td>${ago2(c.last_at)}</td><td class="num">${money(+c.balance||0)}</td></tr>`).join("")
-    : `<tr><td colspan="6" class="note" style="padding:24px;text-align:center">${CUS.loading ? "Loading customers…" : CUS.q || CUS.filter!=="all" || adv ? "No customers match." : "No customers yet. They're added automatically when an order has a phone number."}</td></tr>`
+      <td class="num">${c.n}</td><td>${ago2(c.last_at)}</td></tr>`).join("")
+    : `<tr><td colspan="5" class="note" style="padding:24px;text-align:center">${CUS.loading ? "Loading customers…" : CUS.q || CUS.filter!=="all" || adv ? "No customers match." : "No customers yet. They're added automatically when an order has a phone number."}</td></tr>`
   }</tbody></table>`}
   <div class="pager"><span class="note">${a}–${b} of ${CUS.count.toLocaleString()}</span><span class="sp"></span><button class="btn" id="cusPrev" ${CUS.page<=1?"disabled":""}>‹ Previous</button><span class="note">Page ${CUS.page} of ${pages}</span><button class="btn" id="cusNext" ${CUS.page>=pages?"disabled":""}>Next ›</button></div></div>`;
 }
@@ -4583,8 +4583,8 @@ async function exportCustomers(){
   const { data, error } = await WOK.sb.rpc("slick_customers", { p_q: CUS.q.trim(), p_filter: CUS.filter, p_sort: CUS.sort, p_limit: 10000, p_offset: 0 });
   if(error) return toast("Export failed: " + error.message);
   const q = v => { v = v==null ? "" : String(v); return /[",\n]/.test(v) ? `"${v.replace(/"/g,'""')}"` : v; };
-  const rows = data.rows.filter(c => !cusAdv() || cusMatch(c)).map(c => [c.name, c.phone, c.email, c.n, c.last_at?new Date(c.last_at).toLocaleDateString("en-GB"):"", (+c.balance||0).toFixed(2), (+c.spent).toFixed(2), (c.tags||[]).join("; "), c.blacklisted?"Yes":"No"]);
-  const blob = new Blob([[["Name","Phone","Email","Total Orders","Last Order","Account Balance","Total Spent","Tags","Blacklisted"], ...rows].map(l=>l.map(q).join(",")).join("\n")], { type:"text/csv" });
+  const rows = data.rows.filter(c => !cusAdv() || cusMatch(c)).map(c => [c.name, c.phone, c.email, c.n, c.last_at?new Date(c.last_at).toLocaleDateString("en-GB"):"", (+c.spent).toFixed(2), (c.tags||[]).join("; "), c.blacklisted?"Yes":"No"]);
+  const blob = new Blob([[["Name","Phone","Email","Total Orders","Last Order","Total Spent","Tags","Blacklisted"], ...rows].map(l=>l.map(q).join(",")).join("\n")], { type:"text/csv" });
   const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `slick-customers-${todayStr()}.csv`; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href), 2000);
 }
 let cusQT; $("#view").addEventListener("input", e => { if(e.target.id==="cusQ"){ clearTimeout(cusQT); const v = e.target.value; cusQT = setTimeout(() => { CUS.q = v; CUS.page = 1; render(); const el = $("#cusQ"); if(el){ el.focus(); el.setSelectionRange(v.length, v.length); } }, 350); } });
