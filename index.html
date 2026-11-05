@@ -3659,8 +3659,9 @@ const daysAgo = n => { const d = new Date(bizDate()+"T12:00:00"); d.setDate(d.ge
 const ORD = { tab:"all", q:"", from:"", to:"", channel:"", type:"", pay:"", source:"", brand:"", branch:"", fopen:false, page:1, per:50, rows:[], count:0, counts:{}, loading:false, err:"", key:"", t:null, open:null };
 const ordTypeLbl = t => TYPE_LBL[t] || cap(t||"—");
 function ordQuery(sel, opts, withStatus){
-  const sb = WOK.sb, [t0, t1] = dayBounds(ORD.from, ORD.to, ORD.branch || "");
-  let q = sb.from("orders").select(sel, opts).gte("created_at", t0.toISOString()).lt("created_at", t1.toISOString());
+  const sb = WOK.sb;
+  let q = sb.from("orders").select(sel, opts);
+  if(ORD.from){ const [t0, t1] = dayBounds(ORD.from, ORD.to, ORD.branch || ""); q = q.gte("created_at", t0.toISOString()).lt("created_at", t1.toISOString()); }
   const act = activeBranches();
   if(ORD.branch) q = q.eq("branch_id", ORD.branch);
   else if(state.branch!=="all") q = q.eq("branch_id", state.branch);
@@ -3677,7 +3678,7 @@ function ordQuery(sel, opts, withStatus){
 }
 async function loadOrders(force){
   if(!window.WOK || storeMode!=="db") return;
-  if(!ORD.from){ ORD.from = todayStr(); ORD.to = ORD.from; }
+  // no dates picked = every order ever (lifetime); pick a range from the calendar to narrow it
   const key = JSON.stringify([ORD.tab, ORD.q, ORD.from, ORD.to, ORD.channel, ORD.type, ORD.pay, ORD.source, ORD.brand, ORD.branch, ORD.page, state.branch, state.brand]);
   if(!force && key===ORD.key && (ORD.loading || ORD.rows.length || ORD.err || ORD.count===0 && ORD.loaded===key)) return;
   ORD.key = key; ORD.loading = true; ORD.err = "";
@@ -3711,7 +3712,7 @@ function viewOrders(){
   return `<div class="ostick"><div class="phead"><h1>Orders</h1><span class="sp"></span><button class="btn" id="ordCsv">Export CSV</button><button class="btn" id="ordRefresh">↻ Refresh</button></div>
   <div class="row fbar ofb">
     <div class="osrch">${svgIco("search")}<input id="ordQ" placeholder="Search reference, order #, invoice #, customer or phone" value="${esc(ORD.q)}"></div>
-    <button type="button" class="sel drpbtn" id="ordRange" aria-haspopup="dialog">${svgIco("calendar")}<span>${esc(drpLabel(ORD.from, ORD.to))}</span></button>
+    <button type="button" class="sel drpbtn" id="ordRange" aria-haspopup="dialog">${svgIco("calendar")}<span>${esc(ORD.from ? drpLabel(ORD.from, ORD.to) : "All time")}</span></button>
     <button type="button" class="btn ofbtn${ORD.fopen || nF ? " on" : ""}" id="ordFilt" aria-expanded="${ORD.fopen}">${svgIco("filter")}Filters${nF ? ` <span class="ofn">${nF}</span>` : ""}</button>
   </div>
   ${ORD.fopen ? `<div class="card ofpanel">
@@ -3813,7 +3814,7 @@ async function exportOrders(){
   const rows = data.map(r => [r.ref, r.status==="refund" ? "" : r.no, r.status==="refund" ? ordRef(r) : r.invoice_no ? invNo(r.invoice_no) : "", brandName(r.brand_id), new Date(r.created_at).toLocaleString("en-GB"), branches.find(x=>x.id===r.branch_id)?.name||"", CH_LBL[r.channel]||r.channel, r.source && r.source.toUpperCase()!=="POS" ? r.source : "", ordTypeLbl(r.type), r.table_no, ORD_ST[r.status]||r.status, r.customer_name, r.phone, r.address,
     (Array.isArray(r.items)?r.items:[]).map(i=>`${+i.qty||1}x ${i.name}${i.mods?" ("+i.mods+")":""}`).join("; "), r.subtotal, r.discount, r.delivery_fee, r.total, r.payment?.method, r.agent]);
   const blob = new Blob([[head, ...rows].map(l=>l.map(q).join(",")).join("\n")], { type:"text/csv" });
-  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `slick-orders-${ORD.from}-to-${ORD.to}.csv`; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href), 2000);
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = ORD.from ? `slick-orders-${ORD.from}-to-${ORD.to}.csv` : "slick-orders-all-time.csv"; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href), 2000);
   if(data.length===5000) toast("Exported the latest 5,000 orders. Narrow the dates for more.");
 }
 $("#view").addEventListener("change", e => {
@@ -3841,7 +3842,7 @@ document.addEventListener("click", e => { const it = e.target.closest?.(".ddmenu
   const m = it.closest(".ddmenu, #acctMenu, #ubMenu"); if(m && m.id === "ubMenu" && it.matches("label")) return;   // the branch picker stays open while ticking branches
   setTimeout(() => { if(m && m.isConnected && !m.hidden){ m.hidden = true; if(m.id==="acctMenu") $("#acctBtn")?.setAttribute("aria-expanded","false"); } }, 0); });
 document.addEventListener("keydown", e => { if(e.key==="Escape") closeMenus(); });
-function drpClose(){ DRP.el?.remove(); DRP.el = null; DRP.a = null; }
+function drpClose(){ DRP.el?.remove(); DRP.el = null; DRP.a = null; DRP.all = false; }
 function drpOpen(anchor, from, to, onPick){
   drpClose(); Object.assign(DRP, { anchor, from, to, onPick, a:null, hover:null, m:(to || todayStr()).slice(0,7) });
   DRP.el = document.createElement("div"); DRP.el.className = "drp"; DRP.el.setAttribute("role","dialog"); DRP.el.setAttribute("aria-label","Choose dates");
@@ -3858,14 +3859,14 @@ function drpDraw(){
   DRP.el.innerHTML = `<div class="dh"><button type="button" data-drpm="-1" aria-label="Previous month">‹</button><span>${first.toLocaleDateString("en-GB",{month:"long",year:"numeric"})}</span><button type="button" data-drpm="1" aria-label="Next month" ${DRP.m>=max.slice(0,7)?"disabled":""}>›</button></div>
     <div class="dg">${["Mo","Tu","We","Th","Fr","Sa","Su"].map(w=>`<span class="dw">${w}</span>`).join("")}${cells}</div>
     <div class="dn">${DRP.a ? "Now pick the end date" : "Pick the start date"}</div>
-    <div class="dq">${[["Today",0],["Yesterday",-1],["Last 7 days",6],["Last 30 days",29],["This month","m"]].map(([t,n])=>`<button type="button" data-drpq="${n}">${t}</button>`).join("")}</div>`;
+    <div class="dq">${[...(DRP.all ? [["All time","all"]] : []), ["Today",0],["Yesterday",-1],["Last 7 days",6],["Last 30 days",29],["This month","m"]].map(([t,n])=>`<button type="button" data-drpq="${n}">${t}</button>`).join("")}</div>`;
 }
 function drpDone(f, t){ const cb = DRP.onPick; drpClose(); cb && cb(f, t); }
 document.addEventListener("click", e => {
   if(!DRP.el) return;
   if(!DRP.el.contains(e.target)){ if(!DRP.anchor.contains(e.target)) drpClose(); return; }
   const m = e.target.closest("[data-drpm]"); if(m){ const [y, mo] = DRP.m.split("-").map(Number), d = new Date(y, mo-1 + +m.dataset.drpm, 1); DRP.m = ymd(d).slice(0,7); drpDraw(); return; }
-  const q = e.target.closest("[data-drpq]"); if(q){ const v = q.dataset.drpq, t = todayStr();
+  const q = e.target.closest("[data-drpq]"); if(q){ const v = q.dataset.drpq, t = todayStr(); if(v==="all") return drpDone("", "");
     if(v==="m") return drpDone(t.slice(0,8)+"01", t); if(v==="-1") return drpDone(daysAgo(1), daysAgo(1)); return drpDone(daysAgo(+v), t); }
   const d = e.target.closest("[data-drpd]"); if(d){ const k = d.dataset.drpd;
     if(!DRP.a){ DRP.a = k; drpDraw(); return; }
@@ -3877,7 +3878,7 @@ window.addEventListener("hashchange", drpClose);
 function ordSetRange(r, end){ ORD.range = r; if(r==="custom") return; const e = end || ORD.to || todayStr(), d = new Date(e+"T12:00:00"); d.setDate(d.getDate() - (r==="day" ? 0 : r==="week" ? 6 : 29)); ORD.to = e; ORD.from = new Date(d - d.getTimezoneOffset()*60000).toISOString().slice(0,10); }
 $("#view").addEventListener("change", e => { if(e.target.id==="ordDay" && e.target.value){ ordSetRange(ORD.range||"week", e.target.value); ORD.page = 1; render(); } });
 $("#view").addEventListener("click", e => {
-  const orb = e.target.closest("#ordRange"); if(orb){ if(DRP.el) return drpClose(); drpOpen(orb, ORD.from, ORD.to, (f, t) => { ORD.from = f; ORD.to = t; ORD.page = 1; render(); }); return; }
+  const orb = e.target.closest("#ordRange"); if(orb){ if(DRP.el) return drpClose(); drpOpen(orb, ORD.from, ORD.to, (f, t) => { ORD.from = f; ORD.to = t; ORD.page = 1; render(); }); DRP.all = true; drpDraw(); return; }
   const rg = e.target.closest("[data-ordrange]"); if(rg){ ordSetRange(rg.dataset.ordrange); ORD.page = 1; render(); return; }
   if(e.target.closest("#ordFilt")){ ORD.fopen = !ORD.fopen; render(); return; }
   if(e.target.closest("#ordFiltDone")){ ORD.fopen = false; render(); return; }
