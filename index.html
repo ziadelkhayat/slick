@@ -940,6 +940,21 @@ button,input,select,textarea,h1,h2,h3,h4,.modal header h2,.brand b{font-family:"
 .bdsel{display:grid;grid-template-columns:1fr 1.4fr 1.2fr;gap:8px}.bdsel select{width:100%;min-width:0}
 /* lists scroll without a visible scroll bar */
 *{scrollbar-width:none!important;-ms-overflow-style:none}*::-webkit-scrollbar{display:none!important;width:0!important;height:0!important}
+/* call center: a product photo fills the whole tile, name and price on a dark fade */
+.ccp{height:132px;min-height:132px!important;box-sizing:border-box}
+.ccp>span{overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.ccp.hasimg{justify-content:flex-end!important}
+.ccp.hasimg>.ccimg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:0;margin:0;z-index:0}
+.ccp.hasimg::after{content:"";position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.72),rgba(0,0,0,.25) 55%,rgba(0,0,0,0) 80%);z-index:1}
+.ccp.hasimg>span,.ccp.hasimg>b{position:relative;z-index:2;color:#fff!important;text-shadow:0 1px 2px rgba(0,0,0,.4);margin-top:0}
+.ccp.hasimg::before,.ccp em{z-index:3}
+.ccct{height:132px;min-height:132px!important;box-sizing:border-box}
+.ccct.hasimg{justify-content:flex-end!important}
+.ccct.hasimg>img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:0;z-index:0}
+.ccct.hasimg::after{content:"";position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.72),rgba(0,0,0,.25) 55%,rgba(0,0,0,0) 80%);z-index:1}
+.ccct.hasimg>b{position:relative;z-index:2;color:#fff!important;text-shadow:0 1px 2px rgba(0,0,0,.4)}
+.ccct.hasimg::before{z-index:3}
+#ccBox>header .cchx{margin-left:auto}
 </style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -1505,7 +1520,7 @@ function filterBar(){
     <label class="toggle"><input type="checkbox" id="cmpToggle" ${state.compare?"checked":""}><span class="trk"></span>Compare</label>
     ${state.compare ? `<label class="note"><input type="date" class="sel" id="cmpDate" value="${state.cmpDate || cmpDefault()}" max="${todayStr()}" aria-label="Compare with business date" title="Business date to compare with${rangeDays()>1 ? " (the " + rangeDays() + " days ending on it)" : ""}"></label>` : ""}
     <span class="sp"></span>
-    <button class="btn" id="dashRefresh" title="Refresh now">↻ Refresh</button></div>`;
+    </div>`;
 }
 // what the numbers are compared with: the previous period, or the business date picked
 function cmpDefault(){ const d = new Date(state.date+"T12:00:00"); d.setDate(d.getDate() - rangeDays()); return d.toISOString().slice(0,10); }
@@ -1540,7 +1555,7 @@ function viewDashboard(){
   if(storeMode!=="db") return h + placeholder("Dashboard", "Sign in to see live sales.");
   loadDash();
   const D = DASH.cur, P = state.compare ? DASH.prev : null;
-  h += state.dashTab==="inventory" ? `<div class="row fbar"><span class="sp"></span><button class="btn" id="dashRefresh">↻ Refresh</button></div>` : filterBar();
+  h += state.dashTab==="inventory" ? "" : filterBar();
   if(DASH.err && !D) return h + `<div class="card empty">Couldn't load the dashboard: ${esc(DASH.err)}<br><br><button class="btn" id="dashRefresh">Try again</button></div>`;
   if(!D) return h + `<div class="card ph"><div>Loading live numbers…</div></div>`;
   const avg = x => x && x.orders ? x.net/x.orders : 0;
@@ -3115,7 +3130,7 @@ function openOrder(id){
   const ldis = ro || ccLocked ? "disabled" : "";
   const box = $("#ccBox"); box.className = "modal ccfull";
   box.innerHTML = `<header><h2>${o?`Order ${esc(ordRef(o))} <span class="spill s-${o.status}">${CC_SUB[o.status]}</span>`:"New Call Center Order"}</h2>
-    <nav class="ccsteps" aria-label="Order steps"><button type="button" data-ccstep="1"><i>1</i>Customer</button><span aria-hidden="true">›</span><button type="button" data-ccstep="2"><i>2</i>Cart</button></nav></header>
+    <nav class="ccsteps" aria-label="Order steps"><button type="button" data-ccstep="1"><i>1</i>Customer</button><span aria-hidden="true">›</span><button type="button" data-ccstep="2"><i>2</i>Cart</button></nav><button type="button" class="btn cchx" data-ccclose>Cancel</button></header>
   ${o && !ro && ccLocked ? `<div class="ccbanner">Placed order: you can change the order source, order type and items. Changes go straight to ${esc(branchName(o.branchId))}.</div>` : ""}
   <div class="ccx" id="ccX">
    <section class="ccleft">
@@ -3141,7 +3156,7 @@ function openOrder(id){
       <div id="oInsights"></div>
      </div>
     </div>
-    <div class="ccnext"><span class="err" id="oErr1"></span><button type="button" class="btn" data-ccclose>Cancel</button><button type="button" class="btn pri" data-ccstep="2">Continue</button></div>
+    <div class="ccnext"><span class="err" id="oErr1"></span><button type="button" class="btn pri" data-ccstep="2">Continue</button></div>
    </section>
    <aside class="ccside" id="oSide"></aside>
    ${ro ? "" : `<section class="ccmenu"><div class="ccprods"><div class="cctools"><button type="button" class="cctool" data-cctool="disc" id="ccToolDisc">${ccIco("pct")}<span>Discount</span></button><button type="button" class="cctool" data-cctool="notes">${ccIco("note")}<span>Notes</span></button></div><div class="ccbar"><button type="button" class="btn sm" id="oCatBack" hidden>← Categories</button><div class="cchead" id="oCatTitle"></div><input class="sel search" id="oSearch" placeholder="Search all products" autocomplete="off"></div><div class="pgrid" id="oProducts"></div></div></section>`}
@@ -3234,12 +3249,11 @@ const addrSplit = v => { const a = { label:"", street:"", building:"", floor:"",
 const ccAddrGet = () => { const a = {}; ADDR_K.forEach(k => a[k] = ($("#oA_"+k)?.value || "").trim()); return a; };
 const ccAddrSet = v => { const a = addrSplit(v); ADDR_K.forEach(k => { const el = $("#oA_"+k); if(el) el.value = a[k]; }); };
 function ccActions(o){
-  if(!o || o.status==="draft") return `<button type="button" class="btn" data-osave="draft">Save as Draft</button><button type="button" class="btn pri" data-osave="pending">Send to Branch</button>${o ? `<button type="button" class="btn danger" data-ccdeldraft>Cancel Draft</button>` : ""}<button type="button" class="btn" data-ccclose>Cancel</button>`;
+  if(!o || o.status==="draft") return `<button type="button" class="btn" data-osave="draft">Save as Draft</button><button type="button" class="btn pri" data-osave="pending">Send to Branch</button>${o ? `<button type="button" class="btn danger" data-ccdeldraft>Cancel Draft</button>` : ""}`;
   const b = [];
   if(ccEditable(o)) b.push(`<button type="button" class="btn pri" data-osave="keep">Save changes</button>`);
   // the branch accepts and completes orders on its POS; the call center can only cancel one the branch hasn't accepted yet
   if(o.status==="pending") b.push(`<button type="button" class="btn danger" data-ostatus="declined">Cancel order</button>`);
-  b.push(`<button type="button" class="btn" data-ccclose>Cancel</button>`);
   return b.join("");
 }
 // is the branch open right now? its weekly hours (Manage → Branches), with overnight hours running past midnight
@@ -3370,7 +3384,7 @@ function renderOrderMenu(){
     const tiles = [...cats.map(c => [c.id, c.name, c.imageUrl]), ...(n("_none") ? [["_none","Other",""]] : [])];
     $("#oCatTitle").textContent = "Categories";
     box.className = "pgrid cats";
-    box.innerHTML = tiles.length ? tiles.map(([id, nm, img], ix) => { const st = ccCatStyle(cats.find(c=>c.id===id) || { name:nm }, ix); return `<button type="button" class="ctile ccct" data-ocat="${esc(id)}" style="--hue:${st.hue};--tint:${st.tint}">${img?`<img src="${esc(img)}" alt="" loading="lazy">`:`<span class="pic">${ccIco(st.icon)}</span>`}<b>${esc(nm)}</b></button>`; }).join("")
+    box.innerHTML = tiles.length ? tiles.map(([id, nm, img], ix) => { const st = ccCatStyle(cats.find(c=>c.id===id) || { name:nm }, ix); return `<button type="button" class="ctile ccct${img?" hasimg":""}" data-ocat="${esc(id)}" style="--hue:${st.hue};--tint:${st.tint}">${img?`<img src="${esc(img)}" alt="" loading="lazy">`:`<span class="pic">${ccIco(st.icon)}</span>`}<b>${esc(nm)}</b></button>`; }).join("")
       : `<div class="note" style="padding:12px">${S.products.length ? ($("#oBrand")?.value || !brandList().length ? "No products available at this branch." : "Choose a brand to see its menu.") : "No products yet. Add them under Menu → Products."}</div>`;
     return;
   }
@@ -3381,7 +3395,7 @@ function renderOrderMenu(){
   const inCart = id => cart.filter(i=>i.productId===id).reduce((a,i)=>a+i.qty,0);
   const stOf = p => { const cc = q ? cats.find(c => ccHas(c, p)) : cats.find(c=>c.id===state.oCat); return ccCatStyle(cc || { name:"" }, Math.max(0, cats.indexOf(cc))); };
   box.innerHTML = list.length ? list.sort(q ? ((a,b)=>catRank(a.categoryId)-catRank(b.categoryId) || bySort(a,b)) : ccOrder(cats.find(c=>c.id===state.oCat))).map(p=>{ const c = inCart(p.id), oos = (p.outOfStockBranchIds||[]).includes($("#oBranch")?.value);
-    const st = stOf(p); return `<button type="button" class="pbtn ccp${c?" sel":""}" data-add="${esc(p.id)}" style="--hue:${st.hue};--tint:${st.tint}" ${oos?"disabled title=\"Out of stock at this branch\"":""}>${c?`<em>${c}</em>`:""}${p.imageUrl?`<img class="ccimg" src="${esc(p.imageUrl)}" alt="" loading="lazy">`:`<span class="pic">${ccIco(st.icon)}</span>`}<span>${esc(p.name)}</span><b>${oos?"Out of stock":usd(ccPrice(p))}</b>${(p.modifiers||[]).length?`<small>Options</small>`:""}</button>`; }).join("")
+    const st = stOf(p); return `<button type="button" class="pbtn ccp${c?" sel":""}${p.imageUrl?" hasimg":""}" data-add="${esc(p.id)}" style="--hue:${st.hue};--tint:${st.tint}" ${oos?"disabled title=\"Out of stock at this branch\"":""}>${c?`<em>${c}</em>`:""}${p.imageUrl?`<img class="ccimg" src="${esc(p.imageUrl)}" alt="" loading="lazy">`:`<span class="pic">${ccIco(st.icon)}</span>`}<span>${esc(p.name)}</span><b>${oos?"Out of stock":usd(ccPrice(p))}</b>${(p.modifiers||[]).length?`<small>Options</small>`:""}</button>`; }).join("")
     : `<div class="note" style="padding:12px">${S.products.length ? (q ? "No products match." : $("#oBrand")?.value ? "No products in this category." : "Choose a brand to see its menu.") : "No products yet. Add them under Menu → Products."}</div>`;
 }
 function ccNoteLines(ro){ const o = ($("#oRNotes")?.value||"").trim(), k = ($("#oNotes")?.value||"").trim();

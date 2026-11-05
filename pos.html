@@ -518,6 +518,13 @@ button:active:not(:disabled),.btn:active:not(:disabled){transform:scale(.97)}
 /* lists scroll without a visible scroll bar */
 *{scrollbar-width:none!important;-ms-overflow-style:none}*::-webkit-scrollbar{display:none!important;width:0!important;height:0!important}
 .ctile2>img{width:42px!important;height:42px!important;max-width:42px;flex:none;border-radius:12px;object-fit:cover;display:block}
+/* a tile with a photo: the photo fills the whole box, name and price on a dark fade */
+#grid .prod.hasimg,#grid .ctile2.hasimg{justify-content:flex-end!important;color:#fff!important}
+#grid .prod.hasimg>img,#grid .ctile2.hasimg>img{position:absolute!important;inset:0;width:100%!important;max-width:none!important;height:100%!important;object-fit:cover;border-radius:0!important;z-index:0}
+#grid .prod.hasimg::after,#grid .ctile2.hasimg::after{content:"";position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.72),rgba(0,0,0,.25) 55%,rgba(0,0,0,0) 80%);z-index:1}
+#grid .prod.hasimg>span,#grid .prod.hasimg>b,#grid .ctile2.hasimg>span{position:relative;z-index:2;color:#fff!important;text-shadow:0 1px 2px rgba(0,0,0,.4)}
+#grid .prod.hasimg::before,#grid .ctile2.hasimg::before{z-index:3}
+#grid .prod.hasimg>b{margin-top:0}
 /* category and item tiles: one size */
 #grid .ctile2,#grid .prod{height:132px!important;min-height:132px!important;padding:12px!important;border-radius:14px!important;gap:6px!important;box-sizing:border-box}
 #grid .ctile2 .pic,#grid .prod .pic,#grid .ctile2>img{width:40px!important;height:40px!important;border-radius:11px!important;flex:none}
@@ -1012,7 +1019,7 @@ function renderMenu(){
     $("#grid").innerHTML = l.length ? l.map(tile).join("") : `<div class="empty">No items match.</div>`; return; }
   const byCat = id => { const c = cats.find(x => x.id===id); return prods.filter(p => has(c, p)).sort(inOrder(c)); };
   if(!cat){   // the categories, as tiles to open
-    $("#grid").innerHTML = cats.length ? cats.map(c => `<button class="ctile ctile2" data-cat="${esc(c.id)}" style="--hue:${cs[c.id].hue};--tint:${cs[c.id].tint}">${c.imageUrl ? `<img src="${esc(c.imageUrl)}" alt="" loading="lazy">` : `<span class="pic">${ico(cs[c.id].icon)}</span>`}<span>${esc(c.name)}</span></button>`).join("") : `<div class="empty">No menu for this branch yet. Set it up under Menu → Menus in the back office.</div>`;
+    $("#grid").innerHTML = cats.length ? cats.map(c => `<button class="ctile ctile2${c.imageUrl?" hasimg":""}" data-cat="${esc(c.id)}" style="--hue:${cs[c.id].hue};--tint:${cs[c.id].tint}">${c.imageUrl ? `<img class="fill" src="${esc(c.imageUrl)}" alt="" loading="lazy">` : `<span class="pic">${ico(cs[c.id].icon)}</span>`}<span>${esc(c.name)}</span></button>`).join("") : `<div class="empty">No menu for this branch yet. Set it up under Menu → Menus in the back office.</div>`;
     return; }
   const c = cats.find(x=>x.id===cat), l = byCat(cat);   // order set in Sales Channels
   $("#grid").innerHTML = `<div class="cback"><button class="cbtn" data-cat="" style="--hue:${cs[cat].hue}">${ico("back")} BACK</button><b>${esc(c.name)}</b></div>` + l.map(tile).join("");
