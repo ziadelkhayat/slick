@@ -948,6 +948,7 @@ button,input,select,textarea,h1,h2,h3,h4,.modal header h2,.brand b{font-family:"
 .ccp.hasimg>span,.ccct.hasimg>b{font-size:14px;-webkit-line-clamp:1;line-height:1.3}
 .ccp.hasimg>b{font-size:13.5px;margin-top:0}
 #ccBox>header .cchx{margin-left:auto}
+th.grc,td.grc{width:28px;padding-right:0!important;color:#b3afc2;cursor:grab}tr[data-rowdrag]:active{cursor:grabbing}
 </style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -2552,7 +2553,7 @@ function crudView(key){
   list.sort(cfg.sort);
   const per = 50, pages = Math.max(1, Math.ceil(list.length/per)), pg = Math.min(state.page[key]||1, pages);
   const shown = list.slice((pg-1)*per, pg*per);
-  let h = `<div class="phead"><h1>${cfg.title}</h1><div class="sp"></div>${SORTABLE[key] && !SORTABLE[key].inside ? `<button class="btn" data-sorter="${key}">${svgIco("sort")} Sort</button>` : ""}${IMPEX[key] ? `<button class="btn" data-imp="${key}">Import</button><button class="btn" data-exp="${key}">Export</button>` : ""}<button class="btn pri" data-create="${key}">${cfg.addLbl||"Create"} ${cfg.one}</button></div>`;
+  let h = `<div class="phead"><h1>${cfg.title}</h1><div class="sp"></div>${IMPEX[key] ? `<button class="btn" data-imp="${key}">Import</button><button class="btn" data-exp="${key}">Export</button>` : ""}<button class="btn pri" data-create="${key}">${cfg.addLbl||"Create"} ${cfg.one}</button></div>`;
   if(storeMode==="local") h += `<div class="banner">Preview mode: changes won't be saved.</div>`;
   if(cfg.note) h += `<p class="subt" style="margin-top:-6px">${esc(cfg.note)}</p>`;
   if(cfg.top) h += cfg.top();
@@ -2566,10 +2567,11 @@ function crudView(key){
   if(!shown.length) h += `<div class="empty">${S[cfg.col].length ? "Nothing matches." : `No ${cfg.title.toLowerCase()} yet.`}</div>`;
   else { const sel = (state.sel ||= {})[key] ||= new Set(), bk = cfg.bulk && tab!=="deleted" || tab==="deleted" && ["products","categories","inv-items"].includes(key), allOn = bk && shown.every(r => sel.has(r.id));
     if(bk) [...sel].forEach(id => { if(!list.some(r => r.id===id)) sel.delete(id); });
-    h += `<table><thead><tr>${bk ? `<th class="noedit bkc"><input type="checkbox" data-bkall="${key}" ${allOn?"checked":""} aria-label="Select all on this page"></th>` : ""}${bk && sel.size
+    const dr = SORTABLE[key] && !SORTABLE[key].inside && tab!=="deleted" && !(state.q[key]||"").trim();   // drag rows to set the order every screen shows
+    h += `<table><thead><tr>${dr ? `<th class="noedit grc"></th>` : ""}${bk ? `<th class="noedit bkc"><input type="checkbox" data-bkall="${key}" ${allOn?"checked":""} aria-label="Select all on this page"></th>` : ""}${bk && sel.size
       ? `<th colspan="${cfg.cols.length}" class="bkbar"><b>${sel.size} Selected</b><span class="ddwrap"><button type="button" class="btn sm" id="bkAct">Actions ▾</button><span class="ddmenu" id="bkActM" hidden>${(tab==="deleted" ? [["restore","Restore"]] : BULK_ACTS).map(([k,t]) => `<button type="button" data-bkdo="${key}:${k}">${t}</button>`).join("")}</span></span></th>`
       : cfg.cols.map(c=>`<th class="${c[2]||""}">${c[0]}</th>`).join("")}</tr></thead><tbody>${
-    shown.map(r=>`<tr class="click" data-open="${key}:${esc(r.id)}">${bk ? `<td class="noedit bkc"><input type="checkbox" data-bksel="${key}:${esc(r.id)}" ${sel.has(r.id)?"checked":""} aria-label="Select ${esc(r.name||"")}"></td>` : ""}${cfg.cols.map(c=>`<td class="${c[2]||""}">${c[1](r)}</td>`).join("")}</tr>`).join("")}</tbody></table>`; }
+    shown.map(r=>`<tr class="click" data-open="${key}:${esc(r.id)}"${dr ? ` draggable="true" data-rowdrag="${key}:${esc(r.id)}"` : ""}>${dr ? `<td class="noedit grc" title="Drag to move"><span class="bmgrip" aria-hidden="true">⋮⋮</span></td>` : ""}${bk ? `<td class="noedit bkc"><input type="checkbox" data-bksel="${key}:${esc(r.id)}" ${sel.has(r.id)?"checked":""} aria-label="Select ${esc(r.name||"")}"></td>` : ""}${cfg.cols.map(c=>`<td class="${c[2]||""}">${c[1](r)}</td>`).join("")}</tr>`).join("")}</tbody></table>`; }
   h += `<div class="pager"><span class="note">Showing ${list.length?(pg-1)*per+1:0} to ${Math.min(pg*per,list.length)} out of ${list.length}</span><div class="sp"></div>
     <button class="btn sm" data-page="${key}:${pg-1}" ${pg<=1?"disabled":""}>Previous</button><button class="btn sm" data-page="${key}:${pg+1}" ${pg>=pages?"disabled":""}>Next</button></div></div>`;
   return h;
@@ -2637,6 +2639,16 @@ function wireSortDrag(){
     D = { li:null }; slide(() => { if(e.key==="ArrowUp" && li.previousElementSibling) ol.insertBefore(li, li.previousElementSibling); else if(e.key==="ArrowDown" && li.nextElementSibling) ol.insertBefore(li.nextElementSibling, li); }); D = null;
     li.focus(); SORTER.ids = [...ol.querySelectorAll("li")].map(x=>x.dataset.sid); [...ol.children].forEach((x, k) => { const n = x.querySelector(".sn"); if(n) n.textContent = k + 1; }); });
 }
+// list pages (payment methods, order sources): drag a row onto another to move it there
+let rowDrag = null;
+document.addEventListener("dragstart", e => { const t = e.target.closest?.("[data-rowdrag]"); if(!t) return; rowDrag = t.dataset.rowdrag; e.dataTransfer.effectAllowed = "move"; try{ e.dataTransfer.setData("text/plain", rowDrag); }catch(_){} t.classList.add("dragging"); });
+document.addEventListener("dragover", e => { const t = e.target.closest?.("[data-rowdrag]"); if(!t || !rowDrag || t.dataset.rowdrag===rowDrag || t.dataset.rowdrag.split(":")[0]!==rowDrag.split(":")[0]) return; e.preventDefault(); document.querySelectorAll(".dropto").forEach(x => x.classList.remove("dropto")); t.classList.add("dropto"); });
+document.addEventListener("drop", async e => { const t = e.target.closest?.("[data-rowdrag]"); if(!t || !rowDrag) return; e.preventDefault();
+  const [key, from] = rowDrag.split(":"), [k2, to] = t.dataset.rowdrag.split(":"); rowDrag = null; if(key!==k2 || from===to) return;
+  const cfg = SORTABLE[key], ids = S[cfg.col].filter(live).sort(bySort).map(r => r.id), i = ids.indexOf(from), j = ids.indexOf(to); if(i<0 || j<0) return;
+  ids.splice(i, 1); ids.splice(ids.indexOf(to) + (i < j ? 1 : 0), 0, from);
+  try{ for(const [n, id] of ids.entries()){ const r = S[cfg.col].find(x => x.id===id); if(r && r.sort !== n+1){ await put(cfg.col, id, { sort:n+1 }); r.sort = n+1; } } toast("Order saved · all screens updated"); render(); }
+  catch(err){ console.error(err); toast("Couldn't save the new order"); render(); } });
 async function saveSorter(){
   const { key, ids } = SORTER, cfg = SORTABLE[key], col = S[cfg.col];
   const changes = ids.map((id,i)=>[id,i+1]).filter(([id,n]) => col.find(r=>r.id===id)?.sort !== n);
