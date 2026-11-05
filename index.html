@@ -5064,7 +5064,7 @@ function productDetail(p){
     if(el.tagName==="DIV"){ if(el.querySelector("[data-nk]")){ const o = {}; el.querySelectorAll("[data-nk]").forEach(i => { if(i.value!=="") o[i.dataset.nk] = +i.value; }); draft[k] = o; } else draft[k] = [...el.querySelectorAll("input:checked")].map(i => i.value); return; }
     draft[k] = el.type==="checkbox" ? el.checked : el.value; }); }
   let h = `<div class="phead"><a href="#products" class="btn" data-detback style="text-decoration:none">← Back</a><h1 style="margin-left:10px">${esc(p.name)}</h1>
-    <div class="sp"></div>${p.deleted ? `<button type="button" class="btn" data-detrestore>Restore</button>` : `<button type="button" class="btn danger" data-detdelete>Delete</button>`}</div>`;
+    <div class="sp"></div>${p.deleted ? `<button type="button" class="btn" data-detrestore>Restore</button>` : `<button type="button" class="btn danger" data-detdelete>Delete</button>`}<button type="submit" form="detForm" class="btn pri" id="detSave" ${draft ? "" : "disabled"}>Save</button></div>`;
   const F = keys => openCrud("products", p.id, keys, draft), vk = varKids(p).length;
   h += `<form id="detForm" class="card detform" data-id="${esc(p.id)}"${draft ? ' data-dirty="1"' : ""} novalidate>
     <div class="dsec dtop">${F(["imageUrl"])}<div class="dgrid d2">${F(["name","nameAr"])}${F(["description"])}</div></div>
@@ -5073,7 +5073,7 @@ function productDetail(p){
     <div class="dsec"><h3>Nutritional values</h3>${F(["nutrition"])}</div>
     <div class="dsec"><h3>Allergens</h3><div class="algs">${F(["allergens"])}</div></div>
     ${vk ? "" : `<div class="dsec"><h3>Cost</h3><div class="dgrid">${F(["costingMethod","cost"])}<div class="dstat"><span class="note">${p.costingMethod==="fixed" ? "Fixed cost" : "Ingredients cost"}</span><b>${fmtCost(cost)}</b>${price ? `<span class="note">${pct.toFixed(1)} % of the price</span>` : ""}</div></div></div>`}
-    <div class="detfoot"${draft ? "" : " hidden"}><div class="scsv"><span class="dot"></span><b id="detCnt">${detCntLbl()}</b><span class="note" id="detHint">Nothing is live until you save</span><div class="err" id="cErr"></div><div class="sp"></div><button type="button" class="btn" data-detrevert>Discard</button><button type="submit" class="btn pri" id="detSave">Save changes</button></div></div></form>`;
+    <div class="err" id="cErr" style="padding:0 22px 14px"></div></form>`;
   if(false) h += infoGrid([info("Name", esc(p.name)), info("Name Localized", esc(p.nameAr||"—")), info("Brand", esc(brandName(p.brandId))), info("Category", esc(catName(p.categoryId))),
     info("SKU", `<span class="code">${esc(p.sku||"—")}</span>`), info("Tax Group", varKids(p).length ? "Set on each variant" : esc(tgName(p.taxGroup))),
     info("Pricing Method", p.pricingMethod==="open"?"Open Price":"Fixed Price"), info("Selling Method", p.sellingMethod==="weight"?"Weight":"Unit"),
@@ -6140,13 +6140,13 @@ $("#crudBox").addEventListener("submit", submitCrud);
 const DCHG = new Set();
 function detCntLbl(){ const n = DCHG.size; return n ? `${n} unsaved change${n===1?"":"s"}` : "Unsaved changes"; }
 const detDirty = el => { const fm = $("#detForm"); if(!fm) return; const k = el?.closest?.(".f")?.querySelector("[id^=cf_]")?.id || el?.id || el?.name; if(k) DCHG.add(k);
-  fm.dataset.dirty = "1"; const ft = fm.querySelector(".detfoot"); if(ft) ft.hidden = false; const c = $("#detCnt"); if(c) c.textContent = detCntLbl(); };
+  fm.dataset.dirty = "1"; const sv = $("#detSave"); if(sv) sv.disabled = false; };
 document.addEventListener("input", e => { if(e.target.closest?.("#detForm")) detDirty(e.target); });
 document.addEventListener("change", e => { if(e.target.closest?.("#detForm")) detDirty(e.target); });
 document.addEventListener("submit", async e => { if(e.target.id !== "detForm") return; e.preventDefault();
   const prev = crudEdit; crudEdit = { key: DET.key, id: DET.id, inline: true }; const b = $("#detSave"); b.disabled = true; b.textContent = "Saving…";
   await submitCrud(e); crudEdit = prev && $("#crudScrim").classList.contains("show") ? prev : null; const fm = $("#detForm");
-  if(fm && fm.querySelector("#cErr")?.textContent){ b.disabled = false; b.textContent = "Save changes"; return; }   // a field needs fixing
+  if(fm && fm.querySelector("#cErr")?.textContent){ b.disabled = false; b.textContent = "Save"; fm.querySelector("#cErr").scrollIntoView({ block:"center" }); return; }   // a field needs fixing
   if(fm) delete fm.dataset.dirty; DCHG.clear(); render(); });
 // after a redraw, hide the fields that only apply to another choice (e.g. fixed cost)
 new MutationObserver(() => { const fm = document.getElementById("detForm"); if(fm && !fm.dataset.w){ fm.dataset.w = "1"; crudWhen(fm, DET.key); } }).observe(document.body, { childList:true, subtree:true });
