@@ -385,7 +385,7 @@ body[data-route="call-center"] .ocard{padding:10px 12px;gap:5px;font-size:13px}
 .cc1>div{display:flex;flex-direction:column;gap:10px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px 18px}
 .cc1 input.big{font-size:17px!important;padding:11px 12px!important}
 .ccnext{display:flex;align-items:center;justify-content:flex-end;gap:12px;padding:12px 22px;border-top:1px solid var(--line);background:var(--surface)}
-.ccnext .err{margin:0;flex:1;text-align:right}.ccnext .btn{padding:11px 22px}
+.ccnext .err{margin:0;flex:1;text-align:right}.ccnext .btn.pri:disabled{opacity:.45;cursor:not-allowed;box-shadow:none}.ccnext .btn{padding:11px 22px}
 .seg.tiles button{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:11px 8px!important}.seg.tiles svg{width:18px;height:18px}
 .acards{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px}
 .acard{display:flex;flex-direction:column;gap:3px;text-align:left;border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:9px 11px;cursor:pointer;font:inherit;font-size:12.5px;color:inherit}
@@ -3055,13 +3055,17 @@ function openOrder(id){
    <section class="cccart${ro?" wide":""}"><div class="cart" id="oCart"></div>
    <input type="hidden" id="oNotes" value="${esc(o?.notes||"")}"><input type="hidden" id="oRNotes" value="${esc(o?.receiptNotes||"")}"><div class="err" id="oErr"></div><div class="ccacts">${ccActions(o)}</div></section>
   </div>`;
-  state.oCat = ""; fillOrderBranches(o?.branchId); renderOrderMenu(); renderCart(ro); ccAddrVis();
+  state.oCat = ""; fillOrderBranches(o?.branchId); renderOrderMenu(); renderCart(ro); ccAddrVis(); setTimeout(ccGoState, 0);
   $("#ccScrim").classList.add("show");
   ccStep(o ? 2 : 1, true);
   if(o && o.phone) ccLookup(o.status!=="draft");
   if(!o) setTimeout(() => $("#oPhone")?.focus(), 30);
 }
 // Foodics-style flow: step 1 customer, type, branch and address; step 2 the menu and cart, with the customer beside it
+// Continue stays off until every required field is filled (like the POS); only rule-based blocks explain themselves
+function ccGoState(){ const b = document.querySelector('.ccnext [data-ccstep="2"]'); if(!b) return; const er = ccStep1Err(); b.disabled = !!er;
+  const m = $("#oErr1"); if(m) m.textContent = er && !/^(Enter|Choose|Pick|The delivery address)/.test(er[0]) ? er[0] : ""; }
+["input","change","click"].forEach(ev => document.addEventListener(ev, e => { if(e.target.closest?.("#ccScrim")) setTimeout(ccGoState, 0); }));
 function ccStep1Err(){
   const o = ccEdit ? S.orders.find(x=>x.id===ccEdit) : null, type = $("#oType .on")?.dataset.ot || "", a = ccAddrGet();
   if(o && o.status!=="draft") return null;
@@ -3094,6 +3098,7 @@ function ccSide(){
     ${bits.map(x => `<span class="dot">·</span><span class="cs-b" title="${esc(x)}">${esc(x)}</span>`).join("")}${$("#oPhone")?.disabled ? "" : `<span style="flex:1"></span><button type="button" class="btn sm" data-ccstep="1">Edit customer</button>`}`;
 }
 function ccAddrCards(){
+  setTimeout(ccGoState, 0);
   const box = $("#oAddrCards"); if(!box) return;
   const list = window.__ccCust?.addresses || [], cur = addrJoin(ccAddrGet()), dis = $("#oA_street")?.disabled;
   box.innerHTML = list.length ? list.slice(0,12).map((ad,i) => { const p = addrSplit(ad.address);
