@@ -5081,7 +5081,7 @@ function openAddVariant(){
     <p class="note" style="margin:12px 0 0">Each option becomes its own product, e.g. "${esc(p.name)} (${esc(left[0])})", starting with this product's price, tax and recipe. Set each one's price, tax, SKU, recipe and modifiers inside it after saving.</p>`}
     <div class="err" id="cErr"></div>
   </div>
-  <footer><button type="button" class="btn" data-cclose>Cancel</button><button type="button" class="btn pri" id="avSave" ${cur && left.length ? "" : "disabled"}>Save</button></footer>`;
+  <footer><button type="button" class="btn" data-cclose>Cancel</button><button type="button" class="btn pri" id="avSave" ${cur && left.length ? "" : "disabled"}>Add</button></footer>`;
   crudEdit = { key:"addvar", id:p.id }; $("#crudBox").className = "modal"; $("#crudScrim").classList.add("show");
   const used = []; left.forEach(n => { const sku = nextSku("products", [...S.products.filter(live).map(x=>x.sku).filter(Boolean), ...used]); used.push(sku);
     $("#avRows").insertAdjacentHTML("beforeend", avRow(src, sku).replace('<input class="sel" data-ar="name" placeholder="e.g. Large" aria-label="Attribute name">', `<input class="sel" data-ar="name" value="${esc(n)}" readonly aria-label="Option">`)); });
@@ -5100,7 +5100,7 @@ async function addVariant(){
   const skus = rows.map(r => r.sku).filter(Boolean), usedSku = rows.find(r => r.sku && (S.products.some(x => live(x) && x.sku===r.sku) || skus.indexOf(r.sku)!==skus.lastIndexOf(r.sku)));
   if(usedSku) return err(`SKU ${usedSku.sku} is already used.`);
   const src = varKids(p)[0] || p;
-  $("#avSave").disabled = true;
+  $("#avSave").disabled = true; $("#avSave").textContent = "Adding…";
   try{
     const links = (p.variants||[]).filter(v => S.products.some(x=>x.id===v.productId && live(x))).map(v => ({ ...v, group }));
     for(const r of rows){
@@ -5113,7 +5113,7 @@ async function addVariant(){
     }
     const upd = { variantSetId: set.id, variants: links, ingredients: [], modifiers: [] };   // the attributes carry recipes and modifiers
     await put("products", p.id, upd); Object.assign(p, upd); closeCrud(); toast(`${rows.length} ${rows.length===1?"attribute":"attributes"} added`); render(); }
-  catch(e){ console.error(e); err("Couldn't save."); $("#avSave").disabled = false; }
+  catch(e){ console.error(e); err("Couldn't add the variant."); $("#avSave").disabled = false; $("#avSave").textContent = "Add"; }
 }
 async function renameVariantGroup(){
   const p = S.products.find(x=>x.id===DET.id); if(!p) return;
