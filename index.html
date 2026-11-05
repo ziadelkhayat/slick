@@ -133,11 +133,19 @@ tr:last-child td{border-bottom:0}
 .f{display:flex;flex-direction:column;gap:5px}
 .f.full{grid-column:1/-1}
 .f label{font-size:12px;font-weight:500;color:var(--ink2)}
-.detform{padding:0!important;margin-bottom:16px;overflow:hidden}.detform .body{padding:20px 22px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px 18px}
+.detform{padding:0!important;margin-bottom:16px;overflow:hidden}
+.dsec{padding:20px 22px;border-bottom:1px solid var(--line,#ecebf2)}.dsec h3{margin:0 0 14px;font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--mut,#8b8996)}
+.dgrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px 18px;align-items:start}.dgrid.d2{grid-template-columns:repeat(2,minmax(0,1fr))}
+.dgrid .f,.dtop>.f{min-width:0;margin:0;display:flex;flex-direction:column;gap:5px}.dgrid .f.full{grid-column:1/-1}.dgrid .f>input,.dgrid .f>select,.dgrid .f>textarea{width:100%;max-width:100%}
+.dtop{display:grid;grid-template-columns:150px minmax(0,1fr);gap:20px;align-items:start}.dtop>.f{grid-column:1!important;grid-row:1}.dtop>.dgrid{grid-column:2;grid-row:1}
+.dtop>.f>label:first-child{display:none}.dtop .imgf{display:block}.dtop .imgprev{width:150px!important;height:150px!important;border-radius:14px}.dtop .imgside{margin-top:8px;display:flex;flex-direction:column;gap:6px}.dtop .imgside .note,.dtop .imgbtn{display:none}.dtop .imgrm{font-size:12px;padding:6px 10px}
+.dtop textarea{min-height:64px}
+.dstat{display:flex;flex-direction:column;gap:2px;padding:9px 12px;border-radius:10px;background:var(--bg,#f6f5f9);align-self:end}.dstat b{font-size:16px}
+.detform .body{padding:20px 22px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px 18px}
 .detform .body .f{min-width:0;margin:0;display:flex;flex-direction:column;gap:5px}.detform .body .f.full{grid-column:1/-1}.detform .body .f>input,.detform .body .f>select,.detform .body .f>textarea{width:100%;max-width:100%}
 .detfoot{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:12px 22px;border-top:1px solid var(--line,#ecebf2);background:#fafafd;position:sticky;bottom:0;z-index:2}.detfoot .err{margin:0}.detfoot .note{font-size:13px}
-@media(max-width:900px){.detform .body{grid-template-columns:repeat(2,minmax(0,1fr))}}
-@media(max-width:600px){.detform .body{grid-template-columns:minmax(0,1fr);padding:16px}.detfoot{padding:12px 16px}.detfoot .note{flex-basis:100%}}
+@media(max-width:900px){.dgrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:600px){.dgrid,.dgrid.d2{grid-template-columns:minmax(0,1fr)}.dsec{padding:16px}.dtop{grid-template-columns:minmax(0,1fr);gap:14px}.dtop>.dgrid{grid-column:1;grid-row:2}.dtop .imgprev{width:110px!important;height:110px!important}.detfoot .note{flex-basis:100%}.detfoot{padding:12px 16px}}
 .f input,.f select,.f textarea{padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--surface)}
 .f input:focus,.f select:focus,.f textarea:focus{outline:2px solid var(--chart-soft);border-color:var(--chart)}
 .chk{display:flex;align-items:center;gap:8px;font-size:13px}
@@ -1509,7 +1517,7 @@ function viewDashboard(){
   const act = activeBranches();
   const list = state.branch==="all" ? act : act.filter(b=>b.id===state.branch);
   const tabs = [["general","General"],["branches","Branches"],["inventory","Inventory"],["call-center","Call Center"]];
-  let h = `<h1>Welcome, ${esc(state.userName||"Admin")}</h1><p class="subt">${state.branch==="all" ? `All ${act.length} active branches` : esc(list[0]?.name||"")}</p>
+  let h = `<h1>Welcome, ${esc(state.userName||"Admin")}</h1>
     <div class="tabs">${tabs.map(([k,t])=>`<a href="#dashboard" data-dt="${k}" class="${state.dashTab===k?"on":""}">${t}${k==="kitchen"?' <span class="new">New!</span>':""}</a>`).join("")}</div>`;
   if(!act.length) return h + `<div class="card empty">No active branches yet.<br><br><a class="btn pri" href="#branches">Add your first branch</a></div>`;
   if(storeMode!=="db") return h + placeholder("Dashboard", "Sign in to see live sales.");
@@ -2677,7 +2685,7 @@ function openCrud(key, id, inline, draft){
     const list = f.t==="list" ? `<datalist id="${idA}_dl">${f.opts().map(o=>`<option value="${esc(o)}">`).join("")}</datalist>` : "";
     return `<div class="f${full}"><label for="${idA}">${f.l}${f.req?" *":""}</label><input id="${idA}" ${f.t==="number"?'type="number" step="any" min="0"':""} ${f.t==="list"?`list="${idA}_dl"`:""} value="${esc(v??"")}" placeholder="${esc(f.ph||"")}">${list}</div>`;
   };
-  if(inline) return cfg.fields.map(field).join("");   // the item page edits in place (no pop-up)
+  if(inline) return (Array.isArray(inline) ? inline.map(k => cfg.fields.find(x => x.k===k)).filter(Boolean) : cfg.fields).map(field).join("");   // the item page edits in place (no pop-up)
   $("#crudBox").innerHTML = `<header><h2>${r?"Edit":(cfg.addLbl||"Create")} ${cfg.one}</h2><button type="button" class="x" data-cclose aria-label="Close">×</button></header>
     <div class="body">${cfg.fields.map(field).join("")}<div class="err" id="cErr"></div></div>
     <footer>${r ? (r.deleted ? `<button type="button" class="btn" id="cRestore" style="margin-right:auto">Restore</button>` : `<button type="button" class="btn danger" id="cDelete" style="margin-right:auto">Delete</button>`) : ""}
@@ -5009,7 +5017,7 @@ function ingEditor(forKey, rec){
   }).join("");
   const unit = forKey==="modifier-options" ? "this option (added on top of the product's own ingredients)" : isProd ? "1 portion of this product" : `1 ${esc(rec.storageUnit||"unit")} of this item`;
   const vfor = forKey==="products" && DET.ingFor ? DET.ingFor : "";
-  return `<div class="card tbl" style="margin-bottom:16px" id="ingCard"><div class="ttop"><b>Ingredients${vfor ? ` · ${esc(vfor)}` : ""}</b>${vfor ? ` <button class="btn sm" data-pvrec="" style="margin-left:8px">← Product recipe</button>` : ""}<span class="note" style="margin-left:8px">Quantities to make ${vfor ? "1 " + esc(vfor) : unit}, in each ingredient's ingredient unit.</span><div class="sp"></div>
+  return `<div class="card tbl" style="margin-bottom:16px" id="ingCard"><div class="ttop"><b>Ingredients${vfor ? ` · ${esc(vfor)}` : ""}</b>${vfor ? ` <button class="btn sm" data-pvrec="" style="margin-left:8px">← Product recipe</button>` : ""}<span class="note" style="margin-left:8px">For ${vfor ? "1 " + esc(vfor) : unit}</span><div class="sp"></div>
       <input class="sel" id="ingAdd" list="ingAddL" placeholder="Add ingredient: name or SKU" style="min-width:240px"><datalist id="ingAddL">${avail.map(i=>`<option value="${esc(i.name)} · ${esc(i.sku||"")}">`).join("")}</datalist>
       <button class="btn pri sm" data-ingsave ${DET.dirtyIng && !DET.saving ? "" : "disabled"}>${DET.saving?"Saving…":"Save ingredients"}</button></div>
     ${rows.length ? `<table><thead><tr>${head}</tr></thead><tbody>${body}</tbody><tfoot><tr><td colspan="3"><b>Total ingredients cost</b></td><td class="num"><b id="ingTotal">${fmtCost(total)}</b></td><td></td></tr></tfoot></table>`
@@ -5026,8 +5034,13 @@ function productDetail(p){
   if(old && old.dataset.id===p.id && old.dataset.dirty){ draft = {}; old.querySelectorAll("[id^=cf_]").forEach(el => { const k = el.id.slice(3); if(/_(file|prev|cc|new|dl)$/.test(k)) return; draft[k] = el.type==="checkbox" ? el.checked : el.value; }); }
   let h = `<div class="phead"><a href="#products" class="btn" data-detback style="text-decoration:none">← Back</a><h1 style="margin-left:10px">${esc(p.name)}</h1>
     <div class="sp"></div>${p.deleted ? `<button type="button" class="btn" data-detrestore>Restore</button>` : `<button type="button" class="btn danger" data-detdelete>Delete</button>`}</div>`;
-  h += `<form id="detForm" class="card detform" data-id="${esc(p.id)}"${draft ? ' data-dirty="1"' : ""} novalidate><div class="body">${openCrud("products", p.id, true, draft)}</div>
-    <div class="detfoot"><span class="note">${varKids(p).length ? "Price and tax are set on each variant. " : ""}${p.costingMethod==="fixed" ? "Fixed cost" : "Ingredients cost"} ${fmtCost(cost)}${price && !varKids(p).length ? ` · cost ${pct.toFixed(1)} % of the price` : ""}</span><span class="sp"></span><div class="err" id="cErr"></div><button type="button" class="btn" data-detrevert ${draft ? "" : "disabled"}>Discard</button><button type="submit" class="btn pri" id="detSave" ${draft ? "" : "disabled"}>Save changes</button></div></form>`;
+  const F = keys => openCrud("products", p.id, keys, draft), vk = varKids(p).length;
+  h += `<form id="detForm" class="card detform" data-id="${esc(p.id)}"${draft ? ' data-dirty="1"' : ""} novalidate>
+    <div class="dsec dtop">${F(["imageUrl"])}<div class="dgrid d2">${F(["name","nameAr"])}${F(["description"])}</div></div>
+    <div class="dsec"><h3>Details</h3><div class="dgrid">${F(["categoryId", ...(brandList().length > 1 ? ["brandId"] : []), "sku", "sellingMethod", "prepTime"])}</div></div>
+    <div class="dsec"><h3>Price</h3>${vk ? `<p class="note" style="margin:0">Each variant has its own price and tax: open it from Variants below.</p>` : `<div class="dgrid">${F(["pricingMethod","price","taxGroup"])}</div>`}</div>
+    ${vk ? "" : `<div class="dsec"><h3>Cost</h3><div class="dgrid">${F(["costingMethod","cost"])}<div class="dstat"><span class="note">${p.costingMethod==="fixed" ? "Fixed cost" : "Ingredients cost"}</span><b>${fmtCost(cost)}</b>${price ? `<span class="note">${pct.toFixed(1)} % of the price</span>` : ""}</div></div></div>`}
+    <div class="detfoot"><span class="note" id="detHint">${draft ? "You have unsaved changes" : "All changes saved"}</span><span class="sp"></span><div class="err" id="cErr"></div><button type="button" class="btn" data-detrevert ${draft ? "" : "disabled"}>Discard</button><button type="submit" class="btn pri" id="detSave" ${draft ? "" : "disabled"}>Save changes</button></div></form>`;
   if(false) h += infoGrid([info("Name", esc(p.name)), info("Name Localized", esc(p.nameAr||"—")), info("Brand", esc(brandName(p.brandId))), info("Category", esc(catName(p.categoryId))),
     info("SKU", `<span class="code">${esc(p.sku||"—")}</span>`), info("Tax Group", varKids(p).length ? "Set on each variant" : esc(tgName(p.taxGroup))),
     info("Pricing Method", p.pricingMethod==="open"?"Open Price":"Fixed Price"), info("Selling Method", p.sellingMethod==="weight"?"Weight":"Unit"),
@@ -5054,7 +5067,7 @@ function variantCard(p){
   if(par){ const v = par.variants.find(x => x.productId===p.id);
     return `<div class="card" style="margin-bottom:16px;display:flex;align-items:center;gap:10px"><b>${esc(varGroup(par))}</b><span>${esc(v?.name||"")} of <a href="#products" class="lnk" data-detopen="products:${esc(par.id)}">${esc(par.name)}</a></span><span class="note">The POS, call center and web ordering show ${esc(par.name)} and ask which ${esc(varGroup(par).toLowerCase())}; this product is what's sold.</span></div>`; }
   const rows = (p.variants||[]).map(v => ({ v, k: S.products.find(x => x.id===v.productId && live(x)) })).filter(x => x.k);
-  if(!rows.length) return `<div class="card tbl" style="margin-bottom:16px"><div class="ttop" style="gap:8px"><b>Variants</b><span class="note">Sold in sizes or versions? Choose a variant made under Menu → Variants (e.g. Size: Small, Medium, Large).</span><div class="sp"></div><button class="btn pri sm" data-pvadd>+ Add variant</button></div></div>`;
+  if(!rows.length) return `<div class="card tbl" style="margin-bottom:16px"><div class="ttop" style="gap:8px"><b>Variants</b><span class="note">None · sold in sizes? Add one</span><div class="sp"></div><button class="btn pri sm" data-pvadd>+ Add variant</button></div></div>`;
   return `<div class="card tbl" style="margin-bottom:16px"><div class="ttop" style="flex-wrap:wrap;gap:8px"><b>Variant: ${esc(varGroup(p))}</b><span class="note">Each attribute is sold as its own product with its own price, tax, SKU, recipe and modifiers. This product's price and tax aren't used.</span><div class="sp"></div>
       <button class="btn pri sm" data-pvadd>+ Add attribute</button></div>
     <table><thead><tr><th>${esc(varGroup(p))}</th><th>Product</th><th>SKU</th><th class="num">Price</th><th>Tax</th><th class="num">Cost</th><th></th></tr></thead><tbody>${rows.map(({v,k}) => `<tr class="clk" data-detopen="products:${esc(k.id)}" title="Open ${esc(k.name)}"><td><b>${esc(v.name)}</b></td><td><a href="#products" class="lnk" data-detopen="products:${esc(k.id)}">${esc(k.name)}</a></td><td><span class="code">${esc(k.sku||"")}</span></td><td class="num">${usd(+k.price||0)}</td><td>${esc(tgName(k.taxGroup))}</td><td class="num">${fmtCost(productCost(k))}</td><td><button class="btn sm" data-pvrm="${esc(k.id)}" aria-label="Remove ${esc(v.name)}">×</button></td></tr>`).join("")}</tbody></table></div>`;
@@ -5072,13 +5085,13 @@ function openAddVariant(){
   const cur = has ? varSetOf(p) : (sets.find(x => x.id===DET.avSet) || sets[0]); DET.avSet = cur?.id || "";
   const usedNames = new Set((p.variants||[]).filter(v => S.products.some(x => x.id===v.productId && live(x))).map(v => v.name.toLowerCase()));
   const left = (cur?.options||[]).filter(n => !usedNames.has(String(n).toLowerCase()));
-  $("#crudBox").innerHTML = `<header><h2>${has ? `Add ${esc(varGroup(p).toLowerCase())} · ${esc(p.name)}` : `Add variant · ${esc(p.name)}`}</h2><button type="button" class="x" data-cclose aria-label="Close">×</button></header>
+  $("#crudBox").innerHTML = `<header><h2>${has ? `Add ${esc(varGroup(p).toLowerCase())}` : "Add variant"}</h2><button type="button" class="x" data-cclose aria-label="Close">×</button></header>
   <div class="body" style="display:block">
-    ${has ? "" : `<div class="f"><label for="av_set">Variant *</label><select class="sel" id="av_set">${sets.map(x => `<option value="${esc(x.id)}" ${x.id===DET.avSet?"selected":""}>${esc(x.name)} (${(x.options||[]).map(esc).join(", ")})</option>`).join("")}</select></div>`}
+    ${has ? "" : `<div class="f"><label for="av_set">Variant</label><select class="sel" id="av_set">${sets.map(x => `<option value="${esc(x.id)}" ${x.id===DET.avSet?"selected":""}>${esc(x.name)} (${(x.options||[]).map(esc).join(", ")})</option>`).join("")}</select></div>`}
     ${!cur ? `<p class="note">This product's variant isn't in Menu → Variants. Create it there first.</p>` : !left.length ? `<p class="note">Every option of ${esc(cur.name)} is already used. Add more options to it under Menu → Variants.</p>` : `
-    <div class="avopts"><span class="note">${has ? "Options to add" : `${esc(cur.name)} options`}</span><div>${left.map(n => `<span class="avopt">${esc(n)}</span>`).join("")}</div></div>
+    <div class="avopts"><span class="note">This adds</span><div>${left.map(n => `<span class="avopt">${esc(p.name)} (${esc(n)})</span>`).join("")}</div></div>
     <div id="avRows" hidden></div>
-    <p class="note" style="margin:12px 0 0">Each option becomes its own product, e.g. "${esc(p.name)} (${esc(left[0])})", starting with this product's price, tax and recipe. Set each one's price, tax, SKU, recipe and modifiers inside it after saving.</p>`}
+    <p class="note" style="margin:10px 0 0">They start with this item's price. Open each one after to change its price.</p>`}
     <div class="err" id="cErr"></div>
   </div>
   <footer><button type="button" class="btn" data-cclose>Cancel</button><button type="button" class="btn pri" id="avSave" ${cur && left.length ? "" : "disabled"}>Add</button></footer>`;
@@ -5351,7 +5364,7 @@ function modLinks(p){
   const rows = DET.mods, used = new Set(rows.map(l=>l.modifierId));
   const avail = S.modifiers.filter(m => live(m) && !used.has(m.id)).sort(bySort);
   const num = (ix, f, v, lbl) => `<input type="number" min="0" step="1" class="sel" data-modl="${ix}:${f}" value="${esc(v ?? "")}" style="width:70px;text-align:right" aria-label="${lbl}">`;
-  return `<div class="card tbl" style="margin-bottom:16px"><div class="ttop"><b>Modifiers</b><span class="note" style="margin-left:8px">Choices the customer makes for this product. Minimum 1 makes a choice required; maximum 0 means no limit; "Repeat options" lets the same option be picked several times (each one counts toward the maximum); free options aren't charged.</span><div class="sp"></div>
+  return `<div class="card tbl" style="margin-bottom:16px"><div class="ttop"><b>Modifiers</b><span class="note" style="margin-left:8px" title="Minimum 1 makes a choice required · maximum 0 means no limit · Repeat lets the same option be picked more than once · free options aren't charged">Choices the customer makes</span><div class="sp"></div>
       <select class="sel" id="modAdd" aria-label="Add a modifier"><option value="">Add modifier…</option>${avail.map(m=>`<option value="${esc(m.id)}">${esc(m.name)} (${modOptions(m.id).length})</option>`).join("")}</select>
       <button class="btn pri sm" data-modsave ${DET.dirtyMods && !DET.saving ? "" : "disabled"}>${DET.saving?"Saving…":"Save modifiers"}</button></div>
     ${rows.length ? `<table><thead><tr><th style="width:28px"></th><th>Name</th><th class="num">Options</th><th class="num">Minimum</th><th class="num">Maximum</th><th class="num">Free</th><th title="The same option can be picked more than once, e.g. 2 × Extra cheese">Repeat options</th><th></th></tr></thead><tbody id="modRows">${rows.map((l, ix) => `<tr data-mix="${ix}">
@@ -6090,7 +6103,7 @@ document.body.insertAdjacentHTML("beforeend", `<div class="scrim" id="crudScrim"
   <div class="scrim" id="ccScrim"><div class="modal wide" id="ccBox"></div></div>`);
 $("#crudBox").addEventListener("submit", submitCrud);
 // item page edited in place: Save / Discard light up once something changes
-const detDirty = () => { const fm = $("#detForm"); if(!fm || fm.dataset.dirty) return; fm.dataset.dirty = "1"; $("#detSave").disabled = false; fm.querySelector("[data-detrevert]").disabled = false; };
+const detDirty = () => { const fm = $("#detForm"); if(!fm || fm.dataset.dirty) return; fm.dataset.dirty = "1"; $("#detSave").disabled = false; const hn = $("#detHint"); if(hn) hn.textContent = "You have unsaved changes"; fm.querySelector("[data-detrevert]").disabled = false; };
 document.addEventListener("input", e => { if(e.target.closest?.("#detForm")) detDirty(); });
 document.addEventListener("change", e => { if(e.target.closest?.("#detForm")) detDirty(); });
 document.addEventListener("submit", async e => { if(e.target.id !== "detForm") return; e.preventDefault();
