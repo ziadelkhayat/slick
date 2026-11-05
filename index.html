@@ -930,7 +930,7 @@ button:active:not(:disabled),.btn:active:not(:disabled){transform:scale(.97)}
       <select class="sel" id="branchSel" aria-label="Branch filter"></select>
       <span id="syncPill" style="display:none"></span>
       <div class="sp"></div>
-      <div class="acct"><button type="button" class="acctbtn" id="acctBtn" aria-haspopup="menu" aria-expanded="false"><span class="avatar" id="avatar" aria-hidden="true">S</span><span id="who"></span><span class="chev" aria-hidden="true">▾</span></button>
+      <div class="acct"><button type="button" class="acctbtn" id="acctBtn" aria-haspopup="menu" aria-expanded="false"><span class="avatar" id="avatar" aria-hidden="true"></span><span id="who"></span><script>try{ const c0 = JSON.parse(localStorage.getItem("slick_who") || "null"); if(c0){ document.getElementById("avatar").textContent = c0.av; document.getElementById("who").textContent = c0.who; } }catch(e){}</script><span class="chev" aria-hidden="true">▾</span></button>
         <div class="acctmenu" id="acctMenu" role="menu" hidden>
           <div class="acchead"><b id="amName">—</b><span class="note" id="amEmail"></span><span class="tag on" id="amRole" style="margin-top:6px;align-self:flex-start">Owner</span></div>
           <a href="#account" role="menuitem">Account settings</a>
@@ -1240,7 +1240,7 @@ async function initStore(){
     if(!window.claude || !window.claude.use) { clearTimeout(timer); return fallback(); }
     db = await window.claude.use("db");
     if(!db){ clearTimeout(timer); return fallback(); }
-    try{ const user = await window.claude.use("user"); if(user){ const n = await user.name?.(); if(n){ $("#who").textContent = n; $("#avatar").textContent = String(n).trim().split(/\s+/).map(w=>w[0]).join("").slice(0,2).toUpperCase(); state.userName = String(n).split(" ")[0]; } state.role = await user.role?.(); state.userId = await user.id?.(); state.email = await user.email?.() || ""; state.fullName = n || ""; paintAcct(); setTimeout(() => ensureAdminPin(), 1500); } }catch(e){}
+    try{ const user = await window.claude.use("user"); if(user){ const n = await user.name?.(); if(n){ if(!localStorage.getItem("slick_who")){ $("#who").textContent = n; $("#avatar").textContent = String(n).trim().split(/\s+/).map(w=>w[0]).join("").slice(0,2).toUpperCase(); } state.userName = String(n).split(" ")[0]; } state.role = await user.role?.(); state.userId = await user.id?.(); state.email = await user.email?.() || ""; state.fullName = n || ""; paintAcct(); setTimeout(() => ensureAdminPin(), 1500); } }catch(e){}
     col = db.collection("branches");
     subscribeAll();
     col.onSnapshot(snap => {
@@ -4604,7 +4604,9 @@ document.addEventListener("click", e => { const co = e.target.closest?.("tr[data
 const ROLE_LBL = { owner:"Owner · full access", admin:"Admin", agent:"Staff", cashier:"Cashier" };
 function paintAcct(){
   const n = state.fullName || state.userName || "Account", co = (S.settings.find(x=>x.id==="company")||{}).name;
-  $("#who").textContent = co || n; if(co) $("#avatar").textContent = co.trim().split(/\s+/).map(w=>w[0]).join("").slice(0,2).toUpperCase(); $("#amName").textContent = n; $("#amEmail").textContent = state.email || "";
+  let c0 = null; try{ c0 = JSON.parse(localStorage.getItem("slick_who") || "null"); }catch(e){}
+  if(!co && c0 && !S.settings.some(x => x.id==="company")){ $("#who").textContent = c0.who; $("#avatar").textContent = c0.av; }   // still loading: keep the business name from last time
+  else { $("#who").textContent = co || n; if(co){ const av = co.trim().split(/\s+/).map(w=>w[0]).join("").slice(0,2).toUpperCase(); $("#avatar").textContent = av; try{ localStorage.setItem("slick_who", JSON.stringify({ who:co, av })); }catch(e){} } } $("#amName").textContent = n; $("#amEmail").textContent = state.email || "";
   $("#amRole").textContent = ROLE_LBL[state.role] || (state.role ? cap(state.role) : "Preview");
 }
 $("#acctBtn").addEventListener("click", e => { e.stopPropagation(); const m = $("#acctMenu"), open = m.hidden; m.hidden = !open; $("#acctBtn").setAttribute("aria-expanded", open); });

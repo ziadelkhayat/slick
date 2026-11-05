@@ -349,6 +349,38 @@ input,select,textarea{font-size:16px!important}   /* no zoom-in when a field is 
 .inst .ix{border:0;background:none;color:var(--mut);font-size:20px;width:30px;height:30px;flex:none}
 .bar:not([hidden])~.inst,.inst.up{bottom:calc(86px + env(safe-area-inset-bottom))}
 .inst svg{width:15px;height:15px;vertical-align:-3px}
+/* ---------- ChatFood sizes (measured at 375px wide) ---------- */
+.topbar{background:#f4f6f9;padding:21px 21px 21px}.dark .topbar{background:var(--bg)}
+.tbrow{margin-bottom:14px;min-height:35px}
+.otype{font:600 16px/21px var(--tfont,Inter),system-ui,sans-serif;color:#071c4d;gap:7px}.dark .otype{color:var(--ink)}
+.otype .oi{width:35px;height:35px;box-shadow:none}.otype .oi svg{width:20px;height:20px}
+.otype i{font-size:11px;color:#838da6;margin-left:0}
+.topbar .acbtn{font:700 11px/21px var(--tfont,Inter),system-ui,sans-serif;color:#071c4d;padding:4px 14px;border-radius:50px;box-shadow:none;border:0;min-height:29px}.dark .topbar .acbtn{color:var(--ink)}
+.topbar .acbtn:has(.av){padding:3px 12px 3px 3px}.topbar .acbtn .av{width:23px;height:23px;font-size:10px}
+.locfield{border-radius:7px;padding:10px 14px;min-height:41px;font:400 14px/21px var(--tfont,Inter),system-ui,sans-serif;color:#071c4d;box-shadow:0 7px 14px rgba(0,0,0,.1)}.dark .locfield{color:var(--ink)}
+.locfield>span b{font-weight:400}.locfield small{font-size:11px;line-height:14px}.locfield>i{font-size:11px;color:#838da6}
+.tchips{margin-top:10px}
+.cover,.hstyle-cover .cover{height:210px}
+.hcard{padding:16px;border-bottom:1.6px solid #f5f5f5}.dark .hcard{border-color:var(--line)}
+.hmeta h1{font:800 24px/36px var(--hfont),sans-serif;margin:0 0 4px}
+.hmeta p{font-size:14px;line-height:21px;margin:0}
+.banner{margin-top:12px}
+.tools{padding:16px 16px 0;margin-top:0;border-top:0}
+.tools .srch{height:40px;padding:0 16px;border:.8px solid #f3e5e5;box-shadow:inset 0 2px 4px rgba(0,0,0,.05)}.dark .tools .srch{border-color:var(--line)}
+.tools .srch svg{width:16px;height:16px;color:#a6a6a6}.tools .srch input{padding:0;height:38px}
+.crow{padding:12px 0 8px;gap:4px}.crow .vtog button{width:29px;height:32px}.crow .vtog button svg{width:21px;height:21px}.crow .vtog button:not(.on){color:#888d9a}
+.crow .cats{padding:0;gap:12px}
+.cats button{height:32px;padding:0 16px;font-size:12px;line-height:18px;font-weight:400;color:#888d9a;border:.8px solid #cbd5e0;display:inline-flex;align-items:center}
+.cats button.on{color:#fff;color:var(--on-acc)}
+section.cat{margin:0 -16px;padding:0 16px;border-bottom:9.6px solid #f5f5f5}.dark section.cat{border-color:var(--bg)}
+h2.ch{font:800 20px/30px var(--hfont),sans-serif;margin:0;padding:24px 0 12px}h2.ch small{display:none}h2.ch .cimg{display:none}
+.lay-list .item,.lay-compact .item{padding:16px 0;gap:16px;border-bottom:1px solid #f5f5f5;align-items:flex-start}.dark .lay-list .item{border-color:var(--line)}
+.lay-list .item .ph{width:104px;height:104px;border-radius:6px}.lay-list .item .ph img{border-radius:6px;object-fit:cover}
+.lay-list .item .tx{justify-content:flex-start;gap:0;padding-top:1px}
+.item b{font-weight:400;font-size:16px;line-height:24px;color:#000}.dark .item b{color:var(--ink)}
+.item .pr{font-size:14px;line-height:21px;font-weight:500;margin-top:6px;color:#000}.dark .item .pr{color:var(--ink)}
+.item small{font-size:14px;line-height:21px;color:#888d9a;margin:4px 0 0}
+.lay-grid .item .ph{border-radius:6px}.lay-grid .item .tx{padding:8px 0 4px}
 /* loading screen */
 .splash{position:fixed;inset:0;z-index:100;background:var(--s);display:grid;place-items:center;transition:opacity .3s,visibility .3s}
 .splash.done{opacity:0;visibility:hidden;pointer-events:none}
@@ -435,7 +467,9 @@ function applyTheme(t){
   root.style.setProperty("--acc", acc); root.style.setProperty("--on-acc", lum(acc) > .45 ? "#16151c" : "#fff");
   root.classList.toggle("dark", t.bg==="dark"); root.classList.toggle("warm", t.bg==="warm");
   document.querySelector('meta[name="theme-color"]').content = acc;
-  const f = FONTS[t.font] || FONTS.inter; root.style.setProperty("--font", `"${f[0]}"`); root.style.setProperty("--hfont", `"${f[1]}"`);
+  // default look (like ChatFood): system font for text, Nunito Sans headings, Inter in the top bar
+  const cf = !t.font || t.font==="inter", f = cf ? ["Inter","Nunito Sans"] : FONTS[t.font] || FONTS.inter;
+  root.style.setProperty("--font", cf ? `-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial` : `"${f[0]}"`); root.style.setProperty("--hfont", `"${f[1]}"`); root.style.setProperty("--tfont", cf ? `"Inter"` : `"${f[0]}"`);
   const fam = [...new Set(f)].map(n => "family=" + n.replace(/ /g,"+") + (n==="DM Serif Display" ? "" : ":wght@400;500;600;700;800")).join("&");
   const href = "https://fonts.googleapis.com/css2?" + fam + "&display=swap"; if($("#fontLink").href !== href) $("#fontLink").href = href;
   document.body.classList.remove("rad-sharp","rad-soft","rad-round"); document.body.classList.add("rad-" + (t.radius || "round"));
