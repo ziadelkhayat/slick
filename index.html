@@ -756,6 +756,33 @@ h1:has(.ib),h3:has(.ib){display:inline-flex;align-items:center}
 <div class="toast" id="toast"></div>
 
 <script>
+/* ---------- naming: menu "products" are called Items; inventory "items" are called Products ----------
+   Done on what's shown, so data and links keep their names. On inventory screens both words swap
+   (there "item" meant an inventory item and "product" a menu product); everywhere else Product → Item. */
+const INV_ROUTES = new Set(["inv-categories","inv-items","warehouses","suppliers","purchase-orders","transfer-orders","transfers","inventory-count","production","quantity-adjustments","cost-adjustments","spot-check","count-sheets","inv-levels","inv-history","purchasing","order-transactions","inventory-reports"]);
+const NM_SEEN = new WeakMap();
+function nmCase(src, w){ if(src === src.toUpperCase()) return w.toUpperCase(); if(src[0] === src[0].toUpperCase()) return w[0].toUpperCase() + w.slice(1); return w; }
+function nmText(t, inv){
+  return t.replace(/\b(products?|items?)\b/gi, m => { const l = m.toLowerCase(), pl = l.endsWith("s");
+    if(l.startsWith("product")) return nmCase(m, pl ? "items" : "item");
+    return inv ? nmCase(m, pl ? "products" : "product") : m; });
+}
+function nmApply(root){
+  const inv = INV_ROUTES.has(location.hash.slice(1).split("?")[0]);
+  const skip = el => !el || el.closest?.("#nav, script, style, textarea, [contenteditable], .nm-keep");
+  const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  const fix = n => { if(skip(n.parentElement)) return; const was = NM_SEEN.get(n); if(was === n.data) return; const v = nmText(n.data, inv); if(v !== n.data) n.data = v; NM_SEEN.set(n, n.data); };
+  if(root.nodeType === 3) fix(root); else { let n; while((n = w.nextNode())) fix(n);
+    (root.querySelectorAll ? [root, ...root.querySelectorAll("[placeholder],[title],[aria-label]")] : []).forEach(el => { if(el.nodeType!==1 || skip(el)) return;
+      ["placeholder","title","aria-label"].forEach(a => { const v = el.getAttribute?.(a); if(!v) return; const k = { placeholder:"nmPh", title:"nmTi", "aria-label":"nmAl" }[a]; if(el.dataset[k] === v) return; const nv = nmText(v, inv); if(nv !== v) el.setAttribute(a, nv); el.dataset[k] = nv; }); }); }
+}
+let NMQ = new Set(), NMT = 0;
+new MutationObserver(ms => { ms.forEach(m => { if(m.type === "characterData") NMQ.add(m.target); else m.addedNodes.forEach(n => NMQ.add(n)); });
+  if(!NMT) NMT = requestAnimationFrame(() => { NMT = 0; const q = [...NMQ]; NMQ = new Set(); q.forEach(n => { if(n.isConnected) nmApply(n); }); }); })
+  .observe(document.documentElement, { childList:true, subtree:true, characterData:true });
+window.addEventListener("hashchange", () => setTimeout(() => nmApply(document.body), 0));
+document.addEventListener("DOMContentLoaded", () => nmApply(document.body));
+
 /* ---------- Slick's own Yes / No message (instead of the browser's) ---------- */
 function askDlg(o){
   return new Promise(res => {
@@ -3809,6 +3836,10 @@ const DRP = { el:null, anchor:null, m:null, a:null, hover:null, onPick:null, fro
 // every dropdown menu closes when you tap anywhere outside it, or press Escape
 function closeMenus(except){ document.querySelectorAll(".ddmenu:not([hidden]), #acctMenu:not([hidden]), #ubMenu:not([hidden])").forEach(m => { const w = m.closest(".ddwrap, .acct, #ubDD") || m.parentElement; if(except && w.contains(except)) return; m.hidden = true; if(m.id==="acctMenu") $("#acctBtn")?.setAttribute("aria-expanded", "false"); }); }
 document.addEventListener("pointerdown", e => closeMenus(e.target), true);
+// picking an option in a dropdown menu closes it (after the option's own action has run)
+document.addEventListener("click", e => { const it = e.target.closest?.(".ddmenu button, .ddmenu a, .ddmenu [role=menuitem], #acctMenu button, #acctMenu a, #ubMenu label, #ubMenu button"); if(!it) return;
+  const m = it.closest(".ddmenu, #acctMenu, #ubMenu"); if(m && m.id === "ubMenu" && it.matches("label")) return;   // the branch picker stays open while ticking branches
+  setTimeout(() => { if(m && m.isConnected && !m.hidden){ m.hidden = true; if(m.id==="acctMenu") $("#acctBtn")?.setAttribute("aria-expanded","false"); } }, 0); });
 document.addEventListener("keydown", e => { if(e.key==="Escape") closeMenus(); });
 function drpClose(){ DRP.el?.remove(); DRP.el = null; DRP.a = null; }
 function drpOpen(anchor, from, to, onPick){

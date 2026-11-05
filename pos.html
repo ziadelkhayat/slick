@@ -468,6 +468,33 @@ button,input,select,textarea{font-family:var(--f-ui)}
 .rpaper{width:400px;max-width:100%;margin:0 auto;background:#fff;color:#111;padding:20px 18px 18px;border-radius:6px;box-shadow:0 2px 14px rgba(21,19,31,.1);font-size:14px;line-height:1.4}
 </style>
 <script>
+/* ---------- naming: menu "products" are called Items; inventory "items" are called Products ----------
+   Done on what's shown, so data and links keep their names. On inventory screens both words swap
+   (there "item" meant an inventory item and "product" a menu product); everywhere else Product → Item. */
+const INV_ROUTES = new Set(["inv-categories","inv-items","warehouses","suppliers","purchase-orders","transfer-orders","transfers","inventory-count","production","quantity-adjustments","cost-adjustments","spot-check","count-sheets","inv-levels","inv-history","purchasing","order-transactions","inventory-reports"]);
+const NM_SEEN = new WeakMap();
+function nmCase(src, w){ if(src === src.toUpperCase()) return w.toUpperCase(); if(src[0] === src[0].toUpperCase()) return w[0].toUpperCase() + w.slice(1); return w; }
+function nmText(t, inv){
+  return t.replace(/\b(products?|items?)\b/gi, m => { const l = m.toLowerCase(), pl = l.endsWith("s");
+    if(l.startsWith("product")) return nmCase(m, pl ? "items" : "item");
+    return inv ? nmCase(m, pl ? "products" : "product") : m; });
+}
+function nmApply(root){
+  const inv = false;
+  const skip = el => !el || el.closest?.("#nav, script, style, textarea, [contenteditable], .nm-keep");
+  const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  const fix = n => { if(skip(n.parentElement)) return; const was = NM_SEEN.get(n); if(was === n.data) return; const v = nmText(n.data, inv); if(v !== n.data) n.data = v; NM_SEEN.set(n, n.data); };
+  if(root.nodeType === 3) fix(root); else { let n; while((n = w.nextNode())) fix(n);
+    (root.querySelectorAll ? [root, ...root.querySelectorAll("[placeholder],[title],[aria-label]")] : []).forEach(el => { if(el.nodeType!==1 || skip(el)) return;
+      ["placeholder","title","aria-label"].forEach(a => { const v = el.getAttribute?.(a); if(!v) return; const k = { placeholder:"nmPh", title:"nmTi", "aria-label":"nmAl" }[a]; if(el.dataset[k] === v) return; const nv = nmText(v, inv); if(nv !== v) el.setAttribute(a, nv); el.dataset[k] = nv; }); }); }
+}
+let NMQ = new Set(), NMT = 0;
+new MutationObserver(ms => { ms.forEach(m => { if(m.type === "characterData") NMQ.add(m.target); else m.addedNodes.forEach(n => NMQ.add(n)); });
+  if(!NMT) NMT = requestAnimationFrame(() => { NMT = 0; const q = [...NMQ]; NMQ = new Set(); q.forEach(n => { if(n.isConnected) nmApply(n); }); }); })
+  .observe(document.documentElement, { childList:true, subtree:true, characterData:true });
+window.addEventListener("hashchange", () => setTimeout(() => nmApply(document.body), 0));
+document.addEventListener("DOMContentLoaded", () => nmApply(document.body));
+
 /* ---------- Slick's own Yes / No message (instead of the browser's) ---------- */
 function askDlg(o){
   return new Promise(res => {
@@ -1677,7 +1704,7 @@ $("#abar").addEventListener("click", e => { const b = e.target.closest("[data-a]
   if(a==="retrieve") return heldList().length ? openHeld() : toast("No held orders");
   if(a==="notes"){ if(eo && !isOpenOrd(eo)) return toast("This order is closed"); if(!eo && !cart.length) return toast("Add items first"); return openNotes(); }
 });
-document.addEventListener("click", e => { if(!e.target.closest("#morePop") && !e.target.closest("#menuBtn")) hideMore(); });
+document.addEventListener("click", e => { if(e.target.closest("#morePop button, #morePop .mitem")){ setTimeout(hideMore, 0); return; } if(!e.target.closest("#morePop") && !e.target.closest("#menuBtn")) hideMore(); });
 $("#syncDataBtn").addEventListener("click", () => { hideMore(); window.WOK?.sync?.flush?.(); toast(navigator.onLine ? "Syncing data…" : "Offline · will sync when the connection is back"); });
 $("#deviceBtn").addEventListener("click", () => { hideMore(); can("pos_settings") ? openMore() : deny("device settings"); });
 $("#exitBtn").addEventListener("click", () => { hideMore(); if(!usePins()) return toast("Add staff PINs in the back office (Users) to use sign-in"); lock(); toast("Logged out"); });
