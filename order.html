@@ -264,10 +264,10 @@ PUB = await sb.rpc("slick_public_settings").then(r => (!r.error && r.data) ? { .
 let incl = true;   // set below: true when every tax is inclusive
 const [st, br, ca, pr, zo, mg, tx, tg, mo] = await Promise.all([
   sb.from("settings").select("data").eq("id","online_"+brandId).maybeSingle(),
-  sb.from("branches").select("id,name,open_time,close_time,settings").eq("brand_id", brandId),
+  sb.from("branches").select("id,name,open_time,close_time,settings,active").eq("brand_id", brandId),
   sb.from("categories").select("id,name,sort,inactive_branch_ids,deleted,channel,product_ids,image_url").order("sort").order("name"),
-  sb.from("products").select("id,name,price,description,category_id,active,channels,branch_ids,pricing_method,custom_prices,inactive_branch_ids,out_of_stock_branch_ids,modifiers,sort,image_url,tax_group,variants").eq("brand_id", brandId).order("sort").order("name"),
-  sb.from("delivery_zones").select("id,name,branch_id,fee,min_order,eta,polygon").order("name"),
+  sb.from("products").select("id,deleted,name,price,description,category_id,active,channels,branch_ids,pricing_method,custom_prices,inactive_branch_ids,out_of_stock_branch_ids,modifiers,sort,image_url,tax_group,variants").eq("brand_id", brandId).order("sort").order("name"),
+  sb.from("delivery_zones").select("id,name,branch_id,fee,min_order,eta,polygon,active,deleted").order("name"),
   sb.from("modifiers").select("id,name,sort,deleted"),
   sb.from("taxes").select("*"), sb.from("tax_groups").select("id,tax_ids,deleted"),
   sb.from("modifier_options").select("id,modifier_id,name,price,custom_prices,inactive_branch_ids,out_of_stock_branch_ids,sort,active,deleted")
@@ -282,7 +282,7 @@ const taxIn = () => +taxParts().tax.toFixed(2);
 const grand = () => +(sub() + fee() + taxParts().add).toFixed(2);
 const mopts = (mo.data||[]).filter(o => !o.deleted);
 if([st,br,ca,pr,zo].some(r => r.error)){ $("#main").innerHTML = `<div class="closed"><b>We couldn't load the menu.</b>Please try again in a moment.</div>`; return; }
-const cfg = st.data?.data || {}, branches = br.data, allCats = ca.data.filter(c => !c.deleted), webCats = allCats.filter(c => c.channel==="online"), useCh = webCats.length > 0, cats = useCh ? webCats : allCats.filter(c => !c.channel), products = pr.data, zones = zo.data.filter(z => branches.some(b => b.id === z.branch_id));
+const cfg = st.data?.data || {}, branches = br.data.filter(b => b.active !== false), allCats = ca.data.filter(c => !c.deleted), webCats = allCats.filter(c => c.channel==="online"), useCh = webCats.length > 0, cats = useCh ? webCats : allCats.filter(c => !c.channel), products = pr.data.filter(p => !p.deleted), zones = zo.data.filter(z => !z.deleted && z.active !== false && branches.some(b => b.id === z.branch_id));
 const bcfg = id => (cfg.branches||{})[id] || {};
 const modeOn = (m, b) => (cfg.modes||{})[m] !== false && (!b || bcfg(b)[m] !== false);
 const CO = () => cfg.checkout || {};
@@ -347,12 +347,14 @@ function inside(pt, poly){
   }
   return c;
 }
+// cart prices follow the branch the order goes to (each branch can have its own web prices)
+const reprice = () => cart.forEach(i => { const p = products.find(x => x.id===i.productId); if(p) i.price = +(priceOf(p) + (+i.optPrice||0)).toFixed(2); });
 function locate(){
   zoneId = "";
   if(pin){ const z = zoneList().find(z => inside(pin, z.polygon)); if(z) zoneId = z.id; }
   const zs = $("#zoneStatus"); if(zs) zs.innerHTML = !pin ? `<div class="info">Finding your location… If it doesn't appear, allow location access or tap the map where you are.</div>`
     : zoneId ? zoneInfo() : `<div class="warn">Sorry, we don't deliver to this location yet.${modeOn("takeaway") ? " You can order for pickup instead." : ""}</div>`;
-  cart = cart.filter(i => visible().some(p=>p.id===i.productId));
+  cart = cart.filter(i => visible().some(p=>p.id===i.productId) && !oos(products.find(p=>p.id===i.productId))); reprice();
   renderHead(); renderMenu();
 }
 function setPin(latlng, pan){
@@ -451,7 +453,7 @@ const sub = () => cart.reduce((a,i)=>a+i.price*i.qty,0);
 const fee = () => mode==="delivery" ? (+zones.find(z=>z.id===zoneId)?.fee||0) : 0;
 const minOrder = () => mode==="delivery" ? (+zones.find(x=>x.id===zoneId)?.min_order||0) : mode==="takeaway" ? (+bcfg(branchId).minPickup||0) : 0;
 function cartLines(){ return cart.map((i,ix)=>`<div class="line"><span class="q">${i.qty}</span><div class="nm">${esc(i.name)}${modList(i)}<button type="button" class="rm" data-rm="${ix}">Remove</button></div><div class="rt">${usd(i.price*i.qty)}</div></div>`).join(""); }
-function totals(){ return `<div class="tot">${mode==="delivery"?`<div><span>Delivery</span><span>${zoneId?usd(fee()):"—"}</span></div>`:""}<div><span>Subtotal</span><span>${usd(grand()-taxIn())}</span></div><div><span>Tax${incl?" (included)":""}</span><span>${usd(taxIn())}</span></div><div class="g"><span>Total</span><span>${usd(grand())}</span></div>${usd2(grand()) ? `<div><span></span><span>≈ ${usd2(grand())}</span></div>` : ""}</div>`; }
+function totals(){ return `<div class="tot">${mode==="delivery"?`<div><span>Delivery</span><span>${zoneId?usd(fee()):"—"}</span></div>`:""}<div><span>Subtotal</span><span>${usd(grand()-taxIn()-fee())}</span></div><div><span>Tax${incl?" (included)":""}</span><span>${usd(taxIn())}</span></div><div class="g"><span>Total</span><span>${usd(grand())}</span></div>${usd2(grand()) ? `<div><span></span><span>≈ ${usd2(grand())}</span></div>` : ""}</div>`; }
 function renderBar(){ const n = cart.reduce((a,i)=>a+i.qty,0); $("#bar").hidden = !n; $("#cartCount").textContent = n; $("#cartTotal").textContent = usd(sub());
   const min = minOrder();
   $("#side").innerHTML = `<div class="card"><h3>${ic("cart","width:20px;height:20px")}Your order</h3>${n ? cartLines() + totals() + (min && sub()<min ? `<div class="warn">Minimum order is ${usd(min)}.</div>` : "") + `<button type="button" class="primary" data-checkout ${min && sub()<min ? "disabled" : ""}>Checkout · ${usd(grand())}</button>`
@@ -467,7 +469,7 @@ const shell = () => `<div id="whereBox" class="where"></div><div class="tools">$
 if(!cfg.enabled && !PREVIEW){ renderHead(); $("#main").innerHTML = `<div class="closed"><b>Web ordering is closed right now.</b>Please call us or try again later.</div>`; return; }
 $("#main").innerHTML = shell();
 $("#main").addEventListener("click", e => {
-  const m = e.target.closest("[data-mode]"); if(m){ mode = m.dataset.mode; if(mode!=="delivery") zoneId = ""; cart = cart.filter(i => visible().some(p=>p.id===i.productId)); render(); return; }
+  const m = e.target.closest("[data-mode]"); if(m){ mode = m.dataset.mode; if(mode!=="delivery") zoneId = ""; cart = cart.filter(i => visible().some(p=>p.id===i.productId) && !oos(products.find(p=>p.id===i.productId))); reprice(); render(); return; }
   if(e.target.closest("#locBtn")) return useLocation();
   const c = e.target.closest("[data-cat]"); if(c){ document.getElementById("c_"+c.dataset.cat)?.scrollIntoView({ behavior:"smooth", block:"start" }); return; }
   const qb = e.target.closest("[data-q]"); if(qb){ const [id,d] = qb.dataset.q.split(":"); const p = products.find(x=>x.id===id);
@@ -541,7 +543,7 @@ async function placeOrder(e){
     branch_id:b, zone_id: mode==="delivery" ? zoneId : null, table_no: mode==="dinein" ? (tableNo||null) : null,
     lat: mode==="delivery" ? pin[0] : null, lng: mode==="delivery" ? pin[1] : null,
     customer_name:$("#cName").value.trim(), phone, address: mode==="delivery" ? addrJoin(Object.fromEntries(["label","street","building","floor","extra"].map(k => [k, $("#cA_"+k).value]))) : null, notes: note || null,
-    items: cart, subtotal:+sub().toFixed(2), delivery_fee:fee(), discount:0, total:grand() };
+    items: cart, subtotal:+sub().toFixed(2), delivery_fee:fee(), discount:0, tax:taxIn(), total:grand(), scheduled_at: later ? at.toISOString() : null };
   const { error } = await sb.from("orders").insert(row);
   if(error){ console.error(error); err("We couldn't place your order. Please try again or call us."); $("#place").disabled = false; $("#place").textContent = `Place order · ${usd(grand())}`; return; }
   const bn = bb?.name || "", wa = String(bcfg(b).whatsapp || (cfg.social||{}).whatsapp || "").replace(/[^\d]/g, "");

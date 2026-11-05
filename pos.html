@@ -476,6 +476,8 @@ button,input,select,textarea{font-family:var(--f-ui)}
 .calg .cd:hover:not(:disabled){background:#f1ecff}.calg .cd:disabled{color:#c8c6d0;cursor:default}
 .calg .cd.in{background:#efe9fd;border-radius:0}.calg .cd.ed{background:var(--acc,#6a4cf5);color:#fff}.calg .cd.today:not(.ed){box-shadow:inset 0 0 0 1.5px var(--acc,#6a4cf5)}
 .caln{font-size:12.5px;color:#8d8c98;text-align:center;margin-top:8px}
+.acard.ro{cursor:default}.acard.ro:hover{border-color:var(--line);box-shadow:none}
+.toast,#toast{z-index:2147483001!important;pointer-events:none}
 .ovrw{position:relative}
 .ovrange{display:inline-flex;align-items:center;gap:8px;height:56px;padding:0 18px;border:1px solid var(--line);border-radius:14px;background:var(--s,#fff);font:inherit;font-weight:700;font-size:15px;color:var(--ink);white-space:nowrap;cursor:pointer}
 .ovrange svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}.ovrange.on{border-color:var(--acc,#6a4cf5);color:var(--acc,#6a4cf5);background:#f3efff}
@@ -564,7 +566,7 @@ function askText(msg, def){ return askDlg({ msg, input: def ?? "", yes:"OK", no:
 window.SLICK_OFFLINE = true;</script>
 <script src="supabase.js"></script>
 <script>if(!window.supabase) document.write('<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"><\/script>');</script>
-<script src="wokdb.js?v=32"></script>
+<script src="wokdb.js?v=33"></script>
 <script src="modpick.js?v=11"></script>
 </head>
 <body>
@@ -766,11 +768,13 @@ function nextOrderNo(){
   const since = S.day_closes.filter(c => c.branchId===device.branchId).reduce((m,c) => Math.max(m, +new Date(c.closedAt) || 0), 0);
   const key = "slickNo_" + device.branchId; let c = {}; try{ c = JSON.parse(store.get(key) || "{}"); }catch(e){}
   let n = c.since===since ? +c.n||0 : 0;
-  S.orders.forEach(o => { if(o.branchId===device.branchId && o.no && o.status!=="refund" && +new Date(o.createdAt) > since) n = Math.max(n, parseInt(String(o.no).replace(/\D/g,""),10)||0); });
+  // the latest order of the day (not the highest number), so the sequence carries on after it wraps at Call Number Reset
+  let last = null; S.orders.forEach(o => { if(o.branchId===device.branchId && o.no && o.status!=="refund" && +new Date(o.createdAt) > since && (!last || +new Date(o.createdAt) > +new Date(last.createdAt))) last = o; });
+  if(last && (!c.at || +new Date(last.createdAt) > c.at)) n = parseInt(String(last.no).replace(/\D/g,""),10)||0;
   // Device Settings: Call Number Start / Call Number Reset
   const st = Math.max(1, +devSet().callStart || 1), rs = +devSet().callReset || 0;
   n = n < st - 1 ? st - 1 : n; n++; if(rs && n > rs) n = st;
-  store.set(key, JSON.stringify({ since, n })); return String(n);
+  store.set(key, JSON.stringify({ since, n, at: Date.now() })); return String(n);
 }
 // a number taken for an order that then couldn't be saved goes back, so the sequence has no gap
 function giveBackNo(no){ const key = "slickNo_" + device.branchId; try{ const c = JSON.parse(store.get(key) || "{}"); if(String(c.n)===String(no)){ c.n = +no - 1; store.set(key, JSON.stringify(c)); } }catch(e){} }
@@ -827,7 +831,7 @@ function incNote(fresh){
   const pend = incoming().filter(o => o.status==="pending"), o = fresh[fresh.length-1], n = pend.length || fresh.length;
   const src = x => x.channel==="callcenter" ? "call-center" : "online";
   let el = document.getElementById("incNote"); if(!el){ el = document.createElement("div"); el.id = "incNote"; el.className = "incnote"; el.setAttribute("role","alert"); document.body.appendChild(el); }
-  el.innerHTML = `<span class="ii">${ico(o.channel==="callcenter" ? "headset" : "globe")}<em>${n}</em></span><span class="it"><b>${fresh.length===1 ? `New ${src(o)} order` : `${fresh.length} new orders`}</b><span>${esc([o.customerName, o.type==="delivery" ? "Delivery" : "Pickup", usd(o.total)].filter(Boolean).join(" · "))}${n > 1 ? ` · ${n} waiting` : ""}</span></span><button type="button" class="iv" data-incview>View</button><button type="button" class="ix" data-incx aria-label="Dismiss">✕</button>`;
+  el.innerHTML = `<span class="ii">${ico(o.channel==="callcenter" ? "headset" : "globe")}<em>${n}</em></span><span class="it"><b>${fresh.length===1 ? `New ${src(o)} order` : `${fresh.length} new orders`}</b><span>${esc([o.customerName, typLbl(o.type) + (o.type==="dinein" && o.table ? " · " + tblLbl(o.table) : ""), usd(o.total)].filter(Boolean).join(" · "))}${n > 1 ? ` · ${n} waiting` : ""}</span></span><button type="button" class="iv" data-incview>View</button><button type="button" class="ix" data-incx aria-label="Dismiss">✕</button>`;
 }
 document.addEventListener("click", e => { if(e.target.closest("[data-incx]")){ document.getElementById("incNote")?.remove(); return; }
   if(e.target.closest("[data-incview]")){ document.getElementById("incNote")?.remove(); $("#boardBtn")?.click(); } });
@@ -835,9 +839,9 @@ const canAccept = () => true;   // every register in the branch can accept or de
 const masterNote = () => `Accepted on the master POS${masterDev()?.name ? " (" + masterDev().name + ")" : ""}`;
 async function autoAccept(){
   if(!isMaster()) return;
-  for(const o of S.orders.filter(o => o.branchId===device.branchId && o.channel!=="pos" && o.status==="pending" && !autoDone.has(o.id))){
+  for(const o of S.orders.filter(o => o.branchId===device.branchId && o.channel!=="pos" && o.status==="pending" && !autoDone.has(o.id) && !(o.scheduledAt && new Date(o.scheduledAt) - Date.now() > 60*60000))){   // a scheduled order waits until an hour before its time
     autoDone.add(o.id);
-    try{ await db.collection("orders").doc(o.id).update({ status:"active", updatedAt:new Date().toISOString(), handledBy:(cashier?.name || device.name) + " (auto)", ...(o.no ? {} : { no: nextOrderNo(), deviceId: device.id }) });
+    try{ await db.collection("orders").doc(o.id).update({ status:"active", updatedAt:new Date().toISOString(), ...(o.acceptedAt ? {} : { acceptedAt:new Date().toISOString() }), handledBy:(cashier?.name || device.name) + " (auto)", ...(o.no ? {} : { no: nextOrderNo(), deviceId: device.id }) });
       toast(`New ${o.channel==="online"?"online":"call-center"} order accepted automatically`); }catch(err){ console.error(err); autoDone.delete(o.id); }
   }
 }
@@ -884,7 +888,7 @@ async function autoDayEnd(){
   if(autoDayBusy || !device || !db || !window.__ordSnap || brSet().autoDayEnd === false) return;
   const today = bizDate(), day = openDay();
   if(day >= today || dayClosed(day)) return;
-  if(S.orders.some(o => o.branchId===device.branchId && ["pending","active"].includes(o.status))) return;
+  if(S.orders.some(o => o.branchId===device.branchId && ["pending","active"].includes(o.status)) || S.shifts.some(x => x.branchId===device.branchId && !x.closedAt)) return;
   const sales = S.orders.filter(o => liveOrder(o) && (o.status==="closed" || o.status==="refund") && bizDate(o.createdAt)===day);
   autoDayBusy = true;
   try{ await db.collection("day_closes").doc("dc_" + device.branchId + "_" + day).set({ branchId:device.branchId, businessDate:day, closedAt:new Date().toISOString(), closedBy:"Automatic", deviceId:device.id, orders:sales.length, sales:+sales.reduce((a,o)=>a+(+o.total||0),0).toFixed(2) });
@@ -893,6 +897,7 @@ async function autoDayEnd(){
   finally{ autoDayBusy = false; }
 }
 setInterval(autoDayEnd, 60000);
+setInterval(() => { if(device && devSet().autoAccept) autoAccept(); }, 60000);   // scheduled web orders are accepted when their time comes close
 /* ---------- device & branch settings (Manage → Devices → Settings, Manage → Branches) ---------- */
 const devSet = () => device?.settings || {}, brSet = () => branch?.settings || {};
 const allowedTypes = () => { const b = ["dinein","takeaway","delivery"],   // order types are fixed for every branch
@@ -993,8 +998,9 @@ function totals(){
   const sub = cart.reduce((a,i)=>a+lineNet(i),0), disc = +(discType==="amt" ? Math.min(discount, sub) : sub*discount/100).toFixed(2);
   const charges = pickedCharges().map(c => ({ id:c.id, name:c.name, type:c.type, value:+c.value||0, amount: +(c.type==="percent" ? (sub-disc)*(+c.value||0)/100 : +c.value||0).toFixed(2) }));
   const chT = +charges.reduce((a,c)=>a+c.amount,0).toFixed(2), tp = orderTaxParts(cart, disc), tax = tp.tax;
-  const total = +(sub - disc + chT + tp.added).toFixed(2);
-  return { sub, disc, charges, chT, tax, total, net: +(total - tax).toFixed(2) };
+  const fee = EDIT?.fee && otype==="delivery" ? +EDIT.fee : 0;   // a web/call-center delivery order keeps its delivery fee
+  const total = +(sub - disc + chT + fee + tp.added).toFixed(2);
+  return { sub, disc, charges, chT, fee, tax, total, net: +(total - tax).toFixed(2) };
 }
 const discLbl = () => discType==="amt" ? "Discount" : `Discount ${discount}%`;
 function renderCart(){
@@ -1023,7 +1029,7 @@ function renderCart(){
   const t = totals();
   const cl = chargeList(otype);
   $("#totals").innerHTML = `${cl.length ? `<div class="chgs">${cl.map(c => { const on = pickedCharges().includes(c); return `<button type="button" class="chg${on?" on":""}" data-chg="${c.id}" title="${on?"Remove":"Add"} this charge">${on?"✓ ":"+ "}${esc(c.name)}</button>`; }).join("")}</div>` : ""}
-    ${discount?`<div class="dline"><span>${discLbl()}</span><span>−${usd(t.disc)}<button type="button" class="dlx" data-discx aria-label="Remove discount">×</button></span></div>`:""}${t.charges.filter(c=>c.amount).map(c=>`<div><span>${esc(c.name)}</span><span>${usd(c.amount)}</span></div>`).join("")}
+    ${discount?`<div class="dline"><span>${discLbl()}</span><span>−${usd(t.disc)}<button type="button" class="dlx" data-discx aria-label="Remove discount">×</button></span></div>`:""}${t.charges.filter(c=>c.amount).map(c=>`<div><span>${esc(c.name)}</span><span>${usd(c.amount)}</span></div>`).join("")}${t.fee ? `<div><span>Delivery fee</span><span>${usd(t.fee)}</span></div>` : ""}
     <div><span>Subtotal</span><span>${usd(t.net)}</span></div><div class="mut" style="font-size:13px"><span>Tax</span><span>${usd(t.tax)}</span></div><div class="g"><span>Total</span><span>${usd(t.total)}</span></div>${usd2(t.total) ? `<div class="mut" style="font-size:13px"><span></span><span>≈ ${usd2(t.total)}</span></div>` : ""}`;
   // actions: new order / open order / closed order
   const acts = $("#acts"), unsent = cart.some(i => i.qty > (i.saved||0));
@@ -1051,7 +1057,7 @@ const isOpenOrd = o => ["active","pending","draft"].includes(o.status);
 const cleanItem = ({ saved, oix, ...i }) => i;
 function loadOrder(id, keep){
   const o = S.orders.find(x=>x.id===id); if(!o) return;
-  EDIT = { id }; OV.open = id;
+  EDIT = { id, fee: +o.deliveryFee||0 }; OV.open = id;
   cart = (o.items||[]).map((i,ix) => ({ ...i, saved: +i.qty, oix: ix }));
   if(keep) keep.forEach(k => cart.push(k));                          // items added here but not sent yet
   otype = o.type==="pickup" || o.type==="takeaway" ? "takeaway" : (o.type || "dinein"); tableNo = o.table || "";
@@ -1127,6 +1133,8 @@ function askNumber(title, def){ return new Promise(res => {
   el.addEventListener("click", e => { if(e.target===el || e.target.closest("[data-ncx]")) done(null); else if(e.target.closest("[data-nok]")) ok(); });
   el.addEventListener("input", () => { el.querySelector("[data-nok]").disabled = el.querySelector("#askNum").value===""; });
   el.querySelector("[data-nok]").disabled = String(def ?? "")===""; }); }
+// an item discount follows the quantity: a % stays a %, an amount never exceeds the line
+const reDisc = i => { if(!+i.disc) return; const line = (+i.price||0) * (+i.qty||1), v = +i.discValue||0; i.disc = +(i.discType==="amt" ? Math.min(v, line) : line * Math.min(v, 100) / 100).toFixed(2); };
 async function addProduct(p){
   if(prodOos(p)){ toast(p.name + " is out of stock"); return; }
   let price = prodPrice(p);
@@ -1137,7 +1145,7 @@ async function addProduct(p){
   if((p.modifiers||[]).length && window.SlickMods){ const r = await SlickMods.pick({ name:p.name, basePrice:price, ...modData(p), money:usd }); if(!r) return; options = r.options; mods = r.mods; price = r.unitPrice; }
   const k = SlickMods ? SlickMods.key(p.id, options) : p.id;
   const ex = cart.find(i => !i.note && (window.SlickMods ? SlickMods.key(i.productId, i.options) : i.productId) === k && i.price === price);
-  if(ex) ex.qty++; else cart.push({ productId:p.id, name:p.name, price, qty:1, ...(options.length ? { options, mods } : {}) });
+  if(ex){ ex.qty++; reDisc(ex); } else cart.push({ productId:p.id, name:p.name, price, qty:1, ...(options.length ? { options, mods } : {}) });
   renderCart();
 }
 $("#grid").addEventListener("click", e => { const b = e.target.closest("[data-add]"); if(!b) return; const p = S.products.find(x=>x.id===b.dataset.add); if(p) addProduct(p); });
@@ -1145,8 +1153,8 @@ async function editLine(ix){
   const i = cart[ix], p = i && S.products.find(x=>x.id===i.productId); if(!i || !window.SlickMods) return;
   const base = (+i.price||0) - (i.options||[]).reduce((t,x)=>t+(+x.price||0),0);   // the item's own price, before its options
   const r = await SlickMods.pick({ name:i.name, basePrice:base, ...(p ? modData(p) : { links:[], groups:{}, options:[] }), money:usd, edit:true, initial:i.options||[], qty:i.qty, note:i.note||"", allowDiscount: can("pos_item_discount"), discType:i.discType, discValue:i.discValue }); if(!r) return;
-  if(+r.disc && !(+i.disc) && appSet().discNeedsCustomer && !custGiven(cust.name, cust.phone)){ toast("Add the customer first: discounts need customer info"); return; }
-  if(+r.disc && !(+i.disc) && appSet().discountApproval && !(await approve("pos_item_discount", "Approve item discount"))) return;
+  if(+r.disc > (+i.disc||0) + 0.001 && appSet().discNeedsCustomer && !custGiven(cust.name, cust.phone)){ toast("Add the customer first: discounts need customer info"); return; }
+  if(+r.disc > (+i.disc||0) + 0.001 && appSet().discountApproval && !(await approve("pos_item_discount", "Approve item discount"))) return;
   Object.assign(i, { price:r.unitPrice, qty:r.qty, options:r.options, note:r.note, mods:SlickMods.label(r.mods, r.note) });
   if(r.disc != null){ i.disc = r.disc; i.discType = r.discType; i.discValue = r.discValue; }
   if(!i.options.length) delete i.options; if(!i.note) delete i.note; if(!i.mods) delete i.mods; if(!+i.disc){ delete i.disc; delete i.discType; delete i.discValue; }
@@ -1159,7 +1167,7 @@ $("#lines").addEventListener("click", e => { const dx = e.target.closest("[data-
   const ed = !e.target.closest("button, input, a") && e.target.closest("[data-edit]"); if(ed){ if(ro) return; const i = cart[+ed.dataset.edit]; if(i?.saved) return toast("This item was sent to the kitchen: void it with − instead of changing it"); return editLine(+ed.dataset.edit); }
   const b = e.target.closest("[data-q]"); if(!b || ro) return; const [ix,d] = b.dataset.q.split(":").map(Number), i = cart[ix];
   if(d < 0 && i.qty <= (i.saved||0)) return voidSent(ix);           // already sent: void with a manager's PIN
-  i.qty += d; if(i.qty<=0) cart.splice(ix,1); renderCart(); });
+  i.qty += d; if(i.qty<=0) cart.splice(ix,1); else reDisc(i); renderCart(); });
 $("#extra").addEventListener("click", e => { const ht = e.target.closest("[data-hgettab]"); if(ht) return retrieveHeld(ht.dataset.hgettab);
   if(e.target.closest("[data-clearcart]")){ Promise.resolve(true).then(() => { const keepT = otype==="dinein" ? tableNo : "", keepO = otype; resetOrder(); if(keepO==="dinein" && keepT){ otype = "dinein"; tableNo = keepT; renderCart(); } }); return; }
   const cx = e.target.closest("[data-ctx]");
@@ -1194,7 +1202,7 @@ function resetOrder(){ EDIT = null; orderNote = ""; kitchenNote = ""; GUESTS = 0
 
 /* ---------- modals ---------- */
 let modalKind = null;
-function modal(kind, html, wide){ modalKind = kind; hideMore(); paintNav(); $("#scrim").classList.remove("fullscr"); $("#modal").className = "modal" + (wide?" wide":""); $("#modal").innerHTML = html; $("#scrim").classList.add("show");
+function modal(kind, html, wide){ if(kind!=="incoming"){ OV.rpop = false; OV.ca = null; } modalKind = kind; hideMore(); paintNav(); $("#scrim").classList.remove("fullscr"); $("#modal").className = "modal" + (wide?" wide":""); $("#modal").innerHTML = html; $("#scrim").classList.add("show");
   // a sheet with its own Cancel button doesn't also need the back arrow
   const hasCancel = [...$("#modal").querySelectorAll(".mf button")].some(b => /^(cancel|close)$/i.test(b.textContent.trim()));
   const bk = [...$("#modal").querySelectorAll(".mh .x")].find(b => b.textContent.trim()==="←"); if(bk && hasCancel) bk.remove();
@@ -1203,7 +1211,7 @@ function modal(kind, html, wide){ modalKind = kind; hideMore(); paintNav(); $("#
 // every Cancel button in the POS is red
 function tagCancels(root){ (root || document).querySelectorAll("button:not(.cancelb)").forEach(b => { if(/^cancel$/i.test(b.textContent.trim())) b.classList.add("cancelb"); }); }
 let tagQ = 0; new MutationObserver(() => { if(tagQ) return; tagQ = requestAnimationFrame(() => { tagQ = 0; tagCancels(); }); }).observe(document.documentElement, { childList:true, subtree:true, characterData:true });
-function closeModal(){ $("#scrim").classList.remove("show"); modalKind = null; paintNav(); }
+function closeModal(){ $("#scrim").classList.remove("show"); modalKind = null; OV.rpop = false; OV.ca = null; paintNav(); }
 $("#scrim").addEventListener("click", e => { if(e.target.id==="scrim" && modalKind==="pdnew") return pdCancel(); if(e.target.id==="scrim" || e.target.closest("[data-close]")) closeModal(); });
 
 /* on-screen keyboard for text fields on touch screens without their own (Windows / Linux touch registers).
@@ -1262,10 +1270,10 @@ $("#modal").addEventListener("click", async e => {
     v = k==="⌫" ? v.slice(0,-1) : k==="." ? (v.includes(".") ? v : (v || "0") + ".") : (v==="0" ? k : v + k); el.value = v.slice(0,9); updChange(); return; }
   if(e.target.closest("#confirmPay")) return completeSale();
   const ia = e.target.closest("[data-inc]"); if(ia){ if(!can("pos_incoming")) return deny("handling incoming orders"); const [id,s] = ia.dataset.inc.split(":"); try{ const o = S.orders.find(x=>x.id===id), bill = (s==="active" || s==="closed") && o && !o.no ? { no: nextOrderNo(), deviceId: device.id } : {};   // this register bills it, so it numbers it
-    await db.collection("orders").doc(id).update({ status:s, updatedAt:new Date().toISOString(), handledBy:cashier?.name || device.name, ...bill }); toast(s==="active"?(bill.no ? "Order #"+bill.no+" accepted · sent to kitchen" : "Order accepted · sent to kitchen"):s==="declined"?"Order declined":"Order completed"); }catch(err){ console.error(err); toast("Couldn't update the order"); } return; }
+    await db.collection("orders").doc(id).update({ status:s, updatedAt:new Date().toISOString(), ...(s==="active" && !S.orders.find(x=>x.id===id)?.acceptedAt ? { acceptedAt:new Date().toISOString() } : {}), ...(s==="closed"||s==="declined" ? { doneAt:new Date().toISOString() } : {}), handledBy:cashier?.name || device.name, ...bill }); toast(s==="active"?(bill.no ? "Order #"+bill.no+" accepted · sent to kitchen" : "Order accepted · sent to kitchen"):s==="declined"?"Order declined":"Order completed"); }catch(err){ console.error(err); toast("Couldn't update the order"); } return; }
   const ovt = e.target.closest("[data-ovtab]"); if(ovt){ OV.tab = ovt.dataset.ovtab; return openIncoming(); }
   if(e.target.closest("[data-ofilt]")){ OV.filt = !OV.filt; return openIncoming(); }
-  if(OV.rpop && !e.target.closest(".ovrw")){ OV.rpop = false; OV.ca = null; return openIncoming(); }
+  if(modalKind==="incoming" && OV.rpop && !e.target.closest(".ovrw")){ OV.rpop = false; OV.ca = null; return openIncoming(); }
   if(e.target.closest("[data-ovrcancel]")){ OV.rpop = false; OV.ca = null; return openIncoming(); }
   const ovm = e.target.closest("[data-ovm]"); if(ovm && !ovm.disabled){ OV.cm = ovm.dataset.ovm; return openIncoming(); }
   const ovd = e.target.closest("[data-ovd]"); if(ovd && !ovd.disabled){ const v = ovd.dataset.ovd; if(!OV.ca){ OV.ca = v; return openIncoming(); } [OV.from, OV.to] = v < OV.ca ? [v, OV.ca] : [OV.ca, v]; OV.ca = null; OV.rpop = false; return openIncoming(); }
@@ -1296,15 +1304,15 @@ $("#modal").addEventListener("click", async e => {
   const psrc = e.target.closest("[data-pdsrc]"); if(psrc){ PD.source = psrc.dataset.pdsrc; document.querySelectorAll("[data-pdsrc]").forEach(x => x.classList.toggle("on", x===psrc)); if($("#pdErr")) $("#pdErr").textContent = ""; pdRefresh(); return; }
   const pdr = e.target.closest("[data-pdreorder]"); if(pdr){ const o = (PD?.past||[]).find(x => x.id===pdr.dataset.pdreorder); if(!o) return; const miss = []; let n = 0;
     (o.items||[]).filter(i => !i.voided).forEach(i => { const p = S.products.find(x => x.id===i.productId); if(!p || p.active===false || prodOos(p)){ miss.push(i.name); return; }
-      const opt = (i.options||[]).reduce((a,x) => a + (+x.price||0), 0); cart.push({ productId:p.id, name:i.name, price: +(prodPrice(p) + (Array.isArray(i.options) && i.options.length ? opt : 0)).toFixed(2), qty:+i.qty||1, ...(i.options?.length ? { options:i.options, mods:i.mods } : {}), ...(i.note ? { note:i.note } : {}) }); n++; });
-    renderCart(); toast(n ? (miss.length ? `Added to the cart · not available now: ${miss.join(", ")}` : "Order added to the cart · press Continue") : "None of these items are available now"); return; }
+      const opt = (i.options||[]).reduce((a,x) => a + (+x.price||0), 0); (PD.edit ? cart : (PD.reorder ||= [])).push({ productId:p.id, name:i.name, price: +(prodPrice(p) + (Array.isArray(i.options) && i.options.length ? opt : 0)).toFixed(2), qty:+i.qty||1, ...(i.options?.length ? { options:i.options, mods:i.mods } : {}), ...(i.note ? { note:i.note } : {}) }); n++; });
+    if(PD.edit) renderCart(); toast(n ? (miss.length ? `Added to the order · not available now: ${miss.join(", ")}` : "Items added · press Continue") : "None of these items are available now"); return; }
   const pdd = e.target.closest("[data-pddet]"); if(pdd){ pdKeep(); PD.det = pdd.dataset.pddet || null; return openPDNew(); }
   if(e.target.closest("[data-pdnewaddr]")){ pdKeep(); PD.addr = {}; openPDNew(); return $("#pdA_label")?.focus(); }
   if(e.target.closest("[data-pdcancel]")) return pdCancel();
   if(e.target.closest("#pdGo")) return pdContinue();
   const hg = e.target.closest("[data-hget]"); if(hg) return retrieveHeld(hg.dataset.hget);
   const hd = e.target.closest("[data-hdel]"); if(hd){ if(!(await askYes("Delete this held order?", "Delete", true))) return; heldSave(heldList().filter(x => x.id!==hd.dataset.hdel)); return openHeld(); }
-  const ov = e.target.closest("[data-ov]"); if(ov){ const o = S.orders.find(x=>x.id===ov.dataset.ov); if(!o) return; if(o.status==="pending") return toast(canAccept() ? "Accept or decline this order first" : "This order is accepted on the master POS"); return loadOrder(o.id); }
+  const ov = e.target.closest("[data-ov]"); if(ov){ const o = S.orders.find(x=>x.id===ov.dataset.ov); if(!o) return (OV.hist||[]).some(x => x.id===ov.dataset.ov) ? openOrderView(ov.dataset.ov) : undefined; if(o.status==="pending") return toast(canAccept() ? "Accept or decline this order first" : "This order is accepted on the master POS"); return loadOrder(o.id); }
   if(e.target.closest("[data-ovback]")) return closeModal();   // every Back returns to the cart
   const ovo = e.target.closest("[data-ovopen]"); if(ovo) return closeModal();
   const vr = e.target.closest("[data-vr]"); if(vr){ const [k,m] = vr.dataset.vr.split(":"); return openVR(k, m); }
@@ -1339,7 +1347,7 @@ function openPay(){
   const pmIco = m => ico(m.type==="cash" ? "cash" : m.type==="card" ? "card" : "wallet");
   modal("pay", `<div class="payx"><div class="payl"><div class="ptop"><div><div class="dlbl">Amount due</div><div class="damt">${usd(t.total)}</div>${usd2(t.total) ? `<div class="d2">≈ ${usd2(t.total)}</div>` : ""}</div></div>
       <div class="paym">${pms.map((m,i)=>`<button data-pm="${esc(m.id)}" class="${i?"":"on"}">${pmIco(m)}${esc(m.name)}</button>`).join("")}</div>
-      <div class="psum">${cart.map(i => `<div><span>${+i.qty||1}× ${esc(i.name)}</span><span>${usd(lineNet(i))}</span></div>`).join("")}${t.disc ? `<div class="m"><span>${esc(discLbl())}</span><span>−${usd(t.disc)}</span></div>` : ""}${t.charges.filter(c=>c.amount).map(c => `<div class="m"><span>${esc(c.name)}</span><span>${usd(c.amount)}</span></div>`).join("")}<div class="m" style="border-top:1px dashed var(--line);padding-top:6px"><span>Tax</span><span>${usd(t.tax)}</span></div></div></div>
+      <div class="psum">${cart.map(i => `<div><span>${+i.qty||1}× ${esc(i.name)}</span><span>${usd(lineNet(i))}</span></div>`).join("")}${t.disc ? `<div class="m"><span>${esc(discLbl())}</span><span>−${usd(t.disc)}</span></div>` : ""}${t.charges.filter(c=>c.amount).map(c => `<div class="m"><span>${esc(c.name)}</span><span>${usd(c.amount)}</span></div>`).join("")}${t.fee ? `<div class="m"><span>Delivery fee</span><span>${usd(t.fee)}</span></div>` : ""}<div class="m" style="border-top:1px dashed var(--line);padding-top:6px"><span>Tax</span><span>${usd(t.tax)}</span></div></div></div>
     <div class="payr"><div id="cashBox" style="display:${pms[0].type==="cash"?"flex":"none"};flex-direction:column;gap:12px"><input class="tender" id="tender" inputmode="none" value="${t.total.toFixed(2)}" aria-label="Cash received">
       <div class="quick">${q.map(v=>`<button data-qk="${v}">${v===t.total ? "Exact" : usd(v)}</button>`).join("")}</div>
       <div class="kpad">${["1","2","3","4","5","6","7","8","9",".","0","⌫"].map(k => `<button type="button" data-kp="${k}" aria-label="${k==="⌫"?"Delete":k}">${k}</button>`).join("")}</div>
@@ -1355,7 +1363,7 @@ async function completeSale(){
   const order = { no, channel:"pos", source: (otype==="takeaway" || otype==="delivery") ? (cust.source || "") : "", type: otype==="dinein"?"dinein":otype==="fast"?"fast":otype==="takeaway"?"pickup":"delivery", table: otype==="dinein"?tableNo:"",
     customerName:cust.name.trim(), phone:cust.phone.trim(), address: otype==="delivery"?addrJoin(cust.addr):"",
     brandId:branch?.brandId || null, branchId:device.branchId, deviceId:device.id, shiftId:openShift().id, agent:cashier?.name || device.name, items:cart, subtotal:+t.sub.toFixed(2), charges:t.charges, chargesTotal:t.chT, discountPct: discType==="pct" ? discount : (t.sub ? +(t.disc/t.sub*100).toFixed(2) : 0), discountType: discType, discount:t.disc, total:t.total, receiptNotes: orderNote.trim(), notes: kitchenNote.trim(), ...(otype==="dinein" && GUESTS ? { guests: GUESTS } : {}),
-    tax:t.tax, payment:{ method:payMethod.name, type:payMethod.type, methodId:payMethod.id, tendered:tender, change:+Math.max(0,tender-t.total).toFixed(2) }, status:"closed", createdAt:now, updatedAt:now };
+    tax:t.tax, payment:{ method:payMethod.name, type:payMethod.type, methodId:payMethod.id, tendered:tender, change:+Math.max(0,tender-t.total).toFixed(2) }, status:"closed", createdAt:now, updatedAt:now, closedAt:now };
   $("#confirmPay").disabled = true;
   try{
     const eo = editOrder();
@@ -1471,13 +1479,13 @@ function ovAll(){ const seen = new Set(), out = []; [...S.orders, ...(OV.hist||[
 const ovInRange = o => { const d = bizDate(o.createdAt); return (!OV.from || d >= OV.from) && (!OV.to || d <= OV.to); };
 async function ovLoad(force){
   if(!window.WOK?.sb || !navigator.onLine) return;
-  const key = (OV.from||"") + "|" + (OV.to||""); if(!force && OV.histKey===key) return; OV.histKey = key; OV.loading = true;
+  const key = (OV.from||"") + "|" + (OV.to||""); if(!force && OV.histKey===key) return; if(!force && OV.histErr?.key===key && Date.now() - OV.histErr.at < 30000) return; OV.histKey = key; OV.loading = true;
   const iso = (d, n) => { const x = new Date(d + "T12:00:00"); x.setDate(x.getDate() + n); return x.toISOString(); };
   try{ let q = window.WOK.sb.from("orders").select("*").eq("branch_id", device.branchId).neq("status", "draft");
     if(OV.from) q = q.gte("created_at", iso(OV.from, -1)); if(OV.to) q = q.lte("created_at", iso(OV.to, 2));
     const { data, error } = await q.order("created_at", { ascending:false }).limit(2000); if(error) throw error;
-    if(OV.histKey===key) OV.hist = (data||[]).map(ovRow); }
-  catch(e){ console.warn("orders history", e); OV.histKey = ""; }
+    if(OV.histKey===key){ OV.hist = (data||[]).map(ovRow); OV.histErr = null; } }
+  catch(e){ console.warn("orders history", e); OV.histKey = ""; OV.histErr = { key, at: Date.now() }; }
   OV.loading = false; if(modalKind==="incoming" && document.activeElement?.id!=="ovQ") openIncoming();
 }
 const OV_PRE = [["","All time"],["today","Today"],["yday","Yesterday"],["7","Last 7 days"],["30","Last 30 days"],["month","This month"],["lmonth","Last month"]];
@@ -1500,7 +1508,7 @@ function boardOrders(col, pd){
   const today = bizDate(), day = !pd && OV.date ? OV.date : today, anyDay = day===today;   // the Orders list can look at another business day
   const mine = S.orders.filter(o => o.branchId===device.branchId), onDay = o => anyDay || bizDate(o.createdAt)===day;
   const q = OV.q.trim().toLowerCase(), m = o => (!q || [o.no, o.ref, o.invoiceNo, invNo(o.invoiceNo), o.returnNo && "RET-" + String(o.returnNo).padStart(6,"0"), o.customerName, o.phone, o.source, o.table].some(v => String(v||"").toLowerCase().includes(q)))
-    && (!pd || ["pickup","takeaway","delivery"].includes(o.type)) && (pd || !OV.ft || (OV.ft==="pickup" ? ["pickup","takeaway"].includes(o.type) : o.type===OV.ft)) && (pd || !OV.fc || (OV.fc==="pos" ? o.channel==="pos" : OV.fc==="callcenter" ? o.channel==="callcenter" : !["pos","callcenter"].includes(o.channel)))
+    && (!pd || ["pickup","takeaway","delivery"].includes(o.type) || (o.channel!=="pos" && o.type==="dinein")) && (pd || !OV.ft || (OV.ft==="pickup" ? ["pickup","takeaway"].includes(o.type) : o.type===OV.ft)) && (pd || !OV.fc || (OV.fc==="pos" ? o.channel==="pos" : OV.fc==="callcenter" ? o.channel==="callcenter" : !["pos","callcenter"].includes(o.channel)))
     && (pd || !OV.fs || String(o.source||"").toLowerCase()===OV.fs.toLowerCase()) && (pd || !OV.fp || String(o.payment?.method||"").toLowerCase()===OV.fp.toLowerCase());
   if(!pd){ const all = ovAll().filter(o => o.status!=="draft" && ovInRange(o) && m(o)), by = (a,b) => String(b.createdAt).localeCompare(String(a.createdAt));
     return (col==="all" ? all : col==="active" ? all.filter(o => ["active","pending"].includes(o.status)) : col==="closed" ? all.filter(o => o.status==="closed") : col==="void" ? all.filter(o => ["void","returned","refund","declined"].includes(o.status)) : all.filter(o => o.status===col)).sort(by); }
@@ -1566,8 +1574,10 @@ function openIncoming(){
   else { const l = boardOrders(OV.tab);
     body = `<div class="otabs2">${TABS.map(([k,l2]) => `<button data-ovtab="${k}" class="${OV.tab===k?"on":""}">${l2}</button>`).join("")}</div>
       <div class="olist2">${l.length ? `<div class="lrow ol5 lhead"><span>Reference #</span><span>Invoice #</span><span>Order #</span><span>Customer</span><span>Status</span><span class="lc2">Sales channel</span><span class="lc2">Order type</span><span class="lc2">Order source</span><span class="lc2">Business date</span><span class="lc2">Payment type</span><span style="text-align:right">Total</span></div>` + l.map(row).join("") : `<div class="oempty" style="border-radius:0">No orders here</div>`}</div>`; }
+  const ovSt = modalKind==="incoming" ? ($("#modal .mb")?.scrollTop || 0) : 0;
   modal("incoming", `${head}<div class="mb" style="display:flex;flex-direction:column;gap:12px">${filt}${body}<p class="mut" style="margin:0">${OV.loading ? "Loading older orders… " : ""}${OV.from||OV.to ? `Orders by business date · ${esc(ovRangeLbl())}.` : "All orders of this branch, newest first."} Tap an order to open it in the billing section.</p></div>`, true);
   $("#modal").classList.add("full"); $("#scrim").classList.add("fullscr"); withNav();
+  if(ovSt){ const mb = $("#modal .mb"); if(mb) mb.scrollTop = ovSt; }
   const q = $("#ovQ"); if(q && document.activeElement?.id!=="ovQ" && OV.q){ /* keep the list where it was */ }
 }
 function openOrderView(id){
@@ -1595,7 +1605,7 @@ function openOrderView(id){
 }
 const retLeft = (o, ix) => Math.max(0, +((o.items||[])[ix]?.qty||0) - (o.returnedItems||[]).filter(r => r.ix===ix).reduce((s,r)=>s+(+r.qty||0),0));
 // refund for the picked quantities: each item's price after the order discount, never more than what's left to refund
-const retAmt = (o, qs) => { const gross = (o.items||[]).reduce((s,i)=>s+lineNet(i),0), share = gross ? 1 - Math.min(+o.discount||0, gross)/gross : 1;
+const retAmt = (o, qs) => { const gross = (o.items||[]).reduce((s,i)=>s+lineNet(i),0), share = gross ? (+o.total||0) / gross : 1;   // what was paid per unit of items: discount, charges and added tax included
   const left = +((+o.total||0) - (+o.refundTotal||0)).toFixed(2), all = (o.items||[]).every((i,ix) => (qs[ix]||0) >= retLeft(o, ix));
   return all ? left : Math.min(left, +(o.items||[]).reduce((s,i,ix) => s + lineNet(i) / (+i.qty||1) * (qs[ix]||0) * share, 0).toFixed(2)); };
 const fullyBack = o => +o.refundTotal && +o.refundTotal >= +o.total - 0.001;
@@ -1604,7 +1614,7 @@ function openVR(kind, mode){
   const o = S.orders.find(x=>x.id===OV.open); if(!o) return;
   const a = appSet(), reasons = String(kind==="void" ? a.voidReasons : a.returnReasons).split("\n").map(x=>x.trim()).filter(Boolean);
   if(kind==="return" && a.returnMode==="none") return toast("Returns aren't allowed for this brand");
-  if(kind==="return" && a.returnMode==="limited"){ const t = o.closedAt || o.updatedAt || o.createdAt, m = +a.returnMinutes || 0; if(t && Date.now() - new Date(t) > m*60000) return toast(`The return period (${m} min) for this order is over`); }
+  if(kind==="return" && a.returnMode==="limited"){ const t = o.closedAt || o.createdAt, m = +a.returnMinutes || 0; if(t && Date.now() - new Date(t) > m*60000) return toast(`The return period (${m} min) for this order is over`); }
   if(kind==="void" && a.voidNeedsCustomer && !custGiven(o.customerName, o.phone)) return toast("Add the customer to this order first: voids need customer info");
   const pick = mode==="items";
   modal("vr", `<div class="mh"><h2>${kind==="void"?"Void":"Return"} ${pick?"items":"order"} · ${esc(ordRef(o))}</h2><button class="x" data-ovopen="${esc(o.id)}" aria-label="Back">←</button></div><div class="mb">
@@ -1637,20 +1647,20 @@ async function doVR(kind, mode){
     if(full) Object.assign(patch, { status:"void", voidReason: reason, voidedAt: now, voidedBy: by });
     else {
       const items = (o.items||[]).map((i,ix) => { const left = +i.qty - (qs[ix]||0); if(left <= 0) return null; const k = { ...i, qty:left }; if(+i.disc) k.disc = +(i.disc * left / i.qty).toFixed(2); return k; }).filter(Boolean);
-      const sub = items.reduce((s,i)=>s+lineNet(i),0), d = Math.min(+o.discount||0, sub);
+      const sub = items.reduce((s,i)=>s+lineNet(i),0), d = o.discountType==="amt" ? Math.min(+o.discount||0, sub) : +(sub * (+o.discountPct||0) / 100).toFixed(2);   // a % discount stays a %
       const charges = (o.charges||[]).map(c => ({ ...c, amount: +(c.type==="percent" ? (sub-d)*(+c.value||0)/100 : +c.amount||0).toFixed(2) }));
       const tp = orderTaxParts(items, d), tax = tp.tax, total = +(sub - d + charges.reduce((s,c)=>s+c.amount,0) + tp.added).toFixed(2);
-      Object.assign(patch, { items, subtotal: +sub.toFixed(2), discount: d, tax, charges, chargesTotal: +charges.reduce((s,c)=>s+c.amount,0).toFixed(2), total,
+      Object.assign(patch, { items, subtotal: +sub.toFixed(2), discount: d, discountPct: o.discountType==="amt" ? (sub ? +(d/sub*100).toFixed(2) : 0) : (+o.discountPct||0), tax, charges, chargesTotal: +charges.reduce((s,c)=>s+c.amount,0).toFixed(2), total,
         voidedItems: [...(o.voidedItems||[]), ...chosen.map(c => ({ ...c, reason, stock, voidedAt: now, voidedBy: by, approvedBy: ok.name }))] });
     }
   } else {
     // the sale stays on its own day; the refund is a new ticket today (so an ended day is never changed)
-    const gross = (o.items||[]).reduce((s,i)=>s+lineNet(i),0), share = gross ? 1 - Math.min(+o.discount||0, gross)/gross : 1;
+    const gross = (o.items||[]).reduce((s,i)=>s+lineNet(i),0), share = gross ? (+o.total||0) / gross : 1, dshare = gross ? 1 - Math.min(+o.discount||0, gross)/gross : 1;
     const ret = chosen.map((c,k) => { const orig = o.items[idx[k]] || c, unit = lineNet(orig) / (+orig.qty||1);
       return { ...c, ix: idx[k], refund: +(unit * c.qty * share).toFixed(2), reason, stock, returnedAt: now, returnedBy: by, approvedBy: ok.name }; });
     const left = +((+o.total||0) - (+o.refundTotal||0)).toFixed(2), allBack = (o.items||[]).every((i,ix) => retLeft(o, ix) - (ret.find(r=>r.ix===ix)?.qty||0) <= 0);
     const refund = allBack ? left : Math.min(left, +ret.reduce((s,r)=>s+r.refund,0).toFixed(2));
-    const rgross = ret.reduce((s,r)=>s+lineNet(r),0), rdisc = +(rgross * (1 - share)).toFixed(2);
+    const rgross = ret.reduce((s,r)=>s+lineNet(r),0), rdisc = +(rgross * (1 - dshare)).toFixed(2);
     Object.assign(patch, { returnedItems: [...(o.returnedItems||[]), ...ret], refundTotal: +((+o.refundTotal||0) + refund).toFixed(2) });
     delete patch.stockAction; delete patch.approvedBy;
     ticket = { channel:o.channel, source:o.source, type:o.type, status:"refund", refundOf:o.id, brandId:o.brandId || branch?.brandId || null, branchId:device.branchId, deviceId:device.id, shiftId:openShift()?.id || null,
@@ -1694,9 +1704,11 @@ $("#shiftBtn").addEventListener("click", () => { hideMore();
     <div class="mf"><button class="btn" data-close>Cancel</button><button class="btn pri" id="doCloseShift">Close shift</button></div>`);
 });
 async function doOpenShift(){
+  if(openShift()) return closeModal();
+  const b = $("#doOpenShift"); if(b?.disabled) return; if(b) b.disabled = true;   // a double tap opens one shift
   const id = "sh_" + Date.now().toString(36);
   try{ await db.collection("shifts").doc(id).set({ deviceId:device.id, branchId:device.branchId, cashier:cashier?.name || device.name, openingCash:+$("#sCash").value||0, openedAt:new Date().toISOString() }); closeModal(); toast("Shift opened"); }
-  catch(err){ console.error(err); toast("Couldn't open the shift"); }
+  catch(err){ console.error(err); toast("Couldn't open the shift"); if(b) b.disabled = false; }
 }
 // a shift left open on any register of the branch (even another tablet) is closed from End of day; the drawer is taken as counted at the expected amount
 async function closeShiftRemote(id){
@@ -1771,7 +1783,7 @@ function openHeld(){
 }
 async function retrieveHeld(id){
   const l = heldList(), h = l.find(x => x.id===id); if(!h) return;
-  if(EDIT) unloadOrder();
+  if(EDIT){ if(unsentItems().length && !(await askYes("Discard the items not yet sent on this order?", "Discard"))) return; unloadOrder(); }
   if(cart.length){ if(!(await askYes("Hold the current order and retrieve this one?", "Hold & retrieve"))) return; holdOrder(true); }
   const rest = heldList().filter(x => x.id!==id); heldSave(rest);
   cart = h.cart; otype = h.otype; discount = +h.discount||0; discType = h.discType || "pct"; posChg = h.posChg ? new Set(h.posChg) : null; tableNo = h.tableNo || ""; GUESTS = +h.guests || 0; cust = h.cust || { name:"", phone:"", addr:{} }; cust.addr = cust.addr || {}; orderNote = h.orderNote || ""; kitchenNote = h.kitchenNote || "";
@@ -1855,7 +1867,9 @@ const PH_CODES = () => CC_OF;
 function phoneVariants(full){ const out = new Set([full]); const m = Object.values(PH_CODES()).sort((a,b)=>b.length-a.length).find(c => full.startsWith(c)); if(m){ const n = full.slice(m.length); out.add(n); out.add("0" + n); out.add(m + " " + n); } return [...out]; }
 const normPhone = (p, cc) => { let d = String(p||"").replace(/[^\d+]/g, ""); if(!d) return ""; if(d.startsWith("00")) d = "+" + d.slice(2); if(d.startsWith("+")) return d.replace(/(?!^)\+/g, ""); const n = d.replace(/\+/g, "").replace(/^0+/, ""); return n.length < 6 ? "" : (cc || CC_OF[coS().country || "Lebanon"] || "+961") + n; };
 let PD = null, pdT;
-function openPDNew(){
+// details filled in from a matched customer go away when the phone number changes (anything typed by hand stays)
+function pdClearAuto(){ if(!PD) return; pdKeep(); if(PD.autoName && PD.name===PD.autoName) PD.name = ""; if(PD.autoAddr && addrJoin(PD.addr)===PD.autoAddr) PD.addr = {}; PD.autoName = PD.autoAddr = ""; }
+function openPDNew(opt = {}){
   const types = allowedTypes().filter(t => t!=="dinein"); if(!types.length) return toast("Pickup and delivery aren't enabled on this register");
   if(PD?.edit && !PD.editShown){ PD.editShown = true; setTimeout(pdLookup, 50); }
   PD = PD || { type: types.includes("takeaway") ? "takeaway" : types[0], phone:"", name:"", addr:{}, cust:null };
@@ -1879,19 +1893,19 @@ function openPDNew(){
     <div class="mf"><button class="btn" data-pdcancel>Cancel</button><button class="btn pri" id="pdGo">${PD.edit ? "Save details" : "Continue"}</button></div>`, true);
   $("#modal").classList.add("full"); $("#scrim").classList.add("fullscr");   // a full page, with the customer's details beside the form
   pdRefresh();
-  setTimeout(() => (PD.phone ? $("#pdName") : $("#pdPhone"))?.focus(), 30);
+  if(!opt.keepFocus) setTimeout(() => (PD.phone ? $("#pdName") : $("#pdPhone"))?.focus(), 30);
 }
 const pdHint = c => `${c.blacklisted ? '<b style="color:#b42318">⚠ Blacklisted customer.</b> ' : "Returning customer. "}${(c.tags||[]).map(t => esc(t)).join(", ")}${c.notes ? ` · <i>${esc(c.notes)}</i>` : ""}`;
 async function pdLookup(){
   const ph = normPhone($("#pdPhone")?.value, $("#pdCc")?.value); if(!PD) return;
-  if(ph.length < 6 || !window.WOK?.sb || !navigator.onLine){ const had = !!PD.cust; PD.cust = null; PD.past = []; if(had && modalKind==="pdnew"){ pdKeep(); PD.cust = null; openPDNew(); const i = $("#pdPhone"); i.focus(); i.setSelectionRange(i.value.length, i.value.length); } if($("#pdHint")) $("#pdHint").innerHTML = ""; return; }
+  if(ph.length < 6 || !window.WOK?.sb || !navigator.onLine){ const had = !!PD.cust; PD.cust = null; PD.past = []; if(had && modalKind==="pdnew"){ pdKeep(); PD.cust = null; pdClearAuto(); openPDNew({ keepFocus:true }); const i = $("#pdPhone"); i.focus(); i.setSelectionRange(i.value.length, i.value.length); } if($("#pdHint")) $("#pdHint").innerHTML = ""; return; }
   try{ const { data: list } = await window.WOK.sb.from("customers").select("id,name,phone,addresses,blacklisted,notes,tags,created_at").in("phone", phoneVariants(ph)).limit(1); const data = list?.[0] || null;
     if(normPhone($("#pdPhone")?.value, $("#pdCc")?.value) !== ph || modalKind!=="pdnew") return;
     PD.past = data ? await pdPast(data.id, ph) : [];
     if(normPhone($("#pdPhone")?.value, $("#pdCc")?.value) !== ph || modalKind!=="pdnew") return;
     pdKeep(); PD.cust = data || null; PD.det = null;
-    if(data){ if(!PD.name && data.name) PD.name = data.name; if(PD.type==="delivery" && !ADDR_K.some(k => PD.addr[k]) && data.addresses?.[0]?.address) PD.addr = addrParts(data.addresses[0].address); openPDNew(); const i = $("#pdPhone"); i.focus(); i.setSelectionRange(i.value.length, i.value.length); }
-    else { if($(".pdside")){ openPDNew(); const i = $("#pdPhone"); i.focus(); i.setSelectionRange(i.value.length, i.value.length); } $("#pdHint").innerHTML = "New customer · enter their name"; }
+    if(data){ pdClearAuto(); if(!PD.name && data.name){ PD.name = data.name; PD.autoName = PD.name; } if(PD.type==="delivery" && !ADDR_K.some(k => PD.addr[k]) && data.addresses?.[0]?.address){ PD.addr = addrParts(data.addresses[0].address); PD.autoAddr = addrJoin(PD.addr); } openPDNew({ keepFocus:true }); const i = $("#pdPhone"); i.focus(); i.setSelectionRange(i.value.length, i.value.length); }
+    else { pdClearAuto(); if($(".pdside")){ openPDNew({ keepFocus:true }); const i = $("#pdPhone"); i.focus(); i.setSelectionRange(i.value.length, i.value.length); } $("#pdHint").innerHTML = "New customer · enter their name"; }
   }catch(e){ console.warn(e); }
 }
 // previous orders of this customer: the call center links them by customer, the POS by phone
@@ -1961,7 +1975,7 @@ function drawCust(){
         <div class="kv"><span>This order</span><b>${otype==="delivery" ? "Delivery" : "Pickup"}</b></div>
         ${CV.addr ? `<div class="kv"><span>Delivering to</span><b>📍 ${esc(CV.addr)}</b></div>` : ""}</div>
         ${CV.loading ? "" : insCard(c, CV.past)}
-        ${saved.length ? `<div class="cpast"><b>Saved addresses · ${saved.length}</b>${saved.map((a,i) => { const p = addrParts(a.address); return `<div class="acard" style="cursor:default"><b>${esc(p.label || "Address " + (i+1))}</b><span>${esc([p.street, p.building && "Bldg " + p.building, p.floor && "Floor " + p.floor, p.extra].filter(Boolean).join(" · ") || a.address)}</span></div>`; }).join("")}</div>` : ""}</div>
+        ${saved.length ? `<div class="cpast"><b>Saved addresses · ${saved.length}</b>${saved.map((a,i) => { const p = addrParts(a.address); return `<div class="acard ro"><span class="act"><b>${esc(p.label || "Address " + (i+1))}</b><span>${esc([p.street, p.building && "Bldg " + p.building, p.floor && "Floor " + p.floor, p.extra].filter(Boolean).join(" · ") || a.address)}</span></span></div>`; }).join("")}</div>` : ""}</div>
       <div class="custcol">${CV.loading ? '<div class="mut">Loading orders…</div>' : custPanel(c, CV.past, CV.det, "cvdet", "", true)}</div>
     </div></div>`);
   $("#modal").classList.add("full"); $("#scrim").classList.add("fullscr"); withNav();
@@ -2000,7 +2014,7 @@ async function pdContinue(){
   if(EDIT) unloadOrder();
   if(cart.length && !(await askYes("Hold the order that's in the cart and start this one?", "Hold & continue"))) return;
   if(cart.length) holdOrder(true);
-  resetOrder(); otype = PD.type==="delivery" ? "delivery" : "takeaway";
+  resetOrder(); otype = PD.type==="delivery" ? "delivery" : "takeaway"; if(PD.reorder?.length) cart = PD.reorder;
   cust = { name: PD.name.trim(), phone: normPhone(PD.phone, PD.cc) || PD.phone.trim(), addr: PD.type==="delivery" ? { ...PD.addr } : {}, source: PD.source || "" };
   PD = null; closeModal(); cat = ""; renderCart(); renderMenu();
   toast("Add the items, then Save (sends to the kitchen) or Pay");

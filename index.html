@@ -907,12 +907,14 @@ tr.click:hover td,.otbl tr.clk:hover td,tr.clk:hover td{background:#f8f6fd}
 .toast.show,#toast.show{transform:translate(-50%,0)!important;opacity:1}
 button,.btn{transition:background-color .15s,border-color .15s,color .15s,box-shadow .2s,transform .12s var(--ease-out),opacity .15s}
 button:active:not(:disabled),.btn:active:not(:disabled){transform:scale(.97)}
+.ofpx:active:not(:disabled){transform:translateY(-50%) scale(.97)}
+.toast,#toast{pointer-events:none}
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}}
 </style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="wokdb.js?v=32"></script>
+<script src="wokdb.js?v=33"></script>
 <script src="modpick.js?v=11"></script>
 </head>
 <body>
@@ -1352,7 +1354,7 @@ const bizDate = (t = new Date(), bid) => { const ms = +new Date(t), d0 = new Dat
   if(bid && S.day_closes?.length) for(let i = 0; i < 3; i++){ const c = S.day_closes.find(c => c.branchId===bid && String(c.businessDate).slice(0,10)===d); if(c && +new Date(c.closedAt) <= ms) d = nextDay(d); else break; }
   return d; };
 const dayBounds = (from, to, bid) => { const c = dayCut(bid), t0 = new Date(from+"T00:00:00"), t1 = new Date((to||from)+"T00:00:00"); t1.setDate(t1.getDate()+1); t0.setMinutes(c); t1.setMinutes(c); return [t0, t1]; };
-const todayStr = () => bizDate();
+const todayStr = () => bizDate(new Date(), typeof state!=="undefined" && state.branch && state.branch!=="all" ? state.branch : undefined);   // an early day end at the branch counts, like on the POS
 window.SlickDay = { dayCut, dayStartH, bizDate, dayBounds };
 const setTopH = () => { const tb = document.querySelector(".top"); if(tb) document.documentElement.style.setProperty("--toph", tb.offsetHeight + "px"); };
 addEventListener("resize", setTopH); addEventListener("load", setTopH); setTimeout(setTopH, 800);
@@ -1640,7 +1642,7 @@ async function rptFetch(table, sel, dateCol, extra){
   const out = []; const [t0, t1] = dayBounds(RPT.from, RPT.to, RPT.branch || "");
   for(let p = 0; p < 50; p++){
     let q = WOK.sb.from(table).select(sel).gte(dateCol, t0.toISOString()).lt(dateCol, t1.toISOString()).order(dateCol, { ascending:true }).range(p*1000, p*1000 + 999);
-    if(RPT.branch) q = q.eq("branch_id", RPT.branch); else if(state.brand!=="all"){ const ids = activeBranches().map(b=>b.id); q = q.in("branch_id", ids.length ? ids : ["-"]); }
+    if(RPT.branch) q = q.eq("branch_id", RPT.branch); else if(RPT.brand){ const ids = branches.filter(b => b.brandId===RPT.brand).map(b=>b.id); q = q.in("branch_id", ids.length ? ids : ["-"]); } else if(state.brand!=="all"){ const ids = branches.filter(b => b.brandId===state.brand).map(b=>b.id); q = q.in("branch_id", ids.length ? ids : ["-"]); }
     if(extra) q = extra(q);
     const { data, error } = await q; if(error) throw error; out.push(...data); if(data.length < 1000) break;
   }
@@ -1650,7 +1652,7 @@ const camelRow = r => { const o = {}; for(const [k,v] of Object.entries(r)) o[k.
 async function loadReport(force){
   if(!window.WOK || storeMode!=="db") return;
   rptDefaults();
-  const key = JSON.stringify([RPT.key, RPT.from, RPT.to, RPT.branch, state.brand]);
+  const key = JSON.stringify([RPT.key, RPT.from, RPT.to, RPT.branch, RPT.brand, state.brand]);
   if(!force && RPT.loaded===key && (RPT.rows || RPT.err)) return; if(RPT.loading===key) return;
   RPT.loading = key; RPT.err = ""; RPT.rows = null;
   try{
@@ -1826,7 +1828,7 @@ document.addEventListener("click", e => {
 document.addEventListener("change", e => {
   if(e.target.id==="rptDim"){ RPT.dim = e.target.value; if(RPT.group===RPT.dim) RPT.group = ""; render(); }
   if(e.target.id==="rptGroup"){ RPT.group = e.target.value; render(); }
-  if(e.target.id==="rptBranch"){ RPT.branch = e.target.value; render(); }
+  if(e.target.id==="rptBranch"){ RPT.branch = e.target.value; RPT.brand = ""; render(); }
 });
 
 function viewBranch(b){
@@ -1930,6 +1932,9 @@ function render(){
   $("#branchSel").innerHTML = `<option value="all">All branches (${act.length})</option>` + act.map(b=>`<option value="${esc(b.id)}" ${state.branch===b.id?"selected":""}>${esc(b.name)}</option>`).join("");
   paintCompany();
   const v = $("#view");
+  // a re-render (data arriving, a list finishing loading) keeps the field being typed in focused, with its text and caret
+  const ae = document.activeElement, fid = ae && v.contains(ae) && /^(INPUT|TEXTAREA)$/.test(ae.tagName) ? (ae.id ? "#" + CSS.escape(ae.id) : ae.matches("[data-ofsearch]") ? "[data-ofsearch]" : "") : "", fval = fid ? ae.value : null, fs = fid ? ae.selectionStart : 0, fe = fid ? ae.selectionEnd : 0;
+  queueMicrotask(() => { if(!fid) return; const n = v.querySelector(fid); if(!n || n===document.activeElement) return; if(n.value!==fval) n.value = fval; n.focus(); try{ n.setSelectionRange(fs, fe); }catch(e){} });
   if(storeMode==="loading"){ v.innerHTML = `<div class="ph"><div>Loading…</div></div>`; return; }
   if(!canOpen(route)){ v.innerHTML = `<h1>${esc(TITLES[route]||"")}</h1>` + placeholder("No access", "Your role doesn't include this area. Ask the owner to change your role under Manage → Roles."); return; }
   if(RPT_HUB[route]) v.innerHTML = viewReports(route);
@@ -2690,8 +2695,8 @@ async function uploadImage(file){
   return WOK.sb.storage.from("menu").getPublicUrl(path).data.publicUrl;
 }
 document.addEventListener("change", async e => { const f = e.target; if(!f.id || !f.id.endsWith("_file") || !f.files?.[0]) return; const base = f.id.slice(0,-5), st = $("#"+base+"_st");
-  st.textContent = "Uploading photo…"; try{ const url = await uploadImage(f.files[0]); $("#"+base).value = url; $("#"+base).dispatchEvent(new Event("input", { bubbles:true })); $("#"+base+"_prev").innerHTML = `<img src="${esc(url)}" alt="">`; const bl = document.querySelector(`label.imgbtn[for="${base}_file"] span`); if(bl) bl.textContent = "Change photo"; st.textContent = "Photo ready. Save to keep it."; }
-  catch(err){ console.error(err); st.textContent = "Couldn't upload the photo. Only the owner or an admin can add photos."; } });
+  st.textContent = "Uploading photo…"; try{ const url = await uploadImage(f.files[0]); if(!document.querySelector(`[data-imgclear="${base}"]`)) st.insertAdjacentHTML("beforebegin", `<button type="button" class="btn imgrm" data-imgclear="${base}">Remove photo</button>`); $("#"+base).value = url; $("#"+base).dispatchEvent(new Event("input", { bubbles:true })); $("#"+base+"_prev").innerHTML = `<img src="${esc(url)}" alt="">`; const bl = document.querySelector(`label.imgbtn[for="${base}_file"] span`); if(bl) bl.textContent = "Change photo"; st.textContent = "Photo ready. Save to keep it."; }
+  catch(err){ console.error(err); st.textContent = "Couldn't upload the photo. Only the owner or an admin can add photos."; } finally{ f.value = ""; } });
 // drag a photo onto a photo box
 document.addEventListener("dragover", e => { const z = e.target.closest?.(".imgpick"); if(!z) return; e.preventDefault(); z.classList.add("drag"); });
 document.addEventListener("dragleave", e => { e.target.closest?.(".imgpick")?.classList.remove("drag"); });
@@ -2867,8 +2872,8 @@ function mlistSync(box){ if(!box) return; const items = [...box.querySelectorAll
   const rc = box.querySelector("[data-rlcnt]"); if(rc){ const n = items.filter(i => i.checked).length; rc.textContent = `${n} of ${items.length} selected`; }
   const all = box.querySelector("[data-mall]"); if(all){ all.checked = items.length > 0 && items.every(i => i.checked); all.indeterminate = !all.checked && items.some(i => i.checked); } }
 document.addEventListener("change", e => { const box = e.target.closest(".mlist"); if(!box) return;
-  if(e.target.matches("[data-mall]")) box.querySelectorAll(".mitem input").forEach(i => i.checked = e.target.checked);
-  else if(e.target.matches("[data-mgall]")) box.querySelectorAll(`.mitem[data-grp="${CSS.escape(e.target.dataset.mgrp)}"] input`).forEach(i => i.checked = e.target.checked);
+  if(e.target.matches("[data-mall]")) box.querySelectorAll(".mitem:not([hidden]) input").forEach(i => i.checked = e.target.checked);
+  else if(e.target.matches("[data-mgall]")) box.querySelectorAll(`.rlg:not([hidden]) .mitem[data-grp="${CSS.escape(e.target.dataset.mgrp)}"]:not([hidden]) input`).forEach(i => i.checked = e.target.checked);
   mlistSync(box); });
 document.addEventListener("input", e => { if(!e.target.matches?.("[data-rlsearch]")) return; const q = e.target.value.trim().toLowerCase(), box = e.target.closest(".mlist");
   box.querySelectorAll(".rlg").forEach(g => { const gm = !q || g.querySelector(".mgh b").textContent.toLowerCase().includes(q); let any = false;
@@ -3053,7 +3058,7 @@ function openOrder(id){
   state.oCat = ""; fillOrderBranches(o?.branchId); renderOrderMenu(); renderCart(ro); ccAddrVis();
   $("#ccScrim").classList.add("show");
   ccStep(o ? 2 : 1, true);
-  if(o && o.phone) ccLookup(true);
+  if(o && o.phone) ccLookup(o.status!=="draft");
   if(!o) setTimeout(() => $("#oPhone")?.focus(), 30);
 }
 // Foodics-style flow: step 1 customer, type, branch and address; step 2 the menu and cart, with the customer beside it
@@ -3331,6 +3336,8 @@ async function saveOrder(status){
 }
 async function setOrderStatus(s){
   if(s==="active" || s==="closed") return toast("Only the branch can accept or close an order, on its POS.");
+  if(s==="declined"){ const cur = S.orders.find(x => x.id===ccEdit); if(cur && cur.status!=="pending"){ $("#oErr").textContent = "The branch already accepted this order, so it can't be cancelled here."; return; }
+    if(!(await askYes("Cancel this order? The branch won't prepare it.", "Cancel order", true))) return; }
   try{ await put("orders", ccEdit, { status: s }); toast("Order " + CC_SUB[s].toLowerCase()); $("#ccScrim").classList.remove("show"); }
   catch(err){ console.error(err); $("#oErr").textContent = "Couldn't update the order."; }
 }
@@ -3685,13 +3692,13 @@ function viewBranchMenu(){
       <label class="toggle" title="On the ${esc(ch[1])} menu"><input type="checkbox" data-bmon="${esc(r.id)}" ${st.on?"checked":""} aria-label="${esc(nm)} on the ${esc(ch[1])} menu"><span class="trk"></span></label>
       <span class="mmprod">${par ? `<span class="mmvl">↳</span>` : `<span class="mmimg">${r.imageUrl ? `<img src="${esc(r.imageUrl)}" alt="">` : svgIco("image")}</span>`}
         <span class="mmpn"><b>${esc(nm)}</b>${vk.length ? `<small>${vk.length} variants below</small>` : nl ? `<button type="button" class="mmmods" data-bmmods="${esc(r.id)}">${BM.mopen?.has(r.id) ? "Hide" : "Show"} modifiers (${nl})</button>` : ""}<span class="sctypes" role="group" aria-label="Order types">${types.map(([t,tl]) => pill(`data-bmtype="${esc(r.id)}|${t}"`, st.types[t], tl)).join("")}</span></span></span>
-      ${vk.length ? `<span class="note">From ${usd(Math.min(...vk.map(k => { const x = bmState(k); return x.price!=="" ? +x.price : x.fallback; })))}</span>` : `<span class="scprice${st.price!=="" ? " cust" : ""}"><span class="cur">USD</span><input inputmode="decimal" class="sel" data-bmprice="${esc(r.id)}" value="${esc(st.price)}" placeholder="${esc(String(st.fallback))}" aria-label="Price of ${esc(nm)}" title="${st.price!=="" ? "Own price on this channel" : "Uses the standard price"}"></span>`}
+      ${vk.length ? `<span class="note">From ${usd(Math.min(...vk.map(k => { const x = bmState(k); return x.price!=="" ? +x.price : x.fallback; })))}</span>` : `<span class="scprice${st.price!=="" ? " cust" : ""}"><span class="cur">${esc(CUR())}</span><input inputmode="decimal" class="sel" data-bmprice="${esc(r.id)}" value="${esc(st.price)}" placeholder="${esc(String(st.fallback))}" aria-label="Price of ${esc(nm)}" title="${st.price!=="" ? "Own price on this channel" : "Uses the standard price"}"></span>`}
       ${vk.length ? "<span></span>" : stockPill(`data-bmstock="${esc(r.id)}"`, st.stock, !st.on)}
       ${par ? "<span></span>" : `<div class="ddwrap"><button type="button" class="mmdots" data-bmcmenu="p" aria-label="Product actions">⋯</button><div class="ddmenu" hidden><button type="button" class="danger" data-bmrm="${esc(cur.id)}|${esc(r.id)}">Remove from ${esc(cur.name)}</button></div></div>`}</div>`;
     if(BM.mopen?.has(r.id)) s += `<div class="mmsub">${bmLinks(r).map(l => `<div class="mmsg">${esc(modName(l.modifierId))}</div>` + modOptions(l.modifierId).map(o => { const os = bmOptState(r, o);
       return `<div class="mmrow mmorow${os.on?"":" off"}${BM.draft["mo:"+r.id+"|"+o.id]?" chg":""}"><span></span><label class="toggle" title="On the ${esc(ch[1])} menu for ${esc(r.name)}"><input type="checkbox" data-bmoon="${esc(r.id)}|${esc(o.id)}" ${os.on?"checked":""} aria-label="${esc(o.name)} with ${esc(r.name)}"><span class="trk"></span></label>
         <span class="mmprod"><span class="mmvl">·</span><span class="mmpn">${esc(o.name)}</span></span>
-        <span class="scprice${os.price!=="" ? " cust" : ""}"><span class="cur">USD</span><input inputmode="decimal" class="sel" data-bmoprice="${esc(r.id)}|${esc(o.id)}" value="${esc(os.price)}" placeholder="${esc(String(+o.price||0))}" aria-label="Price of ${esc(o.name)} with ${esc(r.name)}"></span>
+        <span class="scprice${os.price!=="" ? " cust" : ""}"><span class="cur">${esc(CUR())}</span><input inputmode="decimal" class="sel" data-bmoprice="${esc(r.id)}|${esc(o.id)}" value="${esc(os.price)}" placeholder="${esc(String(+o.price||0))}" aria-label="Price of ${esc(o.name)} with ${esc(r.name)}"></span>
         ${stockPill(`data-bmostock="${esc(r.id)}|${esc(o.id)}"`, os.stock, !os.on)}<span></span></div>`; }).join("")).join("")}</div>`;
     return s; };
   rows.forEach(r => { h += row(r); varKids(r).forEach(k => h += row(k, r)); });
@@ -4161,7 +4168,7 @@ async function exportOrders(){
   const head = ["Reference","Order","Invoice","Brand","Date","Branch","Sales channel","Order source","Order type","Table","Status","Customer","Phone","Address","Items","Subtotal","Discount","Delivery fee","Total","Payment","User/Device"];
   const rows = data.map(r => [r.ref, r.status==="refund" ? "" : r.no, r.status==="refund" ? ordRef(r) : r.invoice_no ? invNo(r.invoice_no) : "", brandName(r.brand_id), new Date(r.created_at).toLocaleString("en-GB"), branches.find(x=>x.id===r.branch_id)?.name||"", CH_LBL[r.channel]||r.channel, r.source && r.source.toUpperCase()!=="POS" ? r.source : "", ordTypeLbl(r.type), r.table_no, ORD_ST[r.status]||r.status, r.customer_name, r.phone, r.address,
     (Array.isArray(r.items)?r.items:[]).map(i=>`${+i.qty||1}x ${i.name}${i.mods?" ("+i.mods+")":""}`).join("; "), r.subtotal, r.discount, r.delivery_fee, r.total, r.payment?.method, r.agent]);
-  const blob = new Blob([[head, ...rows].map(l=>l.map(q).join(",")).join("\n")], { type:"text/csv" });
+  const blob = new Blob(["\ufeff" + [head, ...rows].map(l=>l.map(q).join(",")).join("\n")], { type:"text/csv;charset=utf-8" });
   const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = ORD.from ? `slick-orders-${ORD.from}-to-${ORD.to}.csv` : "slick-orders-all-time.csv"; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href), 2000);
   if(data.length===5000) toast("Exported the latest 5,000 orders. Narrow the dates for more.");
 }
@@ -4186,7 +4193,7 @@ const DRP = { el:null, anchor:null, m:null, a:null, hover:null, onPick:null, fro
 function closeMenus(except){ document.querySelectorAll(".ddmenu:not([hidden]), #acctMenu:not([hidden]), #ubMenu:not([hidden])").forEach(m => { const w = m.closest(".ddwrap, .acct, #ubDD") || m.parentElement; if(except && w.contains(except)) return; m.hidden = true; if(m.id==="acctMenu") $("#acctBtn")?.setAttribute("aria-expanded", "false"); }); }
 document.addEventListener("pointerdown", e => closeMenus(e.target), true);
 // orders filter pills: close the open list on an outside click or Escape; the search box narrows the list in place
-document.addEventListener("pointerdown", e => { if(typeof ORD!=="undefined" && ORD.fpop && !e.target.closest(".ofpw")){ ORD.fpop = ""; render(); } }, true);
+document.addEventListener("pointerdown", e => { if(typeof ORD!=="undefined" && ORD.fpop && !e.target.closest(".ofpw")){ ORD.fpop = ""; const w = document.querySelector("#view .ofpill.open"); w?.classList.remove("open"); w?.setAttribute("aria-expanded", "false"); document.querySelector("#view .ofpop")?.remove(); } }, true);
 document.addEventListener("keydown", e => { if(e.key==="Escape" && typeof ORD!=="undefined" && ORD.fpop){ ORD.fpop = ""; render(); } });
 document.addEventListener("input", e => { if(!e.target.matches?.("[data-ofsearch]")) return; const q = e.target.value.trim().toLowerCase(); e.target.closest(".ofpop").querySelectorAll(".ofo").forEach((b, i) => b.hidden = i>0 && !!q && !b.textContent.toLowerCase().includes(q)); });
 // dropdown menus float above everything (so a card or table edge never cuts them off) and open upward near the bottom of the screen
@@ -4509,7 +4516,7 @@ document.addEventListener("click", e => {
   const ro2 = e.target.closest("[data-reorder]"); if(ro2){ e.preventDefault(); const lo = (window.__ccPast||[]).find(x=>x.id===ro2.dataset.reorder); if(!lo) return;
     if(!$("#oBrand").value && lo.brand_id){ $("#oBrand").value = lo.brand_id; fillOrderBranches(lo.branch_id); }
     const okIds = new Set(availableProducts().map(p=>p.id)), miss = [];
-    (lo.items||[]).forEach(i => { const p = S.products.find(x=>x.id===i.productId); if(!p || !okIds.has(p.id)){ miss.push(i.name); return; } cart.push({ ...i }); });
+    (lo.items||[]).filter(i => !i.voided).forEach(i => { const p = S.products.find(x=>x.id===i.productId); if(!p || !okIds.has(p.id)){ miss.push(i.name); return; } const opt = (i.options||[]).reduce((a,x)=>a+(+x.price||0),0); cart.push({ productId:p.id, name:i.name, price:+(ccPrice(p)+(i.options?.length?opt:0)).toFixed(2), qty:+i.qty||1, ...(i.options?.length?{options:i.options,mods:i.mods}:{}), ...(i.note?{note:i.note}:{}) }); });
     renderCart(false); toast(miss.length ? `Added to the cart · not available now: ${miss.join(", ")}` : "Order added to the cart"); return; }
   const ua = e.target.closest("[data-useaddr]"); if(ua){ e.preventDefault(); const a = window.__ccCust?.addresses?.[+ua.dataset.useaddr]; if(a){ ccAddrSet(a.address); ccAddrCards(); } return; }
   if(e.target.closest("[data-newaddr]")){ e.preventDefault(); ADDR_K.forEach(k => { const el = $("#oA_"+k); if(el) el.value = ""; }); ccAddrCards(); $("#oA_label")?.focus(); return; }
@@ -4892,7 +4899,7 @@ document.addEventListener("keydown", e => { if(e.key==="Enter" && e.target.id?.s
 
 /* filters belong to the page: leaving a page puts its filters back to the defaults */
 function resetPageFilters(){
-  Object.assign(state, { range:"day", days:1, date:todayStr(), dateSet:false, compare:false, cmpDate:"", dashTab:"general", branch:"all", brand:"all", devOpen:null, brOpen:null }); if(!RPT.keep) RPT.key = ""; RPT.keep = false; DASH.key = "";
+  Object.assign(state, { range:"day", days:1, date:todayStr(), dateSet:false, compare:false, cmpDate:"", dashTab:"general", branch:"all", brand:"all", devOpen:null, brOpen:null }); if(!RPT.keep){ RPT.key = ""; RPT.brand = ""; } RPT.keep = false; DASH.key = "";
   if(ORD.keep) ORD.keep = false; else Object.assign(ORD, { tab:"all", range:"week", q:"", from:"", to:"", channel:"", type:"", pay:"", source:"", brand:"", branch:"", page:1, key:"", open:null });
   Object.assign(CUS, { filter:"all", q:"", sort:"last", page:1, key:"", open:null, det:null, more:false, fopen:false, flt:{} });
   Object.assign(BM, { q:"", draft:{} });
@@ -5991,7 +5998,7 @@ function dashToReport(title){
     Object.assign(ORD, { keep:true, tab:"all", q:"", from:dashFrom(), to:state.date, channel:"", type:"", pay:"", source:"", brand: state.brand==="all" ? "" : state.brand, branch: state.branch==="all" ? "" : state.branch, page:1, key:"", open:null });
     location.hash = "orders"; setTimeout(() => { render(); window.scrollTo(0,0); }, 0); return; }
   const pay = /payment/i.test(title), from = dashFrom(), to = state.date;
-  Object.assign(RPT, { keep:true, key: pay ? "payments" : "sales", hub:"sales-reports", from, to, branch: state.branch==="all" ? "" : state.branch, loaded:"", rows:null });
+  Object.assign(RPT, { keep:true, key: pay ? "payments" : "sales", hub:"sales-reports", from, to, branch: state.branch==="all" ? "" : state.branch, brand: state.brand==="all" ? "" : state.brand, loaded:"", rows:null });
   if(!pay){ RPT.dim = "branch"; RPT.group = from===to ? "hour" : "day"; }
   location.hash = "sales-reports"; setTimeout(() => { render(); window.scrollTo(0,0); }, 0);
 }
@@ -6067,7 +6074,9 @@ $("#ccScrim").addEventListener("input", e => { if(e.target.id==="oSearch") rende
 $("#ccScrim").addEventListener("click", e => { if(e.target.closest("#oCatBack")){ state.oCat = ""; if($("#oSearch")) $("#oSearch").value = ""; renderOrderMenu(); } });
 $("#ccScrim").addEventListener("change", e => {
   if(e.target.id==="oBrand"){ fillOrderBranches(""); cart = cart.filter(i => S.products.find(p=>p.id===i.productId)?.brandId===e.target.value); state.oCat=""; renderOrderMenu(); renderCart(false); setTimeout(() => $("#oBranch")?.focus(), 0); }
-  if(e.target.id==="oBranch"){ renderOrderMenu(); renderCart(false); }
+  if(e.target.id==="oBranch"){ const ok = new Set(availableProducts().map(p=>p.id)), miss = [];
+    cart = cart.filter(i => { if(i.saved) return true; const p = S.products.find(x=>x.id===i.productId); if(!p || !ok.has(p.id)){ miss.push(i.name); return false; } const opt = (i.options||[]).reduce((a,x)=>a+(+x.price||0),0); i.price = +(ccPrice(p)+opt).toFixed(2); return true; });
+    renderOrderMenu(); renderCart(false); if(miss.length) toast("Removed, not sold at this branch: " + miss.join(", ")); }
   const cg = e.target.closest("[data-ochg]"); if(cg){ if(!ccChg) ccChg = new Set(ccCharges().picked.map(c=>c.id)); cg.checked ? ccChg.add(cg.dataset.ochg) : ccChg.delete(cg.dataset.ochg); renderCart(false); }
 });
 $("#view").addEventListener("click", async e => {
