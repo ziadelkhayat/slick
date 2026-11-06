@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="286-1793983790">
+<meta name="slick-build" content="287-1793983963">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -173,7 +173,7 @@ p.subt{display:none!important}
 .ttop{display:flex;align-items:center;gap:12px;padding:14px 16px;border-bottom:1px solid var(--line);flex-wrap:wrap}
 .ttabs{display:flex;gap:18px}.ttabs a{color:var(--ink2);text-decoration:none;font-weight:500;padding:4px 0;border-bottom:2px solid transparent}.ttabs a.on{color:var(--ink);border-color:var(--accent)}
 .search{min-width:220px}
-tr.click{cursor:pointer}tr.click:hover td{background:#faf9fd}
+tr.click,tr.clk,[data-open],[data-bropen],[data-devopen],[data-dcrow],[data-rsedit],[data-tagren],.click,button,a[href],label.chk,select,[role="button"]{cursor:pointer}tr.click{cursor:pointer}tr.click:hover td{background:#faf9fd}
 .pager{display:flex;align-items:center;gap:8px;padding:12px 16px;border-top:1px solid var(--line)}
 .btn:disabled{opacity:.45;cursor:not-allowed}
 .lnk{color:#3f6fd8;text-decoration:none}.lnk:hover{text-decoration:underline}
@@ -211,7 +211,7 @@ tr.click{cursor:pointer}tr.click:hover td{background:#faf9fd}
 .qty{display:inline-flex;align-items:center;gap:8px}.qty button{width:24px;height:24px;border-radius:6px;border:1px solid var(--line);background:var(--surface);cursor:pointer}
 .ctot{display:flex;justify-content:space-between;font-size:16px;border-top:1px solid var(--line);margin-top:8px;padding-top:10px}
 .setup{display:flex;gap:24px;align-items:center;flex-wrap:wrap}.setup>div:first-child{flex:1;min-width:280px}
-.steps{margin:8px 0 0;padding-left:20px;color:var(--ink2)}.steps li{margin:4px 0}
+.steps{margin:8px 0 0;padding-left:20px;color:var(--ink2);font-size:14px;line-height:1.55}.steps li{margin:4px 0}.setup h3{font-size:16px;font-weight:600;margin:0}.apk .btn{display:inline-flex;align-items:center;gap:8px}.apk .lnk{font-size:13.5px}
 .apk{display:flex;flex-direction:column;gap:6px;align-items:center}
 .acode{font-family:ui-monospace,Menlo,monospace;font-size:15px;letter-spacing:.15em;background:var(--bg);padding:3px 8px;border-radius:6px}
 .linkbox{border:1px dashed var(--line);border-radius:8px;padding:9px 10px}
@@ -479,7 +479,7 @@ tr.grp .toggle{vertical-align:middle}
 .spill.s-refund{background:#fde8e8;color:#9e0c24}
 .bmgrip{cursor:grab;color:var(--ink3,#9a98a6);margin-right:8px;letter-spacing:-2px;user-select:none}
 tr[draggable="true"].dragging{opacity:.45}tr.dropto td{box-shadow:inset 0 2px 0 #5b2bc4}
-.ptabs{display:flex;gap:6px;overflow-x:auto;padding:2px 0 12px;margin-bottom:6px;border-bottom:1px solid var(--line);scrollbar-width:thin}
+.ptabs{display:flex;flex-wrap:wrap;row-gap:6px;gap:6px;overflow:visible;padding:2px 0 12px;margin-bottom:6px;border-bottom:1px solid var(--line);scrollbar-width:thin}
 .ptabs a .ico{width:16px;height:16px;margin-right:6px;vertical-align:-3px}.ptabs a{flex:none;padding:7px 13px;border-radius:999px;font-size:13.5px;font-weight:500;color:var(--ink2);text-decoration:none;border:1px solid transparent;white-space:nowrap}
 .ptabs a:hover{background:var(--bg,#f4f3f8)}.ptabs a.on{background:#efe9fb;color:#5b2bc4;border-color:#d9ccf7;font-weight:600}
 .mlist{margin:3px 0 0;padding:0 0 0 16px;font-size:12px;line-height:1.45;color:#6b6a75;list-style:disc;text-align:left}.mlist li.mn{list-style:none;margin-left:-16px;font-style:italic}
@@ -1938,8 +1938,8 @@ function viewBranches(){
   const ob = state.brOpen && branches.find(x => x.id===state.brOpen); if(ob){ setTimeout(() => paintBranchData(ob.id), 0); return viewBranch(ob); }
   const list = branches.filter(b => state.brand==="all" || b.brandId===state.brand);
   const n = list.length, a = activeBranches().length;
-  let h = `<div class="row" style="justify-content:space-between;margin-bottom:6px"><div><h1>Branches</h1><p class="subt" style="margin:0">${n} total · ${a} active</p></div>
-    <div class="row" style="gap:8px;margin:0">${scopeBar(false)}<button class="btn pri" id="addBranch">+ Add branch</button></div></div><div style="height:14px"></div>`;
+  let h = `<div class="phead"><h1>Branches</h1><div class="sp"></div>${scopeBar(false)}<button class="btn pri" id="addBranch">Create Branch</button></div>
+    <p class="subt" style="margin-top:-6px">${n} total · ${a} active</p>`;
   if(storeMode==="local") h += `<div class="banner">Preview mode: branches you add here won't be saved. Open this page from claude.ai while signed in to save them.</div>`;
   if(!n) return h + `<div class="card empty">No branches yet. Add your first branch to get started.</div>`;
   const tgName = id => (S.tax_groups||[]).find(g => g.id===id)?.name || "";
@@ -3542,7 +3542,7 @@ function viewDevices(){
   const list = S.devices.filter(live).sort((a,b)=>branchName(a.branchId).localeCompare(branchName(b.branchId))||a.name.localeCompare(b.name));
   let h = `<div class="phead"><h1>Devices</h1><div class="sp"></div><button class="btn pri" id="devNew">Create Device</button></div>
   <div class="card setup"><div><h3>Set up a POS tablet</h3><ol class="steps"><li>Download the <b>Slick POS</b> APK on the Android tablet and install it (allow "install from this source" when asked).</li><li>Create a device here and choose its branch and type.</li><li>Open the app, sign in with a staff account, then enter the device's 6-digit activation code.</li><li>The tablet downloads its branch, menu, prices and printers, then it's ready to take orders.</li></ol></div>
-  <div class="apk"><a class="btn pri" href="the-wok-pos.apk" download>⬇ Download POS APK</a><a class="lnk" href="pos.html" target="_blank" rel="noopener">or open POS in a browser</a></div></div><div style="height:16px"></div>`;
+  <div class="apk"><a class="btn pri" href="the-wok-pos.apk" download>${svgIco("download")}Download POS APK</a><a class="lnk" href="pos.html" target="_blank" rel="noopener">or open POS in a browser</a></div></div><div style="height:16px"></div>`;
   if(storeMode==="local") h += `<div class="banner">Preview mode: devices won't be saved.</div>`;
   h += `<div class="card tbl">${list.length ? `<table><thead><tr><th>Name</th><th>Reference</th><th>Status</th><th>Branch</th></tr></thead><tbody>${list.map(d=>`<tr class="clk" data-devopen="${esc(d.id)}">
     <td><b>${esc(d.name)}</b> <span class="note">${esc(devType(d.type))}</span></td><td>${esc(d.reference || "—")}</td><td>${devStatus(d)}</td><td>${esc(branchName(d.branchId))}</td></tr>`).join("")}</tbody></table>`
