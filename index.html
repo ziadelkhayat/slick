@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="323-1793994636">
+<meta name="slick-build" content="324-1793995341">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1024,6 +1024,12 @@ table.sk-ghost-t{border-collapse:collapse;table-layout:fixed}table.sk-ghost-t td
 .ccx .citem{padding:14px 0}
 .otbl.obody table{width:100%}.otbl.obody th{white-space:normal;line-height:1.25;padding:12px 10px!important;vertical-align:bottom}.otbl.obody td{padding:12px 10px!important;white-space:normal}.otbl.obody td.num{white-space:nowrap}
 .ccp.sel::after{content:"";position:absolute;inset:0;border:2px solid var(--accent);border-radius:inherit;pointer-events:none;z-index:2}.pbtn.ccp em{z-index:3}
+.dmseg{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#f4f3f8}.dmseg button{border:0;background:none;padding:0 18px;min-height:40px;font:inherit;font-size:14px;cursor:pointer;color:var(--ink)}.dmseg button+button{border-left:1px solid var(--line)}.dmseg button.on{background:var(--accent);color:#fff;font-weight:600}
+.fbar .drpbtn{gap:10px}.pkpop{position:absolute;z-index:3000;background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:0 14px 40px rgba(20,16,40,.16);padding:12px;min-width:340px}
+.pkh{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}.pkh b{font-size:15px}.pkh button{border:0;background:none;font-size:20px;width:34px;height:34px;border-radius:8px;cursor:pointer}.pkh button:hover{background:#f4f3f8}
+.pkg{display:grid;gap:4px}.pkm{grid-template-columns:repeat(3,1fr)}.pkw{grid-template-columns:1fr 1fr}.pkg button{border:0;background:none;padding:9px 10px;border-radius:8px;font:inherit;font-size:13.5px;cursor:pointer;white-space:nowrap}.pkg button:hover{background:#f1eefb}.pkg button.on{background:var(--accent);color:#fff;font-weight:600}
+.ccct .ccn{margin-top:auto;color:var(--accent-ink);font-size:13.5px;font-weight:600}.ccct.hasimg>b{margin-top:2px}
+.cccart .clist{border-bottom:1px solid var(--line);margin-bottom:8px}.cccart .clist .citem:last-child{border-bottom:0}.cccart .ccdline{padding:4px 0;align-items:center}
 </style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -1472,7 +1478,7 @@ const rangeDays = () => Math.max(1, state.days || 1);
 const dashFrom = () => { const d = new Date(state.date+"T12:00:00"); d.setDate(d.getDate() - rangeDays() + 1); return new Date(d - d.getTimezoneOffset()*60000).toISOString().slice(0,10); };
 const DASH = { key:"", cur:null, prev:null, loading:false, err:"", at:0, t:null };
 function dashParams(offset){
-  const n = rangeDays(), d = new Date((offset && state.cmpDate ? state.cmpDate : state.date)+"T12:00:00"); if(offset && !state.cmpDate) d.setDate(d.getDate() - offset*n);
+  const cr = offset ? cmpRange() : null, n = offset ? cr.n : rangeDays(), d = new Date((offset ? cr.end : state.date)+"T12:00:00");
   const act = activeBranches();
   return { p_day: d.toISOString().slice(0,10), p_days: n,
     p_branches: state.branch!=="all" ? [state.branch] : (act.length ? act.map(b=>b.id) : null),
@@ -1482,7 +1488,7 @@ async function loadDash(force){
   if(!window.WOK || storeMode!=="db") return;
   const kind = dashKind(), cur = kind==="inventory" ? { p_branches: dashParams(0).p_branches } : dashParams(0);
   const fn = kind==="kitchen" ? "slick_kitchen" : kind==="inventory" ? "slick_inventory" : "slick_dashboard";
-  const key = JSON.stringify([kind, cur, state.compare, state.cmpDate||""]);
+  const key = JSON.stringify([kind, cur, state.compare, state.cmpDate||"", state.cmpDays||0, state.days||1]);
   if(!force && key===DASH.key && (DASH.cur || DASH.loading || DASH.err)) return;
   if(key!==DASH.key){ DASH.cur = null; DASH.prev = null; }
   DASH.key = key; DASH.loading = true; DASH.err = "";
@@ -1580,16 +1586,46 @@ function barList(rows, fmt){ // horizontal bars, single measure
 
 /* ---------- views ---------- */
 const hourLbl = i => String(i%12||12).padStart(2,"0") + ":00 " + (i<12?"AM":"PM");
+/* dashboard period: Day, Week (Monday to Sunday) or Month, like Foodics */
+const ymdS = d => new Date(d - d.getTimezoneOffset()*60000).toISOString().slice(0,10);
+const dAdd = (s, n) => { const d = new Date(s+"T12:00:00"); d.setDate(d.getDate() + n); return ymdS(d); };
+const wkStart = s => { const d = new Date(s+"T12:00:00"), k = (d.getDay() + 6) % 7; d.setDate(d.getDate() - k); return ymdS(d); };
+const mDays = (y, m) => new Date(y, m + 1, 0).getDate();
+function periodOf(mode, anchor){ if(mode==="week"){ const a = wkStart(anchor); return { from:a, to:dAdd(a, 6), n:7 }; }
+  if(mode==="month"){ const d = new Date(anchor+"T12:00:00"), y = d.getFullYear(), m = d.getMonth(), n = mDays(y, m); return { from:ymdS(new Date(y, m, 1, 12)), to:ymdS(new Date(y, m, n, 12)), n }; }
+  return { from:anchor, to:anchor, n:1 }; }
+const dmode = () => state.dmode || "day";
+function setPeriod(anchor){ const p = periodOf(dmode(), anchor); state.date = p.to; state.days = p.n; state.dateSet = p.to !== todayStr(); state.cmpDate = ""; state.cmpDays = 0; }
+// what the numbers are compared with: the previous period of the same kind, or the one picked
+function cmpRange(){ if(state.cmpDate) return { end:state.cmpDate, n: state.cmpDays || rangeDays() };
+  if(dmode()==="month"){ const p = periodOf("month", dAdd(dashFrom(), -1)); return { end:p.to, n:p.n }; }
+  return { end: dAdd(state.date, -rangeDays()), n: rangeDays() }; }
+function cmpDefault(){ return cmpRange().end; }
+const perLbl = (to, n) => n===1 ? to : `${dAdd(to, 1-n)} - ${to}`;
+function cmpLbl(){ const c = cmpRange(); return state.cmpDate ? perLbl(c.end, c.n) : dmode()==="month" ? "previous month" : dmode()==="week" ? "previous week" : "previous day"; }
 function filterBar(){
-  return `<div class="row fbar">${scopeBar(true)}<button type="button" class="sel drpbtn" id="dashRange" aria-haspopup="dialog">${svgIco("calendar")}<span>${esc(drpLabel(state.date, state.date))}</span></button>
+  const md = dmode(), c = cmpRange();
+  return `<div class="row fbar">${scopeBar(true)}<div class="dmseg" role="tablist">${[["day","Day"],["week","Week"],["month","Month"]].map(([k,t]) => `<button type="button" data-dmode="${k}" class="${md===k?"on":""}">${t}</button>`).join("")}</div>
+    <button type="button" class="sel drpbtn" id="dashRange" aria-haspopup="dialog"><span>${esc(perLbl(state.date, rangeDays()))}</span>${svgIco("calendar")}</button>
     <label class="toggle"><input type="checkbox" id="cmpToggle" ${state.compare?"checked":""}><span class="trk"></span>Compare</label>
-    ${state.compare ? `<button type="button" class="sel drpbtn" id="cmpRange" aria-haspopup="dialog" title="Business date to compare with${rangeDays()>1 ? " (the " + rangeDays() + " days ending on it)" : ""}">${svgIco("calendar")}<span>${esc(drpLabel(state.cmpDate || cmpDefault(), state.cmpDate || cmpDefault()))}</span></button>` : ""}
+    ${state.compare ? `<button type="button" class="sel drpbtn" id="cmpRange" aria-haspopup="dialog" title="Period to compare with"><span>${esc(perLbl(c.end, c.n))}</span>${svgIco("calendar")}</button>` : ""}
     <span class="sp"></span>
     </div>`;
 }
-// what the numbers are compared with: the previous period, or the business date picked
-function cmpDefault(){ const d = new Date(state.date+"T12:00:00"); d.setDate(d.getDate() - rangeDays()); return d.toISOString().slice(0,10); }
-function cmpLbl(){ if(!state.cmpDate) return rangeDays()===1 ? "previous day" : "previous " + rangeDays() + " days"; const f = new Date(state.cmpDate+"T12:00:00").toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"}); return rangeDays()===1 ? f : `${rangeDays()} days to ${f}`; }
+// week and month pickers
+const PK = { el:null };
+function pkClose(){ PK.el?.remove(); PK.el = null; }
+function pkOpen(anchor, mode, cur, onPick){ pkClose(); const el = PK.el = document.createElement("div"); el.className = "pkpop"; document.body.appendChild(el);
+  const r = anchor.getBoundingClientRect(); el.style.top = (r.bottom + window.scrollY + 6) + "px"; el.style.left = Math.max(8, r.left + window.scrollX) + "px";
+  const d0 = new Date(cur+"T12:00:00"); let y = d0.getFullYear(), m = d0.getMonth();
+  const MN = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"], fmt = s => { const d = new Date(s+"T12:00:00"); return String(d.getDate()).padStart(2,"0") + " " + MN[d.getMonth()]; };
+  const draw = () => { if(mode==="month"){ const sel = periodOf("month", cur).from;
+      el.innerHTML = `<div class="pkh"><button type="button" data-pkn="-1" aria-label="Previous year">‹</button><b>${y}</b><button type="button" data-pkn="1" aria-label="Next year">›</button></div><div class="pkg pkm">${MN.map((t,i) => { const v = ymdS(new Date(y, i, 1, 12)); return `<button type="button" data-pkv="${v}" class="${v===sel?"on":""}">${t}</button>`; }).join("")}</div>`; }
+    else { const sel = wkStart(cur), first = ymdS(new Date(y, m, 1, 12)); let a = wkStart(first); if(a < first) a = dAdd(a, 7); const l = []; while(new Date(a+"T12:00:00").getMonth()===m){ l.push(a); a = dAdd(a, 7); }
+      el.innerHTML = `<div class="pkh"><button type="button" data-pkn="-1" aria-label="Previous month">‹</button><b>${MN[m]} ${y}</b><button type="button" data-pkn="1" aria-label="Next month">›</button></div><div class="pkg pkw">${l.map(v => `<button type="button" data-pkv="${v}" class="${v===sel?"on":""}">${fmt(v)} - ${fmt(dAdd(v, 6))}</button>`).join("")}</div>`; } };
+  el.addEventListener("click", e => { e.stopPropagation(); const n = e.target.closest("[data-pkn]"); if(n){ if(mode==="month") y += +n.dataset.pkn; else { m += +n.dataset.pkn; if(m < 0){ m = 11; y--; } if(m > 11){ m = 0; y++; } } return draw(); }
+    const v = e.target.closest("[data-pkv]"); if(v){ pkClose(); onPick(v.dataset.pkv); } });
+  draw(); setTimeout(() => document.addEventListener("click", function off(ev){ if(PK.el && !PK.el.contains(ev.target)){ pkClose(); } document.removeEventListener("click", off); }), 0); }
 function delta(cur, prev){
   if(!state.compare) return "";
   if(!prev) return `<div class="d">No data for previous period</div>`;
@@ -2107,8 +2143,13 @@ $("#brandSel").addEventListener("change", e => { state.brand = e.target.value; s
 $("#view").addEventListener("click", e => {
   if(e.target.closest("#dashRefresh")){ loadDash(true); render(); return; }
   const rp = e.target.closest("[data-report]"); if(rp){ e.preventDefault(); dashToReport(rp.dataset.report); return; }
-  const cr = e.target.closest("#cmpRange"); if(cr){ if(DRP.el) return drpClose(); const d0 = state.cmpDate || cmpDefault(); drpOpen(cr, d0, d0, (f, t) => { state.cmpDate = t && t!==cmpDefault() ? t : ""; render(); }); DRP.single = true; drpDraw(); return; }
-  const dr = e.target.closest("#dashRange"); if(dr){ if(DRP.el) return drpClose(); drpOpen(dr, state.date, state.date, (f, t) => { state.date = t; state.days = 1; state.dateSet = t !== todayStr(); state.cmpDate = ""; render(); }); DRP.single = true; drpDraw(); return; }
+  const dm = e.target.closest("[data-dmode]"); if(dm){ state.dmode = dm.dataset.dmode; setPeriod(state.dateSet ? state.date : todayStr()); render(); return; }
+  const cr = e.target.closest("#cmpRange"); if(cr){ if(DRP.el) return drpClose(); if(PK.el) return pkClose();
+    if(dmode()!=="day"){ e.stopPropagation(); return pkOpen(cr, dmode(), cmpDefault(), v => { const p = periodOf(dmode(), v); state.cmpDate = p.to; state.cmpDays = p.n; render(); }); }
+    const d0 = cmpDefault(); drpOpen(cr, d0, d0, (f, t) => { state.cmpDate = t || ""; state.cmpDays = 1; render(); }); DRP.single = true; drpDraw(); return; }
+  const dr = e.target.closest("#dashRange"); if(dr){ if(DRP.el) return drpClose(); if(PK.el) return pkClose();
+    if(dmode()!=="day"){ e.stopPropagation(); return pkOpen(dr, dmode(), state.date, v => { setPeriod(v); render(); }); }
+    drpOpen(dr, state.date, state.date, (f, t) => { setPeriod(t); render(); }); DRP.single = true; drpDraw(); return; }
   const t2 = e.target.closest("[data-dt2]"); if(t2){ e.preventDefault(); state.dashTab = t2.dataset.dt2; render(); return; }
   const t = e.target.closest("[data-dt]"); if(t){ e.preventDefault(); state.dashTab = t.dataset.dt; render(); return; }
   if(e.target.closest("#addBranch")) openForm();
@@ -3599,7 +3640,7 @@ function renderOrderMenu(){
     const tiles = [...cats.map(c => [c.id, c.name, c.imageUrl]), ...(n("_none") ? [["_none","Other",""]] : [])];
     $("#oCatTitle").textContent = "Categories";
     box.className = "pgrid cats";
-    box.innerHTML = tiles.length ? tiles.map(([id, nm, img], ix) => { const st = ccCatStyle(cats.find(c=>c.id===id) || { name:nm }, ix); return `<button type="button" class="ctile ccct${img?" hasimg":""}" data-ocat="${esc(id)}" style="--hue:${st.hue};--tint:${st.tint}">${img?`<img src="${esc(img)}" alt="" loading="lazy">`:`<span class="pic">${ccIco(st.icon)}</span>`}<b>${esc(nm)}</b></button>`; }).join("")
+    box.innerHTML = tiles.length ? tiles.map(([id, nm, img], ix) => { const st = ccCatStyle(cats.find(c=>c.id===id) || { name:nm }, ix); return `<button type="button" class="ctile ccct${img?" hasimg":""}" data-ocat="${esc(id)}" style="--hue:${st.hue};--tint:${st.tint}">${img?`<img src="${esc(img)}" alt="" loading="lazy">`:`<span class="pic">${ccIco(st.icon)}</span>`}<b>${esc(nm)}</b><small class="ccn">${n(id)} item${n(id)===1?"":"s"}</small></button>`; }).join("")
       : `<div class="note" style="padding:12px">${S.products.length ? ($("#oBrand")?.value || !brandList().length ? "No products available at this branch." : "Choose a brand to see its menu.") : "No products yet. Add them under Menu → Products."}</div>`;
     return;
   }
@@ -5659,7 +5700,7 @@ document.addEventListener("input", e => { if(e.target.id==="dsQ"){ DS.q = e.targ
 
 /* filters belong to the page: leaving a page puts its filters back to the defaults */
 function resetPageFilters(){
-  Object.assign(state, { range:"day", days:1, date:todayStr(), dateSet:false, compare:false, cmpDate:"", dashTab:"general", branch:"all", brand:"all", devOpen:null, brOpen:null }); if(!RPT.keep){ RPT.key = ""; RPT.brand = ""; } RPT.keep = false; DASH.key = "";
+  Object.assign(state, { range:"day", dmode:"day", days:1, date:todayStr(), dateSet:false, compare:false, cmpDate:"", cmpDays:0, dashTab:"general", branch:"all", brand:"all", devOpen:null, brOpen:null }); if(!RPT.keep){ RPT.key = ""; RPT.brand = ""; } RPT.keep = false; DASH.key = "";
   if(ORD.keep) ORD.keep = false; else Object.assign(ORD, { tab:"all", range:"week", q:"", from:"", to:"", channel:"", type:"", pay:"", source:"", brand:"", branch:"", page:1, key:"", open:null });
   Object.assign(CUS, { filter:"all", q:"", sort:"last", page:1, key:"", open:null, det:null, more:false, fopen:false, flt:{} });
   Object.assign(BM, { q:"", draft:{} }); Object.assign(DC, { q:"", branch:"" }); DC.sel.clear(); Object.assign(DS, { q:"", open:"", more:false });
