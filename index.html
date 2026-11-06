@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="271-1793976085">
+<meta name="slick-build" content="272-1793976293">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -2467,13 +2467,14 @@ const CRUD = {
     cols:[["Name",r=>`<b>${esc(r.name)}</b>`],["Sku",r=>`<span class="code">${esc(r.sku||"")}</span>`],["Category",r=>esc(r.category||"—")],["Unit",r=>esc(r.storageUnit||"—")],
       ["On hand",r=>{ const q = invQty(r.id, ""); return q===undefined ? '<span class="note">—</span>' : n2(q); },"num"],["Cost",r=>{ const c = +itemUnitCost(r); return c ? fmtCost(c) : '<span class="note">No cost</span>'; },"num"],
       ["Status",r=>{ const st = invStatus(r, invQty(r.id, "")); return `<span class="ist ist-${st[0]}">${st[1]}</span>`; }]],
-    fields:[{k:"name",l:"Name",req:1},{k:"nameAr",l:"Name (Arabic)"},{k:"sku",l:"SKU",auto:()=>nextSku("inv_items")},
+    // laid out like Foodics: name, localized name, SKU, category, units, conversion, costing, barcode, cost, stock levels
+    fields:[{k:"name",l:"Name",req:1},{k:"nameAr",l:"Name Localized"},{k:"sku",l:"SKU",req:1,auto:()=>nextSku("inv_items")},
       {k:"category",l:"Category",t:"select",opts:()=>invCatNames().map(n=>[n,n])},
-      
-      {k:"storageUnit",l:"Storage unit",req:1,ph:"e.g. kg, box, gallon"},{k:"ingredientUnit",l:"Ingredient unit",req:1,ph:"e.g. g, ml, piece"},
-      {k:"factor",l:"Storage → ingredient factor",t:"number",req:1,ph:"e.g. 1000"},
-      {k:"costingMethod",l:"Costing method",t:"select",opts:()=>[["fixed","Fixed (enter the cost)"],["transactions","From transactions (production updates it)"]],def:"fixed"},{k:"cost",l:"Cost per storage unit (USD)",t:"number",req:1,when:{k:"costingMethod",is:"fixed"}},
-      {k:"minLevel",l:"Minimum level",t:"number"},{k:"parLevel",l:"Par level",t:"number"},{k:"maxLevel",l:"Maximum level",t:"number"}]
+      {k:"storageUnit",l:"Storage Unit",req:1,ph:"e.g. kg, box, gallon"},{k:"ingredientUnit",l:"Ingredient Unit",req:1,ph:"e.g. gram, ml, piece"},
+      {k:"factor",l:"Storage To Ingredient",t:"number",req:1,ph:"e.g. 1000"},
+      {k:"costingMethod",l:"Costing Method",req:1,t:"select",opts:()=>[["transactions","From Transactions"],["fixed","Fixed"]],def:"transactions"},
+      {k:"barcode",l:"Barcode"},{k:"cost",l:"Cost (Per Storage Unit)",t:"number",req:1,when:{k:"costingMethod",is:"fixed"}},
+      {k:"minLevel",l:"Minimum Level (Storage Unit)",t:"number"},{k:"parLevel",l:"Par Level (Storage Unit)",t:"number"},{k:"maxLevel",l:"Maximum Level (Storage Unit)",t:"number"}]
   },
   "inv-categories": {
     col:"inv_categories", title:"Inventory Categories", one:"Category",
@@ -2558,7 +2559,8 @@ async function generateSkus(key){
   try{ for(const r of todo){ const sku = nextSku(col, made); made.push(sku); await put(col, r.id, { sku }); } toast(`${made.length} SKUs generated`); }
   catch(err){ console.error(err); toast("Couldn't save all SKUs. Only the owner or an admin can change this."); }
 }
-document.addEventListener("click", e => { const b = e.target.closest("[data-genskus]"); if(b) generateSkus(b.dataset.genskus); });
+document.addEventListener("click", e => { const b = e.target.closest("[data-genskus]"); if(b) generateSkus(b.dataset.genskus);
+  const g = e.target.closest("[data-skugen]"); if(g){ e.preventDefault(); const i = g.parentElement.querySelector("input"), f = CRUD[g.dataset.skugen]?.fields.find(x => x.k==="sku"); if(i && f?.auto){ i.value = f.auto(); i.dispatchEvent(new Event("input", { bubbles:true })); } } });
 
 state.tabs = {}; state.q = {}; state.page = {}; state.catFilter = "";
 function crudView(key){
@@ -2760,6 +2762,7 @@ function openCrud(key, id, inline, draft){
     if(f.t==="items") return `<div class="f full"><label for="${idA}_new">${f.l}${f.req?" *":""}</label><div class="items" id="${idA}">${(Array.isArray(v) ? v : []).map(x => itemRow(x)).join("")}</div>
       <div class="itemadd"><input id="${idA}_new" placeholder="${esc(f.ph||"")}" data-itemnew="${idA}"><button type="button" class="btn sm" data-itemadd="${idA}">+ Add</button></div>${f.note?`<div class="note">${esc(f.note)}</div>`:""}</div>`;
     if(f.t==="textarea") return `<div class="f full"><label for="${idA}">${f.l}${f.req?" *":""}</label><textarea id="${idA}" rows="${f.rows||3}" ${f.ph?`placeholder="${esc(f.ph)}"`:""}>${esc(Array.isArray(v) ? v.join("\n") : (v||""))}</textarea>${f.note?`<div class="note">${esc(f.note)}</div>`:""}</div>`;
+    if(f.k==="sku" && f.auto) return `<div class="f${full}"><label for="${idA}">${f.l}${f.req?" *":""}</label><div style="display:flex;gap:8px"><input id="${idA}" value="${esc(v??"")}" placeholder="${esc(f.ph||"")}" style="flex:1;min-width:0"><button type="button" class="btn" data-skugen="${key}">Generate</button></div></div>`;   // SKU with a Generate button (Foodics style)
     const list = f.t==="list" ? `<datalist id="${idA}_dl">${f.opts().map(o=>`<option value="${esc(o)}">`).join("")}</datalist>` : "";
     return `<div class="f${full}"><label for="${idA}">${f.l}${f.req?" *":""}</label><input id="${idA}" ${f.t==="number"?'type="number" step="any" min="0"':""} ${f.t==="list"?`list="${idA}_dl"`:""} value="${esc(v??"")}" placeholder="${esc(f.ph||"")}">${list}</div>`;
   };
