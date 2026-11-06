@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="338-1794000956">
+<meta name="slick-build" content="339-1794001759">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -463,6 +463,30 @@ body{padding-bottom:calc(170px + env(safe-area-inset-bottom))!important}
 .oits{display:flex;flex-direction:column;gap:3px;margin:10px 0;color:var(--ink2);font-size:13.5px}
 .obot{display:flex;justify-content:space-between;align-items:center;border-top:1px dashed var(--line);padding-top:10px}
 .reord{display:inline-flex;align-items:center;gap:6px;border:0;border-radius:999px;background:var(--acc);color:var(--on-acc,#fff);padding:9px 16px;font:700 14px inherit;font-family:inherit}.reord svg{width:16px;height:16px}
+/* top bar: brand centred and large, cart on the right, order type underneath */
+.tbhead{margin-bottom:12px!important;min-height:64px}
+.tbsp{width:44px;flex:none}
+.tbhead .tbrand{gap:12px}
+.tbhead .tbrand img,.tbhead .tbrand .tbl{width:60px!important;height:60px!important;border-radius:16px;box-shadow:0 4px 14px rgba(20,18,30,.12);padding:4px;background:var(--s)}
+.tbhead .tbrand .tbl{font-size:26px;padding:0;background:var(--acc)}
+.tbhead .tbrand b{font-size:26px!important;letter-spacing:-.02em;line-height:1.1}
+.tbhead .tcart{width:44px;height:44px}
+.tbmode{display:flex;justify-content:center;margin:0 0 10px}
+.tbmode .otype{background:var(--s);border-radius:999px;padding:7px 16px 7px 8px;box-shadow:0 1px 4px rgba(0,0,0,.06)}
+.tbopen{display:flex;justify-content:center;margin-top:10px}.tbopen .chip{margin:0}
+.hin span.chip{display:none}.hcard[hidden]{display:none!important}
+.dlvtop>span:not(.di){flex:1;min-width:0}.dlvtop small{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dlvtop .dchev{font-style:normal;flex:none;font-size:24px;line-height:1;color:var(--ink2);margin-left:4px}
+.dlvtop{padding:12px 14px;border-radius:18px;box-shadow:0 2px 10px rgba(20,18,30,.07)}
+.primary>svg{width:20px;height:20px;flex:none;vertical-align:-4px;margin-right:6px;fill:none;stroke:currentColor;stroke-width:2.4}.sheet .primary{display:flex;align-items:center;justify-content:center;gap:4px}
+.addhome{display:flex;align-items:center;gap:12px;width:100%;margin:14px 0 4px;text-align:left;border:1px solid var(--line);background:var(--s);color:var(--ink);border-radius:18px;padding:12px 14px;font:inherit;cursor:pointer}
+.app .addhome{display:none}.addhome:active{opacity:.75}
+.addhome .ahi{flex:none;width:40px;height:40px;border-radius:12px;background:color-mix(in srgb,var(--acc) 12%,transparent);color:var(--acc);display:grid;place-items:center}
+.addhome .ahi svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round}
+.addhome>span:nth-child(2){flex:1;min-width:0}.addhome b{display:block;font-size:14.5px}.addhome small{display:block;color:var(--ink2);font-size:12.5px;margin-top:1px}.addhome i{font-style:normal;font-size:24px;color:var(--ink2)}
+.ahsteps{display:flex;flex-direction:column;gap:10px;margin-top:6px}.ahsteps>div{display:flex;align-items:center;gap:12px;background:var(--bg);border-radius:14px;padding:12px 14px;font-size:14.5px}
+.ahsteps .n{flex:none;width:24px;height:24px;border-radius:50%;background:var(--acc);color:var(--on-acc,#fff);display:grid;place-items:center;font-weight:800;font-size:12px}
+.ahsteps .si{flex:none;color:var(--acc);display:grid}.ahsteps .si svg{width:24px;height:24px}
 </style>
 </head>
 <body class="lay-grid">
@@ -626,6 +650,7 @@ function renderHead(){
     + (s.tiktok ? `<a class="chip" href="${esc(url(s.tiktok, "https://tiktok.com/@"))}" target="_blank" rel="noopener">${ic("link")}TikTok</a>` : "")
     + (s.website ? `<a class="chip" href="${esc(url(s.website, "https://"))}" target="_blank" rel="noopener">${ic("link")}Website</a>` : "");
   $("#banner").hidden = !cfg.banner; $("#banner").innerHTML = cfg.banner ? `<div>${ic("mega")}<span>${esc(cfg.banner)}</span></div>` : "";
+  topOpen();
 }
 
 let mode = qrBranch ? "dinein" : (modeOn("delivery") ? "delivery" : modeOn("takeaway") ? "takeaway" : "dinein");
@@ -856,17 +881,31 @@ const zoneAt = (lat, lng) => zoneList().find(z => inside([lat, lng], z.polygon))
 function setAddr(a){ addr = a; pin = a ? [a.lat, a.lng] : null; lsSet(AK + "_sel", !a ? null : addrs.some(x => x.id===a.id) ? a.id : { temp:a }); locate(); renderWhere(); renderTop(); if(a && goCart && cart.length) setTimeout(() => { if(!$("#scrim").classList.contains("show")) openCart(); }, 350); }
 // the brand's logo and name sit in the top bar, between the order type and the basket
 function tbBrand(){ const lg = (cfg.theme||{}).logo; return `<span class="tbrand">${lg ? `<img src="${esc(lg)}" alt="">` : `<span class="tbl">${esc(brand.name.trim()[0]?.toUpperCase() || "·")}</span>`}<b>${esc(brand.name)}</b></span>`; }
-function renderTop(){
+function renderTop(){ renderTop0(); topOpen(); }
+// the open-now chip sits in the top bar; the card under the cover only shows when it still has something (tagline, contact links)
+function topOpen(){ const el = $("#topbar"), c = $("#chips .chip.open, #chips .chip.shut"); if(!el) return;
+  el.querySelector(".tbopen")?.remove(); if(c){ const d = document.createElement("div"); d.className = "tbopen"; d.innerHTML = c.outerHTML; el.appendChild(d); }
+  const hc = $("#hero .hcard"); if(hc) hc.hidden = !cfg.tagline && !$("#chips a.chip"); }
+// the branch / location card in the top bar: same look as "Delivered from …", the whole card opens the picker
+function locCard(){ const b = branches.find(x => x.id===branchId), ch = `<i class="dchev">›</i>`;
+  if(mode==="delivery") return addr
+    ? `<button type="button" class="dlvtop" data-loc><span class="di">${ic("pin")}</span><span><b>${esc(addr.label || "Pinned location")}</b><small>${esc(addrLine(addr) || "Pinned location")}</small></span>${ch}</button>`
+    : `<button type="button" class="dlvtop" data-loc><span class="di">${ic("pin")}</span><span><b>Set your delivery location</b><small>So we can show the menu and delivery fee for your area</small></span>${ch}</button>`;
+  const hrs = b ? brHoursToday(b) : "", note = mode==="takeaway" ? "Ready for you to collect" : "Order from your table";
+  return b
+    ? `<button type="button" class="dlvtop" data-loc><span class="di">${ic(mode==="takeaway" ? "bag" : "dine")}</span><span><b>${mode==="takeaway" ? "Pick up from" : "Dine in at"} ${esc(b.name)}</b><small>${note}${b.settings?.address || bcfg(b.id).address ? " · " + esc(b.settings?.address || bcfg(b.id).address) : ""}</small></span>${ch}</button>`
+    : `<button type="button" class="dlvtop" data-loc><span class="di">${ic(mode==="takeaway" ? "bag" : "dine")}</span><span><b>${mode==="takeaway" ? "Choose a pickup branch" : "Choose a branch"}</b><small>Tap to see the branches near you</small></span>${ch}</button>`; }
+function renderTop0(){
   const el = $("#topbar"); if(!el) return;
   const cn = cart.reduce((a,i) => a + i.qty, 0), ab = `<button type="button" class="tcart" data-tcart aria-label="Basket${cn ? ", " + cn + " items" : ""}">${ic("cart")}<span class="n">${cn || ""}</span></button>`;
   const ms = MODES(), cur = ms.find(m => m[0]===mode) || ["dinein","Dine-in","dine"];
-  if(qrBranch){ el.innerHTML = `<div class="tbrow"><span class="otype"><span class="oi">${ic("dine")}</span>Dine-in</span>${tbBrand()}${ab}</div>`; return; }
+  if(qrBranch){ el.innerHTML = `<div class="tbrow tbhead"><span class="tbsp"></span>${tbBrand()}${ab}</div><div class="tbmode"><span class="otype"><span class="oi">${ic("dine")}</span>Dine-in</span></div>`; return; }
   const z = zones.find(x => x.id===zoneId), bn = branches.find(b => b.id===branchId)?.name;
   const loc = mode==="delivery" ? (addr ? `<span><small>Deliver to · ${esc(addr.label || "Pinned location")}</small><b>${esc(addrLine(addr) || addr.label || "Pinned location")}</b></span>` : `<span><b>Set your delivery location</b></span>`)
     : bn ? `<span><small>${mode==="takeaway" ? "Pick up from" : "Dine in at"}</small><b>${esc(bn)}</b></span>` : `<span><b>${mode==="takeaway" ? "Select pickup branch" : "Select a branch"}</b></span>`;
-  el.innerHTML = `<div class="tbrow"><button type="button" class="otype" data-otype ${ms.length < 2 ? "disabled" : ""}><span class="oi">${ic(cur[2])}</span>${cur[1]}${ms.length > 1 ? "<i>▾</i>" : ""}</button>${tbBrand()}${ab}</div>
-    ${mode==="delivery" && addr && z ? "" : `<button type="button" class="locfield" data-loc>${loc}<i>▾</i></button>`}
-    ${mode==="delivery" && addr ? (z ? `<button type="button" class="dlvtop" data-loc><span class="di">${ic("pin")}</span><span><b>Delivered from ${esc(branches.find(x => x.id===z.branch_id)?.name || "")}</b><small>To ${esc(addr.label || "your location")}${z.eta ? ` · about ${esc(z.eta)} min` : ""} · ${+z.fee ? usd(z.fee) + " delivery" : "Free delivery"}</small></span></button>` : `<div class="tchips"><span class="tchip bad">Not delivering here</span></div>`) : ""}`;
+  el.innerHTML = `<div class="tbrow tbhead"><span class="tbsp"></span>${tbBrand()}${ab}</div><div class="tbmode"><button type="button" class="otype" data-otype ${ms.length < 2 ? "disabled" : ""}><span class="oi">${ic(cur[2])}</span>${cur[1]}${ms.length > 1 ? "<i>▾</i>" : ""}</button></div>
+    ${mode==="delivery" && addr && z ? "" : locCard()}
+    ${mode==="delivery" && addr ? (z ? `<button type="button" class="dlvtop" data-loc><span class="di">${ic("pin")}</span><span><b>Delivered from ${esc(branches.find(x => x.id===z.branch_id)?.name || "")}</b><small>To ${esc(addr.label || "your location")}${z.eta ? ` · about ${esc(z.eta)} min` : ""} · ${+z.fee ? usd(z.fee) + " delivery" : "Free delivery"}</small></span><i class="dchev">›</i></button>` : `<div class="tchips"><span class="tchip bad">Not delivering here</span></div>`) : ""}`;
 }
 const MODES = () => [["delivery","Delivery","bike"],["takeaway","Pickup","bag"],["dinein","Dine-in","dine"]].filter(([m]) => modeOn(m));
 // order type: a bottom sheet like the location one; delivery then asks where, pickup / dine-in ask which branch
@@ -1123,7 +1162,7 @@ function renderLocs(){
     return `<div class="loc"><b>${esc(b.name)}</b><div>${ic("clock")}${o ? '<span class="ok2">Open</span>' : "Closed"} · ${esc(brHoursToday(b) || "")}</div>${x.address ? `<div>${ic("pin")}${esc(x.address)}</div>` : ""}${x.phone ? `<div>${ic("phone")}<a href="tel:${esc(String(x.phone).replace(/[^\d+]/g,""))}">${esc(x.phone)}</a></div>` : ""}</div>`; }).join("")}</div></div>`;
 }
 
-const shell = () => `<div id="whereBox" class="where"></div><div class="tools">${SH().search !== false ? `<div class="srch">${ic("search")}<input id="q" type="search" placeholder="Search for menu items" autocomplete="off" value="${esc(q)}"></div>` : ""}<div class="crow"><div class="vtog" role="group" aria-label="Show items as"><button type="button" data-view="list" aria-label="List">${ic("list")}</button><button type="button" data-view="grid" aria-label="Grid">${ic("grid")}</button></div><nav class="cats" id="catBar" aria-label="Menu categories"></nav></div><div class="cprog"><i id="cprog"></i></div></div><div id="menuBox"></div><div id="locBox"></div><footer class="ft">${cfg.footer ? esc(cfg.footer) + " · " : ""}Powered by Slick</footer>`;
+const shell = () => `<div id="whereBox" class="where"></div>${PREVIEW ? "" : `<button type="button" class="addhome" data-addhome><span class="ahi"><svg viewBox="0 0 24 24"><rect x="6" y="2.5" width="12" height="19" rx="3"/><path d="M12 8v6M9 11h6"/></svg></span><span><b>Add ${esc(brand.name)} to your home screen</b><small>Order in one tap, like an app</small></span><i>›</i></button>`}<div class="tools">${SH().search !== false ? `<div class="srch">${ic("search")}<input id="q" type="search" placeholder="Search for menu items" autocomplete="off" value="${esc(q)}"></div>` : ""}<div class="crow"><div class="vtog" role="group" aria-label="Show items as"><button type="button" data-view="list" aria-label="List">${ic("list")}</button><button type="button" data-view="grid" aria-label="Grid">${ic("grid")}</button></div><nav class="cats" id="catBar" aria-label="Menu categories"></nav></div><div class="cprog"><i id="cprog"></i></div></div><div id="menuBox"></div><div id="locBox"></div><footer class="ft">${cfg.footer ? esc(cfg.footer) + " · " : ""}Powered by Slick</footer>`;
 if(!cfg.enabled && !PREVIEW){ renderHead(); $("#main").innerHTML = `<div class="closed"><b>Web ordering is closed right now.</b>Please call us or try again later.</div>`; return; }
 $("#main").innerHTML = shell();
 $("#main").addEventListener("click", e => {
@@ -1419,6 +1458,16 @@ addEventListener("beforeinstallprompt", e => { e.preventDefault(); instEvt = e; 
 addEventListener("appinstalled", () => { $("#inst")?.remove(); lsSet(IK, Date.now() + 3650*864e5); });
 if(iOS && !STANDALONE && /safari/i.test(navigator.userAgent) && !/crios|fxios|edgios/i.test(navigator.userAgent)) setTimeout(() => instBar("ios"), 4000);
 document.addEventListener("click", async e => {
+  if(e.target.closest("[data-addhome]")){
+    if(instEvt){ instEvt.prompt(); const r = await instEvt.userChoice.catch(() => null); instEvt = null; if(r?.outcome === "accepted") lsSet(IK, Date.now() + 3650*864e5); return; }
+    const share = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M8 7l4-4 4 4"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/></svg>';
+    const plus = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="4" y="4" width="16" height="16" rx="4"/><path d="M12 8v8M8 12h8"/></svg>';
+    const dots = '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>';
+    const steps = iOS ? [[share, "Tap the <b>Share</b> button in Safari's bar"], [plus, "Scroll down and tap <b>Add to Home Screen</b>"], [ic("check"), "Tap <b>Add</b>. The app appears on your home screen"]]
+      : [[dots, "Open your browser's <b>menu</b> (⋮)"], [plus, "Tap <b>Add to Home screen</b> or <b>Install app</b>"], [ic("check"), "Confirm. The app appears on your home screen"]];
+    const sh = $("#sheet"); sh.className = "sheet";
+    sh.innerHTML = `<h3>Add to home screen <button class="x" data-close aria-label="Close">×</button></h3><div class="ahsteps">${steps.map((x, i) => `<div><span class="n">${i + 1}</span><span class="si">${x[0]}</span><span>${x[1]}</span></div>`).join("")}</div><button type="button" class="primary" data-close style="margin-top:16px">Got it</button>`;
+    $("#scrim").classList.add("show"); $("#scrim").scrollTop = 0; return; }
   if(e.target.closest("[data-instx]")){ $("#inst")?.remove(); lsSet(IK, Date.now() + 7*864e5); return; }   // ask again in a week
   if(e.target.closest("[data-inst]") && instEvt){ instEvt.prompt(); const r = await instEvt.userChoice.catch(() => null); instEvt = null; $("#inst")?.remove(); if(r?.outcome !== "accepted") lsSet(IK, Date.now() + 7*864e5); }
 });
