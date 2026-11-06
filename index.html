@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="301-1793987386">
+<meta name="slick-build" content="302-1793987592">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -3207,7 +3207,7 @@ function openOrder(id){
   ccEdit = o ? o.id : null; cart = o ? o.items.map(i=>({...i})) : []; ccTags = null;
   ccOrig = o ? JSON.parse(JSON.stringify(o.items||[])) : [];
   ccChg = o ? new Set((o.charges||[]).map(c=>c.id)) : null; Object.keys(ccOpen).forEach(k => delete ccOpen[k]); (o?.charges||[]).forEach(c => { if(c.type==="open") ccOpen[c.id] = +c.amount||0; });            // null = the charges that apply automatically
-  ccDiscType = o?.discountType==="amt" ? "amt" : "pct"; ccDisc = o ? (ccDiscType==="amt" ? +o.discount||0 : +o.discountPct||0) : 0; ccDiscOpen = false;
+  ccDS = null; ccDiscType = o?.discountType==="amt" ? "amt" : "pct"; ccDisc = o ? (ccDiscType==="amt" ? +o.discount||0 : +o.discountPct||0) : 0; ccDiscOpen = false;
   const ro = !ccEditable(o), dis = ro ? "disabled" : "";
   ccLocked = !!o && o.status!=="draft";                                   // placed orders: only source, type and items change
   const ldis = ro || ccLocked ? "disabled" : "";
@@ -3299,7 +3299,7 @@ function ccAddrCards(){
 let ccOrig = [], ccChg = null, ccLocked = false, ccDisc = 0, ccDiscType = "pct", ccDiscOpen = false;
 // order discount, same as the POS: a percentage of the items, or an amount in USD
 const ccGross = () => cart.reduce((a,i)=>a+lineNet(i),0);
-const ccDiscAmt = () => { const g = ccGross(); return +Math.min(g, ccDiscType==="amt" ? +ccDisc||0 : g * (+ccDisc||0) / 100).toFixed(2); };
+const ccDiscAmt = () => { const g = ccGross(); if(ccDS){ const d = dsList().find(x => x.id===ccDS.id); if(d){ ccDiscType = "amt"; ccDisc = ccDsCalc(d).amt; } else ccDS = null; } return +Math.min(g, ccDiscType==="amt" ? +ccDisc||0 : g * (+ccDisc||0) / 100).toFixed(2); };
 const ccMayDisc = () => mayDo("bo_cc_discount") && brandSet($("#oBrand")?.value || branches.find(b => b.id===$("#oBranch")?.value)?.brandId || "").ccDiscounts !== false;
 function ccDiscPanel(){ return `<div class="ccdisc"><div class="ccdo"><div class="seg"><button type="button" data-ccdt="pct" class="${ccDiscType!=="amt"?"on":""}">Percentage %</button><button type="button" data-ccdt="amt" class="${ccDiscType==="amt"?"on":""}">Amount USD</button></div>
   <input id="ccDiscVal" inputmode="decimal" placeholder="${ccDiscType==="amt" ? "Amount in USD" : "Percent"}" value="${+ccDisc ? ccDisc : ""}"><button type="button" class="btn sm pri" data-ccdapply>Apply</button>${+ccDisc ? `<button type="button" class="btn sm" data-ccdisc="0">Remove</button>` : ""}</div><div class="note" id="ccDiscNote"></div></div>`; }
@@ -3448,22 +3448,27 @@ function ccNotesDlg(kind){
       if(e.target===sv && !sv.disabled){ const el = $(k==="kitchen" ? "#oNotes" : "#oRNotes"); if(el) el.value = t.value.trim(); close(); renderCart(false); toast(k==="kitchen" ? "Kitchen note saved" : "Order note saved"); } });
   });
 }
+// call center discounts: only the ones created in Marketing → Discounts that fit this branch and order type
+let ccDS = null;
+function ccDsCalc(d){
+  const gross = ccGross(); if(d.minOrder!=null && gross < +d.minOrder) return { amt:0, why:"Minimum order " + usd(+d.minOrder) };
+  const tg = (tagDoc().on||{}).product || {}, lim = (d.productIds||[]).length || (d.categoryIds||[]).length || (d.productTags||[]).length;
+  const ok = i => { if(d.minProduct!=null && (+i.price||0) < +d.minProduct) return false; if(!lim) return true; const p = S.products.find(x => x.id===i.productId);
+    return (d.productIds||[]).includes(i.productId) || (p && (d.categoryIds||[]).includes(p.categoryId)) || (tg[i.productId]||[]).some(t => (d.productTags||[]).includes(t)); };
+  const base = cart.filter(ok).reduce((a,i) => a + Math.max(0, (+i.price||0)*(+i.qty||1) - (+i.disc||0)), 0); if(!(base > 0)) return { amt:0, why: lim ? "No matching items" : "Nothing to discount" };
+  let amt = d.type==="fixed" ? Math.min(+d.amount||0, base) : base * (+d.amount||0) / 100; if(d.type!=="fixed" && d.maxDiscount!=null) amt = Math.min(amt, +d.maxDiscount);
+  return { amt: +Math.min(amt, gross).toFixed(2), why:"" };
+}
+const ccDsHere = () => { const b = $("#oBranch")?.value || "", ty = $("#oType .on")?.dataset.ot || "", t = ty==="takeaway" ? "pickup" : ty;
+  return dsList().filter(d => !d.deleted && (!(d.branchIds||[]).length || d.branchIds.includes(b)) && (!t || !(d.orderTypes||[]).length || d.orderTypes.includes(t))); };
 function ccDiscDlg(){
   if(!cart.length) return toast("Add items to the cart first");
   if(!ccMayDisc()) return toast("Discounts aren't allowed here");
-  ccOverlay(`<h3 style="margin:0 0 12px">Discount</h3><div class="seg ccseg"><button type="button" data-dt2="pct" class="${ccDiscType!=="amt"?"on":""}">Percentage %</button><button type="button" data-dt2="amt" class="${ccDiscType==="amt"?"on":""}">Amount ${esc(CUR())}</button></div>
-    <input id="ccDVal" class="sel ccdin" inputmode="decimal" autocomplete="off" value="${+ccDisc ? ccDisc : ""}" aria-label="Discount">
-    <p class="note" id="ccDNote" style="min-height:18px;margin:6px 0 0">Order total ${usd(ccGross())}</p>
-    <div class="slk-ask-f" style="margin-top:12px"><button type="button" class="slk-ask-no" data-dlgx>Cancel</button><button type="button" class="slk-ask-yes" id="ccDApply">Apply</button></div>`, (w, close) => {
-    let ty = ccDiscType==="amt" ? "amt" : "pct"; const i = w.querySelector("#ccDVal"), ap = w.querySelector("#ccDApply"), nt = w.querySelector("#ccDNote");
-    const upd = () => { const raw = i.value.trim(); ap.disabled = raw==="" || isNaN(+raw.replace(",", ".")); }; upd(); i.addEventListener("input", upd); setTimeout(() => { i.focus(); i.select(); }, 0);
-    i.addEventListener("keydown", e => { if(e.key==="Enter" && !ap.disabled){ e.preventDefault(); ap.click(); } });
-    w.addEventListener("click", e => { const b = e.target.closest("[data-dt2]"); if(b){ ty = b.dataset.dt2; w.querySelectorAll("[data-dt2]").forEach(x => x.classList.toggle("on", x===b)); i.focus(); return; }
-      if(e.target===ap && !ap.disabled){ const v = +i.value.trim().replace(",", "."), g = ccGross();
-        if(!(v >= 0)) return nt.textContent = "Enter a number.";
-        if(ty==="pct" && v > 100) return nt.textContent = "A percentage can't be more than 100.";
-        if(ty==="amt" && v > g) return nt.textContent = `The discount can't be more than the order (${usd(g)}).`;
-        ccDiscType = ty; ccDisc = +v.toFixed(2); ccDiscOpen = false; close(); renderCart(false); } });
+  const l = ccDsHere();
+  ccOverlay(`<h3 style="margin:0 0 12px">Discount</h3>${l.length ? `<div class="ccchl">${l.map(d => { const c = ccDsCalc(d); return `<button type="button" class="ccchr" data-ccds="${esc(d.id)}" ${c.amt > 0 ? "" : "disabled"} style="text-align:left;background:${ccDS?.id===d.id ? "#efe9fb" : "#fff"}"><span><b>${esc(d.name)}</b><small>${d.type==="fixed" ? usd(+d.amount||0) : (+d.amount||0) + "%"}${c.amt > 0 ? " · −" + usd(c.amt) : " · " + esc(c.why)}</small></span></button>`; }).join("")}</div>` : `<p class="note" style="text-align:center;padding:20px 0">No discounts available for this order. Create them in Marketing → Discounts.</p>`}
+    <div class="slk-ask-f" style="margin-top:12px"><button type="button" class="slk-ask-no" data-dlgx>Close</button></div>`, (w, close) => {
+    w.addEventListener("click", e => { const b = e.target.closest("[data-ccds]"); if(!b || b.disabled) return; const d = dsList().find(x => x.id===b.dataset.ccds); if(!d) return;
+      ccDS = { id:d.id, name:d.name }; ccDiscType = "amt"; ccDisc = ccDsCalc(d).amt; close(); renderCart(false); });
   });
 }
 let ccTags = null;   // order tags picked for this order (null = unchanged)
@@ -3494,7 +3499,7 @@ document.addEventListener("click", e => { const t = e.target.closest("[data-ccto
   const cx = e.target.closest("[data-ochgx]"); if(cx){ e.preventDefault(); if(!ccChg) ccChg = new Set(ccCharges().picked.map(c=>c.id)); ccChg.delete(cx.dataset.ochgx); delete ccOpen[cx.dataset.ochgx]; renderCart(false); return; }
   const nx = e.target.closest("[data-ccnotex]"); if(nx){ e.preventDefault(); const el = $(nx.dataset.ccnotex==="k" ? "#oNotes" : "#oRNotes"); if(el) el.value = ""; renderCart(false); return; }
   const ne = e.target.closest("[data-ccnoteed]"); if(ne){ e.preventDefault(); ccNotesDlg(ne.dataset.ccnoteed==="k" ? "kitchen" : "order"); return; }
-  if(e.target.closest("[data-ccdx]")){ e.preventDefault(); ccDisc = 0; ccDiscOpen = false; renderCart(false); toast("Discount removed"); } });
+  if(e.target.closest("[data-ccdx]")){ e.preventDefault(); ccDisc = 0; ccDS = null; ccDiscOpen = false; renderCart(false); toast("Discount removed"); } });
 function renderOrderMenu(){
   const box = $("#oProducts"); if(!box) return;
   const kidIds = varChildIds(), q = ($("#oSearch").value||"").trim().toLowerCase(), okIds = new Set(availableProducts().map(x=>x.id)),
@@ -3530,7 +3535,7 @@ function renderCart(ro){
     (cart.length ? cart.map((i,ix)=>`<div class="citem"><span class="cname">${ro ? esc(i.name) : `<a href="#call-center" class="lnk" data-cedit="${ix}" title="Edit item: options, note, discount">${esc(i.name)}</a>`}${modList(i)}${+i.disc?`<div class="note" style="color:var(--accent-ink)">Discount −${usd(i.disc)}</div>`:""}</span>${ro?`<span>× ${i.qty}</span>`:`<span class="qty"><button type="button" data-q="${ix}:-1" aria-label="Less">−</button>${i.qty}<button type="button" data-q="${ix}:1" aria-label="More">+</button></span>`}<span class="num">${usd(lineNet(i))}</span></div>`).join("") : `<div class="note" style="padding:18px 0;text-align:center">${ro?"No items.":"Pick a category, then tap products to add them."}</div>`) +
     `${ccNoteLines(ro)}</div>
     ${c.charges.map(x => `<div class="ctot sub ccdline"><span>${esc(x.name)}</span><span>${usd(x.amount)}${ro ? "" : `<button type="button" class="ccx1" data-ochgx="${esc(x.id)}" aria-label="Remove charge">×</button>`}</span></div>`).join("")}
-    ${c.disc ? `<div class="ctot sub ccdline"><span>${ccDiscType==="amt" ? "Discount" : "Discount " + ccDisc + "%"}</span><span>−${usd(c.disc)}${ro ? "" : `<button type="button" class="ccx1" data-ccdx aria-label="Remove discount">×</button>`}</span></div>` : ""}
+    ${c.disc ? `<div class="ctot sub ccdline"><span>${ccDS ? esc(ccDS.name) : ccDiscType==="amt" ? "Discount" : "Discount " + ccDisc + "%"}</span><span>−${usd(c.disc)}${ro ? "" : `<button type="button" class="ccx1" data-ccdx aria-label="Remove discount">×</button>`}</span></div>` : ""}
     <div class="ctot sub"><span>Subtotal</span><span>${usd(c.subtotal)}</span></div><div class="ctot sub"><span>Tax${taxIncl() ? " (included)" : ""}</span><span>${usd(c.tax)}</span></div><div class="ctot"><span>Total</span><b>${usd(c.total)}</b></div>${money2(c.total) ? `<div class="ctot sub"><span></span><span>≈ ${money2(c.total)}</span></div>` : ""}`;
   if(!ro && $("#oProducts")) renderOrderMenu();
   const td = $("#ccToolDisc"); if(td) td.hidden = !ccMayDisc();
@@ -3579,7 +3584,7 @@ async function setOrderStatus(s){
 }
 
 /* ---------- Devices: POS app (APK) setup from the dashboard ---------- */
-const DEV_TYPES = [["cashier","Cashier"],["kds","KDS"],["notifier","Notifier"],["display","Display"],["sub_cashier","Sub Cashier"]];
+const DEV_TYPES = [["cashier","POS"],["kds","KDS"],["notifier","Notifier"],["display","Display"],["sub_cashier","Sub POS"]];
 const devType = t => (DEV_TYPES.find(x => x[0]===t) || [, t==="waiter" ? "Waiter" : (t || "—")])[1];
 const devRef = () => { let n = 0; S.devices.forEach(d => { const m = /^C(\d+)$/i.exec(d.reference||""); if(m) n = Math.max(n, +m[1]); }); return "C" + String(n+1).padStart(2,"0"); };
 const devStatus = d => d.activatedAt ? '<span class="tag on">Used</span>' : '<span class="tag off">Not used</span>';
@@ -3604,7 +3609,7 @@ function viewDevices(){
   h += `<div class="card tbl"><div class="ttop"><div class="ttabs">${[["all","All"], ...DEV_TYPES].map(([k,t]) => `<a href="#devices" data-devtab="${k}" class="${dt===k?"on":""}">${t}</a>`).join("")}</div></div>${list.length ? `<table><thead><tr><th class="noedit bkc"><input type="checkbox" data-devall ${list.every(d => dsel.has(d.id))?"checked":""} aria-label="Select all"></th>${dsel.size
       ? `<th colspan="4" class="bkbar"><b>${dsel.size} Selected</b><span class="ddwrap"><button type="button" class="btn sm" data-devacts>Actions ▾</button><span class="ddmenu" id="devActM" hidden><button type="button" data-devbulk="add">Add Tags</button><button type="button" data-devbulk="del">Remove Tags</button><button type="button" data-devbulk="sync">Force Sync Data</button></span></span></th>`
       : `<th>Name</th><th>Reference</th><th>Status</th><th>Branch</th>`}</tr></thead><tbody>${list.map(d=>`<tr class="clk" data-devopen="${esc(d.id)}"><td class="noedit bkc"><input type="checkbox" data-devsel="${esc(d.id)}" ${dsel.has(d.id)?"checked":""} aria-label="Select ${esc(d.name)}"></td>
-    <td><b>${esc(d.name)}</b> <span class="note">${esc(devType(d.type))}</span>${tagChips("device", d.id)}</td><td>${esc(d.reference || "—")}</td><td>${devStatus(d)}</td><td>${esc(branchName(d.branchId))}</td></tr>`).join("")}</tbody></table>`
+    <td><b>${esc(d.name)}</b>${tagChips("device", d.id)}</td><td>${esc(d.reference || "—")}</td><td>${devStatus(d)}</td><td>${esc(branchName(d.branchId))}</td></tr>`).join("")}</tbody></table>`
     : `<div class="empty">${all.length ? "No devices of this type." : "No devices yet. Create one for each tablet, kitchen screen or printer station."}</div>`}</div>`;
   return h;
 }
@@ -5490,7 +5495,7 @@ function viewDiscounts(){
     : `<div class="empty">${del ? "No deleted discounts." : "No discounts yet. Create the discounts your cashiers can apply, like Staff Meal or Management."}</div>`}</div>`;
 }
 function dsForm(d){
-  const ed = !!d, x = d || { type:"pct", qualification:"order", orderTypes:["dinein","pickup","delivery"] }, box = $("#ccBox"); box.className = "modal";
+  const ed = !!d, x = d || { type:"pct", qualification:"order", orderTypes:["dinein","pickup","delivery","fast"] }, box = $("#ccBox"); box.className = "modal";
   const ot = [["dinein","Dine In"],["pickup","Pick Up"],["delivery","Delivery"],["fast","Fast Sale"]];
   box.innerHTML = `<header><h2>${ed ? "Edit" : "Create"} Discount</h2><button type="button" class="x" data-ccclose aria-label="Close">×</button></header>
   <div class="body" style="display:block"><div class="dsgrid">
