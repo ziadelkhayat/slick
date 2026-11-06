@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="282-1793982122">
+<meta name="slick-build" content="283-1793982709">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -724,6 +724,8 @@ h1:has(.ib),h3:has(.ib){display:inline-flex;align-items:center}
 .ccseg{display:flex;gap:8px}.ccseg button{flex:1;padding:10px;border:1px solid var(--line);border-radius:10px;background:#fff;font:inherit;font-weight:600;cursor:pointer}.ccseg button.on{border-color:var(--accent);background:#f5f1ff;color:var(--accent-ink)}
 .ccdin{width:100%;box-sizing:border-box;margin-top:12px;font-size:22px!important;font-weight:700;text-align:right;padding:12px 14px!important;border-radius:12px!important}
 .slk-ask-yes:disabled{opacity:.45;cursor:default}
+.bizsave{margin-top:20px}.bizchk{display:flex;flex-direction:column;gap:14px;margin-top:20px}.bizchk .chk{font-size:14px}.acbadge{display:inline-flex;align-items:center;margin-left:12px;padding:6px 14px;border-radius:999px;background:#3a3a44;color:#fff;font-size:14px;font-weight:600}.acgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px 28px}.acgrid .f{margin:0}
+body.noloc .f:has(> label[for$="NameAr"]),body.noloc .f:has(> label[for$="nameAr"]),body.noloc .f:has(> label[for="dcNAr"]){display:none!important}
 .bizh{font-size:17px;font-weight:600;margin:22px 0 10px}.bizh:first-of-type{margin-top:6px}
 .bizcard{padding:22px 24px!important;margin-bottom:6px}.bizgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px 28px}.bizgrid .f{margin:0}.bizgrid .f.full{grid-column:1/-1}
 .bizgrid .tip{color:#8e8e93;font-size:12px;cursor:help}.bizn{margin:14px 0 0}@media(max-width:760px){.bizgrid{grid-template-columns:1fr}}
@@ -1997,7 +1999,7 @@ document.addEventListener("keydown", e => { if(e.key==="Escape" && ibBub){ ibPin
 addEventListener("scroll", () => { if(ibBub){ ibPin = null; ibHide(); } }, true);
 function render(){
   const route = (location.hash.slice(1) || "dashboard");
-  renderNav(route); document.body.dataset.route = route;
+  renderNav(route); document.body.dataset.route = route; document.body.classList.toggle("noloc", company().localization===false);
   if(!state.dateSet) state.date = todayStr();   // follows the business day (end time comes from Company settings)
   // branch selector
   const bl = brandList();
@@ -4865,32 +4867,48 @@ $("#acctBtn").addEventListener("click", e => { e.stopPropagation(); const m = $(
 document.addEventListener("click", e => { if(!e.target.closest(".acct")) { $("#acctMenu").hidden = true; $("#acctBtn").setAttribute("aria-expanded", "false"); } else if(e.target.closest("#acctMenu a")) $("#acctMenu").hidden = true; });
 $("#amSignOut").addEventListener("click", () => window.WOK && WOK.user.signOut());
 function viewAccount(){
-  const owner = state.role==="owner", n = state.fullName || "", tab = state.acTab || "business";
-  const tabs = `<div class="tabs" style="margin-bottom:14px"><a href="#account" data-actab="business" class="${tab==="business"?"on":""}">Business</a><a href="#account" data-actab="profile" class="${tab==="profile"?"on":""}">My profile</a></div>`;
-  if(tab==="business") return viewCompany().replace('<h1>Business</h1>', '<h1>Account settings</h1>').replace('<!--tabs-->', tabs);
-  return `<div class="phead"><h1>Account settings</h1><div class="sp"></div><button class="btn pri" id="acSave">Save changes</button></div>${tabs}
-    <div class="grid" style="grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;align-items:start">
-    <div class="card"><h3 style="margin:0 0 12px;font-size:15px">Profile</h3>
-      <div class="f" style="margin-bottom:12px"><label for="acName">Name</label><input id="acName" class="sel" value="${esc(n)}"></div>
-      <div class="f" style="margin-bottom:12px"><label>Email (sign-in)</label><input class="sel" value="${esc(state.email||"")}" disabled></div>
-      <label class="chk" style="margin:4px 0 10px"><input type="checkbox" id="acLocN" ${LOCN()?"checked":""}> Display localized names</label>
-      <div class="err" id="acErr"></div></div>
-    <div class="card"><h3 style="margin:0 0 12px;font-size:15px">Access</h3>
-      ${owner ? `<p style="margin:0 0 8px"><span class="tag on">Owner</span> <b>Super user</b></p><p class="note" style="margin:0 0 12px">This account owns the business: it sees every brand, branch and screen and can change everything, including users, roles and permissions. Roles never restrict the owner.</p>`
-        : `<p style="margin:0 0 8px"><span class="tag">${esc(ROLE_LBL[state.role] || state.role || "—")}</span></p><p class="note" style="margin:0 0 12px">Your access comes from your role. Ask the owner to change it.</p>`}
+  const owner = state.role==="owner", n = state.fullName || "", tab = state.acTab || "profile", adm = ["owner","admin"].includes(state.role), me = myUserRow();
+  const tabs = `<div class="tabs" style="margin-bottom:14px"><a href="#account" data-actab="profile" class="${tab==="profile"?"on":""}">My Profile</a><a href="#account" data-actab="business" class="${tab==="business"?"on":""}">Business Details</a></div>`;
+  const head = `<div class="phead"><h1>${esc(n || "Account")}</h1><span class="acbadge">${owner ? "Account Owner" : esc(ROLE_LBL[state.role] || state.role || "User")}</span><div class="sp"></div><button type="button" class="btn" id="acPwOpen">${svgIco("shield")} Change Password</button></div>`;
+  if(tab==="business") return viewCompany().replace(/<div class="phead"><h1>Business<\/h1><\/div>/, head).replace('<!--tabs-->', tabs);
+  const aph = ccSplit(me?.phone || "");
+  let lang = me?.language || ""; if(!lang){ try{ lang = localStorage.getItem("slickLang") || "en"; }catch(_){ lang = "en"; } }
+  return `${head}${tabs}
+    <h3 class="bizh">Profile</h3>
+    <div class="card bizcard"><div class="acgrid">
+      <div class="f"><label for="acName">Name *</label><input id="acName" class="sel" value="${esc(n)}"></div>
+      <div class="f"><label for="acPhone">Phone Number</label><div class="phrow"><select id="acPhoneCc" class="sel" aria-label="Country code">${CC_CODES.map(([d,nm])=>`<option value="${d}" ${d===aph.cc?"selected":""}>(${d}) ${esc(nm)}</option>`).join("")}</select><input id="acPhone" class="sel" type="tel" value="${esc(aph.num)}" placeholder="71123456"></div></div>
+      <div class="f"><label>Email</label><input class="sel" value="${esc(state.email||"")}" disabled></div>
+      ${adm ? `<div class="f"><label for="acPin">Login Pin</label><div style="display:flex;gap:8px"><input id="acPin" class="sel" inputmode="numeric" maxlength="5" autocomplete="off" style="flex:1;letter-spacing:.2em" value="${esc(myAdminRow()?.pinHash ? (lsGet("slick_mypin_" + state.userId) || "•••••") : "")}" placeholder="5 digits"><button type="button" class="btn" data-pingen="acPin">Generate</button></div><div class="err" id="acPinErr"></div></div>` : "<div></div>"}
+      <div class="f"><label for="acLang">Language *</label><select id="acLang" class="sel"><option value="en" ${lang!=="ar"?"selected":""}>English</option><option value="ar" ${lang==="ar"?"selected":""}>Arabic</option></select></div><div></div>
     </div>
-    <div class="card"><h3 style="margin:0 0 4px;font-size:15px">Change password</h3><p class="note" style="margin:0 0 12px">For signing in to the back office.</p>
-      <div class="f" style="margin-bottom:10px"><label for="acPw1">New password</label><input id="acPw1" class="sel" type="password" autocomplete="new-password"></div>
-      <div class="f" style="margin-bottom:10px"><label for="acPw2">Repeat new password</label><input id="acPw2" class="sel" type="password" autocomplete="new-password"></div>
-      <div class="err" id="acPwErr"></div><button type="button" class="btn pri" id="acPwSave">Change password</button></div>
-    ${["owner","admin"].includes(state.role) ? `<div class="card"><h3 style="margin:0 0 4px;font-size:15px">Cashier app PIN</h3>
-      <p class="note" style="margin:0 0 12px">Your 5-digit PIN signs you in on every cashier device, in any branch and brand, with full access. Cashiers also ask you for it to approve a discount, void or return their role doesn't allow.</p>
-      <div class="f" style="margin-bottom:10px"><label for="acPin">PIN</label><div style="display:flex;gap:8px"><input id="acPin" class="sel" inputmode="numeric" maxlength="5" autocomplete="off" style="flex:1;letter-spacing:.2em" value="${esc(myAdminRow()?.pinHash ? (lsGet("slick_mypin_" + state.userId) || "•••••") : "")}"><button type="button" class="btn" data-pingen="acPin">Generate</button></div></div>
-      <div class="err" id="acPinErr"></div><button type="button" class="btn pri" id="acPinSave">Save PIN</button></div>` : ""}
-    </div>`;
+    <label class="chk" style="margin:18px 0 0"><input type="checkbox" id="acLocN" ${LOCN()?"checked":""}> Display Localized Names</label>
+    <div class="err" id="acErr"></div>
+    <div class="bizsave"><button type="button" class="btn pri" id="acSave">Save Changes</button></div></div>`;
+}
+function acPwForm(){
+  const box = $("#ccBox"); box.className = "modal";
+  box.innerHTML = `<header><h2>Change Password</h2><button type="button" class="x" data-ccclose aria-label="Close">×</button></header>
+  <div class="body" style="display:block"><div class="f" style="margin-bottom:14px"><label for="acPw0">Current Password *</label><input id="acPw0" type="password" autocomplete="current-password"></div>
+    <div class="f" style="margin-bottom:14px"><label for="acPw1">New Password *</label><input id="acPw1" type="password" autocomplete="new-password"></div>
+    <div class="f"><label for="acPw2">Confirm New Password *</label><input id="acPw2" type="password" autocomplete="new-password"></div><div class="err" id="acPwErr"></div></div>
+  <footer><span style="flex:1"></span><button type="button" class="btn" data-ccclose>Close</button><button type="button" class="btn pri" id="acPwSave">Save</button></footer>`;
+  $("#ccScrim").classList.add("show"); setTimeout(() => $("#acPw0")?.focus(), 50);
+}
+async function savePin(pin){
+  const err = m => { if($("#acPinErr")) $("#acPinErr").textContent = m; return false; };
+  if(!/^\d{5}$/.test(pin)) return err("The PIN must be exactly 5 digits.");
+  const row = myAdminRow(), id = row?.id || newUserId();
+  for(const u of S.users.filter(u => live(u) && u.id!==id && u.pinHash)){ if(await pinHash(u.id, pin)===u.pinHash || await pinHash(u.id, pin.slice(0,4))===u.pinHash) return err("This PIN clashes with another user's PIN. Pick a different one (Generate)."); }
+  try{ await put("users", id, { name: state.fullName || "Admin", email: (state.email||"").toLowerCase() || null, role: state.role, roleIds: [], branchIds: [], userId: state.userId, active: true, pinHash: await pinHash(id, pin) });
+    lsSet("slick_mypin_" + state.userId, pin); err(""); return true; }
+  catch(e2){ console.error(e2); return err("Couldn't save the PIN" + (e2?.message ? ": " + e2.message : ".")); }
 }
 async function saveAccount(){
   const name = ($("#acName")?.value || "").trim(); if(!name){ $("#acErr").textContent = "Enter your name."; return; }
+  const lg = $("#acLang")?.value || "en"; try{ localStorage.setItem("slickLang", lg); }catch(_){} { const r = myUserRow(); if(r && r.language!==lg){ try{ await put("users", r.id, { language: lg }); }catch(e){ console.error(e); } } }
+  { const r = myUserRow(), ph = ($("#acPhone")?.value || "").trim() ? fullPhone($("#acPhone").value.trim(), $("#acPhoneCc").value) : ""; if(r && (r.phone||"")!==ph){ try{ await put("users", r.id, { phone: ph || null }); }catch(e){ console.error(e); } } }
+  const pv = ($("#acPin")?.value || "").trim(); if($("#acPin") && pv && pv!=="•••••" && pv!==lsGet("slick_mypin_" + state.userId)){ if(!(await savePin(pv))) return; }
   const ln = !!$("#acLocN")?.checked; if(ln!==LOCN()){ try{ localStorage.setItem("slickLocN", ln ? "1" : "0"); }catch(_){} const r = myUserRow(); if(r){ try{ await put("users", r.id, { displayLocalized: ln }); }catch(e){ console.error(e); } } }
   try{ const { error } = await WOK.sb.from("staff").update({ name }).eq("user_id", state.userId); if(error) throw error;
     await WOK.sb.from("staff_users").update({ name }).eq("user_id", state.userId);
@@ -4900,17 +4918,14 @@ async function saveAccount(){
 document.addEventListener("click", async e => {
   const at = e.target.closest("[data-actab]"); if(at){ e.preventDefault(); state.acTab = at.dataset.actab; return render(); }
   if(e.target.closest("#acSave")) return saveAccount();
-  if(e.target.closest("#acPwSave")){ const a = $("#acPw1").value, b = $("#acPw2").value, err = m => $("#acPwErr").textContent = m;
-    if(a.length < 8) return err("Use at least 8 characters."); if(a !== b) return err("The two passwords don't match.");
-    const { error } = await WOK.sb.auth.updateUser({ password:a }); if(error) return err(error.message);
-    $("#acPw1").value = $("#acPw2").value = ""; err(""); return toast("Password changed"); }
-  if(e.target.closest("#acPinSave")){ const pin = ($("#acPin").value || "").trim(), err = m => $("#acPinErr").textContent = m;
-    if(pin==="•••••") return err("Type a new PIN or tap Generate."); if(!/^\d{5}$/.test(pin)) return err("The PIN must be exactly 5 digits.");
-    const row = myAdminRow(), id = row?.id || newUserId();
-    for(const u of S.users.filter(u => live(u) && u.id!==id && u.pinHash)){ if(await pinHash(u.id, pin)===u.pinHash || await pinHash(u.id, pin.slice(0,4))===u.pinHash) return err("This PIN clashes with another user's PIN. Pick a different one (Generate)."); }
-    try{ await put("users", id, { name: state.fullName || "Admin", email: (state.email||"").toLowerCase() || null, role: state.role, roleIds: [], branchIds: [], userId: state.userId, active: true, pinHash: await pinHash(id, pin) });
-      lsSet("slick_mypin_" + state.userId, pin); err(""); toast("PIN saved · it works on every cashier device"); render(); }
-    catch(e2){ console.error(e2); err("Couldn't save the PIN" + (e2?.message ? ": " + e2.message : ".")); } }
+  if(e.target.closest("#acPwOpen")) return acPwForm();
+  if(e.target.closest("#acPwSave")){ const c0 = $("#acPw0").value, a = $("#acPw1").value, b = $("#acPw2").value, err = m => $("#acPwErr").textContent = m;
+    if(!c0) return err("Enter your current password."); if(a.length < 8) return err("Use at least 8 characters."); if(a !== b) return err("The two new passwords don't match.");
+    const btn = $("#acPwSave"); btn.disabled = true;
+    const { error:e0 } = await WOK.sb.auth.signInWithPassword({ email: state.email, password: c0 }); if(e0){ btn.disabled = false; return err("The current password is wrong."); }
+    const { error } = await WOK.sb.auth.updateUser({ password:a }); btn.disabled = false; if(error) return err(error.message);
+    $("#ccScrim").classList.remove("show"); return toast("Password changed"); }
+
 });
 
 /* ---------- Company: the business that owns every brand and branch ---------- */
@@ -4944,30 +4959,35 @@ function viewCompany(){
   const f = (k, l, opt = {}) => `<div class="f${opt.full?" full":""}"><label for="co_${k}">${l}${opt.tip ? ` <span class="tip" title="${esc(opt.tip)}">ⓘ</span>` : ""}</label><input id="co_${k}" class="sel" ${opt.type?`type="${opt.type}"`:""} value="${esc(c[k]||"")}" ${dis}></div>`;
   const cat = c.bizCategory || "F&B", subs = BIZ_CATS[cat] || [];
   const ph = ccSplit(c.ownerPhone);
-  return `<div class="phead"><h1>Business</h1><div class="sp"></div>${admin?`<button class="btn pri" id="coSave">Save changes</button>`:""}</div><!--tabs-->
+  const sv = admin ? `<div class="bizsave"><button type="button" class="btn pri" data-cosave>Save Changes</button></div>` : "";
+  return `<div class="phead"><h1>Business</h1></div><!--tabs-->
     ${admin?"":`<div class="banner">Only the owner or an admin can change business details.</div>`}
     <h3 class="bizh">General</h3>
     <div class="card bizcard"><div class="bizgrid">
-      ${f("name","Business name *",{tip:"The legal or trading name of the business that owns every brand and branch."})}
-      <div class="f"><label>Account number</label><input class="sel" value="${esc(c.accountNo || "—")}" disabled title="Your business account number, given by Slick. Used on the sign-in page for every brand in this business."></div>
-      <div class="f"><label for="co_bizCategory">Business category</label><select id="co_bizCategory" class="sel" ${dis}>${Object.keys(BIZ_CATS).map(k => `<option ${cat===k?"selected":""}>${esc(k)}</option>`).join("")}</select></div>
-      <div class="f"><label for="co_bizSubcategory">Business subcategory</label><select id="co_bizSubcategory" class="sel" ${dis}>${subs.map(k => `<option ${(c.bizSubcategory||subs[0])===k?"selected":""}>${esc(k)}</option>`).join("")}</select></div>
-      ${f("taxName","Tax registration name",{tip:"The name registered with the tax authority, printed on invoices."})}
-      ${f("taxNumber","Tax number",{tip:"The VAT / tax registration number printed on invoices."})}
+      ${f("name","Business Name *",{tip:"The legal or trading name of the business that owns every brand and branch."})}
+      <div class="f"><label>Account Number</label><input class="sel" value="${esc(c.accountNo || "—")}" disabled title="Your business account number, given by Slick. Used on the sign-in page for every brand in this business."></div>
+      <div class="f"><label for="co_bizCategory">Business Category</label><select id="co_bizCategory" class="sel" ${dis}>${Object.keys(BIZ_CATS).map(k => `<option ${cat===k?"selected":""}>${esc(k)}</option>`).join("")}</select></div>
+      <div class="f"><label for="co_bizSubcategory">Business Subcategory</label><select id="co_bizSubcategory" class="sel" ${dis}>${subs.map(k => `<option ${(c.bizSubcategory||subs[0])===k?"selected":""}>${esc(k)}</option>`).join("")}</select></div>
+      ${f("taxName","Tax Registration Name",{tip:"The name registered with the tax authority, printed on invoices."})}
+      ${f("taxNumber","Tax Number",{tip:"The VAT / tax registration number printed on invoices."})}
       <div class="f"><label for="co_country">Country</label><select id="co_country" class="sel" ${admin && !lk ? "" : "disabled"} ${lk ? `title="${LOCK_NOTE}"` : ""}>${CC_CODES.map(([d,n])=>`<option value="${esc(n)}" ${(c.country||"Lebanon")===n?"selected":""}>${esc(n)}</option>`).join("")}</select></div>
       <div class="f"><label for="co_bcur">Currency</label><select id="co_bcur" class="sel" ${admin && !lk ? "" : "disabled"} ${lk ? `title="${LOCK_NOTE}"` : ""}>${CURRENCIES.map(([k,t])=>`<option value="${k}" ${(c.currency||COUNTRY_CUR[c.country||"Lebanon"]||"USD")===k?"selected":""}>${t}</option>`).join("")}</select></div>
-    </div>${lk ? `<p class="note bizn">Country and currency were set when the business was created and can't be changed.</p>` : `<p class="note bizn">Pick the country and currency carefully: once you save, they can't be changed.</p>`}</div>
+    </div>${lk ? `<p class="note bizn">Country and currency were set when the business was created and can't be changed.</p>` : `<p class="note bizn">Pick the country and currency carefully: once you save, they can't be changed.</p>`}${sv}</div>
     <h3 class="bizh">Contacts</h3>
     <div class="card bizcard"><div class="bizgrid">
       ${f("email","Email",{type:"email"})}
-      <div class="f"><label for="co_ownerPhone">Owner phone number</label><div class="phrow"><select id="co_ownerPhoneCc" class="sel" aria-label="Country code" ${dis}>${CC_CODES.map(([d,n])=>`<option value="${d}" ${d===ph.cc?"selected":""}>${esc(n)} (${d})</option>`).join("")}</select><input id="co_ownerPhone" class="sel" type="tel" inputmode="tel" value="${esc(ph.num)}" ${dis}></div></div>
-      ${f("phone","Business phone",{type:"tel"})}
+      <div class="f"><label for="co_ownerPhone">Owner Phone Number</label><div class="phrow"><select id="co_ownerPhoneCc" class="sel" aria-label="Country code" ${dis}>${CC_CODES.map(([d,n])=>`<option value="${d}" ${d===ph.cc?"selected":""}>${esc(n)} (${d})</option>`).join("")}</select><input id="co_ownerPhone" class="sel" type="tel" inputmode="tel" value="${esc(ph.num)}" ${dis}></div></div>
+      ${f("phone","Business Phone",{type:"tel"})}
       ${f("address","Address",{full:1})}
-    </div></div>
+    </div>${sv}</div>
     <h3 class="bizh">Settings</h3>
     <div class="card bizcard"><div class="bizgrid">
-      <div class="f"><label for="co_timeZone">Time zone <span class="tip" title="Used for business days, reports and order times.">ⓘ</span></label><select id="co_timeZone" class="sel" ${dis}>${tzList().map(([z,off])=>`<option value="${z}" ${(c.timeZone||"Asia/Beirut")===z?"selected":""}>(UTC${off}) ${z.replace(/_/g," ")}</option>`).join("")}</select></div>
-    </div><div class="err" id="coErr"></div></div>`;
+      <div class="f"><label for="co_timeZone">Time Zone <span class="tip" title="Used for business days, reports and order times.">ⓘ</span></label><select id="co_timeZone" class="sel" ${dis}>${tzList().map(([z,off])=>`<option value="${z}" ${(c.timeZone||"Asia/Beirut")===z?"selected":""}>(UTC${off}) ${z.replace(/_/g," ")}</option>`).join("")}</select></div>
+    </div>
+    <div class="bizchk">
+      <label class="chk"><input type="checkbox" id="co_taxIncl" ${taxIncl()?"checked":""} ${dis}> Tax Inclusive Pricing <span class="tip" title="On: menu prices already include tax. Off: tax is added on top at checkout. Applies to every tax.">ⓘ</span></label>
+      <label class="chk"><input type="checkbox" id="co_loc" ${c.localization!==false?"checked":""} ${dis}> Enable Localization <span class="tip" title="Shows the Name Localized fields everywhere, so menus, receipts and apps can show a second language.">ⓘ</span></label>
+    </div><div class="err" id="coErr"></div>${sv}</div>`;
 }
 document.addEventListener("change", e => { if(e.target.id!=="co_bizCategory") return; const sel = $("#co_bizSubcategory"); if(sel) sel.innerHTML = (BIZ_CATS[e.target.value]||[]).map(k => `<option>${esc(k)}</option>`).join(""); });
 function dayExample(v){
@@ -4978,12 +4998,14 @@ function dayExample(v){
 document.addEventListener("input", e => { if(e.target.id==="co_dayEnd" && $("#coDayEx")) $("#coDayEx").textContent = dayExample(e.target.value); });
 async function saveCompany(){
   const v = k => ($("#co_"+k)?.value || "").trim();
-  const data = { name:v("name"), taxNumber:v("taxNumber"), taxName:v("taxName"), bizCategory:v("bizCategory"), bizSubcategory:v("bizSubcategory"), ownerEmail:null, ownerPhone: fullPhone(v("ownerPhone"), v("ownerPhoneCc")), phone:v("phone"), email:v("email"), address:v("address"), logoUrl:null, timeZone:v("timeZone") || "Asia/Beirut", country: company().country || v("country") || "Lebanon", currency: bizLocked() ? (company().currency || "USD") : (v("bcur") || "USD"), ...(company().accountNo ? { accountNo: company().accountNo } : {}) };
+  const data = { name:v("name"), taxNumber:v("taxNumber"), taxName:v("taxName"), bizCategory:v("bizCategory"), bizSubcategory:v("bizSubcategory"), ownerEmail:null, ownerPhone: fullPhone(v("ownerPhone"), v("ownerPhoneCc")), phone:v("phone"), email:v("email"), address:v("address"), logoUrl:null, localization: !!$("#co_loc")?.checked, timeZone:v("timeZone") || "Asia/Beirut", country: company().country || v("country") || "Lebanon", currency: bizLocked() ? (company().currency || "USD") : (v("bcur") || "USD"), ...(company().accountNo ? { accountNo: company().accountNo } : {}) };
   if(!data.name){ $("#coErr").textContent = "Business name is required."; $("#co_name").focus(); return; }
-  try{ await put("settings", "company", data); toast("Business saved"); }
+  try{ await put("settings", "company", data);
+    const ti = $("#co_taxIncl"); if(ti && ti.checked!==taxIncl()) for(const x of S.taxes.filter(x => live(x) && (x.inclusive!==false)!==ti.checked)) await put("taxes", x.id, { inclusive: ti.checked });
+    toast("Business saved"); }
   catch(e){ console.error(e); $("#coErr").textContent = "Couldn't save. Only the owner or an admin can change this."; }
 }
-document.addEventListener("click", e => { if(e.target.closest("#coSave")) saveCompany(); });
+document.addEventListener("click", e => { if(e.target.closest("[data-cosave]")) saveCompany(); });
 document.addEventListener("change", e => { if(e.target.id==="co_country" && $("#co_bcur") && COUNTRY_CUR[e.target.value]) $("#co_bcur").value = COUNTRY_CUR[e.target.value]; });
 
 /* ---------- Manage → Settings: how the POS, call center and receipts behave ---------- */
