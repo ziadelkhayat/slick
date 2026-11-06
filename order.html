@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="340-1794002227">
+<meta name="slick-build" content="341-1794002399">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -742,7 +742,7 @@ async function loadProf(){
   const s = lsGet(AK + "_sel", null), f = typeof s==="string" && addrs.find(a => a.id===s); if(f){ addr = f; pin = [f.lat, f.lng]; zoneId = zoneList().find(z => inside(pin, z.polygon))?.id || ""; }
 }
 async function saveAddrs(){
-  if(!USER || !PROF) return lsSet(AK, addrs);
+  if(!USER || !PROF) return;   // addresses are only saved to a signed-in account
   PROF.addresses = addrs;
   const { error } = await sb.from("web_customers").update({ addresses:addrs, updated_at:new Date().toISOString() }).eq("id", USER.id);
   if(error) console.warn(error);
@@ -875,7 +875,7 @@ $("#sheet").addEventListener("click", async e => {
   const g = s => e.target.closest(s); let t;
   if(t = g("[data-av]")){ AU.view = t.dataset.av; return drawAuth(); }
   if(t = g("[data-acv]")) return openAcct(t.dataset.acv);
-  if(g("[data-acout]")){ await sb.auth.signOut(); USER = PROF = null; AC.pts = null; addrs = lsGet(AK, []);
+  if(g("[data-acout]")){ await sb.auth.signOut(); USER = PROF = null; AC.pts = null; addrs = []; lsSet(AK, []); if(addr && !["gps","pin"].includes(addr.id)) setAddr(null);
     $("#scrim").classList.remove("show"); return setAddr(addr && (["gps","pin"].includes(addr.id) || addrs.some(a => a.id===addr.id)) ? addr : null); }
   if(g("[data-aadd]")){ LS.draft = { forNew:true }; LS.ret = "acct"; return openLoc("map"); }
   if(t = g("[data-aedit]")){ const a = addrs.find(x => x.id===t.dataset.aedit); if(a){ LS.draft = { ...a, edit:true }; LS.ret = "acct"; openLoc("form"); } return; }
@@ -960,7 +960,7 @@ function drawLoc(){
       <div class="f"><label for="lStreet">Area / street *</label><input id="lStreet" value="${esc(d.street||"")}"></div>
       <div class="f2"><div class="f"><label for="lBldg">Building name / no. *</label><input id="lBldg" value="${esc(d.building||"")}"></div><div class="f"><label for="lFloor">Floor *</label><input id="lFloor" value="${esc(d.floor||"")}"></div></div>
       <div class="f"><label for="lExtra">Additional info</label><input id="lExtra" value="${esc(d.extra||"")}" placeholder="Apartment, landmark, directions"></div>
-      <div class="err" id="lErr"></div><button type="button" class="primary" data-lsave>Save address</button>`; LS.kind = kind; return; }
+      <div class="err" id="lErr"></div><button type="button" class="primary" data-lsave>${USER ? "Save address" : "Sign in to save address"}</button>`; LS.kind = kind; return; }
   // main
   let h = `<div class="grab"></div><div class="lshead"><span></span><h3>${mode==="delivery" ? "Where should we deliver to?" : mode==="takeaway" ? "Where will you pick up?" : "Where are you eating?"}</h3><button type="button" class="x" data-close aria-label="Close">×</button></div>`;
   if(false) h += `<div class="seg" style="margin:4px 0 14px">${modes.map(([m,t,i]) => `<button type="button" data-lmode="${m}" class="${mode===m?"on":""}">${ic(i)}${t}</button>`).join("")}</div>`;
@@ -970,7 +970,7 @@ function drawLoc(){
       <div class="lopts"><button type="button" data-lact="gps"><span class="li">${ic("nav")}</span><span><b>Use current location</b><small id="lGpsMsg">Deliver to my current location</small></span><i>›</i></button>
       <button type="button" data-lact="map"><span class="li">${ic("pin")}</span><span><b>Deliver somewhere else</b><small>Choose location on map</small></span><i>›</i></button>
       <button type="button" data-lact="new"><span class="li">${ic("plus")}</span><span><b>Add new address</b><small>Save a new delivery address</small></span><i>›</i></button></div>`;
-    if(addrs.length) h += `<h4 class="lh4">Saved addresses</h4><div class="laddrs">${addrs.map(a => { const z = zoneAt(a.lat, a.lng), ico = a.label==="Home" ? "home" : a.label==="Work" ? "work" : "pin";
+    if(USER && addrs.length) h += `<h4 class="lh4">Saved addresses</h4><div class="laddrs">${addrs.map(a => { const z = zoneAt(a.lat, a.lng), ico = a.label==="Home" ? "home" : a.label==="Work" ? "work" : "pin";
       return `<div class="laddr${addr?.id===a.id ? " on" : ""}"><button type="button" class="lpick" data-laddr="${esc(a.id)}"><span class="li">${ic(ico)}</span><span><b>${esc(a.label || "Address")}</b><small>${esc(addrLine(a))}</small>${z ? "" : `<small class="bad2">Outside our delivery areas</small>`}</span></button><button type="button" class="lmore" data-lmore="${esc(a.id)}" aria-label="More">⋯</button>
         ${LS.menu===a.id ? `<div class="lmenu"><button type="button" data-ledit="${esc(a.id)}">Edit</button><button type="button" data-ldel="${esc(a.id)}" class="bad2">Delete</button></div>` : ""}</div>`; }).join("")}</div>`;
   } else {
@@ -1003,6 +1003,7 @@ $("#sheet").addEventListener("click", e => {
   if(t = g("[data-lbranch]")){ branchId = t.dataset.lbranch; cart = cart.filter(i => visible().some(p=>p.id===i.productId) && !oos(products.find(p=>p.id===i.productId))); reprice(); render(); closeLoc(); if(goCart && cart.length) setTimeout(openCart, 300); return; }
   if(t = g("[data-lact]")){ const a = t.dataset.lact;
     if(a==="gps") return lsGps((lat, lng) => { setAddr({ id:"gps", label:"Current location", lat, lng }); closeLoc(); });
+    if(a==="new" && !USER) return openAuth("in", () => { LS.draft = { forNew:true }; openLoc("map"); }, "Sign in to save an address.");
     LS.draft = a==="new" ? { forNew:true } : {}; if(pin && a==="map") Object.assign(LS.draft, { lat:pin[0], lng:pin[1] }); return openLoc("map"); }
   if(t = g("[data-lres]")){ const r = LS.res[+t.dataset.lres]; if(!r) return;
     if(r.place && r.lat==null){ (async () => { try{ const pl = r.place.toPlace(); await pl.fetchFields({ fields:["location"] }); r.lat = pl.location.lat(); r.lng = pl.location.lng(); LS.draft = { lat:r.lat, lng:r.lng, street:r.name }; openLoc("map"); }catch(e){ console.warn(e); } })(); return; }
@@ -1018,6 +1019,7 @@ $("#sheet").addEventListener("click", e => {
     setAddr({ id:"pin", label:"Pinned location", lat:d.lat, lng:d.lng, street:d.street||"" }); return closeLoc(); }
   if(g("[data-lpinmove]")){ LS.draft = { ...(LS.draft||{}), back:true }; return openLoc("map"); }
   if(t = g("[data-lkind]")){ LS.kind = t.dataset.lkind; document.querySelectorAll("[data-lkind]").forEach(b => b.classList.toggle("on", b===t)); $("#lOtherW").hidden = LS.kind!=="Other"; return; }
+  if(g("[data-lsave]") && !USER){ const keep = LS.draft; return openAuth("in", () => { LS.draft = keep; openLoc("form"); }, "Sign in to save an address."); }
   if(g("[data-lsave]")){ const d = LS.draft || {}, v = id => $("#" + id).value.trim();
     const a = { id: d.edit ? d.id : "a" + Date.now().toString(36), label: LS.kind==="Other" ? (v("lName") || "Other") : LS.kind, street:v("lStreet"), building:v("lBldg"), floor:v("lFloor"), extra:v("lExtra"), lat:d.lat, lng:d.lng };
     if(!a.lat) return $("#lErr").textContent = "Pin the address on the map first.";
