@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="278-1793978109">
+<meta name="slick-build" content="279-1793981020">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -974,6 +974,15 @@ th.grc,td.grc{width:28px;padding-right:0!important;color:#b3afc2;cursor:grab}tr[
 .modal>header,#ccBox>header,#crudBox>header{border-top-left-radius:inherit;border-top-right-radius:inherit}
 .modal>footer,#ccBox>footer,#crudBox>footer{border-bottom-left-radius:inherit;border-bottom-right-radius:inherit}
 .tgtabs{margin:0 0 14px}.tgsec{padding:18px 22px;margin-bottom:14px}.tgh{display:flex;align-items:center;gap:8px;margin-bottom:6px}.tgh h3{margin:0;font-size:16px}.tgsec table{width:100%}.tgsec td{padding:10px 0;border-top:1px solid var(--line)}.tghelp{margin:4px 0 0}
+.rsn[draggable="true"]{cursor:grab}.rsn .rsgrip{color:#b3afc2;margin-right:10px;touch-action:none;cursor:grab}.rsn.dragging{opacity:.45}.rsn.dropto{box-shadow:inset 0 2px 0 #5b2bc4}
+/* drag to sort */
+[data-sk]{cursor:grab;user-select:none;-webkit-user-select:none}
+.sk-dragging,.sk-dragging *{cursor:grabbing!important;user-select:none!important}
+.sk-ph{opacity:.35;outline:2px dashed #b9a6f5;outline-offset:-2px;border-radius:10px}
+.sk-ghost{position:fixed!important;z-index:9999;pointer-events:none;margin:0!important;background:var(--surface,#fff);box-shadow:0 14px 34px rgba(30,20,70,.22),0 2px 6px rgba(30,20,70,.12)!important;border-radius:12px;transform:scale(1.02);opacity:.97}
+table.sk-ghost-t{border-collapse:collapse;table-layout:fixed}table.sk-ghost-t td{background:var(--surface,#fff)}
+.bmgrip,.rsgrip{touch-action:none}
+.rswrap{max-width:820px;margin:0 auto}.rssec{margin:0 0 26px}.rsh{display:flex;align-items:center;margin:0 0 12px}.rsh>.btn{margin-left:auto}.rsh h3{margin:0;font-size:17px;font-weight:600}.rslist{padding:0!important;overflow:hidden}.rslist .rsn{display:flex;align-items:center;padding:15px 22px;border-top:1px solid var(--line);min-height:52px;box-sizing:border-box}.rslist .rsn:first-child{border-top:0}.rslist .rsn[data-rsedit],.rslist .rsn[data-tagren]{cursor:pointer}.rslist .rsn[data-rsedit]:hover,.rslist .rsn[data-tagren]:hover{background:#faf9fd}.rsempty{padding:26px 30px;text-align:center;color:var(--ink2,#6b6880);font-size:14px;line-height:1.6}
 </style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -1011,7 +1020,7 @@ th.grc,td.grc{width:28px;padding-right:0!important;color:#b3afc2;cursor:grab}tr[
     <div class="body bform">
       <h4 class="fsec">General</h4>
       <div class="f"><label for="fName">Branch name *</label><input id="fName" required maxlength="60" placeholder="e.g. Hamra"></div>
-      <div class="f"><label for="fNameAr">Name (Arabic)</label><input id="fNameAr" maxlength="60" dir="auto"></div>
+      <div class="f"><label for="fNameAr">Name Localized</label><input id="fNameAr" maxlength="60" dir="auto"></div>
       <div class="f"><label for="fCode">Reference code *</label><input id="fCode" maxlength="10" placeholder="e.g. B01"></div>
       <div class="f"><label for="fBrand">Brand *</label><select id="fBrand"></select></div>
       <div class="f"><label for="fTaxName">Branch tax registration name</label><input id="fTaxName" maxlength="80" placeholder="Leave empty to use the company's"></div>
@@ -2281,7 +2290,7 @@ const CRUD = {
     sort:(a,b)=>a.name.localeCompare(b.name), search:r=>r.name,
     cols:[["Name",r=>`<b>${esc(r.name)}</b>${r.nameAr?` <span class="note">${esc(r.nameAr)}</span>`:""}`],["Rate",r=>(+r.rate||0)+" %","num"],["Pricing",r=>r.inclusive===false ? "Added on top" : "Inclusive"],
       ["Used in groups",r=>S.tax_groups.filter(g=>live(g)&&(g.taxIds||[]).includes(r.id)).map(g=>esc(g.name)).join(", ")||'<span class="note">—</span>'],["Created",r=>fmtDate(r.createdAt)]],
-    fields:[{k:"name",l:"Name",req:1,ph:"e.g. VAT"},{k:"nameAr",l:"Name (Arabic)"},{k:"rate",l:"Rate (%)",t:"number",req:1},{k:"inclusive",l:"Tax inclusive (already included in the menu price). Off: added on top of the price at checkout",t:"chk",def:true}],
+    fields:[{k:"name",l:"Name",req:1,ph:"e.g. VAT"},{k:"nameAr",l:"Name Localized"},{k:"rate",l:"Rate (%)",t:"number",req:1},{k:"inclusive",l:"Tax inclusive (already included in the menu price). Off: added on top of the price at checkout",t:"chk",def:true}],
     unique:"name"
   },
   "tax-groups": {
@@ -2290,7 +2299,7 @@ const CRUD = {
     sort:(a,b)=>a.name.localeCompare(b.name), search:r=>r.name+" "+(r.reference||""),
     cols:[["Name",r=>`<b>${esc(r.name)}</b>`],["Reference",r=>esc(r.reference||"—")],["Taxes",r=>(r.taxIds||[]).map(id=>esc(S.taxes.find(t=>t.id===id)?.name||"?")).join(" + ")||'<span class="note">None</span>'],
       ["Products",r=>S.products.filter(p=>live(p)&&p.taxGroup===r.id).length,"num"]],
-    fields:[{k:"name",l:"Name",req:1},{k:"nameAr",l:"Name (Arabic)"},{k:"reference",l:"Reference"},
+    fields:[{k:"name",l:"Name",req:1},{k:"nameAr",l:"Name Localized"},{k:"reference",l:"Reference"},
       {k:"taxIds",l:"Taxes in this group",t:"multi",opts:()=>S.taxes.filter(live).map(t=>[t.id,t.name])}],
     unique:"name", note:"Give each product a tax group (Menu → Products). Its taxes add up."
   },
@@ -2300,7 +2309,7 @@ const CRUD = {
     sort:bySort, search:r=>r.name+" "+(r.code||""),
     cols:[["Name",r=>`<b>${esc(r.name)}</b>${r.nameAr?` <span class="note">${esc(r.nameAr)}</span>`:""}`],["Type",r=>esc(PM_TYPES.find(t=>t[0]===r.type)?.[1]||"Other")],["Code",r=>esc(r.code||"—")],
       ["Opens cash drawer",r=>r.openDrawer?"Yes":"No"],["Active",r=>r.active===false?'<span class="tag off">Inactive</span>':'<span class="tag on">Active</span>']],
-    fields:[{k:"name",l:"Name",req:1,ph:"e.g. Cash, Visa, OMT"},{k:"nameAr",l:"Name (Arabic)"},{k:"type",l:"Type",t:"select",req:1,opts:()=>PM_TYPES,def:"cash"},{k:"code",l:"Code / reference"},
+    fields:[{k:"name",l:"Name",req:1,ph:"e.g. Cash, Visa, OMT"},{k:"nameAr",l:"Name Localized"},{k:"type",l:"Type",t:"select",req:1,opts:()=>PM_TYPES,def:"cash"},{k:"code",l:"Code / reference"},
       {k:"openDrawer",l:"Open the cash drawer when used",t:"chk",def:false},{k:"active",l:"Active",t:"chk",def:true}],
     unique:"name", note:"These are the buttons the cashier sees on the POS payment screen, in the order you sort them. Cash lets the cashier enter the amount received and gives change. Renaming a method renames it on past orders too."
   },
@@ -2362,7 +2371,7 @@ const CRUD = {
     cols:[["Brand",r=>`<b>${esc(r.name)}</b>${r.nameAr?` <span class="note">${esc(r.nameAr)}</span>`:""}`],
       ["Branches",r=>branches.filter(b=>b.brandId===r.id).length,"num"],["Products",r=>S.products.filter(p=>live(p)&&p.brandId===r.id).length,"num"],
       ["Status",r=>r.active===false?'<span class="tag off">Inactive</span>':'<span class="tag on">Active</span>']],
-    fields:[{k:"name",l:"Brand name",req:1},{k:"nameAr",l:"Name (Arabic)"},{k:"active",l:"Active",t:"chk",def:true}],
+    fields:[{k:"name",l:"Brand name",req:1},{k:"nameAr",l:"Name Localized"},{k:"active",l:"Active",t:"chk",def:true}],
     canDelete: r => { const n = branches.filter(b => b.brandId===r.id).length; return n ? `Delete this brand's ${n} branch${n===1?"":"es"} first (Manage → Branches).` : ""; }
   },
   categories: {
@@ -2374,13 +2383,13 @@ const CRUD = {
     cols:[["Name",r=>`<b>${esc(r.name)}</b>`],["Reference",r=>esc(r.reference||"—")],
       ["Products",r=>`<a class="lnk" href="#products" data-catfilter="${esc(r.id)}">Products (${S.products.filter(p=>live(p)&&p.categoryId===r.id).length})</a>`],
       ["Created",r=>fmtDate(r.createdAt)]],
-    fields:[{k:"name",l:"Name",req:1},{k:"nameAr",l:"Name (Arabic)"},{k:"reference",l:"Reference"}]
+    fields:[{k:"name",l:"Name",req:1},{k:"nameAr",l:"Name Localized"},{k:"reference",l:"Reference"}]
   },
   // a sales channel's own category (Sales Channels): its name, picture and the products in it
   chcat: {
     col:"categories", title:"Channel categories", one:"Category", hardDelete:1, addLbl:"Add",
     tabs:[["all","All",r=>live(r)&&!!r.channel]],
-    fields:[{k:"name",l:"Name",req:1},{k:"nameAr",l:"Name (Arabic)"},{k:"imageUrl",l:"Image",t:"image",full:1}],
+    fields:[{k:"name",l:"Name",req:1},{k:"nameAr",l:"Name Localized"},{k:"imageUrl",l:"Image",t:"image",full:1}],
     prep: async (data, id) => { if(!id){ const ch = bmMenu()[0], mine = S.categories.filter(c => live(c) && c.channel===ch);
       data.channel = ch; data.productIds = []; data.sort = (Math.max(0, ...mine.map(c => +c.sort||0)) + 10); data.id = "cat_" + ch + "_" + Date.now().toString(36); } return ""; }
   },
@@ -2398,7 +2407,7 @@ const CRUD = {
         : `<b>${esc(r.name)}</b>${n ? ` <span class="tag cc">${n} variant${n===1?"":"s"}</span>` : ""}`; })()}</span>`],["SKU",r=>`<span class="code">${esc(r.sku||"")}</span>`],["Category",r=>esc(catName(r.categoryId))],
       ["Price",r=>{ const k = varKids(r); return k.length ? "From " + usd(Math.min(...k.map(x=>+x.price||0))) : r.pricingMethod==="open"?"Open":usd(r.price); }],
       ["Tax Group",r=>varKids(r).length ? '<span class="note">Per variant</span>' : esc(tgName(r.taxGroup))]],
-    fields:[{k:"name",l:"Name",req:1},{k:"nameAr",l:"Name (Arabic)"},brandField,{k:"sku",l:"SKU",auto:()=>nextSku("products")},
+    fields:[{k:"name",l:"Name",req:1},{k:"nameAr",l:"Name Localized"},brandField,{k:"sku",l:"SKU",auto:()=>nextSku("products")},
       {k:"categoryId",l:"Category",t:"select",req:1,opts:()=>S.categories.filter(c=>live(c)&&!c.channel).sort(bySort).map(c=>[c.id,c.name])},
       {k:"pricingMethod",l:"Pricing method",t:"select",opts:()=>[["fixed","Fixed price"],["open","Open Price"]],def:"fixed",hideIf:r=>varKids(r).length},
       {k:"price",l:"Price (USD)",t:"number",req:1,hideIf:r=>varKids(r).length},{k:"taxGroup",l:"Tax group",t:"select",opts:()=>taxGroupOpts(),def:"tg_vat",ph:"No tax",hideIf:r=>varKids(r).length},
@@ -2417,7 +2426,7 @@ const CRUD = {
     search:r=>r.name+" "+(r.reference||""),
     cols:[["Name",r=>`<b>${esc(r.name)}</b>${r.nameAr?` <span class="note">${esc(r.nameAr)}</span>`:""}`],["Reference",r=>esc(r.reference||"—")],
       ["Options",r=>S.modifier_options.filter(o=>live(o)&&o.modifierId===r.id).length,"num"],["Linked Products",r=>S.products.filter(p=>live(p)&&(p.modifiers||[]).some(l=>l.modifierId===r.id)).length,"num"],["Created",r=>fmtDate(r.createdAt)]],
-    fields:[{k:"name",l:"Name",req:1},{k:"nameAr",l:"Name (Arabic)"},{k:"reference",l:"Reference"}],
+    fields:[{k:"name",l:"Name",req:1},{k:"nameAr",l:"Name Localized"},{k:"reference",l:"Reference"}],
     unique:"name",
     note:"A modifier is a group of choices, like Sauce or Add Toppings. Add its options, then link it to products (open a product → Modifiers)."
   },
@@ -2428,7 +2437,7 @@ const CRUD = {
     search:r=>r.name+" "+(r.options||[]).join(" "),
     cols:[["Name",r=>`<b>${esc(r.name)}</b>${r.nameAr?` <span class="note">${esc(r.nameAr)}</span>`:""}`],["Options",r=>(r.options||[]).map(o=>`<span class="tag">${esc(o)}</span>`).join(" ") || "—"],
       ["Products",r=>S.products.filter(p=>live(p)&&p.variantSetId===r.id).length,"num"]],
-    fields:[{k:"name",l:"Name",req:1,ph:"e.g. Size"},{k:"nameAr",l:"Name (Arabic)"},
+    fields:[{k:"name",l:"Name",req:1,ph:"e.g. Size"},{k:"nameAr",l:"Name Localized"},
       {k:"options",l:"Options",t:"items",req:1,note:"Add each option one by one (Small, then Medium, then Large). Then open a product and choose this variant: each option becomes its own product with its own price."}],
     unique:"name",
     canDelete: r => { const used = S.products.filter(p => live(p) && p.variantSetId===r.id); return used.length ? `This variant set is used by ${used.length} product${used.length===1?"":"s"} (${used.slice(0,3).map(p=>p.name).join(", ")}${used.length>3?"…":""}). Remove it from those products first.` : ""; },
@@ -2450,7 +2459,7 @@ const CRUD = {
     filter:r=>!state.modFilter || r.modifierId===state.modFilter,
     cols:[["Name",r=>`<b>${esc(r.name)}</b>`],["Modifier",r=>esc(modName(r.modifierId))],["SKU",r=>`<span class="code">${esc(r.sku||"")}</span>`],["Price",r=>+r.price?usd(r.price):'<span class="note">Free</span>',"num"],
       ["Cost",r=>{ const c = productCost(r); return c ? fmtCost(c) : "—"; },"num"]],
-    fields:[{k:"name",l:"Name",req:1},{k:"nameAr",l:"Name (Arabic)"},
+    fields:[{k:"name",l:"Name",req:1},{k:"nameAr",l:"Name Localized"},
       {k:"modifierId",l:"Modifier",t:"select",req:1,opts:()=>S.modifiers.filter(live).sort((a,b)=>a.name.localeCompare(b.name)).map(m=>[m.id,m.name]),auto:()=>state.newOptMod||state.modFilter||""},
       {k:"sku",l:"SKU",auto:()=>nextSku("modifier_options")},{k:"price",l:"Price (USD)",t:"number",def:0},{k:"taxGroup",l:"Tax group",t:"select",opts:()=>taxGroupOpts(),def:"tg_vat",ph:"No tax"},
       {k:"costingMethod",l:"Costing method",t:"select",opts:()=>[["ingredients","From ingredients"],["fixed","Fixed cost"]],def:"ingredients"},{k:"cost",l:"Fixed cost (USD)",t:"number",req:1,when:{k:"costingMethod",is:"fixed"}}]
@@ -2491,7 +2500,7 @@ const CRUD = {
     search:r=>r.name+" "+(r.reference||""),
     cols:[["Name",r=>`<b>${esc(r.name)}</b>${r.nameAr?` <span class="note">${esc(r.nameAr)}</span>`:""}`],["Reference",r=>esc(r.reference||"—")],
       ["Items",r=>`<a class="lnk" href="#inv-items" data-invcat="${esc(r.name)}">Items (${S.inv_items.filter(i=>live(i)&&i.category===r.name).length})</a>`],["Created",r=>fmtDate(r.createdAt)]],
-    fields:[{k:"name",l:"Name",req:1},{k:"nameAr",l:"Name (Arabic)"},{k:"reference",l:"Reference"}],
+    fields:[{k:"name",l:"Name",req:1},{k:"nameAr",l:"Name Localized"},{k:"reference",l:"Reference"}],
     unique:"name",
     async after(old, data){   // keep items attached when a category is renamed
       if(!old || !old.name || old.name===data.name) return;
@@ -2516,7 +2525,7 @@ const CRUD = {
     search:r=>r.name+" "+(r.reference||""),
     cols:[["Name",r=>`<b>${esc(r.name)}</b>${r.nameAr?` <span class="note">${esc(r.nameAr)}</span>`:""}`],["Reference",r=>esc(r.reference||"—")],
       ["Status",r=>r.active===false?'<span class="tag off">Inactive</span>':'<span class="tag on">Active</span>']],
-    fields:[{k:"name",l:"Name",req:1},{k:"nameAr",l:"Name (Arabic)"},{k:"reference",l:"Reference"},
+    fields:[{k:"name",l:"Name",req:1},{k:"nameAr",l:"Name Localized"},{k:"reference",l:"Reference"},
       {k:"active",l:"Show in the call center",t:"chk",def:true}],
     unique:"name",
     note:"These are the choices in the call center's and the POS's Source list (where the order came from). Inactive sources are hidden from new orders but kept on old ones. Renaming a source renames it on past orders too."
@@ -2530,7 +2539,7 @@ const CRUD = {
     cols:[["Name",r=>`<b>${esc(r.name)}</b>${r.nameAr?` <span class="note">${esc(r.nameAr)}</span>`:""}`],["Type",r=>r.type==="percent"?"Percentage":"Fixed amount"],["Value",r=>r.type==="percent"?(+r.value||0)+" %":usd(r.value),"num"],
       ["Order types",r=>(r.orderTypes||[]).length ? r.orderTypes.map(t=>esc(TYPE_LBL[t]||t)).join(", ") : "All"],["Brands / branches",r=>[(r.brandIds||[]).length ? r.brandIds.map(brandName).join(", ") : "All brands", (r.branchIds||[]).length ? (r.branchIds.includes("-") ? "no branches" : r.branchIds.length+" branch(es)") : "all branches"].map(esc).join(" · ")],
       ["Applies",r=>r.auto===false?'<span class="tag off">When picked</span>':'<span class="tag on">Automatically</span>'],["Status",r=>r.active===false?'<span class="tag off">Inactive</span>':'<span class="tag on">Active</span>']],
-    fields:[{k:"name",l:"Name",req:1,ph:"e.g. Delivery charge, Service charge"},{k:"nameAr",l:"Name (Arabic)"},
+    fields:[{k:"name",l:"Name",req:1,ph:"e.g. Delivery charge, Service charge"},{k:"nameAr",l:"Name Localized"},
       {k:"type",l:"Type",t:"select",req:1,opts:()=>[["fixed","Fixed amount (USD)"],["percent","Percentage of the order"]],def:"fixed"},{k:"value",l:"Value",t:"number",req:1,ph:"e.g. 2 or 10"},
       {k:"orderTypes",l:"Order types it applies to",t:"multi",full:1,opts:()=>[["dinein","Dine-in"],["fast","Fast sale"],["pickup","Pickup"],["delivery","Delivery"]],def:["delivery"]},
       {k:"auto",l:"Add automatically to matching orders",t:"chk",def:true},
@@ -2601,7 +2610,7 @@ function crudView(key){
     h += `<table><thead><tr>${dr ? `<th class="noedit grc"></th>` : ""}${bk ? `<th class="noedit bkc"><input type="checkbox" data-bkall="${key}" ${allOn?"checked":""} aria-label="Select all on this page"></th>` : ""}${bk && sel.size
       ? `<th colspan="${cfg.cols.length}" class="bkbar"><b>${sel.size} Selected</b><span class="ddwrap"><button type="button" class="btn sm" id="bkAct">Actions ▾</button><span class="ddmenu" id="bkActM" hidden>${bkActs.map(([k,t]) => `<button type="button" data-bkdo="${key}:${k}">${t}</button>`).join("")}</span></span></th>`
       : cfg.cols.map(c=>`<th class="${c[2]||""}">${c[0]}</th>`).join("")}</tr></thead><tbody>${
-    shown.map(r=>`<tr class="click" data-open="${key}:${esc(r.id)}"${dr ? ` draggable="true" data-rowdrag="${key}:${esc(r.id)}"` : ""}>${dr ? `<td class="noedit grc" title="Drag to move"><span class="bmgrip" aria-hidden="true">⋮⋮</span></td>` : ""}${bk ? `<td class="noedit bkc"><input type="checkbox" data-bksel="${key}:${esc(r.id)}" ${sel.has(r.id)?"checked":""} aria-label="Select ${esc(r.name||"")}"></td>` : ""}${cfg.cols.map((c, ci)=>`<td class="${c[2]||""}">${c[1](r)}${ci===0 && TAG_KEY[key] ? tagChips(TAG_KEY[key], r.id) : ""}</td>`).join("")}</tr>`).join("")}</tbody></table>`; }
+    shown.map(r=>`<tr class="click" data-open="${key}:${esc(r.id)}"${dr ? ` data-sk="row:${key}|${esc(r.id)}"` : ""}>${dr ? `<td class="noedit grc" title="Drag to move"><span class="bmgrip" aria-hidden="true">⋮⋮</span></td>` : ""}${bk ? `<td class="noedit bkc"><input type="checkbox" data-bksel="${key}:${esc(r.id)}" ${sel.has(r.id)?"checked":""} aria-label="Select ${esc(r.name||"")}"></td>` : ""}${cfg.cols.map((c, ci)=>`<td class="${c[2]||""}">${c[1](r)}${ci===0 && TAG_KEY[key] ? tagChips(TAG_KEY[key], r.id) : ""}</td>`).join("")}</tr>`).join("")}</tbody></table>`; }
   h += `<div class="pager"><span class="note">Showing ${list.length?(pg-1)*per+1:0} to ${Math.min(pg*per,list.length)} out of ${list.length}</span><div class="sp"></div>
     <button class="btn sm" data-page="${key}:${pg-1}" ${pg<=1?"disabled":""}>Previous</button><button class="btn sm" data-page="${key}:${pg+1}" ${pg>=pages?"disabled":""}>Next</button></div></div>`;
   return h;
@@ -2826,7 +2835,7 @@ const byName = (list, v) => { const t = String(v||"").trim().toLowerCase(); retu
 const tgByName = v => { const t = String(v||"").trim().toLowerCase(); if(!t) return null; return S.tax_groups.find(g => live(g) && (g.name.toLowerCase()===t || tgName(g.id).toLowerCase()===t)) || null; };
 // one spec per page: the columns, how to find an existing row, and how to turn a CSV line into a record
 const IMPEX = {
-  products: { file:"products", head:["SKU","Name","Name (Arabic)","Brand","Category","Price","Pricing Method","Tax Group","Costing Method","Cost","Preparation Time","Description","Active"],
+  products: { file:"products", head:["SKU","Name","Name Localized","Brand","Category","Price","Pricing Method","Tax Group","Costing Method","Cost","Preparation Time","Description","Active"],
     rows: () => S.products.filter(live).filter(brandFilter).sort(CRUD.products.sort).map(r => [r.sku, r.name, r.nameAr, brandName(r.brandId), catName(r.categoryId), r.price, r.pricingMethod||"fixed", r.taxGroup ? S.tax_groups.find(g=>g.id===r.taxGroup)?.name : "", r.costingMethod||"ingredients", r.cost, r.prepTime, r.description, r.active===false?"No":"Yes"]),
     build: (x, ctx) => {
       const bl = brandList(), bySku = x.sku && S.products.find(p => live(p) && (p.sku||"").toLowerCase()===x.sku.toLowerCase()),
@@ -2851,7 +2860,7 @@ const IMPEX = {
       else if(x.sku) d.sku = x.sku;
       return { col:"products", id: ex?.id, data:d };
     } },
-  modifiers: { file:"modifiers", head:["Modifier","Modifier Reference","Modifier Name (Arabic)","Option SKU","Option","Option Name (Arabic)","Price","Tax Group","Costing Method","Cost","Active"],
+  modifiers: { file:"modifiers", head:["Modifier","Modifier Reference","Modifier Name Localized","Option SKU","Option","Option Name Localized","Price","Tax Group","Costing Method","Cost","Active"],
     note:"One line per option. A modifier with no options can have the option columns empty. Missing modifiers are created.",
     rows: () => { const out = []; S.modifiers.filter(live).sort(bySort).forEach(m => { const os = modOptions(m.id);
       if(!os.length) out.push([m.name, m.reference, m.nameAr, "", "", "", "", "", "", "", "", ""]);
@@ -2875,7 +2884,7 @@ const IMPEX = {
       else if(x["option sku"]) d.sku = x["option sku"];
       return { col:"modifier_options", id: ex?.id, data:d };
     } },
-  "inv-items": { file:"inventory-items", head:["SKU","Name","Name (Arabic)","Category","Storage Unit","Ingredient Unit","Factor","Costing Method","Cost","Minimum Level","Par Level","Maximum Level"],
+  "inv-items": { file:"inventory-items", head:["SKU","Name","Name Localized","Category","Storage Unit","Ingredient Unit","Factor","Costing Method","Cost","Minimum Level","Par Level","Maximum Level"],
     rows: () => S.inv_items.filter(live).sort(CRUD["inv-items"].sort).map(r => [r.sku, r.name, r.nameAr, r.category, r.storageUnit, r.ingredientUnit, r.factor, r.costingMethod==="transactions"?"Transactions":"Fixed", r.cost, r.minLevel, r.parLevel, r.maxLevel]),
     build: (x, ctx) => {
       const ex = (x.sku && S.inv_items.find(i => live(i) && (i.sku||"").toLowerCase()===x.sku.toLowerCase())) || byName(S.inv_items, x.name);
@@ -3834,7 +3843,7 @@ function viewBranchMenu(){
   h += `<div class="mm"><aside class="mmside"><div class="mmhd"><b>Categories</b><button type="button" class="btn pri sm" data-bmnewcat>+ Add</button></div>
       ${cats.length > 6 ? `<input class="sel search" id="bmCatQ" placeholder="Search categories" value="${esc(BM.cq||"")}" aria-label="Search categories">` : ""}
       <div class="mmcats">${cats.filter(c => !cq || c.name.toLowerCase().includes(cq)).map(c => { const on = bmCatOn(c.id), ps = bmCatProds(c).filter(p => all.includes(p)), nOn = ps.filter(p => bmState(p).on).length;
-        return `<div class="mmcat${c.id===BM.cat?" sel":""}${on?"":" off"}" data-bmpick="${esc(c.id)}"${cq ? "" : ` draggable="true" data-bmdrag="c:${esc(c.id)}"`}>
+        return `<div class="mmcat${c.id===BM.cat?" sel":""}${on?"":" off"}" data-bmpick="${esc(c.id)}"${cq ? "" : ` data-sk="bmc|${esc(c.id)}"`}>
           <span class="bmgrip" title="Drag to move" aria-hidden="true">⋮⋮</span>
           <span class="scimg">${c.imageUrl ? `<img src="${esc(c.imageUrl)}" alt="">` : svgIco("image")}</span>
           <span class="mmct"><b>${esc(c.name)}</b><small>${on ? `${nOn} of ${ps.length} on` : "Hidden"}</small></span>
@@ -3851,7 +3860,7 @@ function viewBranchMenu(){
   const pill = (attr, on, txt, title) => `<label class="scpill${on?" on":""}"${title ? ` title="${esc(title)}"` : ""}><input type="checkbox" ${attr} ${on?"checked":""}>${txt}</label>`;
   const stockPill = (attr, ok, dis) => `<label class="scstk${ok?" ok":" no"}${dis?" dis":""}" title="Stock at ${esc(br.name)} (all channels)"><input type="checkbox" ${attr} ${ok?"checked":""} ${dis?"disabled":""}><i></i>${ok ? "In stock" : "Sold out"}</label>`;
   const row = (r, par) => { const st = bmState(r), vk = par ? [] : varKids(r), nm = par ? ((par.variants||[]).find(v => v.productId===r.id)?.name || r.name) : r.name, nl = bmLinks(r).length;
-    let s = `<div class="mmrow${par?" mmvar":""}${st.on?"":" off"}${BM.draft[r.id]?" chg":""}"${q || par ? "" : ` draggable="true" data-bmdrag="p:${esc(r.id)}" data-bmcatof="${esc(cur.id)}"`}>
+    let s = `<div class="mmrow${par?" mmvar":""}${st.on?"":" off"}${BM.draft[r.id]?" chg":""}"${q || par ? "" : ` data-sk="bmp:${esc(cur.id)}|${esc(r.id)}"`}>
       ${par ? `<span></span>` : `<span class="bmgrip" title="Drag to sort" aria-hidden="true">${q ? "" : "⋮⋮"}</span>`}
       <label class="toggle" title="On the ${esc(ch[1])} menu"><input type="checkbox" data-bmon="${esc(r.id)}" ${st.on?"checked":""} aria-label="${esc(nm)} on the ${esc(ch[1])} menu"><span class="trk"></span></label>
       <span class="mmprod">${par ? `<span class="mmvl">↳</span>` : `<span class="mmimg">${r.imageUrl ? `<img src="${esc(r.imageUrl)}" alt="">` : svgIco("image")}</span>`}
@@ -3993,16 +4002,13 @@ const bmTarget = t => { if(!t || !bmDrag) return null; const k = t.dataset.bmdra
 const bmDropOk = t => !!bmTarget(t);
 document.addEventListener("dragover", e => { const t = e.target.closest?.("[data-bmdrag]"); if(!bmDropOk(t)) return; e.preventDefault(); document.querySelectorAll(".dropto").forEach(x => x.classList.remove("dropto")); t.classList.add("dropto"); });
 // touch screens (tablets, phones) don't fire drag events: drag by the ⋮⋮ grip with the finger instead
-let bmTouch = null;
-document.addEventListener("pointerdown", e => { if(e.pointerType==="mouse") return; const g = e.target.closest?.(".bmgrip"), row = g?.closest("[data-bmdrag]"); if(!row) return;
-  e.preventDefault(); bmDrag = { key:row.dataset.bmdrag, cat:row.dataset.bmcatof }; bmTouch = { row }; row.classList.add("dragging"); try{ g.setPointerCapture(e.pointerId); }catch(_){} });
-document.addEventListener("pointermove", e => { if(!bmTouch) return; e.preventDefault();
-  const t = document.elementFromPoint(e.clientX, e.clientY)?.closest("[data-bmdrag]"); document.querySelectorAll(".dropto").forEach(x => x.classList.remove("dropto"));
-  bmTouch.t = bmDropOk(t) ? t : null; if(bmTouch.t) bmTouch.t.classList.add("dropto"); }, { passive:false });
-const bmTouchEnd = () => { if(!bmTouch) return; const t = bmTouch.t; document.querySelectorAll(".dragging,.dropto").forEach(x => x.classList.remove("dragging","dropto")); bmTouch = null;
-  if(t) bmDoDrop(t); else bmDrag = null; };
-document.addEventListener("pointerup", bmTouchEnd); document.addEventListener("pointercancel", bmTouchEnd);
 document.addEventListener("drop", e => { const t = e.target.closest?.("[data-bmdrag]"); if(!bmDropOk(t)) return; e.preventDefault(); bmDoDrop(t); });
+// Sales Channels: save a new category order (this channel, then the same order on the others)
+async function bmSaveCats(ids){ try{ for(const [k, id] of ids.entries()){ const r = S.categories.find(x => x.id===id); if(r && r.sort !== (k+1)*10){ await put("categories", id, { sort:(k+1)*10 }); r.sort = (k+1)*10; } }
+    await bmSyncCats(ids); toast("Category order saved on all sales channels"); }catch(err){ console.error(err); toast("Couldn't save the new order"); } render(); }
+// ...and a new item order inside a category; items not shown keep their place after the ones that were sorted
+async function bmSaveItems(cid, ids){ const c = S.categories.find(x => x.id===cid); if(!c) return; const rest = [...new Set((c.productIds||[]).map(bmRoot))].filter(id => !ids.includes(id)), next = [...ids, ...rest];
+  try{ await put("categories", c.id, { productIds:next }); c.productIds = next; await bmSyncItems(c, next); toast("Item order saved on all sales channels"); }catch(err){ console.error(err); toast("Couldn't save the new order"); } render(); }
 async function bmDoDrop(t){
   const from = bmDrag.key.slice(2), to = bmTarget(t).slice(2), isCat = bmDrag.key.startsWith("c:"); bmDrag = null;
   const br = branches.find(b=>b.id===BM.branch);
@@ -5123,6 +5129,13 @@ document.addEventListener("change", e => {
 
 /* ---------- Manage → Reasons: what the cashier picks from when voiding or returning ---------- */
 const rsList = k => String(appSet()[k] || "").split("\n").map(x => x.trim()).filter(Boolean);
+// reasons: drag a row (by its ⋮⋮ on touch screens) onto another to move it there
+let rsDrag = null;
+const rsDrop = async (from, t) => { const [k, i] = from.split(":"), [k2, j] = t.dataset.rsdrag.split(":"); if(k!==k2 || i===j) return; const l = rsList(k), x = l.splice(+i, 1)[0]; l.splice(+j, 0, x); await rsSave(k, l); };
+document.addEventListener("dragstart", e => { const t = e.target.closest?.("[data-rsdrag]"); if(!t) return; rsDrag = t.dataset.rsdrag; e.dataTransfer.effectAllowed = "move"; try{ e.dataTransfer.setData("text/plain", rsDrag); }catch(_){} t.classList.add("dragging"); });
+document.addEventListener("dragover", e => { const t = e.target.closest?.("[data-rsdrag]"); if(!t || !rsDrag || t.dataset.rsdrag.split(":")[0]!==rsDrag.split(":")[0]) return; e.preventDefault(); document.querySelectorAll(".dropto").forEach(x => x.classList.remove("dropto")); t.classList.add("dropto"); });
+document.addEventListener("drop", e => { const t = e.target.closest?.("[data-rsdrag]"); if(!t || !rsDrag) return; e.preventDefault(); const f = rsDrag; rsDrag = null; rsDrop(f, t); });
+document.addEventListener("dragend", () => { rsDrag = null; document.querySelectorAll(".dragging,.dropto").forEach(x => x.classList.remove("dragging","dropto")); });
 async function rsSave(k, l){ try{ await put("settings", "app", { [k]: l.join("\n") }); render(); }catch(err){ console.error(err); toast("Couldn't save. Only the owner or an admin can change reasons."); } }
 function viewCurrency(){
   const c = company(), admin = !state.role || state.role==="owner" || state.role==="admin";
@@ -5147,29 +5160,53 @@ async function saveCurrency(){
   catch(e){ console.error(e); $("#curErr").textContent = "Couldn't save. Only the owner or an admin can change this."; }
 }
 document.addEventListener("click", e => { if(e.target.closest("#curSave")) saveCurrency(); });
+/* Reasons (Manage → Reasons, Foodics style): a card per kind; tap a reason to edit it; drag to reorder; deleted ones under Deleted */
+const RS_KINDS = [["vr","Void and Return Reason"],["qtyReasons","Quantity Adjustment Reason"],["drawerReasons","Drawer Operation Reason"]];
+const RS_DEF = { qtyReasons:["Waste","Expired","Damaged","Theft","Staff meal","Sample","Found stock"], drawerReasons:["Cash Change"] };
+const RS = { tab:"general" };
+const rsSplit = v => String(v || "").split("\n").map(x => x.trim()).filter(Boolean);
+// void and return share one list (the POS offers it for both)
+function rsGet(k){ const a = appSet(); if(k==="vr") return [...new Set([...rsSplit(a.voidReasons), ...rsSplit(a.returnReasons)])]; return a[k]==null ? (RS_DEF[k]||[]).slice() : rsSplit(a[k]); }
+const rsDelGet = k => rsSplit(appSet()[k + "Del"]);
+async function rsPut(k, list, del){ const d = k==="vr" ? { voidReasons: list.join("\n"), returnReasons: list.join("\n") } : { [k]: list.join("\n") }; if(del) d[k + "Del"] = del.join("\n");
+  try{ await put("settings", "app", d); render(); return true; }catch(err){ console.error(err); toast("Couldn't save. Only the owner or an admin can change reasons."); return false; } }
+const rsAr = () => appSet().reasonsAr || {};
 function viewReasons(){
-  const admin = !state.role || state.role==="owner" || state.role==="admin";
-  const card = (k, title, note, ph) => { const l = rsList(k);
-    return `<div class="card" style="padding:18px;margin-bottom:16px"><div style="display:flex;align-items:baseline;gap:8px;margin-bottom:4px"><h3 style="margin:0;font-size:16px">${title}</h3><span class="note">${l.length}</span></div><p class="note" style="margin:0 0 12px">${note}</p>
-      <div class="rsnl">${l.length ? l.map((r,i) => `<div class="rsn"><span>${esc(r)}</span>${admin ? `<span class="sp"></span><button class="btn" data-rsmv="${k}:${i}:-1" ${i ? "" : "disabled"} title="Move up">↑</button><button class="btn" data-rsmv="${k}:${i}:1" ${i < l.length-1 ? "" : "disabled"} title="Move down">↓</button><button class="btn" data-rsren="${k}:${i}">Rename</button><button class="btn" data-rsdel="${k}:${i}" style="color:#9e0c24">Remove</button>` : ""}</div>`).join("") : `<div class="note">No reasons yet. The cashier will type the reason.</div>`}</div>
-      ${admin ? `<div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap"><input class="sel" id="rsNew_${k}" placeholder="${ph}" style="flex:1;min-width:200px"><button class="btn pri" data-rsadd="${k}">Add reason</button></div>` : ""}</div>`; };
-  return `<div class="phead"><h1>Reasons</h1><div class="sp"></div></div>
-    <p class="subt">The reasons the cashier taps on the POS when voiding items of an open order or returning items of a closed invoice. "Other…" is always offered too. Whether a reason is required is under Manage → Settings.</p>
+  const admin = !state.role || state.role==="owner" || state.role==="admin", del = RS.tab==="deleted";
+  const card = ([k, title]) => { const l = del ? rsDelGet(k) : rsGet(k); if(del && !l.length) return "";
+    return `<div class="rssec"><div class="rsh"><h3>${title}</h3><span class="sp"></span>${admin && !del ? `<button class="btn" data-rsnew="${k}">Create Reason</button>` : ""}</div>
+      <div class="card rslist">${l.length ? l.map((r, i) => `<div class="rsn"${admin && !del ? ` data-sk="rsx:${k}|${i}" data-rsedit="${k}:${i}"` : ""}>${admin && !del ? `<span class="bmgrip rsgrip" title="Drag to move" aria-hidden="true">⋮⋮</span>` : ""}<span>${esc(r)}</span>${rsAr()[r] ? `<span class="note" style="margin-left:8px">${esc(rsAr()[r])}</span>` : ""}<span class="sp"></span>${del && admin ? `<button class="btn sm" data-rsrestore="${k}:${i}">Restore</button>` : ""}</div>`).join("") : `<div class="rsn note">No reasons yet.</div>`}</div></div>`; };
+  const body = RS_KINDS.map(card).join("");
+  return `<div class="phead"><h1>Reasons</h1></div>
+    <div class="ttabs tgtabs"><a href="#reasons" data-rstab="general" class="${del?"":"on"}">General</a><a href="#reasons" data-rstab="deleted" class="${del?"on":""}">Deleted</a></div>
     ${admin ? "" : `<div class="banner">Only the owner or an admin can change reasons.</div>`}
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px;align-items:start">
-      ${card("voidReasons", "Void reasons", "For items of an active order, before it's paid.", "e.g. Customer changed mind")}
-      ${card("returnReasons", "Return reasons", "For items of a closed invoice; the refund gets a RET- number.", "e.g. Quality complaint")}</div>`;
+    <div class="rswrap">${body || `<div class="card empty">No deleted reasons.</div>`}</div>`;
+}
+function rsForm(k, i){
+  const l = rsGet(k), cur = i==null ? "" : l[i], title = RS_KINDS.find(x => x[0]===k)[1], box = $("#ccBox"); box.className = "modal";
+  box.innerHTML = `<header><h2>${i==null ? "Create" : "Edit"} ${esc(title)}</h2><button type="button" class="x" data-ccclose aria-label="Close">×</button></header>
+  <div class="body" style="display:block"><div class="f" style="margin-bottom:14px"><label for="rsName">Name *</label><input id="rsName" value="${esc(cur)}"></div>
+    <div class="f"><label for="rsNameAr">Name Localized</label><input id="rsNameAr" value="${esc(rsAr()[cur] || "")}"></div><div class="err" id="rsErr"></div></div>
+  <footer>${i==null ? "" : `<button type="button" class="btn danger" id="rsDel" style="margin-right:auto">Delete</button>`}<span style="flex:1"></span><button type="button" class="btn pri" id="rsGo">Save</button></footer>`;
+  $("#ccScrim").classList.add("show"); setTimeout(() => $("#rsName")?.focus(), 50);
+  const go = async () => { const n = $("#rsName").value.trim(), ar = $("#rsNameAr").value.trim(); if(!n){ $("#rsErr").textContent = "Enter a name."; return; }
+    if(l.some((x, j) => j!==i && x.toLowerCase()===n.toLowerCase())){ $("#rsErr").textContent = "That reason is already on the list."; return; }
+    const next = l.slice(); if(i==null) next.push(n); else next[i] = n;
+    const map = { ...rsAr() }; if(cur && cur!==n) delete map[cur]; if(ar) map[n] = ar; else delete map[n];
+    try{ await put("settings", "app", { reasonsAr: map }); }catch(_){}
+    if(await rsPut(k, next)){ $("#ccScrim").classList.remove("show"); toast(i==null ? "Reason created" : "Reason saved"); } };
+  $("#rsGo").onclick = go; $("#rsName").onkeydown = e => { if(e.key==="Enter"){ e.preventDefault(); go(); } };
+  if(i!=null) $("#rsDel").onclick = async () => { if(!(await askYes("Are you sure you want to delete this?"))) return; const next = l.filter((_, j) => j!==i);
+    if(await rsPut(k, next, [...rsDelGet(k).filter(x => x!==cur), cur])){ $("#ccScrim").classList.remove("show"); toast("Reason deleted"); } };
 }
 document.addEventListener("click", async e => {
   const t = e.target; if(!t.closest || !t.closest("#view")) return;
-  const ad = t.closest("[data-rsadd]"); if(ad){ const k = ad.dataset.rsadd, el = $("#rsNew_" + k), v = el.value.trim(), l = rsList(k); if(!v){ el.focus(); return; }
-    if(l.some(x => x.toLowerCase()===v.toLowerCase())) return toast("That reason is already on the list");
-    await rsSave(k, [...l, v]); toast("Reason added"); return; }
-  const dl = t.closest("[data-rsdel]"); if(dl){ const [k,i] = dl.dataset.rsdel.split(":"), l = rsList(k); l.splice(+i, 1); await rsSave(k, l); toast("Reason removed"); return; }
-  const mv = t.closest("[data-rsmv]"); if(mv){ const [k,i,d] = mv.dataset.rsmv.split(":"), l = rsList(k), a = +i, b = a + +d; if(b < 0 || b >= l.length) return; [l[a], l[b]] = [l[b], l[a]]; await rsSave(k, l); return; }
-  const rn = t.closest("[data-rsren]"); if(rn){ const [k,i] = rn.dataset.rsren.split(":"), l = rsList(k), v = (await askText("Rename reason", l[+i])); if(v===null || !v.trim()) return; l[+i] = v.trim(); await rsSave(k, l); toast("Reason renamed"); return; }
+  const tb = t.closest("[data-rstab]"); if(tb){ e.preventDefault(); RS.tab = tb.dataset.rstab; return render(); }
+  const nw = t.closest("[data-rsnew]"); if(nw) return rsForm(nw.dataset.rsnew, null);
+  const rs = t.closest("[data-rsrestore]"); if(rs){ const [k, i] = rs.dataset.rsrestore.split(":"), d = rsDelGet(k), n = d[+i]; if(n==null) return;
+    if(await rsPut(k, [...rsGet(k).filter(x => x!==n), n], d.filter((_, j) => j!==+i))) toast("Reason restored"); return; }
+  const ed = t.closest("[data-rsedit]"); if(ed){ const [k, i] = ed.dataset.rsedit.split(":"); return rsForm(k, +i); }
 });
-document.addEventListener("keydown", e => { if(e.key==="Enter" && e.target.id?.startsWith("rsNew_")){ e.preventDefault(); document.querySelector(`[data-rsadd="${e.target.id.slice(6)}"]`)?.click(); } });
 
 /* filters belong to the page: leaving a page puts its filters back to the defaults */
 function resetPageFilters(){
@@ -5251,27 +5288,28 @@ const tagChips = (type, id) => { const l = tagsOf(type, id); return l.length ? `
 const tagUsed = t => t.type==="customer" ? null : Object.values(((tagDoc().on||{})[t.type])||{}).filter(l => l.includes(t.id)).length;
 async function tagSave(list, on){ const d = tagDoc(); try{ await put("settings", "tags", { list: list ?? d.list ?? [], on: on ?? d.on ?? {} }); return true; }catch(err){ console.error(err); toast("Couldn't save. Only the owner or an admin can change tags."); return false; } }
 const TG = { type:"product", tab:"general" };
-// one page, a card per kind of tag (Foodics style); General shows the tags in use, Deleted the ones taken out
+// one page, a section per kind of tag (Foodics style): title + Create Tag, then a card listing the tags (or a hint when there are none)
 function viewTags(){
   const del = TG.tab==="deleted";
   const sec = ([k, t, plural, help]) => { const l = tagList(k, del); if(del && !l.length) return "";
-    return `<div class="card tgsec${k==="inventory" ? " nm-keep" : ""}"><div class="tgh"><h3>${esc(t)} Tag</h3><span class="sp"></span>${del ? "" : `<button class="btn sm" data-tagnew="${k}">Create Tag</button>`}</div>
-      ${l.length ? `<table><tbody>${l.map(x => { const n = tagUsed(x); return `<tr><td><b>${esc(x.name)}</b></td><td>${n==null ? "" : `<span class="note">${esc(plural[0].toUpperCase() + plural.slice(1))} (${n})</span>`}</td>
-        <td class="num">${del ? `<a href="#tags" class="lnk" data-tagres="${esc(x.id)}">Restore</a>` : `<a href="#tags" class="lnk" data-tagren="${esc(x.id)}">Rename</a> · <a href="#tags" class="lnk" data-tagdel="${esc(x.id)}" style="color:#b42318">Delete</a>`}</td></tr>`; }).join("")}</tbody></table>`
-        : `<p class="note tghelp">${esc(help)}</p>`}</div>`; };
+    return `<div class="rssec${k==="inventory" ? " nm-keep" : ""}"><div class="rsh"><h3>${esc(t)} Tag</h3><span class="sp"></span>${del ? "" : `<button class="btn" data-tagnew="${k}">Create Tag</button>`}</div>
+      <div class="card rslist">${l.length ? l.map(x => { const n = tagUsed(x); return `<div class="rsn"${del ? "" : ` data-tagren="${esc(x.id)}"`}><span>${esc(x.name)}</span>${x.nameAr ? `<span class="note" style="margin-left:8px">${esc(x.nameAr)}</span>` : ""}<span class="sp"></span>${n==null ? "" : `<span class="note">${esc(plural[0].toUpperCase() + plural.slice(1))} (${n})</span>`}${del ? `<button class="btn sm" data-tagres="${esc(x.id)}" style="margin-left:10px">Restore</button>` : ""}</div>`; }).join("")
+        : `<div class="rsempty">${esc(help)}</div>`}</div></div>`; };
   const body = TAG_TYPES.map(sec).join("");
   return `<div class="phead"><h1>Tags</h1></div>
   <div class="ttabs tgtabs"><a href="#tags" data-tagtab="general" class="${del?"":"on"}">General</a><a href="#tags" data-tagtab="deleted" class="${del?"on":""}">Deleted</a></div>
-  ${body || `<div class="card empty">No deleted tags.</div>`}`;
+  <div class="rswrap">${body || `<div class="card empty">No deleted tags.</div>`}</div>`;
 }
-function tagAsk(title, val, done){
+function tagAsk(title, val, done, valAr, onDel){
   const box = $("#ccBox"); box.className = "modal";
   box.innerHTML = `<header><h2>${esc(title)}</h2><button type="button" class="x" data-ccclose aria-label="Close">×</button></header>
-  <div class="body"><div class="f" style="grid-column:1/-1"><label for="tgName">Name</label><input id="tgName" value="${esc(val||"")}" placeholder="e.g. Spicy, Vegan, Best seller"></div><div class="err" id="tgErr" style="grid-column:1/-1"></div></div>
-  <footer><span style="flex:1"></span><button type="button" class="btn pri" id="tgGo">Save</button></footer>`;
+  <div class="body" style="display:block"><div class="f" style="margin-bottom:14px"><label for="tgName">Name *</label><input id="tgName" value="${esc(val||"")}"></div>
+    <div class="f"><label for="tgNameAr">Name Localized</label><input id="tgNameAr" value="${esc(valAr||"")}"></div><div class="err" id="tgErr"></div></div>
+  <footer>${onDel ? `<button type="button" class="btn danger" id="tgDel" style="margin-right:auto">Delete</button>` : ""}<span style="flex:1"></span><button type="button" class="btn pri" id="tgGo">Save</button></footer>`;
   $("#ccScrim").classList.add("show"); setTimeout(() => $("#tgName")?.focus(), 50);
-  const go = async () => { const n = $("#tgName").value.trim(); if(!n){ $("#tgErr").textContent = "Enter a name."; return; } if(await done(n)) $("#ccScrim").classList.remove("show"); };
+  const go = async () => { const n = $("#tgName").value.trim(); if(!n){ $("#tgErr").textContent = "Enter a name."; return; } if(await done(n, $("#tgNameAr").value.trim() || null)) $("#ccScrim").classList.remove("show"); };
   $("#tgGo").onclick = go; $("#tgName").onkeydown = e => { if(e.key==="Enter"){ e.preventDefault(); go(); } };
+  if(onDel) $("#tgDel").onclick = async () => { if(!(await askYes("Are you sure you want to delete this?"))) return; if(await onDel()) $("#ccScrim").classList.remove("show"); };
 }
 // Add Tags / Remove Tags on selected rows
 function tagBulk(type, ids, add, after){
@@ -5308,10 +5346,11 @@ document.addEventListener("click", async e => {
   const tt = e.target.closest("[data-tagtab]"); if(tt){ e.preventDefault(); TG.tab = tt.dataset.tagtab; return render(); }
   const rs = e.target.closest("[data-tagres]"); if(rs){ e.preventDefault(); if(await tagSave((tagDoc().list||[]).map(x => x.id===rs.dataset.tagres ? { ...x, deleted:false } : x))){ toast("Tag restored"); render(); } return; }
   const nw = e.target.closest("[data-tagnew]"); if(nw) TG.type = nw.dataset.tagnew;
-  if(nw) return tagAsk("Create " + (TAG_TYPES.find(x => x[0]===TG.type)?.[1] || "") + " Tag", "", async n => { if(tagList(TG.type).some(t => t.name.toLowerCase()===n.toLowerCase())){ $("#tgErr").textContent = "A tag with this name already exists."; return false; }
-    const ok = await tagSave([...(tagDoc().list||[]), { id:"tg_" + Date.now().toString(36), name:n, type:TG.type }]); if(ok){ toast("Tag created"); render(); } return ok; });
+  if(nw) return tagAsk("Create " + (TAG_TYPES.find(x => x[0]===TG.type)?.[1] || "") + " Tag", "", async (n, ar) => { if(tagList(TG.type).some(t => t.name.toLowerCase()===n.toLowerCase())){ $("#tgErr").textContent = "A tag with this name already exists."; return false; }
+    const ok = await tagSave([...(tagDoc().list||[]), { id:"tg_" + Date.now().toString(36), name:n, nameAr:ar, type:TG.type }]); if(ok){ toast("Tag created"); render(); } return ok; });
   const rn = e.target.closest("[data-tagren]"); if(rn){ e.preventDefault(); const t = (tagDoc().list||[]).find(x => x.id===rn.dataset.tagren); if(!t) return;
-    return tagAsk("Rename Tag", t.name, async n => { const ok = await tagSave((tagDoc().list||[]).map(x => x.id===t.id ? { ...x, name:n } : x)); if(ok){ toast("Tag renamed"); render(); } return ok; }); }
+    return tagAsk("Edit " + (TAG_TYPES.find(x => x[0]===t.type)?.[1] || "") + " Tag", t.name, async (n, ar) => { const ok = await tagSave((tagDoc().list||[]).map(x => x.id===t.id ? { ...x, name:n, nameAr:ar } : x)); if(ok){ toast("Tag saved"); render(); } return ok; }, t.nameAr,
+      async () => { const ok = await tagSave((tagDoc().list||[]).map(x => x.id===t.id ? { ...x, deleted:true } : x)); if(ok){ toast("Tag deleted"); render(); } return ok; }); }
   const dl = e.target.closest("[data-tagdel]"); if(dl){ e.preventDefault(); if(!(await askYes("Are you sure you want to delete this?"))) return; const id = dl.dataset.tagdel;
     if(await tagSave((tagDoc().list||[]).map(x => x.id===id ? { ...x, deleted:true } : x))){ toast("Tag deleted"); render(); } }   // moves to Deleted; Restore brings it back
 });
@@ -5646,7 +5685,7 @@ function modifierDetail(m){
     <button class="btn" data-modaddopt="${esc(m.id)}">Add Option</button><button class="btn pri" data-detedit>Edit Modifier</button></div>`;
   h += infoGrid([info("Name", esc(m.name)), info("Name Localized", esc(m.nameAr||"—")), info("Reference", esc(m.reference||"—")), info("Options", opts.length), info("Linked Products", prods.length), info("Created", fmtDate(m.createdAt))]);
   h += `<div class="card tbl" style="margin-bottom:16px"><div class="ttop"><b>Options</b><div class="sp"></div>${opts.length>1?`<span class="note">Drag ⋮⋮ to reorder</span>`:""}</div>
-    ${opts.length ? `<table><thead><tr><th>Name</th><th>SKU</th><th class="num">Price</th><th class="num">Cost</th></tr></thead><tbody>${opts.map(o=>`<tr class="click" data-detopen="modifier-options:${esc(o.id)}" draggable="true" data-optdrag="${esc(o.id)}">
+    ${opts.length ? `<table><thead><tr><th>Name</th><th>SKU</th><th class="num">Price</th><th class="num">Cost</th></tr></thead><tbody>${opts.map(o=>`<tr class="click" data-detopen="modifier-options:${esc(o.id)}" data-sk="opt:${esc(m.id)}|${esc(o.id)}">
       <td><span class="bmgrip" aria-hidden="true" title="Drag to move">⋮⋮</span><b>${esc(o.name)}</b></td><td><span class="code">${esc(o.sku||"")}</span></td><td class="num">${+o.price?usd(o.price):'<span class="note">Free</span>'}</td><td class="num">${productCost(o)?fmtCost(productCost(o)):"—"}</td></tr>`).join("")}</tbody></table>` : `<div class="empty">No options yet. Use "Add Option".</div>`}</div>`;
   h += `<div class="card" style="margin-bottom:16px"><h3 style="margin:0 0 8px;font-size:15px">Linked products</h3>${prods.length ? prods.map(p => { const l = p.modifiers.find(x=>x.modifierId===m.id);
       return `<div style="margin:4px 0"><a href="#products" class="lnk" data-detopen="products:${esc(p.id)}">${esc(p.name)}</a> <span class="note">· min ${+l.min||0}, max ${+l.max||"any"}${+l.free?`, ${l.free} free`:""}</span></div>`; }).join("")
@@ -6034,7 +6073,8 @@ const DOC_KINDS = {
   "production":           { kind:"production", title:"Production", plural:"Production", loc:1, intro:"Make produced items (sauces, prepped proteins, noodles…) from their ingredients. Submitting adds the produced quantity to the chosen branch or warehouse and takes out the ingredients used, based on each item's ingredient list." },
   "count-sheets":         { kind:"sheet", title:"Inventory Count Sheet", plural:"Count Sheet", intro:"A count sheet is a saved list of items. Pick it in Inventory Count, adjustments or spot checks to load just those items." }
 };
-const QA_REASONS = ["Waste","Expired","Damaged","Theft","Staff meal","Sample","Found stock","Other"];
+const QA_REASONS_DEF = ["Waste","Expired","Damaged","Theft","Staff meal","Sample","Found stock","Other"];
+const QA_REASONS_L = () => { const v = (S.settings.find(x => x.id==="app")||{}).qtyReasons; return v==null ? QA_REASONS_DEF : String(v).split("\n").map(x => x.trim()).filter(Boolean); };
 const DOC = { tab:{}, q:{}, open:null, edit:null, stock:null, stockAt:0, busy:false, err:"" };
 const invCatNames = () => { const m = S.inv_categories.filter(live).map(c=>c.name); S.inv_items.forEach(i=>{ if(i.category && !m.includes(i.category)) m.push(i.category); }); return m.sort((a,b)=>a.localeCompare(b)); };
 const locList = () => [...activeBranches().map(b=>[b.id,b.name]), ...S.warehouses.filter(live).map(w=>[w.id, w.name + (w.reference?` (${w.reference})`:"") ])];
@@ -6118,7 +6158,7 @@ function viewDoc(route){
       ${K.kind==="purchase" ? `<div class="f"><label for="dSup">Supplier *</label><select id="dSup" class="sel"><option value="">Choose…</option>${S.suppliers.filter(live).sort((a,b)=>a.name.localeCompare(b.name)).map(x=>`<option value="${esc(x.id)}" ${x.id===d.supplierId?"selected":""}>${esc(x.name)}</option>`).join("")}</select>${S.suppliers.filter(live).length?"":'<div class="note">Add suppliers under Inventory → Suppliers.</div>'}</div>` : ""}
       ${K.loc ? `<div class="f"><label for="dLoc">${K.kind==="purchase"?"Deliver to":K.kind==="torder"?"Requesting branch":K.kind==="transfer"?"From":"Branch / warehouse"} *</label><select id="dLoc" class="sel"><option value="">Choose…</option>${locList().map(([k,t])=>`<option value="${esc(k)}" ${k===loc?"selected":""}>${esc(t)}</option>`).join("")}</select></div>` : ""}
       ${K.kind==="transfer"||K.kind==="torder" ? `<div class="f"><label for="dDest">${K.kind==="torder"?"Request from":"To"} *</label><select id="dDest" class="sel"><option value="">Choose…</option>${locList().filter(([k])=>k!==loc).map(([k,t])=>`<option value="${esc(k)}" ${k===d.destId?"selected":""}>${esc(t)}</option>`).join("")}</select></div>` : ""}
-      ${K.kind==="quantity" ? `<div class="f"><label for="dReason">Reason</label><input id="dReason" class="sel" list="dReasonL" value="${esc(d.reason||"")}"><datalist id="dReasonL">${QA_REASONS.map(r=>`<option value="${esc(r)}">`).join("")}</datalist></div>
+      ${K.kind==="quantity" ? `<div class="f"><label for="dReason">Reason</label><input id="dReason" class="sel" list="dReasonL" value="${esc(d.reason||"")}"><datalist id="dReasonL">${QA_REASONS_L().map(r=>`<option value="${esc(r)}">`).join("")}</datalist></div>
         <div class="f"><label for="dDir">Type</label><select id="dDir" class="sel"><option value="deduct" ${d.direction!=="add"?"selected":""}>Deduct from stock</option><option value="add" ${d.direction==="add"?"selected":""}>Add to stock</option></select></div>` : ""}
       ${K.kind!=="sheet" ? `<div class="f"><label for="dDate">Business date</label><input id="dDate" type="date" class="sel" value="${esc(d.businessDate||"")}"></div>` : ""}
       <div class="f" style="grid-column:1/-1"><label for="dNotes">Notes</label><input id="dNotes" class="sel" value="${esc(d.notes||"")}"></div></div></div>`;
@@ -6506,6 +6546,65 @@ $("#view").addEventListener("change", e => {
 });
 
 state.date = todayStr();
+/* ---------- drag to sort, everywhere (Sales Channels, modifier options, payment methods, order sources, reasons) ----------
+   Press and drag a row (mouse or finger). The row lifts and follows the pointer, a faded slot shows where it will land,
+   the other rows slide out of the way, and on release it settles into place and the new order is saved. */
+const SORT_DONE_X = {};
+const SORT_DONE = {
+  bmc: ids => bmSaveCats(ids),
+  bmp: (ids, cid) => bmSaveItems(cid, ids),
+  opt: async ids => { try{ for(const [k, id] of ids.entries()){ const r = S.modifier_options.find(x => x.id===id); if(r && r.sort !== (k+1)*10){ await put("modifier_options", id, { sort:(k+1)*10 }); r.sort = (k+1)*10; } } toast("Option order saved for every channel"); }catch(err){ console.error(err); toast("Couldn't save the new order"); } render(); },
+  row: async (ids, key) => { const cfg = SORTABLE[key]; try{ for(const [n, id] of ids.entries()){ const r = S[cfg.col].find(x => x.id===id); if(r && r.sort !== n+1){ await put(cfg.col, id, { sort:n+1 }); r.sort = n+1; } } toast("Order saved · all screens updated"); }catch(err){ console.error(err); toast("Couldn't save the new order"); } render(); },
+  rs: (idx, k) => { const l = rsList(k); return rsSave(k, idx.map(i => l[+i]).filter(x => x!=null)); },
+  rsx: (idx, k) => { const l = rsGet(k); return rsPut(k, idx.map(i => l[+i]).filter(x => x!=null)); }
+};
+(function(){
+  let D = null, swallowClick = false;
+  const skOf = el => { const v = el.dataset.sk, i = v.lastIndexOf("|"); return [v.slice(0, i), v.slice(i+1)]; };
+  const blockOf = el => { const out = [el]; let n = el.nextElementSibling; while(n && !n.dataset.sk){ out.push(n); n = n.nextElementSibling; } return out; };
+  const sibs = () => [...D.box.children].filter(x => x.dataset.sk && skOf(x)[0]===D.group);
+  const flip = mv => { const kids = [...D.box.children], before = new Map(kids.map(k => [k, k.getBoundingClientRect().top])); mv();
+    kids.forEach(k => { const d = before.get(k) - k.getBoundingClientRect().top; if(!d) return; k.style.transition = "none"; k.style.transform = `translateY(${d}px)`;
+      requestAnimationFrame(() => { k.style.transition = "transform .2s cubic-bezier(.2,.8,.2,1)"; k.style.transform = ""; }); }); };
+  const scroller = el => { for(let p = el.parentElement; p; p = p.parentElement){ const cs = getComputedStyle(p); if(/(auto|scroll)/.test(cs.overflowY) && p.scrollHeight > p.clientHeight) return p; } return document.scrollingElement; };
+  function start(e){
+    const el = D.el, r = el.getBoundingClientRect(); D.on = true; D.dy = e.clientY - r.top; D.block = blockOf(el); D.orig = sibs().map(x => skOf(x)[1]);
+    let g; if(el.tagName==="TR"){ g = document.createElement("table"); g.className = (el.closest("table")?.className || "") + " sk-ghost-t"; const c = el.cloneNode(true); [...c.children].forEach((td, i) => td.style.width = el.children[i].getBoundingClientRect().width + "px"); g.appendChild(document.createElement("tbody")).appendChild(c); }
+    else g = el.cloneNode(true);
+    g.classList.add("sk-ghost"); Object.assign(g.style, { left: r.left + "px", top: r.top + "px", width: r.width + "px" }); document.body.appendChild(g); D.ghost = g;
+    D.block.forEach(x => x.classList.add("sk-ph")); document.body.classList.add("sk-dragging"); try{ navigator.vibrate?.(8); }catch(_){}
+  }
+  function move(e){
+    if(!D) return; if(!D.on){ if(Math.abs(e.clientY - D.y0) < 6 && Math.abs(e.clientX - D.x0) < 6) return; start(e); }
+    e.preventDefault(); D.ghost.style.top = (e.clientY - D.dy) + "px"; D.lastY = e.clientY;
+    const items = sibs().filter(x => x!==D.el); let target = null;
+    for(const it of items){ const b = it.getBoundingClientRect(); if(e.clientY < b.top + b.height/2){ target = it; break; } }
+    const cur = D.block[D.block.length-1].nextElementSibling; const ref = target || (() => { const last = items[items.length-1]; if(!last) return null; const bl = blockOf(last); return bl[bl.length-1].nextElementSibling; })();
+    if(ref !== cur && !(target===null && !items.length)) flip(() => D.block.forEach(x => D.box.insertBefore(x, ref)));
+    clearInterval(D.st); const sc = scroller(D.box), top = sc===document.scrollingElement ? 0 : sc.getBoundingClientRect().top, bot = sc===document.scrollingElement ? innerHeight : sc.getBoundingClientRect().bottom;
+    if(e.clientY < top + 50) D.st = setInterval(() => { sc.scrollTop -= 12; }, 16); else if(e.clientY > bot - 50) D.st = setInterval(() => { sc.scrollTop += 12; }, 16);
+  }
+  function end(){
+    if(!D) return; const d = D; D = null; clearInterval(d.st); document.removeEventListener("pointermove", move, true);
+    if(!d.on) return; swallowClick = true; setTimeout(() => swallowClick = false, 50);
+    const r = d.el.getBoundingClientRect(); d.ghost.style.transition = "top .16s ease-out, transform .16s ease-out, box-shadow .16s"; d.ghost.style.top = r.top + "px"; d.ghost.style.transform = "none"; d.ghost.style.boxShadow = "none";
+    setTimeout(() => { d.ghost.remove(); d.block.forEach(x => x.classList.remove("sk-ph")); document.body.classList.remove("sk-dragging");
+      const keys = [...d.box.children].filter(x => x.dataset.sk && skOf(x)[0]===d.group).map(x => skOf(x)[1]);
+      if(keys.join() !== d.orig.join()){ const [kind, arg] = d.group.split(/:(.*)/s); const fn = SORT_DONE[kind] || SORT_DONE_X[kind]; if(fn) fn(keys, arg); } }, 170);
+  }
+  document.addEventListener("pointerdown", e => {
+    if(e.button > 0 || D) return; const el = e.target.closest?.("[data-sk]"); if(!el) return;
+    if(e.target.closest("input,button,select,textarea,a,label,.toggle,.ddwrap,.scprice")) return;   // controls inside the row keep working
+    if(e.pointerType!=="mouse" && !e.target.closest(".bmgrip,.rsgrip")) return;   // on touch screens drag by the ⋮⋮ so the page still scrolls
+    const [group] = skOf(el); D = { el, box: el.parentElement, group, x0: e.clientX, y0: e.clientY, on:false };
+    document.addEventListener("pointermove", move, { capture:true, passive:false });
+    if(e.pointerType!=="mouse") e.preventDefault();
+  });
+  document.addEventListener("pointerup", end); document.addEventListener("pointercancel", end);
+  document.addEventListener("click", e => { if(swallowClick){ e.stopPropagation(); e.preventDefault(); swallowClick = false; } }, true);
+  document.addEventListener("dragstart", e => { if(e.target.closest?.("[data-sk]")) e.preventDefault(); });
+})();
+
 render();
 initStore();
 document.getElementById("signOut").addEventListener("click", () => window.WOK && WOK.user.signOut());
