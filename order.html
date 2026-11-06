@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="328-1793996253">
+<meta name="slick-build" content="329-1793996730">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -355,7 +355,9 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 body{-webkit-tap-highlight-color:transparent;overscroll-behavior-y:contain}
 button,a,.item,[role=button]{touch-action:manipulation}
 input,select,textarea{font-size:16px!important}   /* no zoom-in when a field is tapped (iOS) */
-.sheet{max-height:92dvh}
+.sheet{max-height:92dvh;max-height:calc(var(--vvh,100dvh) - 24px);overscroll-behavior:contain;-webkit-overflow-scrolling:touch;touch-action:pan-y}
+.scrim{top:var(--vvt,0px);bottom:auto;height:var(--vvh,100%)}
+html.lockpg,html.lockpg body{overflow:hidden}
 .app .topbar{padding-top:calc(14px + env(safe-area-inset-top))}
 .app .ipx{top:calc(12px + env(safe-area-inset-top))}
 .app body,.app{overscroll-behavior-y:none}
@@ -411,6 +413,11 @@ h2.ch{font:800 20px/30px var(--hfont),sans-serif;margin:0;padding:24px 0 12px}h2
 .bdsel{display:grid;grid-template-columns:1fr 1.4fr 1.2fr;gap:8px}.bdsel select{width:100%;min-width:0;padding-left:12px!important;padding-right:30px!important;text-overflow:clip}
 /* lists scroll without a visible scroll bar */
 *{scrollbar-width:none!important;-ms-overflow-style:none}*::-webkit-scrollbar{display:none!important;width:0!important;height:0!important}
+.scanbtn{display:flex;align-items:center;gap:12px;width:100%;border:1.5px dashed var(--acc);background:var(--s);color:var(--ink);cursor:pointer;font:inherit}.scanbtn b{display:block;font-size:15px}.scanbtn small{display:block;color:var(--ink2);font-size:13px;margin-top:2px}.tblcard{display:flex;gap:12px;align-items:center}
+.qrcam{position:fixed;inset:0;background:#000;z-index:80;display:flex;flex-direction:column;align-items:center;justify-content:center}.qrcam video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.qrcam .qrbox{position:relative;width:min(70vw,280px);aspect-ratio:1;border-radius:22px;box-shadow:0 0 0 100vmax rgba(0,0,0,.55);outline:3px solid #fff;outline-offset:-3px}
+.qrcam .qrtx{position:relative;color:#fff;font-weight:600;font-size:16px;margin-top:22px;text-align:center;padding:0 24px}.qrcam .qrx{position:absolute;top:calc(14px + env(safe-area-inset-top));right:14px;width:42px;height:42px;border-radius:50%;border:0;background:rgba(255,255,255,.18);color:#fff;font-size:26px;line-height:1;z-index:2}
+.qrcam .qrerr{color:#ffb4b4}
 </style>
 </head>
 <body class="lay-grid">
@@ -567,7 +574,7 @@ function renderHead(){
 }
 
 let mode = qrBranch ? "dinein" : (modeOn("delivery") ? "delivery" : modeOn("takeaway") ? "takeaway" : "dinein");
-let zoneId = "", branchId = qrBranch || "", tableNo = qrTable || "", q = "", cart = [], pin = null, map = null, marker = null;
+let goCart = false, zoneId = "", branchId = qrBranch || "", tableNo = qrTable || "", q = "", cart = [], pin = null, map = null, marker = null;
 const zoneList = () => zones.filter(z => modeOn("delivery", z.branch_id) && Array.isArray(z.polygon) && z.polygon.length >= 3);
 // is the branch open at a time? its weekly hours (Manage → Branches), with overnight hours running past midnight
 function brOpenNow(b, t){ t = t || new Date(); if(!b) return true;
@@ -790,7 +797,7 @@ document.addEventListener("click", e => { if(e.target.closest("[data-acct]")){ A
 if(RECOV && USER) setTimeout(() => openAuth("reset", null, ""), 300);
 const addrLine = a => [a.street, a.building && "Bldg " + a.building, a.floor && "Floor " + a.floor].filter(Boolean).join(", ") || (a.lat ? "Pinned on the map" : "");
 const zoneAt = (lat, lng) => zoneList().find(z => inside([lat, lng], z.polygon));
-function setAddr(a){ addr = a; pin = a ? [a.lat, a.lng] : null; lsSet(AK + "_sel", !a ? null : addrs.some(x => x.id===a.id) ? a.id : { temp:a }); locate(); renderWhere(); renderTop(); }
+function setAddr(a){ addr = a; pin = a ? [a.lat, a.lng] : null; lsSet(AK + "_sel", !a ? null : addrs.some(x => x.id===a.id) ? a.id : { temp:a }); locate(); renderWhere(); renderTop(); if(a && goCart && cart.length) setTimeout(() => { if(!$("#scrim").classList.contains("show")) openCart(); }, 350); }
 function renderTop(){
   const el = $("#topbar"); if(!el) return;
   const ab = `<button type="button" class="acbtn" data-acct aria-label="My account">${USER ? `<span class="av">${esc(inits())}</span>` : ic("user")}<span>${USER ? esc(PROF?.nickname || PROF?.first_name || "Account") : "Log in / Sign up"}</span></button>`;
@@ -888,7 +895,7 @@ $("#sheet").addEventListener("click", e => {
   let t;
   if(t = g("[data-otm]")){ mode = t.dataset.otm; if(mode!=="delivery") zoneId = ""; else locate(); cart = cart.filter(i => visible().some(p=>p.id===i.productId) && !oos(products.find(p=>p.id===i.productId))); reprice(); render(); return closeLoc(); }   // the location sheet opens only from the location bar
   if(t = g("[data-lmode]")){ mode = t.dataset.lmode; if(mode!=="delivery") zoneId = ""; else locate(); cart = cart.filter(i => visible().some(p=>p.id===i.productId) && !oos(products.find(p=>p.id===i.productId))); reprice(); render(); return drawLoc(); }
-  if(t = g("[data-lbranch]")){ branchId = t.dataset.lbranch; cart = cart.filter(i => visible().some(p=>p.id===i.productId) && !oos(products.find(p=>p.id===i.productId))); reprice(); render(); return closeLoc(); }
+  if(t = g("[data-lbranch]")){ branchId = t.dataset.lbranch; cart = cart.filter(i => visible().some(p=>p.id===i.productId) && !oos(products.find(p=>p.id===i.productId))); reprice(); render(); closeLoc(); if(goCart && cart.length) setTimeout(openCart, 300); return; }
   if(t = g("[data-lact]")){ const a = t.dataset.lact;
     if(a==="gps") return lsGps((lat, lng) => { setAddr({ id:"gps", label:"Current location", lat, lng }); closeLoc(); });
     LS.draft = a==="new" ? { forNew:true } : {}; if(pin && a==="map") Object.assign(LS.draft, { lat:pin[0], lng:pin[1] }); return openLoc("map"); }
@@ -922,7 +929,9 @@ function renderWhere(){
   else if(mode==="delivery" && addr && !zoneId) h = `<div class="warn lwarn">We don't deliver to ${esc(addr.label || "this location")} yet.${modeOn("takeaway") ? " You can order for pickup instead." : ""} <button type="button" class="lnk2" data-loc>Change</button></div>`;
   else if(mode==="delivery" && addr && zoneId){ const z = zoneList().find(x => x.id===zoneId), b = z && branches.find(x => x.id===z.branch_id);
     if(b) h = `<div class="card dlvby"><span class="add" style="flex:none;box-shadow:none">${ic("pin")}</span><div><b>Delivered by ${esc(b.name)}</b><div class="info" style="margin:2px 0 0">To ${esc(addr.label || "your location")}${z.eta ? ` · about ${esc(z.eta)} min` : ""}</div></div><button type="button" class="lnk2" data-loc style="margin-left:auto">Change</button></div>`; }
-  else if(mode==="dinein" && branchId) h = `<div class="card"><label class="l" for="tbl" style="display:block;font-size:13px;font-weight:600;color:var(--ink2);margin-bottom:6px">Table number (optional)</label><input id="tbl" class="tblin" inputmode="numeric" value="${esc(tableNo)}" placeholder="e.g. 4"></div>`;
+  else if(mode==="dinein") h = tableNo
+    ? `<div class="card tblcard"><span class="add" style="flex:none;box-shadow:none">${ic("dine")}</span><div><b>Table ${esc(tableNo)}${branchId ? ` · ${esc(branches.find(b=>b.id===branchId)?.name || "")}` : ""}</b><div class="info" style="margin:2px 0 0">We'll bring your order to your table.</div></div><button type="button" class="lnk2" data-scanqr style="margin-left:auto">Rescan</button></div>`
+    : `<button type="button" class="card scanbtn" data-scanqr><span class="add" style="flex:none;box-shadow:none"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3"/><path d="M8 12h8"/></svg></span><span style="text-align:left"><b>Scan your table's QR code</b><small>Opens the camera so we know where to bring your order</small></span></button>`;
   $("#whereBox").innerHTML = h; $("#whereBox").hidden = !h;
   renderTop();
 }
@@ -1009,7 +1018,7 @@ function drawItem(first){
       ${l.list.map(x => { const n = IT.sel[gi].get(x.id)||0, on = n > 0;
         if(l.multi && !one) return `<div class="opt2${on ? " on" : ""}"><span>${esc(x.name)}</span><span class="op">${+x.price ? "+" + usd(x.price) : ""}</span><span class="st"><button type="button" data-io="${gi}:${esc(x.id)}:-1" ${on ? "" : "disabled"} aria-label="Less ${esc(x.name)}">−</button><b>${n}</b><button type="button" data-io="${gi}:${esc(x.id)}:1" ${full ? "disabled" : ""} aria-label="More ${esc(x.name)}">+</button></span></div>`;
         return `<button type="button" class="opt2${on ? " on" : ""}" data-io="${gi}:${esc(x.id)}:t" ${!on && full && !one ? "disabled" : ""}><span class="ck${one ? " rd" : ""}">${ic("check")}</span><span>${esc(x.name)}</span><span class="op">${+x.price ? "+" + usd(x.price) : ""}</span></button>`; }).join("")}</div>`; }).join("");
-  const needLoc = !qrBranch && !curBranch() && !PREVIEW;
+  const needLoc = false;   // location is asked for on View basket
   const shown = IT.kids.length && !IT.kid ? "From " + usd(Math.min(...IT.kids.map(k => priceOf(k.p)))) : usd(b ? priceOf(b) : 0);
   el.innerHTML = `<div class="pg"><button type="button" class="ipx" data-ix aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button>${p.image_url ? `<div class="ipimg"><img src="${esc(p.image_url)}" alt=""></div>` : `<div class="ipnoimg"></div>`}
     <div class="iphd"><h2>${esc(p.name)}</h2><div class="ipp">${shown}${(b||p).nutrition?.calories != null ? `<span class="ipcal">${esc((b||p).nutrition.calories)} kcal</span>` : ""}</div>${p.description ? `<p>${esc(p.description)}</p>` : ""}
@@ -1072,6 +1081,60 @@ $("#main").addEventListener("scroll", e => { if(e.target.id==="catBar") catProg(
 $("#main").addEventListener("input", e => { if(e.target.id==="tbl") tableNo = e.target.value.trim(); if(e.target.id==="q"){ q = e.target.value; renderMenu(); } });
 $("#cartBtn").addEventListener("click", openCart);
 document.addEventListener("click", e => { if(e.target.closest("[data-checkout]")) return openCart(); const r = e.target.closest("[data-rm]"); if(r){ cart.splice(+r.dataset.rm, 1); renderMenu(); if($("#scrim").classList.contains("show")){ if(cart.length) openCart(); else $("#scrim").classList.remove("show"); } } });
+
+/* iPhone: keep sheets inside the visible area (keyboard / toolbars) and lock the page behind them */
+(function(){ const r = document.documentElement, vv = window.visualViewport;
+  const fit = () => { if(!vv) return; r.style.setProperty("--vvh", vv.height + "px"); r.style.setProperty("--vvt", vv.offsetTop + "px"); };
+  if(vv){ vv.addEventListener("resize", fit); vv.addEventListener("scroll", fit); fit(); }
+  const sc = document.getElementById("scrim"); if(!sc) return;
+  new MutationObserver(() => { const on = sc.classList.contains("show"); r.classList.toggle("lockpg", on); if(on) fit(); }).observe(sc, {attributes:true, attributeFilter:["class"]});
+  document.addEventListener("focusout", () => setTimeout(() => { if(sc.classList.contains("show") && !document.activeElement?.matches?.("input,select,textarea")){ window.scrollTo(0,0); fit(); } }, 60));
+})();
+
+/* ---------- scan the table QR with the camera ---------- */
+const QR = {stream:null, raf:0, det:null};
+function qrLoadLib(){ return window.jsQR ? Promise.resolve() : new Promise((ok, no) => { const sc = document.createElement("script"); sc.src = "https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"; sc.onload = ok; sc.onerror = no; document.head.appendChild(sc); }); }
+function qrClose(){ cancelAnimationFrame(QR.raf); QR.stream?.getTracks().forEach(t => t.stop()); QR.stream = null; $("#qrcam")?.remove(); }
+function qrHandle(txt){
+  let u; try{ u = new URL(txt, location.href); }catch(e){ u = null; }
+  const tb = u?.searchParams.get("table"), br = u?.searchParams.get("branch"), bd = u?.searchParams.get("brand");
+  if(!u || (!tb && !br)){ const t = String(txt).trim(); if(/^\w{1,8}$/.test(t)){ qrClose(); tableNo = t; return render(); } return false; }
+  if(bd && brandId && bd !== brandId){ qrClose(); location.href = u.href; return true; }   // another brand's table
+  qrClose();
+  if(br && branches.some(b => b.id===br) && br !== branchId){ branchId = br; cart = cart.filter(i => visible().some(p=>p.id===i.productId) && !oos(products.find(p=>p.id===i.productId))); reprice(); }
+  if(tb) tableNo = tb;
+  render(); return true;
+}
+async function openScan(){
+  qrClose();
+  const el = document.createElement("div"); el.className = "qrcam"; el.id = "qrcam";
+  el.innerHTML = `<video playsinline muted autoplay></video><button type="button" class="qrx" aria-label="Close">×</button><div class="qrbox"></div><div class="qrtx">Point your camera at the QR code on your table</div>`;
+  document.body.appendChild(el); el.querySelector(".qrx").onclick = qrClose;
+  const tx = el.querySelector(".qrtx"), v = el.querySelector("video");
+  if(!navigator.mediaDevices?.getUserMedia){ tx.innerHTML = `<span class="qrerr">This browser can't open the camera. Use your phone's camera app to scan the code.</span>`; return; }
+  try{ QR.stream = await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:"environment"}}, audio:false}); }
+  catch(e){ tx.innerHTML = `<span class="qrerr">Camera access was blocked. Allow camera access for this site and try again.</span>`; return; }
+  if(!$("#qrcam")){ QR.stream.getTracks().forEach(t => t.stop()); return; }
+  v.srcObject = QR.stream; try{ await v.play(); }catch(e){}
+  if("BarcodeDetector" in window){ try{ QR.det = new BarcodeDetector({formats:["qr_code"]}); }catch(e){ QR.det = null; } }
+  if(!QR.det){ try{ await qrLoadLib(); }catch(e){ tx.innerHTML = `<span class="qrerr">Couldn't load the scanner. Check your connection and try again.</span>`; return; } }
+  const cv = document.createElement("canvas"), cx = cv.getContext("2d", {willReadFrequently:true}); let busy = false, last = "";
+  const tick = async () => {
+    if(!QR.stream) return;
+    if(!busy && v.readyState >= 2 && v.videoWidth){
+      busy = true; let txt = null;
+      try{
+        if(QR.det){ const r = await QR.det.detect(v); txt = r[0]?.rawValue || null; }
+        else { const w = Math.min(640, v.videoWidth), h = Math.round(w * v.videoHeight / v.videoWidth); cv.width = w; cv.height = h; cx.drawImage(v, 0, 0, w, h); const r = jsQR(cx.getImageData(0, 0, w, h).data, w, h, {inversionAttempts:"dontInvert"}); txt = r?.data || null; }
+      }catch(e){}
+      busy = false;
+      if(txt && txt !== last){ last = txt; if(navigator.vibrate) navigator.vibrate(60); if(qrHandle(txt) !== false) return; tx.innerHTML = `<span class="qrerr">That isn't a table code. Try the QR code on your table.</span>`; }
+    }
+    QR.raf = requestAnimationFrame(tick);
+  };
+  QR.raf = requestAnimationFrame(tick);
+}
+document.addEventListener("click", e => { if(e.target.closest("[data-scanqr]")) openScan(); });
 $("#scrim").addEventListener("click", e => { if(e.target.id==="scrim" || e.target.closest("[data-close]")) $("#scrim").classList.remove("show"); });
 document.addEventListener("keydown", e => { if(e.key==="Escape"){ if($("#ipg")?.classList.contains("show")) return closeItem(); $("#scrim").classList.remove("show"); } });
 
@@ -1088,7 +1151,8 @@ function payList(){ const p = CO().pay || {}; const l = []; if(p.cash !== false)
 function openCart(){
   const min = minOrder(), b = branches.find(x => x.id===curBranch()), canNow = !b || brOpenNow(b), sl = CO().schedule && b ? slots(b) : [];
   const em = CO().email || "off", pays = payList();
-  if(mode==="delivery" && !addr && !qrBranch) return openLoc("main");   // pick where to deliver first
+  if(!qrBranch && !PREVIEW && (mode==="delivery" ? !addr : !curBranch())){ goCart = true; return openLoc("main"); }   // pick where to deliver / which branch first
+  goCart = false;
   if(!USER && !PREVIEW) return openAuth("in", openCart, "Sign in or create an account to place your order.");
   if(USER && PROF && !PREVIEW && (!PROF.first_name || !PROF.last_name || String(PROF.phone||"").replace(/\D/g,"").length < 8)){ AC.then = openCart; AC.msg = "Add your name and phone number to finish your profile before ordering."; return openAcct("profile"); }
   $("#sheet").className = "sheet";
@@ -1110,7 +1174,7 @@ function openCart(){
     <div class="sec">Payment</div><div class="opts">${pays.map(([t,s,i],k)=>`<label class="opt"><input type="radio" name="pay" value="${t}" ${k?"":"checked"}>${ic(i)}<span>${t}${s?`<small>${s}</small>`:""}</span></label>`).join("")}</div>
     ${CO().terms ? `<p class="info">${esc(CO().terms)}</p>` : ""}
     <div class="err" id="coErr"></div><button class="primary" id="place" ${min && sub()<min?"disabled":""}>Place order · ${usd(grand())}</button></form>`;
-  $("#scrim").classList.add("show");
+  $("#scrim").classList.add("show"); $("#sheet").scrollTop = 0;
   if(mode==="delivery" && addr){ const set = (id, v) => { const el = $("#" + id); if(el && v) el.value = v; };
     if(!["gps","pin"].includes(addr.id)) set("cA_label", addr.label); set("cA_street", addr.street); set("cA_building", addr.building); set("cA_floor", addr.floor); set("cA_extra", addr.extra); }
   if(PROF){ const put = (id, v) => { const el = $("#" + id); if(el && v) el.value = v; }; put("cName", fullName()); put("cEmail", USER.email); }
