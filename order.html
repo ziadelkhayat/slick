@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="341-1794002399">
+<meta name="slick-build" content="342-1794002679">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -31,7 +31,7 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@700;800&display=swap"><link id="fontLink" rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap">
+<link id="fontLink" rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap">
 <script src="modpick.js?v=11"></script>
 <style>
 :root{--acc:#5b2bc4;--on-acc:#fff;--accs:color-mix(in srgb,var(--acc) 12%,#fff);--acci:color-mix(in srgb,var(--acc) 82%,#000);
@@ -492,9 +492,10 @@ body{padding-bottom:calc(170px + env(safe-area-inset-bottom))!important}
 .tbhead .tbrand{justify-content:flex-start;padding:0;gap:14px}
 .tbhead .tbrand img,.tbhead .tbrand .tbl{width:76px!important;height:76px!important;border-radius:20px;padding:6px}
 .tbhead .tbrand .tbl{padding:0;font-size:32px}
-.tbhead .tbrand b{font-family:"Poppins",var(--font),system-ui,sans-serif!important;font-size:30px!important;font-weight:800;letter-spacing:-.03em}
+.tbhead .tbrand b{font-family:var(--font),"Plus Jakarta Sans",system-ui,sans-serif!important;font-size:30px!important;font-weight:800;letter-spacing:-.02em}
 .tbmode{justify-content:space-between!important;align-items:center;margin:0 0 12px!important}
 .tbmode .tcart{margin-left:auto}
+.locbar{max-width:var(--colw,560px);margin:0 auto;padding:16px 16px 4px}.locbar:empty{display:none}.locbar .dlvtop{margin-top:0}.locbar .tchips{margin-top:4px}
 </style>
 </head>
 <body class="lay-grid">
@@ -509,6 +510,7 @@ body{padding-bottom:calc(170px + env(safe-area-inset-bottom))!important}
   <div class="hcard"><div class="hin"><div class="logo" id="logo">·</div><div class="hmeta"><h1 id="brand">Order online</h1><p id="sub"></p><div class="chips" id="chips"></div></div></div></div>
   <div class="banner" id="banner" hidden></div>
 </header>
+<div class="locbar" id="locbar"></div>
 <div class="shell"><main id="main"><div class="items" style="margin-top:24px;grid-template-columns:repeat(auto-fill,minmax(210px,1fr))"><div class="skel"></div><div class="skel"></div><div class="skel"></div></div></main><aside class="side" id="side"></aside></div>
 <div class="bar" id="bar" hidden><button id="cartBtn"><span class="n" id="cartCount">0</span><span>View basket</span><span class="t" id="cartTotal">USD 0</span></button></div>
 <nav class="bnav" id="bnav" aria-label="Main">
@@ -907,11 +909,11 @@ function renderTop0(){
   const el = $("#topbar"); if(!el) return;
   const cn = cart.reduce((a,i) => a + i.qty, 0), ab = `<button type="button" class="tcart" data-tcart aria-label="Basket${cn ? ", " + cn + " items" : ""}">${ic("cart")}<span class="n">${cn || ""}</span></button>`;
   const ms = MODES(), cur = ms.find(m => m[0]===mode) || ["dinein","Dine-in","dine"];
-  if(qrBranch){ el.innerHTML = `<div class="tbrow tbhead">${tbBrand()}</div><div class="tbmode"><span class="otype"><span class="oi">${ic("dine")}</span>Dine-in</span>${ab}</div>`; return; }
+  if(qrBranch){ el.innerHTML = `<div class="tbrow tbhead">${tbBrand()}</div>`; $("#locbar").innerHTML = `<div class="tbmode"><span class="otype"><span class="oi">${ic("dine")}</span>Dine-in</span>${ab}</div>`; return; }
   const z = zones.find(x => x.id===zoneId), bn = branches.find(b => b.id===branchId)?.name;
   const loc = mode==="delivery" ? (addr ? `<span><small>Deliver to · ${esc(addr.label || "Pinned location")}</small><b>${esc(addrLine(addr) || addr.label || "Pinned location")}</b></span>` : `<span><b>Set your delivery location</b></span>`)
     : bn ? `<span><small>${mode==="takeaway" ? "Pick up from" : "Dine in at"}</small><b>${esc(bn)}</b></span>` : `<span><b>${mode==="takeaway" ? "Select pickup branch" : "Select a branch"}</b></span>`;
-  el.innerHTML = `<div class="tbrow tbhead">${tbBrand()}</div><div class="tbmode"><button type="button" class="otype" data-otype ${ms.length < 2 ? "disabled" : ""}><span class="oi">${ic(cur[2])}</span>${cur[1]}${ms.length > 1 ? "<i>▾</i>" : ""}</button>${ab}</div>
+  el.innerHTML = `<div class="tbrow tbhead">${tbBrand()}</div>`; $("#locbar").innerHTML = `<div class="tbmode"><button type="button" class="otype" data-otype ${ms.length < 2 ? "disabled" : ""}><span class="oi">${ic(cur[2])}</span>${cur[1]}${ms.length > 1 ? "<i>▾</i>" : ""}</button>${ab}</div>
     ${mode==="delivery" && addr && z ? "" : locCard()}
     ${mode==="delivery" && addr ? (z ? `<button type="button" class="dlvtop" data-loc><span class="di">${ic("pin")}</span><span><b>Delivered from ${esc(branches.find(x => x.id===z.branch_id)?.name || "")}</b><small>To ${esc(addr.label || "your location")}${z.eta ? ` · about ${esc(z.eta)} min` : ""} · ${+z.fee ? usd(z.fee) + " delivery" : "Free delivery"}</small></span><i class="dchev">›</i></button>` : `<div class="tchips"><span class="tchip bad">Not delivering here</span></div>`) : ""}`;
 }
