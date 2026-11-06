@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="350-1794004484">
+<meta name="slick-build" content="351-1794005418">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -10,7 +10,7 @@
     try{ if(sessionStorage.getItem("slick_rl") === n) return; sessionStorage.setItem("slick_rl", n); }catch(e){}
     fetch(location.pathname, { cache:"reload" }).then(function(){ location.reload(); }, function(){ location.reload(); }); }).catch(function(){}); })();</script>
 
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, viewport-fit=cover, shrink-to-fit=no">
 <title>Order Online</title>
 <meta name="description" content="Order online for delivery, pickup or at your table.">
 <meta name="theme-color" content="#5b2bc4">
@@ -523,6 +523,14 @@ body{padding-bottom:calc(140px + env(safe-area-inset-bottom) * .4)!important}
 .tools{padding-bottom:10px!important}.crow{padding:12px 0 12px!important}
 .ch{padding:22px 0 6px!important}
 .lay-list .item .tx b{font-size:16px;line-height:1.35}.lay-list .item .tx .pr{margin-top:6px}.lay-list .item .tx small{margin-top:6px;line-height:1.45}
+html,body{overflow-x:clip;max-width:100%}
+/* search hides behind a magnifier next to the basket */
+.tools .srch{display:none}.tools.son .srch{display:flex;margin-bottom:4px}
+.tbmode .tsrch{margin-left:auto}.tbmode .tsrch+.tcart{margin-left:8px}
+.tsrch svg{width:21px;height:21px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round}
+/* bottom bar slides away while browsing the menu, comes back when scrolling up */
+.bnav{transition:transform .28s var(--ease,ease),opacity .28s}.bnav.away{transform:translate(-50%,140%);opacity:0;pointer-events:none}
+.bar{transition:bottom .28s}.navaway .bar{bottom:calc(env(safe-area-inset-bottom) * .4 + 6px)!important}
 </style>
 </head>
 <body class="lay-grid">
@@ -936,11 +944,12 @@ function renderTop0(){
   const el = $("#topbar"); if(!el) return;
   const cn = cart.reduce((a,i) => a + i.qty, 0), ab = `<button type="button" class="tcart" data-tcart aria-label="Basket${cn ? ", " + cn + " items" : ""}">${ic("cart")}<span class="n">${cn || ""}</span></button>`;
   const ms = MODES(), cur = ms.find(m => m[0]===mode) || ["dinein","Dine-in","dine"];
-  if(qrBranch){ el.innerHTML = `<div class="tbrow tbhead">${tbBrand()}</div>`; $("#locbar").innerHTML = `<div class="tbmode"><span class="otype"><span class="oi">${ic("dine")}</span>Dine-in</span>${ab}</div>`; return; }
+  const sbtn = SH().search !== false ? `<button type="button" class="tcart tsrch" data-srch aria-label="Search the menu">${ic("search")}</button>` : "";
+  if(qrBranch){ el.innerHTML = `<div class="tbrow tbhead">${tbBrand()}</div>`; $("#locbar").innerHTML = `<div class="tbmode"><span class="otype"><span class="oi">${ic("dine")}</span>Dine-in</span>${sbtn}${ab}</div>`; return; }
   const z = zones.find(x => x.id===zoneId), bn = branches.find(b => b.id===branchId)?.name;
   const loc = mode==="delivery" ? (addr ? `<span><small>Deliver to · ${esc(addr.label || "Pinned location")}</small><b>${esc(addrLine(addr) || addr.label || "Pinned location")}</b></span>` : `<span><b>Set your delivery location</b></span>`)
     : bn ? `<span><small>${mode==="takeaway" ? "Pick up from" : "Dine in at"}</small><b>${esc(bn)}</b></span>` : `<span><b>${mode==="takeaway" ? "Select pickup branch" : "Select a branch"}</b></span>`;
-  el.innerHTML = `<div class="tbrow tbhead">${tbBrand()}</div>`; $("#locbar").innerHTML = `<div class="tbmode"><button type="button" class="otype" data-otype ${ms.length < 2 ? "disabled" : ""}><span class="oi">${ic(cur[2])}</span>${cur[1]}${ms.length > 1 ? "<i>▾</i>" : ""}</button>${ab}</div>
+  el.innerHTML = `<div class="tbrow tbhead">${tbBrand()}</div>`; $("#locbar").innerHTML = `<div class="tbmode"><button type="button" class="otype" data-otype ${ms.length < 2 ? "disabled" : ""}><span class="oi">${ic(cur[2])}</span>${cur[1]}${ms.length > 1 ? "<i>▾</i>" : ""}</button>${sbtn}${ab}</div>
     ${mode==="delivery" && addr && z ? "" : locCard()}
     ${mode==="delivery" && addr ? (z ? `<button type="button" class="dlvtop" data-loc><span class="di">${ic("pin")}</span><span><b>Delivered from ${esc(branches.find(x => x.id===z.branch_id)?.name || "")}</b><small>To ${esc(addr.label || "your location")}${z.eta ? ` · about ${esc(z.eta)} min` : ""} · ${+z.fee ? usd(z.fee) + " delivery" : "Free delivery"}</small></span><i class="dchev">›</i></button>` : `<div class="tchips"><span class="tchip bad">Not delivering here</span></div>`) : ""}`;
 }
@@ -1378,6 +1387,14 @@ document.addEventListener("click", e => { const t = e.target.closest("[data-reor
   if(window.ResizeObserver) new ResizeObserver(setH).observe(lb); setH();
   const chk = () => lb.classList.toggle("stuck", sn.getBoundingClientRect().top < 0);
   addEventListener("scroll", chk, { passive:true }); chk(); })();
+
+/* search toggle + hide-on-scroll bottom bar */
+document.addEventListener("click", e => { if(!e.target.closest("[data-srch]")) return; const t = $(".tools"); if(!t) return;
+  const on = !t.classList.contains("son") || !!$("#q")?.value; t.classList.add("son");
+  const m = $("#main"); scrollTo({ top: Math.max(0, scrollY + m.getBoundingClientRect().top - (($("#locbar")?.offsetHeight)||0)), behavior:"smooth" });
+  setTimeout(() => $("#q")?.focus(), 250); });
+(function(){ let ly = scrollY; addEventListener("scroll", () => { const b = $("#bnav"), m = $("#main"); if(!b || !m) return; const y = scrollY, past = m.getBoundingClientRect().top < innerHeight * .5;
+  if(y > ly + 6 && past){ b.classList.add("away"); document.body.classList.add("navaway"); } else if(y < ly - 6 || !past){ b.classList.remove("away"); document.body.classList.remove("navaway"); } ly = y; }, { passive:true }); })();
 $("#scrim").addEventListener("click", e => { if(e.target.id==="scrim" || e.target.closest("[data-close]")) $("#scrim").classList.remove("show"); });
 document.addEventListener("keydown", e => { if(e.key==="Escape"){ if($("#ipg")?.classList.contains("show")) return closeItem(); $("#scrim").classList.remove("show"); } });
 
