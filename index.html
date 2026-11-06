@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="325-1793995469">
+<meta name="slick-build" content="326-1793995773">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1036,7 +1036,7 @@ table.sk-ghost-t{border-collapse:collapse;table-layout:fixed}table.sk-ghost-t td
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="wokdb.js?v=34"></script>
-<script src="modpick.js?v=11"></script>
+<script src="modpick.js?v=12"></script>
 </head>
 <body>
 <div class="app">
@@ -1182,6 +1182,7 @@ const t12 = v => { const m = /^(\d{1,2}):(\d{2})/.exec(v||""); if(!m) return v||
 const coSet = () => { try{ return S.settings.find(x=>x.id==="company") || {}; }catch(e){ return {}; } };
 const DEC = () => { const d = coSet().priceDecimals; return d===0||d==="0" ? 0 : +d || 2; };
 const CUR = () => coSet().currency || "USD";
+const curL = t => String(t ?? "").replace(/\(USD\)/g, "(" + CUR() + ")");
 const money = n => CUR() + " " + (+n||0).toLocaleString("en-US",{minimumFractionDigits:DEC(),maximumFractionDigits:DEC()});
 // the same amount in the second currency (e.g. LBP at the day's rate), or "" when none is set
 const money2 = n => { const c = coSet(); if(!c.currency2 || !(+c.rate2)) return ""; const d = +c.decimals2 || 0; return c.currency2 + " " + ((+n||0) * +c.rate2).toLocaleString("en-US",{minimumFractionDigits:d,maximumFractionDigits:d}); };
@@ -2909,9 +2910,9 @@ function openCrud(key, id, inline, draft){
     if(f.inline && !inline) return "";   // shown on the item page only
     const v = val(f), idA = "cf_"+f.k, full = f.full||f.t==="textarea"||f.t==="multi" ? " full" : "";
     if(f.t==="nutr"){ const o = v || {}; return `<div class="f full"><div class="nutr" id="cf_${f.k}">${NUTR.map(([k,l,u]) => `<label class="nrow"><span>${l}</span><input type="number" step="any" min="0" data-nk="${k}" value="${esc(o[k] ?? "")}" placeholder="–" aria-label="${l} (${u})"><i>${u}</i></label>`).join("")}</div></div>`; }   // e.g. price and tax of a product with variants: each variant has its own
-    if(f.t==="polygon") return `<div class="f full"><label>${f.l}</label><div class="note">Click the map to add corners around the area this branch delivers to. Drag a corner to adjust it.</div><div id="zoneMap" class="zmap"></div><div class="row" style="margin:8px 0 0"><button type="button" class="btn sm" id="zUndo">Undo last point</button><button type="button" class="btn sm" id="zClear">Clear</button><span class="note" id="zInfo"></span></div></div>`;
-    if(f.t==="chk") return `<div class="f full"><label class="chk"><input type="checkbox" id="${idA}" ${v!==false&&v!==undefined?"checked":""}> ${f.l}</label></div>`;
-    if(f.t==="select") return `<div class="f${full}"><label for="${idA}">${f.l}${f.req?" *":""}</label><select id="${idA}"><option value="">${esc(f.ph||"Choose…")}</option>${f.opts().map(([k,t])=>`<option value="${esc(k)}" ${k===v?"selected":""}>${esc(t)}</option>`).join("")}</select></div>`;
+    if(f.t==="polygon") return `<div class="f full"><label>${curL(f.l)}</label><div class="note">Click the map to add corners around the area this branch delivers to. Drag a corner to adjust it.</div><div id="zoneMap" class="zmap"></div><div class="row" style="margin:8px 0 0"><button type="button" class="btn sm" id="zUndo">Undo last point</button><button type="button" class="btn sm" id="zClear">Clear</button><span class="note" id="zInfo"></span></div></div>`;
+    if(f.t==="chk") return `<div class="f full"><label class="chk"><input type="checkbox" id="${idA}" ${v!==false&&v!==undefined?"checked":""}> ${curL(f.l)}</label></div>`;
+    if(f.t==="select") return `<div class="f${full}"><label for="${idA}">${curL(f.l)}${f.req?" *":""}</label><select id="${idA}"><option value="">${esc(f.ph||"Choose…")}</option>${f.opts().map(([k,t])=>`<option value="${esc(k)}" ${k===v?"selected":""}>${esc(t)}</option>`).join("")}</select></div>`;
     if(f.t==="multi"){ const set = new Set(v||[]), o = f.opts(), hasD = o.some(x => x[2]);
       if(f.toggle){ let grp = ""; const ib = d => d ? `<span class="ib" tabindex="0" role="button" aria-label="More info" data-tip="${esc(d)}">${IB_SVG}</span>` : "";
         let h = "", open = false;
@@ -2919,20 +2920,20 @@ function openCrud(key, id, inline, draft){
           if(k.startsWith("@")){ grp = k; h += `${open ? "</div></section>" : ""}<section class="rlg"><label class="chk mgh"><input type="checkbox" data-mgall="${idA}" data-mgrp="${esc(k)}"><b>${esc(k.slice(1).replace(/ Authorities$/, ""))}</b><span class="rlgc" data-rlgc="${esc(k)}"></span></label><div class="rlgi">`; open = true; return; }
           h += `<label class="chk mitem" data-grp="${esc(grp)}"><input type="checkbox" value="${esc(k)}" ${set.has(k)?"checked":""}><span class="rlt"><b>${esc(t)}</b>${d ? `<small>${esc(d)}</small>` : ""}</span></label>`; });
         if(open) h += "</div></section>";
-        return `<div class="f full"><label>${f.l}</label><div class="mlist rl" id="${idA}"><div class="rlbar"><label class="chk mall"><input type="checkbox" data-mall="${idA}"><b>Select all</b></label><span class="rlcnt" data-rlcnt></span><div class="rls">${svgIco("search")}<input type="search" data-rlsearch placeholder="Search permissions"></div></div>${h}</div></div>`; }
-      return `<div class="f full"><label>${f.l}${f.toggle ? ` <button type="button" class="lnk mtog" data-mtog="${idA}">Toggle All</button>` : ""}</label><div class="multi${hasD ? " mdesc" : ""}" id="${idA}">${!o.length && f.empty ? `<span class="note">${esc(f.empty)}</span>` : ""}${o.map(([k,t,d])=>k.startsWith("@") ? `<div class="mhead">${esc(k.slice(1))}${f.toggle ? ` <button type="button" class="lnk mtog" data-mtog="${idA}" data-mgrp="${esc(k)}">Toggle</button>` : ""}</div>` : `<label class="chk" data-grp="${esc(o.filter(x=>x[0].startsWith("@")).reverse().find(x => o.indexOf(x) < o.findIndex(y=>y[0]===k))?.[0] || "")}"><input type="checkbox" value="${esc(k)}" ${set.has(k)?"checked":""}> <span><b>${esc(t)}</b>${d ? `<small>${esc(d)}</small>` : ""}</span></label>`).join("")}</div>${f.note?`<div class="note">${esc(f.note)}</div>`:""}</div>`; }
-    if(f.t==="image") return `<div class="f full"><label>${f.l}</label><div class="imgf"><label class="imgprev imgpick" for="${idA}_file" id="${idA}_prev" title="Choose photo">${v ? `<img src="${esc(v)}" alt="">` : imgPh()}</label>
+        return `<div class="f full"><label>${curL(f.l)}</label><div class="mlist rl" id="${idA}"><div class="rlbar"><label class="chk mall"><input type="checkbox" data-mall="${idA}"><b>Select all</b></label><span class="rlcnt" data-rlcnt></span><div class="rls">${svgIco("search")}<input type="search" data-rlsearch placeholder="Search permissions"></div></div>${h}</div></div>`; }
+      return `<div class="f full"><label>${curL(f.l)}${f.toggle ? ` <button type="button" class="lnk mtog" data-mtog="${idA}">Toggle All</button>` : ""}</label><div class="multi${hasD ? " mdesc" : ""}" id="${idA}">${!o.length && f.empty ? `<span class="note">${esc(f.empty)}</span>` : ""}${o.map(([k,t,d])=>k.startsWith("@") ? `<div class="mhead">${esc(k.slice(1))}${f.toggle ? ` <button type="button" class="lnk mtog" data-mtog="${idA}" data-mgrp="${esc(k)}">Toggle</button>` : ""}</div>` : `<label class="chk" data-grp="${esc(o.filter(x=>x[0].startsWith("@")).reverse().find(x => o.indexOf(x) < o.findIndex(y=>y[0]===k))?.[0] || "")}"><input type="checkbox" value="${esc(k)}" ${set.has(k)?"checked":""}> <span><b>${esc(t)}</b>${d ? `<small>${esc(d)}</small>` : ""}</span></label>`).join("")}</div>${f.note?`<div class="note">${esc(f.note)}</div>`:""}</div>`; }
+    if(f.t==="image") return `<div class="f full"><label>${curL(f.l)}</label><div class="imgf"><label class="imgprev imgpick" for="${idA}_file" id="${idA}_prev" title="Choose photo">${v ? `<img src="${esc(v)}" alt="">` : imgPh()}</label>
       <div class="imgside"><label class="btn imgbtn" for="${idA}_file"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg> <span>${v ? "Change photo" : "Choose photo"}</span></label><input type="file" accept="image/*" id="${idA}_file" hidden><input type="hidden" id="${idA}" value="${esc(v||"")}">${v ? `<button type="button" class="btn imgrm" data-imgclear="${idA}">Remove photo</button>` : ""}<div class="note" id="${idA}_st">JPG or PNG · drag a photo onto the box or tap it. It's resized automatically for the POS, call center and web menu.</div></div></div></div>`;
     if(f.t==="phone"){ const m = /^(\+\d{1,4})\s*(.*)$/.exec(String(v||"").trim()), cc = m ? m[1] : "+961", num = m ? m[2] : String(v||"").replace(/^\+?961\s*/, "");
-      return `<div class="f${full}"><label for="${idA}">${f.l}</label><div style="display:flex;gap:8px"><select id="${idA}_cc" class="sel" style="flex:0 1 230px;max-width:60%;min-width:0" aria-label="Country code">${CC_CODES.map(([c,n])=>`<option value="${c}" ${c===cc?"selected":""}>${n} (${c})</option>`).join("")}</select><input id="${idA}" type="tel" inputmode="tel" value="${esc(num)}" placeholder="${esc(f.ph||"")}" style="flex:1;min-width:0"></div></div>`; }
-    if(f.t==="password") return `<div class="f"><label for="${idA}">${f.l}</label><input id="${idA}" type="password" autocomplete="new-password" minlength="8" placeholder="At least 8 characters">${f.note?`<div class="note">${esc(f.note)}</div>`:""}</div>`;
-    if(f.t==="pin") return `<div class="f"><label for="${idA}">${f.l}</label><div style="display:flex;gap:8px"><input id="${idA}" type="text" inputmode="numeric" maxlength="5" autocomplete="off" placeholder="${r?.pinHash?"••••• (set; type to change)":"5 digits"}" style="flex:1"><button type="button" class="btn" data-pingen="${idA}">Generate</button></div><div class="note">${esc(f.note||"")}</div></div>`;
-    if(f.t==="items") return `<div class="f full"><label for="${idA}_new">${f.l}${f.req?" *":""}</label><div class="items" id="${idA}">${(Array.isArray(v) ? v : []).map(x => itemRow(x)).join("")}</div>
+      return `<div class="f${full}"><label for="${idA}">${curL(f.l)}</label><div style="display:flex;gap:8px"><select id="${idA}_cc" class="sel" style="flex:0 1 230px;max-width:60%;min-width:0" aria-label="Country code">${CC_CODES.map(([c,n])=>`<option value="${c}" ${c===cc?"selected":""}>${n} (${c})</option>`).join("")}</select><input id="${idA}" type="tel" inputmode="tel" value="${esc(num)}" placeholder="${esc(f.ph||"")}" style="flex:1;min-width:0"></div></div>`; }
+    if(f.t==="password") return `<div class="f"><label for="${idA}">${curL(f.l)}</label><input id="${idA}" type="password" autocomplete="new-password" minlength="8" placeholder="At least 8 characters">${f.note?`<div class="note">${esc(f.note)}</div>`:""}</div>`;
+    if(f.t==="pin") return `<div class="f"><label for="${idA}">${curL(f.l)}</label><div style="display:flex;gap:8px"><input id="${idA}" type="text" inputmode="numeric" maxlength="5" autocomplete="off" placeholder="${r?.pinHash?"••••• (set; type to change)":"5 digits"}" style="flex:1"><button type="button" class="btn" data-pingen="${idA}">Generate</button></div><div class="note">${esc(f.note||"")}</div></div>`;
+    if(f.t==="items") return `<div class="f full"><label for="${idA}_new">${curL(f.l)}${f.req?" *":""}</label><div class="items" id="${idA}">${(Array.isArray(v) ? v : []).map(x => itemRow(x)).join("")}</div>
       <div class="itemadd"><input id="${idA}_new" placeholder="${esc(f.ph||"")}" data-itemnew="${idA}"><button type="button" class="btn sm" data-itemadd="${idA}">+ Add</button></div>${f.note?`<div class="note">${esc(f.note)}</div>`:""}</div>`;
-    if(f.t==="textarea") return `<div class="f full"><label for="${idA}">${f.l}${f.req?" *":""}</label><textarea id="${idA}" rows="${f.rows||3}" ${f.ph?`placeholder="${esc(f.ph)}"`:""}>${esc(Array.isArray(v) ? v.join("\n") : (v||""))}</textarea>${f.note?`<div class="note">${esc(f.note)}</div>`:""}</div>`;
-    if(f.k==="sku" && f.auto) return `<div class="f${full}"><label for="${idA}">${f.l}${f.req?" *":""}</label><div style="display:flex;gap:8px"><input id="${idA}" value="${esc(v??"")}" placeholder="${esc(f.ph||"")}" style="flex:1;min-width:0"><button type="button" class="btn" data-skugen="${key}">Generate</button></div></div>`;   // SKU with a Generate button (Foodics style)
+    if(f.t==="textarea") return `<div class="f full"><label for="${idA}">${curL(f.l)}${f.req?" *":""}</label><textarea id="${idA}" rows="${f.rows||3}" ${f.ph?`placeholder="${esc(f.ph)}"`:""}>${esc(Array.isArray(v) ? v.join("\n") : (v||""))}</textarea>${f.note?`<div class="note">${esc(f.note)}</div>`:""}</div>`;
+    if(f.k==="sku" && f.auto) return `<div class="f${full}"><label for="${idA}">${curL(f.l)}${f.req?" *":""}</label><div style="display:flex;gap:8px"><input id="${idA}" value="${esc(v??"")}" placeholder="${esc(f.ph||"")}" style="flex:1;min-width:0"><button type="button" class="btn" data-skugen="${key}">Generate</button></div></div>`;   // SKU with a Generate button (Foodics style)
     const list = f.t==="list" ? `<datalist id="${idA}_dl">${f.opts().map(o=>`<option value="${esc(o)}">`).join("")}</datalist>` : "";
-    return `<div class="f${full}"><label for="${idA}">${f.l}${f.req?" *":""}</label><input id="${idA}" ${f.t==="number"?'type="number" step="any" min="0"':""} ${f.t==="list"?`list="${idA}_dl"`:""} value="${esc(v??"")}" placeholder="${esc(f.ph||"")}">${list}</div>`;
+    return `<div class="f${full}"><label for="${idA}">${curL(f.l)}${f.req?" *":""}</label><input id="${idA}" ${f.t==="number"?'type="number" step="any" min="0"':""} ${f.t==="list"?`list="${idA}_dl"`:""} value="${esc(v??"")}" placeholder="${esc(f.ph||"")}">${list}</div>`;
   };
   if(inline) return (Array.isArray(inline) ? inline.map(k => cfg.fields.find(x => x.k===k)).filter(Boolean) : cfg.fields).map(field).join("");   // the item page edits in place (no pop-up)
   $("#crudBox").innerHTML = `<header><h2>${r?"Edit":(cfg.addLbl||"Create")} ${cfg.one}</h2><button type="button" class="x" data-cclose aria-label="Close">×</button></header>
@@ -3419,8 +3420,8 @@ let ccOrig = [], ccChg = null, ccLocked = false, ccDisc = 0, ccDiscType = "pct",
 const ccGross = () => cart.reduce((a,i)=>a+lineNet(i),0);
 const ccDiscAmt = () => { const g = ccGross(); if(ccDS){ const d = dsList().find(x => x.id===ccDS.id); if(d){ ccDiscType = "amt"; ccDisc = ccDsCalc(d, ccDS.val).amt; } else ccDS = null; } return +Math.min(g, ccDiscType==="amt" ? +ccDisc||0 : g * (+ccDisc||0) / 100).toFixed(2); };
 const ccMayDisc = () => mayDo("bo_cc_discount") && brandSet($("#oBrand")?.value || branches.find(b => b.id===$("#oBranch")?.value)?.brandId || "").ccDiscounts !== false;
-function ccDiscPanel(){ return `<div class="ccdisc"><div class="ccdo"><div class="seg"><button type="button" data-ccdt="pct" class="${ccDiscType!=="amt"?"on":""}">Percentage %</button><button type="button" data-ccdt="amt" class="${ccDiscType==="amt"?"on":""}">Amount USD</button></div>
-  <input id="ccDiscVal" inputmode="decimal" placeholder="${ccDiscType==="amt" ? "Amount in USD" : "Percent"}" value="${+ccDisc ? ccDisc : ""}"><button type="button" class="btn sm pri" data-ccdapply>Apply</button>${+ccDisc ? `<button type="button" class="btn sm" data-ccdisc="0">Remove</button>` : ""}</div><div class="note" id="ccDiscNote"></div></div>`; }
+function ccDiscPanel(){ return `<div class="ccdisc"><div class="ccdo"><div class="seg"><button type="button" data-ccdt="pct" class="${ccDiscType!=="amt"?"on":""}">Percentage %</button><button type="button" data-ccdt="amt" class="${ccDiscType==="amt"?"on":""}">Amount ${esc(CUR())}</button></div>
+  <input id="ccDiscVal" inputmode="decimal" placeholder="${ccDiscType==="amt" ? "Amount in " + esc(CUR()) : "Percent"}" value="${+ccDisc ? ccDisc : ""}"><button type="button" class="btn sm pri" data-ccdapply>Apply</button>${+ccDisc ? `<button type="button" class="btn sm" data-ccdisc="0">Remove</button>` : ""}</div><div class="note" id="ccDiscNote"></div></div>`; }
 /* ---------- charges (Manage → Charges) and order totals, shared by the call center ---------- */
 const taxIncl = () => !S.taxes.some(x => live(x) && x.inclusive===false);
 const chargeList = (type, brandId, branchId) => S.charges.filter(c => live(c) && c.active!==false && (!(c.orderTypes||[]).length || c.orderTypes.includes(type==="takeaway" ? "pickup" : type))
@@ -3660,6 +3661,7 @@ function ccNoteLines(ro){ const o = ($("#oRNotes")?.value||"").trim(), k = ($("#
   return line("Kitchen note", k, "k", `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 13.9A4 4 0 0 1 7.5 6.1a5 5 0 0 1 9 0A4 4 0 0 1 18 13.9V20H6z"/><path d="M6 16.5h12"/></svg>`) + line("Order note", o, "o", `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6M9 16h3"/></svg>`); }
 function renderCart(ro){
   const ch = ccCharges(), c = orderCalc(cart, ccDiscAmt(), ch.picked), qty = cart.reduce((a,i)=>a+i.qty,0);
+  const grew = cart.length > (renderCart.n || 0); renderCart.n = cart.length;
   $("#oCart").innerHTML = `<div class="kh" style="display:flex;align-items:center;gap:8px"><h3 style="margin:0">Cart</h3><span class="note">${qty} item${qty===1?"":"s"}</span>${!ro && cart.length ? `<button type="button" class="btn sm" data-ccclear style="margin-left:auto">Clear</button>` : ""}</div><div class="clist"><div class="notesbox">${ccNoteLines(ro)}</div>` +
     (cart.length ? cart.map((i,ix)=>`<div class="citem"${ro ? "" : ` data-cedit="${ix}" title="Tap to edit" style="cursor:pointer"`}><span class="cname">${esc(i.name)}${modList(i)}${+i.disc?`<div class="note" style="color:var(--accent-ink)">Discount −${usd(i.disc)}</div>`:""}</span><span class="num cp">${usd(lineNet(i))}</span>${ro?`<span class="cqty">× ${i.qty}</span>`:`<span class="qty cqty"><button type="button" data-q="${ix}:-1" aria-label="Less">−</button>${i.qty}<button type="button" data-q="${ix}:1" aria-label="More">+</button></span>`}<span class="num ceach">${usd(i.price)} each</span></div>`).join("") : `<div class="note" style="padding:18px 0;text-align:center">${ro?"No items.":"Pick a category, then tap products to add them."}</div>`) +
     `</div>
@@ -3668,6 +3670,7 @@ function renderCart(ro){
     <div class="ctot sub"><span>Subtotal</span><span>${usd(c.subtotal)}</span></div><div class="ctot sub"><span>Tax${taxIncl() ? " (included)" : ""}</span><span>${usd(c.tax)}</span></div><div class="ctot"><span>Total</span><b>${usd(c.total)}</b></div>${money2(c.total) ? `<div class="ctot sub"><span></span><span>≈ ${money2(c.total)}</span></div>` : ""}`;
   if(!ro && $("#oProducts")) renderOrderMenu();
   const td = $("#ccToolDisc"); if(td) td.hidden = !ccMayDisc();
+  if(grew){ const cl = document.querySelector("#oCart .clist"); if(cl) requestAnimationFrame(() => { cl.scrollTop = cl.scrollHeight; }); }
 }
 async function saveOrder(status){
   const o = ccEdit ? S.orders.find(x=>x.id===ccEdit) : null;
@@ -5375,9 +5378,9 @@ const BS_TABS = [
     {k:"preventNegative",l:"Restrict inventory transactions to available quantities (Prevent Negative Stock)",t:"chk",n:"By enabling this setting, users will be prevented from entering quantities of items that exceed the quantities available in inventory transactions (production, transfer sending, quantity adjustment and return to supplier)"}]]
 ];
 function bsField(f, v, b, dis){
-  const id = "bs_" + f.k, lbl = `<label${f.t==="chk"||f.t==="radio"||f.t==="multi"?"":` for="${id}"`}>${f.l}${f.req?"*":""}</label>`, help = f.n ? `<div class="note">${f.n}</div>` : "";
+  const id = "bs_" + f.k, lbl = `<label${f.t==="chk"||f.t==="radio"||f.t==="multi"?"":` for="${id}"`}>${curL(f.l)}${f.req?"*":""}</label>`, help = f.n ? `<div class="note">${f.n}</div>` : "";
   if(f.show && !f.show(v)) return `<div class="bsf" data-bsdep="${f.k}" hidden></div>`;
-  if(f.t==="chk") return `<div class="bsf bschk"><label class="chk"><input type="checkbox" id="${id}" data-bs="${f.k}" data-bst="chk" ${v[f.k]?"checked":""} ${dis}> <b>${f.l}</b></label>${help}</div>`;
+  if(f.t==="chk") return `<div class="bsf bschk"><label class="chk"><input type="checkbox" id="${id}" data-bs="${f.k}" data-bst="chk" ${v[f.k]?"checked":""} ${dis}> <b>${curL(f.l)}</b></label>${help}</div>`;
   if(f.t==="info") return `<div class="bsf">${lbl}${help}<div>${f.v()}</div></div>`;
   if(f.t==="radio") return `<div class="bsf">${lbl}${help}<div class="bsseg">${f.o.map(([k,t])=>`<label class="chk"><input type="radio" name="${id}" value="${esc(k)}" data-bs="${f.k}" data-bst="radio" ${String(v[f.k])===k?"checked":""} ${dis}> ${t}</label>`).join("")}</div></div>`;
   if(f.t==="multi"){ const o = f.o(b), cur = v[f.k] || []; return `<div class="bsf">${lbl}${help}<div class="multi">${o.length ? o.map(([k,t])=>`<label class="chk"><input type="checkbox" data-bs="${f.k}" data-bst="multi" value="${esc(k)}" ${cur.includes(k)?"checked":""} ${dis}> ${esc(t)}</label>`).join("") : '<span class="note">Nothing to pick yet.</span>'}</div>${f.none?`<div class="note">Nothing ticked: ${f.none}.</div>`:""}</div>`; }
@@ -5722,7 +5725,7 @@ const itemUnitCost = (it, depth=0) => !it ? 0 : (+it.cost || (hasRecipe(it) && d
 const ingCost = (it, qty, depth=0) => !it ? 0 : (+qty||0) / (+it.factor || 1) * itemUnitCost(it, depth);
 const recipeCost = (list, depth=0) => (list||[]).reduce((s,l) => s + ingCost(itemOf(l.itemId), l.qty, depth), 0);
 const productCost = p => p.costingMethod==="fixed" ? (+p.cost||0) : recipeCost(p.ingredients);
-const fmtCost = n => "USD " + (+n||0).toLocaleString("en-US",{maximumFractionDigits:5});
+const fmtCost = n => CUR() + " " + (+n||0).toLocaleString("en-US",{maximumFractionDigits:5});
 
 // a stable text form of a value for "did anything change?" checks: object keys sorted, empty values dropped, lists of ids sorted
 const canonJ = v => JSON.stringify((function c(x){ if(Array.isArray(x)) return x.every(y => typeof y==="string") ? [...x].sort() : x.map(c);
@@ -5991,7 +5994,7 @@ function branchSettings(p, brs, price){
   const B = DET.br, yes = (arr, id) => arr.includes(id);
   return `<div class="card tbl" style="margin-bottom:16px"><div class="ttop"><b>Branch settings</b><span class="note" style="margin-left:8px">Custom price, hide from the menu, or mark out of stock (out-of-stock items show on every channel but can't be ordered).</span><div class="sp"></div>
       <button class="btn pri sm" data-brsave ${DET.dirtyBr && !DET.saving ? "" : "disabled"}>${DET.saving?"Saving…":"Save"}</button></div>
-    ${brs.length ? `<table><thead><tr><th>Branch</th><th class="num">Custom price (USD)</th><th>Inactive in branch</th><th>Out of stock</th></tr></thead><tbody>${brs.map(b=>`<tr>
+    ${brs.length ? `<table><thead><tr><th>Branch</th><th class="num">Custom price (${esc(CUR())})</th><th>Inactive in branch</th><th>Out of stock</th></tr></thead><tbody>${brs.map(b=>`<tr>
       <td><b>${esc(b.name)}</b>${p.branchIds?.length && !p.branchIds.includes(b.id) ? ' <span class="note">· not sold here</span>' : ""}</td>
       <td class="num"><input type="number" min="0" step="any" class="sel" data-brp="${esc(b.id)}" value="${esc(B.customPrices[b.id] ?? "")}" placeholder="${price}" style="width:110px;text-align:right" aria-label="Custom price in ${esc(b.name)}"></td>
       <td><label class="chk"><input type="checkbox" data-bri="${esc(b.id)}" ${yes(B.inactive,b.id)?"checked":""}> Hide</label></td>
@@ -6942,8 +6945,8 @@ function openReport(title){
 function downloadReportCsv(){
   const r = window.__rep; if(!r) return;
   const q = v => /[",\n]/.test(String(v)) ? `"${String(v).replace(/"/g,'""')}"` : v;
-  const lines = [[`Slick sales report`], [r.scope], [r.period], [], ["Hour","Orders","Net sales (USD)","Net payments (USD)","Discounts (USD)","Avg ticket (USD)"], ...r.hr];
-  if(r.days.length > 1) lines.push([], ["Date","Orders","Net sales (USD)"], ...r.days);
+  const lines = [[`Slick sales report`], [r.scope], [r.period], [], ["Hour","Orders","Net sales (" + CUR() + ")","Net payments (" + CUR() + ")","Discounts (" + CUR() + ")","Avg ticket (USD)"], ...r.hr];
+  if(r.days.length > 1) lines.push([], ["Date","Orders","Net sales (" + CUR() + ")"], ...r.days);
   const blob = new Blob([lines.map(l => l.map(q).join(",")).join("\n")], { type:"text/csv" });
   const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `slick-sales-${dashFrom()}-to-${state.date}.csv`; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href), 2000);
 }
@@ -6994,7 +6997,7 @@ $("#ccScrim").addEventListener("click", async e => { if(e.target.id==="repCsv") 
   if(e.target.closest("[data-ccclear]")){ e.preventDefault(); if(!cart.length || !(await askYes("Clear all items from the cart?"))) return; cart = []; ccDisc = 0; ccDiscOpen = false; renderCart(false); return; }
   if(e.target.closest("[data-ccdisctog]")){ e.preventDefault(); ccDiscOpen = !ccDiscOpen; renderCart(false); if(ccDiscOpen) setTimeout(() => $("#ccDiscVal")?.focus(), 20); return; }
   const cdq = e.target.closest("[data-ccdisc]"); if(cdq){ ccDiscType = "pct"; ccDisc = +cdq.dataset.ccdisc; ccDiscOpen = false; renderCart(false); return; }
-  const cdt = e.target.closest("[data-ccdt]"); if(cdt){ document.querySelectorAll("[data-ccdt]").forEach(b => b.classList.toggle("on", b===cdt)); $("#ccDiscVal").placeholder = cdt.dataset.ccdt==="amt" ? "Amount in USD" : "Percent"; $("#ccDiscVal").focus(); return; }
+  const cdt = e.target.closest("[data-ccdt]"); if(cdt){ document.querySelectorAll("[data-ccdt]").forEach(b => b.classList.toggle("on", b===cdt)); $("#ccDiscVal").placeholder = cdt.dataset.ccdt==="amt" ? "Amount in " + CUR() : "Percent"; $("#ccDiscVal").focus(); return; }
   if(e.target.closest("[data-ccdapply]")){ const ty = document.querySelector("[data-ccdt].on")?.dataset.ccdt || "pct", raw = $("#ccDiscVal").value.trim(), v = +raw.replace(",", "."), g = ccGross();
     if(raw==="" || !(v >= 0)){ $("#ccDiscNote").textContent = "Enter a number."; return; }
     if(ty==="pct" && v > 100){ $("#ccDiscNote").textContent = "A percentage can't be more than 100."; return; }
