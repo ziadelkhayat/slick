@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="279-1793981020">
+<meta name="slick-build" content="280-1793981433">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1171,7 +1171,7 @@ const NAV = [
   {t:"Reports",i:"chart",kids:[["sales-reports","Sales Reports"],["inventory-reports","Inventory Reports"],["business-reports","Business Reports"],["analysis-reports","Analysis Reports"]]},
   {t:"Inventory",i:"box",tabs:1,kids:[["inv-categories","Inventory Categories"],["inv-items","Items"],["warehouses","Locations"],["suppliers","Suppliers"],["purchase-orders","Purchase Orders"],["transfer-orders","Transfer Orders"],["transfers","Transfers"],["inventory-count","Inventory Count"],["production","Production"],["quantity-adjustments","Quantity Adjustment"],["cost-adjustments","Cost Adjustment"],["spot-check","Inventory Spot Check"],["count-sheets","Count Sheet"]]},
   {t:"Menu",i:"book",tabs:1,side:[["branch-menu","Sales Channels"]],kids:[["@Menu Builder"],["categories","Categories"],["products","Products"],["variants","Variants"],["modifiers","Modifiers"],["combos","Combos"],["@Menu Settings"],["allergens","Allergens"]]},
-  {t:"Manage",i:"gear",kids:[["users","Users"],["roles","Roles"],["brands","Brands"],["branches","Branches"],["devices","Devices"],["taxes","Taxes & Groups"],["currency","Currency"],["payment-methods","Payment Methods"],["order-sources","Order Sources"],["charges","Charges"],["delivery-zones","Delivery Zones"],["online-ordering","Web Ordering"],["kitchen-flows","Kitchen Flows"],["reasons","Reasons"],["tags","Tags"]]},
+  {t:"Manage",i:"gear",kids:[["users","Users"],["roles","Roles"],["brands","Brands"],["branches","Branches"],["devices","Devices"],["taxes","Taxes & Groups"],["currency","Currency"],["payment-methods","Payment Methods"],["order-sources","Order Sources"],["charges","Charges"],["delivery-zones","Delivery Zones"],["delivery-charges","Delivery Charges"],["online-ordering","Web Ordering"],["kitchen-flows","Kitchen Flows"],["reasons","Reasons"],["tags","Tags"]]},
   {t:"Marketing",i:"tag",kids:[["loyalty","Loyalty"],["gift-cards","Gift Cards"],["discounts","Discounts"],["promotions","Promotions"],["coupons","Coupons"]]}
 ];
 const TITLES = { account:"Account settings", "inv-levels":"Inventory Levels", "inv-history":"Inventory History", purchasing:"Purchasing" };
@@ -1244,7 +1244,7 @@ const SUBI = {
   "quantity-adjustments":"sliders","cost-adjustments":"dollar","order-transactions":"receipt","inv-categories":"folder","warehouses":"warehouse","spot-check":"search","count-sheets":"list",
   "categories":"grid","products":"utensils","modifiers":"layers","variants":"sliders","modifier-options":"list","branch-menu":"store","combos":"combo","groups":"folder","price-tags":"pricetag","allergens":"alert","tags":"tag",
   "company":"building","users":"user","roles":"shield","brands":"store","branches":"map","devices":"tablet","tables":"grid","taxes":"percent","payment-methods":"card","order-sources":"source",
-  "charges":"plusc","delivery-zones":"globe","online-ordering":"globe","kitchen-flows":"flow","reasons":"message","currency":"dollar","settings":"gear",
+  "charges":"plusc","delivery-zones":"globe","delivery-charges":"plusc","online-ordering":"globe","kitchen-flows":"flow","reasons":"message","currency":"dollar","settings":"gear",
   "loyalty":"heart","gift-cards":"gift","discounts":"percent","promotions":"megaphone","coupons":"ticket",
   "dashboard":"dash","orders":"orders","call-center":"phone","customers":"users"
 };
@@ -2546,7 +2546,8 @@ const CRUD = {
       {k:"brandIds",l:"Brands (none ticked = every brand)",t:"multi",full:1,opts:()=>brandList().map(b=>[b.id,b.name])},
       {k:"branchIds",l:"Branches (none ticked = every branch)",t:"multi",full:1,opts:()=>branches.filter(b=>b.active!==false).map(b=>[b.id,(brandList().length>1?brandName(b.brandId)+" · ":"")+b.name])},
       {k:"active",l:"Active",t:"chk",def:true}],
-    unique:"name"
+    unique:"name",
+    saved: async (old, data) => { if(!old?.id || data.value==null) return; for(const z of (S.zones||[]).filter(z => dcMap()[z.id]===old.id && +z.fee!==+data.value)) await put("zones", z.id, { fee: data.type==="percent" ? 0 : +data.value||0 }); }
   },
   "delivery-zones": {
     col:"zones", title:"Delivery Zones", one:"Delivery Zone",
@@ -3280,9 +3281,18 @@ function orderCalc(items, discount, charges, branchId){
   const total = +(gross - d + chT + add).toFixed(2); tax = +tax.toFixed(2);
   return { gross:+gross.toFixed(2), disc:d, charges:ch, chargesTotal:+chT.toFixed(2), tax, total, subtotal:+(total - tax).toFixed(2) };
 }
+// delivery charge from Manage → Delivery Charges: the customer's saved address is in a zone that this branch delivers to
+function ccZoneCharge(){
+  if($("#oType .on")?.dataset.ot!=="delivery") return null;
+  const cur = addrJoin(ccAddrGet()), a = (window.__ccCust?.addresses||[]).find(x => x.zoneId && addrJoin(addrSplit(x.address))===cur);
+  const z = a && (S.zones||[]).find(z => z.id===a.zoneId && live(z) && z.active!==false);
+  if(!z || z.branchId!==($("#oBranch")?.value || "")) return null;
+  const c = dcChargeOf(z); return c && c.active!==false ? c : null;
+}
 function ccCharges(){
-  const type = $("#oType .on")?.dataset.ot || "", list = type ? chargeList(type, $("#oBrand")?.value || "", $("#oBranch")?.value || "") : [];
-  return { list, picked: list.filter(c => ccChg ? ccChg.has(c.id) : c.auto!==false) };
+  const type = $("#oType .on")?.dataset.ot || "", list = type ? chargeList(type, $("#oBrand")?.value || "", $("#oBranch")?.value || "") : [], zc = type ? ccZoneCharge() : null;
+  if(zc && !list.some(c => c.id===zc.id)) list.push(zc);
+  return { list, picked: list.filter(c => ccChg ? ccChg.has(c.id) : (c.auto!==false || c.id===zc?.id)) };
 }
 function ccAddrVis(){ const f = $("#oAddrF"); if(f) f.style.display = $("#oType .on")?.dataset.ot==="delivery" ? "" : "none"; }
 // a placed order's customer can't change; if it becomes delivery and has no address yet, the address can be filled in
@@ -4141,6 +4151,7 @@ function moduleRoute(route){
   if(route==="tags") return viewTags();
   if(route==="company"){ state.acTab = "business"; setTimeout(() => location.replace("#account"), 0); return ""; }
   if(route==="reasons") return viewReasons();
+  if(route==="delivery-charges") return viewDeliveryCharges();
   if(route==="currency") return viewCurrency();
   if(route==="settings"){ const bl = S.brands.filter(live); setTimeout(() => { location.replace("#brands"); if(bl.length===1) setTimeout(() => openDetail("brands", bl[0].id), 50); }, 0); return ""; }
   if(DOC_KINDS[route]) return viewDocs(route);
@@ -4796,7 +4807,7 @@ document.addEventListener("click", e => {
     const okIds = new Set(availableProducts().map(p=>p.id)), miss = [];
     (lo.items||[]).filter(i => !i.voided).forEach(i => { const p = S.products.find(x=>x.id===i.productId); if(!p || !okIds.has(p.id)){ miss.push(i.name); return; } const opt = (i.options||[]).reduce((a,x)=>a+(+x.price||0),0); cart.push({ productId:p.id, name:i.name, price:+(ccPrice(p)+(i.options?.length?opt:0)).toFixed(2), qty:+i.qty||1, ...(i.options?.length?{options:i.options,mods:i.mods}:{}), ...(i.note?{note:i.note}:{}) }); });
     renderCart(false); toast(miss.length ? `Added to the cart · not available now: ${miss.join(", ")}` : "Order added to the cart"); return; }
-  const ua = e.target.closest("[data-useaddr]"); if(ua){ e.preventDefault(); const a = window.__ccCust?.addresses?.[+ua.dataset.useaddr]; if(a){ ccAddrSet(a.address); ccAddrCards(); } return; }
+  const ua = e.target.closest("[data-useaddr]"); if(ua){ e.preventDefault(); const a = window.__ccCust?.addresses?.[+ua.dataset.useaddr]; if(a){ ccAddrSet(a.address); ccAddrCards(); try{ renderCart(false); }catch(_){} } return; }
   if(e.target.closest("[data-newaddr]")){ e.preventDefault(); ADDR_K.forEach(k => { const el = $("#oA_"+k); if(el) el.value = ""; }); ccAddrCards(); $("#oA_label")?.focus(); return; }
   const st = e.target.closest("[data-ccstep]"); if(st){ e.preventDefault(); ccStep(+st.dataset.ccstep); return; }
   if(e.target.id==="cuTagSave"){ const add = $("#cuTagIn").value.split(",").map(t=>t.trim()).filter(Boolean); if(!add.length) return $("#cuTagIn").focus();
@@ -5208,12 +5219,83 @@ document.addEventListener("click", async e => {
   const ed = t.closest("[data-rsedit]"); if(ed){ const [k, i] = ed.dataset.rsedit.split(":"); return rsForm(k, +i); }
 });
 
+/* ---------- Delivery Charges (Manage → Delivery Charges, Foodics style): which charge a branch adds when it delivers to a zone ---------- */
+const DC = { q:"", branch:"", sel:new Set() };
+const dcCharges = () => (S.charges||[]).filter(c => live(c) && c.active!==false && c.type!=="percent").sort(bySort);
+// zone → charge is kept in one settings document (settings "dcharges": { map: { zoneId: chargeId } })
+const dcMap = () => ((typeof S!=="undefined" ? S.settings : []).find(x => x.id==="dcharges") || {}).map || {};
+const dcChargeOf = z => { const id = dcMap()[z.id]; return id ? (S.charges||[]).find(c => c.id===id && live(c)) : null; };
+// assigning keeps the zone's delivery fee equal to the charge, so web ordering and the POS show the same amount
+async function dcAssign(ids, chargeId, value){
+  const c = chargeId ? { id: chargeId, value: value ?? (S.charges||[]).find(x => x.id===chargeId)?.value } : null;
+  try{ const map = { ...dcMap() }; ids.forEach(id => { if(c) map[id] = c.id; else delete map[id]; }); await put("settings", "dcharges", { map });
+    if(c) for(const id of ids) await put("zones", id, { fee: +c.value||0 }); return true; }
+  catch(err){ console.error(err); toast("Couldn't save. Only the owner or an admin can change delivery charges."); return false; }
+}
+function viewDeliveryCharges(){
+  const q = DC.q.trim().toLowerCase();
+  const all = (S.zones||[]).filter(z => live(z) && z.branchId && branches.some(b => b.id===z.branchId)).filter(z => brandFilter({ brandId: branches.find(b => b.id===z.branchId)?.brandId }))
+    .sort((a, b) => branchName(a.branchId).localeCompare(branchName(b.branchId)) || String(a.name).localeCompare(String(b.name)));
+  const list = all.filter(z => (!DC.branch || z.branchId===DC.branch) && (!q || (z.name + " " + branchName(z.branchId) + " " + (dcChargeOf(z)?.name||"")).toLowerCase().includes(q)));
+  [...DC.sel].forEach(id => { if(!list.some(z => z.id===id)) DC.sel.delete(id); });
+  const allOn = list.length && list.every(z => DC.sel.has(z.id)), brs = branches.filter(b => all.some(z => z.branchId===b.id));
+  let h = `<div class="phead"><h1>Delivery Charges</h1></div>
+    <p class="subt" style="margin-top:-6px">Set the charge each branch adds when it delivers to a delivery zone. Call center orders get it automatically when the customer's address is in the zone and the order is made by that branch; web ordering uses it as the delivery fee.</p>
+    <div class="card tbl"><div class="ttop"><select class="sel" id="dcBranch" aria-label="Branch"><option value="">All branches</option>${brs.map(b => `<option value="${esc(b.id)}" ${DC.branch===b.id?"selected":""}>${esc(b.name)}</option>`).join("")}</select>
+    <div class="sp"></div>${scopeBar(false)}<input class="sel search" id="dcQ" placeholder="Search" value="${esc(DC.q)}" aria-label="Search delivery charges"></div>`;
+  if(!list.length) h += `<div class="empty">${all.length ? "Nothing matches." : `No delivery zones yet. <a href="#delivery-zones" class="lnk">Add delivery zones</a> to the branches first.`}</div>`;
+  else h += `<table><thead><tr><th class="noedit bkc"><input type="checkbox" data-dcall ${allOn?"checked":""} aria-label="Select all"></th>${DC.sel.size
+      ? `<th colspan="3" class="bkbar"><b>${DC.sel.size} Selected</b><span class="ddwrap"><button type="button" class="btn sm" data-dcacts>Actions ▾</button><span class="ddmenu" id="dcActM" hidden><button type="button" data-dcbulk="assign">Assign Charge</button><button type="button" data-dcbulk="unassign">Unassign Charge</button></span></span></th>`
+      : `<th>Branch</th><th>Delivery Zone</th><th>Charge</th>`}</tr></thead><tbody>${list.map(z => { const c = dcChargeOf(z);
+      return `<tr class="click" data-dcrow="${esc(z.id)}"><td class="noedit bkc"><input type="checkbox" data-dcsel="${esc(z.id)}" ${DC.sel.has(z.id)?"checked":""} aria-label="Select ${esc(z.name)}"></td>
+        <td>${esc(branchName(z.branchId))}</td><td><b>${esc(z.name)}</b></td><td>${c ? `${esc(c.name)} <span class="note">${money(+c.value||0)}</span>` : `<span class="note">—</span>`}</td></tr>`; }).join("")}</tbody></table>`;
+  return h + `</div>`;
+}
+function dcForm(ids){
+  const one = ids.length===1 ? S.zones.find(z => z.id===ids[0]) : null, cur = one ? dcChargeOf(one) : null, chs = dcCharges(), box = $("#ccBox"); box.className = "modal";
+  box.innerHTML = `<header><h2>${one ? "Assign Delivery Charge" : `Assign Charge to ${ids.length} Zones`}</h2><button type="button" class="x" data-ccclose aria-label="Close">×</button></header>
+  <div class="body" style="display:block">${one ? `<div class="note" style="margin-bottom:14px">${esc(branchName(one.branchId))} → ${esc(one.name)}</div>` : ""}
+    <div class="seg" style="margin-bottom:14px"><button type="button" data-dcm="pick" class="on">Existing Charge</button><button type="button" data-dcm="new">New Charge</button></div>
+    <div id="dcPick"><div class="f"><label for="dcCh">Charge *</label><select id="dcCh" class="sel"><option value="">Choose a charge</option>${chs.map(c => `<option value="${esc(c.id)}" ${cur?.id===c.id?"selected":""}>${esc(c.name)} · ${money(+c.value||0)}</option>`).join("")}</select></div>
+      ${chs.length ? "" : `<div class="note" style="margin-top:6px">No fixed-amount charges yet. Create one with New Charge.</div>`}</div>
+    <div id="dcNew" hidden><div class="f" style="margin-bottom:14px"><label for="dcN">Name *</label><input id="dcN" placeholder="e.g. Delivery Charge Zone 1"></div>
+      <div class="f" style="margin-bottom:14px"><label for="dcNAr">Name Localized</label><input id="dcNAr"></div>
+      <div class="f"><label for="dcV">Value (${esc(CUR())}) *</label><input id="dcV" type="number" min="0" step="any" inputmode="decimal"></div></div>
+    <div class="err" id="dcErr"></div></div>
+  <footer>${cur ? `<button type="button" class="btn danger" id="dcUn" style="margin-right:auto">Unassign</button>` : ""}<span style="flex:1"></span><button type="button" class="btn pri" id="dcGo">Save</button></footer>`;
+  $("#ccScrim").classList.add("show");
+  let mode = "pick";
+  box.querySelectorAll("[data-dcm]").forEach(b => b.onclick = () => { mode = b.dataset.dcm; box.querySelectorAll("[data-dcm]").forEach(x => x.classList.toggle("on", x===b)); $("#dcPick").hidden = mode!=="pick"; $("#dcNew").hidden = mode!=="new"; if(mode==="new") $("#dcN").focus(); });
+  $("#dcGo").onclick = async () => { const err = $("#dcErr"); let id = "", val;
+    if(mode==="pick"){ id = $("#dcCh").value; if(!id){ err.textContent = "Choose a charge."; return; } }
+    else { const n = $("#dcN").value.trim(), v = $("#dcV").value; if(!n){ err.textContent = "Enter a name."; return; } if(v==="" || +v < 0){ err.textContent = "Enter the value."; return; }
+      if((S.charges||[]).some(c => live(c) && String(c.name).toLowerCase()===n.toLowerCase())){ err.textContent = "A charge with this name already exists."; return; }
+      id = uid("cha"); try{ await put("charges", id, { name:n, nameAr:$("#dcNAr").value.trim(), type:"fixed", value:+v, orderTypes:["delivery"], auto:false, brandIds:[], branchIds:[], active:true }); val = +v; }catch(e){ console.error(e); err.textContent = "Couldn't create the charge."; return; } }
+    $("#dcGo").disabled = true;
+    if(await dcAssign(ids, id, val)){ $("#ccScrim").classList.remove("show"); DC.sel.clear(); toast(ids.length > 1 ? "Charge assigned to " + ids.length + " zones" : "Charge assigned"); render(); } else $("#dcGo").disabled = false; };
+  if(cur) $("#dcUn").onclick = async () => { if(await dcAssign(ids, "")){ $("#ccScrim").classList.remove("show"); toast("Charge unassigned"); render(); } };
+}
+document.addEventListener("click", async e => {
+  const t = e.target; if(!t.closest || !t.closest("#view") || document.body.dataset.route!=="delivery-charges") return;
+  const all = t.closest("[data-dcall]"); if(all){ const ids = [...document.querySelectorAll("[data-dcsel]")].map(x => x.dataset.dcsel); all.checked ? ids.forEach(i => DC.sel.add(i)) : DC.sel.clear(); return render(); }
+  const s = t.closest("[data-dcsel]"); if(s){ s.checked ? DC.sel.add(s.dataset.dcsel) : DC.sel.delete(s.dataset.dcsel); return render(); }
+  if(t.closest(".bkc")) return;
+  const ac = t.closest("[data-dcacts]"); if(ac){ const m = $("#dcActM"); if(m) m.hidden = !m.hidden; return; }
+  const bk = t.closest("[data-dcbulk]"); if(bk){ const ids = [...DC.sel];
+    if(bk.dataset.dcbulk==="assign") return dcForm(ids);
+    if(!(await askYes(`Unassign the charge from ${ids.length} zone${ids.length>1?"s":""}?`))) return;
+    if(await dcAssign(ids, "")){ DC.sel.clear(); toast("Charge unassigned"); render(); } return; }
+  const r = t.closest("[data-dcrow]"); if(r) return dcForm([r.dataset.dcrow]);
+});
+document.addEventListener("change", e => { if(e.target.id==="dcBranch"){ DC.branch = e.target.value; DC.sel.clear(); render(); } });
+document.addEventListener("input", e => { if(e.target.id==="dcQ"){ DC.q = e.target.value; const p = e.target.selectionStart; render(); const i = $("#dcQ"); if(i){ i.focus(); try{ i.setSelectionRange(p, p); }catch(_){} } } });
+
 /* filters belong to the page: leaving a page puts its filters back to the defaults */
 function resetPageFilters(){
   Object.assign(state, { range:"day", days:1, date:todayStr(), dateSet:false, compare:false, cmpDate:"", dashTab:"general", branch:"all", brand:"all", devOpen:null, brOpen:null }); if(!RPT.keep){ RPT.key = ""; RPT.brand = ""; } RPT.keep = false; DASH.key = "";
   if(ORD.keep) ORD.keep = false; else Object.assign(ORD, { tab:"all", range:"week", q:"", from:"", to:"", channel:"", type:"", pay:"", source:"", brand:"", branch:"", page:1, key:"", open:null });
   Object.assign(CUS, { filter:"all", q:"", sort:"last", page:1, key:"", open:null, det:null, more:false, fopen:false, flt:{} });
-  Object.assign(BM, { q:"", draft:{} });
+  Object.assign(BM, { q:"", draft:{} }); Object.assign(DC, { q:"", branch:"" }); DC.sel.clear();
   state.tabs = {}; state.q = {}; state.page = {}; state.catFilter = ""; state.modFilter = ""; state.invCat = "";
   Object.assign(IC, { q:"", cat:"", sheet:"" });
   DOC.tab = {}; DOC.q = {}; DOC.open = null; DOC.edit = null;
