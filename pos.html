@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="305-1793989429">
+<meta name="slick-build" content="309-1793990914">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -551,6 +551,11 @@ html body *:not(.receipt):not(.receipt *):not(.rpaper *):not(svg):not(svg *){fon
 /* window corners: the header and footer follow the window's rounded corners */
 #modal>.mh,.modal>.mh{border-top-left-radius:inherit;border-top-right-radius:inherit}
 #modal>.mf,.modal>.mf{border-bottom-left-radius:inherit;border-bottom-right-radius:inherit}
+
+.chgr input[type=checkbox]{appearance:none;-webkit-appearance:none;width:24px!important;height:24px!important;flex:none;margin:0;border:2px solid #cfcbe0;border-radius:8px;background:#fff center/16px no-repeat;cursor:pointer;transition:background-color .15s,border-color .15s,box-shadow .15s}
+.chgr:has(input:checked){border-color:var(--acc);background:var(--accs)}
+.chgr input[type=checkbox]:checked{background-color:var(--acc);border-color:var(--acc);background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E")}
+.chgr input[type=checkbox]:focus-visible{outline:none;box-shadow:0 0 0 3px var(--accs,#efe9fb)}
 </style>
 <script>
 /* ---------- naming: menu "products" are called Items; inventory "items" are called Products ----------
@@ -857,7 +862,7 @@ const typeKey = t => t==="takeaway" ? "pickup" : t;
 const menuType = () => otype==="takeaway" ? "pickup" : otype;   // fast sale has its own menu switch in Sales Channels
 const chargeList = type => S.charges.filter(c => !c.deleted && c.active!==false && (!(c.orderTypes||[]).length || c.orderTypes.includes(typeKey(type)))
   && (!(c.brandIds||[]).length || c.brandIds.includes(branch?.brandId)) && (!(c.branchIds||[]).length || c.branchIds.includes(device.branchId))).sort((a,b)=>(a.sort??999)-(b.sort??999)||a.name.localeCompare(b.name));
-const pickedCharges = () => chargeList(otype).filter(c => posChg ? posChg.has(c.id) : (c.auto!==false && c.type!=="open"));
+const pickedCharges = () => chargeList(otype).filter(c => posChg ? posChg.has(c.id) : false);   // charges are only added by the cashier
 const chgRates = c => { const g = c?.taxGroup && S.tax_groups.find(x => x.id===c.taxGroup && live(x)), r = { inc:0, exc:0 }; (g?.taxIds||[]).forEach(t => { const x = S.taxes.find(y => y.id===t && live(y)); if(x) r[x.inclusive===false ? "exc" : "inc"] += (+x.rate||0)/100; }); return r; };
 const lineNet = i => Math.max(0, (+i.price||0) * (+i.qty||1) - (+i.disc||0));
 /* ---------- tax (prices include it, unless the company turned tax-inclusive pricing off) ---------- */
@@ -1076,18 +1081,19 @@ function renderMenu(){
 // set discounts: branch, order type, minimum order, and the items / categories / tags they're limited to
 const dsAll = () => ((S.settings.find(x => x.id==="discounts") || {}).list || []).filter(d => !d.deleted);
 const dsOT = () => otype==="takeaway" ? "pickup" : otype;
-function dsCalc(d){
+function dsCalc(d, val){
   const sub = cart.reduce((a,i)=>a+lineNet(i),0); if(d.minOrder!=null && sub < +d.minOrder) return { amt:0, why:"Minimum order " + usd(+d.minOrder) };
   const tg = (S.settings.find(x => x.id==="tags") || {}).on?.product || {}, lim = (d.productIds||[]).length || (d.categoryIds||[]).length || (d.productTags||[]).length;
   const ok = i => { if(d.minProduct!=null && (+i.price||0) < +d.minProduct) return false; if(!lim) return true; const p = S.products.find(x => x.id===i.productId);
     return (d.productIds||[]).includes(i.productId) || (p && (d.categoryIds||[]).includes(p.categoryId)) || (tg[i.productId]||[]).some(t => (d.productTags||[]).includes(t)); };
   const base = cart.filter(ok).reduce((a,i)=>a+lineNet(i),0); if(!(base > 0)) return { amt:0, why: lim ? "No matching items" : "Nothing to discount" };
-  let amt = d.type==="fixed" ? Math.min(+d.amount||0, base) : base * (+d.amount||0) / 100; if(d.type!=="fixed" && d.maxDiscount!=null) amt = Math.min(amt, +d.maxDiscount);
+  const v = d.open ? +val||0 : +d.amount||0; if(d.open && !(v > 0)) return { amt:0, why:"" };
+  let amt = d.type==="fixed" ? Math.min(v, base) : base * v / 100; if(d.type!=="fixed" && d.maxDiscount!=null) amt = Math.min(amt, +d.maxDiscount);
   return { amt: +Math.min(amt, sub).toFixed(2), why:"" };
 }
 const dsHere = () => dsAll().filter(d => (!(d.branchIds||[]).length || d.branchIds.includes(device?.branchId)) && (!(d.orderTypes||[]).length || d.orderTypes.includes(dsOT())));
 function totals(){
-  if(DSET){ const d = dsAll().find(x => x.id===DSET.id); if(d){ discType = "amt"; discount = dsCalc(d).amt; } else DSET = null; }
+  if(DSET){ const d = dsAll().find(x => x.id===DSET.id); if(d){ discType = "amt"; discount = dsCalc(d, DSET.val).amt; } else DSET = null; }
   const sub = cart.reduce((a,i)=>a+lineNet(i),0), disc = +(discType==="amt" ? Math.min(discount, sub) : sub*discount/100).toFixed(2);
   const charges = pickedCharges().map(c => { const amount = +(c.type==="percent" ? (coS().chargesBeforeDisc!==false ? sub : sub-disc)*(+c.value||0)/100 : c.type==="open" ? +(posOpen[c.id]||0) : +c.value||0).toFixed(2);
     return { id:c.id, name:c.name, type:c.type, value: c.type==="open" ? amount : +c.value||0, amount, ...(c.taxGroup ? { taxGroup:c.taxGroup } : {}) }; });
@@ -1110,7 +1116,7 @@ function renderCart(){
     : `<div class="ctx"><span class="ci ci-svg"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12v18l-2-1.5L14 21l-2-1.5L10 21l-2-1.5L6 21z"/><path d="M9 8h6M9 12h6M9 16h3"/></svg></span><div><b>FAST SALE</b></div><span class="sp"></span></div>`;
   const held = device ? heldList() : [];
   const htabs = held.length ? `<div class="htabs" role="tablist" aria-label="Held orders">${held.map(h => `<button type="button" class="htab" data-hgettab="${esc(h.id)}" title="Retrieve held order H${h.n}"><b>H${h.n}</b><span>${usd(h.total)}</span></button>`).join("")}</div>` : "";
-  const clr = !eo0 && cart.length ? `<button type="button" class="clrc" data-clearcart>${ico("trash")}Clear</button>` : "";
+  const clr = !eo0 && (cart.length || discount || DSET || posChg?.size || orderNote || kitchenNote || posTags?.length || posCustTags?.length) ? `<button type="button" class="clrc" data-clearcart>${ico("trash")}Clear</button>` : "";
   $("#extra").innerHTML = ctx.replace('<span class="sp"></span>', '<span class="sp"></span>' + clr);
   const eo = editOrder(), ro = eo && !isOpenOrd(eo);
   if(eo) $("#extra").insertAdjacentHTML("afterbegin", `<div class="obar">${eo.status!=="refund" && eo.invoiceNo ? `<b>${esc(invNo(eo.invoiceNo))}</b><span class="spill s-${eo.status}">${stLbl(eo)}</span><span class="sp"></span>${eo.no ? `<b>Order #${esc(eo.no)}</b>` : ""}` : `<b>${eo.status==="refund" ? "Returned order" : "Order"} ${esc(ordRef(eo))}</b><span class="spill s-${eo.status}">${stLbl(eo)}</span><span class="sp"></span>`}</div>`);
@@ -1356,11 +1362,19 @@ function openDiscount(){
   // only the discounts created in the back office (Marketing → Discounts) for this branch and order type
   const sets = dsHere();
   modal("disc", `<div class="mh"><h2>Discount</h2><button class="x" data-close aria-label="Close">×</button></div><div class="mb">
-    ${sets.length ? `<div class="dsets">${sets.map(d => { const c = dsCalc(d); return `<button type="button" class="dset${DSET?.id===d.id?" on":""}" data-dset="${esc(d.id)}" ${c.amt > 0 || !cart.length ? "" : "disabled"}><b>${esc(d.name)}</b><span>${d.type==="fixed" ? usd(+d.amount||0) : (+d.amount||0) + "%"}${c.amt > 0 ? " · −" + usd(c.amt) : !cart.length ? " · applies to the items you add" : " · " + esc(c.why)}</span></button>`; }).join("")}</div>` : `<div class="mut" style="text-align:center;padding:26px 10px;font-size:14px">No discounts available for this order.</div>`}</div>`);
+    ${sets.length ? `<div class="dsets">${sets.map(d => { const c = d.open ? { amt:1 } : dsCalc(d); return `<button type="button" class="dset${DSET?.id===d.id?" on":""}" data-dset="${esc(d.id)}" ${c.amt > 0 || !cart.length ? "" : "disabled"}><b>${esc(d.name)}</b><span>${d.open ? (d.type==="fixed" ? "Open amount" : "Open %") : (d.type==="fixed" ? usd(+d.amount||0) : (+d.amount||0) + "%") + (c.amt > 0 ? " · −" + usd(c.amt) : !cart.length ? " · applies to the items you add" : " · " + esc(c.why))}</span></button>`; }).join("")}</div>
+    <div id="dsOpen" hidden style="margin-top:14px"><div class="mut" id="dsOpenL" style="font-size:13px;margin-bottom:6px"></div><div style="display:flex;gap:8px"><input id="dsOpenV" inputmode="decimal" style="flex:1"><button type="button" class="btn pri" id="dsOpenGo">Apply</button></div><div class="mut" id="dsOpenN" style="font-size:13px;color:var(--bad,#e5484d);min-height:16px;margin-top:4px"></div></div>` : `<div class="mut" style="text-align:center;padding:26px 10px;font-size:14px">No discounts available for this order.</div>`}</div>`);
 }
 $("#modal").addEventListener("click", async e => {
   const d = e.target.closest("[data-disc]"); if(d){ if(+d.dataset.disc > 0 && appSet().discNeedsCustomer && !custGiven(cust.name, cust.phone)){ toast("Add the customer first: discounts need customer info"); return; } if(+d.dataset.disc > 0 && appSet().discountApproval && !(await approve("pos_discount", "Approve discount"))) return; DSET = null; discount = +d.dataset.disc; discType = "pct"; closeModal(); renderCart(); return; }
-  const ds = e.target.closest("[data-dset]"); if(ds){ const d = dsAll().find(x => x.id===ds.dataset.dset); if(!d) return; const c = dsCalc(d); if(!(c.amt > 0) && cart.length) return;
+  if(e.target.closest("#dsOpenGo")){ const f = $("#dsOpen"), d = dsAll().find(x => x.id===f?.dataset.id); if(!d) return; const v = +String($("#dsOpenV").value).replace(",", ".");
+    if(!(v > 0)){ $("#dsOpenN").textContent = "Enter a value above 0."; return; } if(d.type!=="fixed" && v > 100){ $("#dsOpenN").textContent = "A percentage can't be more than 100."; return; }
+    if(((d.customerTags||[]).length || appSet().discNeedsCustomer) && !custGiven(cust.name, cust.phone)){ toast("Add the customer first: this discount needs customer info"); return; }
+    if(appSet().discountApproval && !(await approve("pos_discount", "Approve discount"))) return;
+    DSET = { id:d.id, name:d.name, val:v }; discType = "amt"; discount = dsCalc(d, v).amt; closeModal(); renderCart(); return; }
+  const ds = e.target.closest("[data-dset]"); if(ds){ const d = dsAll().find(x => x.id===ds.dataset.dset); if(!d) return;
+    if(d.open){ const f = $("#dsOpen"); f.hidden = false; f.dataset.id = d.id; document.querySelectorAll("[data-dset]").forEach(b => b.classList.toggle("on", b===ds)); $("#dsOpenL").textContent = `${d.name}: enter the ${d.type==="fixed" ? "amount (" + (coS().currency || "USD") + ")" : "percentage (%)"}`; $("#dsOpenV").value = ""; $("#dsOpenN").textContent = ""; $("#dsOpenV").focus(); return; }
+    const c = dsCalc(d); if(!(c.amt > 0) && cart.length) return;
     if(((d.customerTags||[]).length || appSet().discNeedsCustomer) && !custGiven(cust.name, cust.phone)){ toast("Add the customer first: this discount needs customer info"); return; }
     if(appSet().discountApproval && !(await approve("pos_discount", "Approve discount"))) return;
     DSET = { id:d.id, name:d.name }; discType = "amt"; discount = c.amt; closeModal(); renderCart(); return; }
