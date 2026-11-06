@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="288-1793984402">
+<meta name="slick-build" content="289-1793984670">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1944,9 +1944,13 @@ function viewBranches(){
   if(storeMode==="local") h += `<div class="banner">Preview mode: branches you add here won't be saved. Open this page from claude.ai while signed in to save them.</div>`;
   if(!n) return h + `<div class="card empty">No branches yet. Add your first branch to get started.</div>`;
   const tgName = id => (S.tax_groups||[]).find(g => g.id===id)?.name || "";
-  h += `<div class="card tbl"><table><thead><tr><th>Name</th><th>Reference</th><th>Tax group</th><th>Created</th><th>Status</th></tr></thead><tbody>${
-    list.map(b => `<tr class="clk" data-bropen="${esc(b.id)}">
-      <td><b>${esc(b.name)}</b>${brandList().length > 1 ? ` <span class="note">${esc(brandName(b.brandId))}</span>` : ""}</td>
+  const bsel = (state.brSel ||= new Set()); [...bsel].forEach(id => { if(!list.some(b => b.id===id)) bsel.delete(id); });
+  const ball = list.every(b => bsel.has(b.id));
+  h += `<div class="card tbl"><table><thead><tr><th class="noedit bkc"><input type="checkbox" data-brall ${ball?"checked":""} aria-label="Select all"></th>${bsel.size
+      ? `<th colspan="5" class="bkbar"><b>${bsel.size} Selected</b><span class="ddwrap"><button type="button" class="btn sm" data-bracts>Actions ▾</button><span class="ddmenu" id="brActM" hidden><button type="button" data-brbulk="add">Add Tags</button><button type="button" data-brbulk="del">Remove Tags</button></span></span></th>`
+      : `<th>Name</th><th>Reference</th><th>Tax group</th><th>Created</th><th>Status</th>`}</tr></thead><tbody>${
+    list.map(b => `<tr class="clk" data-bropen="${esc(b.id)}"><td class="noedit bkc"><input type="checkbox" data-brsel="${esc(b.id)}" ${bsel.has(b.id)?"checked":""} aria-label="Select ${esc(b.name)}"></td>
+      <td><b>${esc(b.name)}</b>${tagChips("branch", b.id)}${brandList().length > 1 ? ` <span class="note">${esc(brandName(b.brandId))}</span>` : ""}</td>
       <td>${esc(b.code || "—")}</td>
       <td>${esc(tgName(b.settings?.taxGroup)) || '<span class="note">—</span>'}</td>
       <td>${b.createdAt ? new Date(b.createdAt).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"}) : '<span class="note">—</span>'}</td>
@@ -1957,6 +1961,15 @@ function viewBranches(){
 }
 
 
+document.addEventListener("click", e => {
+  const t = e.target; if(!t.closest || document.body.dataset.route!=="branches" || !t.closest("#view")) return;
+  const bsel = (state.brSel ||= new Set());
+  const a = t.closest("[data-brall]"); if(a){ e.stopPropagation(); const ids = [...document.querySelectorAll("[data-brsel]")].map(x => x.dataset.brsel); a.checked ? ids.forEach(i => bsel.add(i)) : bsel.clear(); return render(); }
+  const s = t.closest("[data-brsel]"); if(s){ e.stopPropagation(); s.checked ? bsel.add(s.dataset.brsel) : bsel.delete(s.dataset.brsel); return render(); }
+  if(t.closest(".bkc")){ e.stopPropagation(); return; }
+  if(t.closest("[data-bracts]")){ e.stopPropagation(); const m = $("#brActM"); if(m) m.hidden = !m.hidden; return; }
+  const bb = t.closest("[data-brbulk]"); if(bb){ e.stopPropagation(); return tagBulk("branch", [...bsel], bb.dataset.brbulk==="add", () => { bsel.clear(); render(); }); }
+}, true);
 /* ---------- help text → ⓘ info icons (Foodics style): tap or hover the icon to read it ---------- */
 const IB_SVG = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v5"/><circle cx="12" cy="7.6" r=".6" fill="currentColor"/></svg>';
 function ibMake(html){ const s = document.createElement("span"); s.className = "ib"; s.tabIndex = 0; s.setAttribute("role", "button"); s.setAttribute("aria-label", "More info"); s.innerHTML = IB_SVG; s.dataset.tip = html; return s; }
@@ -3540,16 +3553,31 @@ function viewDevice(d){
 }
 function viewDevices(){
   const od = state.devOpen && S.devices.find(x => x.id===state.devOpen && live(x)); if(od) return viewDevice(od);
-  const list = S.devices.filter(live).sort((a,b)=>branchName(a.branchId).localeCompare(branchName(b.branchId))||a.name.localeCompare(b.name));
+  const dt = state.devTab || "all", all = S.devices.filter(live), list = all.filter(d => dt==="all" || d.type===dt).sort((a,b)=>branchName(a.branchId).localeCompare(branchName(b.branchId))||a.name.localeCompare(b.name));
+  const dsel = (state.devSel ||= new Set()); [...dsel].forEach(id => { if(!list.some(d => d.id===id)) dsel.delete(id); });
   let h = `<div class="phead"><h1>Devices</h1><div class="sp"></div><button class="btn pri" id="devNew">Create Device</button></div>
   <div class="card setup"><div><h3>Set up a POS tablet</h3><ol class="steps"><li>Download the <b>Slick POS</b> APK on the Android tablet and install it (allow "install from this source" when asked).</li><li>Create a device here and choose its branch and type.</li><li>Open the app, sign in with a staff account, then enter the device's 6-digit activation code.</li><li>The tablet downloads its branch, menu, prices and printers, then it's ready to take orders.</li></ol></div>
   <div class="apk"><a class="btn pri" href="the-wok-pos.apk" download>${svgIco("download")}Download POS APK</a><a class="lnk" href="pos.html" target="_blank" rel="noopener">or open POS in a browser</a></div></div><div style="height:16px"></div>`;
   if(storeMode==="local") h += `<div class="banner">Preview mode: devices won't be saved.</div>`;
-  h += `<div class="card tbl">${list.length ? `<table><thead><tr><th>Name</th><th>Reference</th><th>Status</th><th>Branch</th></tr></thead><tbody>${list.map(d=>`<tr class="clk" data-devopen="${esc(d.id)}">
-    <td><b>${esc(d.name)}</b> <span class="note">${esc(devType(d.type))}</span></td><td>${esc(d.reference || "—")}</td><td>${devStatus(d)}</td><td>${esc(branchName(d.branchId))}</td></tr>`).join("")}</tbody></table>`
-    : `<div class="empty">No devices yet. Create one for each tablet, kitchen screen or printer station.</div>`}</div>`;
+  h += `<div class="card tbl"><div class="ttop"><div class="ttabs">${[["all","All"], ...DEV_TYPES].map(([k,t]) => `<a href="#devices" data-devtab="${k}" class="${dt===k?"on":""}">${t}</a>`).join("")}</div></div>${list.length ? `<table><thead><tr><th class="noedit bkc"><input type="checkbox" data-devall ${list.every(d => dsel.has(d.id))?"checked":""} aria-label="Select all"></th>${dsel.size
+      ? `<th colspan="4" class="bkbar"><b>${dsel.size} Selected</b><span class="ddwrap"><button type="button" class="btn sm" data-devacts>Actions ▾</button><span class="ddmenu" id="devActM" hidden><button type="button" data-devbulk="add">Add Tags</button><button type="button" data-devbulk="del">Remove Tags</button><button type="button" data-devbulk="sync">Force Sync Data</button></span></span></th>`
+      : `<th>Name</th><th>Reference</th><th>Status</th><th>Branch</th>`}</tr></thead><tbody>${list.map(d=>`<tr class="clk" data-devopen="${esc(d.id)}"><td class="noedit bkc"><input type="checkbox" data-devsel="${esc(d.id)}" ${dsel.has(d.id)?"checked":""} aria-label="Select ${esc(d.name)}"></td>
+    <td><b>${esc(d.name)}</b> <span class="note">${esc(devType(d.type))}</span>${tagChips("device", d.id)}</td><td>${esc(d.reference || "—")}</td><td>${devStatus(d)}</td><td>${esc(branchName(d.branchId))}</td></tr>`).join("")}</tbody></table>`
+    : `<div class="empty">${all.length ? "No devices of this type." : "No devices yet. Create one for each tablet, kitchen screen or printer station."}</div>`}</div>`;
   return h;
 }
+document.addEventListener("click", async e => {
+  const t = e.target; if(!t.closest || document.body.dataset.route!=="devices" || !t.closest("#view")) return;
+  const dsel = (state.devSel ||= new Set());
+  const tb = t.closest("[data-devtab]"); if(tb){ e.preventDefault(); e.stopPropagation(); state.devTab = tb.dataset.devtab; dsel.clear(); return render(); }
+  const a = t.closest("[data-devall]"); if(a){ e.stopPropagation(); const ids = [...document.querySelectorAll("[data-devsel]")].map(x => x.dataset.devsel); a.checked ? ids.forEach(i => dsel.add(i)) : dsel.clear(); return render(); }
+  const s = t.closest("[data-devsel]"); if(s){ e.stopPropagation(); s.checked ? dsel.add(s.dataset.devsel) : dsel.delete(s.dataset.devsel); return render(); }
+  if(t.closest(".bkc")){ e.stopPropagation(); return; }
+  if(t.closest("[data-devacts]")){ e.stopPropagation(); const m = $("#devActM"); if(m) m.hidden = !m.hidden; return; }
+  const bb = t.closest("[data-devbulk]"); if(bb){ e.stopPropagation(); const ids = [...dsel], k = bb.dataset.devbulk;
+    if(k==="sync"){ try{ const now = new Date().toISOString(); for(const id of ids){ const d = S.devices.find(x => x.id===id); await put("devices", id, { settings: { ...(d?.settings||{}), syncAt: now } }); } dsel.clear(); toast(`Sync sent to ${ids.length} device${ids.length>1?"s":""}: they reload their data when idle`); render(); }catch(err){ console.error(err); toast("Couldn't send the sync."); } return; }
+    return tagBulk("device", ids, k==="add", () => { dsel.clear(); render(); }); }
+}, true);
 const newCode = () => String(Math.floor(100000 + Math.random()*900000));
 const devBranchOpts = (brandId, sel) => `<option value="">${brandId ? "Choose…" : "Pick the brand first"}</option>` + branches.filter(b => b.brandId===brandId && (b.active!==false || b.id===sel)).map(b=>`<option value="${esc(b.id)}" ${b.id===sel?"selected":""}>${esc(b.name)}</option>`).join("");
 document.addEventListener("change", e => { if(e.target.id==="dBrand") $("#dBranch").innerHTML = devBranchOpts(e.target.value, ""); if(e.target.id==="ds_brand") $("#ds_branch").innerHTML = devBranchOpts(e.target.value, ""); });
@@ -4513,10 +4541,10 @@ async function cusBulk(act){
   if(act==="tagAdd" || act==="tagDel"){
     const box = $("#ccBox"); box.className = "modal";
     box.innerHTML = `<header><h2>${act==="tagAdd" ? "Add Tags" : "Remove Tags"}</h2><button type="button" class="x" data-ccclose aria-label="Close">×</button></header>
-      <div class="body"><div class="f" style="grid-column:1/-1"><label for="cbTag">Tags</label><input id="cbTag" placeholder="e.g. VIP, corporate" list="cbTagSug"><datalist id="cbTagSug">${tagList("customer").map(t => `<option value="${esc(t.name)}">`).join("")}</datalist><span class="note">${ids.length} selected · separate tags with commas.</span></div></div>
-      <footer><span style="flex:1"></span><button type="button" class="btn" data-ccclose>Cancel</button><button type="button" class="btn pri" id="cbTagGo">Save</button></footer>`;
-    $("#ccScrim").classList.add("show"); setTimeout(() => $("#cbTag")?.focus(), 50);
-    $("#cbTagGo").onclick = async () => { const tg = $("#cbTag").value.split(",").map(s => s.trim()).filter(Boolean); if(!tg.length) return; $("#ccScrim").classList.remove("show");
+      <div class="body" style="display:block"><p class="note" style="margin:0 0 10px">${ids.length} selected</p>${tagList("customer").length ? `<div class="mlist">${tagList("customer").map(t => `<label class="chk mitem"><input type="checkbox" value="${esc(t.name)}"> ${esc(t.name)}</label>`).join("")}</div>` : `<p class="note">No customer tags yet. Create them in <a href="#tags" class="lnk" data-ccclose>Manage → Tags</a>.</p>`}<div class="err" id="cbTagErr"></div></div>
+      <footer><span style="flex:1"></span><button type="button" class="btn" data-ccclose>Close</button>${tagList("customer").length ? `<button type="button" class="btn pri" id="cbTagGo">Apply</button>` : ""}</footer>`;
+    $("#ccScrim").classList.add("show"); if(!tagList("customer").length) return;
+    $("#cbTagGo").onclick = async () => { const tg = [...box.querySelectorAll(".mlist input:checked")].map(i => i.value); if(!tg.length){ $("#cbTagErr").textContent = "Pick at least one tag."; return; } $("#ccScrim").classList.remove("show");
       const { data, error } = await WOK.sb.from("customers").select("id,tags").in("id", ids); if(error) return toast("Couldn't save: " + error.message);
       try{ for(const r of data||[]){ const cur = r.tags||[], next = act==="tagAdd" ? [...new Set([...cur, ...tg])] : cur.filter(t => !tg.some(x => x.toLowerCase()===String(t).toLowerCase()));
           if(next.join("|")!==cur.join("|")){ const { error:e2 } = await WOK.sb.from("customers").update({ tags:next, updated_at: now }).eq("id", r.id); if(e2) throw e2; } }
@@ -5534,12 +5562,9 @@ function tagBulk(type, ids, add, after){
   const l = tagList(type), box = $("#ccBox"); box.className = "modal";
   box.innerHTML = `<header><h2>${add ? "Add Tags" : "Remove Tags"}</h2><button type="button" class="x" data-ccclose aria-label="Close">×</button></header>
   <div class="body" style="display:block"><p class="note" style="margin:0 0 10px">${ids.length} selected</p>
-    ${l.length ? `<div class="mlist">${l.map(t => `<label class="chk mitem"><input type="checkbox" value="${esc(t.id)}"> ${esc(t.name)}</label>`).join("")}</div>` : `<p class="note">No ${esc(TAG_TYPES.find(x => x[0]===type)?.[1].toLowerCase() || "")} tags yet.</p>`}
-    ${add ? `<div class="row" style="gap:8px;margin-top:10px"><input class="sel" id="tbNew" placeholder="New tag" style="flex:1"><button type="button" class="btn" id="tbAdd">Add</button></div>` : ""}<div class="err" id="tbErr"></div></div>
-  <footer><span style="flex:1"></span><button type="button" class="btn pri" id="tbGo">Apply</button></footer>`;
-  $("#ccScrim").classList.add("show");
-  if(add) $("#tbAdd").onclick = async () => { const n = $("#tbNew").value.trim(); if(!n) return; if(l.some(t => t.name.toLowerCase()===n.toLowerCase())) return toast("Already a tag");
-    const t = { id:"tg_" + Date.now().toString(36), name:n, type }; if(await tagSave([...(tagDoc().list||[]), t])) tagBulk(type, ids, add, after); };
+    ${l.length ? `<div class="mlist">${l.map(t => `<label class="chk mitem"><input type="checkbox" value="${esc(t.id)}"> ${esc(t.name)}</label>`).join("")}</div>` : `<p class="note">No ${esc(TAG_TYPES.find(x => x[0]===type)?.[1].toLowerCase() || "")} tags yet. Create them in <a href="#tags" class="lnk" data-ccclose>Manage → Tags</a>.</p>`}<div class="err" id="tbErr"></div></div>
+  <footer><span style="flex:1"></span><button type="button" class="btn" data-ccclose>Close</button>${l.length ? `<button type="button" class="btn pri" id="tbGo">Apply</button>` : ""}</footer>`;
+  $("#ccScrim").classList.add("show"); if(!l.length) return;
   $("#tbGo").onclick = async () => { const pick = [...box.querySelectorAll(".mlist input:checked")].map(i => i.value); if(!pick.length){ $("#tbErr").textContent = "Pick at least one tag."; return; }
     const on = JSON.parse(JSON.stringify(tagDoc().on || {})), m = on[type] ||= {};
     ids.forEach(id => { const cur = m[id] || []; m[id] = add ? [...new Set([...cur, ...pick])] : cur.filter(t => !pick.includes(t)); if(!m[id].length) delete m[id]; });

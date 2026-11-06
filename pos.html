@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="288-1793984402">
+<meta name="slick-build" content="289-1793984670">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -682,6 +682,10 @@ const S = { brands:[], devices:[], branches:[], categories:[], products:[], orde
 let posChg = null;   // null = the charges that apply automatically; otherwise the ids the cashier kept
 let GUESTS = 0, orderNote = "", kitchenNote = "", SEEN = new Set(), SEEN_READY = false;   // pending call-center / web orders already announced   // order-level note, printed on the receipt (not the kitchen ticket)
 let EDIT = null;   // an order opened from the Orders list into the billing section: { id }
+// "Force Sync Data" from the back office: reload this register's data as soon as it's idle (empty cart, no window open)
+function syncCheck(){ const at = device?.settings?.syncAt; if(!at) return; const seen = store.get("wokSyncAt"); if(!seen){ store.set("wokSyncAt", at); return; } if(at===seen) return;
+  if(cart.length || document.getElementById("scrim")?.classList.contains("show")){ clearTimeout(syncCheck.t); syncCheck.t = setTimeout(syncCheck, 15000); return; }
+  store.set("wokSyncAt", at); location.reload(); }
 let DSET = null;   // a set discount (Marketing → Discounts) on this order; its amount follows the cart
 let device = null, branch = null, cat = "", otype = "dinein", cart = [], discount = 0, discType = "pct", tableNo = "", cust = { name:"", phone:"", addr:{} };
 
@@ -700,6 +704,7 @@ function onData(c){
   if(!device) return;
   device = S.devices.find(d => d.id===device.id) || device;
   if(device.deleted){ store.set("wokDevice", null); location.reload(); return; }
+  syncCheck();
   branch = S.branches.find(b => b.id===device.branchId) || branch;
   if(c==="settings") salesResetCheck();
   if(c==="orders") window.__ordLoaded = true;
