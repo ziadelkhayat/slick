@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="302-1793987592">
+<meta name="slick-build" content="303-1793988455">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -220,6 +220,12 @@ tr.click,tr.clk,[data-open],[data-bropen],[data-devopen],[data-dcrow],[data-rsed
 .legend{display:flex;flex-wrap:wrap;gap:14px;padding:10px 14px;border-top:1px solid var(--line);font-size:13px}
 .lg{display:inline-flex;align-items:center;gap:6px}.lg i{width:12px;height:12px;border-radius:3px;display:inline-block}
 .leaflet-container{font:inherit}
+.lp{display:flex;flex-direction:column;gap:8px}.lps{position:relative}.lps>svg{position:absolute;left:12px;top:50%;width:18px;height:18px;transform:translateY(-50%);color:var(--mut,#6b6880);pointer-events:none}.lp .lps input{width:100%;padding-left:40px!important}
+.lpres{position:absolute;left:0;right:0;top:calc(100% + 4px);background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:0 12px 30px rgba(20,16,40,.14);z-index:1200;overflow:hidden;max-height:320px;overflow-y:auto}
+.lpres button{display:flex;flex-direction:column;align-items:flex-start;gap:2px;width:100%;text-align:left;border:0;border-bottom:1px solid var(--line);background:#fff;padding:10px 14px;font:inherit;cursor:pointer}.lpres button:hover{background:#f6f3ff}.lpres small{color:var(--mut,#6b6880);font-size:12px}
+.lpmsg,.lpsrc{padding:10px 14px;font-size:13px;color:var(--mut,#6b6880)}.lpsrc{font-size:11px;padding:6px 14px;background:#faf9fc}
+.lpmap{height:260px;border:1px solid var(--line);border-radius:12px;position:relative;z-index:0;isolation:isolate}.lpbar{display:flex;align-items:center;gap:14px;flex-wrap:wrap;font-size:13px}.lpc{color:var(--mut,#6b6880);font-variant-numeric:tabular-nums}
+
 
 /* ================= Slick modern theme ================= */
 :root{
@@ -1038,11 +1044,7 @@ table.sk-ghost-t{border-collapse:collapse;table-layout:fixed}table.sk-ghost-t td
       <div class="f"><label for="fPhone">Phone</label><input id="fPhone" maxlength="30"></div>
       <div class="f full"><label for="fAddr">Address</label><input id="fAddr" maxlength="160"></div>
       <div class="f"><label for="fCity">Area / city</label><input id="fCity" maxlength="60" placeholder="e.g. Beirut"></div>
-      <div class="f full"><label for="fGLink">Location on Google Maps</label>
-        <div style="display:flex;gap:8px;flex-wrap:wrap"><input id="fGLink" class="sel" style="flex:1;min-width:220px" placeholder="Paste a Google Maps link or coordinates (33.89, 35.50)"><a class="btn" id="fMapLnk" target="_blank" rel="noopener" href="https://www.google.com/maps" style="text-decoration:none">Open Google Maps</a></div>
-        <div class="note">In Google Maps, find the branch, then copy the link from the address bar (or right-click the spot and copy its coordinates) and paste it here.</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px"><input id="fLat" inputmode="decimal" placeholder="Latitude 33.89" aria-label="Latitude"><input id="fLng" inputmode="decimal" placeholder="Longitude 35.50" aria-label="Longitude"></div>
-        <iframe id="fGMap" title="Branch location" style="display:none;width:100%;height:220px;border:1px solid var(--line);border-radius:10px;margin-top:8px" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe></div>
+      <div class="f full"><label>Location</label><div id="fLoc"></div><input type="hidden" id="fLat"><input type="hidden" id="fLng"></div>
       <div class="f"><label for="fTaxGroup">Tax group</label><select id="fTaxGroup" class="sel"></select><div class="note">Used for items that have no tax group of their own.</div></div>
       <h4 class="fsec">Business day</h4>
       <div class="f"><label for="fDayStart">New business day starts at</label><select id="fDayStart" class="sel"></select></div>
@@ -1054,8 +1056,6 @@ table.sk-ghost-t{border-collapse:collapse;table-layout:fixed}table.sk-ghost-t td
       <div class="f full"><div class="hours" id="fHours"></div><div class="note">Times after midnight (e.g. closes 02:00) count for the day that opened.</div></div>
       <h4 class="fsec">Sections & tables</h4>
       <div class="f full"><div id="fTables"></div></div>
-      <h4 class="fsec">Delivery zones</h4>
-      <div class="f full"><div class="multi" id="fDZones"></div><div class="note">Ticked zones are delivered by this branch (a zone belongs to one branch). Draw or change zones in Manage → Delivery Zones.</div></div>
       <h4 class="fsec">Tags</h4><div id="fTagsWrap" class="full" style="grid-column:1/-1"></div>
       <h4 class="fsec">Charges at this branch</h4>
       <div class="f full"><div class="multi" id="fCharges"></div><div class="note">Ticked charges apply to orders at this branch. Add or change charges in Manage → Charges.</div></div>
@@ -1064,7 +1064,6 @@ table.sk-ghost-t{border-collapse:collapse;table-layout:fixed}table.sk-ghost-t td
       <div class="f full"><label for="fRFoot">Receipt footer</label><textarea id="fRFoot" rows="2" maxlength="300" placeholder="e.g. Thank you! Follow us @thewok"></textarea></div>
       <h4 class="fsec">Options</h4>
       <div class="f full">
-        <label class="chk"><input type="checkbox" id="fActive" checked> Active</label>
         <label class="chk"><input type="checkbox" id="fCC" checked> Receives call-center orders</label>
       </div>
       <input type="hidden" id="fOpen" value="11:00"><input type="hidden" id="fClose" value="23:30"><input type="hidden" id="fZones">
@@ -1930,9 +1929,9 @@ function viewBranch(b){
     <div class="card odet" style="margin-bottom:16px">${row("Name", esc(b.name))}${row("Name Localized", esc(b.nameAr || "—"))}${row("Reference", esc(b.code || "—"))}${row("Brand", esc(brandName(b.brandId) || "—"))}
       ${more ? row("Opening From", t12o(mon.open || b.open)) + row("Opening To", t12o(mon.close || b.close)) + row("Business day starts", t12o(st.dayStart || "00:00")) + row("Inventory End of Day", t12o(st.invEnd || st.dayStart || "00:00"))
         + row("Tax Group", esc(tg || "—")) + row("Tax Registration Name", esc(st.taxName || "—")) + row("Tax Number", esc(b.taxNumber || "—")) + row("Phone", esc(b.phone || "—")) + row("Address", esc(b.address || "—"))
-        + row("Location", b.lat && b.lng ? `<a class="lnk" target="_blank" rel="noopener" href="https://www.google.com/maps?q=${b.lat},${b.lng}">${b.lat}, ${b.lng}</a>` : "—") + row("Receives call center and web orders", b.callCenter ? "Yes" : "No") + row("Automatic end of day", st.autoDayEnd===false ? "No" : "Yes") + row("Status", b.active===false ? "Inactive" : "Active") : ""}
+        + row("Location", b.lat && b.lng ? `<a class="lnk" target="_blank" rel="noopener" href="https://www.google.com/maps?q=${b.lat},${b.lng}">${b.lat}, ${b.lng}</a>` : "—") + row("Receives call center and web orders", b.callCenter ? "Yes" : "No") + row("Automatic end of day", st.autoDayEnd===false ? "No" : "Yes") : ""}
       <div style="grid-column:1/-1"><button class="lnk" data-brmore style="background:none;border:0;padding:0;cursor:pointer">${more ? "Show Less" : "Show More"}</button></div></div>
-    ${card("Delivery Zones", `<button class="btn sm" data-edit="${esc(b.id)}" data-sec="fDZones">Edit Delivery Zones</button>`, tbl(["Name","Delivery charge","Min. order"], zones.map(z => { const c = dcChargeOf(z); return [esc(z.name), c ? `${esc(c.name)} · ${money(+c.value||0)}` : '<span class="note">—</span>', money(+z.minOrder||0)]; })))}
+    ${card("Delivery Zones", `<a class="btn sm" href="#delivery-zones" style="text-decoration:none">Manage Delivery Zones</a>`, tbl(["Name","Delivery charge","Min. order"], zones.map(z => { const c = dcChargeOf(z); return [esc(z.name), c ? `${esc(c.name)} · ${money(+c.value||0)}` : '<span class="note">—</span>', money(+z.minOrder||0)]; })))}
     ${card("Users", "", tbl(["Name","Email","Phone"], users.map(u => [esc(u.name), esc(u.email||"—"), esc(u.phone||"—")])))}
     ${card("Sections", `<button class="btn sm" data-secadd="${esc(b.id)}">Add Section</button>`, secs.length ? `<table><thead><tr><th>Name</th><th class="num">Tables</th><th>Table names</th></tr></thead><tbody>${secs.map(sc => { const l = tl.filter(t => (t.section||"")===sc);
       return `<tr class="click" data-secopen="${esc(b.id)}" data-sec="${esc(sc)}"><td><b>${esc(sc || "No section")}</b></td><td class="num">${l.length}</td><td>${l.map(t => esc(tblLbl(t.name))).join(", ") || '<span class="note">—</span>'}</td></tr>`; }).join("")}</tbody></table>` : '<p class="note brempty">No data to display!</p>')}
@@ -1953,16 +1952,14 @@ function viewBranches(){
   const bsel = (state.brSel ||= new Set()); [...bsel].forEach(id => { if(!list.some(b => b.id===id)) bsel.delete(id); });
   const ball = list.every(b => bsel.has(b.id));
   h += `<div class="card tbl"><table><thead><tr><th class="noedit bkc"><input type="checkbox" data-brall ${ball?"checked":""} aria-label="Select all"></th>${bsel.size
-      ? `<th colspan="5" class="bkbar"><b>${bsel.size} Selected</b><span class="ddwrap"><button type="button" class="btn sm" data-bracts>Actions ▾</button><span class="ddmenu" id="brActM" hidden><button type="button" data-brbulk="add">Add Tags</button><button type="button" data-brbulk="del">Remove Tags</button></span></span></th>`
-      : `<th>Name</th><th>Reference</th><th>Tax group</th><th>Created</th><th>Status</th>`}</tr></thead><tbody>${
+      ? `<th colspan="4" class="bkbar"><b>${bsel.size} Selected</b><span class="ddwrap"><button type="button" class="btn sm" data-bracts>Actions ▾</button><span class="ddmenu" id="brActM" hidden><button type="button" data-brbulk="add">Add Tags</button><button type="button" data-brbulk="del">Remove Tags</button></span></span></th>`
+      : `<th>Name</th><th>Reference</th><th>Tax group</th><th>Created</th>`}</tr></thead><tbody>${
     list.map(b => `<tr class="clk" data-bropen="${esc(b.id)}"><td class="noedit bkc"><input type="checkbox" data-brsel="${esc(b.id)}" ${bsel.has(b.id)?"checked":""} aria-label="Select ${esc(b.name)}"></td>
       <td><b>${esc(b.name)}</b>${tagChips("branch", b.id)}${brandList().length > 1 ? ` <span class="note">${esc(brandName(b.brandId))}</span>` : ""}</td>
       <td>${esc(b.code || "—")}</td>
       <td>${esc(tgName(b.settings?.taxGroup)) || '<span class="note">—</span>'}</td>
-      <td>${b.createdAt ? new Date(b.createdAt).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"}) : '<span class="note">—</span>'}</td>
-      <td>${b.active===false ? '<span class="tag off">Inactive</span>' : '<span class="tag on">Active</span>'}</td></tr>`).join("")
-  }</tbody></table></div>
-  <p class="note" style="margin-top:12px">Inactive branches stay in your history but are hidden from dashboards, filters and call-center routing.</p>`;
+      <td>${b.createdAt ? new Date(b.createdAt).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"}) : '<span class="note">—</span>'}</td></tr>`).join("")
+  }</tbody></table></div>`;
   return h;
 }
 
@@ -2110,16 +2107,13 @@ function openForm(id){
   $("#fAddr").value = b?.address || ""; $("#fCity").value = b?.city || ""; $("#fPhone").value = b?.phone || "";
   $("#fOpen").value = b?.open || "11:00"; $("#fClose").value = b?.close || "23:30"; $("#fZones").value = b?.zones || "";
   const st = b?.settings || {};
-  $("#fNameAr").value = b?.nameAr || ""; $("#fTaxNo").value = b?.taxNumber || ""; $("#fTaxName").value = b?.settings?.taxName || ""; timeSel($("#fInvEnd"), b?.settings?.invEnd || "", { empty:"Same as business day start" }); $("#fLat").value = b?.lat ?? ""; $("#fLng").value = b?.lng ?? "";
-  $("#fRHead").value = st.receiptHeader || ""; $("#fRFoot").value = st.receiptFooter || ""; paintMapLink();
-  $("#fTaxGroup").innerHTML = `<option value="">None</option>` + (S.tax_groups||[]).filter(g => !g.deleted).map(g => `<option value="${esc(g.id)}" ${st.taxGroup===g.id?"selected":""}>${esc(g.name)}</option>`).join(""); $("#fGLink").value = "";
+  $("#fNameAr").value = b?.nameAr || ""; $("#fTaxNo").value = b?.taxNumber || ""; $("#fTaxName").value = b?.settings?.taxName || ""; timeSel($("#fInvEnd"), b?.settings?.invEnd || "", { empty:"Same as business day start" }); $("#fLat").value = b?.lat ?? ""; $("#fLng").value = b?.lng ?? ""; setTimeout(() => lpMount("#fLoc", "#fLat", "#fLng", { onPick: r => { if(r.label && !$("#fAddr").value.trim()) $("#fAddr").value = r.label; } }), 60);
+  $("#fRHead").value = st.receiptHeader || ""; $("#fRFoot").value = st.receiptFooter || "";
+  $("#fTaxGroup").innerHTML = `<option value="">None</option>` + (S.tax_groups||[]).filter(g => !g.deleted).map(g => `<option value="${esc(g.id)}" ${st.taxGroup===g.id?"selected":""}>${esc(g.name)}</option>`).join("");
   if(b){ const tl = tblList(b.id), secs = tblSecs(b.id);
     $("#fTables").innerHTML = `${tl.length ? `<div class="multi">${secs.map(sc => { const n = tl.filter(t => (t.section||"")===sc); return `<span class="tag">${esc(sc || "No section")} · ${n.length} table${n.length===1?"":"s"}</span>`; }).join("")}</div>` : '<div class="note">No sections or tables yet.</div>'}
       <button type="button" class="btn" data-brtables="${esc(b.id)}" style="margin-top:8px">${tl.length ? "Edit sections & tables" : "Add sections & tables"}</button>`; }
   else $("#fTables").innerHTML = '<div class="note">Save the branch first, then add its sections and tables.</div>';
-  const zs = (S.zones||[]).filter(z => !z.deleted).sort((a,c) => String(a.name).localeCompare(String(c.name)));
-  $("#fDZones").innerHTML = zs.length ? zs.map(z => { const ob = z.branchId && b && z.branchId!==b.id ? branches.find(x => x.id===z.branchId) : null;
-    return `<label class="chk"><input type="checkbox" value="${esc(z.id)}" ${b && z.branchId===b.id ? "checked" : ""}> ${esc(z.name)}${ob ? ` <span class="note">now ${esc(ob.name)}</span>` : ""}</label>`; }).join("") : '<span class="note">No delivery zones yet.</span>';
   const chOn = c => !(c.branchIds||[]).length || (b && c.branchIds.includes(b.id));
   const chs = (S.charges||[]).filter(c => !c.deleted && c.active!==false);
   $("#fCharges").innerHTML = chs.length ? chs.map(c => `<label class="chk"><input type="checkbox" value="${esc(c.id)}" ${chOn(c)?"checked":""}> ${esc(c.name)} <span class="note">${c.type==="percent" ? (+c.value||0) + "%" : money(+c.value||0)}</span></label>`).join("") : '<span class="note">No charges yet.</span>';
@@ -2129,7 +2123,7 @@ function openForm(id){
   $("#fHours").innerHTML = DAYS.map(([k,t]) => { const d = H[k] || { open:o0, close:c0, closed:false };
     return `<div class="hrow" data-day="${k}"><b>${t}</b><select class="sel" data-h="open" ${d.closed?"disabled":""} aria-label="${t} opens">${timeOpts(d.open||o0)}</select><span class="note">to</span><select class="sel" data-h="close" ${d.closed?"disabled":""} aria-label="${t} closes">${timeOpts(d.close||c0)}</select><label class="chk"><input type="checkbox" data-h="closed" ${d.closed?"checked":""}> Closed</label></div>`; }).join("")
     + `<button type="button" class="btn sm" id="fHoursAll" style="margin-top:6px">Copy Monday to every day</button>`;
-  $("#fActive").checked = b ? b.active!==false : true; $("#fCC").checked = b ? !!b.callCenter : true;
+  $("#fCC").checked = b ? !!b.callCenter : true;
   $("#delBtn").style.display = b ? "" : "none"; $("#fErr").textContent = ""; paintBranchData(b?.id);
   $("#scrim").classList.add("show"); setTimeout(()=>$("#fName").focus(), 30);
 }
@@ -2137,15 +2131,74 @@ const DAYS = [["mon","Monday"],["tue","Tuesday"],["wed","Wednesday"],["thu","Thu
 // coordinates from a Google Maps link (…/@33.89,35.50,17z, ?q=33.89,35.50, !3d33.89!4d35.50) or plain "33.89, 35.50"
 const gmapsCoords = v => { v = decodeURIComponent(String(v||"")); const pats = [/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/, /@(-?\d+\.\d+),\s*(-?\d+\.\d+)/, /[?&](?:q|query|ll|center|destination)=(-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?)/, /^\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*$/];
   for(const r of pats){ const m = r.exec(v); if(m && Math.abs(+m[1]) <= 90 && Math.abs(+m[2]) <= 180) return [m[1], m[2]]; } return null; };
-function paintGMap(){ const la = $("#fLat").value.trim(), ln = $("#fLng").value.trim(), f = $("#fGMap"); if(!f) return;
-  if(la && ln && !isNaN(+la) && !isNaN(+ln)){ const src = `https://maps.google.com/maps?q=${encodeURIComponent(la)},${encodeURIComponent(ln)}&z=16&output=embed`; if(f.src!==src) f.src = src; f.style.display = ""; } else { f.style.display = "none"; f.removeAttribute("src"); } }
-function paintMapLink(){ const la = $("#fLat").value.trim(), ln = $("#fLng").value.trim(); $("#fMapLnk").href = la && ln ? `https://www.google.com/maps?q=${encodeURIComponent(la)},${encodeURIComponent(ln)}` : "https://www.google.com/maps"; $("#fMapLnk").textContent = la && ln ? "View on Google Maps" : "Open Google Maps"; paintGMap(); }
+/* ---------- pinnable location: search (Google when a Maps key is set, otherwise OpenStreetMap), tap the map or drag the pin ---------- */
+const LP = {};
+const lpIco = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>';
+let lpGm = null;
+function lpGoogle(){ const k = (company().gmapsKey || "").trim(); if(!k) return Promise.resolve(null);
+  if(lpGm) return lpGm;
+  lpGm = new Promise(res => { if(window.google?.maps?.importLibrary) return res(google.maps.importLibrary("places"));
+    window.__lpGmCb = () => google.maps.importLibrary("places").then(res, () => res(null));
+    const sc = document.createElement("script"); sc.async = true; sc.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(k)}&loading=async&libraries=places&callback=__lpGmCb`;
+    sc.onerror = () => { lpGm = null; res(null); }; document.head.appendChild(sc); setTimeout(() => res(null), 8000); });
+  return lpGm; }
+async function lpSearch(q, c){
+  const g = await lpGoogle().catch(() => null);
+  if(g?.AutocompleteSuggestion){ try{
+    const { suggestions } = await g.AutocompleteSuggestion.fetchAutocompleteSuggestions({ input:q, locationBias:{ center:{ lat:c.lat, lng:c.lng }, radius:50000 } });
+    return { src:"Google", list: suggestions.filter(x => x.placePrediction).slice(0,6).map(x => { const p = x.placePrediction;
+      return { label: p.mainText?.toString() || p.text.toString(), sub: p.secondaryText?.toString() || "", get: async () => { const pl = p.toPlace(); await pl.fetchFields({ fields:["location","formattedAddress"] }); return { lat: pl.location.lat(), lng: pl.location.lng(), label: pl.formattedAddress || p.text.toString() }; } }; }) };
+  }catch(e){ console.warn("Google search failed", e); } }
+  const d = .6, vb = [c.lng-d, c.lat+d, c.lng+d, c.lat-d].map(n => n.toFixed(4)).join(",");
+  const r = await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=6&viewbox=${vb}&q=${encodeURIComponent(q)}`, { headers:{ "Accept-Language":"en" } }).then(x => x.json());
+  return { src:"OpenStreetMap", list: (r||[]).map(x => { const parts = String(x.display_name||"").split(", ");
+    return { label: x.name || parts[0], sub: parts.slice(x.name ? 1 : 1, 4).join(", "), get: async () => ({ lat:+x.lat, lng:+x.lon, label: parts.slice(0,3).join(", ") }) }; }) };
+}
+// mount a picker in `box`; it reads and writes the two coordinate inputs. opts.onPick(result) after a search pick, opts.onChange(lat,lng) after any change
+function lpMount(box, latSel, lngSel, opts = {}){
+  box = typeof box==="string" ? $(box) : box; if(!box) return;
+  const la = $(latSel), ln = $(lngSel), id = box.id || (box.id = uid("lp"));
+  if(LP[id]?.map){ LP[id].map.remove(); }
+  box.className = "lp";
+  box.innerHTML = `<div class="lps">${lpIco}<input class="sel" data-lpq placeholder="Search for a place, or paste a Google Maps link" autocomplete="off" aria-label="Search location"><div class="lpres" hidden></div></div>
+    <div class="lpmap"></div><div class="lpbar"><span class="lpc"></span><span style="flex:1"></span><button type="button" class="lnk" data-lpme>Use my location</button><button type="button" class="lnk" data-lpclr>Clear</button><a class="lnk" data-lpg target="_blank" rel="noopener">View on Google Maps</a></div>`;
+  const st = LP[id] = { map:null, mk:null, res:[] }, q = box.querySelector("[data-lpq]"), rs = box.querySelector(".lpres"), cap = box.querySelector(".lpc"), gl = box.querySelector("[data-lpg]");
+  const cur = () => { const a = +la.value, b = +ln.value; return la.value.trim() && ln.value.trim() && !isNaN(a) && !isNaN(b) ? [a,b] : null; };
+  const paint = () => { const p = cur(); cap.textContent = p ? `${p[0].toFixed(6)}, ${p[1].toFixed(6)}` : "Search, or tap the map to drop the pin. Drag the pin to adjust.";
+    gl.hidden = !p; box.querySelector("[data-lpclr]").hidden = !p; if(p) gl.href = `https://www.google.com/maps?q=${p[0]},${p[1]}`; };
+  const set = (a, b, zoom) => { la.value = (+a).toFixed(6); ln.value = (+b).toFixed(6); place(); if(zoom && st.map) st.map.setView([+a,+b], Math.max(st.map.getZoom(), 16)); paint(); opts.onChange?.(+a, +b); };
+  const place = () => { const p = cur(); if(!st.map) return; if(!p){ if(st.mk){ st.mk.remove(); st.mk = null; } return; }
+    if(!st.mk){ st.mk = L.marker(p, { draggable:true, autoPan:true }).addTo(st.map); st.mk.on("dragend", e => { const ll = e.target.getLatLng(); set(ll.lat, ll.lng); }); } else st.mk.setLatLng(p); };
+  if(typeof L !== "undefined"){
+    const p = cur(); st.map = baseMap(box.querySelector(".lpmap")); st.map.setView(p || LB, p ? 16 : 11);
+    st.map.on("click", e => set(e.latlng.lat, e.latlng.lng)); place(); setTimeout(() => st.map.invalidateSize(), 120);
+  } else box.querySelector(".lpmap").outerHTML = '<div class="note">Map couldn\'t load. Check the internet connection.</div>';
+  paint();
+  let t, seq = 0;
+  const show = (html) => { rs.innerHTML = html; rs.hidden = !html; };
+  q.addEventListener("input", () => { clearTimeout(t); const v = q.value.trim(); const c = gmapsCoords(v);
+    if(c){ show(""); set(c[0], c[1], true); return; }
+    if(/goo\.gl|maps\.app/.test(v)){ show(`<div class="lpmsg">Short links can't be read. Open the link, then copy the full address from the browser bar, or search by name.</div>`); return; }
+    if(v.length < 3){ show(""); return; }
+    t = setTimeout(async () => { const my = ++seq; show(`<div class="lpmsg">Searching…</div>`);
+      try{ const ctr = st.map ? st.map.getCenter() : { lat:LB[0], lng:LB[1] }, r = await lpSearch(v, ctr); if(my!==seq) return; st.res = r.list;
+        show(r.list.length ? r.list.map((x,i) => `<button type="button" data-lpr="${i}"><b>${esc(x.label)}</b>${x.sub ? `<small>${esc(x.sub)}</small>` : ""}</button>`).join("") + `<div class="lpsrc">Results from ${r.src}</div>` : `<div class="lpmsg">No places found. Try another name, or tap the map.</div>`); }
+      catch(e){ if(my===seq) show(`<div class="lpmsg">Search isn't available right now. Tap the map to drop the pin.</div>`); } }, 400); });
+  q.addEventListener("keydown", e => { if(e.key==="Enter"){ e.preventDefault(); rs.querySelector("[data-lpr]")?.click(); } if(e.key==="Escape") show(""); });
+  box.addEventListener("click", async e => {
+    const r = e.target.closest("[data-lpr]"); if(r){ e.preventDefault(); const x = st.res[+r.dataset.lpr]; if(!x) return; show(`<div class="lpmsg">Loading…</div>`);
+      try{ const g = await x.get(); set(g.lat, g.lng, true); q.value = g.label || x.label; show(""); opts.onPick?.(g); } catch(err){ show(`<div class="lpmsg">Couldn't load that place. Try another.</div>`); } return; }
+    if(e.target.closest("[data-lpclr]")){ e.preventDefault(); la.value = ""; ln.value = ""; place(); paint(); opts.onChange?.(null, null); return; }
+    if(e.target.closest("[data-lpme]")){ e.preventDefault(); if(!navigator.geolocation) return toast("Location isn't available on this device");
+      navigator.geolocation.getCurrentPosition(p => set(p.coords.latitude, p.coords.longitude, true), () => toast("Couldn't get your location"), { enableHighAccuracy:true, timeout:10000 }); }
+  });
+  document.addEventListener("click", e => { if(!box.contains(e.target)) rs.hidden = true; });
+  return st;
+}
+// which delivery zone a point falls in (ray casting over the zone polygon)
+const inPoly = (p, poly) => { let x = p[0], y = p[1], ins = false; for(let i = 0, j = poly.length-1; i < poly.length; j = i++){ const xi = poly[i][0], yi = poly[i][1], xj = poly[j][0], yj = poly[j][1]; if(((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi)) ins = !ins; } return ins; };
+const zoneAt = (lat, lng) => (S.zones||[]).find(z => live(z) && z.active!==false && Array.isArray(z.polygon) && z.polygon.length >= 3 && inPoly([lat,lng], z.polygon)) || null;
 $("#branchForm").addEventListener("click", e => { const t = e.target.closest("[data-brtables]"); if(!t) return; e.preventDefault(); state.tblBranch = t.dataset.brtables; closeForm(); location.hash = "tables"; render(); });
-$("#branchForm").addEventListener("input", e => { if(e.target.id==="fGLink"){ const c = gmapsCoords(e.target.value);
-    if(c){ $("#fLat").value = c[0]; $("#fLng").value = c[1]; paintMapLink(); $("#fErr").textContent = ""; }
-    else if(e.target.value.trim()) $("#fErr").textContent = /goo\.gl|maps\.app/.test(e.target.value) ? "Short links can't be read. Open the link, then copy the full address from the browser bar." : "";
-    return; }
-  if(e.target.id==="fLat" || e.target.id==="fLng"){ const m = /^\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*$/.exec(e.target.value); if(m){ $("#fLat").value = m[1]; $("#fLng").value = m[2]; } paintMapLink(); } });
 $("#branchForm").addEventListener("input", e => { if(e.target.id==="fDayStart") $("#fDayEx").textContent = dayExample(e.target.value || "00:00"); });
 $("#branchForm").addEventListener("change", e => { if(e.target.dataset.h==="closed"){ e.target.closest(".hrow").querySelectorAll("select[data-h]").forEach(i => i.disabled = e.target.checked); } });
 $("#branchForm").addEventListener("click", e => { if(e.target.id==="fHoursAll"){ const rows = [...document.querySelectorAll("#fHours .hrow")], m = rows[0];
@@ -2175,13 +2228,11 @@ $("#branchForm").addEventListener("submit", async e => {
     nameAr:$("#fNameAr").value.trim(), taxNumber:$("#fTaxNo").value.trim(), lat: lat ? +lat : null, lng: lng ? +lng : null,
     settings:{ ...(branches.find(x=>x.id===editing)?.settings || {}), hours, orderTypes: null, receiptHeader:$("#fRHead").value.trim(), receiptFooter:$("#fRFoot").value.trim(), dayStart, autoDayEnd: $("#fAutoDay").checked, taxName: $("#fTaxName").value.trim(), invEnd: $("#fInvEnd").value || "", taxGroup: $("#fTaxGroup").value || null },
     open: mon.closed ? $("#fOpen").value : (mon.open || $("#fOpen").value), close: mon.closed ? $("#fClose").value : (mon.close || $("#fClose").value), zones:$("#fZones").value.trim(),
-    active:$("#fActive").checked, callCenter:$("#fCC").checked, production:false, updatedAt:new Date().toISOString() };
+    active:true, callCenter:$("#fCC").checked, production:false, updatedAt:new Date().toISOString() };
   $("#saveBtn").disabled = true;
-  const zPick = new Set([...document.querySelectorAll("#fDZones input:checked")].map(i => i.value));
   const chPick = new Set([...document.querySelectorAll("#fCharges input:checked")].map(i => i.value)), tgPickB = tagPickGet("fTags");
   try{ const bid = await saveBranch(data, editing);
     await saveBranchCharges(editing || bid, chPick); await tagSetFor("branch", editing || bid, tgPickB);
-    await saveBranchZones(editing || bid, zPick);
     toast(editing ? "Branch updated" : `${name} added`); closeForm(); }
   catch(err){ console.error(err); $("#fErr").textContent = "Couldn't save. You may not have edit access to this page."; }
   finally{ $("#saveBtn").disabled = false; }
@@ -2190,7 +2241,7 @@ $("#delBtn").addEventListener("click", async () => {
   const b = branches.find(x=>x.id===editing); if(!b) return;
   let c = { orders: BD.orders, inv: BD.inv }; try{ c = await countBranchData(b.id); }catch(e){ console.error(e); }
   if(c.orders==null || c.orders || c.inv){ if(!$("#scrim").classList.contains("show")) toast(c.orders==null ? "Couldn't check this branch's data. Try again." : "Delete this branch's orders and inventory transactions first."); $("#fErr").textContent = c.orders==null ? "Couldn't check this branch's data. Try again." : `Delete this branch's ${c.orders ? `${c.orders} order${c.orders===1?"":"s"}` : ""}${c.orders && c.inv ? " and " : ""}${c.inv ? `${c.inv} inventory transaction${c.inv===1?"":"s"}` : ""} first (Branch data, above).`; $("#fData")?.scrollIntoView({ behavior:"smooth", block:"center" }); return; }
-  $("#confirmText").innerHTML = `This removes <b>${esc(b.name)}</b> permanently. To keep its history, mark it inactive instead.`;
+  $("#confirmText").innerHTML = `This removes <b>${esc(b.name)}</b> permanently.`;
   $("#confirmScrim").classList.add("show");
 });
 $("#cNo").addEventListener("click", () => $("#confirmScrim").classList.remove("show"));
@@ -3231,8 +3282,9 @@ function openOrder(id){
         <div class="f"><label for="oA_street">Area / street *</label><input id="oA_street" value="${esc(a.street)}" ${ad} placeholder="Hamra, Bliss St"></div></div>
         <div class="f2"><div class="f"><label for="oA_building">Building name / no. *</label><input id="oA_building" value="${esc(a.building)}" ${ad}></div>
         <div class="f"><label for="oA_floor">Floor *</label><input id="oA_floor" value="${esc(a.floor)}" ${ad}></div></div>
-        <div class="f"><label for="oA_extra">Additional info</label><input id="oA_extra" value="${esc(a.extra)}" ${ad} placeholder="Apartment, landmark, directions"></div>`; })()}</div>
-      ${o?.lat ? `<div class="f"><label>Pinned location</label>${mapLink(o)}</div>` : ""}
+        <div class="f"><label for="oA_extra">Additional info</label><input id="oA_extra" value="${esc(a.extra)}" ${ad} placeholder="Apartment, landmark, directions"></div>
+        ${ad ? "" : `<div class="f"><label>Pin location <span class="note">optional · finds the delivery zone</span></label><div id="oA_loc"></div><input type="hidden" id="oA_lat" value="${o?.lat ?? ""}"><input type="hidden" id="oA_lng" value="${o?.lng ?? ""}"></div>`}`; })()}</div>
+      ${o?.lat && (ro || (ccLocked && o?.address)) ? `<div class="f"><label>Pinned location</label>${mapLink(o)}</div>` : ""}
      </div>
      <div class="cc1b">
       <div class="ccside0"><b>Customer details</b><span>Enter the customer's phone number to see their details, saved addresses and previous orders here.</span></div>
@@ -3324,8 +3376,8 @@ function orderCalc(items, discount, charges, branchId){
 // delivery charge from Manage → Delivery Charges: the customer's saved address is in a zone that this branch delivers to
 function ccZoneCharge(){
   if($("#oType .on")?.dataset.ot!=="delivery") return null;
-  const cur = addrJoin(ccAddrGet()), a = (window.__ccCust?.addresses||[]).find(x => x.zoneId && addrJoin(addrSplit(x.address))===cur);
-  const z = a && (S.zones||[]).find(z => z.id===a.zoneId && live(z) && z.active!==false);
+  const cur = addrJoin(ccAddrGet()), a = (window.__ccCust?.addresses||[]).find(x => x.zoneId && addrJoin(addrSplit(x.address))===cur), pin = ccPin();
+  const z = a ? (S.zones||[]).find(z => z.id===a.zoneId && live(z) && z.active!==false) : pin ? zoneAt(pin.lat, pin.lng) : null;
   if(!z || z.branchId!==($("#oBranch")?.value || "")) return null;
   const c = dcChargeOf(z); return c && c.active!==false ? c : null;
 }
@@ -3334,7 +3386,12 @@ function ccCharges(){
   if(zc && !list.some(c => c.id===zc.id)) list.push(zc);
   return { list, picked: list.filter(c => ccChg ? ccChg.has(c.id) : ((c.auto!==false && c.type!=="open") || c.id===zc?.id)) };
 }
-function ccAddrVis(){ const f = $("#oAddrF"); if(f) f.style.display = $("#oType .on")?.dataset.ot==="delivery" ? "" : "none"; }
+function ccAddrVis(){ const f = $("#oAddrF"); if(f) f.style.display = $("#oType .on")?.dataset.ot==="delivery" ? "" : "none"; if(f && !f.style.display) ccPinMount(); }
+// call center pin: mounted once the delivery address is showing (the map needs a visible box); it re-picks the zone charge
+function ccPinMount(force){ const b = $("#oA_loc"); if(!b || (b.classList.contains("lp") && !force)) return;
+  lpMount(b, "#oA_lat", "#oA_lng", { onPick: r => { if(!$("#oA_street").value.trim() && r.label) $("#oA_street").value = r.label.split(",").slice(0,2).join(",").trim(); }, onChange: () => { try{ renderCart(false); }catch(_){} } }); }
+const ccPin = () => { const a = $("#oA_lat")?.value, b = $("#oA_lng")?.value; return a && b && !isNaN(+a) && !isNaN(+b) ? { lat:+a, lng:+b } : null; };
+const ccPinSet = (a) => { if(!$("#oA_lat")) return; $("#oA_lat").value = a?.lat ?? ""; $("#oA_lng").value = a?.lng ?? ""; if($("#oA_loc")?.classList.contains("lp")) ccPinMount(true); };
 // a placed order's customer can't change; if it becomes delivery and has no address yet, the address can be filled in
 const ccAddrLock = () => { const o = ccEdit && S.orders.find(x=>x.id===ccEdit); if(!ccLocked || !o) return; ADDR_K.forEach(k => { const el = $("#oA_"+k); if(el) el.disabled = !!o.address; }); };
 // delivery address: name, area/street, building, floor, extra — kept in one line on the order ("[Home] Hamra · Bldg: … · Floor: … · Info: …")
@@ -3565,9 +3622,9 @@ async function saveOrder(status){
     ccOrig.forEach(i => { const m = left.find(x => x.k===key(i) && x.q > 0), keep = m ? Math.min(m.q, +i.qty) : 0; if(m) m.q -= keep; if(keep < +i.qty) voided.push({ ...i, qty: +i.qty - keep, voidedAt: new Date().toISOString(), voidedBy: state.userName || "Call center" }); });
     if(voided.length && !(await askYes(`Void ${voided.map(v => v.qty + " × " + v.name).join(", ")} from this order?`))) return;
     data = { source:$("#oSource").value, type, items:cart, ...dq, subtotal:c.gross, charges:c.charges, chargesTotal:c.chargesTotal, total:c.total,
-      ...(type==="delivery" && !o.address ? { address: addrJoin(addr) } : {}), ...(voided.length ? { voidedItems: [...(o.voidedItems||[]), ...voided] } : {}) };
+      ...(type==="delivery" && !o.address ? { address: addrJoin(addr), ...(ccPin() || {}) } : {}), ...(voided.length ? { voidedItems: [...(o.voidedItems||[]), ...voided] } : {}) };
   } else {
-    data = { brandId, phone, customerName:name, source:$("#oSource").value, type, address: type==="delivery" ? addrJoin(addr) : "",
+    data = { brandId, phone, customerName:name, source:$("#oSource").value, type, address: type==="delivery" ? addrJoin(addr) : "", ...(type==="delivery" && ccPin() ? ccPin() : {}),
       branchId, notes:$("#oNotes").value.trim(), receiptNotes:$("#oRNotes").value.trim(), items:cart, ...dq, subtotal:c.gross, charges:c.charges, chargesTotal:c.chargesTotal, total:c.total, status };
   }
   if(!ccEdit){ data.agent = state.fullName || state.userName || "Operator"; data.channel = "callcenter"; }
@@ -4860,9 +4917,12 @@ function openCusAddr(){
   const box = $("#ccBox"); box.className = "modal";
   box.innerHTML = `<header><h2>Add Address</h2><button type="button" class="x" data-ccclose aria-label="Close">×</button></header>
   <div class="body">${[["label","Name","Home, Work…"],["street","Area / street",""],["building","Building",""],["floor","Floor",""],["extra","Directions / info",""]].map(([k,l,ph])=>`<div class="f"${k==="extra"?' style="grid-column:1/-1"':""}><label for="cuA_${k}">${l}${k==="street"?" *":""}</label><input id="cuA_${k}" placeholder="${ph}"></div>`).join("")}
-    <div class="f" style="grid-column:1/-1"><label for="cuA_zone">Delivery Zone</label><select id="cuA_zone"><option value="">—</option>${zs.map(z=>`<option value="${esc(z.id)}">${esc(z.name)}${z.branchId ? " · " + esc(branchName(z.branchId)||"") : ""}</option>`).join("")}</select></div></div>
-  <footer><span style="flex:1"></span><button type="button" class="btn" data-ccclose>Cancel</button><button type="button" class="btn pri" id="cuAddrSave">Save</button></footer>`;
-  $("#ccScrim").classList.add("show"); setTimeout(() => $("#cuA_label")?.focus(), 50);
+    <div class="f" style="grid-column:1/-1"><label for="cuA_zone">Delivery Zone</label><select id="cuA_zone"><option value="">—</option>${zs.map(z=>`<option value="${esc(z.id)}">${esc(z.name)}${z.branchId ? " · " + esc(branchName(z.branchId)||"") : ""}</option>`).join("")}</select></div>
+    <div class="f" style="grid-column:1/-1"><label>Location</label><div id="cuA_loc"></div><input type="hidden" id="cuA_lat"><input type="hidden" id="cuA_lng"></div></div>
+  <footer><span style="flex:1"></span><button type="button" class="btn pri" id="cuAddrSave">Save</button></footer>`;
+  $("#ccScrim").classList.add("show"); setTimeout(() => { $("#cuA_label")?.focus();
+    lpMount("#cuA_loc", "#cuA_lat", "#cuA_lng", { onPick: r => { if(!$("#cuA_street").value.trim() && r.label) $("#cuA_street").value = r.label.split(",").slice(0,2).join(",").trim(); },
+      onChange: (la, ln) => { const z = la!=null && zoneAt(la, ln); if(z) $("#cuA_zone").value = z.id; } }); }, 80);
 }
 async function exportCustomers(){
   toast("Preparing export…");
@@ -4938,15 +4998,16 @@ document.addEventListener("click", e => {
     const okIds = new Set(availableProducts().map(p=>p.id)), miss = [];
     (lo.items||[]).filter(i => !i.voided).forEach(i => { const p = S.products.find(x=>x.id===i.productId); if(!p || !okIds.has(p.id)){ miss.push(i.name); return; } const opt = (i.options||[]).reduce((a,x)=>a+(+x.price||0),0); cart.push({ productId:p.id, name:i.name, price:+(ccPrice(p)+(i.options?.length?opt:0)).toFixed(2), qty:+i.qty||1, ...(i.options?.length?{options:i.options,mods:i.mods}:{}), ...(i.note?{note:i.note}:{}) }); });
     renderCart(false); toast(miss.length ? `Added to the cart · not available now: ${miss.join(", ")}` : "Order added to the cart"); return; }
-  const ua = e.target.closest("[data-useaddr]"); if(ua){ e.preventDefault(); const a = window.__ccCust?.addresses?.[+ua.dataset.useaddr]; if(a){ ccAddrSet(a.address); ccAddrCards(); try{ renderCart(false); }catch(_){} } return; }
-  if(e.target.closest("[data-newaddr]")){ e.preventDefault(); ADDR_K.forEach(k => { const el = $("#oA_"+k); if(el) el.value = ""; }); ccAddrCards(); $("#oA_label")?.focus(); return; }
+  const ua = e.target.closest("[data-useaddr]"); if(ua){ e.preventDefault(); const a = window.__ccCust?.addresses?.[+ua.dataset.useaddr]; if(a){ ccAddrSet(a.address); ccPinSet(a); ccAddrCards(); try{ renderCart(false); }catch(_){} } return; }
+  if(e.target.closest("[data-newaddr]")){ e.preventDefault(); ADDR_K.forEach(k => { const el = $("#oA_"+k); if(el) el.value = ""; }); ccPinSet(null); ccAddrCards(); $("#oA_label")?.focus(); return; }
   const st = e.target.closest("[data-ccstep]"); if(st){ e.preventDefault(); ccStep(+st.dataset.ccstep); return; }
   if(e.target.id==="cuTagSave"){ const pick = [...document.querySelectorAll("#cuTagPick input:checked")].map(i => i.value), names = tagList("customer").map(t => t.name.toLowerCase());
     $("#ccScrim").classList.remove("show"); const keep = (CUS.det?.tags||[]).filter(x => !names.includes(String(x).toLowerCase())); cusPatch({ tags:[...keep, ...pick] }, "Tags saved"); return; }
   if(e.target.id==="cuAddrSave"){ const a = {}; ["label","street","building","floor","extra"].forEach(k => a[k] = $("#cuA_"+k).value.trim());
     if(!a.street){ $("#cuA_street").focus(); return toast("Enter the area / street"); }
     $("#ccScrim").classList.remove("show"); const z = $("#cuA_zone").value || null;
-    cusPatch({ addresses:[...(CUS.det?.addresses||[]), { address: addrJoin(a), zoneId: z, createdAt: new Date().toISOString() }] }, "Address added"); return; }
+    const la = $("#cuA_lat").value, ln = $("#cuA_lng").value;
+    cusPatch({ addresses:[...(CUS.det?.addresses||[]), { address: addrJoin(a), zoneId: z, ...(la && ln ? { lat:+la, lng:+ln } : {}), createdAt: new Date().toISOString() }] }, "Address added"); return; }
   if(e.target.id==="cuSave") return saveCustomer();
   const co = e.target.closest("tr[data-coid]"); if(co) return openOrderDetail(co.dataset.coid);
 });
@@ -5103,6 +5164,7 @@ function viewCompany(){
     <h3 class="bizh">Settings</h3>
     <div class="card bizcard"><div class="bizgrid">
       <div class="f"><label for="co_timeZone">Time Zone <span class="tip" title="Used for business days, reports and order times.">ⓘ</span></label><select id="co_timeZone" class="sel" ${dis}>${tzList().map(([z,off])=>`<option value="${z}" ${(c.timeZone||"Asia/Beirut")===z?"selected":""}>(UTC${off}) ${z.replace(/_/g," ")}</option>`).join("")}</select></div>
+      <div class="f"><label for="co_gmapsKey">Google Maps API Key <span class="tip" title="Optional. With a key, location search uses Google Places; without one it uses OpenStreetMap. Restrict the key to your website in Google Cloud.">ⓘ</span></label><input id="co_gmapsKey" class="sel" value="${esc(c.gmapsKey||"")}" placeholder="Optional · AIza…" autocomplete="off" spellcheck="false" ${dis}></div>
     </div>
     <div class="bizchk">
       <label class="chk"><input type="checkbox" id="co_chgsub" ${c.chargesBeforeDisc!==false?"checked":""} ${dis}> Apply charges on the order's subtotal without tax exclusive discounts <span class="tip" title="On: percentage charges are worked out on the order before any discount. Off: on the order after discounts.">ⓘ</span></label>
@@ -5118,7 +5180,7 @@ function dayExample(v){
 document.addEventListener("input", e => { if(e.target.id==="co_dayEnd" && $("#coDayEx")) $("#coDayEx").textContent = dayExample(e.target.value); });
 async function saveCompany(){
   const v = k => ($("#co_"+k)?.value || "").trim();
-  const data = { name:v("name"), taxNumber:v("taxNumber"), taxName:v("taxName"), bizCategory:v("bizCategory"), bizSubcategory:v("bizSubcategory"), ownerEmail:null, ownerPhone: fullPhone(v("ownerPhone"), v("ownerPhoneCc")), email:v("email"), logoUrl:null, localization: !!$("#co_loc")?.checked, chargesBeforeDisc: !!$("#co_chgsub")?.checked, timeZone:v("timeZone") || "Asia/Beirut", country: company().country || v("country") || "Lebanon", currency: bizLocked() ? (company().currency || "USD") : (v("bcur") || "USD"), ...(company().accountNo ? { accountNo: company().accountNo } : {}) };
+  const data = { name:v("name"), taxNumber:v("taxNumber"), taxName:v("taxName"), bizCategory:v("bizCategory"), bizSubcategory:v("bizSubcategory"), ownerEmail:null, ownerPhone: fullPhone(v("ownerPhone"), v("ownerPhoneCc")), email:v("email"), logoUrl:null, localization: !!$("#co_loc")?.checked, chargesBeforeDisc: !!$("#co_chgsub")?.checked, timeZone:v("timeZone") || "Asia/Beirut", gmapsKey:v("gmapsKey"), country: company().country || v("country") || "Lebanon", currency: bizLocked() ? (company().currency || "USD") : (v("bcur") || "USD"), ...(company().accountNo ? { accountNo: company().accountNo } : {}) };
   if(!data.name){ $("#coErr").textContent = "Business name is required."; $("#co_name").focus(); return; }
   try{ await put("settings", "company", data);
     toast("Business saved"); }
