@@ -950,6 +950,11 @@ button,input,select,textarea,h1,h2,h3,h4,.modal header h2,.brand b{font-family:"
 #ccBox>header .cchx{margin-left:auto}
 th.grc,td.grc{width:28px;padding-right:0!important;color:#b3afc2;cursor:grab}tr[data-rowdrag]:active{cursor:grabbing}
 .bmgrip{touch-action:none}
+/* every window: a round ✕ at the top right closes it; no separate Cancel button at the bottom */
+.modal header>.x[data-ccclose],.modal header>.x[data-cclose],.modal header>.x[data-close],#ccBox header>.x,#crudBox header>.x{width:38px!important;height:38px!important;border-radius:50%!important;border:1.5px solid #cfccd9!important;background:#fff!important;color:#2a2738!important;font-size:22px!important;line-height:1!important;display:grid!important;place-items:center!important;padding:0!important;margin-left:auto;flex:none;cursor:pointer;transition:background .15s,border-color .15s}
+.modal header>.x:hover,#ccBox header>.x:hover,#crudBox header>.x:hover{background:#f4f3f8!important;border-color:#a9a5b8!important}
+.modal footer .btn[data-ccclose]:not(.pri):not(.danger),.modal footer .btn[data-cclose]:not(.pri):not(.danger),#ccBox footer .btn[data-ccclose]:not(.pri):not(.danger),#crudBox footer .btn[data-cclose]:not(.pri):not(.danger),#ccBox .ccacts .btn[data-ccclose]:not(.pri):not(.danger){display:none!important}
+.modal footer:not(:has(button:not([data-ccclose]):not([data-cclose]),a,input,select,label)),#crudBox footer:not(:has(button:not([data-ccclose]):not([data-cclose]),a,input,select,label)){display:none!important}
 </style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -3137,7 +3142,7 @@ function openOrder(id){
   const ldis = ro || ccLocked ? "disabled" : "";
   const box = $("#ccBox"); box.className = "modal ccfull";
   box.innerHTML = `<header><h2>${o?`Order ${esc(ordRef(o))} <span class="spill s-${o.status}">${CC_SUB[o.status]}</span>`:"New Call Center Order"}</h2>
-    <nav class="ccsteps" aria-label="Order steps"><button type="button" data-ccstep="1"><i>1</i>Customer</button><span aria-hidden="true">›</span><button type="button" data-ccstep="2"><i>2</i>Cart</button></nav><button type="button" class="btn cchx" data-ccclose>Cancel</button></header>
+    <nav class="ccsteps" aria-label="Order steps"><button type="button" data-ccstep="1"><i>1</i>Customer</button><span aria-hidden="true">›</span><button type="button" data-ccstep="2"><i>2</i>Cart</button></nav><button type="button" class="x" data-ccclose aria-label="Close">×</button></header>
   ${o && !ro && ccLocked ? `<div class="ccbanner">Placed order: you can change the order source, order type and items. Changes go straight to ${esc(branchName(o.branchId))}.</div>` : ""}
   <div class="ccx" id="ccX">
    <section class="ccleft">
@@ -3998,7 +4003,8 @@ const bmCatOn = id => { const d = BM.draft["cat:"+id] || BM.saving?.["cat:"+id];
 // changes in Sales Channels are kept as a draft until Save is pressed
 let bmQueue = Promise.resolve();
 const bmStat = t => { BM.stat = t; const el = $("#bmStat"); if(el) el.textContent = t; };
-function bmAuto(){ BM.stat = ""; }
+let bmAutoT = null;
+function bmAuto(){ BM.stat = "Saving…"; clearTimeout(bmAutoT); bmAutoT = setTimeout(bmSaveNow, 250); }   // every toggle, price and stock change saves straight away
 function bmSaveNow(){ bmQueue = bmQueue.then(saveBranchMenu, saveBranchMenu); }
 async function saveBranchMenu(){
   const work = BM.draft; if(!Object.keys(work).length) return;
@@ -4033,7 +4039,7 @@ async function saveBranchMenu(){
       if(d.price!=null){ const k = pk, cp = { ...(r.customPrices||{}) }, was = cp[k]; if(d.price==="") delete cp[k]; else cp[k] = +d.price; if(cp[k] !== was) ch.customPrices = cp; }
       if(Object.keys(ch).length){ await put(col, id, ch); Object.assign(r, ch); }   // keep the local copy current until the refresh arrives
     }
-    BM.saving = null; BM.stat = ""; toast("Changes saved"); render();
+    BM.saving = null; BM.stat = ""; toast("Saved"); render();
   }catch(err){ console.error(err); BM.saving = null; bmStat("Not saved"); toast("Couldn't save. Only the owner or an admin can change the menu."); render(); }
 }
 $("#view").addEventListener("change", async e => {
@@ -6395,6 +6401,11 @@ render();
 initStore();
 document.getElementById("signOut").addEventListener("click", () => window.WOK && WOK.user.signOut());
 })();
+
+// every window gets a round ✕ in its header, even ones built without one
+(function(){ const add = (box, attr) => { const h = box && box.querySelector(":scope > header"); if(h && !h.querySelector(".x")){ const b = document.createElement("button"); b.type = "button"; b.className = "x"; b.setAttribute(attr, ""); b.setAttribute("aria-label", "Close"); b.textContent = "×"; h.appendChild(b); } };
+  const watch = (id, attr) => { const box = document.getElementById(id); if(box) new MutationObserver(() => add(box, attr)).observe(box, { childList:true }); };
+  watch("ccBox", "data-ccclose"); watch("crudBox", "data-cclose"); })();
 </script>
 </body>
 </html>
