@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="296-1793986569">
+<meta name="slick-build" content="297-1793986708">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -5621,7 +5621,7 @@ const TAG_TYPES = [["customer","Customer","customers","Create tags to help you f
   ["product","Product","products","Create tags to help you filter and group products easily, e.g. Spicy, Best Seller."],["device","Device","devices","Create tags to help you filter and group devices easily, e.g. Main Cashier, Waiter."]];
 const TAG_KEY = { products:"product", "inv-items":"inventory", suppliers:"supplier", users:"user", devices:"device" };
 const tagDoc = () => (typeof S!=="undefined" ? S.settings : []).find(x => x.id==="tags") || {};
-const tagList = (type, del) => (tagDoc().list||[]).filter(t => (!type || t.type===type) && !!t.deleted===!!del).sort((a,b) => a.name.localeCompare(b.name));
+const tagList = (type, del) => (tagDoc().list||[]).filter(t => (!type || t.type===type) && !!t.deleted===!!del).sort((a,b) => (a.sort ?? 9999) - (b.sort ?? 9999) || a.name.localeCompare(b.name));
 const tagsOf = (type, id) => (((tagDoc().on||{})[type]||{})[id] || []).filter(t => (tagDoc().list||[]).some(x => x.id===t && !x.deleted));
 const tagName = id => (tagDoc().list||[]).find(t => t.id===id)?.name || "";
 const tagChips = (type, id) => { const l = tagsOf(type, id); return l.length ? `<div>${l.map(t => `<span class="tag cc">${esc(tagName(t))}</span>`).join(" ")}</div>` : ""; };
@@ -5633,7 +5633,7 @@ function viewTags(){
   const del = TG.tab==="deleted";
   const sec = ([k, t, plural, help]) => { const l = tagList(k, del); if(del && !l.length) return "";
     return `<div class="rssec${k==="inventory" ? " nm-keep" : ""}"><div class="rsh"><h3>${esc(t)} Tag</h3><span class="sp"></span>${del ? "" : `<button class="btn" data-tagnew="${k}">Create Tag</button>`}</div>
-      <div class="card rslist">${l.length ? l.map(x => { const n = tagUsed(x); return `<div class="rsn"${del ? "" : ` data-tagren="${esc(x.id)}"`}><span>${esc(x.name)}</span>${x.nameAr ? `<span class="note" style="margin-left:8px">${esc(x.nameAr)}</span>` : ""}<span class="sp"></span>${n==null ? "" : `<span class="note">${esc(plural[0].toUpperCase() + plural.slice(1))} (${n})</span>`}${del ? `<button class="btn sm" data-tagres="${esc(x.id)}" style="margin-left:10px">Restore</button>` : ""}</div>`; }).join("")
+      <div class="card rslist">${l.length ? l.map(x => { const n = tagUsed(x); return `<div class="rsn"${del ? "" : ` data-tagren="${esc(x.id)}" data-sk="tgx:${k}|${esc(x.id)}"`}>${del ? "" : `<span class="bmgrip rsgrip" title="Drag to move" aria-hidden="true">⋮⋮</span>`}<span>${esc(x.name)}</span>${x.nameAr ? `<span class="note" style="margin-left:8px">${esc(x.nameAr)}</span>` : ""}<span class="sp"></span>${n==null ? "" : `<span class="note">${esc(plural[0].toUpperCase() + plural.slice(1))} (${n})</span>`}${del ? `<button class="btn sm" data-tagres="${esc(x.id)}" style="margin-left:10px">Restore</button>` : ""}</div>`; }).join("")
         : `<div class="rsempty">${esc(help)}</div>`}</div></div>`; };
   const body = TAG_TYPES.map(sec).join("");
   return `<div class="phead"><h1>Tags</h1></div>
@@ -6894,6 +6894,7 @@ const SORT_DONE = {
   row: async (ids, key) => { const cfg = SORTABLE[key]; try{ for(const [n, id] of ids.entries()){ const r = S[cfg.col].find(x => x.id===id); if(r && r.sort !== n+1){ await put(cfg.col, id, { sort:n+1 }); r.sort = n+1; } } toast("Order saved · all screens updated"); }catch(err){ console.error(err); toast("Couldn't save the new order"); } render(); },
   rs: (idx, k) => { const l = rsList(k); return rsSave(k, idx.map(i => l[+i]).filter(x => x!=null)); },
   rsx: (idx, k) => { const l = rsGet(k); return rsPut(k, idx.map(i => l[+i]).filter(x => x!=null)); },
+  tgx: (ids, type) => { const pos = new Map(ids.map((id, i) => [id, i])); const list = (tagDoc().list||[]).map(t => t.type===type && pos.has(t.id) ? { ...t, sort: pos.get(t.id) } : t); return tagSave(list).then(ok => { if(ok) toast("Order saved"); }); },
   qtx: (idx, k) => { const l = qtCur(k); QT.draft[k] = idx.map(i => l[+i]).filter(x => x!=null); render(); }
 };
 (function(){
