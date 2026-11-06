@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="272-1793976293">
+<meta name="slick-build" content="273-1793976616">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1037,7 +1037,7 @@ th.grc,td.grc{width:28px;padding-right:0!important;color:#b3afc2;cursor:grab}tr[
       <div class="f full"><label for="fRFoot">Receipt footer</label><textarea id="fRFoot" rows="2" maxlength="300" placeholder="e.g. Thank you! Follow us @thewok"></textarea></div>
       <h4 class="fsec">Options</h4>
       <div class="f full">
-        <input type="checkbox" id="fActive" checked hidden>
+        <label class="chk"><input type="checkbox" id="fActive" checked> Active</label>
         <label class="chk"><input type="checkbox" id="fCC" checked> Receives call-center orders</label>
       </div>
       <input type="hidden" id="fOpen" value="11:00"><input type="hidden" id="fClose" value="23:30"><input type="hidden" id="fZones">
@@ -1920,13 +1920,13 @@ function viewBranches(){
   if(storeMode==="local") h += `<div class="banner">Preview mode: branches you add here won't be saved. Open this page from claude.ai while signed in to save them.</div>`;
   if(!n) return h + `<div class="card empty">No branches yet. Add your first branch to get started.</div>`;
   const tgName = id => (S.tax_groups||[]).find(g => g.id===id)?.name || "";
-  h += `<div class="card tbl"><table><thead><tr><th>Name</th><th>Reference</th><th>Tax group</th><th>Created</th><th>Active</th></tr></thead><tbody>${
+  h += `<div class="card tbl"><table><thead><tr><th>Name</th><th>Reference</th><th>Tax group</th><th>Created</th><th>Status</th></tr></thead><tbody>${
     list.map(b => `<tr class="clk" data-bropen="${esc(b.id)}">
-      <td><a href="#branches" class="lnk" data-bropen="${esc(b.id)}"><b style="font-weight:600">${esc(b.name)}</b></a>${brandList().length > 1 ? ` <span class="note">${esc(brandName(b.brandId))}</span>` : ""}</td>
-      <td class="code">${esc(b.code || "—")}</td>
+      <td><b>${esc(b.name)}</b>${brandList().length > 1 ? ` <span class="note">${esc(brandName(b.brandId))}</span>` : ""}</td>
+      <td>${esc(b.code || "—")}</td>
       <td>${esc(tgName(b.settings?.taxGroup)) || '<span class="note">—</span>'}</td>
       <td>${b.createdAt ? new Date(b.createdAt).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"}) : '<span class="note">—</span>'}</td>
-      <td class="noedit"><label class="toggle" title="${b.active!==false ? "Active · tap to deactivate" : "Inactive · tap to activate"}"><input type="checkbox" data-bract="${esc(b.id)}" ${b.active!==false?"checked":""}><span class="trk"></span>${b.active!==false?"Active":"Inactive"}</label></td></tr>`).join("")
+      <td>${b.active===false ? '<span class="tag off">Inactive</span>' : '<span class="tag on">Active</span>'}</td></tr>`).join("")
   }</tbody></table></div>
   <p class="note" style="margin-top:12px">Inactive branches stay in your history but are hidden from dashboards, filters and call-center routing.</p>`;
   return h;
@@ -3487,7 +3487,7 @@ async function setOrderStatus(s){
 const DEV_TYPES = [["cashier","Cashier"],["kds","KDS"],["notifier","Notifier"],["display","Display"],["sub_cashier","Sub Cashier"]];
 const devType = t => (DEV_TYPES.find(x => x[0]===t) || [, t==="waiter" ? "Waiter" : (t || "—")])[1];
 const devRef = () => { let n = 0; S.devices.forEach(d => { const m = /^C(\d+)$/i.exec(d.reference||""); if(m) n = Math.max(n, +m[1]); }); return "C" + String(n+1).padStart(2,"0"); };
-const devStatus = d => d.activatedAt ? '<span class="tag on"><span class="dot"></span>Used</span>' : '<span class="tag off">Not used</span>';
+const devStatus = d => d.activatedAt ? '<span class="tag on">Used</span>' : '<span class="tag off">Not used</span>';
 function viewDevice(d){
   const s = d.settings || {}, row = (k, v) => `<div><span>${k}</span>${v}</div>`, dt = t => t ? new Date(t).toLocaleString("en-GB",{day:"numeric",month:"long",hour:"2-digit",minute:"2-digit"}) : "—";
   const last = S.orders.filter(o => o.deviceId===d.id).reduce((m,o) => o.createdAt > m ? o.createdAt : m, "");
@@ -3506,7 +3506,7 @@ function viewDevices(){
   <div class="apk"><a class="btn pri" href="the-wok-pos.apk" download>⬇ Download POS APK</a><a class="lnk" href="pos.html" target="_blank" rel="noopener">or open POS in a browser</a></div></div><div style="height:16px"></div>`;
   if(storeMode==="local") h += `<div class="banner">Preview mode: devices won't be saved.</div>`;
   h += `<div class="card tbl">${list.length ? `<table><thead><tr><th>Name</th><th>Reference</th><th>Status</th><th>Branch</th></tr></thead><tbody>${list.map(d=>`<tr class="clk" data-devopen="${esc(d.id)}">
-    <td><a href="#devices" class="lnk" data-devopen="${esc(d.id)}"><b>${esc(d.name)}</b></a> <span class="note">${esc(devType(d.type))}</span></td><td class="code">${esc(d.reference || "—")}</td><td>${devStatus(d)}</td><td>${esc(branchName(d.branchId))}</td></tr>`).join("")}</tbody></table>`
+    <td><b>${esc(d.name)}</b> <span class="note">${esc(devType(d.type))}</span></td><td>${esc(d.reference || "—")}</td><td>${devStatus(d)}</td><td>${esc(branchName(d.branchId))}</td></tr>`).join("")}</tbody></table>`
     : `<div class="empty">No devices yet. Create one for each tablet, kitchen screen or printer station.</div>`}</div>`;
   return h;
 }
