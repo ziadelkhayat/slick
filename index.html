@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="298-1793986805">
+<meta name="slick-build" content="299-1793987067">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1056,6 +1056,7 @@ table.sk-ghost-t{border-collapse:collapse;table-layout:fixed}table.sk-ghost-t td
       <div class="f full"><div id="fTables"></div></div>
       <h4 class="fsec">Delivery zones</h4>
       <div class="f full"><div class="multi" id="fDZones"></div><div class="note">Ticked zones are delivered by this branch (a zone belongs to one branch). Draw or change zones in Manage → Delivery Zones.</div></div>
+      <h4 class="fsec">Tags</h4><div id="fTagsWrap" class="full" style="grid-column:1/-1"></div>
       <h4 class="fsec">Charges at this branch</h4>
       <div class="f full"><div class="multi" id="fCharges"></div><div class="note">Ticked charges apply to orders at this branch. Add or change charges in Manage → Charges.</div></div>
       <h4 class="fsec">Receipt</h4>
@@ -1975,6 +1976,7 @@ document.addEventListener("click", e => {
   if(t.closest("[data-bracts]")){ e.stopPropagation(); const m = $("#brActM"); if(m) m.hidden = !m.hidden; return; }
   const bb = t.closest("[data-brbulk]"); if(bb){ e.stopPropagation(); return tagBulk("branch", [...bsel], bb.dataset.brbulk==="add", () => { bsel.clear(); render(); }); }
 }, true);
+document.addEventListener("click", e => { const t = e.target.closest && e.target.closest("[data-otags]"); if(!t) return; e.preventDefault(); const id = t.dataset.otags; tagEdit("order", id, () => openOrderDetail(id, true)); });
 /* ---------- help text → ⓘ info icons (Foodics style): tap or hover the icon to read it ---------- */
 const IB_SVG = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v5"/><circle cx="12" cy="7.6" r=".6" fill="currentColor"/></svg>';
 function ibMake(html){ const s = document.createElement("span"); s.className = "ib"; s.tabIndex = 0; s.setAttribute("role", "button"); s.setAttribute("aria-label", "More info"); s.innerHTML = IB_SVG; s.dataset.tip = html; return s; }
@@ -2099,7 +2101,7 @@ $("#view").addEventListener("click", e => {
 
 let editing = null;
 function openForm(id){
-  editing = id || null;
+  editing = id || null; { const w = document.getElementById("fTagsWrap"); if(w) w.innerHTML = tagPick("branch", id || null, "fTags"); }
   const b = id ? branches.find(x=>x.id===id) : null;
   $("#mTitle").textContent = b ? "Edit branch" : "Add branch";
   $("#fBrand").innerHTML = `<option value="">Choose brand…</option>` + brandList().map(x=>`<option value="${esc(x.id)}">${esc(x.name)}</option>`).join("");
@@ -2176,9 +2178,9 @@ $("#branchForm").addEventListener("submit", async e => {
     active:$("#fActive").checked, callCenter:$("#fCC").checked, production:false, updatedAt:new Date().toISOString() };
   $("#saveBtn").disabled = true;
   const zPick = new Set([...document.querySelectorAll("#fDZones input:checked")].map(i => i.value));
-  const chPick = new Set([...document.querySelectorAll("#fCharges input:checked")].map(i => i.value));
+  const chPick = new Set([...document.querySelectorAll("#fCharges input:checked")].map(i => i.value)), tgPickB = tagPickGet("fTags");
   try{ const bid = await saveBranch(data, editing);
-    await saveBranchCharges(editing || bid, chPick);
+    await saveBranchCharges(editing || bid, chPick); await tagSetFor("branch", editing || bid, tgPickB);
     await saveBranchZones(editing || bid, zPick);
     toast(editing ? "Branch updated" : `${name} added`); closeForm(); }
   catch(err){ console.error(err); $("#fErr").textContent = "Couldn't save. You may not have edit access to this page."; }
@@ -2817,7 +2819,7 @@ function openCrud(key, id, inline, draft){
   };
   if(inline) return (Array.isArray(inline) ? inline.map(k => cfg.fields.find(x => x.k===k)).filter(Boolean) : cfg.fields).map(field).join("");   // the item page edits in place (no pop-up)
   $("#crudBox").innerHTML = `<header><h2>${r?"Edit":(cfg.addLbl||"Create")} ${cfg.one}</h2><button type="button" class="x" data-cclose aria-label="Close">×</button></header>
-    <div class="body">${cfg.fields.map(field).join("")}<div class="err" id="cErr"></div></div>
+    <div class="body">${cfg.fields.map(field).join("")}${TAG_KEY[key] ? tagPick(TAG_KEY[key], r?.id, "cf__tags") : ""}<div class="err" id="cErr"></div></div>
     <footer>${r ? (r.deleted ? `<button type="button" class="btn" id="cRestore" style="margin-right:auto">Restore</button>` : `<button type="button" class="btn danger" id="cDelete" style="margin-right:auto">Delete</button>`) : ""}
     <button type="button" class="btn" data-cclose>Cancel</button><button type="submit" class="btn pri">Save</button></footer>`;
   if(key==="delivery-zones") $("#crudBox").classList.add("zonebig");
@@ -3098,8 +3100,9 @@ async function submitCrud(e){
   if(cfg.fields.some(f=>f.k==="sku") && data.sku && S[cfg.col].some(r=>r.id!==crudEdit.id && live(r) && r.sku===data.sku)){ CQ("#cErr").textContent = "That SKU is already used."; return; }
   if(cfg.unique && S[cfg.col].some(r=>r.id!==crudEdit.id && live(r) && String(r[cfg.unique]||"").toLowerCase()===String(data[cfg.unique]||"").toLowerCase())){ CQ("#cErr").textContent = `That ${cfg.unique} is already used by another ${cfg.one.toLowerCase()}.`; return; }
   const old = crudEdit.id ? { ...S[cfg.col].find(r=>r.id===crudEdit.id) } : null;
+  const tgIds = TAG_KEY[crudEdit.key] ? tagPickGet("cf__tags") : null; if(tgIds && !crudEdit.id && !data.id) data.id = uid(cfg.col.slice(0,3));
   const newId = !crudEdit.id && data.id ? data.id : null; delete data.id;
-  try{ await put(cfg.col, crudEdit.id || newId, data); if(cfg.after) await cfg.after(old, data); if(cfg.saved) await cfg.saved(old, data); toast(cfg.one + " saved"); closeCrud(); }
+  try{ await put(cfg.col, crudEdit.id || newId, data); if(tgIds) await tagSetFor(TAG_KEY[crudEdit.key], crudEdit.id || newId, tgIds); if(cfg.after) await cfg.after(old, data); if(cfg.saved) await cfg.saved(old, data); toast(cfg.one + " saved"); closeCrud(); }
   catch(err){ console.error(err); CQ("#cErr").textContent = "Couldn't save. You may not have edit access."; }
 }
 async function softDelete(flag){
@@ -3201,7 +3204,7 @@ let ccEdit = null, cart = [];
 const ccEditable = o => !o || o.status==="draft" || (o.channel==="callcenter" && ["pending","active"].includes(o.status));
 function openOrder(id){
   const o = id ? S.orders.find(x=>x.id===id) : null;
-  ccEdit = o ? o.id : null; cart = o ? o.items.map(i=>({...i})) : [];
+  ccEdit = o ? o.id : null; cart = o ? o.items.map(i=>({...i})) : []; ccTags = null;
   ccOrig = o ? JSON.parse(JSON.stringify(o.items||[])) : [];
   ccChg = o ? new Set((o.charges||[]).map(c=>c.id)) : null; Object.keys(ccOpen).forEach(k => delete ccOpen[k]); (o?.charges||[]).forEach(c => { if(c.type==="open") ccOpen[c.id] = +c.amount||0; });            // null = the charges that apply automatically
   ccDiscType = o?.discountType==="amt" ? "amt" : "pct"; ccDisc = o ? (ccDiscType==="amt" ? +o.discount||0 : +o.discountPct||0) : 0; ccDiscOpen = false;
@@ -3239,7 +3242,7 @@ function openOrder(id){
     <div class="ccnext"><span class="err" id="oErr1"></span><button type="button" class="btn pri" data-ccstep="2">Continue</button></div>
    </section>
    <aside class="ccside" id="oSide"></aside>
-   ${ro ? "" : `<section class="ccmenu"><div class="ccprods"><div class="cctools"><button type="button" class="cctool" data-cctool="disc" id="ccToolDisc">${ccIco("pct")}<span>Discount</span></button><button type="button" class="cctool" data-cctool="chg">${ccIco("plus")}<span>Charges</span></button><button type="button" class="cctool" data-cctool="notes">${ccIco("note")}<span>Notes</span></button></div><div class="ccbar"><button type="button" class="btn sm" id="oCatBack" hidden>← Categories</button><div class="cchead" id="oCatTitle"></div><input class="sel search" id="oSearch" placeholder="Search all products" autocomplete="off"></div><div class="pgrid" id="oProducts"></div></div></section>`}
+   ${ro ? "" : `<section class="ccmenu"><div class="ccprods"><div class="cctools"><button type="button" class="cctool" data-cctool="disc" id="ccToolDisc">${ccIco("pct")}<span>Discount</span></button><button type="button" class="cctool" data-cctool="chg">${ccIco("plus")}<span>Charges</span></button><button type="button" class="cctool" data-cctool="tags">${ccIco("tag")}<span>Tags</span></button><button type="button" class="cctool" data-cctool="notes">${ccIco("note")}<span>Notes</span></button></div><div class="ccbar"><button type="button" class="btn sm" id="oCatBack" hidden>← Categories</button><div class="cchead" id="oCatTitle"></div><input class="sel search" id="oSearch" placeholder="Search all products" autocomplete="off"></div><div class="pgrid" id="oProducts"></div></div></section>`}
    <section class="cccart${ro?" wide":""}"><div class="cart" id="oCart"></div>
    <input type="hidden" id="oNotes" value="${esc(o?.notes||"")}"><input type="hidden" id="oRNotes" value="${esc(o?.receiptNotes||"")}"><div class="err" id="oErr"></div><div class="ccacts">${ccActions(o)}</div></section>
   </div>`;
@@ -3386,6 +3389,7 @@ const prodRate = id => { const r = prodRates(id); return r.inc + r.exc; };
 const ccTax = items => +(items||[]).reduce((a,i) => { const l = (+i.price||0)*(+i.qty||1), r = prodRate(i.productId); return a + l*r/(1+r); }, 0).toFixed(2);
 function ccPrice(p){ const b = $("#oBranch")?.value, cps = p.customPrices||{}, c = b && (cps[b + ":callcenter"] ?? cps[b]); return c!=null && c!=="" ? +c : +p.price||0; }
 const CC_ICO = {
+  tag:'<path d="M3 12V4a1 1 0 0 1 1-1h8l9 9-9 9z"/><circle cx="7.5" cy="7.5" r="1.5"/>',
   plus:'<circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/>',
   search:'<circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/>',
   filter:'<path d="M3 5h18l-7 8.5V19l-4 2v-7.5z"/>',
@@ -3462,6 +3466,17 @@ function ccDiscDlg(){
         ccDiscType = ty; ccDisc = +v.toFixed(2); ccDiscOpen = false; close(); renderCart(false); } });
   });
 }
+let ccTags = null;   // order tags picked for this order (null = unchanged)
+function ccTagsDlg(){
+  const cur = ccTags || (ccEdit ? tagsOf("order", ccEdit) : []);
+  const cu = window.__ccCust, ct = tagList("customer"), cn = new Set((cu?.tags||[]).map(x => String(x).toLowerCase()));
+  const custBox = cu?.id ? `<h3 style="margin:16px 0 8px">Customer Tags</h3>${ct.length ? `<div class="multi" id="ccCTg">${ct.map(t => `<label class="chk"><input type="checkbox" value="${esc(t.name)}" ${cn.has(t.name.toLowerCase())?"checked":""}> ${esc(t.name)}</label>`).join("")}</div>` : `<div class="note">No customer tags yet. Create them in Manage → Tags.</div>`}` : `<p class="note" style="margin-top:12px">Enter the customer's phone to tag the customer.</p>`;
+  ccOverlay(`<h3 style="margin:0 0 12px">Order Tags</h3>${tagPick("order", null, "ccTg", cur)}${custBox}<div class="slk-ask-f" style="margin-top:12px"><button type="button" class="slk-ask-no" data-dlgx>Cancel</button><button type="button" class="slk-ask-yes" id="ccTgGo">Apply</button></div>`, (w, close) => {
+    w.querySelector("#ccTgGo").onclick = async () => { ccTags = tagPickGet("ccTg") || [];
+      const ce = w.querySelector("#ccCTg"); if(ce && cu?.id){ const names = ct.map(t => t.name.toLowerCase()), next = [...(cu.tags||[]).filter(x => !names.includes(String(x).toLowerCase())), ...[...ce.querySelectorAll("input:checked")].map(i => i.value)];
+        const { error } = await WOK.sb.from("customers").update({ tags: next }).eq("id", cu.id); if(error) toast("Couldn't save the customer tags: " + error.message); else cu.tags = next; }
+      close(); renderCart(false); toast("Tags set"); }; });
+}
 function ccChgDlg(){
   const ch = ccCharges(); if(!$("#oType .on")) return toast("Choose the order type first");
   if(!ch.list.length) return toast("No charges for this order type. Add them in Manage → Charges.");
@@ -3475,7 +3490,7 @@ function ccChgDlg(){
       Object.keys(ccOpen).forEach(k => delete ccOpen[k]); Object.assign(ccOpen, vals); ccChg = pick; close(); renderCart(false); };
   });
 }
-document.addEventListener("click", e => { const t = e.target.closest("[data-cctool]"); if(t){ e.preventDefault(); return t.dataset.cctool==="disc" ? ccDiscDlg() : t.dataset.cctool==="chg" ? ccChgDlg() : ccNotesDlg(); }
+document.addEventListener("click", e => { const t = e.target.closest("[data-cctool]"); if(t){ e.preventDefault(); return t.dataset.cctool==="disc" ? ccDiscDlg() : t.dataset.cctool==="chg" ? ccChgDlg() : t.dataset.cctool==="tags" ? ccTagsDlg() : ccNotesDlg(); }
   const cx = e.target.closest("[data-ochgx]"); if(cx){ e.preventDefault(); if(!ccChg) ccChg = new Set(ccCharges().picked.map(c=>c.id)); ccChg.delete(cx.dataset.ochgx); delete ccOpen[cx.dataset.ochgx]; renderCart(false); return; }
   const nx = e.target.closest("[data-ccnotex]"); if(nx){ e.preventDefault(); const el = $(nx.dataset.ccnotex==="k" ? "#oNotes" : "#oRNotes"); if(el) el.value = ""; renderCart(false); return; }
   const ne = e.target.closest("[data-ccnoteed]"); if(ne){ e.preventDefault(); ccNotesDlg(ne.dataset.ccnoteed==="k" ? "kitchen" : "order"); return; }
@@ -3551,7 +3566,8 @@ async function saveOrder(status){
       branchId, notes:$("#oNotes").value.trim(), receiptNotes:$("#oRNotes").value.trim(), items:cart, ...dq, subtotal:c.gross, charges:c.charges, chargesTotal:c.chargesTotal, total:c.total, status };
   }
   if(!ccEdit){ data.agent = state.fullName || state.userName || "Operator"; data.channel = "callcenter"; }
-  try{ await put("orders", ccEdit, data); toast(o && o.status!=="draft" ? `Order ${ordRef(o)} updated · ${branchName(o.branchId)} sees the changes` : status==="pending" ? `Order sent to ${branchName(branchId)}` : "Draft saved"); $("#ccScrim").classList.remove("show"); }
+  const oid = ccEdit || uid("ord");
+  try{ await put("orders", oid, data); if(ccTags) await tagSetFor("order", oid, ccTags); ccTags = null; toast(o && o.status!=="draft" ? `Order ${ordRef(o)} updated · ${branchName(o.branchId)} sees the changes` : status==="pending" ? `Order sent to ${branchName(branchId)}` : "Draft saved"); $("#ccScrim").classList.remove("show"); }
   catch(err){ console.error(err); $("#oErr").textContent = "Couldn't save the order."; }
 }
 async function setOrderStatus(s){
@@ -3625,7 +3641,7 @@ function openDeviceEdit(id){
     <div class="f"><label for="ds_brand">Brand</label>${dsel("brand", br?.brandId || "", brandList().map(b=>[b.id,b.name]))}</div>
     <div class="f full"><label for="ds_branch">Branch *</label><select id="ds_branch" class="sel">${devBranchOpts(br?.brandId || "", d.branchId)}</select>${dhelp("Moving a device to another branch needs a new activation code.")}</div>
     <div class="f full"><label class="chk"><input type="checkbox" id="ds_master" ${s.master?"checked":""}> Receives Online Orders</label>${dhelp("Only one cashier is allowed to receive call center and web orders in the branch. It also ends the day.")}</div>
-    <div class="err" id="cErr"></div></div>
+    ${tagPick("device", id, "deTags")}<div class="err" id="cErr"></div></div>
   <footer><button type="button" class="btn" data-cclose>Cancel</button><button type="button" class="btn pri" id="deSave">Save</button></footer>`;
   crudEdit = { key:"devedit", id }; $("#crudBox").className = "modal"; $("#crudScrim").classList.add("show");
 }
@@ -3636,7 +3652,7 @@ async function saveDeviceEdit(){
   if(S.devices.some(x => live(x) && x.id!==id && String(x.reference||"").toUpperCase()===reference)){ $("#cErr").textContent = "Another device already uses this reference."; return; }
   if(!v("branch")){ $("#cErr").textContent = "Pick the branch."; return; }
   const master = !!$("#ds_master").checked && ["cashier","sub_cashier"].includes(v("type"));
-  const ch = { name, reference, type: v("type"), settings: { ...(d.settings||{}), master } };
+  const ch = { name, reference, type: v("type"), settings: { ...(d.settings||{}), master } }; await tagSetFor("device", id, tagPickGet("deTags"));
   if(v("branch") !== d.branchId){ if(!(await askYes("Move this device to another branch? It will need a new activation code."))) return; ch.branchId = v("branch"); ch.code = newCode(); ch.activatedAt = null; }
   try{
     if(master) for(const o of S.devices.filter(x => live(x) && x.id!==id && x.branchId===(ch.branchId || d.branchId) && x.settings?.master)) await put("devices", o.id, { settings: { ...o.settings, master:false } });   // one per branch
@@ -3699,7 +3715,7 @@ function openDevice(){
   <div class="f full"><label for="dRef">Reference *</label><div style="display:flex;gap:8px"><input id="dRef" value="${esc(devRef())}" style="flex:1"><button type="button" class="btn" data-devgen2>Generate</button></div></div>
   <div class="f"><label for="dBrand">Brand *</label><select id="dBrand"><option value="">Choose…</option>${brandList().filter(b=>b.active!==false).map(b=>`<option value="${esc(b.id)}" ${brandList().length===1?"selected":""}>${esc(b.name)}</option>`).join("")}</select></div>
   <div class="f"><label for="dBranch">Branch *</label><select id="dBranch">${devBranchOpts(brandList().length===1 ? brandList()[0].id : "", "")}</select></div>
-  <div class="err" id="cErr"></div></div><footer><button type="button" class="btn" data-cclose>Cancel</button><button type="button" class="btn pri" id="dSave">Save</button></footer>`;
+  ${tagPick("device", null, "dTags")}<div class="err" id="cErr"></div></div><footer><button type="button" class="btn" data-cclose>Cancel</button><button type="button" class="btn pri" id="dSave">Save</button></footer>`;
   crudEdit = { key:"device" }; $("#crudScrim").classList.add("show"); setTimeout(()=>$("#dName").focus(),30);
 }
 
@@ -4421,6 +4437,7 @@ async function openOrderDetail(id, quiet){
       <div><span>Branch</span>${esc(branches.find(x=>x.id===o.branchId)?.name || "—")}</div>
       <div><span>Sales channel</span>${esc(CH_LBL[o.channel] || cap(o.channel))}${o.source && o.source!=="POS" && !(o.channel==="online" && o.source==="Website")?` · ${esc(o.source)}`:""}</div>
       <div><span>Order type</span>${esc(ordTypeLbl(o.type))}${o.table?` · Table ${esc(o.table)}`:""}</div>
+      <div><span>Tags</span>${tagsOf("order", o.id).map(t => `<span class="tag cc">${esc(tagName(t))}</span>`).join(" ") || "—"} <a href="#orders" class="lnk" data-otags="${esc(o.id)}">Edit</a></div>
       <div><span>Business date</span>${o.createdAt ? new Date(bizDate(o.createdAt, o.branchId) + "T12:00:00").toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"}) + ` <span class="note">${new Date(o.createdAt).toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"})}</span>` : "—"}</div>
       ${o.acceptedAt?`<div><span>Accepted</span>${dt(o.acceptedAt)} <span class="note">(${mins(o.createdAt,o.acceptedAt)})</span></div>`:""}
       ${o.doneAt?`<div><span>${o.status==="declined"?"Declined":"Done"}</span>${dt(o.doneAt)} <span class="note">(${mins(o.createdAt,o.doneAt)} total)</span></div>`:""}
@@ -4767,6 +4784,7 @@ function openCustomerEdit(c){
     <div class="f"><label for="cuGender">Gender</label><select id="cuGender"><option value="">—</option><option value="male" ${c.gender==="male"?"selected":""}>Male</option><option value="female" ${c.gender==="female"?"selected":""}>Female</option></select></div>
     <div class="f" style="grid-column:1/-1"><label for="cuNotes">Customer Notes</label><textarea id="cuNotes" rows="2" placeholder="Allergies, preferences, gate code…">${esc(c.notes||"")}</textarea><span class="note">Shown to the cashier and call center when this customer orders.</span></div>
     <div class="f" style="grid-column:1/-1"><label class="chk"><input type="checkbox" id="cuBlack" ${c.blacklisted?"checked":""}> Blacklist</label><span class="note">Blacklisted customers are flagged on the POS and call center when they order.</span></div>
+    ${tagList("customer").length ? `<div class="f" style="grid-column:1/-1"><label>Tags</label><div class="multi" id="cuFTags">${tagList("customer").map(t => `<label class="chk"><input type="checkbox" value="${esc(t.name)}" ${(c.tags||[]).some(x => String(x).toLowerCase()===t.name.toLowerCase()) ? "checked" : ""}> ${esc(t.name)}</label>`).join("")}</div></div>` : ""}
     <div class="err" id="cuErr" style="grid-column:1/-1"></div>
   </div>
   <footer><span style="flex:1"></span><button type="button" class="btn" data-ccclose>Cancel</button><button type="button" class="btn pri" id="cuSave">Save</button></footer>`;
@@ -4780,6 +4798,7 @@ async function saveCustomer(){
   const row = { name: $("#cuName").value.trim(), phone, email: $("#cuEmail").value.trim() || null, birthday: $("#cuBday").value || null,
     gender: $("#cuGender").value || null, blacklisted: $("#cuBlack").checked, notes: $("#cuNotes").value.trim() || null, updated_at: new Date().toISOString() };
   if(!c.id){ row.tags = []; row.addresses = []; }
+  { const el = document.getElementById("cuFTags"); if(el){ const names = tagList("customer").map(t => t.name.toLowerCase()), pick = [...el.querySelectorAll("input:checked")].map(i => i.value); row.tags = [...(c.tags||[]).filter(x => !names.includes(String(x).toLowerCase())), ...pick]; } }
   const go = r => c.id ? WOK.sb.from("customers").update(r).eq("id", c.id) : WOK.sb.from("customers").insert(r).select("id").maybeSingle();
   let res = await go(row);
   if(res.error && /gender/i.test(res.error.message)){ delete row.gender; res = await go(row); if(!res.error) toast("Saved · gender needs a database update first"); }
@@ -4827,7 +4846,7 @@ function openHaLimit(){
 function openCusTags(){
   const box = $("#ccBox"); box.className = "modal";
   box.innerHTML = `<header><h2>Add Tags</h2><button type="button" class="x" data-ccclose aria-label="Close">×</button></header>
-  <div class="body"><div class="f" style="grid-column:1/-1"><label for="cuTagIn">Tags</label><input id="cuTagIn" placeholder="e.g. VIP, corporate" list="cuTagSug"><datalist id="cuTagSug">${tagList("customer").map(t => `<option value="${esc(t.name)}">`).join("")}</datalist><span class="note">Separate tags with commas.</span></div></div>
+  <div class="body" style="display:block">${tagList("customer").length ? `<div class="multi" id="cuTagPick">${tagList("customer").map(t => `<label class="chk"><input type="checkbox" value="${esc(t.name)}" ${(CUS.det?.tags||[]).some(x => String(x).toLowerCase()===t.name.toLowerCase()) ? "checked" : ""}> ${esc(t.name)}</label>`).join("")}</div>` : `<div class="note">No customer tags yet. Create them in Manage → Tags.</div>`}<div hidden><input id="cuTagIn"><span class="note">Separate tags with commas.</span></div></div>
   <footer><span style="flex:1"></span><button type="button" class="btn" data-ccclose>Cancel</button><button type="button" class="btn pri" id="cuTagSave">Save</button></footer>`;
   $("#ccScrim").classList.add("show"); setTimeout(() => $("#cuTagIn")?.focus(), 50);
 }
@@ -4917,8 +4936,8 @@ document.addEventListener("click", e => {
   const ua = e.target.closest("[data-useaddr]"); if(ua){ e.preventDefault(); const a = window.__ccCust?.addresses?.[+ua.dataset.useaddr]; if(a){ ccAddrSet(a.address); ccAddrCards(); try{ renderCart(false); }catch(_){} } return; }
   if(e.target.closest("[data-newaddr]")){ e.preventDefault(); ADDR_K.forEach(k => { const el = $("#oA_"+k); if(el) el.value = ""; }); ccAddrCards(); $("#oA_label")?.focus(); return; }
   const st = e.target.closest("[data-ccstep]"); if(st){ e.preventDefault(); ccStep(+st.dataset.ccstep); return; }
-  if(e.target.id==="cuTagSave"){ const add = $("#cuTagIn").value.split(",").map(t=>t.trim()).filter(Boolean); if(!add.length) return $("#cuTagIn").focus();
-    $("#ccScrim").classList.remove("show"); const t = [...(CUS.det?.tags||[])]; add.forEach(x => { if(!t.some(y => y.toLowerCase()===x.toLowerCase())) t.push(x); }); cusPatch({ tags:t }, "Tags saved"); return; }
+  if(e.target.id==="cuTagSave"){ const pick = [...document.querySelectorAll("#cuTagPick input:checked")].map(i => i.value), names = tagList("customer").map(t => t.name.toLowerCase());
+    $("#ccScrim").classList.remove("show"); const keep = (CUS.det?.tags||[]).filter(x => !names.includes(String(x).toLowerCase())); cusPatch({ tags:[...keep, ...pick] }, "Tags saved"); return; }
   if(e.target.id==="cuAddrSave"){ const a = {}; ["label","street","building","floor","extra"].forEach(k => a[k] = $("#cuA_"+k).value.trim());
     if(!a.street){ $("#cuA_street").focus(); return toast("Enter the area / street"); }
     $("#ccScrim").classList.remove("show"); const z = $("#cuA_zone").value || null;
@@ -5627,6 +5646,19 @@ const tagName = id => (tagDoc().list||[]).find(t => t.id===id)?.name || "";
 const tagChips = (type, id) => { const l = tagsOf(type, id); return l.length ? `<div>${l.map(t => `<span class="tag cc">${esc(tagName(t))}</span>`).join(" ")}</div>` : ""; };
 const tagUsed = t => t.type==="customer" ? null : Object.values(((tagDoc().on||{})[t.type])||{}).filter(l => l.includes(t.id)).length;
 async function tagSave(list, on){ const d = tagDoc(); try{ await put("settings", "tags", { list: list ?? d.list ?? [], on: on ?? d.on ?? {} }); return true; }catch(err){ console.error(err); toast("Couldn't save. Only the owner or an admin can change tags."); return false; } }
+// optional Tags on forms: tick tags created in Manage → Tags
+const tagTypeName = type => (TAG_TYPES.find(x => x[0]===type)?.[1] || type).toLowerCase();
+const tagPick = (type, recId, id = "tgPick", cur) => { const l = tagList(type), sel = new Set(cur || (recId ? tagsOf(type, recId) : []));
+  return `<div class="f full"><label>Tags</label>${l.length ? `<div class="multi" id="${id}">${l.map(t => `<label class="chk"><input type="checkbox" value="${esc(t.id)}" ${sel.has(t.id)?"checked":""}> ${esc(t.name)}</label>`).join("")}</div>` : `<div class="note" id="${id}">No ${esc(tagTypeName(type))} tags yet. Create them in Manage → Tags.</div>`}</div>`; };
+const tagPickGet = (id = "tgPick") => { const el = document.getElementById(id); return el && el.classList.contains("multi") ? [...el.querySelectorAll("input:checked")].map(i => i.value) : null; };
+async function tagSetFor(type, recId, ids){ if(ids==null || !recId) return; const cur = tagsOf(type, recId); if(cur.length===ids.length && cur.every(x => ids.includes(x))) return;
+  const on = JSON.parse(JSON.stringify(tagDoc().on || {})), m = on[type] ||= {}; if(ids.length) m[recId] = ids; else delete m[recId]; await tagSave(null, on); }
+function tagEdit(type, recId, after){
+  const box = $("#ccBox"); box.className = "modal";
+  box.innerHTML = `<header><h2>Edit Tags</h2><button type="button" class="x" data-ccclose aria-label="Close">×</button></header><div class="body" style="display:block">${tagPick(type, recId, "teTags")}</div>
+  <footer><span style="flex:1"></span>${tagList(type).length ? `<button type="button" class="btn pri" id="teGo">Save</button>` : ""}</footer>`;
+  $("#ccScrim").classList.add("show"); const g = $("#teGo"); if(g) g.onclick = async () => { await tagSetFor(type, recId, tagPickGet("teTags")); $("#ccScrim").classList.remove("show"); toast("Tags saved"); after ? after() : render(); };
+}
 const TG = { type:"product", tab:"general" };
 // one page, a section per kind of tag (Foodics style): title + Create Tag, then a card listing the tags (or a hint when there are none)
 function viewTags(){
@@ -6816,7 +6848,7 @@ $("#crudScrim").addEventListener("click", async e => {
     if(!name || !branchId || !reference){ $("#cErr").textContent = "Type, name, reference and branch are required."; return; }
     if(S.devices.some(x => live(x) && String(x.reference||"").toUpperCase()===reference)){ $("#cErr").textContent = "Another device already uses this reference."; return; }
     const code = newCode(), type = $("#dType").value, master = type==="cashier" && !S.devices.some(x => live(x) && x.branchId===branchId && x.settings?.master);
-    try{ await put("devices", null, { name, reference, type, branchId, code, settings: master ? { master:true } : {} }); closeCrud(); toast(`Device created · activation code ${code}`); }
+    try{ const did = uid("dev"); await put("devices", did, { name, reference, type, branchId, code, settings: master ? { master:true } : {} }); await tagSetFor("device", did, tagPickGet("dTags")); closeCrud(); toast(`Device created · activation code ${code}`); }
     catch(err){ console.error(err); $("#cErr").textContent = "Couldn't create the device."; }
   }
 });
