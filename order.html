@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="347-1794003553">
+<meta name="slick-build" content="348-1794003650">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -511,6 +511,8 @@ body{padding-bottom:calc(140px + env(safe-area-inset-bottom) * .4)!important}
 .locbar.stuck .tbmode{margin-bottom:8px!important}
 .tools{top:var(--lbh,0px)!important}
 [id^="c_"]{scroll-margin-top:calc(var(--lbh,0px) + 120px)}
+.favw{position:relative}.unfav{position:absolute;top:8px;left:8px;z-index:2;width:36px;height:36px;border-radius:50%;border:0;background:var(--s);color:var(--acc);display:grid;place-items:center;box-shadow:0 2px 8px rgba(0,0,0,.15)}
+.unfav svg{width:19px;height:19px;fill:currentColor;stroke:currentColor;stroke-width:1.5}
 </style>
 </head>
 <body class="lay-grid">
@@ -1278,10 +1280,11 @@ function openFavs(){
   const list = favs().map(id => products.find(p => p.id===id)).filter(p => p && visible().some(v => v.id===p.id));
   const sh = $("#sheet"); sh.className = "sheet locsheet acsheet";
   sh.innerHTML = `<div class="grab"></div><div class="lshead"><span></span><h3>Favorites</h3><button type="button" class="x" data-close aria-label="Close">×</button></div>` +
-    (list.length ? `<div class="favlist">${list.map(itemCard).join("")}</div>` : `<div class="fvempty">${ic("heart")}<b>No favorites yet</b>Tap the heart on any item to save it here.</div><button type="button" class="primary" data-nav="order" style="margin-top:18px">Browse the menu</button>`);
+    (list.length ? `<div class="favlist">${list.map(p => `<div class="favw">${itemCard(p)}<button type="button" class="unfav" data-unfav="${esc(p.id)}" aria-label="Remove ${esc(p.name)} from favorites">${ic("heart")}</button></div>`).join("")}</div>` : `<div class="fvempty">${ic("heart")}<b>No favorites yet</b>Tap the heart on any item to save it here.</div><button type="button" class="primary" data-nav="order" style="margin-top:18px">Browse the menu</button>`);
   $("#scrim").classList.add("show"); $("#scrim").scrollTop = 0;
 }
-$("#sheet").addEventListener("click", e => { const it = e.target.closest(".favlist [data-item]"); if(!it || it.classList.contains("oos")) return; $("#scrim").classList.remove("show"); openItem(products.find(x => x.id===it.dataset.item)); });
+$("#sheet").addEventListener("click", e => { const uf = e.target.closest("[data-unfav]"); if(uf){ togFav(uf.dataset.unfav); toast("Removed from favorites"); return; }
+  const it = e.target.closest(".favlist [data-item]"); if(!it || it.classList.contains("oos")) return; $("#scrim").classList.remove("show"); openItem(products.find(x => x.id===it.dataset.item)); });
 /* ---------- bottom navigation ---------- */
 const NAV = { cur:"order" };
 function navMark(k){ NAV.cur = k; document.querySelectorAll("#bnav [data-nav]").forEach(b => { const on = b.dataset.nav===k; b.classList.toggle("on", on); on ? b.setAttribute("aria-current","page") : b.removeAttribute("aria-current"); }); }
