@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="282-1793982122">
+<meta name="slick-build" content="286-1793983790">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1420,9 +1420,11 @@ let TCUR = 1;
 function quickBtns(cur){
   const t = totals().total, c2 = CUR2();
   if(cur===2 && c2){ const ex = ceilD(t * c2.rate, c2.dec), b = Math.pow(10, Math.floor(Math.log10(Math.max(ex, 1))));   // round notes: e.g. 1,118,750 → 1,200,000 · 1,500,000 · 2,000,000
-    const l = [ex, ...[b/10, b/2, b].map(k => Math.ceil(ex/k)*k)].filter((v,i,a) => v >= ex && a.indexOf(v)===i).slice(0,4);
+    const pre = String(coS().quickTender2||"").split(",").map(x => +x.trim()).filter(x => x > ex);
+    const l = (pre.length ? [ex, ...pre] : [ex, ...[b/10, b/2, b].map(k => Math.ceil(ex/k)*k)]).filter((v,i,a) => v >= ex && a.indexOf(v)===i).slice(0, pre.length ? 8 : 4);
     return l.map(v => `<button data-qk="${v}">${v===ex ? "Exact" : c2.code + " " + num2(v, c2.dec)}</button>`).join(""); }
-  const q = [t, Math.ceil(t/5)*5, Math.ceil(t/10)*10, Math.ceil(t/20)*20, ...String(appSet().presetTender||"").split(",").map(x=>+x.trim()).filter(x => x > t)].filter((v,i,a)=>a.indexOf(v)===i);
+  const pre = String(coS().quickTender||"").split(",").map(x=>+x.trim()).filter(x => x > t);
+  const q = (pre.length ? [t, ...pre] : [t, Math.ceil(t/5)*5, Math.ceil(t/10)*10, Math.ceil(t/20)*20, ...String(appSet().presetTender||"").split(",").map(x=>+x.trim()).filter(x => x > t)]).filter((v,i,a)=>a.indexOf(v)===i).slice(0, 8);
   return q.map(v=>`<button data-qk="${v}">${v===t ? "Exact" : usd(v)}</button>`).join("");
 }
 const tPaid = () => { const c2 = CUR2(), v1 = +$("#tender")?.value || 0, v2 = c2 ? (+$("#tender2")?.value || 0) : 0; return { v1, v2, paid: v1 + (c2 ? v2 / c2.rate : 0) }; };

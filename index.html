@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="285-1793983138">
+<meta name="slick-build" content="286-1793983790">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -5189,18 +5189,23 @@ function viewCurrency(){
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px">
         <div class="f"><label for="co_currency">Main currency</label><select id="co_currency" class="sel" ${admin && !bizLocked() ? "" : "disabled"} ${bizLocked() ? `title="${LOCK_NOTE}"` : ""}>${CURRENCIES.map(([k,t])=>`<option value="${k}" ${(c.currency||"USD")===k?"selected":""}>${t}</option>`).join("")}</select></div>
         <div class="f"><label for="co_priceDecimals">Main currency decimals</label><select id="co_priceDecimals" class="sel" ${admin?"":"disabled"}>${[0,1,2].map(n=>`<option value="${n}" ${String(Math.min(2, c.priceDecimals ?? 2))===String(n)?"selected":""}>${n}</option>`).join("")}</select></div>
+        <div class="f"><label for="co_quickTender">Quick tender amounts</label><input id="co_quickTender" class="sel" value="${esc(c.quickTender||"")}" placeholder="e.g. 10,20,50,100" ${admin?"":"disabled"}></div>
       </div><p class="note" style="margin:10px 0 0">Menu prices, totals and reports are in the main currency.</p></div>
     <div class="card" style="margin-bottom:16px"><h3 style="margin:0 0 12px;font-size:15px">Secondary Currency</h3>
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px">
         <div class="f"><label for="co_currency2">Secondary currency</label><select id="co_currency2" class="sel" ${admin?"":"disabled"}><option value="">None</option>${CURRENCIES.map(([k,t])=>`<option value="${k}" ${c.currency2===k?"selected":""}>${t}</option>`).join("")}</select></div>
         <div class="f"><label for="co_rate2">Exchange rate (1 ${esc(c.currency||"USD")} =)</label><input id="co_rate2" class="sel" type="number" min="0" step="any" value="${esc(c.rate2??"")}" placeholder="e.g. 89500" ${admin?"":"disabled"}></div>
         <div class="f"><label for="co_decimals2">Secondary currency decimals</label><select id="co_decimals2" class="sel" ${admin?"":"disabled"}>${[0,1,2].map(n=>`<option value="${n}" ${String(c.decimals2 ?? 0)===String(n)?"selected":""}>${n}</option>`).join("")}</select></div>
+        <div class="f"><label for="co_quickTender2">Quick tender amounts</label><input id="co_quickTender2" class="sel" value="${esc(c.quickTender2||"")}" placeholder="e.g. 500000,1000000,5000000" ${admin?"":"disabled"}></div>
       </div><p class="note" style="margin:10px 0 0">Shown next to totals in the POS, on receipts, in the call center and online. The cashier can take cash in either currency, or both, and the change is shown in both.</p></div>
     <div class="err" id="curErr"></div>`;
 }
 async function saveCurrency(){
   const v = k => ($("#co_"+k)?.value || "").trim();
-  const data = { currency: bizLocked() ? (company().currency || "USD") : (v("currency") || "USD"), priceDecimals: +v("priceDecimals"), currency2: v("currency2"), rate2: v("rate2")==="" ? null : +v("rate2"), decimals2: +v("decimals2") || 0 };
+  const data = { currency: bizLocked() ? (company().currency || "USD") : (v("currency") || "USD"), priceDecimals: +v("priceDecimals"), currency2: v("currency2"), rate2: v("rate2")==="" ? null : +v("rate2"), decimals2: +v("decimals2") || 0, quickTender: v("quickTender"), quickTender2: v("quickTender2") };
+  const qOk = x => !x || /^\s*\d+(\.\d+)?\s*(,\s*\d+(\.\d+)?\s*){0,7}$/.test(x);
+  if(!qOk(data.quickTender) || !qOk(data.quickTender2)){ $("#curErr").textContent = "Quick tender amounts: numbers separated by commas, like 10,20,50,100 (up to 8)."; return; }
+  data.quickTender = data.quickTender.replace(/\s+/g, ""); data.quickTender2 = data.quickTender2.replace(/\s+/g, "");
   if(data.currency2 && !(data.rate2 > 0)){ $("#curErr").textContent = "Enter the exchange rate for the second currency."; $("#co_rate2").focus(); return; }
   try{ await put("settings", "company", data); toast("Currency saved"); }
   catch(e){ console.error(e); $("#curErr").textContent = "Couldn't save. Only the owner or an admin can change this."; }
