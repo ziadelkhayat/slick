@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="333-1794000181">
+<meta name="slick-build" content="334-1794000319">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -456,6 +456,7 @@ body{padding-bottom:calc(170px + env(safe-area-inset-bottom))!important}
 .tbrand b{font-size:16px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .tbrow .tcart{margin-left:0}
 .hin .logo,.hmeta h1{display:none}.hin{align-items:center}
+.lay-list .item .ph{width:132px!important;height:132px!important;overflow:hidden}.lay-list .item .ph img{width:100%;height:100%;object-fit:cover;transform:scale(1.22)}
 </style>
 </head>
 <body class="lay-grid">
@@ -671,7 +672,7 @@ function locate(){
 const AK = "slick_addr_" + brandId;
 const lsGet = (k, d) => { try{ const v = JSON.parse(localStorage.getItem(k)); return v ?? d; }catch(e){ return d; } }, lsSet = (k, v) => { try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} };
 const VK = "slick_view"; let VIEW = lsGet(VK, "");   // the customer's own grid / list choice, else the brand's layout
-const curLay = () => VIEW || (cfg.theme||{}).layout || "grid";
+const curLay = () => VIEW || "list";   // list by default; the customer can switch to grid
 let addrs = lsGet(AK, []), addr = null, LS = { view:"main", draft:null, res:[], menu:"" }, lmap = null, lsT = null;
 { const s = lsGet(AK + "_sel", null); addr = typeof s==="string" ? addrs.find(a => a.id===s) || null : s?.temp || null; if(addr){ pin = [addr.lat, addr.lng]; zoneId = zoneList().find(z => inside(pin, z.polygon))?.id || ""; } }   // the saved address picks its delivery zone on load
 /* ---------- customer accounts: ordering needs an account. Supabase Auth keeps the password; Slick never sees it ---------- */
@@ -1117,7 +1118,7 @@ function renderLocs(){
     return `<div class="loc"><b>${esc(b.name)}</b><div>${ic("clock")}${o ? '<span class="ok2">Open</span>' : "Closed"} · ${esc(brHoursToday(b) || "")}</div>${x.address ? `<div>${ic("pin")}${esc(x.address)}</div>` : ""}${x.phone ? `<div>${ic("phone")}<a href="tel:${esc(String(x.phone).replace(/[^\d+]/g,""))}">${esc(x.phone)}</a></div>` : ""}</div>`; }).join("")}</div></div>`;
 }
 
-const shell = () => `<div id="whereBox" class="where"></div><div class="tools">${SH().search !== false ? `<div class="srch">${ic("search")}<input id="q" type="search" placeholder="Search for menu items" autocomplete="off" value="${esc(q)}"></div>` : ""}<div class="crow"><div class="vtog" role="group" aria-label="Show items as"><button type="button" data-view="grid" aria-label="Grid">${ic("grid")}</button><button type="button" data-view="list" aria-label="List">${ic("list")}</button></div><nav class="cats" id="catBar" aria-label="Menu categories"></nav></div><div class="cprog"><i id="cprog"></i></div></div><div id="menuBox"></div><div id="locBox"></div><footer class="ft">${cfg.footer ? esc(cfg.footer) + " · " : ""}Powered by Slick</footer>`;
+const shell = () => `<div id="whereBox" class="where"></div><div class="tools">${SH().search !== false ? `<div class="srch">${ic("search")}<input id="q" type="search" placeholder="Search for menu items" autocomplete="off" value="${esc(q)}"></div>` : ""}<div class="crow"><div class="vtog" role="group" aria-label="Show items as"><button type="button" data-view="list" aria-label="List">${ic("list")}</button><button type="button" data-view="grid" aria-label="Grid">${ic("grid")}</button></div><nav class="cats" id="catBar" aria-label="Menu categories"></nav></div><div class="cprog"><i id="cprog"></i></div></div><div id="menuBox"></div><div id="locBox"></div><footer class="ft">${cfg.footer ? esc(cfg.footer) + " · " : ""}Powered by Slick</footer>`;
 if(!cfg.enabled && !PREVIEW){ renderHead(); $("#main").innerHTML = `<div class="closed"><b>Web ordering is closed right now.</b>Please call us or try again later.</div>`; return; }
 $("#main").innerHTML = shell();
 $("#main").addEventListener("click", e => {
