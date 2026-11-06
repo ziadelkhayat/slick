@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="290-1793984942">
+<meta name="slick-build" content="292-1793985488">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -184,6 +184,7 @@ body{-webkit-font-smoothing:antialiased}
 .pinpad button:active{background:#efeaff}
 .prod.hasimg{padding-top:8px}.prod img{width:100%;height:78px;object-fit:cover;border-radius:10px;display:block}
 .modal:has(.mh .x) .mf .btn[data-close]:not(.pri):not(.danger),.modal:has(.mh .x) .mf .paycx{display:none!important}
+.paycur{display:flex;align-items:center;gap:10px}.paycur>span{font-size:13px;font-weight:600;color:var(--mut,#8a8799)}.paycur .dseg{flex:1}.paydue{font-size:14px;color:var(--mut,#8a8799)}.paydue b{color:var(--ink,#15131f);font-size:17px}.paydue span{margin-left:6px}
 .dsets{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:6px}.dset{display:flex;flex-direction:column;align-items:flex-start;gap:3px;text-align:left;border:1px solid var(--line);background:var(--s);border-radius:12px;padding:12px 14px;cursor:pointer}.dset b{font-size:15px}.dset span{font-size:12.5px;color:var(--mut,#8a8799)}.dset.on{background:#efe9fb;border-color:#5b2bc4}.dset:disabled{opacity:.5;cursor:default}.dsor{font-size:12.5px;color:var(--mut,#8a8799);text-align:center;margin:8px 0 10px}
 .dseg{display:flex;gap:6px}.dseg button{flex:1;border:1px solid var(--line);background:var(--s);border-radius:10px;padding:10px;font-weight:600}.dseg button.on{background:#efe9fb;border-color:#5b2bc4;color:#5b2bc4}
 .addrg{display:grid;grid-template-columns:1fr 1fr;gap:8px}.addrg .wide{grid-column:1/-1}.addrg .adf{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--ink2)}
@@ -1348,7 +1349,7 @@ $("#modal").addEventListener("click", async e => {
         cp.disabled = over; }, err => { console.error(err); cn.innerHTML = `<div><b style="color:#b42318">Couldn't check the house account</b><br>House account needs a connection</div>`; }); }
     else if($("#cardNote")) $("#cardNote").innerHTML = `<div><b style="color:var(--ink)">Take the payment on the card machine</b><br>then complete the sale</div>`;
     return; }
-  const tc = e.target.closest("[data-tcur]"); if(tc){ TCUR = +tc.dataset.tcur; if(TCUR===2 && KP && !$("#tender2").value) $("#tender").value = ""; document.querySelectorAll("[data-tcur]").forEach(b => b.classList.toggle("on", b===tc)); KP = true; $("#quickBox").innerHTML = quickBtns(TCUR); updChange(); return; }
+  const tc = e.target.closest("[data-tcur]"); if(tc){ TCUR = +tc.dataset.tcur; if(TCUR===2 && KP && !$("#tender2").value) $("#tender").value = ""; document.querySelectorAll("[data-tcur]").forEach(b => b.classList.toggle("on", b.dataset.tcur===tc.dataset.tcur)); KP = true; $("#quickBox").innerHTML = quickBtns(TCUR); updChange(); return; }
   const qk = e.target.closest("[data-qk]"); if(qk){ const c2 = CUR2(); if(c2){ $("#tender").value = TCUR===1 ? (+qk.dataset.qk).toFixed(DEC()) : ""; $("#tender2").value = TCUR===2 ? qk.dataset.qk : ""; } else $("#tender").value = qk.dataset.qk; KP = true; updChange(); return; }
   const kp = e.target.closest("[data-kp]"); if(kp){ const el = $(TCUR===2 && $("#tender2") ? "#tender2" : "#tender"), k = kp.dataset.kp; let v = KP ? "" : el.value; KP = false;
     v = k==="⌫" ? v.slice(0,-1) : k==="." ? (v.includes(".") ? v : (v || "0") + ".") : (v==="0" ? k : v + k); el.value = v.slice(0,9); updChange(); return; }
@@ -1432,7 +1433,8 @@ function openPay(){
   modal("pay", `<div class="payx"><div class="payl"><div class="ptop"><div><div class="dlbl">Amount due</div><div class="damt">${usd(t.total)}</div>${usd2(t.total) ? `<div class="d2">≈ ${usd2(t.total)}</div>` : ""}</div></div>
       <div class="paym">${pms.map((m,i)=>`<button data-pm="${esc(m.id)}" class="${i?"":"on"}">${pmIco(m)}${esc(m.name)}</button>`).join("")}</div>
       <div class="psum">${cart.map(i => `<div><span>${+i.qty||1}× ${esc(i.name)}</span><span>${usd(lineNet(i))}</span></div>`).join("")}${t.disc ? `<div class="m"><span>${esc(discLbl())}</span><span>−${usd(t.disc)}</span></div>` : ""}${t.charges.filter(c=>c.amount).map(c => `<div class="m"><span>${esc(c.name)}</span><span>${usd(c.amount)}</span></div>`).join("")}${t.fee ? `<div class="m"><span>Delivery fee</span><span>${usd(t.fee)}</span></div>` : ""}<div class="m" style="border-top:1px dashed var(--line);padding-top:6px"><span>Tax</span><span>${usd(t.tax)}</span></div></div></div>
-    <div class="payr"><div id="cashBox" style="display:${pms[0].type==="cash"?"flex":"none"};flex-direction:column;gap:12px">${c2 ? `<div class="tnd2">
+    <div class="payr"><div id="cashBox" style="display:${pms[0].type==="cash"?"flex":"none"};flex-direction:column;gap:12px">${c2 ? `<div class="paycur"><span>Pay in</span><div class="dseg"><button type="button" data-tcur="1" class="on">${esc(coS().currency || "USD")}</button><button type="button" data-tcur="2">${esc(c2.code)}</button></div></div>
+        <div class="paydue" id="payDue"></div><div class="tnd2">
         <label class="tbox on" data-tcur="1"><span>${esc(coS().currency || "USD")}</span><input class="tender" id="tender" inputmode="none" readonly value="${t.total.toFixed(DEC())}" aria-label="Cash received in ${esc(coS().currency || "USD")}"></label>
         <label class="tbox" data-tcur="2"><span>${esc(c2.code)}</span><input class="tender" id="tender2" inputmode="none" readonly value="" placeholder="0" aria-label="Cash received in ${esc(c2.code)}"></label></div>`
       : `<input class="tender" id="tender" inputmode="none" value="${t.total.toFixed(DEC())}" aria-label="Cash received">`}
@@ -1441,7 +1443,7 @@ function openPay(){
       <div class="change"><span id="chgL">Change</span><span class="chgv"><b id="chg">${usd(0)}</b>${c2 ? `<small id="chg2"></small>` : ""}</span></div></div>
       <div class="cardnote" id="cardNote" style="display:${pms[0].type==="cash"?"none":"grid"}"><div><b style="color:var(--ink)">Take the payment on the card machine</b><br>then complete the sale</div></div>
       <div class="payact"><button type="button" class="btn paycx" data-close>Cancel</button><button class="btn pri" id="confirmPay">${ico("check")} COMPLETE SALE</button></div></div></div>`);
-  $("#modal").classList.add("paym2");
+  $("#modal").classList.add("paym2"); updChange();
 }
 // cash can be taken in the main currency, the second currency, or both; paid = main + second ÷ rate
 let TCUR = 1;
@@ -1457,6 +1459,7 @@ function quickBtns(cur){
 }
 const tPaid = () => { const c2 = CUR2(), v1 = +$("#tender")?.value || 0, v2 = c2 ? (+$("#tender2")?.value || 0) : 0; return { v1, v2, paid: v1 + (c2 ? v2 / c2.rate : 0) }; };
 function updChange(){
+  { const c = CUR2(), el = $("#payDue"); if(el && c){ const tt = totals().total; el.innerHTML = TCUR===2 ? `Due <b>${esc(c.code)} ${num2(ceilD(tt * c.rate, c.dec), c.dec)}</b> <span>≈ ${usd(tt)}</span>` : `Due <b>${usd(tt)}</b> <span>≈ ${esc(usd2(tt))}</span>`; } }
   const t = totals().total, c2 = CUR2(), { paid } = tPaid(), cash = payMethod?.type==="cash", short = cash && paid < t - 0.0005, d = Math.abs(paid - t);
   if($("#chgL")) $("#chgL").textContent = short ? "Remaining" : "Change";
   if($("#chg")) $("#chg").textContent = cash ? usd(short ? d : Math.max(0, paid - t)) : "—";
