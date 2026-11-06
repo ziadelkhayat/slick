@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="269-1793975508">
+<meta name="slick-build" content="270-1793975652">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -2579,11 +2579,13 @@ function crudView(key){
     ${key==="products" ? `<select class="sel" id="prodCat" aria-label="Category"><option value="">All categories</option>${S.categories.filter(c=>live(c)&&!c.channel).sort(bySort).map(c=>`<option value="${esc(c.id)}" ${state.catFilter===c.id?"selected":""}>${state.brand==="all"&&brandList().length>1?esc(brandName(c.brandId))+" · ":""}${esc(c.name)}</option>`).join("")}</select>` : ""}
     <div class="sp"></div>${scopeHere ? scopeBar(false) : ""}<input class="sel search" data-search="${key}" placeholder="Search" value="${esc(state.q[key]||"")}" aria-label="Search ${cfg.title}"></div>`;
   if(!shown.length) h += `<div class="empty">${S[cfg.col].length ? "Nothing matches." : `No ${cfg.title.toLowerCase()} yet.`}</div>`;
-  else { const sel = (state.sel ||= {})[key] ||= new Set(), bk = cfg.bulk && tab!=="deleted" || tab==="deleted" && ["products","categories","inv-items"].includes(key), allOn = bk && shown.every(r => sel.has(r.id));
+  else { const sel = (state.sel ||= {})[key] ||= new Set(), hasDel = cfg.tabs.some(t => t[0]==="deleted"), hasAct = cfg.tabs.some(t => t[0]==="active"),
+      bkActs = tab==="deleted" ? [["restore","Restore"]] : cfg.bulk ? BULK_ACTS : [...(hasAct ? [["activate","Activate"],["deactivate","Deactivate"]] : []), ...(hasDel ? [["delete","Delete"]] : [])],
+      bk = !cfg.hardDelete && bkActs.length > 0, allOn = bk && shown.every(r => sel.has(r.id));
     if(bk) [...sel].forEach(id => { if(!list.some(r => r.id===id)) sel.delete(id); });
     const dr = SORTABLE[key] && !SORTABLE[key].inside && tab!=="deleted" && !(state.q[key]||"").trim();   // drag rows to set the order every screen shows
     h += `<table><thead><tr>${dr ? `<th class="noedit grc"></th>` : ""}${bk ? `<th class="noedit bkc"><input type="checkbox" data-bkall="${key}" ${allOn?"checked":""} aria-label="Select all on this page"></th>` : ""}${bk && sel.size
-      ? `<th colspan="${cfg.cols.length}" class="bkbar"><b>${sel.size} Selected</b><span class="ddwrap"><button type="button" class="btn sm" id="bkAct">Actions ▾</button><span class="ddmenu" id="bkActM" hidden>${(tab==="deleted" ? [["restore","Restore"]] : BULK_ACTS).map(([k,t]) => `<button type="button" data-bkdo="${key}:${k}">${t}</button>`).join("")}</span></span></th>`
+      ? `<th colspan="${cfg.cols.length}" class="bkbar"><b>${sel.size} Selected</b><span class="ddwrap"><button type="button" class="btn sm" id="bkAct">Actions ▾</button><span class="ddmenu" id="bkActM" hidden>${bkActs.map(([k,t]) => `<button type="button" data-bkdo="${key}:${k}">${t}</button>`).join("")}</span></span></th>`
       : cfg.cols.map(c=>`<th class="${c[2]||""}">${c[0]}</th>`).join("")}</tr></thead><tbody>${
     shown.map(r=>`<tr class="click" data-open="${key}:${esc(r.id)}"${dr ? ` draggable="true" data-rowdrag="${key}:${esc(r.id)}"` : ""}>${dr ? `<td class="noedit grc" title="Drag to move"><span class="bmgrip" aria-hidden="true">⋮⋮</span></td>` : ""}${bk ? `<td class="noedit bkc"><input type="checkbox" data-bksel="${key}:${esc(r.id)}" ${sel.has(r.id)?"checked":""} aria-label="Select ${esc(r.name||"")}"></td>` : ""}${cfg.cols.map(c=>`<td class="${c[2]||""}">${c[1](r)}</td>`).join("")}</tr>`).join("")}</tbody></table>`; }
   h += `<div class="pager"><span class="note">Showing ${list.length?(pg-1)*per+1:0} to ${Math.min(pg*per,list.length)} out of ${list.length}</span><div class="sp"></div>
@@ -3875,7 +3877,10 @@ document.addEventListener("click", async e => {
   if(act==="restore") return run(r => r.deleted ? { deleted:false } : null, "# restored");
   if(act==="activate") return run(r => r.active===false ? { active:true } : null, "# activated");
   if(act==="deactivate") return run(r => r.active!==false ? { active:false } : null, "# deactivated");
-  if(act==="delete"){ if(!(await askYes(`Delete ${rows.length} ${rows.length===1 ? cfg.one.toLowerCase() : cfg.title.toLowerCase()}? They move to the Deleted tab.`))) return; return run(() => ({ deleted:true }), "# deleted"); }
+  if(act==="delete"){ const blocked = cfg.canDelete ? rows.filter(r => cfg.canDelete(r)) : [];
+    if(blocked.length===rows.length) return toast(cfg.canDelete(blocked[0]));
+    if(!(await askYes("Are you sure you want to delete this?"))) return;
+    return run(r => blocked.includes(r) ? null : { deleted:true }, "# deleted" + (blocked.length ? ` · ${blocked.length} in use, not deleted` : "")); }
   if(act==="taxClear") return run(r => r.taxGroup ? { taxGroup:null } : null, "Tax group removed from #");
   if(act==="taxSet" || act==="brOn" || act==="brOff"){
     const isTax = act==="taxSet", opts = isTax ? taxGroupOpts() : branches.filter(b => b.active!==false).map(b => [b.id, b.name]);
