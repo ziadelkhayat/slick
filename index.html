@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="309-1793990914">
+<meta name="slick-build" content="310-1793991374">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1185,8 +1185,8 @@ const NAV = [
   {t:"Reports",i:"chart",tabs:1,kids:[["sales-reports","Sales Reports"],["inventory-reports","Inventory Reports"],["business-reports","Business Reports"],["analysis-reports","Analysis Reports"]]},
   {t:"Inventory",i:"box",tabs:1,kids:[["inv-categories","Inventory Categories"],["inv-items","Items"],["warehouses","Locations"],["suppliers","Suppliers"],["purchase-orders","Purchase Orders"],["transfer-orders","Transfer Orders"],["transfers","Transfers"],["inventory-count","Inventory Count"],["production","Production"],["quantity-adjustments","Quantity Adjustment"],["cost-adjustments","Cost Adjustment"],["spot-check","Inventory Spot Check"],["count-sheets","Count Sheet"]]},
   {t:"Menu",i:"book",tabs:1,side:[["branch-menu","Sales Channels"]],kids:[["@Menu Builder"],["categories","Categories"],["products","Products"],["variants","Variants"],["modifiers","Modifiers"],["combos","Combos"],["@Menu Settings"],["allergens","Allergens"]]},
-  {t:"Web Ordering",i:"globe",tabs:1,kids:[["online-ordering","Settings"],["delivery-zones","Delivery Zones"]]},
-  {t:"Manage",i:"gear",tabs:1,kids:[["users","Users"],["roles","Roles"],["brands","Brands"],["branches","Branches"],["devices","Devices"],["taxes","Taxes & Groups"],["currency","Currency"],["payment-methods","Payment Methods"],["order-sources","Order Sources"],["charges","Charges"],["delivery-charges","Delivery Charges"],["kitchen-flows","Kitchen Flows"],["reasons","Reasons"],["tags","Tags"]]},
+  {t:"Web Ordering",i:"globe",tabs:1,kids:[["online-ordering","Settings"],["delivery-zones","Delivery Zones"],["delivery-charges","Delivery Charges"]]},
+  {t:"Manage",i:"gear",tabs:1,kids:[["users","Users"],["roles","Roles"],["brands","Brands"],["branches","Branches"],["devices","Devices"],["taxes","Taxes & Groups"],["currency","Currency"],["payment-methods","Payment Methods"],["order-sources","Order Sources"],["charges","Charges"],["kitchen-flows","Kitchen Flows"],["reasons","Reasons"],["tags","Tags"]]},
   {t:"Marketing",i:"tag",tabs:1,kids:[["loyalty","Loyalty"],["gift-cards","Gift Cards"],["discounts","Discounts"],["promotions","Promotions"],["coupons","Coupons"]]}
 ];
 const TITLES = { account:"Account settings", "inv-levels":"Inventory Levels", "inv-history":"Inventory History", purchasing:"Purchasing" };
@@ -2620,7 +2620,7 @@ const CRUD = {
   },
   charges: {
     col:"charges", title:"Charges", one:"Charge",
-    note:"Charges are added on top of the items, e.g. a delivery charge or a service charge. Automatic charges are added to matching orders in the POS and the call center; the cashier or user can remove them.",
+    note:"Charges are added on top of the items, e.g. a service charge. The cashier or call center agent adds them to an order.",
     tabs:[["all","All",live],["active","Active",r=>live(r)&&r.active!==false],["inactive","Inactive",r=>live(r)&&r.active===false],["deleted","Deleted",r=>r.deleted]],
     sort:(a,b)=>bySort(a,b), search:r=>r.name+" "+(r.nameAr||""),
     cols:[["Name",r=>`<b>${esc(r.name)}</b>${r.nameAr?` <span class="note">${esc(r.nameAr)}</span>`:""}`],["Type",r=>r.type==="percent"?"Percentage":r.type==="open"?"Open amount":"Amount"],["Value",r=>r.type==="percent"?(+r.value||0)+" %":r.type==="open"?"Open":usd(r.value),"num"],
@@ -3948,7 +3948,7 @@ function bmItems(){
 }
 // an item can be switched off per channel at a branch: inactiveBranchIds holds "branch" (off everywhere) or "branch:pos" / "branch:callcenter" / "branch:online"
 // each channel has its own menu per branch: "POS & Call center" and "Web ordering". Prices: customPrices[branch] (POS & call center), customPrices["branch:online"] (web)
-const BM_MENUS = [["pos","POS",["pos"]],["online","Web Ordering",["online"]],["callcenter","Call Center",["callcenter"]]];
+const BM_MENUS = [["pos","POS",["pos"]],["callcenter","Call Center",["callcenter"]],["online","Web Ordering",["online"]]];
 // the order types each channel sells (the call center takes delivery and pickup only)
 const CH_TYPES = { pos:["dinein","fast","pickup","delivery"], callcenter:["pickup","delivery"], online:["dinein","pickup","delivery"] };
 const ALL_CH = ["pos","callcenter","online"];
@@ -4010,7 +4010,7 @@ function viewBranchMenu(){
         return `<div class="mmcat${c.id===BM.cat?" sel":""}${on?"":" off"}" data-bmpick="${esc(c.id)}"${cq ? "" : ` data-sk="bmc|${esc(c.id)}"`}>
           <span class="bmgrip" title="Drag to move" aria-hidden="true">⋮⋮</span>
           <span class="scimg">${c.imageUrl ? `<img src="${esc(c.imageUrl)}" alt="">` : svgIco("image")}</span>
-          <span class="mmct"><b>${esc(c.name)}</b><small>${on ? `${nOn} of ${ps.length} on` : "Hidden"}</small></span>
+          <span class="mmct"><b>${esc(c.name)}</b>${on ? "" : `<small>Hidden</small>`}</span>
           <label class="toggle" title="${on ? "Shown" : "Hidden"} on the ${esc(ch[1])} menu"><input type="checkbox" data-bmcat="${esc(c.id)}" ${on?"checked":""} aria-label="Show ${esc(c.name)}"><span class="trk"></span></label>
           <div class="ddwrap"><button type="button" class="mmdots" data-bmcmenu="${esc(c.id)}" aria-label="Category actions">⋯</button><div class="ddmenu" hidden><button type="button" data-bmcedit="${esc(c.id)}">Edit name & image</button><button type="button" data-bmcsort="${esc(c.id)}|az">Sort products A–Z</button><button type="button" data-bmcsort="${esc(c.id)}|za">Sort products Z–A</button><button type="button" data-bmcsort="${esc(c.id)}|price">Sort products by price</button><button type="button" class="danger" data-bmcdel="${esc(c.id)}">Delete category</button></div></div></div>`; }).join("") || `<div class="mmempty">${cats.length ? "No categories match." : `<b>No categories yet</b><span>Add the first category of the ${esc(ch[1])} menu.</span>`}</div>`}</div></aside>`;
   // right: the chosen category's products
