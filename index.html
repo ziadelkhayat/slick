@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="280-1793981433">
+<meta name="slick-build" content="281-1793981633">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -852,6 +852,7 @@ h1{font-size:27px;font-weight:700;color:var(--ink)}
 .nav > a.on .ico{color:var(--accent)}
 .nav > a.on::before,.nav .sub a.on::before{content:"";position:absolute;left:-12px;top:9px;bottom:9px;width:3px;border-radius:0 3px 3px 0;background:var(--accent)}
 .nav .sub a{font-size:14px;min-height:38px;padding-left:46px;color:var(--ink2)}
+.nav .sub a .ico{display:inline-block;width:18px;height:18px;flex:none;opacity:.7;color:currentColor}.nav .sub a.on .ico{opacity:1;color:var(--accent)}.nav .sub a{gap:10px}
 .nav .chev{color:#9a96a8;transition:transform .2s var(--ease)}
 .brand b{font-size:23px}
 .logo{box-shadow:0 6px 16px rgba(79,31,179,.28)}
@@ -1178,6 +1179,7 @@ const TITLES = { account:"Account settings", "inv-levels":"Inventory Levels", "i
 NAV.forEach(n => { if(n.id) TITLES[n.id]=n.t; [...(n.kids||[]), ...(n.side||[])].forEach(k => { if(!k[0].startsWith("@")) TITLES[k[0]] = k[1]; }); });
 const svgIco = k => `<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${I[k]||""}</svg>`;
 /* ---------- icons for every screen (lucide-style strokes) ---------- */
+Object.assign(I, { zonepin:'<path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/>', bike:'<circle cx="5.5" cy="17" r="3.5"/><circle cx="18.5" cy="17" r="3.5"/><path d="M15 6h2.5l1 11M5.5 17 9 10h7.5l-4 7M8 6h3l1.5 4"/>' });
 Object.assign(I, {
   plus:'<path d="M12 5v14M5 12h14"/>',
   download:'<path d="M12 3v12M7 10l5 5 5-5"/><path d="M5 21h14"/>',
@@ -1244,7 +1246,7 @@ const SUBI = {
   "quantity-adjustments":"sliders","cost-adjustments":"dollar","order-transactions":"receipt","inv-categories":"folder","warehouses":"warehouse","spot-check":"search","count-sheets":"list",
   "categories":"grid","products":"utensils","modifiers":"layers","variants":"sliders","modifier-options":"list","branch-menu":"store","combos":"combo","groups":"folder","price-tags":"pricetag","allergens":"alert","tags":"tag",
   "company":"building","users":"user","roles":"shield","brands":"store","branches":"map","devices":"tablet","tables":"grid","taxes":"percent","payment-methods":"card","order-sources":"source",
-  "charges":"plusc","delivery-zones":"globe","delivery-charges":"plusc","online-ordering":"globe","kitchen-flows":"flow","reasons":"message","currency":"dollar","settings":"gear",
+  "charges":"plusc","delivery-zones":"zonepin","delivery-charges":"bike","online-ordering":"globe","kitchen-flows":"flow","reasons":"message","currency":"dollar","settings":"gear",
   "loyalty":"heart","gift-cards":"gift","discounts":"percent","promotions":"megaphone","coupons":"ticket",
   "dashboard":"dash","orders":"orders","call-center":"phone","customers":"users"
 };
@@ -1277,7 +1279,7 @@ function renderNav(route){
     if(!canOpen(n.id || n.kids.find(k=>!k[0].startsWith("@"))?.[0])) return "";
     if(n.id) return `<a href="#${n.id}" class="${route===n.id?"on":""}">${svgIco(n.i)}${n.t}</a>`;
     if(n.tabs && n.side){ const first = n.kids.find(k=>!k[0].startsWith("@"))[0], inTabs = n.kids.some(k=>k[0]===route), open = inTabs || n.side.some(k=>k[0]===route);   // Menu: its builder screens are tabs on the page, Sales Channels sits beside them in the sidebar
-      return `<div class="grp ${open?"open":""}" data-g="${gi}"><button type="button">${svgIco(n.i)}${n.t}<span class="chev">›</span></button><div class="sub"><a href="#${first}" class="${inTabs?"on":""}">${svgIco("book")}Menu Builder</a>${n.side.filter(k => canOpen(k[0])).map(k => `<a href="#${k[0]}" class="${route===k[0]?"on":""}">${svgIco(SUBI[k[0]]||"list")}${k[1]}</a>`).join("")}</div></div>`; }
+      return `<div class="grp ${open?"open":""}" data-g="${gi}"><button type="button">${svgIco(n.i)}${n.t}<span class="chev">›</span></button><div class="sub"><a href="#${first}" class="${inTabs?"on":""}">${svgIco("layers")}Menu Builder</a>${n.side.filter(k => canOpen(k[0])).map(k => `<a href="#${k[0]}" class="${route===k[0]?"on":""}">${svgIco(SUBI[k[0]]||"list")}${k[1]}</a>`).join("")}</div></div>`; }
     if(n.tabs){ const first = n.kids.find(k=>!k[0].startsWith("@"))[0]; return `<a href="#${first}" class="${n.kids.some(k=>k[0]===route)?"on":""}">${svgIco(n.i)}${n.t}</a>`; }   // one entry; its screens are tabs on the page
     const open = n.kids.some(k => k[0]===route);
     return `<div class="grp ${open?"open":""}" data-g="${gi}"><button type="button">${svgIco(n.i)}${n.t}<span class="chev">›</span></button><div class="sub">${
