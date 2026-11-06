@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="316-1793992891">
+<meta name="slick-build" content="317-1793993483">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1676,7 +1676,7 @@ function boardOrders(col, pd){
     && (!pd || ["pickup","takeaway","delivery"].includes(o.type) || (o.channel!=="pos" && o.type==="dinein")) && (pd || !OV.ft || (OV.ft==="pickup" ? ["pickup","takeaway"].includes(o.type) : o.type===OV.ft)) && (pd || !OV.fc || (OV.fc==="pos" ? o.channel==="pos" : OV.fc==="callcenter" ? o.channel==="callcenter" : !["pos","callcenter"].includes(o.channel)))
     && (pd || !OV.fs || String(o.source||"").toLowerCase()===OV.fs.toLowerCase()) && (pd || !OV.fp || String(o.payment?.method||"").toLowerCase()===OV.fp.toLowerCase());
   if(!pd){ const all = ovAll().filter(o => o.status!=="draft" && ovInRange(o) && m(o)), by = (a,b) => String(b.createdAt).localeCompare(String(a.createdAt));
-    return (col==="all" ? all : col==="active" ? all.filter(o => ["active","pending"].includes(o.status)) : col==="closed" ? all.filter(o => o.status==="closed") : col==="void" ? all.filter(o => ["void","returned","refund","declined"].includes(o.status)) : all.filter(o => o.status===col)).sort(by); }
+    return (col==="all" ? all : col==="active" ? all.filter(o => ["active","pending"].includes(o.status)) : col==="closed" ? all.filter(o => o.status==="closed") : col==="void" ? all.filter(o => o.status==="void") : col==="returns" ? all.filter(o => ["returned","refund"].includes(o.status)) : all.filter(o => o.status===col)).sort(by); }
   if(col==="all") return (pd ? ["pending","active","closed","void"] : ["active","closed","void"]).flatMap(k => boardOrders(k, pd)).sort((a,b) => String(b.createdAt).localeCompare(String(a.createdAt)));
   const l = col==="pending" ? mine.filter(o => o.status==="pending" && onDay(o)) : col==="active" ? mine.filter(o => o.status==="active" && onDay(o))
     : col==="closed" ? mine.filter(o => o.status==="closed" && bizDate(o.createdAt)===day)
@@ -1712,7 +1712,7 @@ function openIncoming(){
     <span class="lc lc2"><b style="text-transform:none">${o.createdAt ? fmtDay(bizDate(o.createdAt)) : "—"}</b></span>
     <span class="lc lc2"><b style="text-transform:none">${esc(o.payment?.method || "-")}</b></span>
     <span class="lr"><b style="text-transform:none;font-size:15px">${usd(o.total)}</b></span></button>`;
-  const TABS = [["all","All"],["active","Active"],["closed","Done"],["void","Void & returns"]];
+  const TABS = [["all","All"],["active","Active"],["closed","Done"],["void","Voids"],["returns","Returns"],["declined","Declined"]];
   if(!TABS.some(x => x[0]===OV.tab)) OV.tab = "all";
   const chip = (k, v, l) => `<button class="chip${OV[k]===v?" on":""}" data-of="${k}:${v}">${l}</button>`;
   const day = OV.date || bizDate(), shift = n => { const d = new Date(day + "T12:00:00"); d.setDate(d.getDate() + n); return d.toISOString().slice(0,10); };
@@ -1730,7 +1730,7 @@ function openIncoming(){
   const pays = [...new Set([...payMethods().map(m => m.name), ...S.orders.map(o => o.payment?.method).filter(Boolean)])];
   const filt = (OV.filt ? `<div class="ofpanel2">
       ${grp("ft", "Order type", Object.entries(TYL))}${grp("fc", "Sales channel", Object.entries(CHL))}
-      ${srcs.length ? grp("fs", "Order source", srcs.map(x => [x, x])) : ""}${pays.length ? grp("fp", "Payment type", pays.map(x => [x, x])) : ""}
+      ${srcs.length ? grp("fs", "Order source", srcs.map(x => [x, x])) : ""}${pays.length ? grp("fp", "Payment Type", pays.map(x => [x, x])) : ""}
       <div class="ofact2">${active.length ? `<button class="btn" data-ofclear>Clear all</button>` : ""}<button class="btn pri" data-ofilt>Done</button></div></div>` : "")
     + (active.length ? `<div class="ofsel">${active.map(([k,l]) => `<button class="ofchip2" data-ofx="${k}">${esc(l)}<span aria-hidden="true">×</span></button>`).join("")}<button class="ofclr2" data-ofclear>Clear all</button></div>` : "");
   let body;
@@ -1738,7 +1738,7 @@ function openIncoming(){
       return `<div class="ocol"><div class="ochead" title="${esc(tip)}"><b>${title}</b><span class="cnt">${l.length}</span></div>${l.length ? l.map(card).join("") : `<div class="oempty">You don't have ${title.toLowerCase()} orders</div>`}</div>`; }).join("")}</div>`;
   else { const l = boardOrders(OV.tab);
     body = `<div class="otabs2">${TABS.map(([k,l2]) => `<button data-ovtab="${k}" class="${OV.tab===k?"on":""}">${l2}</button>`).join("")}</div>
-      <div class="olist2">${l.length ? `<div class="lrow ol5 lhead"><span>Reference #</span><span>Invoice #</span><span>Order #</span><span>Customer</span><span>Status</span><span class="lc2">Sales channel</span><span class="lc2">Order type</span><span class="lc2">Order source</span><span class="lc2">Business date</span><span class="lc2">Payment type</span><span style="text-align:right">Total</span></div>` + l.map(row).join("") : `<div class="oempty" style="border-radius:0">No orders here</div>`}</div>`; }
+      <div class="olist2">${l.length ? `<div class="lrow ol5 lhead"><span>Reference #</span><span>Invoice #</span><span>Order #</span><span>Customer</span><span>Status</span><span class="lc2">Sales channel</span><span class="lc2">Order type</span><span class="lc2">Order source</span><span class="lc2">Business date</span><span class="lc2">Payment Type</span><span style="text-align:right">Total</span></div>` + l.map(row).join("") : `<div class="oempty" style="border-radius:0">No orders here</div>`}</div>`; }
   const ovSt = modalKind==="incoming" ? ($("#modal .mb")?.scrollTop || 0) : 0;
   modal("incoming", `${head}<div class="mb" style="display:flex;flex-direction:column;gap:12px">${filt}${body}<p class="mut" style="margin:0">${OV.loading ? "Loading older orders… " : ""}${OV.from||OV.to ? `Orders by business date · ${esc(ovRangeLbl())}.` : "All orders of this branch, newest first."} Tap an order to open it in the billing section.</p></div>`, true);
   $("#modal").classList.add("full"); $("#scrim").classList.add("fullscr"); withNav();
