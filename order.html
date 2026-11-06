@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="337-1794000881">
+<meta name="slick-build" content="338-1794000956">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -439,7 +439,7 @@ body{padding-bottom:calc(170px + env(safe-area-inset-bottom))!important}
 .app .ipfav{top:calc(12px + env(safe-area-inset-top))}
 .ipfav svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2.2}.ipfav.on svg{fill:currentColor}
 .favlist{display:flex;flex-direction:column;gap:10px}.favlist .item{cursor:pointer}
-.fvempty{text-align:center;padding:26px 10px 10px;color:var(--ink2)}.fvempty svg{width:44px;height:44px;fill:none;stroke:var(--acc);stroke-width:1.8;margin-bottom:8px}.fvempty b{display:block;color:var(--ink);font-size:16px;margin-bottom:4px}
+.fvempty{text-align:center;padding:26px 10px 10px;color:var(--ink2)}.fvempty svg{display:block;margin:0 auto 8px;width:44px;height:44px;fill:none;stroke:var(--acc);stroke-width:1.8}.fvempty b{display:block;color:var(--ink);font-size:16px;margin-bottom:4px}
 .lyhow{display:flex;flex-direction:column;gap:10px;margin-top:14px}.lyhow div{display:flex;gap:12px;align-items:flex-start;background:var(--bg);border-radius:14px;padding:12px 14px}.lyhow i{font-style:normal;flex:none;width:26px;height:26px;border-radius:50%;background:var(--acc);color:var(--on-acc,#fff);display:grid;place-items:center;font-weight:800;font-size:13px}.lyhow small{display:block;color:var(--ink2)}
 .line .rt{display:flex;flex-direction:column;align-items:flex-end;gap:8px}
 .lq{display:inline-flex;align-items:center;gap:2px;border:1px solid var(--line);border-radius:999px;padding:2px;background:var(--s)}
@@ -1222,7 +1222,7 @@ function navScroll(){ if($("#scrim").classList.contains("show")) return; const m
 addEventListener("scroll", navScroll, { passive:true });
 new MutationObserver(() => { if(!$("#scrim").classList.contains("show")) navScroll(); }).observe($("#scrim"), { attributes:true, attributeFilter:["class"] });
 document.addEventListener("click", e => {
-  if(e.target.closest("[data-tcart]")){ if(cart.length) openCart(); else toast("Your basket is empty"); return; }
+  if(e.target.closest("[data-tcart]")) return openCart();
   const b = e.target.closest("[data-nav]"); if(!b) return; const k = b.dataset.nav;
   if($("#ipg")?.classList.contains("show")) closeItem();
   if(k==="order"){ $("#scrim").classList.remove("show"); { const m = $("#main"); scrollTo({ top: Math.max(0, scrollY + m.getBoundingClientRect().top - 8), behavior:"smooth" }); } return navMark(k); }
@@ -1238,7 +1238,7 @@ document.addEventListener("click", e => { let t;
   if(e.target.closest("[data-costep]")) return openCart("details");
   if(e.target.closest("[data-coback]")) return openCart("basket");
   if(t = e.target.closest("[data-cq]")){ const [ix, d] = t.dataset.cq.split(":").map(Number), it = cart[ix]; if(!it) return; it.qty += d; if(it.qty < 1) cart.splice(ix, 1);
-    const y = scrollY; renderMenu(); scrollTo(0, y); if(cart.length) openCart("basket"); else $("#scrim").classList.remove("show"); return; }
+    const y = scrollY; renderMenu(); scrollTo(0, y); openCart("basket"); return; }
   if(t = e.target.closest("[data-cedit]")){ const ix = +t.dataset.cedit, it = cart[ix]; if(!it) return;
     const par = products.find(p => (p.variants||[]).some(v => v.productId===it.productId)) || products.find(p => p.id===it.productId); if(!par) return;
     $("#scrim").classList.remove("show"); openItem(par); if(!$("#ipg")?.classList.contains("show")) return;
@@ -1294,6 +1294,11 @@ function payList(){ const p = CO().pay || {}; const l = []; if(p.cash !== false)
 let COSTEP = "basket";
 function openCart(step){
   COSTEP = step==="details" ? "details" : "basket";
+  if(!cart.length){ $("#sheet").className = "sheet";   // empty basket
+    $("#sheet").innerHTML = `<h3>Your basket <button class="x" data-close aria-label="Close">×</button></h3>
+      <div class="fvempty">${ic("cart")}<b>Your basket is empty</b>Add items from the menu to start your order.</div>
+      <button type="button" class="primary" data-nav="order" style="margin-top:18px">${ic("plus")}Add items</button>`;
+    $("#scrim").classList.add("show"); $("#scrim").scrollTop = 0; return; }
   const min = minOrder(), b = branches.find(x => x.id===curBranch()), canNow = !b || brOpenNow(b), sl = CO().schedule && b ? slots(b) : [];
   const em = CO().email || "off", pays = payList();
   if(!qrBranch && !PREVIEW && (mode==="delivery" ? !addr : !curBranch())){ goCart = true; return openLoc("main"); }   // pick where to deliver / which branch first
