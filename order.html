@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="346-1794003479">
+<meta name="slick-build" content="347-1794003553">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1120,6 +1120,7 @@ function openItem(p){
   if(!d){ d = document.createElement("div"); d.id = "ipg"; d.className = "ipg"; d.setAttribute("role","dialog"); d.setAttribute("aria-modal","true"); document.body.appendChild(d);
     d.addEventListener("click", e => { const g = s => e.target.closest(s); let t;
       if(e.target===d || g("[data-ix]")) return closeItem();
+      if(g("[data-ifav]") && !USER){ const p = IT.p; closeItem(); return openAuth("in", () => { $("#scrim").classList.remove("show"); if(!isFav(p.id)) togFav(p.id); openItem(p); }, "Sign in to save your favorites."); }
       if(t = g("[data-ifav]")){ const on = togFav(IT.p.id); t.classList.toggle("on", on); t.setAttribute("aria-label", on ? "Remove from favorites" : "Add to favorites"); toast(on ? "Added to favorites" : "Removed from favorites"); return; }
       if(t = g("[data-iv]")){ IT.kid = IT.kids.find(k => k.p.id===t.dataset.iv)?.p || null; IT.err = -1; itLinks(); return drawItem(); }
       if(t = g("[data-io]")){ const [gs, id, dd] = t.dataset.io.split(":"), gi = +gs, l = IT.links[gi], mx = +l.max||0;
@@ -1264,10 +1265,10 @@ async function openScan(){
 document.addEventListener("click", e => { if(e.target.closest("[data-scanqr]")) openScan(); });
 
 /* ---------- favorites (kept on this device, and on the account when signed in) ---------- */
-const FAVK = () => "slick_fav_" + brandId;
-function favs(){ const a = Array.isArray(PROF?.favorites) ? PROF.favorites : null; if(a) return a; try{ return JSON.parse(localStorage.getItem(FAVK()) || "[]"); }catch(e){ return []; } }
+const FAVK = () => "slick_fav_" + brandId + "_" + (USER?.id || "");
+function favs(){ if(!USER) return []; const a = Array.isArray(PROF?.favorites) ? PROF.favorites : null; if(a) return a; try{ return JSON.parse(localStorage.getItem(FAVK()) || "[]"); }catch(e){ return []; } }
 const isFav = id => favs().includes(id);
-function togFav(id){ let f = favs(); const on = !f.includes(id); f = on ? [...f, id] : f.filter(x => x !== id);
+function togFav(id){ if(!USER) return false; let f = favs(); const on = !f.includes(id); f = on ? [...f, id] : f.filter(x => x !== id);
   try{ localStorage.setItem(FAVK(), JSON.stringify(f)); }catch(e){}
   if(USER && PROF){ PROF.favorites = f; sb.from("web_customers").update({ favorites:f }).eq("id", USER.id).then(x => { if(x.error) delete PROF.favorites; }); }
   if(NAV.cur==="favs" && $("#scrim").classList.contains("show")) openFavs();
@@ -1295,8 +1296,8 @@ document.addEventListener("click", e => {
   navMark(k);
   if(k==="account"){ AC.then = null; AC.msg = ""; return USER ? openAcct("home") : openAuth("in", null, ""); }
   if(k==="loyalty") return USER ? openAcct("loyal") : openAuth("in", null, "Sign in to see your loyalty points.");
-  if(k==="favs") return openFavs();
-  if(k==="orders") return USER ? openOrders() : openAuth("in", null, "Sign in to see your orders.");
+  if(k==="favs") return USER ? openFavs() : openAuth("in", openFavs, "Sign in to see your favorites.");
+  if(k==="orders") return USER ? openOrders() : openAuth("in", openOrders, "Sign in to see your orders.");
 });
 
 /* ---------- basket: quantity, edit, remove, next step ---------- */
