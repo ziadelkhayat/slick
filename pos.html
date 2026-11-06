@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="269-1793975508">
+<meta name="slick-build" content="271-1793976085">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -748,7 +748,7 @@ const prodPrice = p => { const c = (p.customPrices||{})[device.branchId]; return
 const kidIds = () => new Set(S.products.flatMap(p => (p.variants||[]).map(v => v.productId).filter(Boolean)));
 const kidsOf = p => { const ok = products(); return (p.variants||[]).map(v => ({ name:v.name, p: ok.find(x => x.id===v.productId) })).filter(x => x.p); };
 const tilePrice = p => { const k = kidsOf(p); return k.length ? Math.min(...k.map(x => prodPrice(x.p))) : prodPrice(p); };
-const products = () => S.products.filter(p => live(p) && !(p.inactiveBranchIds||[]).includes(device.branchId) && !(p.inactiveBranchIds||[]).includes(device.branchId + ":pos") && !(p.inactiveBranchIds||[]).includes(device.branchId + ":pos:" + menuType()) && (!p.brandId || !branch?.brandId || p.brandId===branch.brandId)); // which channels sell it is set per branch in Menus
+const products = () => S.products.filter(p => live(p) && p.active!==false && !(p.inactiveBranchIds||[]).includes(device.branchId) && !(p.inactiveBranchIds||[]).includes(device.branchId + ":pos") && !(p.inactiveBranchIds||[]).includes(device.branchId + ":pos:" + menuType()) && (!p.brandId || !branch?.brandId || p.brandId===branch.brandId)); // which channels sell it is set per branch in Menus
 const openShift = () => S.shifts.find(s => s.deviceId===device.id && !s.closedAt);
 /* ---------- cashiers: PIN sign-in and what each role may do ---------- */
 let cashier = null, pinBuf = "";
@@ -1154,11 +1154,11 @@ const linkOpt = (p, o) => ((p.modifiers||[]).find(l => l.modifierId===o.modifier
 function modData(p){
   const groups = {}; S.modifiers.forEach(m => { if(!m.deleted) groups[m.id] = { name:m.name, sort:m.sort }; });
   const ids = new Set((p.modifiers||[]).map(l=>l.modifierId));
-  const options = S.modifier_options.filter(o => !o.deleted && ids.has(o.modifierId) && !(o.inactiveBranchIds||[]).includes(device.branchId) && !(o.inactiveBranchIds||[]).includes(device.branchId + ":pos") && !(o.inactiveBranchIds||[]).includes(device.branchId + ":pos:" + menuType()))
+  const options = S.modifier_options.filter(o => !o.deleted && o.active!==false && ids.has(o.modifierId) && !(o.inactiveBranchIds||[]).includes(device.branchId) && !(o.inactiveBranchIds||[]).includes(device.branchId + ":pos") && !(o.inactiveBranchIds||[]).includes(device.branchId + ":pos:" + menuType()))
     .sort((a,b)=>(a.sort??999)-(b.sort??999) || a.name.localeCompare(b.name))
     .filter(o => !(linkOpt(p, o).off||[]).includes(device.branchId + ":pos"))
     .map(o => { const s = linkOpt(p, o), sp = (s.price||{})[device.branchId + ":pos"], c = sp!=null && sp!=="" ? sp : (o.customPrices||{})[device.branchId]; return { id:o.id, modifierId:o.modifierId, name:o.name, price: c!=null && c!=="" ? +c : +o.price||0, oos:(o.outOfStockBranchIds||[]).includes(device.branchId) || (s.oos||[]).includes(device.branchId) }; });
-  return { links:(p.modifiers||[]).filter(l => groups[l.modifierId]), groups, options };   // in the order set on the product
+  return { links:(p.modifiers||[]).filter(l => groups[l.modifierId] && options.some(o => o.modifierId===l.modifierId)), groups, options };   // in the order set on the product; a modifier with no active options is hidden
 }
 // out of stock at this branch (set in Sales Channels); a product with variants is out when every variant is
 const prodOos = p => { const k = kidsOf(p); return k.length ? k.every(x => prodOos(x.p)) : (p.outOfStockBranchIds||[]).includes(device?.branchId); };

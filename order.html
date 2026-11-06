@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="269-1793975508">
+<meta name="slick-build" content="271-1793976085">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -526,10 +526,10 @@ const taxParts = () => cart.reduce((a,i) => { const p = products.find(x=>x.id===
 incl = !Object.values(taxDef).some(t => !t.inc);
 const taxIn = () => +taxParts().tax.toFixed(2);
 const grand = () => +(sub() + fee() + taxParts().add).toFixed(2);
-const mopts = (mo.data||[]).filter(o => !o.deleted);
+const mopts = (mo.data||[]).filter(o => !o.deleted && o.active!==false);
 if(pr.error){ const r2 = await sb.from("products").select("id,deleted,name,price,description,category_id,active,channels,branch_ids,pricing_method,custom_prices,inactive_branch_ids,out_of_stock_branch_ids,modifiers,sort,image_url,tax_group,variants").eq("brand_id", brandId).order("sort").order("name"); if(!r2.error){ pr.data = r2.data; pr.error = null; } }   // nutrition & allergens not readable yet: show the menu without them
 if([st,br,ca,pr,zo].some(r => r.error)){ $("#main").innerHTML = `<div class="closed"><b>We couldn't load the menu.</b>Please try again in a moment.</div>`; return; }
-const cfg = st.data?.data || {}, branches = br.data.filter(b => b.active !== false), allCats = ca.data.filter(c => !c.deleted), webCats = allCats.filter(c => c.channel==="online"), useCh = webCats.length > 0, cats = useCh ? webCats : allCats.filter(c => !c.channel), products = pr.data.filter(p => !p.deleted), zones = zo.data.filter(z => !z.deleted && z.active !== false && branches.some(b => b.id === z.branch_id));
+const cfg = st.data?.data || {}, branches = br.data.filter(b => b.active !== false), allCats = ca.data.filter(c => !c.deleted), webCats = allCats.filter(c => c.channel==="online"), useCh = webCats.length > 0, cats = useCh ? webCats : allCats.filter(c => !c.channel), products = pr.data.filter(p => !p.deleted && p.active!==false), zones = zo.data.filter(z => !z.deleted && z.active !== false && branches.some(b => b.id === z.branch_id));
 const bcfg = id => (cfg.branches||{})[id] || {};
 const modeOn = (m, b) => (cfg.modes||{})[m] !== false && (!b || bcfg(b)[m] !== false);
 const CO = () => cfg.checkout || {};
