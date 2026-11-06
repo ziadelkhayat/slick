@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="303-1793988455">
+<meta name="slick-build" content="304-1793989168">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -3493,7 +3493,6 @@ function ccOverlay(html, onReady){
   onReady && onReady(w, close); return w;
 }
 function ccNotesDlg(kind){
-  if(!cart.length) return toast("Add items to the cart first");
   kind = kind || "order";
   const val = k => ($(k==="kitchen" ? "#oNotes" : "#oRNotes")?.value || "");
   ccOverlay(`<h3 style="margin:0 0 12px">Notes</h3><div class="seg ccseg"><button type="button" data-nk="order" class="${kind==="order"?"on":""}">Order note</button><button type="button" data-nk="kitchen" class="${kind==="kitchen"?"on":""}">Kitchen note</button></div>
@@ -3519,10 +3518,9 @@ function ccDsCalc(d){
 const ccDsHere = () => { const b = $("#oBranch")?.value || "", ty = $("#oType .on")?.dataset.ot || "", t = ty==="takeaway" ? "pickup" : ty;
   return dsList().filter(d => !d.deleted && (!(d.branchIds||[]).length || d.branchIds.includes(b)) && (!t || !(d.orderTypes||[]).length || d.orderTypes.includes(t))); };
 function ccDiscDlg(){
-  if(!cart.length) return toast("Add items to the cart first");
   if(!ccMayDisc()) return toast("Discounts aren't allowed here");
   const l = ccDsHere();
-  ccOverlay(`<h3 style="margin:0 0 12px">Discount</h3>${l.length ? `<div class="ccchl">${l.map(d => { const c = ccDsCalc(d); return `<button type="button" class="ccchr" data-ccds="${esc(d.id)}" ${c.amt > 0 ? "" : "disabled"} style="text-align:left;background:${ccDS?.id===d.id ? "#efe9fb" : "#fff"}"><span><b>${esc(d.name)}</b><small>${d.type==="fixed" ? usd(+d.amount||0) : (+d.amount||0) + "%"}${c.amt > 0 ? " · −" + usd(c.amt) : " · " + esc(c.why)}</small></span></button>`; }).join("")}</div>` : `<p class="note" style="text-align:center;padding:20px 0">No discounts available for this order. Create them in Marketing → Discounts.</p>`}
+  ccOverlay(`<h3 style="margin:0 0 12px">Discount</h3>${l.length ? `<div class="ccchl">${l.map(d => { const c = ccDsCalc(d); return `<button type="button" class="ccchr" data-ccds="${esc(d.id)}" ${c.amt > 0 || !cart.length ? "" : "disabled"} style="text-align:left;background:${ccDS?.id===d.id ? "#efe9fb" : "#fff"}"><span><b>${esc(d.name)}</b><small>${d.type==="fixed" ? usd(+d.amount||0) : (+d.amount||0) + "%"}${c.amt > 0 ? " · −" + usd(c.amt) : !cart.length ? " · applies to the items you add" : " · " + esc(c.why)}</small></span></button>`; }).join("")}</div>` : `<p class="note" style="text-align:center;padding:20px 0">No discounts available for this order. Create them in Marketing → Discounts.</p>`}
     <div class="slk-ask-f" style="margin-top:12px"><button type="button" class="slk-ask-no" data-dlgx>Close</button></div>`, (w, close) => {
     w.addEventListener("click", e => { const b = e.target.closest("[data-ccds]"); if(!b || b.disabled) return; const d = dsList().find(x => x.id===b.dataset.ccds); if(!d) return;
       ccDS = { id:d.id, name:d.name }; ccDiscType = "amt"; ccDisc = ccDsCalc(d).amt; close(); renderCart(false); });
@@ -3532,6 +3530,7 @@ let ccTags = null;   // order tags picked for this order (null = unchanged)
 function ccTagsDlg(){
   const cur = ccTags || (ccEdit ? tagsOf("order", ccEdit) : []);
   const cu = window.__ccCust, ct = tagList("customer"), cn = new Set((cu?.tags||[]).map(x => String(x).toLowerCase()));
+  if(!tagList("order").length && !ct.length) return ccOverlay(`<h3 style="margin:0 0 12px">Tags</h3><p class="note" style="text-align:center;padding:20px 0">No tags available for this order.</p><div class="slk-ask-f" style="margin-top:12px"><button type="button" class="slk-ask-no" data-dlgx>Close</button></div>`, () => {});
   const custBox = cu?.id ? `<h3 style="margin:16px 0 8px">Customer Tags</h3>${ct.length ? `<div class="multi" id="ccCTg">${ct.map(t => `<label class="chk"><input type="checkbox" value="${esc(t.name)}" ${cn.has(t.name.toLowerCase())?"checked":""}> ${esc(t.name)}</label>`).join("")}</div>` : `<div class="note">No customer tags yet. Create them in Manage → Tags.</div>`}` : `<p class="note" style="margin-top:12px">Enter the customer's phone to tag the customer.</p>`;
   ccOverlay(`<h3 style="margin:0 0 12px">Order Tags</h3>${tagPick("order", null, "ccTg", cur)}${custBox}<div class="slk-ask-f" style="margin-top:12px"><button type="button" class="slk-ask-no" data-dlgx>Cancel</button><button type="button" class="slk-ask-yes" id="ccTgGo">Apply</button></div>`, (w, close) => {
     w.querySelector("#ccTgGo").onclick = async () => { ccTags = tagPickGet("ccTg") || [];
@@ -3541,7 +3540,7 @@ function ccTagsDlg(){
 }
 function ccChgDlg(){
   const ch = ccCharges(); if(!$("#oType .on")) return toast("Choose the order type first");
-  if(!ch.list.length) return toast("No charges for this order type. Add them in Manage → Charges.");
+  if(!ch.list.length) return ccOverlay(`<h3 style="margin:0 0 12px">Charges</h3><p class="note" style="text-align:center;padding:20px 0">No charges available for this order.</p><div class="slk-ask-f" style="margin-top:12px"><button type="button" class="slk-ask-no" data-dlgx>Close</button></div>`, () => {});
   const on = new Set(ch.picked.map(c => c.id));
   ccOverlay(`<h3 style="margin:0 0 12px">Charges</h3><div class="ccchl">${ch.list.map(c => `<label class="ccchr"><input type="checkbox" data-cch="${esc(c.id)}" ${on.has(c.id)?"checked":""}><span><b>${esc(c.name)}</b><small>${c.type==="percent" ? (+c.value||0) + "%" : c.type==="open" ? "Open amount" : usd(+c.value||0)}</small></span>${c.type==="open" ? `<input class="sel" inputmode="decimal" data-cchv="${esc(c.id)}" value="${ccOpen[c.id] ?? ""}" placeholder="Amount" style="width:110px">` : ""}</label>`).join("")}</div>
     <p class="note" id="ccChN" style="min-height:18px;margin:6px 0 0"></p>
@@ -3592,7 +3591,7 @@ function renderCart(ro){
     (cart.length ? cart.map((i,ix)=>`<div class="citem"><span class="cname">${ro ? esc(i.name) : `<a href="#call-center" class="lnk" data-cedit="${ix}" title="Edit item: options, note, discount">${esc(i.name)}</a>`}${modList(i)}${+i.disc?`<div class="note" style="color:var(--accent-ink)">Discount −${usd(i.disc)}</div>`:""}</span>${ro?`<span>× ${i.qty}</span>`:`<span class="qty"><button type="button" data-q="${ix}:-1" aria-label="Less">−</button>${i.qty}<button type="button" data-q="${ix}:1" aria-label="More">+</button></span>`}<span class="num">${usd(lineNet(i))}</span></div>`).join("") : `<div class="note" style="padding:18px 0;text-align:center">${ro?"No items.":"Pick a category, then tap products to add them."}</div>`) +
     `${ccNoteLines(ro)}</div>
     ${c.charges.map(x => `<div class="ctot sub ccdline"><span>${esc(x.name)}</span><span>${usd(x.amount)}${ro ? "" : `<button type="button" class="ccx1" data-ochgx="${esc(x.id)}" aria-label="Remove charge">×</button>`}</span></div>`).join("")}
-    ${c.disc ? `<div class="ctot sub ccdline"><span>${ccDS ? esc(ccDS.name) : ccDiscType==="amt" ? "Discount" : "Discount " + ccDisc + "%"}</span><span>−${usd(c.disc)}${ro ? "" : `<button type="button" class="ccx1" data-ccdx aria-label="Remove discount">×</button>`}</span></div>` : ""}
+    ${c.disc || ccDS ? `<div class="ctot sub ccdline"><span>${ccDS ? esc(ccDS.name) : ccDiscType==="amt" ? "Discount" : "Discount " + ccDisc + "%"}</span><span>−${usd(c.disc)}${ro ? "" : `<button type="button" class="ccx1" data-ccdx aria-label="Remove discount">×</button>`}</span></div>` : ""}
     <div class="ctot sub"><span>Subtotal</span><span>${usd(c.subtotal)}</span></div><div class="ctot sub"><span>Tax${taxIncl() ? " (included)" : ""}</span><span>${usd(c.tax)}</span></div><div class="ctot"><span>Total</span><b>${usd(c.total)}</b></div>${money2(c.total) ? `<div class="ctot sub"><span></span><span>≈ ${money2(c.total)}</span></div>` : ""}`;
   if(!ro && $("#oProducts")) renderOrderMenu();
   const td = $("#ccToolDisc"); if(td) td.hidden = !ccMayDisc();

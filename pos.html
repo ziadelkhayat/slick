@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="302-1793987592">
+<meta name="slick-build" content="304-1793989168">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -446,7 +446,7 @@ button,input,select,textarea{font-family:var(--f-ui)}
 .payr .tender{font-family:var(--f-num);font-size:30px!important;font-weight:700;border:2px solid var(--acc)!important;border-radius:14px!important;padding:12px 16px!important}
 .payr .quick{margin:0!important}
 .payr .quick button{border:0!important;background:var(--accs)!important;color:var(--acci);font-weight:700;border-radius:12px!important;min-height:48px}
-.tnd2{display:grid;grid-template-columns:1fr 1fr;gap:8px}.tbox{display:flex;flex-direction:column;gap:4px;cursor:pointer}.tbox span{font-size:12px;font-weight:700;color:var(--mut,#8a8799);letter-spacing:.04em}.tbox .tender{font-size:22px!important;padding:10px 12px!important;border:2px solid var(--line)!important;cursor:pointer;min-width:0}.tbox.on .tender{border-color:var(--acc)!important;box-shadow:0 0 0 3px color-mix(in srgb,var(--acc) 18%,transparent)}.tbox.on span{color:var(--acc)}
+.tnd2{display:grid;grid-template-columns:1fr 1fr;gap:8px}.tnd1{display:flex;flex-direction:column}.tbox .tender[hidden]{display:none!important}.tbox{display:flex;flex-direction:column;gap:4px;cursor:pointer}.tbox span{font-size:12px;font-weight:700;color:var(--mut,#8a8799);letter-spacing:.04em}.tbox .tender{font-size:22px!important;padding:10px 12px!important;border:2px solid var(--line)!important;cursor:pointer;min-width:0}.tbox.on .tender{border-color:var(--acc)!important;box-shadow:0 0 0 3px color-mix(in srgb,var(--acc) 18%,transparent)}.tbox.on span{color:var(--acc)}
 .payr .chgv{display:flex;flex-direction:column;align-items:flex-end}.payr .chgv small{font-size:13px;font-weight:600;opacity:.8}.payr .change.short{color:#b42318}
 .kpad{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
 .kpad button{height:56px;border:0;border-radius:14px;background:var(--sunk);font-family:var(--f-num);font-size:22px;font-weight:600}
@@ -696,9 +696,9 @@ const tgDoc = () => S.settings.find(x => x.id==="tags") || {};
 const tgList = type => (tgDoc().list||[]).filter(t => t.type===type && !t.deleted).sort((a,b) => (a.sort ?? 9999) - (b.sort ?? 9999) || a.name.localeCompare(b.name));
 function openTags(){
   const ot = tgList("order"), ct = tgList("customer"), ph = String(cust.phone||"").replace(/\D/g,"");
-  if(!ot.length && !ct.length) return toast("No order or customer tags yet: create them in the back office (Manage → Tags)");
+  if(!ot.length && !ct.length) return modal("tags", `<div class="mh"><h2>Tags</h2><button class="x" data-close aria-label="Close">×</button></div><div class="mb"><div class="mut" style="text-align:center;padding:26px 10px;font-size:14px">No tags available for this order.</div></div>`);
   const oSel = new Set(posTags || []), cSel = new Set((posCustTags || []).map(x => x.toLowerCase()));
-  const box = (title, l, sel, attr) => `<div class="tgsec"><b>${title}</b>${l.length ? `<div class="tgl">${l.map(t => `<label class="tgc"><input type="checkbox" ${attr}="${esc(attr==="data-tco" ? t.id : t.name)}" ${(attr==="data-tco" ? sel.has(t.id) : sel.has(t.name.toLowerCase())) ? "checked" : ""}><span>${esc(t.name)}</span></label>`).join("")}</div>` : `<div class="mut" style="font-size:13px">None yet.</div>`}</div>`;
+  const box = (title, l, sel, attr) => `<div class="tgsec"><b>${title}</b>${l.length ? `<div class="tgl">${l.map(t => `<label class="tgc"><input type="checkbox" ${attr}="${esc(attr==="data-tco" ? t.id : t.name)}" ${(attr==="data-tco" ? sel.has(t.id) : sel.has(t.name.toLowerCase())) ? "checked" : ""}><span>${esc(t.name)}</span></label>`).join("")}</div>` : `<div class="mut" style="font-size:13px">No tags available.</div>`}</div>`;
   modal("tags", `<div class="mh"><h2>Tags</h2><button class="x" data-close aria-label="Close">×</button></div><div class="mb">${box("Order Tags", ot, oSel, "data-tco")}
     ${ph.length >= 6 ? box("Customer Tags", ct, cSel, "data-tcc") : `<div class="mut" style="font-size:13px;margin-top:12px">Add the customer's phone to tag the customer.</div>`}</div>
     <div class="mf"><button class="btn pri" id="tagsApply">Apply</button></div>`);
@@ -1125,7 +1125,7 @@ function renderCart(){
   const t = totals();
   const cl = chargeList(otype);
   $("#totals").innerHTML = `
-    ${discount?`<div class="dline"><span>${discLbl()}</span><span>−${usd(t.disc)}<button type="button" class="dlx" data-discx aria-label="Remove discount">×</button></span></div>`:""}${t.charges.map(c=>`<div class="dline"><span>${esc(c.name)}</span><span>${usd(c.amount)}<button type="button" class="dlx" data-chgx="${esc(c.id)}" aria-label="Remove charge">×</button></span></div>`).join("")}${t.fee ? `<div><span>Delivery fee</span><span>${usd(t.fee)}</span></div>` : ""}
+    ${discount || DSET?`<div class="dline"><span>${discLbl()}</span><span>−${usd(t.disc)}<button type="button" class="dlx" data-discx aria-label="Remove discount">×</button></span></div>`:""}${t.charges.map(c=>`<div class="dline"><span>${esc(c.name)}</span><span>${usd(c.amount)}<button type="button" class="dlx" data-chgx="${esc(c.id)}" aria-label="Remove charge">×</button></span></div>`).join("")}${t.fee ? `<div><span>Delivery fee</span><span>${usd(t.fee)}</span></div>` : ""}
     <div><span>Subtotal</span><span>${usd(t.net)}</span></div><div class="mut" style="font-size:13px"><span>Tax</span><span>${usd(t.tax)}</span></div><div class="g"><span>Total</span><span>${usd(t.total)}</span></div>${usd2(t.total) ? `<div class="mut" style="font-size:13px"><span></span><span>≈ ${usd2(t.total)}</span></div>` : ""}`;
   // actions: new order / open order / closed order
   const acts = $("#acts"), unsent = cart.some(i => i.qty > (i.saved||0));
@@ -1342,7 +1342,7 @@ document.addEventListener("click", e => { const k = e.target.closest("[data-npk]
 // Charges window: the charges allowed for this order type; open-amount ones ask for the amount
 function openCharges(){
   if(!can("pos_charges")) return deny("changing charges");
-  const l = chargeList(otype); if(!l.length) return toast("No charges for this order type");
+  const l = chargeList(otype); if(!l.length) return modal("chg", `<div class="mh"><h2>Charges</h2><button class="x" data-close aria-label="Close">×</button></div><div class="mb"><div class="mut" style="text-align:center;padding:26px 10px;font-size:14px">No charges available for this order.</div></div>`);
   const on = new Set(pickedCharges().map(c => c.id));
   modal("chg", `<div class="mh"><h2>Charges</h2><button class="x" data-close aria-label="Close">×</button></div><div class="mb"><div class="chgl">${l.map(c => `<label class="chgr"><input type="checkbox" data-chk="${esc(c.id)}" ${on.has(c.id)?"checked":""}><span><b>${esc(c.name)}</b><small>${c.type==="percent" ? (+c.value||0) + "%" : c.type==="open" ? "Open amount" : usd(+c.value||0)}</small></span>${c.type==="open" ? `<input inputmode="decimal" class="chgv" data-chv="${esc(c.id)}" value="${posOpen[c.id] ?? ""}" placeholder="Amount">` : ""}</label>`).join("")}</div>
     <div class="mut" id="chgNote" style="font-size:13px;margin-top:8px"></div></div><div class="mf"><button class="btn pri" id="chgApply">Apply</button></div>`);
@@ -1356,11 +1356,11 @@ function openDiscount(){
   // only the discounts created in the back office (Marketing → Discounts) for this branch and order type
   const sets = dsHere();
   modal("disc", `<div class="mh"><h2>Discount</h2><button class="x" data-close aria-label="Close">×</button></div><div class="mb">
-    ${sets.length ? `<div class="dsets">${sets.map(d => { const c = dsCalc(d); return `<button type="button" class="dset${DSET?.id===d.id?" on":""}" data-dset="${esc(d.id)}" ${c.amt > 0 ? "" : "disabled"}><b>${esc(d.name)}</b><span>${d.type==="fixed" ? usd(+d.amount||0) : (+d.amount||0) + "%"}${c.amt > 0 ? " · −" + usd(c.amt) : " · " + esc(c.why)}</span></button>`; }).join("")}</div>` : `<div class="mut" style="text-align:center;padding:26px 10px;font-size:14px">No discounts available for this order.</div>`}</div>`);
+    ${sets.length ? `<div class="dsets">${sets.map(d => { const c = dsCalc(d); return `<button type="button" class="dset${DSET?.id===d.id?" on":""}" data-dset="${esc(d.id)}" ${c.amt > 0 || !cart.length ? "" : "disabled"}><b>${esc(d.name)}</b><span>${d.type==="fixed" ? usd(+d.amount||0) : (+d.amount||0) + "%"}${c.amt > 0 ? " · −" + usd(c.amt) : !cart.length ? " · applies to the items you add" : " · " + esc(c.why)}</span></button>`; }).join("")}</div>` : `<div class="mut" style="text-align:center;padding:26px 10px;font-size:14px">No discounts available for this order.</div>`}</div>`);
 }
 $("#modal").addEventListener("click", async e => {
   const d = e.target.closest("[data-disc]"); if(d){ if(+d.dataset.disc > 0 && appSet().discNeedsCustomer && !custGiven(cust.name, cust.phone)){ toast("Add the customer first: discounts need customer info"); return; } if(+d.dataset.disc > 0 && appSet().discountApproval && !(await approve("pos_discount", "Approve discount"))) return; DSET = null; discount = +d.dataset.disc; discType = "pct"; closeModal(); renderCart(); return; }
-  const ds = e.target.closest("[data-dset]"); if(ds){ const d = dsAll().find(x => x.id===ds.dataset.dset); if(!d) return; const c = dsCalc(d); if(!(c.amt > 0)) return;
+  const ds = e.target.closest("[data-dset]"); if(ds){ const d = dsAll().find(x => x.id===ds.dataset.dset); if(!d) return; const c = dsCalc(d); if(!(c.amt > 0) && cart.length) return;
     if(((d.customerTags||[]).length || appSet().discNeedsCustomer) && !custGiven(cust.name, cust.phone)){ toast("Add the customer first: this discount needs customer info"); return; }
     if(appSet().discountApproval && !(await approve("pos_discount", "Approve discount"))) return;
     DSET = { id:d.id, name:d.name }; discType = "amt"; discount = c.amt; closeModal(); renderCart(); return; }
@@ -1381,7 +1381,8 @@ $("#modal").addEventListener("click", async e => {
         cp.disabled = over; }, err => { console.error(err); cn.innerHTML = `<div><b style="color:#b42318">Couldn't check the house account</b><br>House account needs a connection</div>`; }); }
     else if($("#cardNote")) $("#cardNote").innerHTML = `<div><b style="color:var(--ink)">Take the payment on the card machine</b><br>then complete the sale</div>`;
     return; }
-  const tc = e.target.closest("[data-tcur]"); if(tc){ TCUR = +tc.dataset.tcur; if(TCUR===2 && KP && !$("#tender2").value) $("#tender").value = ""; document.querySelectorAll("[data-tcur]").forEach(b => b.classList.toggle("on", b.dataset.tcur===tc.dataset.tcur)); KP = true; $("#quickBox").innerHTML = quickBtns(TCUR); updChange(); return; }
+  const tc = e.target.closest("[data-tcur]"); if(tc){ TCUR = +tc.dataset.tcur; { const c2 = CUR2(), tt = totals().total, a = $("#tender"), b = $("#tender2");
+      if(a && b && c2){ a.hidden = TCUR!==1; b.hidden = TCUR!==2; if(TCUR===2){ a.value = ""; b.value = String(ceilD(tt * c2.rate, c2.dec)); } else { b.value = ""; a.value = tt.toFixed(DEC()); } if($("#tcurLbl")) $("#tcurLbl").textContent = TCUR===2 ? c2.code : (coS().currency || "USD"); } } document.querySelectorAll("[data-tcur]").forEach(b => b.classList.toggle("on", b.dataset.tcur===tc.dataset.tcur)); KP = true; $("#quickBox").innerHTML = quickBtns(TCUR); updChange(); return; }
   const qk = e.target.closest("[data-qk]"); if(qk){ const c2 = CUR2(); if(c2){ $("#tender").value = TCUR===1 ? (+qk.dataset.qk).toFixed(DEC()) : ""; $("#tender2").value = TCUR===2 ? qk.dataset.qk : ""; } else $("#tender").value = qk.dataset.qk; KP = true; updChange(); return; }
   const kp = e.target.closest("[data-kp]"); if(kp){ const el = $(TCUR===2 && $("#tender2") ? "#tender2" : "#tender"), k = kp.dataset.kp; let v = KP ? "" : el.value; KP = false;
     v = k==="⌫" ? v.slice(0,-1) : k==="." ? (v.includes(".") ? v : (v || "0") + ".") : (v==="0" ? k : v + k); el.value = v.slice(0,9); updChange(); return; }
@@ -1466,9 +1467,8 @@ function openPay(){
       <div class="paym">${pms.map((m,i)=>`<button data-pm="${esc(m.id)}" class="${i?"":"on"}">${pmIco(m)}${esc(m.name)}</button>`).join("")}</div>
       <div class="psum">${cart.map(i => `<div><span>${+i.qty||1}× ${esc(i.name)}</span><span>${usd(lineNet(i))}</span></div>`).join("")}${t.disc ? `<div class="m"><span>${esc(discLbl())}</span><span>−${usd(t.disc)}</span></div>` : ""}${t.charges.filter(c=>c.amount).map(c => `<div class="m"><span>${esc(c.name)}</span><span>${usd(c.amount)}</span></div>`).join("")}${t.fee ? `<div class="m"><span>Delivery fee</span><span>${usd(t.fee)}</span></div>` : ""}<div class="m" style="border-top:1px dashed var(--line);padding-top:6px"><span>Tax</span><span>${usd(t.tax)}</span></div></div></div>
     <div class="payr"><div id="cashBox" style="display:${pms[0].type==="cash"?"flex":"none"};flex-direction:column;gap:12px">${c2 ? `<div class="paycur"><span>Pay in</span><div class="dseg"><button type="button" data-tcur="1" class="on">${esc(coS().currency || "USD")}</button><button type="button" data-tcur="2">${esc(c2.code)}</button></div></div>
-        <div class="paydue" id="payDue"></div><div class="tnd2">
-        <label class="tbox on" data-tcur="1"><span>${esc(coS().currency || "USD")}</span><input class="tender" id="tender" inputmode="none" readonly value="${t.total.toFixed(DEC())}" aria-label="Cash received in ${esc(coS().currency || "USD")}"></label>
-        <label class="tbox" data-tcur="2"><span>${esc(c2.code)}</span><input class="tender" id="tender2" inputmode="none" readonly value="" placeholder="0" aria-label="Cash received in ${esc(c2.code)}"></label></div>`
+        <div class="paydue" id="payDue"></div><div class="tnd1">
+        <label class="tbox on"><span id="tcurLbl">${esc(coS().currency || "USD")}</span><input class="tender" id="tender" inputmode="none" readonly value="${t.total.toFixed(DEC())}" aria-label="Cash received in ${esc(coS().currency || "USD")}"><input class="tender" id="tender2" inputmode="none" readonly value="" placeholder="0" aria-label="Cash received in ${esc(c2.code)}" hidden></label></div>`
       : `<input class="tender" id="tender" inputmode="none" value="${t.total.toFixed(DEC())}" aria-label="Cash received">`}
       <div class="quick" id="quickBox">${quickBtns(1)}</div>
       <div class="kpad">${["1","2","3","4","5","6","7","8","9",".","0","⌫"].map(k => `<button type="button" data-kp="${k}" aria-label="${k==="⌫"?"Delete":k}">${k}</button>`).join("")}</div>
@@ -1481,12 +1481,13 @@ function openPay(){
 let TCUR = 1;
 function quickBtns(cur){
   const t = totals().total, c2 = CUR2();
-  if(cur===2 && c2){ const ex = ceilD(t * c2.rate, c2.dec), b = Math.pow(10, Math.floor(Math.log10(Math.max(ex, 1))));   // round notes: e.g. 1,118,750 → 1,200,000 · 1,500,000 · 2,000,000
+  // Exact, then only the amounts set in the back office (Currency → Quick tender amounts)
+  if(cur===2 && c2){ const ex = ceilD(t * c2.rate, c2.dec);
     const pre = String(coS().quickTender2||"").split(",").map(x => +x.trim()).filter(x => x > ex);
-    const l = (pre.length ? [ex, ...pre] : [ex, ...[b/10, b/2, b].map(k => Math.ceil(ex/k)*k)]).filter((v,i,a) => v >= ex && a.indexOf(v)===i).slice(0, pre.length ? 8 : 4);
+    const l = [ex, ...pre].filter((v,i,a) => a.indexOf(v)===i).slice(0, 7);
     return l.map(v => `<button data-qk="${v}">${v===ex ? "Exact" : c2.code + " " + num2(v, c2.dec)}</button>`).join(""); }
   const pre = String(coS().quickTender||"").split(",").map(x=>+x.trim()).filter(x => x > t);
-  const q = (pre.length ? [t, ...pre] : [t, Math.ceil(t/5)*5, Math.ceil(t/10)*10, Math.ceil(t/20)*20, ...String(appSet().presetTender||"").split(",").map(x=>+x.trim()).filter(x => x > t)]).filter((v,i,a)=>a.indexOf(v)===i).slice(0, 8);
+  const q = [t, ...pre].filter((v,i,a)=>a.indexOf(v)===i).slice(0, 7);
   return q.map(v=>`<button data-qk="${v}">${v===t ? "Exact" : usd(v)}</button>`).join("");
 }
 const tPaid = () => { const c2 = CUR2(), v1 = +$("#tender")?.value || 0, v2 = c2 ? (+$("#tender2")?.value || 0) : 0; return { v1, v2, paid: v1 + (c2 ? v2 / c2.rate : 0) }; };
@@ -1942,7 +1943,7 @@ function paintAbar(){ const hb = document.getElementById("holdBadge"); if(hb && 
   const eo = editOrder(), open = eo && isOpenOrd(eo), closed = eo && !open, off = (a, v) => document.querySelector(`#abar [data-a="${a}"]`)?.classList.toggle("off", !!v);
   const vb = document.querySelector('#abar [data-a="void"]'); if(vb){ vb.classList.toggle("hide", !eo || (closed && (eo.status!=="closed" || fullyBack(eo)))); vb.querySelector("span").textContent = closed ? "Return" : "Void";
     vb.querySelector("svg").innerHTML = closed ? '<path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>' : '<circle cx="12" cy="12" r="9"/><path d="M5.6 18.4 18.4 5.6"/>'; }
-  off("print", !eo || (isOpenOrd(eo) && !openShift())); off("hold", !!eo || !cart.length || !openShift()); off("retrieve", !heldList().length); off("kitchen", !eo && (!cart.length || otype==="fast")); off("void", eo ? (closed && (eo.status!=="closed" || fullyBack(eo))) : !cart.length); off("notes", closed || (!eo && !cart.length)); off("disc", closed || !cart.length); }
+  off("print", !eo || (isOpenOrd(eo) && !openShift())); off("hold", !!eo || !cart.length || !openShift()); off("retrieve", !heldList().length); off("kitchen", !eo && (!cart.length || otype==="fast")); off("void", eo ? (closed && (eo.status!=="closed" || fullyBack(eo))) : !cart.length); off("notes", closed); off("disc", closed); off("chg", closed); off("tags", closed); }
 $("#abar").addEventListener("click", e => { const b = e.target.closest("[data-a]"); if(!b) return; const a = b.dataset.a, eo = editOrder();
   if(a==="more"){ e.stopPropagation(); return $("#morePop").classList.toggle("hide"); }
   hideMore();
@@ -1955,12 +1956,12 @@ $("#abar").addEventListener("click", e => { const b = e.target.closest("[data-a]
     if(eo && isOpenOrd(eo)){ OV.open = eo.id; window.__keep = null; return openVR("void", "all"); }
     if(eo){ if(eo.status!=="closed" || fullyBack(eo)) return toast("Nothing left to return on this order"); OV.open = eo.id; return openVR("return", "all"); }   // a closed order is returned, not voided
     return; }
-  if(a==="disc"){ if(eo && !isOpenOrd(eo)) return toast("This order is closed"); if(!cart.length) return toast("Add items first"); return openDiscount(); }
-  if(a==="tags"){ if(eo && !isOpenOrd(eo)) return toast("This order is closed"); if(!eo && !cart.length) return toast("Add items first"); if(eo && posTags==null) posTags = (tgDoc().on?.order?.[eo.id] || []).slice(); return openTags(); }
-  if(a==="chg"){ if(eo && !isOpenOrd(eo)) return toast("This order is closed"); if(!cart.length) return toast("Add items first"); return openCharges(); }
+  if(a==="disc"){ if(eo && !isOpenOrd(eo)) return toast("This order is closed"); return openDiscount(); }
+  if(a==="tags"){ if(eo && !isOpenOrd(eo)) return toast("This order is closed"); if(eo && posTags==null) posTags = (tgDoc().on?.order?.[eo.id] || []).slice(); return openTags(); }
+  if(a==="chg"){ if(eo && !isOpenOrd(eo)) return toast("This order is closed"); return openCharges(); }
   if(a==="hold") return eo ? toast("This order was already sent: find it under Orders") : cart.length ? holdOrder() : toast("Add items, then Hold to park the order");
   if(a==="retrieve") return heldList().length ? openHeld() : toast("No held orders");
-  if(a==="notes"){ if(eo && !isOpenOrd(eo)) return toast("This order is closed"); if(!eo && !cart.length) return toast("Add items first"); return openNotes(); }
+  if(a==="notes"){ if(eo && !isOpenOrd(eo)) return toast("This order is closed"); return openNotes(); }
 });
 document.addEventListener("click", e => { if(e.target.closest("#morePop button, #morePop .mitem")){ setTimeout(hideMore, 0); return; } if(!e.target.closest("#morePop") && !e.target.closest("#menuBtn")) hideMore(); });
 $("#syncDataBtn").addEventListener("click", () => { hideMore(); window.WOK?.sync?.flush?.(); toast(navigator.onLine ? "Syncing data…" : "Offline · will sync when the connection is back"); });
