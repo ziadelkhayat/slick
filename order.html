@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="345-1794003233">
+<meta name="slick-build" content="346-1794003479">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -505,6 +505,12 @@ body{padding-bottom:calc(170px + env(safe-area-inset-bottom))!important}
 body{padding-bottom:calc(140px + env(safe-area-inset-bottom) * .4)!important}
 .lay-list .item{padding-top:10px!important;padding-bottom:10px!important;min-height:0!important}
 .locbar .tbopen{margin-top:10px}
+/* order type + location stay on screen while scrolling; the search & categories stick right under them */
+.locbar{position:sticky;top:0;z-index:9;background:var(--bg);max-width:none!important;padding:10px max(16px,calc((100% - var(--colw,560px))/2 + 16px)) 10px!important;transition:box-shadow .2s}
+.locbar.stuck{box-shadow:0 6px 16px rgba(20,18,30,.08)}.locbar.stuck .tbopen{display:none}
+.locbar.stuck .tbmode{margin-bottom:8px!important}
+.tools{top:var(--lbh,0px)!important}
+[id^="c_"]{scroll-margin-top:calc(var(--lbh,0px) + 120px)}
 </style>
 </head>
 <body class="lay-grid">
@@ -519,7 +525,7 @@ body{padding-bottom:calc(140px + env(safe-area-inset-bottom) * .4)!important}
   <div class="hcard"><div class="hin"><div class="logo" id="logo">·</div><div class="hmeta"><h1 id="brand">Order online</h1><p id="sub"></p><div class="chips" id="chips"></div></div></div></div>
   <div class="banner" id="banner" hidden></div>
 </header>
-<div class="locbar" id="locbar"></div>
+<div id="lbs"></div><div class="locbar" id="locbar"></div>
 <div class="shell"><main id="main"><div class="items" style="margin-top:24px;grid-template-columns:repeat(auto-fill,minmax(210px,1fr))"><div class="skel"></div><div class="skel"></div><div class="skel"></div></div></main><aside class="side" id="side"></aside></div>
 <div class="bar" id="bar" hidden><button id="cartBtn"><span class="n" id="cartCount">0</span><span>View basket</span><span class="t" id="cartTotal">USD 0</span></button></div>
 <nav class="bnav" id="bnav" aria-label="Main">
@@ -1064,7 +1070,7 @@ function renderMenu(){
   if(!vcats.length) h = `<div class="empty">${ql ? `Nothing matches “${esc(q)}”.` : "The menu isn't available here yet."}</div>`;
   $("#menuBox").innerHTML = h;
   // highlight the category in view
-  catObs?.disconnect(); catObs = new IntersectionObserver(es => { es.forEach(e => { if(e.isIntersecting){ document.querySelectorAll("#catBar button").forEach(b => b.classList.toggle("on", b.dataset.cat === e.target.id.slice(2))); const on = document.querySelector("#catBar button.on"); if(on){ const bar = $("#catBar"); bar.scrollTo({ left: on.offsetLeft - bar.clientWidth/2 + on.clientWidth/2, behavior:"smooth" }); } } }); }, { rootMargin:"-130px 0px -65% 0px" });
+  catObs?.disconnect(); catObs = new IntersectionObserver(es => { es.forEach(e => { if(e.isIntersecting){ document.querySelectorAll("#catBar button").forEach(b => b.classList.toggle("on", b.dataset.cat === e.target.id.slice(2))); const on = document.querySelector("#catBar button.on"); if(on){ const bar = $("#catBar"); bar.scrollTo({ left: on.offsetLeft - bar.clientWidth/2 + on.clientWidth/2, behavior:"smooth" }); } } }); }, { rootMargin:`-${130 + ($("#locbar")?.offsetHeight||0)}px 0px -60% 0px` });
   document.querySelectorAll("section.cat").forEach(s => catObs.observe(s)); catProg();
   renderBar();
 }
@@ -1338,6 +1344,13 @@ function reorder(o){
   openCart("basket");
 }
 document.addEventListener("click", e => { const t = e.target.closest("[data-reorder]"); if(!t) return; const o = OHL.list[+t.dataset.reorder]; if(o) reorder(o); });
+
+/* sticky order-type bar: its height feeds the search bar's offset; the open-now chip hides once it sticks */
+(function(){ const lb = document.getElementById("locbar"), sn = document.getElementById("lbs"); if(!lb || !sn) return;
+  const setH = () => document.documentElement.style.setProperty("--lbh", lb.offsetHeight + "px");
+  if(window.ResizeObserver) new ResizeObserver(setH).observe(lb); setH();
+  const chk = () => lb.classList.toggle("stuck", sn.getBoundingClientRect().top < 0);
+  addEventListener("scroll", chk, { passive:true }); chk(); })();
 $("#scrim").addEventListener("click", e => { if(e.target.id==="scrim" || e.target.closest("[data-close]")) $("#scrim").classList.remove("show"); });
 document.addEventListener("keydown", e => { if(e.key==="Escape"){ if($("#ipg")?.classList.contains("show")) return closeItem(); $("#scrim").classList.remove("show"); } });
 
