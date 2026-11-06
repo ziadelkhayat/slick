@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="348-1794003650">
+<meta name="slick-build" content="349-1794003799">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -513,6 +513,12 @@ body{padding-bottom:calc(140px + env(safe-area-inset-bottom) * .4)!important}
 [id^="c_"]{scroll-margin-top:calc(var(--lbh,0px) + 120px)}
 .favw{position:relative}.unfav{position:absolute;top:8px;left:8px;z-index:2;width:36px;height:36px;border-radius:50%;border:0;background:var(--s);color:var(--acc);display:grid;place-items:center;box-shadow:0 2px 8px rgba(0,0,0,.15)}
 .unfav svg{width:19px;height:19px;fill:currentColor;stroke:currentColor;stroke-width:1.5}
+.qa{position:absolute;right:10px;bottom:10px;z-index:2;display:inline-flex;align-items:center;background:var(--s);border-radius:999px;box-shadow:0 3px 12px rgba(20,18,30,.18)}
+.qa button{width:40px;height:40px;border:0;background:none;border-radius:50%;color:var(--acc);font-size:26px;font-weight:500;line-height:1;display:grid;place-items:center;position:relative;cursor:pointer}
+.qa button svg{width:19px;height:19px}.qa b{min-width:22px;text-align:center;font-size:16px;font-weight:700}
+.qa2{padding:0 2px}.qa i{position:absolute;top:-4px;left:-4px;min-width:18px;height:18px;border-radius:999px;background:var(--acc);color:var(--on-acc,#fff);font:800 11px/18px inherit;font-style:normal;padding:0 4px}
+.lay-list .item .ph{position:relative}
+.favw .qa{display:none}
 </style>
 </head>
 <body class="lay-grid">
@@ -1103,7 +1109,12 @@ async function addItem(p){
 function itemCard(p){ const n = cart.filter(i => i.productId===p.id || (p.variants||[]).some(v => v.productId===i.productId)).reduce((a,i)=>a+i.qty,0), out = oos(p), lay = curLay(), img = p.image_url && lay !== "compact", kids = kidsOf(p);
   const price = kids.length ? "From " + usd(Math.min(...kids.map(k => priceOf(k.p)))) : !priceOf(p) && hasMods(p) ? "" : usd(priceOf(p));
   return `<div class="item${out?" oos":""}${img?"":" noimg"}" data-item="${esc(p.id)}" role="button" tabindex="0"><div class="ph">${img ? `<img src="${esc(p.image_url)}" alt="" loading="lazy">` : lay==="grid" ? ic("img","width:34px;height:34px;opacity:.35") : ""}</div>
-    <div class="tx"><b>${n ? `<span class="inq">${n}×</span>` : ""}${esc(p.name)}</b>${price ? `<div class="pr">${price}</div>` : `<div class="pr cz">Customization available</div>`}${p.description && SH().desc !== false ? `<small>${esc(p.description)}</small>` : ""}${out ? `<span class="soldout">Sold out</span>` : ""}</div></div>`; }
+    <div class="tx"><b>${n ? `<span class="inq">${n}×</span>` : ""}${esc(p.name)}</b>${price ? `<div class="pr">${price}</div>` : `<div class="pr cz">Customization available</div>`}${p.description && SH().desc !== false ? `<small>${esc(p.description)}</small>` : ""}${out ? `<span class="soldout">Sold out</span>` : ""}</div>${out ? "" : qaCtl(p, n)}</div>`; }
+// quick add on the menu: "+" adds straight to the basket (items with options open their page); once added it becomes − qty +
+function qaCtl(p, n){ const simple = !kidsOf(p).length && !hasMods(p), one = cart.filter(i => i.productId===p.id).length;
+  return n && simple && one===1
+    ? `<span class="qa qa2" data-qa><button type="button" data-qa-m="${esc(p.id)}" aria-label="${n > 1 ? "One less" : "Remove"} ${esc(p.name)}">${n > 1 ? "−" : ic("trash")}</button><b>${n}</b><button type="button" data-qa-p="${esc(p.id)}" aria-label="One more ${esc(p.name)}">+</button></span>`
+    : `<span class="qa" data-qa><button type="button" data-qa-p="${esc(p.id)}" aria-label="Add ${esc(p.name)}">${n ? `<i>${n}</i>` : ""}+</button></span>`; }
 /* ---------- item page: photo, description, option groups, quantity, then add to the order ---------- */
 function catProg(){ const b = $("#catBar"), i = $("#cprog"); if(!b || !i) return; const w = b.scrollWidth || 1; i.parentElement.style.visibility = b.scrollWidth > b.clientWidth + 2 ? "" : "hidden"; i.style.width = (b.clientWidth / w * 100) + "%"; i.style.left = (b.scrollLeft / w * 100) + "%"; }
 const IT = { p:null, kids:[], kid:null, links:[], groups:{}, sel:[], qty:1, note:"", err:-1 };
@@ -1203,6 +1214,14 @@ $("#main").addEventListener("click", e => {
     if(+d > 0) return addItem(p);
     const ex = [...cart].reverse().find(i=>i.productId===id); if(ex){ ex.qty--; if(ex.qty<=0) cart = cart.filter(i=>i!==ex); }
     const y = scrollY; renderMenu(); scrollTo(0,y); return; }
+  const qp = e.target.closest("[data-qa-p]"), qm = e.target.closest("[data-qa-m]");
+  if(qp || qm){ const p = products.find(x => x.id===(qp || qm).dataset[qp ? "qaP" : "qaM"]); if(!p) return;
+    if(qp && (kidsOf(p).length || hasMods(p))) return openItem(p);
+    const line = cart.find(i => i.productId===p.id && !(i.options||[]).length && !i.note);
+    if(qp){ if(line) line.qty++; else cart.push({ productId:p.id, name:p.name, price:priceOf(p), qty:1 }); }
+    else if(line){ line.qty--; if(line.qty < 1) cart.splice(cart.indexOf(line), 1); }
+    const y = scrollY; renderMenu(); scrollTo(0, y); return; }
+  if(e.target.closest("[data-qa]")) return;
   const it = e.target.closest("[data-item]"); if(it && !it.classList.contains("oos")) openItem(products.find(x => x.id===it.dataset.item));
 });
 $("#main").addEventListener("change", e => { if(e.target.id==="branch"){ branchId = e.target.value; cart = cart.filter(i => visible().some(p=>p.id===i.productId) && !oos(products.find(p=>p.id===i.productId))); cart.forEach(i => i.price = +(priceOf(products.find(p=>p.id===i.productId)) + (+i.optPrice||0)).toFixed(2)); render(); } });
