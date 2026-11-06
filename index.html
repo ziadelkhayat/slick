@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="300-1793987292">
+<meta name="slick-build" content="301-1793987386">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -3316,7 +3316,7 @@ function orderCalc(items, discount, charges, branchId){
   let gross = 0, tax = 0, add = 0; branchId = branchId || $("#oBranch")?.value || "";
   (items||[]).forEach(i => { const l = lineNet(i), r = prodRates(i.productId, branchId), base = l/(1+r.inc); gross += l; tax += (l - base) + base*r.exc; add += base*r.exc; });
   const d = Math.min(+discount||0, gross); if(gross > 0 && d > 0){ tax *= 1 - d/gross; add *= 1 - d/gross; }
-  const ch = (charges||[]).map(c => { const amount = chargeAmt(c, company().chargesBeforeDisc ? gross : gross - d), r = chgRates(c), base = amount/(1+r.inc); tax += (amount - base) + base*r.exc; add += base*r.exc;
+  const ch = (charges||[]).map(c => { const amount = chargeAmt(c, company().chargesBeforeDisc!==false ? gross : gross - d), r = chgRates(c), base = amount/(1+r.inc); tax += (amount - base) + base*r.exc; add += base*r.exc;
     return { id:c.id, name:c.name, type:c.type, value: c.type==="open" ? amount : +c.value||0, amount, ...(c.taxGroup ? { taxGroup:c.taxGroup } : {}) }; }), chT = ch.reduce((a,c)=>a+c.amount, 0);
   const total = +(gross - d + chT + add).toFixed(2); tax = +tax.toFixed(2);
   return { gross:+gross.toFixed(2), disc:d, charges:ch, chargesTotal:+chT.toFixed(2), tax, total, subtotal:+(total - tax).toFixed(2) };
@@ -5100,7 +5100,7 @@ function viewCompany(){
       <div class="f"><label for="co_timeZone">Time Zone <span class="tip" title="Used for business days, reports and order times.">ⓘ</span></label><select id="co_timeZone" class="sel" ${dis}>${tzList().map(([z,off])=>`<option value="${z}" ${(c.timeZone||"Asia/Beirut")===z?"selected":""}>(UTC${off}) ${z.replace(/_/g," ")}</option>`).join("")}</select></div>
     </div>
     <div class="bizchk">
-      <label class="chk"><input type="checkbox" id="co_chgsub" ${c.chargesBeforeDisc?"checked":""} ${dis}> Apply charges on the order's subtotal without tax exclusive discounts <span class="tip" title="On: percentage charges are worked out on the order before any discount. Off: on the order after discounts.">ⓘ</span></label>
+      <label class="chk"><input type="checkbox" id="co_chgsub" ${c.chargesBeforeDisc!==false?"checked":""} ${dis}> Apply charges on the order's subtotal without tax exclusive discounts <span class="tip" title="On: percentage charges are worked out on the order before any discount. Off: on the order after discounts.">ⓘ</span></label>
       <label class="chk"><input type="checkbox" id="co_loc" ${c.localization!==false?"checked":""} ${dis}> Enable Localization <span class="tip" title="Shows the Name Localized fields everywhere, so menus, receipts and apps can show a second language.">ⓘ</span></label>
     </div><div class="err" id="coErr"></div>${sv}</div>`;
 }

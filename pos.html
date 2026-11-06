@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="299-1793987067">
+<meta name="slick-build" content="301-1793987386">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1089,7 +1089,7 @@ const dsHere = () => dsAll().filter(d => (!(d.branchIds||[]).length || d.branchI
 function totals(){
   if(DSET){ const d = dsAll().find(x => x.id===DSET.id); if(d){ discType = "amt"; discount = dsCalc(d).amt; } else DSET = null; }
   const sub = cart.reduce((a,i)=>a+lineNet(i),0), disc = +(discType==="amt" ? Math.min(discount, sub) : sub*discount/100).toFixed(2);
-  const charges = pickedCharges().map(c => { const amount = +(c.type==="percent" ? (coS().chargesBeforeDisc ? sub : sub-disc)*(+c.value||0)/100 : c.type==="open" ? +(posOpen[c.id]||0) : +c.value||0).toFixed(2);
+  const charges = pickedCharges().map(c => { const amount = +(c.type==="percent" ? (coS().chargesBeforeDisc!==false ? sub : sub-disc)*(+c.value||0)/100 : c.type==="open" ? +(posOpen[c.id]||0) : +c.value||0).toFixed(2);
     return { id:c.id, name:c.name, type:c.type, value: c.type==="open" ? amount : +c.value||0, amount, ...(c.taxGroup ? { taxGroup:c.taxGroup } : {}) }; });
   const chT = +charges.reduce((a,c)=>a+c.amount,0).toFixed(2), tp = orderTaxParts(cart, disc);
   charges.forEach(c => { const r = chgRates(c), base = c.amount/(1+r.inc); tp.tax = +(tp.tax + (c.amount - base) + base*r.exc).toFixed(2); tp.added = +(tp.added + base*r.exc).toFixed(2); });
