@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="317-1793993483">
+<meta name="slick-build" content="319-1793993950">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -557,6 +557,10 @@ html body *:not(.receipt):not(.receipt *):not(.rpaper *):not(svg):not(svg *){fon
 .chgr input[type=checkbox]:checked{background-color:var(--acc);border-color:var(--acc);background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E")}
 .chgr input[type=checkbox]:focus-visible{outline:none;box-shadow:0 0 0 3px var(--accs,#efe9fb)}
 .onic{display:inline-flex;width:18px;height:18px;vertical-align:-4px;margin-right:2px}.onic svg{width:18px;height:18px}
+.modal.dlg2{width:min(560px,100%)}.modal.dlg2 .mh{border-bottom:0;padding:22px 24px 6px}.modal.dlg2 .mh h2{font-size:19px;font-weight:700}.modal.dlg2 .mb{padding:10px 24px 20px}
+.modal.dlg2 .mf{background:#f1f0f5;border-top:0;padding:14px 24px;gap:10px}.modal.dlg2 .mf .btn{min-height:48px;min-width:96px;border-radius:12px;font-weight:600}.modal.dlg2 .mf .btn:not(.pri){background:#fff;border:1px solid #d9d5e6}
+.prod{position:relative}.prod .pcnt{position:absolute;top:10px;right:10px;z-index:3;font-style:normal;background:var(--acc);color:#fff;border-radius:999px;font-size:13px;font-weight:700;min-width:26px;height:26px;display:grid;place-items:center;padding:0 7px;box-shadow:0 2px 6px rgba(0,0,0,.15)}
+.prod.sel::after{content:"";position:absolute;inset:0;border:2px solid var(--acc);border-radius:inherit;pointer-events:none;z-index:2}
 </style>
 <script>
 /* ---------- naming: menu "products" are called Items; inventory "items" are called Products ----------
@@ -1066,7 +1070,7 @@ function renderMenu(){
   const inCart = {}; cart.forEach(l => { if(l.productId) inCart[l.productId] = (inCart[l.productId]||0) + (+l.qty||0); });
   const tile = p => { const s = cs[cat] || cs[cats.find(c => has(c, p))?.id] || catStyle(null, 0), n = inCart[p.id] || kidsOf(p).reduce((a,k) => a + (inCart[k.p?.id]||0), 0);
     const oos = prodOos(p);
-    return `<button class="prod${p.imageUrl?" hasimg":""}${oos?" oos":""}" data-add="${esc(p.id)}" ${oos?'disabled title="Out of stock"':""} style="--hue:${s.hue};--tint:${s.tint}">${p.imageUrl?`<img src="${esc(p.imageUrl)}" alt="" loading="lazy">`:`<span class="pic">${ico(s.icon)}</span>`}<span>${esc(p.name)}</span><b>${oos?"Out of stock":p.pricingMethod==="open"?"Open price":(kidsOf(p).length?"From ":"")+usd(tilePrice(p))}</b></button>`; };
+    return `<button class="prod${p.imageUrl?" hasimg":""}${oos?" oos":""}${n?" sel":""}" data-add="${esc(p.id)}" ${oos?'disabled title="Out of stock"':""} style="--hue:${s.hue};--tint:${s.tint}">${n?`<em class="pcnt">${n}</em>`:""}${p.imageUrl?`<img src="${esc(p.imageUrl)}" alt="" loading="lazy">`:`<span class="pic">${ico(s.icon)}</span>`}<span>${esc(p.name)}</span><b>${oos?"Out of stock":p.pricingMethod==="open"?"Open price":(kidsOf(p).length?"From ":"")+usd(tilePrice(p))}</b></button>`; };
   $("#mcats").innerHTML = "" && cats.length ? `<button class="mcat${cat?"":" on"}" role="tab" aria-selected="${!cat}" data-cat="" style="--hue:#6a4cf5;--tint:#efebff"><span class="cdot">${ico("star")}</span>Quick picks</button>` + cats.map(c => `<button class="mcat${c.id===cat?" on":""}" role="tab" aria-selected="${c.id===cat}" data-cat="${esc(c.id)}" style="--hue:${cs[c.id].hue};--tint:${cs[c.id].tint}"><span class="cdot">${ico(cs[c.id].icon)}</span>${esc(c.name)}</button>`).join("") : "";
   const inCats = p => cats.some(c => has(c, p));
   if(q){   // searching looks through every category
@@ -1148,7 +1152,7 @@ function renderCart(){
   paintAbar();
   if(ro){ const T = eo; $("#totals").innerHTML = `${+T.discount?`<div><span>Discount</span><span>−${usd(T.discount)}</span></div>`:""}${(T.charges||[]).filter(c=>+c.amount).map(c=>`<div><span>${esc(c.name)}</span><span>${usd(c.amount)}</span></div>`).join("")}
     <div><span>Subtotal</span><span>${usd((+T.total||0)-(+T.tax||0))}</span></div><div class="mut" style="font-size:13px"><span>Tax</span><span>${usd(T.tax)}</span></div><div class="g"><span>Total</span><span>${usd(T.total)}</span></div>`; }
-  try{ if($("#mcats")?.children.length) renderMenu(); }catch(e){}   // keeps the item counts on the menu tiles current
+  try{ if($("#grid")?.children.length) renderMenu(); }catch(e){}   // keeps the item counts on the menu tiles current
 }
 
 /* ---------- an order opened into the billing section ---------- */
@@ -1307,6 +1311,10 @@ function resetOrder(){ EDIT = null; orderNote = ""; kitchenNote = ""; GUESTS = 0
 /* ---------- modals ---------- */
 let modalKind = null;
 function modal(kind, html, wide){ if(kind!=="incoming"){ OV.rpop = false; OV.ca = null; } modalKind = kind; hideMore(); paintNav(); $("#scrim").classList.remove("fullscr"); $("#modal").className = "modal" + (wide?" wide":""); $("#modal").innerHTML = html; $("#scrim").classList.add("show");
+  // order tools (discount, charges, tags, notes): the call center's dialog look, with Cancel in a grey footer
+  if(["disc","chg","tags","notes"].includes(kind)){ const md = $("#modal"); md.classList.add("dlg2"); let f = md.querySelector(".mf");
+    if(!f){ md.insertAdjacentHTML("beforeend", `<div class="mf"></div>`); f = md.querySelector(".mf"); }
+    if(![...f.querySelectorAll("button")].some(b => /^cancel$/i.test(b.textContent.trim()))) f.insertAdjacentHTML("afterbegin", `<button class="btn" data-close>Cancel</button>`); }
   // a sheet with its own Cancel button doesn't also need the back arrow
   const hasCancel = [...$("#modal").querySelectorAll(".mf button")].some(b => /^(cancel|close)$/i.test(b.textContent.trim()));
   const bk = [...$("#modal").querySelectorAll(".mh .x")].find(b => b.textContent.trim()==="←"); if(bk && hasCancel) bk.remove();
