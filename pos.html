@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="324-1793995341">
+<meta name="slick-build" content="325-1793995469">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -562,6 +562,7 @@ html body *:not(.receipt):not(.receipt *):not(.rpaper *):not(svg):not(svg *){fon
 .prod{position:relative}.prod .pcnt{position:absolute;top:10px;right:10px;z-index:3;font-style:normal;background:var(--acc);color:#fff;border-radius:999px;font-size:13px;font-weight:700;min-width:26px;height:26px;display:grid;place-items:center;padding:0 7px;box-shadow:0 2px 6px rgba(0,0,0,.15)}
 .prod.sel::after{content:"";position:absolute;inset:0;border:2px solid var(--acc);border-radius:inherit;pointer-events:none;z-index:2}
 #grid .ctile2 .ccn{margin-top:auto;color:var(--acci);font-size:13.5px;font-weight:600}
+.notesbox{position:sticky;top:0;z-index:4;background:var(--s,#fff);padding:2px 0 6px}
 </style>
 <script>
 /* ---------- naming: menu "products" are called Items; inventory "items" are called Products ----------
@@ -1148,8 +1149,7 @@ function renderCart(){
   acts.style.setProperty("--n", b.length + 1); acts.innerHTML = b.join(""); acts.classList.toggle("hide", !b.length);
   // order note (invoice receipt) and kitchen note (kitchen tickets)
   const noteRow = (k, ic, lbl, v) => `<div class="onote${k==="k"?" knote":""}"><span data-onote="${k}" title="${ro?"":"Tap to edit"}">${ic} <b>${lbl}:</b> ${esc(v)}</span>${ro ? "" : `<button class="onx" data-onotex="${k}" aria-label="Remove ${lbl.toLowerCase()}">×</button>`}</div>`;
-  if(orderNote) $("#lines").insertAdjacentHTML("afterbegin", noteRow("o", `<span class="onic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6M9 16h3"/></svg></span>`, "Order note", orderNote));
-  if(kitchenNote) $("#lines").insertAdjacentHTML("afterbegin", noteRow("k", `<span class="onic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 13.9A4 4 0 0 1 7.5 6.1a5 5 0 0 1 9 0A4 4 0 0 1 18 13.9V20H6z"/><path d="M6 16.5h12"/></svg></span>`, "Kitchen note", kitchenNote));
+  if(orderNote || kitchenNote) $("#lines").insertAdjacentHTML("afterbegin", `<div class="notesbox">${kitchenNote ? noteRow("k", `<span class="onic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 13.9A4 4 0 0 1 7.5 6.1a5 5 0 0 1 9 0A4 4 0 0 1 18 13.9V20H6z"/><path d="M6 16.5h12"/></svg></span>`, "Kitchen note", kitchenNote) : ""}${orderNote ? noteRow("o", `<span class="onic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6M9 16h3"/></svg></span>`, "Order note", orderNote) : ""}</div>`);
   paintAbar();
   if(ro){ const T = eo; $("#totals").innerHTML = `${+T.discount?`<div><span>Discount</span><span>−${usd(T.discount)}</span></div>`:""}${(T.charges||[]).filter(c=>+c.amount).map(c=>`<div><span>${esc(c.name)}</span><span>${usd(c.amount)}</span></div>`).join("")}
     <div><span>Subtotal</span><span>${usd((+T.total||0)-(+T.tax||0))}</span></div><div class="mut" style="font-size:13px"><span>Tax</span><span>${usd(T.tax)}</span></div><div class="g"><span>Total</span><span>${usd(T.total)}</span></div>`; }
