@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="281-1793981633">
+<meta name="slick-build" content="282-1793982122">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1172,11 +1172,12 @@ const NAV = [
   {t:"Reports",i:"chart",kids:[["sales-reports","Sales Reports"],["inventory-reports","Inventory Reports"],["business-reports","Business Reports"],["analysis-reports","Analysis Reports"]]},
   {t:"Inventory",i:"box",tabs:1,kids:[["inv-categories","Inventory Categories"],["inv-items","Items"],["warehouses","Locations"],["suppliers","Suppliers"],["purchase-orders","Purchase Orders"],["transfer-orders","Transfer Orders"],["transfers","Transfers"],["inventory-count","Inventory Count"],["production","Production"],["quantity-adjustments","Quantity Adjustment"],["cost-adjustments","Cost Adjustment"],["spot-check","Inventory Spot Check"],["count-sheets","Count Sheet"]]},
   {t:"Menu",i:"book",tabs:1,side:[["branch-menu","Sales Channels"]],kids:[["@Menu Builder"],["categories","Categories"],["products","Products"],["variants","Variants"],["modifiers","Modifiers"],["combos","Combos"],["@Menu Settings"],["allergens","Allergens"]]},
-  {t:"Manage",i:"gear",kids:[["users","Users"],["roles","Roles"],["brands","Brands"],["branches","Branches"],["devices","Devices"],["taxes","Taxes & Groups"],["currency","Currency"],["payment-methods","Payment Methods"],["order-sources","Order Sources"],["charges","Charges"],["delivery-zones","Delivery Zones"],["delivery-charges","Delivery Charges"],["online-ordering","Web Ordering"],["kitchen-flows","Kitchen Flows"],["reasons","Reasons"],["tags","Tags"]]},
+  {t:"Web Ordering",i:"globe",kids:[["online-ordering","Settings"],["delivery-zones","Delivery Zones"]]},
+  {t:"Manage",i:"gear",kids:[["users","Users"],["roles","Roles"],["brands","Brands"],["branches","Branches"],["devices","Devices"],["taxes","Taxes & Groups"],["currency","Currency"],["payment-methods","Payment Methods"],["order-sources","Order Sources"],["charges","Charges"],["delivery-charges","Delivery Charges"],["kitchen-flows","Kitchen Flows"],["reasons","Reasons"],["tags","Tags"]]},
   {t:"Marketing",i:"tag",kids:[["loyalty","Loyalty"],["gift-cards","Gift Cards"],["discounts","Discounts"],["promotions","Promotions"],["coupons","Coupons"]]}
 ];
 const TITLES = { account:"Account settings", "inv-levels":"Inventory Levels", "inv-history":"Inventory History", purchasing:"Purchasing" };
-NAV.forEach(n => { if(n.id) TITLES[n.id]=n.t; [...(n.kids||[]), ...(n.side||[])].forEach(k => { if(!k[0].startsWith("@")) TITLES[k[0]] = k[1]; }); });
+NAV.forEach(n => { if(n.id) TITLES[n.id]=n.t; [...(n.kids||[]), ...(n.side||[])].forEach(k => { if(!k[0].startsWith("@")) TITLES[k[0]] = k[1]; }); }); TITLES["online-ordering"] = "Web Ordering";
 const svgIco = k => `<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${I[k]||""}</svg>`;
 /* ---------- icons for every screen (lucide-style strokes) ---------- */
 Object.assign(I, { zonepin:'<path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/>', bike:'<circle cx="5.5" cy="17" r="3.5"/><circle cx="18.5" cy="17" r="3.5"/><path d="M15 6h2.5l1 11M5.5 17 9 10h7.5l-4 7M8 6h3l1.5 4"/>' });
@@ -1246,7 +1247,7 @@ const SUBI = {
   "quantity-adjustments":"sliders","cost-adjustments":"dollar","order-transactions":"receipt","inv-categories":"folder","warehouses":"warehouse","spot-check":"search","count-sheets":"list",
   "categories":"grid","products":"utensils","modifiers":"layers","variants":"sliders","modifier-options":"list","branch-menu":"store","combos":"combo","groups":"folder","price-tags":"pricetag","allergens":"alert","tags":"tag",
   "company":"building","users":"user","roles":"shield","brands":"store","branches":"map","devices":"tablet","tables":"grid","taxes":"percent","payment-methods":"card","order-sources":"source",
-  "charges":"plusc","delivery-zones":"zonepin","delivery-charges":"bike","online-ordering":"globe","kitchen-flows":"flow","reasons":"message","currency":"dollar","settings":"gear",
+  "charges":"plusc","delivery-zones":"zonepin","delivery-charges":"bike","online-ordering":"gear","kitchen-flows":"flow","reasons":"message","currency":"dollar","settings":"gear",
   "loyalty":"heart","gift-cards":"gift","discounts":"percent","promotions":"megaphone","coupons":"ticket",
   "dashboard":"dash","orders":"orders","call-center":"phone","customers":"users"
 };
@@ -2240,6 +2241,10 @@ async function pinHash(id, pin){ const b = await crypto.subtle.digest("SHA-256",
 // an owner's / admin's own cashier-app PIN is kept on a user row marked with their account role
 const lsGet = k => { try{ return localStorage.getItem(k); }catch(e){ return null; } }, lsSet = (k, v) => { try{ localStorage.setItem(k, v); }catch(e){} };
 const isAdminRow = r => !!r && (r.role==="owner" || r.role==="admin" || (!r.role && !!r.userId && r.userId===state.userId && (state.role==="owner" || state.role==="admin") && !r.roleId && !(r.roleIds||[]).length));
+const myUserRow = () => S.users.find(u => live(u) && state.userId && u.userId===state.userId);
+// "Display localized names": lists show each record's localized name first (kept on the signed-in user's row, or on this browser)
+const LOCN = () => { const r = myUserRow(); if(r) return !!r.displayLocalized; try{ return localStorage.getItem("slickLocN")==="1"; }catch(_){ return false; } };
+const locRow = r => LOCN() && r && r.nameAr ? { ...r, name: r.nameAr, nameAr: r.name } : r;
 const myAdminRow = () => S.users.find(u => live(u) && isAdminRow(u) && state.userId && u.userId===state.userId);
 // the owner/admin gets a cashier PIN from the start: 12345 until they change it in My profile
 let adminPinDone = false;
@@ -2259,7 +2264,7 @@ function myPerms(){
   if(!rs.length) return state.role==="admin" ? null : ["bo_dashboard","bo_orders","bo_callcenter","bo_customers"];
   return [...new Set(rs.flatMap(r => r.permissions || []))];
 }
-const NAV_PERM = { "dashboard":"bo_dashboard", "orders":"bo_orders", "call-center":"bo_callcenter", "customers":"bo_customers", "Reports":"bo_reports", "Inventory":"bo_inventory", "Menu":"bo_menu", "Manage":"bo_manage", "Marketing":"bo_marketing" };
+const NAV_PERM = { "dashboard":"bo_dashboard", "orders":"bo_orders", "call-center":"bo_callcenter", "customers":"bo_customers", "Reports":"bo_reports", "Inventory":"bo_inventory", "Menu":"bo_menu", "Manage":"bo_manage", "Web Ordering":"bo_manage", "Marketing":"bo_marketing" };
 // may the signed-in person do this back-office action? (the owner and admins always may)
 const mayDo = perm => { const p = myPerms(); return !p || p.includes(perm) || p.includes("bo_manage"); };
 function canOpen(route){
@@ -2342,7 +2347,7 @@ const CRUD = {
       {k:"email",l:"Email",ph:"Needed only to log in to the back office"},
       {k:"password",l:"Password",t:"password",hideIf:r=>!!r.userId,note:"Only for users who work in the back office. They sign in with their email and this password. At least 8 characters. Once set, they change it themselves with Forgot password."},
       {k:"pin",l:"Login PIN",t:"pin",note:"A unique 5-digit PIN the user types to sign in on the cashier app. Generate a random PIN for better security."},
-      {k:"displayLocalized",l:"Display Localized Names (show the apps in the localized language)",t:"chk",def:false},
+      {k:"displayLocalized",l:"Display localized names (show the apps in the localized language)",t:"chk",def:false},
       {k:"roleIds",l:"Roles",t:"multi",get:r=>userRoleIds(r),opts:()=>S.roles.filter(live).map(r=>[r.id,r.name]),editOnly:1},
       {k:"active",l:"Active",t:"chk",def:true,editOnly:1}],
     note:"POS users sign in on the tablet with their PIN. For back-office access, add their email and a password: they sign in with them.",
@@ -2613,7 +2618,7 @@ function crudView(key){
     h += `<table><thead><tr>${dr ? `<th class="noedit grc"></th>` : ""}${bk ? `<th class="noedit bkc"><input type="checkbox" data-bkall="${key}" ${allOn?"checked":""} aria-label="Select all on this page"></th>` : ""}${bk && sel.size
       ? `<th colspan="${cfg.cols.length}" class="bkbar"><b>${sel.size} Selected</b><span class="ddwrap"><button type="button" class="btn sm" id="bkAct">Actions ▾</button><span class="ddmenu" id="bkActM" hidden>${bkActs.map(([k,t]) => `<button type="button" data-bkdo="${key}:${k}">${t}</button>`).join("")}</span></span></th>`
       : cfg.cols.map(c=>`<th class="${c[2]||""}">${c[0]}</th>`).join("")}</tr></thead><tbody>${
-    shown.map(r=>`<tr class="click" data-open="${key}:${esc(r.id)}"${dr ? ` data-sk="row:${key}|${esc(r.id)}"` : ""}>${dr ? `<td class="noedit grc" title="Drag to move"><span class="bmgrip" aria-hidden="true">⋮⋮</span></td>` : ""}${bk ? `<td class="noedit bkc"><input type="checkbox" data-bksel="${key}:${esc(r.id)}" ${sel.has(r.id)?"checked":""} aria-label="Select ${esc(r.name||"")}"></td>` : ""}${cfg.cols.map((c, ci)=>`<td class="${c[2]||""}">${c[1](r)}${ci===0 && TAG_KEY[key] ? tagChips(TAG_KEY[key], r.id) : ""}</td>`).join("")}</tr>`).join("")}</tbody></table>`; }
+    shown.map(r=>`<tr class="click" data-open="${key}:${esc(r.id)}"${dr ? ` data-sk="row:${key}|${esc(r.id)}"` : ""}>${dr ? `<td class="noedit grc" title="Drag to move"><span class="bmgrip" aria-hidden="true">⋮⋮</span></td>` : ""}${bk ? `<td class="noedit bkc"><input type="checkbox" data-bksel="${key}:${esc(r.id)}" ${sel.has(r.id)?"checked":""} aria-label="Select ${esc(r.name||"")}"></td>` : ""}${cfg.cols.map((c, ci)=>`<td class="${c[2]||""}">${c[1](locRow(r))}${ci===0 && TAG_KEY[key] ? tagChips(TAG_KEY[key], r.id) : ""}</td>`).join("")}</tr>`).join("")}</tbody></table>`; }
   h += `<div class="pager"><span class="note">Showing ${list.length?(pg-1)*per+1:0} to ${Math.min(pg*per,list.length)} out of ${list.length}</span><div class="sp"></div>
     <button class="btn sm" data-page="${key}:${pg-1}" ${pg<=1?"disabled":""}>Previous</button><button class="btn sm" data-page="${key}:${pg+1}" ${pg>=pages?"disabled":""}>Next</button></div></div>`;
   return h;
@@ -4363,7 +4368,7 @@ function printOrder(){
     <h2>${esc((brandName(o.brandId)!=="—"?brandName(o.brandId):"Slick").toUpperCase())}</h2><p class="c">${esc(b?.name||"")}</p><hr>
     <p>Order ${esc(ordRef(o))} · ${esc(ordTypeLbl(o.type))}${o.table?" T"+esc(o.table):""}<br>${new Date(o.createdAt).toLocaleString("en-GB")}${o.customerName?"<br>"+esc(o.customerName):""}${o.phone?" · "+esc(o.phone):""}${o.address?"<br>"+esc(o.address):""}</p><hr>
     <table>${items.map(i=>`<tr><td>${+i.qty||1} x ${esc(i.name)}${modLines(i).map(m => `<br>&nbsp;&nbsp;&nbsp;- ${esc(m)}`).join("")}</td><td class="r">${((+i.qty||1)*(+i.price||0)).toFixed(2)}</td></tr>`).join("")}</table><hr>
-    <table>${+o.discount?`<tr><td>Discount</td><td class="r">-${(+o.discount).toFixed(2)}</td></tr>`:""}${(o.charges||[]).filter(c=>+c.amount).map(c=>`<tr><td>${esc(c.name)}</td><td class="r">${(+c.amount).toFixed(2)}</td></tr>`).join("")}${+o.deliveryFee?`<tr><td>Delivery</td><td class="r">${(+o.deliveryFee).toFixed(2)}</td></tr>`:""}<tr><td>Subtotal</td><td class="r">${((+o.total||0)-(+o.tax||0)).toFixed(2)}</td></tr><tr><td>Tax</td><td class="r">${(+o.tax||0).toFixed(2)}</td></tr><tr><td><b>TOTAL USD</b></td><td class="r"><b>${(+o.total||0).toFixed(2)}</b></td></tr>${o.payment?`<tr><td>Paid (${esc(o.payment.method)})</td><td class="r">${(+o.payment.tendered||+o.total||0).toFixed(2)}</td></tr>`:""}</table>
+    <table>${+o.discount?`<tr><td>Discount</td><td class="r">-${(+o.discount).toFixed(2)}</td></tr>`:""}${(o.charges||[]).filter(c=>+c.amount).map(c=>`<tr><td>${esc(c.name)}</td><td class="r">${(+c.amount).toFixed(2)}</td></tr>`).join("")}${+o.deliveryFee?`<tr><td>Delivery</td><td class="r">${(+o.deliveryFee).toFixed(2)}</td></tr>`:""}<tr><td>Subtotal</td><td class="r">${((+o.total||0)-(+o.tax||0)).toFixed(2)}</td></tr><tr><td>Tax</td><td class="r">${(+o.tax||0).toFixed(2)}</td></tr><tr><td><b>TOTAL ${esc(CUR())}</b></td><td class="r"><b>${(+o.total||0).toFixed(2)}</b></td></tr>${o.payment?`<tr><td>Paid (${esc(o.payment.method)})</td><td class="r">${(+o.payment.tendered||+o.total||0).toFixed(DEC())}</td></tr>${+o.payment.tendered2 ? `${+o.payment.tendered1 ? `<tr><td>&nbsp; ${esc(CUR())}</td><td class="r">${(+o.payment.tendered1).toFixed(DEC())}</td></tr>` : ""}<tr><td>&nbsp; ${esc(o.payment.currency2)}</td><td class="r">${(+o.payment.tendered2).toLocaleString("en-US",{minimumFractionDigits:+o.payment.decimals2||0,maximumFractionDigits:+o.payment.decimals2||0})}</td></tr>` : ""}${+o.payment.change ? `<tr><td>Change</td><td class="r">${(+o.payment.change).toFixed(DEC())}</td></tr>` : ""}`:""}</table>
     ${o.receiptNotes?`<p class="c">${esc(o.receiptNotes)}</p>`:""}${o.status==="void"?"<h2>*** VOID ***</h2>":o.status==="returned"?"<h2>*** RETURNED ***</h2>":""}<hr><p class="c">Thank you!</p><script>window.onload=()=>{window.print();}<\/script>`);
   w.document.close();
 }
@@ -4868,6 +4873,7 @@ function viewAccount(){
     <div class="card"><h3 style="margin:0 0 12px;font-size:15px">Profile</h3>
       <div class="f" style="margin-bottom:12px"><label for="acName">Name</label><input id="acName" class="sel" value="${esc(n)}"></div>
       <div class="f" style="margin-bottom:12px"><label>Email (sign-in)</label><input class="sel" value="${esc(state.email||"")}" disabled></div>
+      <label class="chk" style="margin:4px 0 10px"><input type="checkbox" id="acLocN" ${LOCN()?"checked":""}> Display localized names</label>
       <div class="err" id="acErr"></div></div>
     <div class="card"><h3 style="margin:0 0 12px;font-size:15px">Access</h3>
       ${owner ? `<p style="margin:0 0 8px"><span class="tag on">Owner</span> <b>Super user</b></p><p class="note" style="margin:0 0 12px">This account owns the business: it sees every brand, branch and screen and can change everything, including users, roles and permissions. Roles never restrict the owner.</p>`
@@ -4885,6 +4891,7 @@ function viewAccount(){
 }
 async function saveAccount(){
   const name = ($("#acName")?.value || "").trim(); if(!name){ $("#acErr").textContent = "Enter your name."; return; }
+  const ln = !!$("#acLocN")?.checked; if(ln!==LOCN()){ try{ localStorage.setItem("slickLocN", ln ? "1" : "0"); }catch(_){} const r = myUserRow(); if(r){ try{ await put("users", r.id, { displayLocalized: ln }); }catch(e){ console.error(e); } } }
   try{ const { error } = await WOK.sb.from("staff").update({ name }).eq("user_id", state.userId); if(error) throw error;
     await WOK.sb.from("staff_users").update({ name }).eq("user_id", state.userId);
     state.fullName = name; state.userName = name.split(" ")[0]; $("#avatar").textContent = name.split(/\s+/).map(w=>w[0]).join("").slice(0,2).toUpperCase(); paintAcct(); toast("Account saved"); }
@@ -4952,8 +4959,7 @@ function viewCompany(){
     </div>${lk ? `<p class="note bizn">Country and currency were set when the business was created and can't be changed.</p>` : `<p class="note bizn">Pick the country and currency carefully: once you save, they can't be changed.</p>`}</div>
     <h3 class="bizh">Contacts</h3>
     <div class="card bizcard"><div class="bizgrid">
-      ${f("email","Primary email",{type:"email"})}
-      ${f("ownerEmail","Owner email",{type:"email"})}
+      ${f("email","Email",{type:"email"})}
       <div class="f"><label for="co_ownerPhone">Owner phone number</label><div class="phrow"><select id="co_ownerPhoneCc" class="sel" aria-label="Country code" ${dis}>${CC_CODES.map(([d,n])=>`<option value="${d}" ${d===ph.cc?"selected":""}>${esc(n)} (${d})</option>`).join("")}</select><input id="co_ownerPhone" class="sel" type="tel" inputmode="tel" value="${esc(ph.num)}" ${dis}></div></div>
       ${f("phone","Business phone",{type:"tel"})}
       ${f("address","Address",{full:1})}
@@ -4961,7 +4967,6 @@ function viewCompany(){
     <h3 class="bizh">Settings</h3>
     <div class="card bizcard"><div class="bizgrid">
       <div class="f"><label for="co_timeZone">Time zone <span class="tip" title="Used for business days, reports and order times.">ⓘ</span></label><select id="co_timeZone" class="sel" ${dis}>${tzList().map(([z,off])=>`<option value="${z}" ${(c.timeZone||"Asia/Beirut")===z?"selected":""}>(UTC${off}) ${z.replace(/_/g," ")}</option>`).join("")}</select></div>
-      ${f("logoUrl","Logo image link",{type:"url"})}
     </div><div class="err" id="coErr"></div></div>`;
 }
 document.addEventListener("change", e => { if(e.target.id!=="co_bizCategory") return; const sel = $("#co_bizSubcategory"); if(sel) sel.innerHTML = (BIZ_CATS[e.target.value]||[]).map(k => `<option>${esc(k)}</option>`).join(""); });
@@ -4973,7 +4978,7 @@ function dayExample(v){
 document.addEventListener("input", e => { if(e.target.id==="co_dayEnd" && $("#coDayEx")) $("#coDayEx").textContent = dayExample(e.target.value); });
 async function saveCompany(){
   const v = k => ($("#co_"+k)?.value || "").trim();
-  const data = { name:v("name"), taxNumber:v("taxNumber"), taxName:v("taxName"), bizCategory:v("bizCategory"), bizSubcategory:v("bizSubcategory"), ownerEmail:v("ownerEmail"), ownerPhone: fullPhone(v("ownerPhone"), v("ownerPhoneCc")), phone:v("phone"), email:v("email"), address:v("address"), logoUrl:v("logoUrl"), timeZone:v("timeZone") || "Asia/Beirut", country: company().country || v("country") || "Lebanon", currency: bizLocked() ? (company().currency || "USD") : (v("bcur") || "USD"), ...(company().accountNo ? { accountNo: company().accountNo } : {}) };
+  const data = { name:v("name"), taxNumber:v("taxNumber"), taxName:v("taxName"), bizCategory:v("bizCategory"), bizSubcategory:v("bizSubcategory"), ownerEmail:null, ownerPhone: fullPhone(v("ownerPhone"), v("ownerPhoneCc")), phone:v("phone"), email:v("email"), address:v("address"), logoUrl:null, timeZone:v("timeZone") || "Asia/Beirut", country: company().country || v("country") || "Lebanon", currency: bizLocked() ? (company().currency || "USD") : (v("bcur") || "USD"), ...(company().accountNo ? { accountNo: company().accountNo } : {}) };
   if(!data.name){ $("#coErr").textContent = "Business name is required."; $("#co_name").focus(); return; }
   try{ await put("settings", "company", data); toast("Business saved"); }
   catch(e){ console.error(e); $("#coErr").textContent = "Couldn't save. Only the owner or an admin can change this."; }
@@ -5155,14 +5160,17 @@ function viewCurrency(){
   return `<div class="phead"><h1>Currency</h1><div class="sp"></div>${admin?`<button class="btn pri" id="curSave">Save changes</button>`:""}</div>
     <p class="subt" style="margin-top:-6px">The currency your menu prices are in, how many decimals they show, and an optional second currency.</p>
     ${admin?"":`<div class="banner">Only the owner or an admin can change the currency.</div>`}
-    <div class="card" style="margin-bottom:16px"><h3 style="margin:0 0 12px;font-size:15px">Prices & currencies</h3>
-      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px">
-        <div class="f"><label for="co_currency">Currency</label><select id="co_currency" class="sel" ${admin && !bizLocked() ? "" : "disabled"} ${bizLocked() ? `title="${LOCK_NOTE}"` : ""}>${CURRENCIES.map(([k,t])=>`<option value="${k}" ${(c.currency||"USD")===k?"selected":""}>${t}</option>`).join("")}</select></div>
-        <div class="f"><label for="co_priceDecimals">Price decimals</label><select id="co_priceDecimals" class="sel" ${admin?"":"disabled"}>${[0,1,2,3].map(n=>`<option value="${n}" ${String(c.priceDecimals ?? 2)===String(n)?"selected":""}>${n} (${(12.5).toFixed(n)})</option>`).join("")}</select></div>
-        <div class="f"><label for="co_currency2">Second currency</label><select id="co_currency2" class="sel" ${admin?"":"disabled"}><option value="">None</option>${CURRENCIES.map(([k,t])=>`<option value="${k}" ${c.currency2===k?"selected":""}>${t}</option>`).join("")}</select></div>
+    <div class="card" style="margin-bottom:16px"><h3 style="margin:0 0 12px;font-size:15px">Main Currency</h3>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px">
+        <div class="f"><label for="co_currency">Main currency</label><select id="co_currency" class="sel" ${admin && !bizLocked() ? "" : "disabled"} ${bizLocked() ? `title="${LOCK_NOTE}"` : ""}>${CURRENCIES.map(([k,t])=>`<option value="${k}" ${(c.currency||"USD")===k?"selected":""}>${t}</option>`).join("")}</select></div>
+        <div class="f"><label for="co_priceDecimals">Main currency decimals</label><select id="co_priceDecimals" class="sel" ${admin?"":"disabled"}>${[0,1,2].map(n=>`<option value="${n}" ${String(Math.min(2, c.priceDecimals ?? 2))===String(n)?"selected":""}>${n}</option>`).join("")}</select></div>
+      </div><p class="note" style="margin:10px 0 0">Menu prices, totals and reports are in the main currency.</p></div>
+    <div class="card" style="margin-bottom:16px"><h3 style="margin:0 0 12px;font-size:15px">Secondary Currency</h3>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px">
+        <div class="f"><label for="co_currency2">Secondary currency</label><select id="co_currency2" class="sel" ${admin?"":"disabled"}><option value="">None</option>${CURRENCIES.map(([k,t])=>`<option value="${k}" ${c.currency2===k?"selected":""}>${t}</option>`).join("")}</select></div>
         <div class="f"><label for="co_rate2">Exchange rate (1 ${esc(c.currency||"USD")} =)</label><input id="co_rate2" class="sel" type="number" min="0" step="any" value="${esc(c.rate2??"")}" placeholder="e.g. 89500" ${admin?"":"disabled"}></div>
-        <div class="f"><label for="co_decimals2">Second currency decimals</label><select id="co_decimals2" class="sel" ${admin?"":"disabled"}>${[0,1,2].map(n=>`<option value="${n}" ${String(c.decimals2 ?? 0)===String(n)?"selected":""}>${n}</option>`).join("")}</select></div>
-      </div><p class="note" style="margin:10px 0 0">The second currency is shown next to totals in the POS, on receipts, in the call center and online, at this rate.</p></div>
+        <div class="f"><label for="co_decimals2">Secondary currency decimals</label><select id="co_decimals2" class="sel" ${admin?"":"disabled"}>${[0,1,2].map(n=>`<option value="${n}" ${String(c.decimals2 ?? 0)===String(n)?"selected":""}>${n}</option>`).join("")}</select></div>
+      </div><p class="note" style="margin:10px 0 0">Shown next to totals in the POS, on receipts, in the call center and online. The cashier can take cash in either currency, or both, and the change is shown in both.</p></div>
     <div class="err" id="curErr"></div>`;
 }
 async function saveCurrency(){
@@ -5589,7 +5597,7 @@ function userDetail(u){
       ${u.email ? `<button class="btn" data-usrpw="${esc(u.id)}">Change Password</button>` : ""}<button class="btn" data-usrpin>Change PIN</button><button class="btn pri" data-detedit>Edit User</button></div></div>
     <div class="udwrap">
       <div class="card udinfo">${fld("Name", esc(u.name))}${fld("Email", esc(u.email || "—"))}${fld("Phone", esc(u.phone || "—"))}${fld("Language", u.language==="ar" ? "Arabic" : "English")}
-        ${fld("Display Localized Names", u.displayLocalized ? "Yes" : "No")}${fld("Console Access", u.email ? (u.userId ? "Yes" : "Not created yet") : "No")}
+        ${fld("Display localized names", u.displayLocalized ? "Yes" : "No")}${fld("Console Access", u.email ? (u.userId ? "Yes" : "Not created yet") : "No")}
         ${fld("App Access (PIN)", u.pinHash ? "Yes" : "No")}${fld("Created", dt(u.createdAt))}</div>
       ${sec("Roles", `<button class="btn sm" data-usrroles="${esc(u.id)}">Edit Roles</button>`, rs.length ? rs.map(r => `<div class="udli">${esc(r.name)}</div>`).join("") : '<div class="udli note">No roles</div>')}
       ${sec("Branches", `<button class="btn sm" data-usrbr="${esc(u.id)}">Edit Branches</button>`, picked ? `<table><thead><tr><th>Name</th><th>Reference</th></tr></thead><tbody>${brs.map(b => `<tr><td>${esc(b.name)}</td><td>${esc(b.code||"—")}</td></tr>`).join("")}</tbody></table>`

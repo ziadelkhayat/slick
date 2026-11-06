@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="274-1793976811">
+<meta name="slick-build" content="282-1793982122">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -441,6 +441,8 @@ button,input,select,textarea{font-family:var(--f-ui)}
 .payr .tender{font-family:var(--f-num);font-size:30px!important;font-weight:700;border:2px solid var(--acc)!important;border-radius:14px!important;padding:12px 16px!important}
 .payr .quick{margin:0!important}
 .payr .quick button{border:0!important;background:var(--accs)!important;color:var(--acci);font-weight:700;border-radius:12px!important;min-height:48px}
+.tnd2{display:grid;grid-template-columns:1fr 1fr;gap:8px}.tbox{display:flex;flex-direction:column;gap:4px;cursor:pointer}.tbox span{font-size:12px;font-weight:700;color:var(--mut,#8a8799);letter-spacing:.04em}.tbox .tender{font-size:22px!important;padding:10px 12px!important;border:2px solid var(--line)!important;cursor:pointer;min-width:0}.tbox.on .tender{border-color:var(--acc)!important;box-shadow:0 0 0 3px color-mix(in srgb,var(--acc) 18%,transparent)}.tbox.on span{color:var(--acc)}
+.payr .chgv{display:flex;flex-direction:column;align-items:flex-end}.payr .chgv small{font-size:13px;font-weight:600;opacity:.8}.payr .change.short{color:#b42318}
 .kpad{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
 .kpad button{height:56px;border:0;border-radius:14px;background:var(--sunk);font-family:var(--f-num);font-size:22px;font-weight:600}
 .kpad button:active{background:var(--accs)}
@@ -657,6 +659,9 @@ const modList = i => { const l = modLines(i); return l.length ? `<ul class="mlis
 const coS = () => { try{ return S.settings.find(x=>x.id==="company") || {}; }catch(e){ return {}; } };
 const DEC = () => { const d = coS().priceDecimals; return d===0||d==="0" ? 0 : +d || 2; };
 const usd = n => (coS().currency || "USD") + " " + (+n||0).toLocaleString("en-US",{minimumFractionDigits:DEC(),maximumFractionDigits:DEC()});
+const CUR2 = () => { const c = coS(); return c.currency2 && +c.rate2 ? { code: c.currency2, rate: +c.rate2, dec: +c.decimals2 || 0 } : null; };
+const num2 = (n, d) => (+n||0).toLocaleString("en-US", { minimumFractionDigits: +d||0, maximumFractionDigits: +d||0 });
+const ceilD = (n, d) => { const f = Math.pow(10, d); return Math.ceil(n * f - 1e-7) / f; };
 const usd2 = n => { const c = coS(); if(!c.currency2 || !(+c.rate2)) return ""; const d = +c.decimals2 || 0; return c.currency2 + " " + ((+n||0) * +c.rate2).toLocaleString("en-US",{minimumFractionDigits:d,maximumFractionDigits:d}); };
 (() => { const P = Date.prototype, ls = P.toLocaleString, lt = P.toLocaleTimeString;   // 12-hour clock on screen and receipts
   P.toLocaleString = function(l, o){ return ls.call(this, l || "en-GB", { hour12:true, ...(o||{}) }); };
@@ -1315,8 +1320,9 @@ $("#modal").addEventListener("click", async e => {
         cp.disabled = over; }, err => { console.error(err); cn.innerHTML = `<div><b style="color:#b42318">Couldn't check the house account</b><br>House account needs a connection</div>`; }); }
     else if($("#cardNote")) $("#cardNote").innerHTML = `<div><b style="color:var(--ink)">Take the payment on the card machine</b><br>then complete the sale</div>`;
     return; }
-  const qk = e.target.closest("[data-qk]"); if(qk){ $("#tender").value = qk.dataset.qk; KP = true; updChange(); return; }
-  const kp = e.target.closest("[data-kp]"); if(kp){ const el = $("#tender"), k = kp.dataset.kp; let v = KP ? "" : el.value; KP = false;
+  const tc = e.target.closest("[data-tcur]"); if(tc){ TCUR = +tc.dataset.tcur; if(TCUR===2 && KP && !$("#tender2").value) $("#tender").value = ""; document.querySelectorAll("[data-tcur]").forEach(b => b.classList.toggle("on", b===tc)); KP = true; $("#quickBox").innerHTML = quickBtns(TCUR); updChange(); return; }
+  const qk = e.target.closest("[data-qk]"); if(qk){ const c2 = CUR2(); if(c2){ $("#tender").value = TCUR===1 ? (+qk.dataset.qk).toFixed(DEC()) : ""; $("#tender2").value = TCUR===2 ? qk.dataset.qk : ""; } else $("#tender").value = qk.dataset.qk; KP = true; updChange(); return; }
+  const kp = e.target.closest("[data-kp]"); if(kp){ const el = $(TCUR===2 && $("#tender2") ? "#tender2" : "#tender"), k = kp.dataset.kp; let v = KP ? "" : el.value; KP = false;
     v = k==="⌫" ? v.slice(0,-1) : k==="." ? (v.includes(".") ? v : (v || "0") + ".") : (v==="0" ? k : v + k); el.value = v.slice(0,9); updChange(); return; }
   if(e.target.closest("#confirmPay")) return completeSale();
   const ia = e.target.closest("[data-inc]"); if(ia){ if(!can("pos_incoming")) return deny("handling incoming orders"); const [id,s] = ia.dataset.inc.split(":"); try{ const o = S.orders.find(x=>x.id===id), bill = (s==="active" || s==="closed") && o && !o.no ? { no: nextOrderNo(), deviceId: device.id } : {};   // this register bills it, so it numbers it
@@ -1392,29 +1398,50 @@ function openPay(){
   const blk = saleBlock(); if(blk){ modal("blocked", `<div class="mh"><h2>Can't take sales yet</h2><button class="x" data-close aria-label="Close">×</button></div><div class="mb"><p>${esc(blk)}</p></div><div class="mf"><button class="btn" data-close>OK</button><button class="btn pri" id="goDayEnd">End day</button></div>`); return; }
   if(!openShift()){ toast("Open a shift before taking payments"); return; }
   if(!orderInfoOk()) return;
-  const t = totals(), pms = payMethods(); payMethod = pms[0];
-  const q = [t.total, Math.ceil(t.total/5)*5, Math.ceil(t.total/10)*10, Math.ceil(t.total/20)*20, ...String(appSet().presetTender||"").split(",").map(x=>+x.trim()).filter(x => x > t.total)].filter((v,i,a)=>a.indexOf(v)===i);
+  const t = totals(), pms = payMethods(), c2 = CUR2(); payMethod = pms[0]; TCUR = 1;
   KP = true;   // the first key typed replaces the prefilled amount
   HA = null; const pmIco = m => ico(m.type==="cash" ? "cash" : m.type==="card" ? "card" : "wallet");
   modal("pay", `<div class="payx"><div class="payl"><div class="ptop"><div><div class="dlbl">Amount due</div><div class="damt">${usd(t.total)}</div>${usd2(t.total) ? `<div class="d2">≈ ${usd2(t.total)}</div>` : ""}</div></div>
       <div class="paym">${pms.map((m,i)=>`<button data-pm="${esc(m.id)}" class="${i?"":"on"}">${pmIco(m)}${esc(m.name)}</button>`).join("")}</div>
       <div class="psum">${cart.map(i => `<div><span>${+i.qty||1}× ${esc(i.name)}</span><span>${usd(lineNet(i))}</span></div>`).join("")}${t.disc ? `<div class="m"><span>${esc(discLbl())}</span><span>−${usd(t.disc)}</span></div>` : ""}${t.charges.filter(c=>c.amount).map(c => `<div class="m"><span>${esc(c.name)}</span><span>${usd(c.amount)}</span></div>`).join("")}${t.fee ? `<div class="m"><span>Delivery fee</span><span>${usd(t.fee)}</span></div>` : ""}<div class="m" style="border-top:1px dashed var(--line);padding-top:6px"><span>Tax</span><span>${usd(t.tax)}</span></div></div></div>
-    <div class="payr"><div id="cashBox" style="display:${pms[0].type==="cash"?"flex":"none"};flex-direction:column;gap:12px"><input class="tender" id="tender" inputmode="none" value="${t.total.toFixed(2)}" aria-label="Cash received">
-      <div class="quick">${q.map(v=>`<button data-qk="${v}">${v===t.total ? "Exact" : usd(v)}</button>`).join("")}</div>
+    <div class="payr"><div id="cashBox" style="display:${pms[0].type==="cash"?"flex":"none"};flex-direction:column;gap:12px">${c2 ? `<div class="tnd2">
+        <label class="tbox on" data-tcur="1"><span>${esc(coS().currency || "USD")}</span><input class="tender" id="tender" inputmode="none" readonly value="${t.total.toFixed(DEC())}" aria-label="Cash received in ${esc(coS().currency || "USD")}"></label>
+        <label class="tbox" data-tcur="2"><span>${esc(c2.code)}</span><input class="tender" id="tender2" inputmode="none" readonly value="" placeholder="0" aria-label="Cash received in ${esc(c2.code)}"></label></div>`
+      : `<input class="tender" id="tender" inputmode="none" value="${t.total.toFixed(DEC())}" aria-label="Cash received">`}
+      <div class="quick" id="quickBox">${quickBtns(1)}</div>
       <div class="kpad">${["1","2","3","4","5","6","7","8","9",".","0","⌫"].map(k => `<button type="button" data-kp="${k}" aria-label="${k==="⌫"?"Delete":k}">${k}</button>`).join("")}</div>
-      <div class="change"><span>Change</span><b id="chg">USD 0.00</b></div></div>
+      <div class="change"><span id="chgL">Change</span><span class="chgv"><b id="chg">${usd(0)}</b>${c2 ? `<small id="chg2"></small>` : ""}</span></div></div>
       <div class="cardnote" id="cardNote" style="display:${pms[0].type==="cash"?"none":"grid"}"><div><b style="color:var(--ink)">Take the payment on the card machine</b><br>then complete the sale</div></div>
       <div class="payact"><button type="button" class="btn paycx" data-close>Cancel</button><button class="btn pri" id="confirmPay">${ico("check")} COMPLETE SALE</button></div></div></div>`);
   $("#modal").classList.add("paym2");
 }
-function updChange(){ const t = totals().total, v = +$("#tender")?.value || 0; if($("#chg")) $("#chg").textContent = payMethod?.type==="cash" ? usd(Math.max(0, v-t)) : "—"; if($("#confirmPay")) $("#confirmPay").disabled = payMethod?.type==="cash" && v < t; }
+// cash can be taken in the main currency, the second currency, or both; paid = main + second ÷ rate
+let TCUR = 1;
+function quickBtns(cur){
+  const t = totals().total, c2 = CUR2();
+  if(cur===2 && c2){ const ex = ceilD(t * c2.rate, c2.dec), b = Math.pow(10, Math.floor(Math.log10(Math.max(ex, 1))));   // round notes: e.g. 1,118,750 → 1,200,000 · 1,500,000 · 2,000,000
+    const l = [ex, ...[b/10, b/2, b].map(k => Math.ceil(ex/k)*k)].filter((v,i,a) => v >= ex && a.indexOf(v)===i).slice(0,4);
+    return l.map(v => `<button data-qk="${v}">${v===ex ? "Exact" : c2.code + " " + num2(v, c2.dec)}</button>`).join(""); }
+  const q = [t, Math.ceil(t/5)*5, Math.ceil(t/10)*10, Math.ceil(t/20)*20, ...String(appSet().presetTender||"").split(",").map(x=>+x.trim()).filter(x => x > t)].filter((v,i,a)=>a.indexOf(v)===i);
+  return q.map(v=>`<button data-qk="${v}">${v===t ? "Exact" : usd(v)}</button>`).join("");
+}
+const tPaid = () => { const c2 = CUR2(), v1 = +$("#tender")?.value || 0, v2 = c2 ? (+$("#tender2")?.value || 0) : 0; return { v1, v2, paid: v1 + (c2 ? v2 / c2.rate : 0) }; };
+function updChange(){
+  const t = totals().total, c2 = CUR2(), { paid } = tPaid(), cash = payMethod?.type==="cash", short = cash && paid < t - 0.0005, d = Math.abs(paid - t);
+  if($("#chgL")) $("#chgL").textContent = short ? "Remaining" : "Change";
+  if($("#chg")) $("#chg").textContent = cash ? usd(short ? d : Math.max(0, paid - t)) : "—";
+  if($("#chg2")) $("#chg2").textContent = cash && c2 ? "= " + c2.code + " " + num2(short ? ceilD(d * c2.rate, c2.dec) : Math.floor((paid - t) * c2.rate * Math.pow(10, c2.dec) + 1e-7) / Math.pow(10, c2.dec), c2.dec) : "";
+  $(".payr .change")?.classList.toggle("short", !!short);
+  if($("#confirmPay")) $("#confirmPay").disabled = short;
+}
 async function completeSale(){
-  const t = totals(), now = new Date().toISOString(), tender = payMethod?.type==="cash" ? +$("#tender").value : t.total;
+  const t = totals(), now = new Date().toISOString(), c2 = CUR2(), tp = tPaid(), cashPay = payMethod?.type==="cash", tender = cashPay ? +tp.paid.toFixed(4) : t.total;
+  const t2 = cashPay && c2 && tp.v2 ? { tendered1: tp.v1, tendered2: tp.v2, currency2: c2.code, rate2: c2.rate, decimals2: c2.dec } : {};
   const eo0 = editOrder(), no = eo0?.no || nextOrderNo();   // an open order being paid keeps its number: don't use up a new one
   const order = { no, channel:"pos", source: (otype==="takeaway" || otype==="delivery") ? (cust.source || "") : "", type: otype==="dinein"?"dinein":otype==="fast"?"fast":otype==="takeaway"?"pickup":"delivery", table: otype==="dinein"?tableNo:"",
     customerName:cust.name.trim(), phone:cust.phone.trim(), address: otype==="delivery"?addrJoin(cust.addr):"",
     brandId:branch?.brandId || null, branchId:device.branchId, deviceId:device.id, shiftId:openShift().id, agent:cashier?.name || device.name, items:cart, subtotal:+t.sub.toFixed(2), charges:t.charges, chargesTotal:t.chT, discountPct: discType==="pct" ? discount : (t.sub ? +(t.disc/t.sub*100).toFixed(2) : 0), discountType: discType, discount:t.disc, total:t.total, receiptNotes: orderNote.trim(), notes: kitchenNote.trim(), ...(otype==="dinein" && GUESTS ? { guests: GUESTS } : {}),
-    tax:t.tax, payment:{ method:payMethod.name, type:payMethod.type, methodId:payMethod.id, tendered:tender, change:+Math.max(0,tender-t.total).toFixed(2) }, status:"closed", createdAt:now, updatedAt:now, closedAt:now };
+    tax:t.tax, payment:{ method:payMethod.name, type:payMethod.type, methodId:payMethod.id, tendered:+tender.toFixed(DEC()), ...t2, change:+Math.max(0,tender-t.total).toFixed(DEC()) }, status:"closed", createdAt:now, updatedAt:now, closedAt:now };
   $("#confirmPay").disabled = true;
   try{
     const eo = editOrder();
@@ -1454,14 +1481,16 @@ function receiptText(o){
     ...(a.rcptCustomer && (o.customerName || o.phone) ? [[o.customerName, (o.type==="pickup"||o.type==="takeaway") && a.phoneOnPickup===false ? "" : o.phone].filter(Boolean).join(" · ")] : []),
     ...(a.showCreator && (o.agent || o.handledBy) ? ["Created by " + (o.agent || o.handledBy)] : []), ...(a.showCloser && (o.handledBy || o.agent) ? ["Closed by " + (o.handledBy || o.agent)] : []),
     new Date(o.createdAt).toLocaleString("en-GB"), "-".repeat(w),
-    ...o.items.flatMap(i => [...rcptNames(i, a).map((nm, k) => k ? ("     " + nm).slice(0, w) : row(i.qty+" x "+nm, lineNet(i).toFixed(2))), ...modLines(i, a.hideFreeMods).map(m => ("   - " + m).slice(0, w)), ...(+i.disc ? ["  discount -" + (+i.disc).toFixed(2)] : [])]), "-".repeat(w) ];
-  if(o.discount) lines.push(row(o.discountType==="amt" ? "Discount" : "Discount "+o.discountPct+"%", "-"+(+o.discount).toFixed(2)));
-  (o.charges||[]).filter(c=>+c.amount).forEach(c => lines.push(row(c.name, (+c.amount).toFixed(2))));
-  if(a.showSubtotal!==false) lines.push(row("Subtotal", net.toFixed(2)));
-  if(a.rcptTax) lines.push(row(taxIncl() ? "Tax (incl.)" : "Tax", (+o.tax||0).toFixed(2)));
-  lines.push(row("TOTAL USD", (+o.total).toFixed(2)));
+    ...o.items.flatMap(i => [...rcptNames(i, a).map((nm, k) => k ? ("     " + nm).slice(0, w) : row(i.qty+" x "+nm, lineNet(i).toFixed(DEC()))), ...modLines(i, a.hideFreeMods).map(m => ("   - " + m).slice(0, w)), ...(+i.disc ? ["  discount -" + (+i.disc).toFixed(DEC())] : [])]), "-".repeat(w) ];
+  if(o.discount) lines.push(row(o.discountType==="amt" ? "Discount" : "Discount "+o.discountPct+"%", "-"+(+o.discount).toFixed(DEC())));
+  (o.charges||[]).filter(c=>+c.amount).forEach(c => lines.push(row(c.name, (+c.amount).toFixed(DEC()))));
+  if(a.showSubtotal!==false) lines.push(row("Subtotal", net.toFixed(DEC())));
+  if(a.rcptTax) lines.push(row(taxIncl() ? "Tax (incl.)" : "Tax", (+o.tax||0).toFixed(DEC())));
+  lines.push(row("TOTAL " + (coS().currency || "USD"), (+o.total).toFixed(DEC())));
   if(usd2(o.total)) lines.push(row("", "= " + usd2(o.total)));
-  if(o.payment){ lines.push(row((o.status==="refund" ? "Refunded (" : "Paid (")+o.payment.method+")", Math.abs(+o.payment.tendered).toFixed(2))); if(o.payment.change) lines.push(row("Change", (+o.payment.change).toFixed(2))); }
+  if(o.payment){ const p = o.payment; lines.push(row((o.status==="refund" ? "Refunded (" : "Paid (")+p.method+")", Math.abs(+p.tendered).toFixed(DEC())));
+    if(+p.tendered2){ if(+p.tendered1) lines.push(row("  " + (coS().currency || "USD"), (+p.tendered1).toFixed(DEC()))); lines.push(row("  " + p.currency2, num2(+p.tendered2, p.decimals2))); }
+    if(+p.change){ lines.push(row("Change", (+p.change).toFixed(DEC()))); if(p.currency2 && +p.rate2) lines.push(row("", "= " + p.currency2 + " " + num2(+p.change * +p.rate2, p.decimals2))); } }
   if(o.status==="void") lines.push("", "*** VOID ***".padStart((w+12)/2)); if(o.status==="returned") lines.push("", "*** RETURNED ***".padStart((w+16)/2));
   if(o.receiptNotes) lines.push("", ...o.receiptNotes.split("\n").map(l => l.trim().slice(0,w)).filter(Boolean));
   const foot = (appSet().receiptFooter || brSet().receiptFooter || "Thank you!").split("\n").map(l => l.trim()).filter(Boolean);
