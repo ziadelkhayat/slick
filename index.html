@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="299-1793987067">
+<meta name="slick-build" content="300-1793987292">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -5094,15 +5094,12 @@ function viewCompany(){
     <div class="card bizcard"><div class="bizgrid">
       ${f("email","Email",{type:"email"})}
       <div class="f"><label for="co_ownerPhone">Owner Phone Number</label><div class="phrow"><select id="co_ownerPhoneCc" class="sel" aria-label="Country code" ${dis}>${CC_CODES.map(([d,n])=>`<option value="${d}" ${d===ph.cc?"selected":""}>${esc(n)} (${d})</option>`).join("")}</select><input id="co_ownerPhone" class="sel" type="tel" inputmode="tel" value="${esc(ph.num)}" ${dis}></div></div>
-      ${f("phone","Business Phone",{type:"tel"})}
-      ${f("address","Address",{full:1})}
     </div>${sv}</div>
     <h3 class="bizh">Settings</h3>
     <div class="card bizcard"><div class="bizgrid">
       <div class="f"><label for="co_timeZone">Time Zone <span class="tip" title="Used for business days, reports and order times.">ⓘ</span></label><select id="co_timeZone" class="sel" ${dis}>${tzList().map(([z,off])=>`<option value="${z}" ${(c.timeZone||"Asia/Beirut")===z?"selected":""}>(UTC${off}) ${z.replace(/_/g," ")}</option>`).join("")}</select></div>
     </div>
     <div class="bizchk">
-      <label class="chk"><input type="checkbox" id="co_taxIncl" ${taxIncl()?"checked":""} ${dis}> Tax Inclusive Pricing <span class="tip" title="On: menu prices already include tax. Off: tax is added on top at checkout. Applies to every tax.">ⓘ</span></label>
       <label class="chk"><input type="checkbox" id="co_chgsub" ${c.chargesBeforeDisc?"checked":""} ${dis}> Apply charges on the order's subtotal without tax exclusive discounts <span class="tip" title="On: percentage charges are worked out on the order before any discount. Off: on the order after discounts.">ⓘ</span></label>
       <label class="chk"><input type="checkbox" id="co_loc" ${c.localization!==false?"checked":""} ${dis}> Enable Localization <span class="tip" title="Shows the Name Localized fields everywhere, so menus, receipts and apps can show a second language.">ⓘ</span></label>
     </div><div class="err" id="coErr"></div>${sv}</div>`;
@@ -5116,10 +5113,9 @@ function dayExample(v){
 document.addEventListener("input", e => { if(e.target.id==="co_dayEnd" && $("#coDayEx")) $("#coDayEx").textContent = dayExample(e.target.value); });
 async function saveCompany(){
   const v = k => ($("#co_"+k)?.value || "").trim();
-  const data = { name:v("name"), taxNumber:v("taxNumber"), taxName:v("taxName"), bizCategory:v("bizCategory"), bizSubcategory:v("bizSubcategory"), ownerEmail:null, ownerPhone: fullPhone(v("ownerPhone"), v("ownerPhoneCc")), phone:v("phone"), email:v("email"), address:v("address"), logoUrl:null, localization: !!$("#co_loc")?.checked, chargesBeforeDisc: !!$("#co_chgsub")?.checked, timeZone:v("timeZone") || "Asia/Beirut", country: company().country || v("country") || "Lebanon", currency: bizLocked() ? (company().currency || "USD") : (v("bcur") || "USD"), ...(company().accountNo ? { accountNo: company().accountNo } : {}) };
+  const data = { name:v("name"), taxNumber:v("taxNumber"), taxName:v("taxName"), bizCategory:v("bizCategory"), bizSubcategory:v("bizSubcategory"), ownerEmail:null, ownerPhone: fullPhone(v("ownerPhone"), v("ownerPhoneCc")), email:v("email"), logoUrl:null, localization: !!$("#co_loc")?.checked, chargesBeforeDisc: !!$("#co_chgsub")?.checked, timeZone:v("timeZone") || "Asia/Beirut", country: company().country || v("country") || "Lebanon", currency: bizLocked() ? (company().currency || "USD") : (v("bcur") || "USD"), ...(company().accountNo ? { accountNo: company().accountNo } : {}) };
   if(!data.name){ $("#coErr").textContent = "Business name is required."; $("#co_name").focus(); return; }
   try{ await put("settings", "company", data);
-    const ti = $("#co_taxIncl"); if(ti && ti.checked!==taxIncl()) for(const x of S.taxes.filter(x => live(x) && (x.inclusive!==false)!==ti.checked)) await put("taxes", x.id, { inclusive: ti.checked });
     toast("Business saved"); }
   catch(e){ console.error(e); $("#coErr").textContent = "Couldn't save. Only the owner or an admin can change this."; }
 }
