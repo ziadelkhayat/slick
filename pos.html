@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="319-1793993950">
+<meta name="slick-build" content="323-1793994636">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1591,7 +1591,7 @@ function receiptText(o){
 function kitchenText(o){
   const w = 32, typ = o.type==="dinein" ? "DINE-IN"+(o.table?" T"+o.table:"") : o.type==="pickup"||o.type==="takeaway" ? "PICKUP" : o.type==="fast" ? "FAST SALE" : "DELIVERY";
   const ctr = t => t.padStart((w + t.length)/2);
-  const lines = [ctr("KITCHEN"), ctr("ORDER #" + (o.no || "—")), ctr(typ), ...(o.ref ? [ctr(o.ref)] : []), ...(o.source && o.channel!=="pos" ? [ctr(o.source)] : []),
+  const lines = [ctr("KITCHEN"), ctr("ORDER #" + (o.no || "—")), ctr(typ), ...(o.ref ? [ctr(o.ref)] : []), ...(o.source && o.channel!=="pos" && o.source!=="Website" ? [ctr(o.source)] : []),
     new Date(o.createdAt).toLocaleString("en-GB"), "=".repeat(w)];
   const kItems = appSet().kitchenSort==="category" ? [...(o.items||[])].sort((x, y) => catRank(S.products.find(p=>p.id===x.productId)||{}) - catRank(S.products.find(p=>p.id===y.productId)||{})) : (o.items||[]);
   kItems.forEach(i => { lines.push((i.qty + " x " + i.name).slice(0, w)); modLines(i).forEach(m => lines.push(("   - " + m).slice(0, w))); });
@@ -1701,7 +1701,7 @@ function openIncoming(){
     ${o.invoiceNo && o.no ? `<span class="mut oc-s">Order #${esc(o.no)}</span>` : ""}
     ${o.customerName || o.phone ? `<span class="oc2">${ico("user")}<span>${esc(o.customerName||"")}<small>${esc(o.phone||"")}</small></span></span>` : ""}
     <span class="oc2 mut">${ico("clock")}<span>Created ${t(o.createdAt)}${o.updatedAt && o.updatedAt!==o.createdAt ? `<small>Modified ${t(o.updatedAt)}</small>` : ""}</span></span>
-    <span class="oc2">${o.channel==="pos" ? "🧾" : o.channel==="callcenter" ? "🎧" : "🌐"} ${esc(o.source || chn(o))} · ${esc(typLbl(o.type))}${o.table ? " · T" + esc(o.table) : ""}<small>${esc(o.agent || "")}</small></span>
+    <span class="oc2">${o.channel==="pos" ? "🧾" : o.channel==="callcenter" ? "🎧" : "🌐"} ${esc((o.source!=="Website" && o.source) || chn(o))} · ${esc(typLbl(o.type))}${o.table ? " · T" + esc(o.table) : ""}<small>${esc(o.agent || "")}</small></span>
     <b class="oc-t">${usd(o.total)}</b></button>`;
   // one row per order: number · type (table) + time · customer / source + phone · status + total
   // order (call) number and invoice number side by side; a return ticket shows its RET- number and the invoice it returns
@@ -1734,7 +1734,7 @@ function openIncoming(){
         <div class="ovrcus">${ovCal()}<div class="ovract"><button class="btn" data-ovrcancel>Cancel</button></div></div></div>` : ""}</div>
     <button class="ovfbtn${OV.filt || active.length ? " on" : ""}" data-ofilt aria-expanded="${!!OV.filt}">${ico("filter")}Filters${active.length ? ` <span class="ofn">${active.length}</span>` : ""}</button></div>`;
   const grp = (k, title, opts) => `<div class="ofrow"><b>${title}</b><div class="ofchips2">${[["", "All"], ...opts].map(([v,l]) => `<button class="chip${(OV[k]||"")===v ? " on" : ""}" data-of="${k}:${esc(v)}">${esc(l)}</button>`).join("")}</div></div>`;
-  const srcs = [...new Set([...posSources(), ...S.orders.map(o => o.source).filter(x => x && x.toUpperCase()!=="POS")])];
+  const srcs = [...new Set([...posSources(), ...S.orders.map(o => o.source).filter(x => x && x.toUpperCase()!=="POS" && x!=="Website")])];
   const pays = [...new Set([...payMethods().map(m => m.name), ...S.orders.map(o => o.payment?.method).filter(Boolean)])];
   const filt = (OV.filt ? `<div class="ofpanel2">
       ${grp("ft", "Order type", Object.entries(TYL))}${grp("fc", "Sales channel", Object.entries(CHL))}
@@ -2024,7 +2024,7 @@ function openBoard(){
     ${o.customerName || o.phone ? `<span class="oc2">${ico("user")}<span>${esc(o.customerName||"")}<small>${esc(o.phone||"")}</small></span></span>` : ""}
     ${o.type==="delivery" && o.address ? `<span class="oc2 mut">${ico("pin")}<span>${esc(o.address)}</span></span>` : ""}
     <span class="oc2 mut">${ico("clock")}<span>Created ${t(o.createdAt)}${o.updatedAt && o.updatedAt!==o.createdAt ? `<small>Modified ${t(o.updatedAt)}</small>` : ""}</span></span>
-    <span class="oc2">${ico(o.channel==="pos" ? "receipt" : o.channel==="callcenter" ? "headset" : "globe")}<span>${esc(o.source || chn(o))} · ${esc(typLbl(o.type))}<small>${esc(o.agent || "")}</small></span></span>
+    <span class="oc2">${ico(o.channel==="pos" ? "receipt" : o.channel==="callcenter" ? "headset" : "globe")}<span>${esc((o.source!=="Website" && o.source) || chn(o))} · ${esc(typLbl(o.type))}<small>${esc(o.agent || "")}</small></span></span>
     <b class="oc-t">${usd(o.total)}</b>${o.status==="pending" ? (canAccept() ? `<span class="ocacts"><button class="btn bad" data-inc="${esc(o.id)}:declined">Decline</button><button class="btn pri" data-inc="${esc(o.id)}:active">Accept</button></span>` : `<span class="mut oc-s">${esc(masterNote())}</span>`) : ""}</div>`;
   const q = OV.q; OV.q = BQ;
   const PD_COLS = [...OV_COLS.slice(0,3), ["declined","Declined","Declined today"]];   // pickup & delivery: no void / returns column
@@ -2158,7 +2158,7 @@ function drawCust(){
 function pdCancel(){ const ed = PD?.edit; PD = null; if(ed) return closeModal(); openBoard(); }
 // order sources from Manage → Order Sources (POS is a channel, not a source)
 const posSources = () => { const l = S.order_sources.filter(r => !r.deleted && r.active!==false && String(r.name||"").trim() && String(r.name).toUpperCase()!=="POS").sort((a,b) => (a.sort??999)-(b.sort??999) || String(a.name).localeCompare(b.name)).map(r => r.name);
-  return l.length ? l : ["Phone","Toters","NokNok","Talabat","WhatsApp","Website","Walk-in"]; };
+  return l.length ? l : ["Phone","Toters","NokNok","Talabat","WhatsApp","Walk-in"]; };
 // keeps the customer's details and every new delivery address on their record
 async function pdSaveCust(){
   if(!window.WOK?.sb || !navigator.onLine) return;

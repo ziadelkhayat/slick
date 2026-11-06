@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="322-1793994444">
+<meta name="slick-build" content="323-1793994636">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -3242,7 +3242,7 @@ const CC_COLS = [["draft","Draft","Orders that are not yet sent to the branch"],
   ["active","Active","Orders that are currently being prepared in the branch"],["closed","Done","Orders that are completed, voided, joined or returned"],
   ["declined","Declined","Orders that have been declined from the branch or the call center"]];
 const CC_SUB = { draft:"Draft", pending:"Sent to branch", active:"Sent To Kitchen", declined:"Declined", closed:"Done" };
-const SOURCES_DEF = ["Phone","Toters","NokNok","Talabat","WhatsApp","Website","Walk-in"];
+const SOURCES_DEF = ["Phone","Toters","NokNok","Talabat","WhatsApp","Walk-in"];
 function sourceList(cur){ const l = S.order_sources.filter(r=>live(r)&&r.active!==false&&String(r.name||"").toUpperCase()!=="POS").sort(CRUD["order-sources"].sort).map(r=>r.name); const out = l.length ? l : SOURCES_DEF; return cur && !out.includes(cur) ? [cur, ...out] : out; }
 state.ccBranch = "all"; state.ccAgent = "all"; state.ccTab = "today";
 function viewCallCenter(){
@@ -4474,8 +4474,8 @@ async function loadOrders(force){
 }
 const fromRowO = r => { const o = {}; for(const [k,v] of Object.entries(r)) o[k.replace(/_([a-z])/g,(_,c)=>c.toUpperCase())] = v; if(o.tableNo!=null) o.table = o.tableNo; return o; };
 function ordSoon(){ if(location.hash.slice(1)!=="orders") return; clearTimeout(ORD.t); ORD.t = setTimeout(() => { loadOrders(true); if(ORD.open) openOrderDetail(ORD.open, true); }, 1200); }
-const srcOf = o => o.source && o.source.toUpperCase()!=="POS" ? o.source : "";   // POS is a channel, not a source
-const ordSources = () => [...new Set([...S.order_sources.filter(r => String(r.name||"").toUpperCase()!=="POS").filter(r=>live(r)).sort(bySort).map(r=>r.name), "Website", "Table QR", ...ORD.rows.map(srcOf).filter(Boolean)])];
+const srcOf = o => o.source && o.source.toUpperCase()!=="POS" && !(o.source==="Website" && (o.channel==="online" || o.channel==="web")) ? o.source : "";   // POS and the website are channels, not sources
+const ordSources = () => [...new Set([...S.order_sources.filter(r => String(r.name||"").toUpperCase()!=="POS").filter(r=>live(r)).sort(bySort).map(r=>r.name), "Table QR", ...ORD.rows.map(srcOf).filter(Boolean)])];
 const ordPays = () => [...new Set([...S.payment_methods.filter(r=>live(r)).sort(bySort).map(r=>r.name), "Cash", "Card", "Other"])];
 function viewOrders(){
   if(storeMode!=="db") return `<h1>Orders</h1>` + placeholder("Orders", "Sign in to see orders.");
