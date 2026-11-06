@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="290-1793984942">
+<meta name="slick-build" content="291-1793985298">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1930,7 +1930,8 @@ function viewBranch(b){
       <div style="grid-column:1/-1"><button class="lnk" data-brmore style="background:none;border:0;padding:0;cursor:pointer">${more ? "Show Less" : "Show More"}</button></div></div>
     ${card("Delivery Zones", `<button class="btn sm" data-edit="${esc(b.id)}" data-sec="fDZones">Edit Delivery Zones</button>`, tbl(["Name","Delivery fee","Min. order"], zones.map(z => [esc(z.name), money(+z.fee||0), money(+z.minOrder||0)])))}
     ${card("Users", "", tbl(["Name","Email","Phone"], users.map(u => [esc(u.name), esc(u.email||"—"), esc(u.phone||"—")])))}
-    ${card("Sections", `<button class="btn sm" data-brtables="${esc(b.id)}">${tl.length ? "Edit Sections" : "Add Section"}</button>`, tbl(["Section","Tables"], secs.map(sc => [esc(sc || "No section"), tl.filter(t => (t.section||"")===sc).map(t => esc(tblLbl(t.name))).join(", ")])))}
+    ${card("Sections", `<button class="btn sm" data-secadd="${esc(b.id)}">Add Section</button>`, secs.length ? `<table><thead><tr><th>Name</th><th class="num">Tables</th><th>Table names</th></tr></thead><tbody>${secs.map(sc => { const l = tl.filter(t => (t.section||"")===sc);
+      return `<tr class="click" data-secopen="${esc(b.id)}" data-sec="${esc(sc)}"><td><b>${esc(sc || "No section")}</b></td><td class="num">${l.length}</td><td>${l.map(t => esc(tblLbl(t.name))).join(", ") || '<span class="note">—</span>'}</td></tr>`; }).join("")}</tbody></table>` : '<p class="note brempty">No data to display!</p>')}
     ${card("Assigned Devices", "", tbl(["Name","Reference","Type","Status"], devs.map(d => [`<a href="#devices" class="lnk" data-devgo="${esc(d.id)}">${esc(d.name)}</a>`, esc(d.reference||"—"), esc(devType(d.type)), devStatus(d)])))}
     ${card("Assigned Charges", `<button class="btn sm" data-edit="${esc(b.id)}" data-sec="fCharges">Edit Charges</button>`, tbl(["Name","Value","Applies On"], chs.map(c => [esc(c.name), c.type==="percent" ? (+c.value||0)+"%" : money(+c.value||0), typesOf(c)])))}
     ${card("Inactive Payment Methods", "", `<p class="note" style="margin:0 0 8px">Deactivate specific payment methods at this branch.</p><div class="multi">${pms.length ? pms.map(m => `<label class="chk"><input type="checkbox" data-brpay="${esc(b.id)}:${esc(m.id)}" ${offPay.includes(m.id)?"checked":""}> ${esc(m.name)}</label>`).join("") : '<span class="note">No payment methods yet.</span>'}</div>`)}
@@ -4255,6 +4256,45 @@ document.addEventListener("change", async e => { const f = e.target.closest && e
   const [id, k] = f.dataset.tbf.split(":"), b = tblBranchId(), list = tblList(b), x = list.find(y => y.id===id); if(!x) return;
   const v = k==="seats" ? Math.max(0, +f.value || 0) : f.value.trim();
   await tblSave(b, list.map(y => y.id===id ? { ...y, [k]: v } : y)); toast("Saved"); });
+
+/* Branch → Sections (Foodics style): Add Section asks for a name and how many tables; tap a section to rename it and edit its tables */
+function secAdd(b){
+  const box = $("#ccBox"); box.className = "modal";
+  box.innerHTML = `<header><h2>Add Section</h2><button type="button" class="x" data-ccclose aria-label="Close">×</button></header>
+  <div class="body" style="display:block"><div class="f" style="margin-bottom:14px"><label for="scName">Name *</label><input id="scName" placeholder="e.g. Family section, Terrace"></div>
+    <div class="f"><label for="scN">Number of Tables *</label><input id="scN" type="number" min="1" max="100" value="4"></div><div class="err" id="scErr"></div></div>
+  <footer><span style="flex:1"></span><button type="button" class="btn pri" id="scGo">Save</button></footer>`;
+  $("#ccScrim").classList.add("show"); setTimeout(() => $("#scName")?.focus(), 50);
+  $("#scGo").onclick = async () => { const n = $("#scName").value.trim(), k = Math.floor(+$("#scN").value || 0), secs = tblSecs(b).filter(Boolean), list = tblList(b), err = m => $("#scErr").textContent = m;
+    if(!n) return err("Enter the section name."); if(secs.some(x => x.toLowerCase()===n.toLowerCase())) return err("That section already exists."); if(!(k >= 1 && k <= 100)) return err("Enter 1 to 100 tables.");
+    let no = tblNextNo(list); const add = []; for(let i = 0; i < k; i++) add.push({ id: uid("tb"), name: String(no++), section: n });
+    await tblSave(b, [...list, ...add], [...secs, n]); $("#ccScrim").classList.remove("show"); toast("Section added"); render(); };
+}
+function secEdit(b, sc){
+  const all = tblList(b), rows = all.filter(t => (t.section||"")===sc).map(t => ({ ...t })), box = $("#ccBox"); box.className = "modal wide";
+  const row = (t, i) => `<tr data-sei="${i}"><td><input class="sel" data-sen value="${esc(t.name)}" aria-label="Table name"></td><td style="width:120px"><input class="sel" type="number" min="0" data-ses value="${esc(t.seats ?? "")}" placeholder="—" aria-label="Seats"></td><td style="width:44px"><button type="button" class="x" data-serm="${i}" aria-label="Remove table">×</button></td></tr>`;
+  const paint = () => { $("#seRows").innerHTML = rows.length ? rows.map(row).join("") : `<tr><td colspan="3" class="note" style="padding:14px">No tables yet.</td></tr>`; };
+  const pull = () => box.querySelectorAll("[data-sei]").forEach(tr => { const r = rows[+tr.dataset.sei]; r.name = tr.querySelector("[data-sen]").value.trim(); const v = tr.querySelector("[data-ses]").value; r.seats = v==="" ? null : Math.max(0, +v); });
+  box.innerHTML = `<header><h2>Edit Section</h2><button type="button" class="x" data-ccclose aria-label="Close">×</button></header>
+  <div class="body" style="display:block"><div class="f" style="margin-bottom:16px"><label for="seName">Name *</label><input id="seName" value="${esc(sc)}" ${sc ? "" : 'placeholder="No section"'}></div>
+    <div style="display:flex;align-items:center;margin-bottom:8px"><b>Tables</b><span class="sp" style="flex:1"></span><button type="button" class="btn sm" id="seAdd">Add Table</button></div>
+    <div class="card tbl" style="box-shadow:none"><table><thead><tr><th>Name</th><th>Seats</th><th></th></tr></thead><tbody id="seRows"></tbody></table></div><div class="err" id="seErr"></div></div>
+  <footer>${sc ? `<button type="button" class="btn danger" id="seDel" style="margin-right:auto">Delete Section</button>` : ""}<span style="flex:1"></span><button type="button" class="btn pri" id="seGo">Save</button></footer>`;
+  $("#ccScrim").classList.add("show"); paint();
+  $("#seAdd").onclick = () => { pull(); rows.push({ id: uid("tb"), name: String(tblNextNo([...all, ...rows])), section: sc, seats: null }); paint(); const l = box.querySelectorAll("[data-sen]"); l[l.length-1]?.focus(); };
+  box.querySelector("#seRows").onclick = e => { const x = e.target.closest("[data-serm]"); if(!x) return; pull(); rows.splice(+x.dataset.serm, 1); paint(); };
+  $("#seGo").onclick = async () => { pull(); const n = $("#seName").value.trim(), err = m => $("#seErr").textContent = m, secs = tblSecs(b).filter(Boolean);
+    if(sc && !n) return err("Enter the section name."); if(n && n!==sc && secs.some(x => x.toLowerCase()===n.toLowerCase())) return err("That section already exists.");
+    if(rows.some(r => !r.name)) return err("Every table needs a name or number.");
+    const others = all.filter(t => (t.section||"")!==sc), names = [...others, ...rows].map(t => String(t.name).toLowerCase()); if(names.some((x,i) => names.indexOf(x)!==i)) return err("Two tables have the same name in this branch.");
+    await tblSave(b, [...others, ...rows.map(r => ({ id:r.id, name:r.name, section:n, ...(r.seats!=null ? { seats:r.seats } : {}) }))], secs.map(x => x===sc ? n : x).concat(!sc && n && !secs.includes(n) ? [n] : []));
+    $("#ccScrim").classList.remove("show"); toast("Section saved"); render(); };
+  if(sc) $("#seDel").onclick = async () => { const k = rows.length; if(!(await askYes(k ? `Delete the section ${sc} and its ${k} tables?` : `Delete the section ${sc}?`))) return;
+    await tblSave(b, all.filter(t => (t.section||"")!==sc), tblSecs(b).filter(x => x && x!==sc)); $("#ccScrim").classList.remove("show"); toast("Section deleted"); render(); };
+}
+document.addEventListener("click", e => { const t = e.target; if(!t.closest || !t.closest("#view")) return;
+  const a = t.closest("[data-secadd]"); if(a){ e.preventDefault(); return secAdd(a.dataset.secadd); }
+  const o = t.closest("[data-secopen]"); if(o){ e.preventDefault(); return secEdit(o.dataset.secopen, o.dataset.sec); } });
 
 /* ---------- Orders: every order from every channel, any date range ---------- */
 // status tabs: a few clear groups instead of one tab per status
