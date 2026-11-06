@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="331-1793999714">
+<meta name="slick-build" content="332-1794000053">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -448,6 +448,9 @@ body{padding-bottom:calc(170px + env(safe-area-inset-bottom))!important}
 .ledit{cursor:pointer;-webkit-tap-highlight-color:transparent}.ledit:active .nm{opacity:.6}
 .costep{display:flex;align-items:center;gap:8px;margin:0 0 4px;color:var(--ink2);font-size:13px;font-weight:600}.costep i{font-style:normal;width:20px;height:20px;border-radius:50%;display:grid;place-items:center;background:var(--line);color:var(--ink);font-size:11px}.costep i.on{background:var(--acc);color:var(--on-acc,#fff)}.costep span.ln{flex:0 0 22px;height:2px;background:var(--line)}
 .cosum{display:flex;justify-content:space-between;align-items:center;background:var(--bg);border-radius:14px;padding:12px 14px;margin:10px 0 4px;font-weight:700}.cosum small{display:block;color:var(--ink2);font-weight:500}
+.dlvtop{display:flex;align-items:center;gap:12px;width:100%;margin-top:10px;text-align:left;border:0;background:var(--s);color:var(--ink);border-radius:var(--r2,14px);padding:10px 12px;box-shadow:0 1px 4px rgba(0,0,0,.06);font:inherit;cursor:pointer}
+.dlvtop:active{opacity:.75}.dlvtop .di{flex:none;width:36px;height:36px;border-radius:50%;background:var(--acc);color:var(--on-acc,#fff);display:grid;place-items:center}.dlvtop .di svg{width:18px;height:18px}
+.dlvtop b{display:block;font-size:14.5px}.dlvtop small{display:block;color:var(--ink2);font-size:12.5px;margin-top:1px}
 </style>
 </head>
 <body class="lay-grid">
@@ -850,7 +853,7 @@ function renderTop(){
     : bn ? `<span><small>${mode==="takeaway" ? "Pick up from" : "Dine in at"}</small><b>${esc(bn)}</b></span>` : `<span><b>${mode==="takeaway" ? "Select pickup branch" : "Select a branch"}</b></span>`;
   el.innerHTML = `<div class="tbrow"><button type="button" class="otype" data-otype ${ms.length < 2 ? "disabled" : ""}><span class="oi">${ic(cur[2])}</span>${cur[1]}${ms.length > 1 ? "<i>▾</i>" : ""}</button>${ab}</div>
     <button type="button" class="locfield" data-loc>${loc}<i>▾</i></button>
-    ${mode==="delivery" && addr ? `<div class="tchips">${z ? `<span class="tchip ok">${ic("bike")}${z.eta ? "~" + esc(z.eta) + " min · " : ""}${usd(z.fee)}</span>` : `<span class="tchip bad">Not delivering here</span>`}</div>` : ""}`;
+    ${mode==="delivery" && addr ? (z ? `<button type="button" class="dlvtop" data-loc><span class="di">${ic("pin")}</span><span><b>Delivered from ${esc(branches.find(x => x.id===z.branch_id)?.name || "")}</b><small>To ${esc(addr.label || "your location")}${z.eta ? ` · about ${esc(z.eta)} min` : ""} · ${+z.fee ? usd(z.fee) + " delivery" : "Free delivery"}</small></span></button>` : `<div class="tchips"><span class="tchip bad">Not delivering here</span></div>`) : ""}`;
 }
 const MODES = () => [["delivery","Delivery","bike"],["takeaway","Pickup","bag"],["dinein","Dine-in","dine"]].filter(([m]) => modeOn(m));
 // order type: a bottom sheet like the location one; delivery then asks where, pickup / dine-in ask which branch
@@ -970,10 +973,10 @@ function renderWhere(){
   if(qrBranch) h = `<div class="card"><div style="display:flex;gap:12px;align-items:center"><span class="add" style="flex:none;box-shadow:none">${ic("dine")}</span><div><b>Dine-in at ${esc(branches.find(b=>b.id===qrBranch)?.name || brand.name)}${qrTable?` · Table ${esc(qrTable)}`:""}</b><div class="info" style="margin:2px 0 0">Order from your table. We'll bring it to you.</div></div></div></div>`;
   else if(mode==="delivery" && addr && !zoneId) h = `<div class="warn lwarn">We don't deliver to ${esc(addr.label || "this location")} yet.${modeOn("takeaway") ? " You can order for pickup instead." : ""} <button type="button" class="lnk2" data-loc>Change</button></div>`;
   else if(mode==="delivery" && addr && zoneId){ const z = zoneList().find(x => x.id===zoneId), b = z && branches.find(x => x.id===z.branch_id);
-    if(b) h = `<div class="card dlvby"><span class="add" style="flex:none;box-shadow:none">${ic("pin")}</span><div><b>Delivered by ${esc(b.name)}</b><div class="info" style="margin:2px 0 0">To ${esc(addr.label || "your location")}${z.eta ? ` · about ${esc(z.eta)} min` : ""}</div></div><button type="button" class="lnk2" data-loc style="margin-left:auto">Change</button></div>`; }
+    /* shown in the top bar (renderTop) */ }
   else if(mode==="dinein") h = tableNo
     ? `<div class="card tblcard"><span class="add" style="flex:none;box-shadow:none">${ic("dine")}</span><div><b>Table ${esc(tableNo)}${branchId ? ` · ${esc(branches.find(b=>b.id===branchId)?.name || "")}` : ""}</b><div class="info" style="margin:2px 0 0">We'll bring your order to your table.</div></div><button type="button" class="lnk2" data-scanqr style="margin-left:auto">Rescan</button></div>`
-    : `<button type="button" class="card scanbtn" data-scanqr><span class="add" style="flex:none;box-shadow:none"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3"/><path d="M8 12h8"/></svg></span><span style="text-align:left"><b>Scan your table's QR code</b><small>Opens the camera so we know where to bring your order</small></span></button>`;
+    : `<button type="button" class="card scanbtn" data-scanqr><span class="add" style="flex:none;box-shadow:none"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3"/><path d="M8 12h8"/></svg></span><span style="text-align:left"><b>Scan table QR code</b></span></button>`;
   $("#whereBox").innerHTML = h; $("#whereBox").hidden = !h;
   renderTop();
 }
