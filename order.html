@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="313-1793992043">
+<meta name="slick-build" content="314-1793992213">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -671,10 +671,13 @@ function drawAuth(){
   const head = t => `<div class="grab"></div><div class="lshead">${back ? `<button type="button" class="x" data-av="in" aria-label="Back">‹</button>` : "<span></span>"}<h3>${t}</h3><button type="button" class="x" data-close aria-label="Close">×</button></div>`;
   const fld = (id, lbl, type, ac, val, ph) => `<div class="f"><label for="${id}">${lbl}</label><input id="${id}" type="${type||"text"}"${ac ? ` autocomplete="${ac}"` : ""} value="${esc(val||"")}"${ph ? ` placeholder="${esc(ph)}"` : ""}></div>`;
   const btn = t => `<div class="err" id="aErr"></div><button class="primary" id="aGo">${t}</button>`;
-  if(v==="check"){ sh.innerHTML = head("") + `<div class="done"><div class="ok">${ic("mail")}</div><h3>Check your email</h3><p>We sent a link to <b>${esc(AU.email)}</b>. Open it to confirm your account, then sign in.</p><button type="button" class="primary" data-av="in">Sign in</button></div>`; return; }
-  if(v==="up"){ sh.innerHTML = head("Create your account") + `<p class="info" style="margin:-4px 0 14px">You need an account to order. It keeps your addresses and loyalty points.</p><form id="auF" novalidate>
+  if(v==="check"){ sh.innerHTML = head("") + `<div class="done"><div class="ok">${ic("mail")}</div><h3>Verify your email</h3><p>We sent a code to <b>${esc(AU.email)}</b>. Enter it below, or open the link in the email.</p></div>
+    <form id="vfF" novalidate><div class="f"><label for="vfCode">Verification code</label><input id="vfCode" inputmode="numeric" autocomplete="one-time-code" maxlength="8" placeholder="6-digit code" style="letter-spacing:.3em;text-align:center;font-size:20px"></div>
+    <div class="err" id="vfErr"></div><button class="primary" id="vfGo">Verify</button></form>
+    <p class="info" style="text-align:center;margin-top:12px">Didn't get it? <button type="button" class="lnk2" data-vfresend>Send again</button></p>`; setTimeout(() => $("#vfCode")?.focus(), 60); return; }
+  if(v==="up"){ sh.innerHTML = head("Create your account") + `<form id="auF" novalidate>
       <div class="f2">${fld("aFirst","First name *","text","given-name")}${fld("aLast","Last name *","text","family-name")}</div>
-      ${fld("aNick","Nickname","text","nickname")}<div class="f"><label>Date of birth</label>${bdSel("aDob")}</div>
+      <div class="f"><label>Date of birth</label>${bdSel("aDob")}</div>
       ${fld("aEmail","Email *","email","email",AU.email)}${phField("aPhone","Phone number *","")}${fld("aPw","Password *","password","new-password","","At least 6 characters")}
       ${btn("Create account")}</form><div class="aswitch">Already have an account? <button type="button" class="lnk2" data-av="in">Sign in</button></div>`; return; }
   if(v==="forgot"){ sh.innerHTML = head("Reset password") + `<p class="info" style="margin:-4px 0 14px">Enter your email and we'll send you a link to set a new password.</p><form id="auF" novalidate>${fld("aEmail","Email","email","email",AU.email)}${btn("Send reset link")}</form>`; return; }
@@ -689,10 +692,10 @@ async function authSubmit(){
   if(AU.view==="in"){
     if(!pw) return err("Enter your password."); busy("Signing in…");
     const { data, error } = await sb.auth.signInWithPassword({ email, password:pw });
-    if(error){ busy(); return err(/confirm/i.test(error.message) ? "Confirm your email first. Open the link we sent you." : /invalid/i.test(error.message) ? "Wrong email or password." : error.message); }
+    if(error){ busy(); if(/confirm/i.test(error.message)){ await sb.auth.resend({ type:"signup", email, options:{ emailRedirectTo: backUrl() } }).catch(() => {}); AU.view = "check"; return drawAuth(); } return err(/invalid/i.test(error.message) ? "Wrong email or password." : error.message); }
     USER = data.user; return afterAuth(); }
   if(AU.view==="up"){
-    const m = { first_name:v("aFirst"), last_name:v("aLast"), nickname:v("aNick")||null, dob:v("aDob")||null, phone:phVal("aPhone") };
+    const m = { first_name:v("aFirst"), last_name:v("aLast"), dob:v("aDob")||null, phone:phVal("aPhone") };
     if(!m.first_name || !m.last_name) return err("Enter your first and last name.");
     if(m.phone.replace(/\D/g,"").length < 8) return err("Enter a valid phone number.");
     if(pw.length < 6) return err("Use a password of at least 6 characters.");
@@ -725,7 +728,7 @@ function drawAcct(){
   const fld = (id, lbl, type, ac, val, ph) => `<div class="f"><label for="${id}">${lbl}</label><input id="${id}" type="${type||"text"}"${ac ? ` autocomplete="${ac}"` : ""} value="${esc(val||"")}"${ph ? ` placeholder="${esc(ph)}"` : ""}></div>`;
   if(v==="profile"){ sh.innerHTML = head("Profile") + (AC.msg ? `<p class="info" style="margin:-4px 0 14px">${esc(AC.msg)}</p>` : "") + `<form id="acF" novalidate>
       <div class="f2">${fld("pFirst","First name *","text","given-name",p.first_name)}${fld("pLast","Last name *","text","family-name",p.last_name)}</div>
-      ${fld("pNick","Nickname","text","nickname",p.nickname)}<div class="f"><label>Date of birth</label>${bdSel("pDob", p.dob)}</div>
+      <div class="f"><label>Date of birth</label>${bdSel("pDob", p.dob)}</div>
       ${fld("pEmail","Email *","email","email",USER.email)}${phField("pPhone","Phone number *",p.phone)}
       <div class="aok" id="acOk"></div><div class="err" id="acErr"></div><button class="primary" id="acGo">Save changes</button></form>`; return; }
   if(v==="pw"){ sh.innerHTML = head("Change password") + `<form id="acF" novalidate>${fld("pPw","New password","password","new-password","","At least 6 characters")}${fld("pPw2","Confirm new password","password","new-password")}
@@ -747,7 +750,7 @@ async function acctSubmit(){
     if(pw.length < 6) return err("Use a password of at least 6 characters."); if(pw !== $("#pPw2").value) return err("The passwords don't match.");
     busy("Saving…"); const { error } = await sb.auth.updateUser({ password:pw }); busy();
     if(error) return err(error.message); $("#pPw").value = $("#pPw2").value = ""; return ok("Your password is changed."); }
-  const m = { first_name:v("pFirst"), last_name:v("pLast"), nickname:v("pNick")||null, dob:v("pDob")||null, phone:phVal("pPhone") }, email = v("pEmail").toLowerCase();
+  const m = { first_name:v("pFirst"), last_name:v("pLast"), dob:v("pDob")||null, phone:phVal("pPhone") }, email = v("pEmail").toLowerCase();
   if(!m.first_name || !m.last_name) return err("Enter your first and last name.");
   if(m.phone.replace(/\D/g,"").length < 8) return err("Enter a valid phone number.");
   if(!/^\S+@\S+\.\S+$/.test(email)) return err("Enter a valid email.");
@@ -762,7 +765,15 @@ async function acctSubmit(){
   busy(); renderTop(); ok("Saved.");
   if(AC.then){ const t = AC.then; AC.then = null; AC.msg = ""; setTimeout(t, 400); }
 }
-$("#sheet").addEventListener("submit", e => { if(e.target.id==="auF"){ e.preventDefault(); authSubmit(); } else if(e.target.id==="acF"){ e.preventDefault(); acctSubmit(); } });
+async function verifySubmit(){ const code = ($("#vfCode")?.value || "").replace(/\s/g, ""), err = t => { $("#vfErr").textContent = t; }, go = $("#vfGo");
+  if(!/^\d{6,8}$/.test(code)) return err("Enter the code from the email.");
+  go.disabled = true; go.textContent = "Verifying…";
+  const { data, error } = await sb.auth.verifyOtp({ email: AU.email, token: code, type: "email" });
+  if(error){ go.disabled = false; go.textContent = "Verify"; return err(/expired|invalid/i.test(error.message) ? "That code is wrong or expired. Send a new one." : error.message); }
+  USER = data.user; return afterAuth(); }
+$("#sheet").addEventListener("click", async e => { if(!e.target.closest("[data-vfresend]")) return; const el = $("#vfErr");
+  const { error } = await sb.auth.resend({ type:"signup", email: AU.email, options:{ emailRedirectTo: backUrl() } }); if(el) el.textContent = error ? error.message : "We sent a new code."; });
+$("#sheet").addEventListener("submit", e => { if(e.target.id==="vfF"){ e.preventDefault(); return verifySubmit(); } if(e.target.id==="auF"){ e.preventDefault(); authSubmit(); } else if(e.target.id==="acF"){ e.preventDefault(); acctSubmit(); } });
 $("#sheet").addEventListener("click", async e => {
   if(!$("#sheet").classList.contains("acsheet")) return;
   const g = s => e.target.closest(s); let t;
