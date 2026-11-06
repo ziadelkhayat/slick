@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="323-1793994636">
+<meta name="slick-build" content="328-1793996253">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1188,6 +1188,8 @@ function instBar(kind){
   d.innerHTML = `${t.logo ? `<img src="${esc(t.logo)}" alt="">` : `<span class="ii">${esc((brand.name.trim()[0]||"·").toUpperCase())}</span>`}<div><b>${esc(brand.name)} app</b><small>${kind==="ios" ? `Tap ${share} Share, then “Add to Home Screen”` : "Install it to order faster"}</small></div>${kind==="ios" ? "" : `<button type="button" class="ib" data-inst>Install</button>`}<button type="button" class="ix" data-instx aria-label="Not now">×</button>`;
   document.body.appendChild(d);
 }
+// a service worker makes the page installable on every Android browser, so "Install" adds it straight to the home screen
+if("serviceWorker" in navigator && !PREVIEW && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(() => {});
 addEventListener("beforeinstallprompt", e => { e.preventDefault(); instEvt = e; if(mobile) setTimeout(() => instBar("prompt"), 2500); });
 addEventListener("appinstalled", () => { $("#inst")?.remove(); lsSet(IK, Date.now() + 3650*864e5); });
 if(iOS && !STANDALONE && /safari/i.test(navigator.userAgent) && !/crios|fxios|edgios/i.test(navigator.userAgent)) setTimeout(() => instBar("ios"), 4000);
