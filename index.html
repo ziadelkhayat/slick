@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="274-1793976811">
+<meta name="slick-build" content="275-1793977115">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -966,10 +966,14 @@ th.grc,td.grc{width:28px;padding-right:0!important;color:#b3afc2;cursor:grab}tr[
 /* the round ✕: an icon drawn dead-centre (not a text glyph), and the window header stays put while the content scrolls */
 .modal header>.x,#ccBox header>.x,#crudBox header>.x{font-size:0!important;color:transparent!important;background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%232a2738' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='M7 7l10 10M17 7 7 17'/%3E%3C/svg%3E") center/18px 18px no-repeat!important}
 .modal header>.x:hover,#ccBox header>.x:hover,#crudBox header>.x:hover{background-color:#f4f3f8!important}
-#ccBox>header,#crudBox>header,.modal>header{position:sticky;top:0;z-index:6;background:#fff}
+/* long windows: the header and footer stay put and only the middle scrolls */
+#crudBox,#ccBox:has(>.body){display:flex!important;flex-direction:column;max-height:88vh}
+#crudBox>header,#crudBox>footer,#ccBox:has(>.body)>header,#ccBox:has(>.body)>footer{flex:none}
+#crudBox>.body,#ccBox>.body{overflow:auto;min-height:0;flex:1 1 auto}
 /* window corners: the header and footer follow the window's rounded corners */
 .modal>header,#ccBox>header,#crudBox>header{border-top-left-radius:inherit;border-top-right-radius:inherit}
 .modal>footer,#ccBox>footer,#crudBox>footer{border-bottom-left-radius:inherit;border-bottom-right-radius:inherit}
+.tgtabs{margin:0 0 14px}.tgsec{padding:18px 22px;margin-bottom:14px}.tgh{display:flex;align-items:center;gap:8px;margin-bottom:6px}.tgh h3{margin:0;font-size:16px}.tgsec table{width:100%}.tgsec td{padding:10px 0;border-top:1px solid var(--line)}.tghelp{margin:4px 0 0}
 </style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -1157,8 +1161,7 @@ const NAV = [
   {id:"customers",t:"Customers",i:"users"},
   {t:"Reports",i:"chart",kids:[["sales-reports","Sales Reports"],["inventory-reports","Inventory Reports"],["business-reports","Business Reports"],["analysis-reports","Analysis Reports"]]},
   {t:"Inventory",i:"box",tabs:1,kids:[["inv-categories","Inventory Categories"],["inv-items","Items"],["warehouses","Locations"],["suppliers","Suppliers"],["purchase-orders","Purchase Orders"],["transfer-orders","Transfer Orders"],["transfers","Transfers"],["inventory-count","Inventory Count"],["production","Production"],["quantity-adjustments","Quantity Adjustment"],["cost-adjustments","Cost Adjustment"],["spot-check","Inventory Spot Check"],["count-sheets","Count Sheet"]]},
-  {t:"Menu",i:"book",tabs:1,kids:[["@Menu Builder"],["categories","Categories"],["products","Products"],["variants","Variants"],["modifiers","Modifiers"],["combos","Combos"],["groups","Groups"],["@Menu Settings"],["price-tags","Price Tags"],["allergens","Allergens"]]},
-  {id:"branch-menu",t:"Sales Channels",i:"globe"},
+  {t:"Menu",i:"book",tabs:1,kids:[["@Menu Builder"],["categories","Categories"],["products","Products"],["variants","Variants"],["modifiers","Modifiers"],["combos","Combos"],["groups","Groups"],["branch-menu","Sales Channels"],["@Menu Settings"],["price-tags","Price Tags"],["allergens","Allergens"]]},
   {t:"Manage",i:"gear",kids:[["users","Users"],["roles","Roles"],["brands","Brands"],["branches","Branches"],["devices","Devices"],["taxes","Taxes & Groups"],["currency","Currency"],["payment-methods","Payment Methods"],["order-sources","Order Sources"],["charges","Charges"],["delivery-zones","Delivery Zones"],["online-ordering","Web Ordering"],["kitchen-flows","Kitchen Flows"],["reasons","Reasons"],["tags","Tags"]]},
   {t:"Marketing",i:"tag",kids:[["loyalty","Loyalty"],["gift-cards","Gift Cards"],["discounts","Discounts"],["promotions","Promotions"],["coupons","Coupons"]]}
 ];
@@ -5233,22 +5236,31 @@ function ingEditor(forKey, rec){
 }
 
 /* ---------- Tags (Manage → Tags, Foodics style): labels to group products, items, branches, customers… ---------- */
-const TAG_TYPES = [["product","Product"],["inventory","Inventory Item"],["branch","Branch"],["customer","Customer"],["supplier","Supplier"],["user","User"],["device","Device"],["order","Order"]];
+const TAG_TYPES = [["customer","Customer","customers","Create tags to help you filter and group customers easily, e.g. VIP Customers, Corporate."],["branch","Branch","branches","Create tags to help you filter and group branches easily, e.g. Mall Branches, High Traffic."],
+  ["inventory","Inventory Item","items","Create tags to help you filter and group inventory items easily, e.g. Weekly Stocktaking, Vegetables."],["order","Order","orders","Create tags to help you filter and group orders easily, e.g. Staff Meal, Driver Order."],
+  ["supplier","Supplier","suppliers","Create tags to help you filter and group suppliers easily, e.g. Cash Suppliers, High Quality."],["user","User","users","Create tags to help you filter and group users easily, e.g. Supervisors, Night Shift."],
+  ["product","Product","products","Create tags to help you filter and group products easily, e.g. Spicy, Best Seller."],["device","Device","devices","Create tags to help you filter and group devices easily, e.g. Main Cashier, Waiter."]];
 const TAG_KEY = { products:"product", "inv-items":"inventory", suppliers:"supplier", users:"user", devices:"device" };
 const tagDoc = () => (typeof S!=="undefined" ? S.settings : []).find(x => x.id==="tags") || {};
-const tagList = type => (tagDoc().list||[]).filter(t => !type || t.type===type).sort((a,b) => a.name.localeCompare(b.name));
-const tagsOf = (type, id) => (((tagDoc().on||{})[type]||{})[id] || []).filter(t => (tagDoc().list||[]).some(x => x.id===t));
+const tagList = (type, del) => (tagDoc().list||[]).filter(t => (!type || t.type===type) && !!t.deleted===!!del).sort((a,b) => a.name.localeCompare(b.name));
+const tagsOf = (type, id) => (((tagDoc().on||{})[type]||{})[id] || []).filter(t => (tagDoc().list||[]).some(x => x.id===t && !x.deleted));
 const tagName = id => (tagDoc().list||[]).find(t => t.id===id)?.name || "";
 const tagChips = (type, id) => { const l = tagsOf(type, id); return l.length ? `<div>${l.map(t => `<span class="tag cc">${esc(tagName(t))}</span>`).join(" ")}</div>` : ""; };
 const tagUsed = t => t.type==="customer" ? null : Object.values(((tagDoc().on||{})[t.type])||{}).filter(l => l.includes(t.id)).length;
 async function tagSave(list, on){ const d = tagDoc(); try{ await put("settings", "tags", { list: list ?? d.list ?? [], on: on ?? d.on ?? {} }); return true; }catch(err){ console.error(err); toast("Couldn't save. Only the owner or an admin can change tags."); return false; } }
-const TG = { type:"product" };
+const TG = { type:"product", tab:"general" };
+// one page, a card per kind of tag (Foodics style); General shows the tags in use, Deleted the ones taken out
 function viewTags(){
-  const l = tagList(TG.type);
-  return `<div class="phead"><h1>Tags</h1><div class="sp"></div><button class="btn pri" data-tagnew>${svgIco("plus")} Create Tag</button></div>
-  <div class="card tbl"><div class="ttop"><div class="ttabs">${TAG_TYPES.map(([k,t]) => `<a href="#tags" data-tagtype="${k}" class="${TG.type===k?"on":""}">${t}</a>`).join("")}</div></div>
-  ${l.length ? `<table><thead><tr><th>Name</th><th class="num">Used</th><th></th></tr></thead><tbody>${l.map(t => `<tr><td><b>${esc(t.name)}</b></td><td class="num">${tagUsed(t) ?? "—"}</td><td class="num"><a href="#tags" class="lnk" data-tagren="${esc(t.id)}">Rename</a> · <a href="#tags" class="lnk" data-tagdel="${esc(t.id)}" style="color:#b42318">Delete</a></td></tr>`).join("")}</tbody></table>`
-    : `<div class="empty">No ${esc(TAG_TYPES.find(x => x[0]===TG.type)[1].toLowerCase())} tags yet.</div>`}</div>`;
+  const del = TG.tab==="deleted";
+  const sec = ([k, t, plural, help]) => { const l = tagList(k, del); if(del && !l.length) return "";
+    return `<div class="card tgsec"><div class="tgh"><h3>${esc(t)} Tag</h3><span class="sp"></span>${del ? "" : `<button class="btn sm" data-tagnew="${k}">Create Tag</button>`}</div>
+      ${l.length ? `<table><tbody>${l.map(x => { const n = tagUsed(x); return `<tr><td><b>${esc(x.name)}</b></td><td>${n==null ? "" : `<span class="note">${esc(plural[0].toUpperCase() + plural.slice(1))} (${n})</span>`}</td>
+        <td class="num">${del ? `<a href="#tags" class="lnk" data-tagres="${esc(x.id)}">Restore</a>` : `<a href="#tags" class="lnk" data-tagren="${esc(x.id)}">Rename</a> · <a href="#tags" class="lnk" data-tagdel="${esc(x.id)}" style="color:#b42318">Delete</a>`}</td></tr>`; }).join("")}</tbody></table>`
+        : `<p class="note tghelp">${esc(help)}</p>`}</div>`; };
+  const body = TAG_TYPES.map(sec).join("");
+  return `<div class="phead"><h1>Tags</h1></div>
+  <div class="ttabs tgtabs"><a href="#tags" data-tagtab="general" class="${del?"":"on"}">General</a><a href="#tags" data-tagtab="deleted" class="${del?"on":""}">Deleted</a></div>
+  ${body || `<div class="card empty">No deleted tags.</div>`}`;
 }
 function tagAsk(title, val, done){
   const box = $("#ccBox"); box.className = "modal";
@@ -5291,14 +5303,15 @@ function modAddToProducts(mods, after){
     catch(err){ console.error(err); $("#maErr").textContent = "Couldn't save. Only the owner or an admin can change the menu."; } };
 }
 document.addEventListener("click", async e => {
-  const ty = e.target.closest("[data-tagtype]"); if(ty){ e.preventDefault(); TG.type = ty.dataset.tagtype; return render(); }
-  if(e.target.closest("[data-tagnew]")) return tagAsk("Create Tag", "", async n => { if(tagList(TG.type).some(t => t.name.toLowerCase()===n.toLowerCase())){ $("#tgErr").textContent = "A tag with this name already exists."; return false; }
+  const tt = e.target.closest("[data-tagtab]"); if(tt){ e.preventDefault(); TG.tab = tt.dataset.tagtab; return render(); }
+  const rs = e.target.closest("[data-tagres]"); if(rs){ e.preventDefault(); if(await tagSave((tagDoc().list||[]).map(x => x.id===rs.dataset.tagres ? { ...x, deleted:false } : x))){ toast("Tag restored"); render(); } return; }
+  const nw = e.target.closest("[data-tagnew]"); if(nw) TG.type = nw.dataset.tagnew;
+  if(nw) return tagAsk("Create " + (TAG_TYPES.find(x => x[0]===TG.type)?.[1] || "") + " Tag", "", async n => { if(tagList(TG.type).some(t => t.name.toLowerCase()===n.toLowerCase())){ $("#tgErr").textContent = "A tag with this name already exists."; return false; }
     const ok = await tagSave([...(tagDoc().list||[]), { id:"tg_" + Date.now().toString(36), name:n, type:TG.type }]); if(ok){ toast("Tag created"); render(); } return ok; });
   const rn = e.target.closest("[data-tagren]"); if(rn){ e.preventDefault(); const t = (tagDoc().list||[]).find(x => x.id===rn.dataset.tagren); if(!t) return;
     return tagAsk("Rename Tag", t.name, async n => { const ok = await tagSave((tagDoc().list||[]).map(x => x.id===t.id ? { ...x, name:n } : x)); if(ok){ toast("Tag renamed"); render(); } return ok; }); }
-  const dl = e.target.closest("[data-tagdel]"); if(dl){ e.preventDefault(); if(!(await askYes("Are you sure you want to delete this?"))) return; const id = dl.dataset.tagdel, on = JSON.parse(JSON.stringify(tagDoc().on || {}));
-    Object.values(on).forEach(m => Object.keys(m).forEach(k => { m[k] = m[k].filter(t => t!==id); if(!m[k].length) delete m[k]; }));
-    if(await tagSave((tagDoc().list||[]).filter(x => x.id!==id), on)){ toast("Tag deleted"); render(); } }
+  const dl = e.target.closest("[data-tagdel]"); if(dl){ e.preventDefault(); if(!(await askYes("Are you sure you want to delete this?"))) return; const id = dl.dataset.tagdel;
+    if(await tagSave((tagDoc().list||[]).map(x => x.id===id ? { ...x, deleted:true } : x))){ toast("Tag deleted"); render(); } }   // moves to Deleted; Restore brings it back
 });
 function viewAllergens(){
   const list = allergenList(), used = a => S.products.filter(p => live(p) && (p.allergens||[]).includes(a)).length;
