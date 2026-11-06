@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="294-1793985884">
+<meta name="slick-build" content="295-1793986411">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -728,6 +728,7 @@ h1:has(.ib),h3:has(.ib){display:inline-flex;align-items:center}
 .qtp{margin-top:18px;border-top:1px solid var(--line);padding-top:14px}.qth{display:flex;align-items:center;gap:10px;width:100%;background:none;border:0;padding:4px 0;font:inherit;text-align:left;cursor:pointer}.qth b{font-size:16px;font-weight:600}.qtcode{display:inline-flex;align-items:center;justify-content:center;min-width:42px;height:28px;border-radius:8px;background:#f1edfb;color:#5b2bc4;font-size:12px;font-weight:700}.qtcnt{background:#efe9fb;color:#5b2bc4;border-radius:999px;padding:3px 10px;font-size:12.5px;font-weight:600}.qtchev{color:var(--ink2);width:18px;text-align:center}
 .qtgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px}.qtchip{display:flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:12px;padding:6px 8px;background:#fff}.qtchip .bmgrip{margin:0}.qti{color:var(--ink2);font-size:13px;min-width:12px}.qtc{color:var(--ink2);font-size:13px}.qtchip input{flex:1;min-width:0;padding:8px 10px!important}.qtx{border:0;background:none;font-size:18px;color:var(--ink2);cursor:pointer;width:28px;height:28px;border-radius:8px}.qtx:hover{background:#f4f2f8}
 .qtact{display:flex;align-items:center;gap:12px;margin-top:14px}.qtact .btn{display:inline-flex;align-items:center;gap:6px}.qtreset{border:0;background:none;color:var(--ink2);cursor:pointer;font:inherit}.qtnote{margin-top:12px;background:#f4f3f6;border-radius:10px;padding:10px 14px;font-size:12.5px;color:var(--ink2)}
+.ccchl{display:flex;flex-direction:column;gap:8px;max-height:50vh;overflow:auto}.ccchr{display:flex;align-items:center;gap:12px;border:1px solid var(--line);border-radius:12px;padding:10px 14px;cursor:pointer}.ccchr>span{flex:1;display:flex;flex-direction:column}.ccchr small{color:var(--ink2);font-size:12.5px}
 .bizsave{margin-top:20px}.bizchk{display:flex;flex-direction:column;gap:14px;margin-top:20px}.bizchk .chk{font-size:14px}.acbadge{display:inline-flex;align-items:center;margin-left:12px;padding:6px 14px;border-radius:999px;background:#3a3a44;color:#fff;font-size:14px;font-weight:600}.acgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px 28px}.acgrid .f{margin:0}
 body.noloc .f:has(> label[for$="NameAr"]),body.noloc .f:has(> label[for$="nameAr"]),body.noloc .f:has(> label[for="dcNAr"]){display:none!important}
 .bizh{font-size:17px;font-weight:600;margin:22px 0 10px}.bizh:first-of-type{margin-top:6px}
@@ -1071,8 +1072,7 @@ table.sk-ghost-t{border-collapse:collapse;table-layout:fixed}table.sk-ghost-t td
     </div>
     <footer>
       <button type="button" class="btn danger" id="delBtn" style="margin-right:auto;display:none">Delete branch</button>
-      <button type="button" class="btn" data-close>Cancel</button>
-      <button type="submit" class="btn pri" id="saveBtn">Save branch</button>
+      <button type="submit" class="btn pri" id="saveBtn">Save</button>
     </footer>
   </form>
 </div>
@@ -2565,17 +2565,19 @@ const CRUD = {
     note:"Charges are added on top of the items, e.g. a delivery charge or a service charge. Automatic charges are added to matching orders in the POS and the call center; the cashier or user can remove them.",
     tabs:[["all","All",live],["active","Active",r=>live(r)&&r.active!==false],["inactive","Inactive",r=>live(r)&&r.active===false],["deleted","Deleted",r=>r.deleted]],
     sort:(a,b)=>bySort(a,b), search:r=>r.name+" "+(r.nameAr||""),
-    cols:[["Name",r=>`<b>${esc(r.name)}</b>${r.nameAr?` <span class="note">${esc(r.nameAr)}</span>`:""}`],["Type",r=>r.type==="percent"?"Percentage":"Amount"],["Value",r=>r.type==="percent"?(+r.value||0)+" %":usd(r.value),"num"],
+    cols:[["Name",r=>`<b>${esc(r.name)}</b>${r.nameAr?` <span class="note">${esc(r.nameAr)}</span>`:""}`],["Type",r=>r.type==="percent"?"Percentage":r.type==="open"?"Open amount":"Amount"],["Value",r=>r.type==="percent"?(+r.value||0)+" %":r.type==="open"?"Open":usd(r.value),"num"],
       ["Order types",r=>(r.orderTypes||[]).length ? r.orderTypes.map(t=>esc(TYPE_LBL[t]||t)).join(", ") : "All"],["Brands / branches",r=>[(r.brandIds||[]).length ? r.brandIds.map(brandName).join(", ") : "All brands", (r.branchIds||[]).length ? (r.branchIds.includes("-") ? "no branches" : r.branchIds.length+" branch(es)") : "all branches"].map(esc).join(" · ")],
       ["Applies",r=>r.auto===false?'<span class="tag off">When picked</span>':'<span class="tag on">Automatically</span>'],["Status",r=>r.active===false?'<span class="tag off">Inactive</span>':'<span class="tag on">Active</span>']],
     fields:[{k:"name",l:"Name",req:1,ph:"e.g. Delivery charge, Service charge"},{k:"nameAr",l:"Name Localized"},
-      {k:"type",l:"Type",t:"select",req:1,opts:()=>[["fixed","Amount"],["percent","Percentage"]],def:"fixed"},{k:"value",l:"Value",t:"number",req:1,ph:"e.g. 2 or 10"},
+      {k:"type",l:"Type",t:"select",req:1,opts:()=>[["fixed","Amount"],["percent","Percentage"],["open","Open amount"]],def:"fixed"},{k:"value",l:"Value",t:"number",ph:"e.g. 2 or 10 (empty for open amount)"},
+      {k:"taxGroup",l:"Tax Group",t:"select",opts:()=>[["","No tax"], ...(S.tax_groups||[]).filter(live).map(g => [g.id, g.name])]},
       {k:"orderTypes",l:"Order types it applies to",t:"multi",full:1,opts:()=>[["dinein","Dine-in"],["fast","Fast sale"],["pickup","Pickup"],["delivery","Delivery"]],def:["delivery"]},
       {k:"auto",l:"Add automatically to matching orders",t:"chk",def:true},
       {k:"brandIds",l:"Brands (none ticked = every brand)",t:"multi",full:1,opts:()=>brandList().map(b=>[b.id,b.name])},
       {k:"branchIds",l:"Branches (none ticked = every branch)",t:"multi",full:1,opts:()=>branches.filter(b=>b.active!==false).map(b=>[b.id,(brandList().length>1?brandName(b.brandId)+" · ":"")+b.name])},
       {k:"active",l:"Active",t:"chk",def:true}],
     unique:"name",
+    prep: data => { if(data.type==="open"){ data.value = 0; data.auto = false; return ""; } if(data.value==null || !(data.value >= 0)) return "Value is required."; if(data.type==="percent" && data.value > 100) return "A percentage can't be more than 100."; return ""; },
     saved: async (old, data) => { if(!old?.id || data.value==null) return; for(const z of (S.zones||[]).filter(z => dcMap()[z.id]===old.id && +z.fee!==+data.value)) await put("zones", z.id, { fee: data.type==="percent" ? 0 : +data.value||0 }); }
   },
   "delivery-zones": {
@@ -3201,7 +3203,7 @@ function openOrder(id){
   const o = id ? S.orders.find(x=>x.id===id) : null;
   ccEdit = o ? o.id : null; cart = o ? o.items.map(i=>({...i})) : [];
   ccOrig = o ? JSON.parse(JSON.stringify(o.items||[])) : [];
-  ccChg = o ? new Set((o.charges||[]).map(c=>c.id)) : null;            // null = the charges that apply automatically
+  ccChg = o ? new Set((o.charges||[]).map(c=>c.id)) : null; Object.keys(ccOpen).forEach(k => delete ccOpen[k]); (o?.charges||[]).forEach(c => { if(c.type==="open") ccOpen[c.id] = +c.amount||0; });            // null = the charges that apply automatically
   ccDiscType = o?.discountType==="amt" ? "amt" : "pct"; ccDisc = o ? (ccDiscType==="amt" ? +o.discount||0 : +o.discountPct||0) : 0; ccDiscOpen = false;
   const ro = !ccEditable(o), dis = ro ? "disabled" : "";
   ccLocked = !!o && o.status!=="draft";                                   // placed orders: only source, type and items change
@@ -3237,7 +3239,7 @@ function openOrder(id){
     <div class="ccnext"><span class="err" id="oErr1"></span><button type="button" class="btn pri" data-ccstep="2">Continue</button></div>
    </section>
    <aside class="ccside" id="oSide"></aside>
-   ${ro ? "" : `<section class="ccmenu"><div class="ccprods"><div class="cctools"><button type="button" class="cctool" data-cctool="disc" id="ccToolDisc">${ccIco("pct")}<span>Discount</span></button><button type="button" class="cctool" data-cctool="notes">${ccIco("note")}<span>Notes</span></button></div><div class="ccbar"><button type="button" class="btn sm" id="oCatBack" hidden>← Categories</button><div class="cchead" id="oCatTitle"></div><input class="sel search" id="oSearch" placeholder="Search all products" autocomplete="off"></div><div class="pgrid" id="oProducts"></div></div></section>`}
+   ${ro ? "" : `<section class="ccmenu"><div class="ccprods"><div class="cctools"><button type="button" class="cctool" data-cctool="disc" id="ccToolDisc">${ccIco("pct")}<span>Discount</span></button><button type="button" class="cctool" data-cctool="chg">${ccIco("plus")}<span>Charges</span></button><button type="button" class="cctool" data-cctool="notes">${ccIco("note")}<span>Notes</span></button></div><div class="ccbar"><button type="button" class="btn sm" id="oCatBack" hidden>← Categories</button><div class="cchead" id="oCatTitle"></div><input class="sel search" id="oSearch" placeholder="Search all products" autocomplete="off"></div><div class="pgrid" id="oProducts"></div></div></section>`}
    <section class="cccart${ro?" wide":""}"><div class="cart" id="oCart"></div>
    <input type="hidden" id="oNotes" value="${esc(o?.notes||"")}"><input type="hidden" id="oRNotes" value="${esc(o?.receiptNotes||"")}"><div class="err" id="oErr"></div><div class="ccacts">${ccActions(o)}</div></section>
   </div>`;
@@ -3302,13 +3304,17 @@ function ccDiscPanel(){ return `<div class="ccdisc"><div class="ccdo"><div class
 const taxIncl = () => !S.taxes.some(x => live(x) && x.inclusive===false);
 const chargeList = (type, brandId, branchId) => S.charges.filter(c => live(c) && c.active!==false && (!(c.orderTypes||[]).length || c.orderTypes.includes(type==="takeaway" ? "pickup" : type))
   && (!(c.brandIds||[]).length || c.brandIds.includes(brandId)) && (!(c.branchIds||[]).length || c.branchIds.includes(branchId))).sort(bySort);
-const chargeAmt = (c, base) => +(c.type==="percent" ? base * (+c.value||0) / 100 : +c.value||0).toFixed(2);
+const ccOpen = {};   // open-amount charges: what the agent entered for this order
+const chargeAmt = (c, base) => +(c.type==="percent" ? base * (+c.value||0) / 100 : c.type==="open" ? +(ccOpen[c.id] ?? c.value ?? 0)||0 : +c.value||0).toFixed(2);
+// a charge's tax group: inclusive taxes are inside the charge, exclusive ones are added on top
+const chgRates = c => { const g = c?.taxGroup && (S.tax_groups||[]).find(x => x.id===c.taxGroup && live(x)), r = { inc:0, exc:0 }; (g?.taxIds||[]).forEach(t => { const x = S.taxes.find(y => y.id===t && live(y)); if(x) r[x.inclusive===false ? "exc" : "inc"] += (+x.rate||0)/100; }); return r; };
 const lineNet = i => Math.max(0, (+i.price||0) * (+i.qty||1) - (+i.disc||0));
 function orderCalc(items, discount, charges, branchId){
   let gross = 0, tax = 0, add = 0; branchId = branchId || $("#oBranch")?.value || "";
   (items||[]).forEach(i => { const l = lineNet(i), r = prodRates(i.productId, branchId), base = l/(1+r.inc); gross += l; tax += (l - base) + base*r.exc; add += base*r.exc; });
   const d = Math.min(+discount||0, gross); if(gross > 0 && d > 0){ tax *= 1 - d/gross; add *= 1 - d/gross; }
-  const ch = (charges||[]).map(c => ({ id:c.id, name:c.name, type:c.type, value:+c.value||0, amount: chargeAmt(c, gross - d) })), chT = ch.reduce((a,c)=>a+c.amount, 0);
+  const ch = (charges||[]).map(c => { const amount = chargeAmt(c, company().chargesBeforeDisc ? gross : gross - d), r = chgRates(c), base = amount/(1+r.inc); tax += (amount - base) + base*r.exc; add += base*r.exc;
+    return { id:c.id, name:c.name, type:c.type, value: c.type==="open" ? amount : +c.value||0, amount, ...(c.taxGroup ? { taxGroup:c.taxGroup } : {}) }; }), chT = ch.reduce((a,c)=>a+c.amount, 0);
   const total = +(gross - d + chT + add).toFixed(2); tax = +tax.toFixed(2);
   return { gross:+gross.toFixed(2), disc:d, charges:ch, chargesTotal:+chT.toFixed(2), tax, total, subtotal:+(total - tax).toFixed(2) };
 }
@@ -3323,7 +3329,7 @@ function ccZoneCharge(){
 function ccCharges(){
   const type = $("#oType .on")?.dataset.ot || "", list = type ? chargeList(type, $("#oBrand")?.value || "", $("#oBranch")?.value || "") : [], zc = type ? ccZoneCharge() : null;
   if(zc && !list.some(c => c.id===zc.id)) list.push(zc);
-  return { list, picked: list.filter(c => ccChg ? ccChg.has(c.id) : (c.auto!==false || c.id===zc?.id)) };
+  return { list, picked: list.filter(c => ccChg ? ccChg.has(c.id) : ((c.auto!==false && c.type!=="open") || c.id===zc?.id)) };
 }
 function ccAddrVis(){ const f = $("#oAddrF"); if(f) f.style.display = $("#oType .on")?.dataset.ot==="delivery" ? "" : "none"; }
 // a placed order's customer can't change; if it becomes delivery and has no address yet, the address can be filled in
@@ -3380,6 +3386,7 @@ const prodRate = id => { const r = prodRates(id); return r.inc + r.exc; };
 const ccTax = items => +(items||[]).reduce((a,i) => { const l = (+i.price||0)*(+i.qty||1), r = prodRate(i.productId); return a + l*r/(1+r); }, 0).toFixed(2);
 function ccPrice(p){ const b = $("#oBranch")?.value, cps = p.customPrices||{}, c = b && (cps[b + ":callcenter"] ?? cps[b]); return c!=null && c!=="" ? +c : +p.price||0; }
 const CC_ICO = {
+  plus:'<circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/>',
   search:'<circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/>',
   filter:'<path d="M3 5h18l-7 8.5V19l-4 2v-7.5z"/>',
   noodles:'<path d="M3 12h18a9 9 0 0 1-18 0Z"/><path d="M7 12c0-3 1-5 2-7M11 12c0-3 .5-6 1.5-8M15 3l-5 9M19 4l-6 8"/>',
@@ -3455,7 +3462,21 @@ function ccDiscDlg(){
         ccDiscType = ty; ccDisc = +v.toFixed(2); ccDiscOpen = false; close(); renderCart(false); } });
   });
 }
-document.addEventListener("click", e => { const t = e.target.closest("[data-cctool]"); if(t){ e.preventDefault(); return t.dataset.cctool==="disc" ? ccDiscDlg() : ccNotesDlg(); }
+function ccChgDlg(){
+  const ch = ccCharges(); if(!$("#oType .on")) return toast("Choose the order type first");
+  if(!ch.list.length) return toast("No charges for this order type. Add them in Manage → Charges.");
+  const on = new Set(ch.picked.map(c => c.id));
+  ccOverlay(`<h3 style="margin:0 0 12px">Charges</h3><div class="ccchl">${ch.list.map(c => `<label class="ccchr"><input type="checkbox" data-cch="${esc(c.id)}" ${on.has(c.id)?"checked":""}><span><b>${esc(c.name)}</b><small>${c.type==="percent" ? (+c.value||0) + "%" : c.type==="open" ? "Open amount" : usd(+c.value||0)}</small></span>${c.type==="open" ? `<input class="sel" inputmode="decimal" data-cchv="${esc(c.id)}" value="${ccOpen[c.id] ?? ""}" placeholder="Amount" style="width:110px">` : ""}</label>`).join("")}</div>
+    <p class="note" id="ccChN" style="min-height:18px;margin:6px 0 0"></p>
+    <div class="slk-ask-f" style="margin-top:12px"><button type="button" class="slk-ask-no" data-dlgx>Cancel</button><button type="button" class="slk-ask-yes" id="ccChApply">Apply</button></div>`, (w, close) => {
+    w.addEventListener("input", e => { const v = e.target.closest("[data-cchv]"); if(v){ const cb = w.querySelector(`[data-cch="${v.dataset.cchv}"]`); if(cb) cb.checked = v.value.trim()!==""; } });
+    w.querySelector("#ccChApply").onclick = () => { const pick = new Set(), vals = {};
+      for(const cb of w.querySelectorAll("[data-cch]:checked")){ const id = cb.dataset.cch, c = ch.list.find(x => x.id===id); if(c?.type==="open"){ const v = +String(w.querySelector(`[data-cchv="${id}"]`)?.value||"").replace(",", "."); if(!(v > 0)){ w.querySelector("#ccChN").textContent = `Enter the amount for ${c.name}.`; return; } vals[id] = +v.toFixed(2); } pick.add(id); }
+      Object.keys(ccOpen).forEach(k => delete ccOpen[k]); Object.assign(ccOpen, vals); ccChg = pick; close(); renderCart(false); };
+  });
+}
+document.addEventListener("click", e => { const t = e.target.closest("[data-cctool]"); if(t){ e.preventDefault(); return t.dataset.cctool==="disc" ? ccDiscDlg() : t.dataset.cctool==="chg" ? ccChgDlg() : ccNotesDlg(); }
+  const cx = e.target.closest("[data-ochgx]"); if(cx){ e.preventDefault(); if(!ccChg) ccChg = new Set(ccCharges().picked.map(c=>c.id)); ccChg.delete(cx.dataset.ochgx); delete ccOpen[cx.dataset.ochgx]; renderCart(false); return; }
   const nx = e.target.closest("[data-ccnotex]"); if(nx){ e.preventDefault(); const el = $(nx.dataset.ccnotex==="k" ? "#oNotes" : "#oRNotes"); if(el) el.value = ""; renderCart(false); return; }
   const ne = e.target.closest("[data-ccnoteed]"); if(ne){ e.preventDefault(); ccNotesDlg(ne.dataset.ccnoteed==="k" ? "kitchen" : "order"); return; }
   if(e.target.closest("[data-ccdx]")){ e.preventDefault(); ccDisc = 0; ccDiscOpen = false; renderCart(false); toast("Discount removed"); } });
@@ -3492,8 +3513,8 @@ function renderCart(ro){
   const ch = ccCharges(), c = orderCalc(cart, ccDiscAmt(), ch.picked), qty = cart.reduce((a,i)=>a+i.qty,0);
   $("#oCart").innerHTML = `<div class="kh" style="display:flex;align-items:center;gap:8px"><h3 style="margin:0">Cart</h3><span class="note">${qty} item${qty===1?"":"s"}</span>${!ro && cart.length ? `<button type="button" class="btn sm" data-ccclear style="margin-left:auto">Clear</button>` : ""}</div><div class="clist">` +
     (cart.length ? cart.map((i,ix)=>`<div class="citem"><span class="cname">${ro ? esc(i.name) : `<a href="#call-center" class="lnk" data-cedit="${ix}" title="Edit item: options, note, discount">${esc(i.name)}</a>`}${modList(i)}${+i.disc?`<div class="note" style="color:var(--accent-ink)">Discount −${usd(i.disc)}</div>`:""}</span>${ro?`<span>× ${i.qty}</span>`:`<span class="qty"><button type="button" data-q="${ix}:-1" aria-label="Less">−</button>${i.qty}<button type="button" data-q="${ix}:1" aria-label="More">+</button></span>`}<span class="num">${usd(lineNet(i))}</span></div>`).join("") : `<div class="note" style="padding:18px 0;text-align:center">${ro?"No items.":"Pick a category, then tap products to add them."}</div>`) +
-    `${ccNoteLines(ro)}</div>${ch.list.length ? `<div class="cchg">${ch.list.map(x => `<label class="chk"><input type="checkbox" data-ochg="${esc(x.id)}" ${ch.picked.includes(x) ? "checked" : ""} ${ro?"disabled":""}> ${esc(x.name)} <span class="note">${x.type==="percent" ? (+x.value)+"%" : usd(x.value)}</span></label>`).join("")}</div>` : ""}
-    ${c.charges.filter(x=>x.amount).map(x => `<div class="ctot sub"><span>${esc(x.name)}</span><span>${usd(x.amount)}</span></div>`).join("")}
+    `${ccNoteLines(ro)}</div>
+    ${c.charges.map(x => `<div class="ctot sub ccdline"><span>${esc(x.name)}</span><span>${usd(x.amount)}${ro ? "" : `<button type="button" class="ccx1" data-ochgx="${esc(x.id)}" aria-label="Remove charge">×</button>`}</span></div>`).join("")}
     ${c.disc ? `<div class="ctot sub ccdline"><span>${ccDiscType==="amt" ? "Discount" : "Discount " + ccDisc + "%"}</span><span>−${usd(c.disc)}${ro ? "" : `<button type="button" class="ccx1" data-ccdx aria-label="Remove discount">×</button>`}</span></div>` : ""}
     <div class="ctot sub"><span>Subtotal</span><span>${usd(c.subtotal)}</span></div><div class="ctot sub"><span>Tax${taxIncl() ? " (included)" : ""}</span><span>${usd(c.tax)}</span></div><div class="ctot"><span>Total</span><b>${usd(c.total)}</b></div>${money2(c.total) ? `<div class="ctot sub"><span></span><span>≈ ${money2(c.total)}</span></div>` : ""}`;
   if(!ro && $("#oProducts")) renderOrderMenu();
@@ -3678,7 +3699,7 @@ function openDevice(){
   <div class="f full"><label for="dRef">Reference *</label><div style="display:flex;gap:8px"><input id="dRef" value="${esc(devRef())}" style="flex:1"><button type="button" class="btn" data-devgen2>Generate</button></div></div>
   <div class="f"><label for="dBrand">Brand *</label><select id="dBrand"><option value="">Choose…</option>${brandList().filter(b=>b.active!==false).map(b=>`<option value="${esc(b.id)}" ${brandList().length===1?"selected":""}>${esc(b.name)}</option>`).join("")}</select></div>
   <div class="f"><label for="dBranch">Branch *</label><select id="dBranch">${devBranchOpts(brandList().length===1 ? brandList()[0].id : "", "")}</select></div>
-  <div class="err" id="cErr"></div></div><footer><button type="button" class="btn" data-cclose>Cancel</button><button type="button" class="btn pri" id="dSave">Create &amp; get code</button></footer>`;
+  <div class="err" id="cErr"></div></div><footer><button type="button" class="btn" data-cclose>Cancel</button><button type="button" class="btn pri" id="dSave">Save</button></footer>`;
   crudEdit = { key:"device" }; $("#crudScrim").classList.add("show"); setTimeout(()=>$("#dName").focus(),30);
 }
 
@@ -5063,6 +5084,7 @@ function viewCompany(){
     </div>
     <div class="bizchk">
       <label class="chk"><input type="checkbox" id="co_taxIncl" ${taxIncl()?"checked":""} ${dis}> Tax Inclusive Pricing <span class="tip" title="On: menu prices already include tax. Off: tax is added on top at checkout. Applies to every tax.">ⓘ</span></label>
+      <label class="chk"><input type="checkbox" id="co_chgsub" ${c.chargesBeforeDisc?"checked":""} ${dis}> Apply charges on the order's subtotal without tax exclusive discounts <span class="tip" title="On: percentage charges are worked out on the order before any discount. Off: on the order after discounts.">ⓘ</span></label>
       <label class="chk"><input type="checkbox" id="co_loc" ${c.localization!==false?"checked":""} ${dis}> Enable Localization <span class="tip" title="Shows the Name Localized fields everywhere, so menus, receipts and apps can show a second language.">ⓘ</span></label>
     </div><div class="err" id="coErr"></div>${sv}</div>`;
 }
@@ -5075,7 +5097,7 @@ function dayExample(v){
 document.addEventListener("input", e => { if(e.target.id==="co_dayEnd" && $("#coDayEx")) $("#coDayEx").textContent = dayExample(e.target.value); });
 async function saveCompany(){
   const v = k => ($("#co_"+k)?.value || "").trim();
-  const data = { name:v("name"), taxNumber:v("taxNumber"), taxName:v("taxName"), bizCategory:v("bizCategory"), bizSubcategory:v("bizSubcategory"), ownerEmail:null, ownerPhone: fullPhone(v("ownerPhone"), v("ownerPhoneCc")), phone:v("phone"), email:v("email"), address:v("address"), logoUrl:null, localization: !!$("#co_loc")?.checked, timeZone:v("timeZone") || "Asia/Beirut", country: company().country || v("country") || "Lebanon", currency: bizLocked() ? (company().currency || "USD") : (v("bcur") || "USD"), ...(company().accountNo ? { accountNo: company().accountNo } : {}) };
+  const data = { name:v("name"), taxNumber:v("taxNumber"), taxName:v("taxName"), bizCategory:v("bizCategory"), bizSubcategory:v("bizSubcategory"), ownerEmail:null, ownerPhone: fullPhone(v("ownerPhone"), v("ownerPhoneCc")), phone:v("phone"), email:v("email"), address:v("address"), logoUrl:null, localization: !!$("#co_loc")?.checked, chargesBeforeDisc: !!$("#co_chgsub")?.checked, timeZone:v("timeZone") || "Asia/Beirut", country: company().country || v("country") || "Lebanon", currency: bizLocked() ? (company().currency || "USD") : (v("bcur") || "USD"), ...(company().accountNo ? { accountNo: company().accountNo } : {}) };
   if(!data.name){ $("#coErr").textContent = "Business name is required."; $("#co_name").focus(); return; }
   try{ await put("settings", "company", data);
     const ti = $("#co_taxIncl"); if(ti && ti.checked!==taxIncl()) for(const x of S.taxes.filter(x => live(x) && (x.inclusive!==false)!==ti.checked)) await put("taxes", x.id, { inclusive: ti.checked });
@@ -5363,7 +5385,8 @@ document.addEventListener("click", async e => {
 
 /* ---------- Delivery Charges (Manage → Delivery Charges, Foodics style): which charge a branch adds when it delivers to a zone ---------- */
 const DC = { q:"", branch:"", sel:new Set() };
-const dcCharges = () => (S.charges||[]).filter(c => live(c) && c.active!==false && c.type!=="percent").sort(bySort);
+// only fixed-amount charges that apply to delivery orders alone can be a delivery charge
+const dcCharges = () => (S.charges||[]).filter(c => live(c) && c.active!==false && (c.type||"fixed")==="fixed" && (c.orderTypes||[]).length && c.orderTypes.every(t => t==="delivery")).sort(bySort);
 // zone → charge is kept in one settings document (settings "dcharges": { map: { zoneId: chargeId } })
 const dcMap = () => ((typeof S!=="undefined" ? S.settings : []).find(x => x.id==="dcharges") || {}).map || {};
 const dcChargeOf = z => { const id = dcMap()[z.id]; return id ? (S.charges||[]).find(c => c.id===id && live(c)) : null; };
@@ -5398,7 +5421,7 @@ function dcForm(ids){
   box.innerHTML = `<header><h2>${one ? "Assign Delivery Charge" : `Assign Charge to ${ids.length} Zones`}</h2><button type="button" class="x" data-ccclose aria-label="Close">×</button></header>
   <div class="body" style="display:block">${one ? `<div class="note" style="margin-bottom:14px">${esc(branchName(one.branchId))} → ${esc(one.name)}</div>` : ""}
     <div id="dcPick"><div class="f"><label for="dcCh">Charge *</label><select id="dcCh" class="sel"><option value="">Choose a charge</option>${chs.map(c => `<option value="${esc(c.id)}" ${cur?.id===c.id?"selected":""}>${esc(c.name)} · ${money(+c.value||0)}</option>`).join("")}</select></div>
-      ${chs.length ? "" : `<div class="note" style="margin-top:6px">No fixed-amount charges yet. Create them in <a href="#charges" class="lnk" data-ccclose>Manage → Charges</a>.</div>`}</div>
+      ${chs.length ? "" : `<div class="note" style="margin-top:6px">No delivery charges yet: a delivery charge is a fixed amount that applies to Delivery orders only. Create one in <a href="#charges" class="lnk" data-ccclose>Manage → Charges</a>.</div>`}</div>
     <div id="dcNew" hidden><div class="f" style="margin-bottom:14px"><label for="dcN">Name *</label><input id="dcN" placeholder="e.g. Delivery Charge Zone 1"></div>
       <div class="f" style="margin-bottom:14px"><label for="dcNAr">Name Localized</label><input id="dcNAr"></div>
       <div class="f"><label for="dcV">Value (${esc(CUR())}) *</label><input id="dcV" type="number" min="0" step="any" inputmode="decimal"></div></div>
