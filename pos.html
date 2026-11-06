@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="286-1793983790">
+<meta name="slick-build" content="288-1793984402">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -183,6 +183,7 @@ body{-webkit-font-smoothing:antialiased}
 .pinpad{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:6px}.pinpad button{height:62px;border-radius:14px;border:1px solid #e4e1ef;background:#fff;font:inherit;font-size:22px;font-weight:600;cursor:pointer}
 .pinpad button:active{background:#efeaff}
 .prod.hasimg{padding-top:8px}.prod img{width:100%;height:78px;object-fit:cover;border-radius:10px;display:block}
+.dsets{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:6px}.dset{display:flex;flex-direction:column;align-items:flex-start;gap:3px;text-align:left;border:1px solid var(--line);background:var(--s);border-radius:12px;padding:12px 14px;cursor:pointer}.dset b{font-size:15px}.dset span{font-size:12.5px;color:var(--mut,#8a8799)}.dset.on{background:#efe9fb;border-color:#5b2bc4}.dset:disabled{opacity:.5;cursor:default}.dsor{font-size:12.5px;color:var(--mut,#8a8799);text-align:center;margin:8px 0 10px}
 .dseg{display:flex;gap:6px}.dseg button{flex:1;border:1px solid var(--line);background:var(--s);border-radius:10px;padding:10px;font-weight:600}.dseg button.on{background:#efe9fb;border-color:#5b2bc4;color:#5b2bc4}
 .addrg{display:grid;grid-template-columns:1fr 1fr;gap:8px}.addrg .wide{grid-column:1/-1}.addrg .adf{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--ink2)}
 .chgs{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px}.chg{border:1px dashed var(--line);background:none;border-radius:999px;padding:4px 10px;font-size:12px;color:var(--mut,#6b6a75)}.chg.on{border-style:solid;border-color:#5b2bc4;color:#5b2bc4;background:#f6f2ff}
@@ -681,6 +682,7 @@ const S = { brands:[], devices:[], branches:[], categories:[], products:[], orde
 let posChg = null;   // null = the charges that apply automatically; otherwise the ids the cashier kept
 let GUESTS = 0, orderNote = "", kitchenNote = "", SEEN = new Set(), SEEN_READY = false;   // pending call-center / web orders already announced   // order-level note, printed on the receipt (not the kitchen ticket)
 let EDIT = null;   // an order opened from the Orders list into the billing section: { id }
+let DSET = null;   // a set discount (Marketing → Discounts) on this order; its amount follows the cart
 let device = null, branch = null, cat = "", otype = "dinein", cart = [], discount = 0, discType = "pct", tableNo = "", cust = { name:"", phone:"", addr:{} };
 
 /* ---------- boot ---------- */
@@ -1041,7 +1043,21 @@ function renderMenu(){
   const c = cats.find(x=>x.id===cat), l = byCat(cat);   // order set in Sales Channels
   $("#grid").innerHTML = `<div class="cback"><button class="cbtn" data-cat="" style="--hue:${cs[cat].hue}">${ico("back")} BACK</button><b>${esc(c.name)}</b></div>` + l.map(tile).join("");
 }
+// set discounts: branch, order type, minimum order, and the items / categories / tags they're limited to
+const dsAll = () => ((S.settings.find(x => x.id==="discounts") || {}).list || []).filter(d => !d.deleted);
+const dsOT = () => otype==="takeaway" ? "pickup" : otype;
+function dsCalc(d){
+  const sub = cart.reduce((a,i)=>a+lineNet(i),0); if(d.minOrder!=null && sub < +d.minOrder) return { amt:0, why:"Minimum order " + usd(+d.minOrder) };
+  const tg = (S.settings.find(x => x.id==="tags") || {}).on?.product || {}, lim = (d.productIds||[]).length || (d.categoryIds||[]).length || (d.productTags||[]).length;
+  const ok = i => { if(d.minProduct!=null && (+i.price||0) < +d.minProduct) return false; if(!lim) return true; const p = S.products.find(x => x.id===i.productId);
+    return (d.productIds||[]).includes(i.productId) || (p && (d.categoryIds||[]).includes(p.categoryId)) || (tg[i.productId]||[]).some(t => (d.productTags||[]).includes(t)); };
+  const base = cart.filter(ok).reduce((a,i)=>a+lineNet(i),0); if(!(base > 0)) return { amt:0, why: lim ? "No matching items" : "Nothing to discount" };
+  let amt = d.type==="fixed" ? Math.min(+d.amount||0, base) : base * (+d.amount||0) / 100; if(d.type!=="fixed" && d.maxDiscount!=null) amt = Math.min(amt, +d.maxDiscount);
+  return { amt: +Math.min(amt, sub).toFixed(2), why:"" };
+}
+const dsHere = () => dsAll().filter(d => (!(d.branchIds||[]).length || d.branchIds.includes(device?.branchId)) && (!(d.orderTypes||[]).length || d.orderTypes.includes(dsOT())));
 function totals(){
+  if(DSET){ const d = dsAll().find(x => x.id===DSET.id); if(d){ discType = "amt"; discount = dsCalc(d).amt; } else DSET = null; }
   const sub = cart.reduce((a,i)=>a+lineNet(i),0), disc = +(discType==="amt" ? Math.min(discount, sub) : sub*discount/100).toFixed(2);
   const charges = pickedCharges().map(c => ({ id:c.id, name:c.name, type:c.type, value:+c.value||0, amount: +(c.type==="percent" ? (sub-disc)*(+c.value||0)/100 : +c.value||0).toFixed(2) }));
   const chT = +charges.reduce((a,c)=>a+c.amount,0).toFixed(2), tp = orderTaxParts(cart, disc), tax = tp.tax;
@@ -1049,7 +1065,7 @@ function totals(){
   const total = +(sub - disc + chT + fee + tp.added).toFixed(2);
   return { sub, disc, charges, chT, fee, tax, total, net: +(total - tax).toFixed(2) };
 }
-const discLbl = () => discType==="amt" ? "Discount" : `Discount ${discount}%`;
+const discLbl = () => DSET ? DSET.name : discType==="amt" ? "Discount" : `Discount ${discount}%`;
 function renderCart(){
   document.querySelectorAll("#otype button").forEach(b => b.classList.toggle("on", b.dataset.t===otype || (b.dataset.t==="pd" && (otype==="takeaway" || otype==="delivery"))));
   const pdb = $("#otype [data-t=pd]"); pdb.classList.toggle("hide", otype!=="takeaway" && otype!=="delivery"); pdb.textContent = otype==="delivery" ? "Delivery" : "Pickup";
@@ -1109,7 +1125,7 @@ function loadOrder(id, keep){
   if(keep) keep.forEach(k => cart.push(k));                          // items added here but not sent yet
   otype = o.type==="pickup" || o.type==="takeaway" ? "takeaway" : (o.type || "dinein"); tableNo = o.table || "";
   cust = { name:o.customerName||"", phone:o.phone||"", addr: addrParts(o.address), source: o.source && o.source.toUpperCase()!=="POS" ? o.source : "" };
-  discType = o.discountType || "pct"; discount = discType==="amt" ? +o.discount||0 : +o.discountPct||0;
+  DSET = null; discType = o.discountType || "pct"; discount = discType==="amt" ? +o.discount||0 : +o.discountPct||0;
   posChg = new Set((o.charges||[]).map(c=>c.id)); orderNote = o.receiptNotes || ""; kitchenNote = o.notes || ""; GUESTS = +o.guests || 0;
   closeModal(); renderCart(); renderMenu();
 }
@@ -1241,11 +1257,11 @@ $("#otype").addEventListener("click", async e => { const b = e.target.closest("[
   if((otype==="takeaway" || otype==="delivery") && (cust.name || cust.phone) && !(await askYes("Switch to " + (b.dataset.t==="fast" ? "Fast sale" : "Dine-in") + "? The customer details are removed."))) return;
   if(otype==="takeaway" || otype==="delivery") cust = { name:"", phone:"", addr:{} };
   otype = b.dataset.t; posChg = null; renderCart(); renderMenu(); });   // the menu can differ per order type
-$("#totals").addEventListener("click", e => { if(e.target.closest("[data-discx]")){ discount = 0; renderCart(); toast("Discount removed"); return; } const b = e.target.closest("[data-chg]"); if(!b) return; if(!can("pos_charges")) return deny("changing charges");
+$("#totals").addEventListener("click", e => { if(e.target.closest("[data-discx]")){ discount = 0; DSET = null; renderCart(); toast("Discount removed"); return; } const b = e.target.closest("[data-chg]"); if(!b) return; if(!can("pos_charges")) return deny("changing charges");
   if(!posChg) posChg = new Set(pickedCharges().map(c=>c.id)); posChg.has(b.dataset.chg) ? posChg.delete(b.dataset.chg) : posChg.add(b.dataset.chg); renderCart(); });
 $("#extra").addEventListener("change", e => { if(e.target.id==="tbl") tableNo = e.target.value; });
 $("#extra").addEventListener("input", e => { if(e.target.id==="tbl") tableNo = e.target.value; if(e.target.id==="cPhone") cust.phone = e.target.value; if(e.target.id==="cName") cust.name = e.target.value; if(e.target.id.startsWith("cA_")) cust.addr[e.target.id.slice(3)] = e.target.value; });
-function resetOrder(){ EDIT = null; orderNote = ""; kitchenNote = ""; GUESTS = 0; otype = defaultType(); cart = []; discount = 0; discType = "pct"; posChg = null; tableNo = ""; cust = { name:"", phone:"", addr:{} }; renderCart(); }
+function resetOrder(){ EDIT = null; orderNote = ""; kitchenNote = ""; GUESTS = 0; otype = defaultType(); cart = []; discount = 0; discType = "pct"; DSET = null; posChg = null; tableNo = ""; cust = { name:"", phone:"", addr:{} }; renderCart(); }
 
 /* ---------- modals ---------- */
 let modalKind = null;
@@ -1293,7 +1309,9 @@ function openDiscount(){
   if(!can("pos_discount")) return deny("discounts");
   const sub = totals().sub;
   // set discounts (Marketing → Discounts) come from the back office; here the cashier enters an open one
+  const sets = dsHere();
   modal("disc", `<div class="mh"><h2>Discount</h2><button class="x" data-close aria-label="Close">×</button></div><div class="mb">
+    ${sets.length ? `<div class="dsets">${sets.map(d => { const c = dsCalc(d); return `<button type="button" class="dset${DSET?.id===d.id?" on":""}" data-dset="${esc(d.id)}" ${c.amt > 0 ? "" : "disabled"}><b>${esc(d.name)}</b><span>${d.type==="fixed" ? usd(+d.amount||0) : (+d.amount||0) + "%"}${c.amt > 0 ? " · −" + usd(c.amt) : " · " + esc(c.why)}</span></button>`; }).join("")}</div><div class="dsor">or enter an open discount</div>` : ""}
     <div class="dseg"><button type="button" data-dt="pct" class="${discType!=="amt"?"on":""}">Percentage %</button><button type="button" data-dt="amt" class="${discType==="amt"?"on":""}">Amount USD</button></div>
     <div class="dinput"><input id="discVal" inputmode="none" aria-label="Discount" value="${discount ? discount : ""}"><span id="discUnit">${discType==="amt" ? "USD" : "%"}</span></div>${numpad("discVal")}
     <div class="mut" id="discNote" style="font-size:13px;margin-top:8px">Order total ${usd(totals().total)}</div></div>
@@ -1302,7 +1320,11 @@ function openDiscount(){
   setTimeout(() => $("#discVal")?.focus(), 30);
 }
 $("#modal").addEventListener("click", async e => {
-  const d = e.target.closest("[data-disc]"); if(d){ if(+d.dataset.disc > 0 && appSet().discNeedsCustomer && !custGiven(cust.name, cust.phone)){ toast("Add the customer first: discounts need customer info"); return; } if(+d.dataset.disc > 0 && appSet().discountApproval && !(await approve("pos_discount", "Approve discount"))) return; discount = +d.dataset.disc; discType = "pct"; closeModal(); renderCart(); return; }
+  const d = e.target.closest("[data-disc]"); if(d){ if(+d.dataset.disc > 0 && appSet().discNeedsCustomer && !custGiven(cust.name, cust.phone)){ toast("Add the customer first: discounts need customer info"); return; } if(+d.dataset.disc > 0 && appSet().discountApproval && !(await approve("pos_discount", "Approve discount"))) return; DSET = null; discount = +d.dataset.disc; discType = "pct"; closeModal(); renderCart(); return; }
+  const ds = e.target.closest("[data-dset]"); if(ds){ const d = dsAll().find(x => x.id===ds.dataset.dset); if(!d) return; const c = dsCalc(d); if(!(c.amt > 0)) return;
+    if(((d.customerTags||[]).length || appSet().discNeedsCustomer) && !custGiven(cust.name, cust.phone)){ toast("Add the customer first: this discount needs customer info"); return; }
+    if(appSet().discountApproval && !(await approve("pos_discount", "Approve discount"))) return;
+    DSET = { id:d.id, name:d.name }; discType = "amt"; discount = c.amt; closeModal(); renderCart(); return; }
   const dt = e.target.closest("[data-dt]"); if(dt){ document.querySelectorAll("[data-dt]").forEach(b => b.classList.toggle("on", b===dt)); if($("#discUnit")) $("#discUnit").textContent = dt.dataset.dt==="amt" ? "USD" : "%"; $("#discVal").focus(); return; }
   if(e.target.closest("#discApply")){ const ty = document.querySelector("[data-dt].on")?.dataset.dt || "pct", v = +String($("#discVal").value).replace(",", "."), sub = totals().sub;
     if(!(v >= 0) || $("#discVal").value.trim()==="") { $("#discNote").textContent = "Enter a number."; return; }
@@ -1310,7 +1332,7 @@ $("#modal").addEventListener("click", async e => {
     if(ty==="amt" && v > sub){ $("#discNote").textContent = `The discount can't be more than the subtotal (${usd(sub)}).`; return; }
     if(v > 0 && appSet().discNeedsCustomer && !custGiven(cust.name, cust.phone)){ $("#discNote").textContent = "Add the customer first: discounts need customer info."; return; }
     if(v > 0 && appSet().discountApproval && !(await approve("pos_discount", "Approve discount"))) return;
-    discount = +v.toFixed(2); discType = ty; closeModal(); renderCart(); return; }
+    DSET = null; discount = +v.toFixed(2); discType = ty; closeModal(); renderCart(); return; }
   const pm = e.target.closest("[data-pm]"); if(pm){ payMethod = payMethods().find(m=>m.id===pm.dataset.pm); document.querySelectorAll("[data-pm]").forEach(b=>b.classList.toggle("on", b===pm)); $("#cashBox").style.display = payMethod?.type==="cash" ? "flex" : "none"; if($("#cardNote")) $("#cardNote").style.display = payMethod?.type==="cash" ? "none" : "grid"; updChange();
     if(payMethod?.type==="house"){ const cn = $("#cardNote"), cp = $("#confirmPay"); cp.disabled = true; cn.innerHTML = `<div>Checking the house account…</div>`;
       haLookup().then(h => { if(payMethod?.type!=="house") return; const t = totals().total;
@@ -1871,7 +1893,7 @@ async function retrieveHeld(id){
   if(EDIT){ if(unsentItems().length && !(await askYes("Discard the items not yet sent on this order?", "Discard"))) return; unloadOrder(); }
   if(cart.length){ if(!(await askYes("Hold the current order and retrieve this one?", "Hold & retrieve"))) return; holdOrder(true); }
   const rest = heldList().filter(x => x.id!==id); heldSave(rest);
-  cart = h.cart; otype = h.otype; discount = +h.discount||0; discType = h.discType || "pct"; posChg = h.posChg ? new Set(h.posChg) : null; tableNo = h.tableNo || ""; GUESTS = +h.guests || 0; cust = h.cust || { name:"", phone:"", addr:{} }; cust.addr = cust.addr || {}; orderNote = h.orderNote || ""; kitchenNote = h.kitchenNote || "";
+  cart = h.cart; otype = h.otype; discount = +h.discount||0; discType = h.discType || "pct"; DSET = null; posChg = h.posChg ? new Set(h.posChg) : null; tableNo = h.tableNo || ""; GUESTS = +h.guests || 0; cust = h.cust || { name:"", phone:"", addr:{} }; cust.addr = cust.addr || {}; orderNote = h.orderNote || ""; kitchenNote = h.kitchenNote || "";
   closeModal(); renderCart(); renderMenu(); toast(`Order H${h.n} retrieved`);
 }
 function paintAbar(){ const hb = document.getElementById("holdBadge"); if(hb && device){ const n = heldList().length; hb.textContent = n; hb.classList.toggle("hide", !n); }

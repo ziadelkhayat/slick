@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="287-1793983963">
+<meta name="slick-build" content="288-1793984402">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -724,6 +724,7 @@ h1:has(.ib),h3:has(.ib){display:inline-flex;align-items:center}
 .ccseg{display:flex;gap:8px}.ccseg button{flex:1;padding:10px;border:1px solid var(--line);border-radius:10px;background:#fff;font:inherit;font-weight:600;cursor:pointer}.ccseg button.on{border-color:var(--accent);background:#f5f1ff;color:var(--accent-ink)}
 .ccdin{width:100%;box-sizing:border-box;margin-top:12px;font-size:22px!important;font-weight:700;text-align:right;padding:12px 14px!important;border-radius:12px!important}
 .slk-ask-yes:disabled{opacity:.45;cursor:default}
+.dsgrid{display:grid;grid-template-columns:1fr 1fr;gap:14px 18px}.dsgrid .full{grid-column:1/-1}.dsgrid .f{margin:0}.dplist{display:flex;flex-direction:column;gap:2px;max-height:52vh;overflow:auto;border:1px solid var(--line);border-radius:10px;padding:6px 10px}.dplist .chk{padding:7px 2px}.dsinfo{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px 18px;margin-top:14px}
 .bizsave{margin-top:20px}.bizchk{display:flex;flex-direction:column;gap:14px;margin-top:20px}.bizchk .chk{font-size:14px}.acbadge{display:inline-flex;align-items:center;margin-left:12px;padding:6px 14px;border-radius:999px;background:#3a3a44;color:#fff;font-size:14px;font-weight:600}.acgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px 28px}.acgrid .f{margin:0}
 body.noloc .f:has(> label[for$="NameAr"]),body.noloc .f:has(> label[for$="nameAr"]),body.noloc .f:has(> label[for="dcNAr"]){display:none!important}
 .bizh{font-size:17px;font-weight:600;margin:22px 0 10px}.bizh:first-of-type{margin-top:6px}
@@ -2026,7 +2027,7 @@ function render(){
   if(tg) v.insertAdjacentHTML("afterbegin", `<nav class="ptabs" aria-label="${esc(tg.t)}">${tg.kids.filter(k=>!k[0].startsWith("@")).map(k=>`<a href="#${k[0]}" class="${k[0]===route?"on":""}">${svgIco(SUBI[k[0]]||"list")}${esc(k[1])}</a>`).join("")}</nav>`);
   v.querySelectorAll(".chart").forEach(wireLine);
   if(route==="delivery-zones") setTimeout(initZonesOverview, 0);
-  if(route!=="dashboard") stickHead(v);
+  if(route!=="dashboard" && !(route==="discounts" && DS.open)) stickHead(v);
 }
 // list pages: the title, filters and tabs above a table stay in view while the rows scroll (like Orders)
 function stickHead(v){
@@ -4164,6 +4165,7 @@ function moduleRoute(route){
   if(route==="company"){ state.acTab = "business"; setTimeout(() => location.replace("#account"), 0); return ""; }
   if(route==="reasons") return viewReasons();
   if(route==="delivery-charges") return viewDeliveryCharges();
+  if(route==="discounts") return viewDiscounts();
   if(route==="currency") return viewCurrency();
   if(route==="settings"){ const bl = S.brands.filter(live); setTimeout(() => { location.replace("#brands"); if(bl.length===1) setTimeout(() => openDetail("brands", bl[0].id), 50); }, 0); return ""; }
   if(DOC_KINDS[route]) return viewDocs(route);
@@ -4324,7 +4326,7 @@ async function openOrderDetail(id, quiet){
       <div><span>Invoice</span>${o.status==="refund" ? esc(ordRef(o)) : o.invoiceNo ? esc(invNo(o.invoiceNo)) : (o.channel!=="pos" && ["pending","draft"].includes(o.status) ? '<span class="note">From the POS when accepted</span>' : "—")}</div>
       <div><span>Brand</span>${esc(brandName(o.brandId) || "—")}</div>
       <div><span>Branch</span>${esc(branches.find(x=>x.id===o.branchId)?.name || "—")}</div>
-      <div><span>Sales channel</span>${esc(CH_LBL[o.channel] || cap(o.channel))}${o.source && o.source!=="POS"?` · ${esc(o.source)}`:""}</div>
+      <div><span>Sales channel</span>${esc(CH_LBL[o.channel] || cap(o.channel))}${o.source && o.source!=="POS" && !(o.channel==="online" && o.source==="Website")?` · ${esc(o.source)}`:""}</div>
       <div><span>Order type</span>${esc(ordTypeLbl(o.type))}${o.table?` · Table ${esc(o.table)}`:""}</div>
       <div><span>Business date</span>${o.createdAt ? new Date(bizDate(o.createdAt, o.branchId) + "T12:00:00").toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"}) + ` <span class="note">${new Date(o.createdAt).toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"})}</span>` : "—"}</div>
       ${o.acceptedAt?`<div><span>Accepted</span>${dt(o.acceptedAt)} <span class="note">(${mins(o.createdAt,o.acceptedAt)})</span></div>`:""}
@@ -5330,12 +5332,106 @@ document.addEventListener("click", async e => {
 document.addEventListener("change", e => { if(e.target.id==="dcBranch"){ DC.branch = e.target.value; DC.sel.clear(); render(); } });
 document.addEventListener("input", e => { if(e.target.id==="dcQ"){ DC.q = e.target.value; const p = e.target.selectionStart; render(); const i = $("#dcQ"); if(i){ i.focus(); try{ i.setSelectionRange(p, p); }catch(_){} } } });
 
+/* ---------- Discounts (Marketing → Discounts, Foodics style): set discounts the cashier and the call center pick ---------- */
+// kept in one settings document (settings "discounts": { list:[…] }) so every POS gets them with its settings
+const DS = { tab:"all", q:"", open:"" };
+const DS_QUAL = [["order","Order"],["product","Product"],["both","Order & Product"]];
+const dsDoc = () => (typeof S!=="undefined" ? S.settings : []).find(x => x.id==="discounts") || {};
+const dsList = () => (dsDoc().list || []);
+const dsAmtLbl = d => d.type==="fixed" ? money(+d.amount||0) : (+d.amount||0) + "%";
+async function dsSave(list){ try{ await put("settings", "discounts", { list }); return true; }catch(e){ console.error(e); toast("Couldn't save. Only the owner or an admin can change discounts."); return false; } }
+async function dsPatch(id, patch){ return dsSave(dsList().map(d => d.id===id ? { ...d, ...patch } : d)); }
+function viewDiscounts(){
+  const od = DS.open && dsList().find(d => d.id===DS.open); if(od) return dsDetail(od);
+  const del = DS.tab==="deleted", q = DS.q.trim().toLowerCase();
+  const list = dsList().filter(d => !!d.deleted===del && (!q || (d.name + " " + (d.nameAr||"") + " " + (d.reference||"")).toLowerCase().includes(q))).sort((a,b) => String(a.name).localeCompare(String(b.name)));
+  return `<div class="phead"><h1>Discounts</h1><div class="sp"></div><button class="btn pri" data-dsnew>Create Discount</button></div>
+  <div class="card tbl"><div class="ttop"><div class="ttabs"><a href="#discounts" data-dstab="all" class="${del?"":"on"}">All</a><a href="#discounts" data-dstab="deleted" class="${del?"on":""}">Deleted</a></div><div class="sp"></div><input class="sel search" id="dsQ" placeholder="Search" value="${esc(DS.q)}" aria-label="Search discounts"></div>
+  ${list.length ? `<table><thead><tr><th>Name</th><th>Reference</th><th>Qualification</th><th class="num">Discount</th>${del ? "<th></th>" : ""}</tr></thead><tbody>${list.map(d => `<tr class="click" ${del ? "" : `data-dsopen="${esc(d.id)}"`}>
+    <td><b>${esc(d.name)}</b>${d.nameAr ? ` <span class="note">${esc(d.nameAr)}</span>` : ""}</td><td>${esc(d.reference || "—")}</td><td>${esc((DS_QUAL.find(x => x[0]===d.qualification)||DS_QUAL[0])[1])}</td><td class="num">${dsAmtLbl(d)}</td>
+    ${del ? `<td class="num"><button class="btn sm" data-dsrestore="${esc(d.id)}">Restore</button></td>` : ""}</tr>`).join("")}</tbody></table>`
+    : `<div class="empty">${del ? "No deleted discounts." : "No discounts yet. Create the discounts your cashiers can apply, like Staff Meal or Management."}</div>`}</div>`;
+}
+function dsForm(d){
+  const ed = !!d, x = d || { type:"pct", qualification:"order", orderTypes:["dinein","pickup","delivery"] }, box = $("#ccBox"); box.className = "modal";
+  const ot = [["dinein","Dine In"],["pickup","Pick Up"],["delivery","Delivery"],["fast","Fast Sale"]];
+  box.innerHTML = `<header><h2>${ed ? "Edit" : "Create"} Discount</h2><button type="button" class="x" data-ccclose aria-label="Close">×</button></header>
+  <div class="body" style="display:block"><div class="dsgrid">
+    <div class="f"><label for="dsName">Name *</label><input id="dsName" value="${esc(x.name||"")}"></div>
+    <div class="f"><label for="dsNameAr">Name Localized</label><input id="dsNameAr" value="${esc(x.nameAr||"")}"></div>
+    <div class="f"><label for="dsQual">Qualification *</label><select id="dsQual" class="sel">${DS_QUAL.map(([k,t]) => `<option value="${k}" ${x.qualification===k?"selected":""}>${t}</option>`).join("")}</select></div>
+    <div class="f"><label for="dsType">Discount Type *</label><select id="dsType" class="sel"><option value="fixed" ${x.type==="fixed"?"selected":""}>Fixed</option><option value="pct" ${x.type!=="fixed"?"selected":""}>Percentage</option></select></div>
+    <div class="f"><label for="dsAmt" id="dsAmtL">Discount Amount (${x.type==="fixed" ? esc(CUR()) : "%"}) *</label><input id="dsAmt" type="number" min="0" step="any" value="${esc(x.amount ?? "")}"></div>
+    <div class="f" id="dsMaxF"><label for="dsMax">Maximum Discount (${esc(CUR())})</label><input id="dsMax" type="number" min="0" step="any" value="${esc(x.maxDiscount ?? "")}"></div>
+    <div class="f"><label for="dsMinO">Minimum Order Price (${esc(CUR())})</label><input id="dsMinO" type="number" min="0" step="any" value="${esc(x.minOrder ?? "")}"></div>
+    <div class="f"><label for="dsMinP">Minimum Product Price (${esc(CUR())})</label><input id="dsMinP" type="number" min="0" step="any" value="${esc(x.minProduct ?? "")}"></div>
+    <div class="f full"><label>Applies On Order Types *</label><div class="multi" id="dsOT">${ot.map(([k,t]) => `<label class="chk"><input type="checkbox" value="${k}" ${(x.orderTypes||[]).includes(k)?"checked":""}> ${t}</label>`).join("")}</div></div>
+    <div class="f"><label for="dsRef">Reference</label><input id="dsRef" value="${esc(x.reference||"")}"></div><div></div>
+    <label class="chk full"><input type="checkbox" id="dsTax" ${x.taxable?"checked":""}> Taxable <span class="tip" title="Checked: the customer still pays the full tax of the order before the discount. Unchecked: the tax is reduced with the discount.">ⓘ</span></label>
+  </div><div class="err" id="dsErr"></div></div>
+  <footer>${ed ? `<button type="button" class="btn danger" id="dsDel" style="margin-right:auto">Delete Discount</button>` : ""}<span style="flex:1"></span><button type="button" class="btn" data-ccclose>Close</button><button type="button" class="btn pri" id="dsGo">Save</button></footer>`;
+  $("#ccScrim").classList.add("show"); setTimeout(() => $("#dsName")?.focus(), 50);
+  const sync = () => { const fx = $("#dsType").value==="fixed"; $("#dsAmtL").textContent = `Discount Amount (${fx ? CUR() : "%"}) *`; $("#dsMaxF").style.display = fx ? "none" : ""; }; sync(); $("#dsType").onchange = sync;
+  $("#dsGo").onclick = async () => {
+    const err = m => $("#dsErr").textContent = m, n = $("#dsName").value.trim(), ty = $("#dsType").value, a = $("#dsAmt").value, ref = $("#dsRef").value.trim(), ots = [...document.querySelectorAll("#dsOT input:checked")].map(i => i.value);
+    if(!n) return err("Enter a name."); if(a==="" || +a < 0) return err("Enter the discount amount."); if(ty==="pct" && +a > 100) return err("A percentage can't be more than 100.");
+    if(!ots.length) return err("Choose at least one order type."); if(ref && !/^[A-Za-z0-9_-]+$/.test(ref)) return err("The reference may only contain letters, numbers, dashes and underscores.");
+    if(dsList().some(o => !o.deleted && o.id!==x.id && String(o.name).toLowerCase()===n.toLowerCase())) return err("A discount with this name already exists.");
+    const num = id => { const v = $(id).value; return v==="" ? null : +v; };
+    const data = { name:n, nameAr:$("#dsNameAr").value.trim(), qualification:$("#dsQual").value, type:ty, amount:+a, maxDiscount: ty==="pct" ? num("#dsMax") : null, minOrder:num("#dsMinO"), minProduct:num("#dsMinP"), orderTypes:ots, reference:ref, taxable:$("#dsTax").checked };
+    const list = ed ? dsList().map(o => o.id===x.id ? { ...o, ...data } : o) : [...dsList(), { id: uid("dsc"), ...data, branchIds:[], categoryIds:[], productIds:[], productTags:[], customerTags:[], createdAt: new Date().toISOString() }];
+    $("#dsGo").disabled = true; if(await dsSave(list)){ $("#ccScrim").classList.remove("show"); toast(ed ? "Discount saved" : "Discount created"); if(!ed) DS.open = list[list.length-1].id; render(); } else $("#dsGo").disabled = false; };
+  if(ed) $("#dsDel").onclick = async () => { if(!(await askYes("Delete this discount?"))) return; if(await dsPatch(x.id, { deleted:true })){ $("#ccScrim").classList.remove("show"); DS.open = ""; toast("Discount deleted"); render(); } };
+}
+// one picker for branches, categories, products, product tags and customer tags
+function dsPick(title, opts, cur, done){
+  const box = $("#ccBox"), sel = new Set(cur||[]); box.className = "modal";
+  box.innerHTML = `<header><h2>${esc(title)}</h2><button type="button" class="x" data-ccclose aria-label="Close">×</button></header>
+  <div class="body" style="display:block"><div style="display:flex;gap:10px;align-items:center;margin-bottom:10px"><input id="dpQ" class="sel" placeholder="Search" style="flex:1"><button type="button" class="btn sm" id="dpAll">Select All</button></div>
+    <div class="dplist" id="dpL">${opts.map(([id,t,sub]) => `<label class="chk" data-dpt="${esc((t+" "+(sub||"")).toLowerCase())}"><input type="checkbox" value="${esc(id)}" ${sel.has(id)?"checked":""}> ${esc(t)}${sub ? ` <span class="note">${esc(sub)}</span>` : ""}</label>`).join("") || `<div class="note">Nothing to choose yet.</div>`}</div></div>
+  <footer><span style="flex:1"></span><button type="button" class="btn" data-ccclose>Close</button><button type="button" class="btn pri" id="dpGo">Save</button></footer>`;
+  $("#ccScrim").classList.add("show");
+  $("#dpQ").oninput = e => { const q = e.target.value.trim().toLowerCase(); box.querySelectorAll("[data-dpt]").forEach(l => l.style.display = !q || l.dataset.dpt.includes(q) ? "" : "none"); };
+  $("#dpAll").onclick = () => { const vis = [...box.querySelectorAll("[data-dpt]")].filter(l => l.style.display!=="none").map(l => l.querySelector("input")), on = vis.some(i => !i.checked); vis.forEach(i => i.checked = on); };
+  $("#dpGo").onclick = async () => { const ids = [...box.querySelectorAll("#dpL input:checked")].map(i => i.value); if(await done(ids)){ $("#ccScrim").classList.remove("show"); render(); } };
+}
+const DS_SECS = [
+  ["branchIds","Applies On Branches","Edit Branches","No branches chosen: this discount can be used at every branch.",["Name","Reference"], () => branches.filter(b => b.active!==false).map(b => [b.id, b.name, b.code||""]), id => { const b = branches.find(x => x.id===id); return b ? [b.name, b.code||"—"] : null; }],
+  ["categoryIds","Applies On Categories","Add Categories","Select the menu categories where this discount can be applied.",["Name","Reference"], () => S.categories.filter(c => live(c) && !c.channel).sort(bySort).map(c => [c.id, c.name, c.reference||""]), id => { const c = S.categories.find(x => x.id===id); return c ? [c.name, c.reference||"—"] : null; }],
+  ["productIds","Applies On Products","Add Products","Select the products where this discount can be applied.",["Name","SKU"], () => S.products.filter(p => live(p)).sort((a,b) => a.name.localeCompare(b.name)).map(p => [p.id, p.name, p.sku||""]), id => { const p = S.products.find(x => x.id===id); return p ? [p.name, p.sku||"—"] : null; }],
+  ["productTags","Apply On Product Tags","Add Product Tags","Select the product tags where this discount can be applied.",["Name"], () => tagList("product").map(t => [t.id, t.name]), id => { const n = tagName(id); return n ? [n] : null; }],
+  ["customerTags","Limit To Customer Tags","Add Customer Tags","Select the customers who are eligible for this discount.",["Name"], () => tagList("customer").map(t => [t.id, t.name]), id => { const n = tagName(id); return n ? [n] : null; }]];
+function dsDetail(d){
+  const q = (DS_QUAL.find(x => x[0]===d.qualification)||DS_QUAL[0])[1], ot = { dinein:"Dine In", pickup:"Pick Up", delivery:"Delivery", fast:"Fast Sale" };
+  const more = DS.more ? [info("Name Localized", esc(d.nameAr||"—")), info("Qualification", esc(q)), info("Discount Amount", dsAmtLbl(d)), info("Minimum Order Price", d.minOrder!=null ? money(d.minOrder) : "—"), info("Minimum Product Price", d.minProduct!=null ? money(d.minProduct) : "—"),
+    info("Maximum Discount", d.type!=="fixed" && d.maxDiscount!=null ? money(d.maxDiscount) : "—"), info("Order Types", esc((d.orderTypes||[]).map(k => ot[k]||k).join(", ") || "—")), info("Reference", esc(d.reference||"—")), info("Taxable", d.taxable ? "Yes" : "No")] : [];
+  return `<div class="phead"><a href="#discounts" class="btn" data-dsback style="text-decoration:none">← Back</a><h1 style="margin-left:10px">${esc(d.name)}</h1><div class="sp"></div><button class="btn" data-dsedit="${esc(d.id)}">Edit Discount</button></div>
+  <div class="card" style="margin-bottom:16px"><div style="display:flex;align-items:center"><b>Details</b><div class="sp"></div><button type="button" class="lnk" data-dsmore style="border:0;background:none;padding:0;margin-left:12px;cursor:pointer">${DS.more ? "Show Less" : "Show More"}</button></div>
+    ${infoGrid([info("Name", esc(d.name)), info("Discount", dsAmtLbl(d)), ...more]).replace('class="card"', 'class="dsinfo"')}</div>
+  ${DS_SECS.map(([k, title, btn, hint, head, , row]) => { const ids = d[k]||[], rows = ids.map(row).filter(Boolean);
+    return `<div class="card tbl" style="margin-bottom:16px"><div class="ttop"><b>${title}</b><div class="sp"></div><button class="btn sm" data-dssec="${k}">${rows.length && btn.startsWith("Add") ? btn.replace("Add","Edit") : btn}</button></div>
+      ${rows.length ? `<table><thead><tr>${head.map(h => `<th>${h}</th>`).join("")}</tr></thead><tbody>${rows.map(r => `<tr>${r.map((c,i) => `<td>${i ? esc(c) : `<b>${esc(c)}</b>`}</td>`).join("")}</tr>`).join("")}</tbody></table>` : `<div class="empty" style="padding:22px">${hint}</div>`}</div>`; }).join("")}`;
+}
+document.addEventListener("click", async e => {
+  const t = e.target; if(!t.closest || !t.closest("#view") || document.body.dataset.route!=="discounts") return;
+  const tb = t.closest("[data-dstab]"); if(tb){ e.preventDefault(); DS.tab = tb.dataset.dstab; return render(); }
+  if(t.closest("[data-dsnew]")) return dsForm(null);
+  const o = t.closest("[data-dsopen]"); if(o){ DS.open = o.dataset.dsopen; DS.more = false; render(); return window.scrollTo(0,0); }
+  if(t.closest("[data-dsback]")){ e.preventDefault(); DS.open = ""; return render(); }
+  if(t.closest("[data-dsmore]")){ DS.more = !DS.more; return render(); }
+  const ed = t.closest("[data-dsedit]"); if(ed) return dsForm(dsList().find(d => d.id===ed.dataset.dsedit));
+  const rs = t.closest("[data-dsrestore]"); if(rs){ if(await dsPatch(rs.dataset.dsrestore, { deleted:false })){ toast("Discount restored"); render(); } return; }
+  const sc = t.closest("[data-dssec]"); if(sc){ const d = dsList().find(x => x.id===DS.open), s = DS_SECS.find(x => x[0]===sc.dataset.dssec); if(!d || !s) return;
+    return dsPick(s[2].replace(/^Add|^Edit/, "Select"), s[5](), d[s[0]], ids => dsPatch(d.id, { [s[0]]: ids })); }
+});
+document.addEventListener("input", e => { if(e.target.id==="dsQ"){ DS.q = e.target.value; const p = e.target.selectionStart; render(); const i = $("#dsQ"); if(i){ i.focus(); try{ i.setSelectionRange(p, p); }catch(_){} } } });
+
 /* filters belong to the page: leaving a page puts its filters back to the defaults */
 function resetPageFilters(){
   Object.assign(state, { range:"day", days:1, date:todayStr(), dateSet:false, compare:false, cmpDate:"", dashTab:"general", branch:"all", brand:"all", devOpen:null, brOpen:null }); if(!RPT.keep){ RPT.key = ""; RPT.brand = ""; } RPT.keep = false; DASH.key = "";
   if(ORD.keep) ORD.keep = false; else Object.assign(ORD, { tab:"all", range:"week", q:"", from:"", to:"", channel:"", type:"", pay:"", source:"", brand:"", branch:"", page:1, key:"", open:null });
   Object.assign(CUS, { filter:"all", q:"", sort:"last", page:1, key:"", open:null, det:null, more:false, fopen:false, flt:{} });
-  Object.assign(BM, { q:"", draft:{} }); Object.assign(DC, { q:"", branch:"" }); DC.sel.clear();
+  Object.assign(BM, { q:"", draft:{} }); Object.assign(DC, { q:"", branch:"" }); DC.sel.clear(); Object.assign(DS, { q:"", open:"", more:false });
   state.tabs = {}; state.q = {}; state.page = {}; state.catFilter = ""; state.modFilter = ""; state.invCat = "";
   Object.assign(IC, { q:"", cat:"", sheet:"" });
   DOC.tab = {}; DOC.q = {}; DOC.open = null; DOC.edit = null;
