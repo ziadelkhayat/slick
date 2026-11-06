@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="293-1793985683">
+<meta name="slick-build" content="294-1793985884">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -2565,11 +2565,11 @@ const CRUD = {
     note:"Charges are added on top of the items, e.g. a delivery charge or a service charge. Automatic charges are added to matching orders in the POS and the call center; the cashier or user can remove them.",
     tabs:[["all","All",live],["active","Active",r=>live(r)&&r.active!==false],["inactive","Inactive",r=>live(r)&&r.active===false],["deleted","Deleted",r=>r.deleted]],
     sort:(a,b)=>bySort(a,b), search:r=>r.name+" "+(r.nameAr||""),
-    cols:[["Name",r=>`<b>${esc(r.name)}</b>${r.nameAr?` <span class="note">${esc(r.nameAr)}</span>`:""}`],["Type",r=>r.type==="percent"?"Percentage":"Fixed amount"],["Value",r=>r.type==="percent"?(+r.value||0)+" %":usd(r.value),"num"],
+    cols:[["Name",r=>`<b>${esc(r.name)}</b>${r.nameAr?` <span class="note">${esc(r.nameAr)}</span>`:""}`],["Type",r=>r.type==="percent"?"Percentage":"Amount"],["Value",r=>r.type==="percent"?(+r.value||0)+" %":usd(r.value),"num"],
       ["Order types",r=>(r.orderTypes||[]).length ? r.orderTypes.map(t=>esc(TYPE_LBL[t]||t)).join(", ") : "All"],["Brands / branches",r=>[(r.brandIds||[]).length ? r.brandIds.map(brandName).join(", ") : "All brands", (r.branchIds||[]).length ? (r.branchIds.includes("-") ? "no branches" : r.branchIds.length+" branch(es)") : "all branches"].map(esc).join(" · ")],
       ["Applies",r=>r.auto===false?'<span class="tag off">When picked</span>':'<span class="tag on">Automatically</span>'],["Status",r=>r.active===false?'<span class="tag off">Inactive</span>':'<span class="tag on">Active</span>']],
     fields:[{k:"name",l:"Name",req:1,ph:"e.g. Delivery charge, Service charge"},{k:"nameAr",l:"Name Localized"},
-      {k:"type",l:"Type",t:"select",req:1,opts:()=>[["fixed","Fixed amount (USD)"],["percent","Percentage of the order"]],def:"fixed"},{k:"value",l:"Value",t:"number",req:1,ph:"e.g. 2 or 10"},
+      {k:"type",l:"Type",t:"select",req:1,opts:()=>[["fixed","Amount"],["percent","Percentage"]],def:"fixed"},{k:"value",l:"Value",t:"number",req:1,ph:"e.g. 2 or 10"},
       {k:"orderTypes",l:"Order types it applies to",t:"multi",full:1,opts:()=>[["dinein","Dine-in"],["fast","Fast sale"],["pickup","Pickup"],["delivery","Delivery"]],def:["delivery"]},
       {k:"auto",l:"Add automatically to matching orders",t:"chk",def:true},
       {k:"brandIds",l:"Brands (none ticked = every brand)",t:"multi",full:1,opts:()=>brandList().map(b=>[b.id,b.name])},
@@ -5397,9 +5397,8 @@ function dcForm(ids){
   const one = ids.length===1 ? S.zones.find(z => z.id===ids[0]) : null, cur = one ? dcChargeOf(one) : null, chs = dcCharges(), box = $("#ccBox"); box.className = "modal";
   box.innerHTML = `<header><h2>${one ? "Assign Delivery Charge" : `Assign Charge to ${ids.length} Zones`}</h2><button type="button" class="x" data-ccclose aria-label="Close">×</button></header>
   <div class="body" style="display:block">${one ? `<div class="note" style="margin-bottom:14px">${esc(branchName(one.branchId))} → ${esc(one.name)}</div>` : ""}
-    <div class="seg" style="margin-bottom:14px"><button type="button" data-dcm="pick" class="on">Existing Charge</button><button type="button" data-dcm="new">New Charge</button></div>
     <div id="dcPick"><div class="f"><label for="dcCh">Charge *</label><select id="dcCh" class="sel"><option value="">Choose a charge</option>${chs.map(c => `<option value="${esc(c.id)}" ${cur?.id===c.id?"selected":""}>${esc(c.name)} · ${money(+c.value||0)}</option>`).join("")}</select></div>
-      ${chs.length ? "" : `<div class="note" style="margin-top:6px">No fixed-amount charges yet. Create one with New Charge.</div>`}</div>
+      ${chs.length ? "" : `<div class="note" style="margin-top:6px">No fixed-amount charges yet. Create them in <a href="#charges" class="lnk" data-ccclose>Manage → Charges</a>.</div>`}</div>
     <div id="dcNew" hidden><div class="f" style="margin-bottom:14px"><label for="dcN">Name *</label><input id="dcN" placeholder="e.g. Delivery Charge Zone 1"></div>
       <div class="f" style="margin-bottom:14px"><label for="dcNAr">Name Localized</label><input id="dcNAr"></div>
       <div class="f"><label for="dcV">Value (${esc(CUR())}) *</label><input id="dcV" type="number" min="0" step="any" inputmode="decimal"></div></div>
