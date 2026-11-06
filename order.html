@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="312-1793991829">
+<meta name="slick-build" content="313-1793992043">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -229,7 +229,7 @@ footer.ft{text-align:center;color:var(--mut);font-size:12px;padding:26px 0 10px}
 .lpin{position:absolute;left:50%;top:50%;z-index:500;transform:translate(-50%,-100%);color:var(--acc);pointer-events:none;transition:transform .15s var(--ease)}.lpin svg{width:44px;height:44px;fill:var(--acc);stroke:#fff;stroke-width:1.4;filter:drop-shadow(0 4px 6px rgba(0,0,0,.3))}
 .lpin.up{transform:translate(-50%,-115%)}
 .lgps{position:absolute;right:12px;bottom:12px;z-index:500;width:44px;height:44px;border-radius:50%;border:0;background:var(--s);box-shadow:0 4px 14px rgba(0,0,0,.2);display:grid;place-items:center;color:var(--acc)}.lgps svg{width:20px;height:20px}
-.lzs{font-size:14px;font-weight:700;min-height:22px;margin:4px 2px 12px}
+.dlvby{display:flex;gap:12px;align-items:center}.lzs{font-size:14px;font-weight:700;min-height:22px;margin:4px 2px 12px}
 .lmini{display:flex;align-items:center;gap:12px;width:100%;border:1px solid var(--line);background:var(--s);border-radius:var(--r2);padding:12px 14px;text-align:left;margin-bottom:6px}.lmini span svg{width:22px;height:22px;color:var(--acc)}.lmini b{display:block}.lmini small{color:var(--mut)}.lmini i{margin-left:auto;font-style:normal;font-size:20px;color:var(--mut)}
 .lkinds{display:flex;gap:8px;margin-bottom:12px}.lkinds button{flex:1;display:flex;align-items:center;justify-content:center;gap:8px;padding:11px;border:1.5px solid var(--line);border-radius:999px;background:var(--s);font-weight:600}.lkinds button svg{width:17px;height:17px}.lkinds button.on{border-color:var(--acc);background:var(--accs);color:var(--acci)}
 @media(min-width:700px){.locsheet{width:min(520px,100%)}}
@@ -534,6 +534,15 @@ const bcfg = id => (cfg.branches||{})[id] || {};
 const modeOn = (m, b) => (cfg.modes||{})[m] !== false && (!b || bcfg(b)[m] !== false);
 const CO = () => cfg.checkout || {};
 const SH = () => cfg.show || {};
+// Google Maps when the business has a Maps API key (Account settings → Business); otherwise OpenStreetMap
+const GMK = () => String(cfg.gmapsKey || "").trim();
+let gmP = null;
+function gmLoad(){ if(gmP) return gmP; const k = GMK(); if(!k) return Promise.reject(new Error("no key"));
+  gmP = new Promise((res, rej) => { if(window.google?.maps?.Map) return res(google.maps);
+    window.__gmOk = () => res(google.maps); const sc = document.createElement("script"); sc.async = true;
+    sc.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(k)}&libraries=places&loading=async&callback=__gmOk`;
+    sc.onerror = () => { gmP = null; rej(new Error("maps failed")); }; document.head.appendChild(sc); setTimeout(() => rej(new Error("timeout")), 9000); });
+  return gmP; }
 
 /* ---------- header: brand name, logo, tagline, open status, contact links ---------- */
 function renderHead(){
@@ -798,15 +807,28 @@ function drawLoc(){
     sh.innerHTML = `<div class="lshead"><button type="button" class="x" data-lback aria-label="Back">‹</button><h3>${d.edit || d.forNew ? "Pin the address" : "Choose location"}</h3><span></span></div>
       <div class="lmapw"><div id="lmap"></div><div class="lpin">${ic("pin")}</div><button type="button" class="lgps" data-lgpsmap aria-label="My location">${ic("nav")}</button></div>
       <div id="lzs" class="lzs"></div><button type="button" class="primary" data-lconfirm>Confirm location</button>`;
+    const upd = (lat, lng) => { const z = zoneAt(lat, lng); LS.draft = { ...(LS.draft||{}), lat, lng };
+      $("#lzs").innerHTML = z ? `<span class="ok2">✓ Delivered by ${esc(branches.find(b => b.id===z.branch_id)?.name || brand.name)} · ${usd(z.fee)}${z.eta ? " · about " + esc(z.eta) + " min" : ""}</span>` : `<span class="bad2">We don't deliver to this spot yet</span>`; };
+    const gmap = () => gmLoad().then(g => { const el = $("#lmap"); if(!el || lmap) return;
+      const acc = getComputedStyle(document.documentElement).getPropertyValue("--acc").trim() || "#5b2bc4", zl = zoneList();
+      const m = new g.Map(el, { center:{ lat:33.89, lng:35.52 }, zoom:12, disableDefaultUI:true, zoomControl:true, gestureHandling:"greedy", clickableIcons:false });
+      const bnd = new g.LatLngBounds(); zl.forEach(z => { const path = z.polygon.map(([a, b]) => ({ lat:a, lng:b })); path.forEach(x => bnd.extend(x)); new g.Polygon({ paths:path, strokeColor:acc, strokeWeight:1.5, fillColor:acc, fillOpacity:.06, clickable:false, map:m }); });
+      if(d.lat){ m.setCenter({ lat:d.lat, lng:d.lng }); m.setZoom(17); } else if(pin){ m.setCenter({ lat:pin[0], lng:pin[1] }); m.setZoom(16); } else if(zl.length) m.fitBounds(bnd, 10);
+      lmap = { remove(){ g.event.clearInstanceListeners(m); }, setView(c, zm){ m.setCenter({ lat:c[0], lng:c[1] }); if(zm) m.setZoom(zm); } };
+      m.addListener("dragstart", () => $(".lpin")?.classList.add("up"));
+      m.addListener("idle", () => { $(".lpin")?.classList.remove("up"); const c = m.getCenter(); upd(c.lat(), c.lng()); });
+    });
     setTimeout(() => {
+      if(GMK()) return gmap().catch(() => { if(!lmap && $("#lmap")) lflt(); });
+      lflt(); }, 30);
+    const lflt = () => {
       lmap = L.map("lmap", { zoomControl:false, attributionControl:true }); L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom:19, attribution:"© OpenStreetMap" }).addTo(lmap);
       const acc = getComputedStyle(document.documentElement).getPropertyValue("--acc").trim() || "#5b2bc4", zl = zoneList();
       if(zl.length) L.featureGroup(zl.map(z => L.polygon(z.polygon, { color:acc, weight:1.5, fillOpacity:.06, interactive:false }))).addTo(lmap);
       if(d.lat) lmap.setView([d.lat, d.lng], 17); else if(pin) lmap.setView(pin, 16); else if(zl.length) lmap.fitBounds(L.featureGroup(zl.map(z => L.polygon(z.polygon))).getBounds(), { padding:[10,10] }); else lmap.setView([33.89, 35.52], 12);
-      const upd = () => { const c = lmap.getCenter(), z = zoneAt(c.lat, c.lng); LS.draft = { ...(LS.draft||{}), lat:c.lat, lng:c.lng };
-        $("#lzs").innerHTML = z ? `<span class="ok2">✓ We deliver here · ${usd(z.fee)}${z.eta ? " · about " + esc(z.eta) + " min" : ""}</span>` : `<span class="bad2">We don't deliver to this spot yet</span>`; };
-      lmap.on("move", () => $(".lpin")?.classList.add("up")); lmap.on("moveend", () => { $(".lpin")?.classList.remove("up"); upd(); }); upd();
-    }, 30); return; }
+      const updL = () => { const c = lmap.getCenter(); upd(c.lat, c.lng); };
+      lmap.on("move", () => $(".lpin")?.classList.add("up")); lmap.on("moveend", () => { $(".lpin")?.classList.remove("up"); updL(); }); updL();
+    }; return; }
   if(LS.view==="form"){ const d = LS.draft || {}, kinds = [["Home","home"],["Work","work"],["Other","pin"]], kind = ["Home","Work"].includes(d.label) ? d.label : d.label ? "Other" : "Home";
     sh.innerHTML = `<div class="lshead"><button type="button" class="x" data-lback aria-label="Back">‹</button><h3>${d.edit ? "Edit address" : "Address details"}</h3><span></span></div>
       <button type="button" class="lmini" data-lpinmove><span>${ic("pin")}</span><div><b>${d.lat ? (zoneAt(d.lat, d.lng) ? "Pinned · we deliver here" : "Pinned · outside our delivery areas") : "No pin yet"}</b><small>Tap to move the pin</small></div><i>›</i></button>
@@ -836,9 +858,14 @@ function drawLoc(){
   sh.innerHTML = h;
 }
 function lsSearch(q){ clearTimeout(lsT); if(q.trim().length < 3){ LS.res = []; const r = $("#lsRes"); if(r) r.innerHTML = ""; return; }
-  lsT = setTimeout(async () => { try{ const r = await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=6&countrycodes=${(PUB.countryCode||"lb").toLowerCase()}&q=${encodeURIComponent(q)}`, { headers:{ "Accept-Language":"en" } }).then(x => x.json());
-    LS.res = (r||[]).map(x => { const p = String(x.display_name||"").split(", "); return { name: x.name || p[0], sub: p.slice(1, 4).join(", "), lat:+x.lat, lng:+x.lon }; });
-    const el = $("#lsRes"); if(el) el.innerHTML = LS.res.length ? LS.res.map((r,i) => `<button type="button" data-lres="${i}">${ic("pin")}<span><b>${esc(r.name)}</b><small>${esc(r.sub)}</small></span></button>`).join("") : `<div class="info" style="padding:6px 4px">No places found. Try another name, or choose on the map.</div>`; }catch(e){ console.warn(e); } }, 350); }
+  lsT = setTimeout(async () => { try{
+    if(GMK()){ try{ const g = await gmLoad(), { AutocompleteSuggestion } = await g.importLibrary("places"), c = pin ? { lat:pin[0], lng:pin[1] } : { lat:33.89, lng:35.52 };
+        const { suggestions } = await AutocompleteSuggestion.fetchAutocompleteSuggestions({ input:q, locationBias:{ center:c, radius:40000 }, includedRegionCodes:[(PUB.countryCode||"lb").toLowerCase()] });
+        LS.res = suggestions.filter(x => x.placePrediction).slice(0, 6).map(x => { const p = x.placePrediction; return { name: p.mainText?.toString() || p.text.toString(), sub: p.secondaryText?.toString() || "", place: p }; });
+        lsShow(); return; }catch(e){ console.warn("Google search failed", e); } }
+    const r = await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=6&countrycodes=${(PUB.countryCode||"lb").toLowerCase()}&q=${encodeURIComponent(q)}`, { headers:{ "Accept-Language":"en" } }).then(x => x.json());
+    LS.res = (r||[]).map(x => { const p = String(x.display_name||"").split(", "); return { name: x.name || p[0], sub: p.slice(1, 4).join(", "), lat:+x.lat, lng:+x.lon }; }); lsShow(); }catch(e){ console.warn(e); } }, 350); }
+function lsShow(){ { const el = $("#lsRes"); if(el) el.innerHTML = LS.res.length ? LS.res.map((r,i) => `<button type="button" data-lres="${i}">${ic("pin")}<span><b>${esc(r.name)}</b><small>${esc(r.sub)}</small></span></button>`).join("") : `<div class="info" style="padding:6px 4px">No places found. Try another name, or choose on the map.</div>`; } }
 function lsGps(after){ const m = $("#lGpsMsg");
   if(!navigator.geolocation){ if(m) m.textContent = "Your browser can't share location"; return; }
   if(m) m.textContent = "Finding you…";
@@ -854,7 +881,9 @@ $("#sheet").addEventListener("click", e => {
   if(t = g("[data-lact]")){ const a = t.dataset.lact;
     if(a==="gps") return lsGps((lat, lng) => { setAddr({ id:"gps", label:"Current location", lat, lng }); closeLoc(); });
     LS.draft = a==="new" ? { forNew:true } : {}; if(pin && a==="map") Object.assign(LS.draft, { lat:pin[0], lng:pin[1] }); return openLoc("map"); }
-  if(t = g("[data-lres]")){ const r = LS.res[+t.dataset.lres]; if(r){ LS.draft = { lat:r.lat, lng:r.lng, street:r.name }; openLoc("map"); } return; }
+  if(t = g("[data-lres]")){ const r = LS.res[+t.dataset.lres]; if(!r) return;
+    if(r.place && r.lat==null){ (async () => { try{ const pl = r.place.toPlace(); await pl.fetchFields({ fields:["location"] }); r.lat = pl.location.lat(); r.lng = pl.location.lng(); LS.draft = { lat:r.lat, lng:r.lng, street:r.name }; openLoc("map"); }catch(e){ console.warn(e); } })(); return; }
+    LS.draft = { lat:r.lat, lng:r.lng, street:r.name }; openLoc("map"); return; }
   if(t = g("[data-laddr]")){ const a = addrs.find(x => x.id===t.dataset.laddr); if(a){ setAddr(a); closeLoc(); } return; }
   if(t = g("[data-lmore]")){ LS.menu = LS.menu===t.dataset.lmore ? "" : t.dataset.lmore; return drawLoc(); }
   if(t = g("[data-ledit]")){ const a = addrs.find(x => x.id===t.dataset.ledit); if(a){ LS.draft = { ...a, edit:true }; openLoc("form"); } return; }
@@ -880,6 +909,8 @@ function renderWhere(){
   let h = "";
   if(qrBranch) h = `<div class="card"><div style="display:flex;gap:12px;align-items:center"><span class="add" style="flex:none;box-shadow:none">${ic("dine")}</span><div><b>Dine-in at ${esc(branches.find(b=>b.id===qrBranch)?.name || brand.name)}${qrTable?` · Table ${esc(qrTable)}`:""}</b><div class="info" style="margin:2px 0 0">Order from your table. We'll bring it to you.</div></div></div></div>`;
   else if(mode==="delivery" && addr && !zoneId) h = `<div class="warn lwarn">We don't deliver to ${esc(addr.label || "this location")} yet.${modeOn("takeaway") ? " You can order for pickup instead." : ""} <button type="button" class="lnk2" data-loc>Change</button></div>`;
+  else if(mode==="delivery" && addr && zoneId){ const z = zoneList().find(x => x.id===zoneId), b = z && branches.find(x => x.id===z.branch_id);
+    if(b) h = `<div class="card dlvby"><span class="add" style="flex:none;box-shadow:none">${ic("pin")}</span><div><b>Delivered by ${esc(b.name)}</b><div class="info" style="margin:2px 0 0">To ${esc(addr.label || "your location")}${z.eta ? ` · about ${esc(z.eta)} min` : ""}</div></div><button type="button" class="lnk2" data-loc style="margin-left:auto">Change</button></div>`; }
   else if(mode==="dinein" && branchId) h = `<div class="card"><label class="l" for="tbl" style="display:block;font-size:13px;font-weight:600;color:var(--ink2);margin-bottom:6px">Table number (optional)</label><input id="tbl" class="tblin" inputmode="numeric" value="${esc(tableNo)}" placeholder="e.g. 4"></div>`;
   $("#whereBox").innerHTML = h; $("#whereBox").hidden = !h;
   renderTop();

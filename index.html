@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="311-1793991685">
+<meta name="slick-build" content="313-1793992043">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -3891,7 +3891,7 @@ function olCollect(){
   const { brandName:_drop, ...rest } = base;
   return { ...rest, enabled:on("olOn"), tagline:v("olTag"), banner:v("olMsg"), footer:v("olFooter"),
     social:{ phone:v("olsPhone"), whatsapp:v("olsWa"), instagram:v("olsIg"), facebook:v("olsFb"), tiktok:v("olsTt"), website:v("olsWeb") },
-    show:{ search:on("olShSearch"), desc:on("olShDesc"), soldOut:on("olShSold"), branches:false },
+    show:{ search:on("olShSearch"), desc:on("olShDesc"), soldOut:on("olShSold"), branches:false }, gmapsKey: company().gmapsKey || "",
     theme:{ accent:hex, bg:rv("olBg")||"light", font:v("olFont")||"inter", radius:rv("olRad")||"round", header:rv("olHead")||"cover", layout:rv("olLay")||"grid", logo:v("olLogo"), cover:v("olCover") },
     modes:{ delivery:on("olm_delivery"), takeaway:on("olm_takeaway"), dinein:on("olm_dinein") },
     checkout:{ schedule:on("olSched"), scheduleDays:+v("olDays"), slot:+v("olSlot")||30, pay:{ cash:on("olPayCash"), card:on("olPayCard") }, email:rv("olEmail")||"off", notes:on("olNotes"), whatsapp:on("olWaBtn"), terms:v("olTerms") },
@@ -5191,6 +5191,8 @@ async function saveCompany(){
   const data = { name:v("name"), taxNumber:v("taxNumber"), taxName:v("taxName"), bizCategory:v("bizCategory"), bizSubcategory:v("bizSubcategory"), ownerEmail:null, ownerPhone: fullPhone(v("ownerPhone"), v("ownerPhoneCc")), email:v("email"), logoUrl:null, localization: !!$("#co_loc")?.checked, chargesBeforeDisc: !!$("#co_chgsub")?.checked, timeZone:v("timeZone") || "Asia/Beirut", gmapsKey:v("gmapsKey"), country: company().country || v("country") || "Lebanon", currency: bizLocked() ? (company().currency || "USD") : (v("bcur") || "USD"), ...(company().accountNo ? { accountNo: company().accountNo } : {}) };
   if(!data.name){ $("#coErr").textContent = "Business name is required."; $("#co_name").focus(); return; }
   try{ await put("settings", "company", data);
+    // the ordering pages read the Maps key from each brand's web ordering settings
+    for(const b of brandList()){ const id = "online_" + b.id; if(S.settings.some(x => x.id===id)) await put("settings", id, { gmapsKey: data.gmapsKey }).catch(e => console.warn(e)); }
     toast("Business saved"); }
   catch(e){ console.error(e); $("#coErr").textContent = "Couldn't save. Only the owner or an admin can change this."; }
 }
