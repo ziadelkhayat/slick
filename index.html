@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="292-1793985488">
+<meta name="slick-build" content="293-1793985683">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1931,7 +1931,7 @@ function viewBranch(b){
         + row("Tax Group", esc(tg || "—")) + row("Tax Registration Name", esc(st.taxName || "—")) + row("Tax Number", esc(b.taxNumber || "—")) + row("Phone", esc(b.phone || "—")) + row("Address", esc(b.address || "—"))
         + row("Location", b.lat && b.lng ? `<a class="lnk" target="_blank" rel="noopener" href="https://www.google.com/maps?q=${b.lat},${b.lng}">${b.lat}, ${b.lng}</a>` : "—") + row("Receives call center and web orders", b.callCenter ? "Yes" : "No") + row("Automatic end of day", st.autoDayEnd===false ? "No" : "Yes") + row("Status", b.active===false ? "Inactive" : "Active") : ""}
       <div style="grid-column:1/-1"><button class="lnk" data-brmore style="background:none;border:0;padding:0;cursor:pointer">${more ? "Show Less" : "Show More"}</button></div></div>
-    ${card("Delivery Zones", `<button class="btn sm" data-edit="${esc(b.id)}" data-sec="fDZones">Edit Delivery Zones</button>`, tbl(["Name","Delivery fee","Min. order"], zones.map(z => [esc(z.name), money(+z.fee||0), money(+z.minOrder||0)])))}
+    ${card("Delivery Zones", `<button class="btn sm" data-edit="${esc(b.id)}" data-sec="fDZones">Edit Delivery Zones</button>`, tbl(["Name","Delivery charge","Min. order"], zones.map(z => { const c = dcChargeOf(z); return [esc(z.name), c ? `${esc(c.name)} · ${money(+c.value||0)}` : '<span class="note">—</span>', money(+z.minOrder||0)]; })))}
     ${card("Users", "", tbl(["Name","Email","Phone"], users.map(u => [esc(u.name), esc(u.email||"—"), esc(u.phone||"—")])))}
     ${card("Sections", `<button class="btn sm" data-secadd="${esc(b.id)}">Add Section</button>`, secs.length ? `<table><thead><tr><th>Name</th><th class="num">Tables</th><th>Table names</th></tr></thead><tbody>${secs.map(sc => { const l = tl.filter(t => (t.section||"")===sc);
       return `<tr class="click" data-secopen="${esc(b.id)}" data-sec="${esc(sc)}"><td><b>${esc(sc || "No section")}</b></td><td class="num">${l.length}</td><td>${l.map(t => esc(tblLbl(t.name))).join(", ") || '<span class="note">—</span>'}</td></tr>`; }).join("")}</tbody></table>` : '<p class="note brempty">No data to display!</p>')}
@@ -2583,10 +2583,10 @@ const CRUD = {
     tabs:[["all","All",live],["deleted","Deleted",r=>r.deleted]],
     sort:(a,b)=>branchName(a.branchId).localeCompare(branchName(b.branchId))||a.name.localeCompare(b.name),
     search:r=>r.name+" "+branchName(r.branchId),
-    cols:[["Zone",r=>`<b>${esc(r.name)}</b>`],["Branch",r=>esc(branchName(r.branchId))],["Delivery fee",r=>usd(r.fee)],["Min. order",r=>usd(r.minOrder)],["Est. time",r=>r.eta?esc(r.eta)+" min":"—"],["Map area",r=>Array.isArray(r.polygon)&&r.polygon.length>=3?`<span class="tag on">Drawn · ${r.polygon.length} points</span>`:'<span class="tag off">Not drawn</span>'],
+    cols:[["Zone",r=>`<b>${esc(r.name)}</b>`],["Branch",r=>esc(branchName(r.branchId))],["Delivery charge",r=>{ const c = dcChargeOf(r); return c ? `${esc(c.name)} <span class="note">${money(+c.value||0)}</span>` : '<a href="#delivery-charges" class="lnk">Set in Delivery Charges</a>'; }],["Min. order",r=>usd(r.minOrder)],["Est. time",r=>r.eta?esc(r.eta)+" min":"—"],["Map area",r=>Array.isArray(r.polygon)&&r.polygon.length>=3?`<span class="tag on">Drawn · ${r.polygon.length} points</span>`:'<span class="tag off">Not drawn</span>'],
       ["Status",r=>r.active===false?'<span class="tag off">Off</span>':'<span class="tag on">On</span>']],
     fields:[{k:"name",l:"Zone / area name",req:1},{k:"branchId",l:"Delivering branch",t:"select",req:1,opts:()=>activeBranches().map(b=>[b.id,b.name])},
-      {k:"fee",l:"Delivery fee (USD)",t:"number"},{k:"minOrder",l:"Minimum order (USD)",t:"number"},{k:"eta",l:"Estimated time (min)",t:"number"},{k:"active",l:"Accept orders for this zone",t:"chk",def:true},
+      {k:"minOrder",l:"Minimum order (USD)",t:"number"},{k:"eta",l:"Estimated time (min)",t:"number"},{k:"active",l:"Accept orders for this zone",t:"chk",def:true},
       {k:"polygon",l:"Zone area on the map *",t:"polygon",full:1}]
   }
 };
@@ -5371,7 +5371,7 @@ const dcChargeOf = z => { const id = dcMap()[z.id]; return id ? (S.charges||[]).
 async function dcAssign(ids, chargeId, value){
   const c = chargeId ? { id: chargeId, value: value ?? (S.charges||[]).find(x => x.id===chargeId)?.value } : null;
   try{ const map = { ...dcMap() }; ids.forEach(id => { if(c) map[id] = c.id; else delete map[id]; }); await put("settings", "dcharges", { map });
-    if(c) for(const id of ids) await put("zones", id, { fee: +c.value||0 }); return true; }
+    for(const id of ids) await put("zones", id, { fee: c ? +c.value||0 : 0 }); return true; }
   catch(err){ console.error(err); toast("Couldn't save. Only the owner or an admin can change delivery charges."); return false; }
 }
 function viewDeliveryCharges(){
