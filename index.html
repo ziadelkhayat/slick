@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="374-1794071265">
+<meta name="slick-build" content="375-1794071397">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -6159,17 +6159,23 @@ function pdSections(p, hasVar){
   let h = pdSec("Tags", `<button type="button" class="btn" data-pdtags>Edit Tags</button>`, tg.length ? `<div class="dzchips">${tg.map(t => `<span class="dzchip" style="padding-right:14px">${esc(tagName(t))}</span>`).join("")}</div>` : `<p class="dzempty">No tags added</p>`);
   if(!hasVar) h += modLinks(p) + ingEditor("products", p);
   // availability per branch (custom price, inactive, out of stock) is set in Sales Channels: items here are the catalog
-  h += pdSec("Nutritional Values", `<button type="button" class="btn" data-pdnut>Edit Nutritional Values</button>`, `<table><thead><tr><th>Ingredient</th><th>Value</th><th>Unit</th></tr></thead><tbody>${NUTR.map(([k,l,u]) => `<tr><td>${l}</td><td>${nut.some(n => n[0]===k) ? esc(p.nutrition[k]) : "-"}</td><td>${u==="kcal"?"kCal":u}</td></tr>`).join("")}</tbody></table>`);
-  h += pdSec("Allergens", `<button type="button" class="btn" data-pdalg>Add Allergens</button>`, alg.length ? `<div class="dzchips">${alg.map(a => `<span class="dzchip">${esc(a)}<button type="button" data-pdalgrm="${esc(a)}" aria-label="Remove ${esc(a)}">×</button></span>`).join("")}</div>` : `<p class="dzempty">Select any allergens from your list that apply to this product. This will ensure the correct information is displayed for your customers.</p>`);
+  h += pdNutAlg(p, "product");
   return h;
 }
-async function pdPut(upd, msg){ const p = S.products.find(x => x.id===DET.id); if(!p) return;
-  try{ await put("products", p.id, upd); Object.assign(p, upd);
+function pdNutAlg(p, what){
+  const nut = NUTR.filter(([k]) => (p.nutrition||{})[k]!=null && (p.nutrition||{})[k]!==""), alg = p.allergens||[]; let h = "";
+  h += pdSec("Nutritional Values", `<button type="button" class="btn" data-pdnut>Edit Nutritional Values</button>`, `<table><thead><tr><th>Ingredient</th><th>Value</th><th>Unit</th></tr></thead><tbody>${NUTR.map(([k,l,u]) => `<tr><td>${l}</td><td>${nut.some(n => n[0]===k) ? esc(p.nutrition[k]) : "-"}</td><td>${u==="kcal"?"kCal":u}</td></tr>`).join("")}</tbody></table>`);
+  h += pdSec("Allergens", `<button type="button" class="btn" data-pdalg>Add Allergens</button>`, alg.length ? `<div class="dzchips">${alg.map(a => `<span class="dzchip">${esc(a)}<button type="button" data-pdalgrm="${esc(a)}" aria-label="Remove ${esc(a)}">×</button></span>`).join("")}</div>` : `<p class="dzempty">Select any allergens from your list that apply to this ${what}. This will ensure the correct information is displayed for your customers.</p>`);
+  return h;
+}
+const pdCol = () => DET.key==="modifier-options" ? "modifier_options" : DET.key==="products" ? "products" : "";
+async function pdPut(upd, msg){ const col = pdCol(), p = col && S[col].find(x => x.id===DET.id); if(!p) return;
+  try{ await put(col, p.id, upd); Object.assign(p, upd);
     if("customPrices" in upd || "inactiveBranchIds" in upd || "outOfStockBranchIds" in upd){ DET.br = { customPrices:{ ...(p.customPrices||{}) }, inactive:[...(p.inactiveBranchIds||[])], oos:[...(p.outOfStockBranchIds||[])] }; DET.dirtyBr = false; if(DET.snap) DET.snap.br = canonJ(DET.br); }
     toast(msg || "Product saved"); render(); }catch(err){ console.error(err); toast("Couldn't save"); } }
 const pdBrKey = { price:"customPrices", inactive:"inactiveBranchIds", oos:"outOfStockBranchIds" };
 document.addEventListener("click", async e => {
-  if(DET.key!=="products") return; const p = S.products.find(x => x.id===DET.id); if(!p) return;
+  const col = pdCol(); if(!col) return; const p = S[col].find(x => x.id===DET.id); if(!p) return;
   const box = $("#ccBox"), show = () => { box.className = "modal sm"; $("#ccScrim").classList.add("show"); };
   if(e.target.closest("[data-pdactive]")){ e.preventDefault(); const on = p.active===false; if(!on && !(await askYes("Deactivate this product? It won't show on any menu until activated again."))) return; return pdPut({ active:on }, on ? "Product activated" : "Product deactivated"); }
   if(e.target.closest("[data-pdtags]")){ e.preventDefault(); return tagEdit("product", p.id); }
@@ -6513,7 +6519,7 @@ document.addEventListener("click", async e => {
   const np = t.closest("[data-newprod]"); if(np){ e.preventDefault(); const id = np.dataset.newprod; location.hash = "production"; setTimeout(() => { newDoc("production"); docAddItems([id]); render(); }, 60); return; }
   if(!DET.id) return;
   if(t.closest("[data-detback]")){ e.preventDefault(); if(detChanged() && !(await askYes("Leave without saving your changes?"))) return; closeDetail(); return render(); }
-  if(t.closest("[data-detedit]")) return DET.key==="products" ? undefined : openCrud(DET.key, DET.id);   // items edit on their own page; other records in the dialog
+  if(t.closest("[data-detedit]")) return openCrud(DET.key, DET.id);   // every record (items too) edits in the dialog
   if(t.closest("[data-dettoggle]")){ const col = CRUD[DET.key].col, r = S[col].find(x=>x.id===DET.id); return put(col, DET.id, { active: r.active===false }).then(()=>toast(r.active===false?"Activated":"Deactivated")).catch(()=>toast("Couldn't update")); }
   if(t.closest("[data-ingsave]")){ const pp = DET.key==="products" && S.products.find(x=>x.id===DET.id); if(pp && (pp.variants||[]).some(v=>v.productId)) return toast("This product has variants: set the recipe on each variant"); return saveIngredients(); }
   if(t.closest("[data-pvadd]")) return openAddVariant();
@@ -6556,7 +6562,7 @@ function modifierDetail(m){
 }
 function optionDetail(o){
   const cost = productCost(o), price = +o.price || 0;
-  let h = `<div class="phead"><a href="#modifiers" class="btn" data-detopen="modifiers:${esc(o.modifierId)}" style="text-decoration:none">← Back to ${esc(modName(o.modifierId))}</a><h1 style="margin-left:10px">${esc(o.name)}</h1>
+  let h = `<div class="phead"><a href="#modifier-options" class="btn" data-detback style="text-decoration:none">← Back</a><h1 style="margin-left:10px">${esc(o.name)}</h1>
     ${o.active===false?'<span class="tag off" style="margin-left:8px">Inactive</span>':'<span class="tag on" style="margin-left:8px">Active</span>'}<div class="sp"></div>
     <button class="btn pri" data-detedit>Edit Option</button></div>`;
   h += infoGrid([info("Name", esc(o.name)), info("Name Localized", esc(o.nameAr||"—")),
@@ -6565,6 +6571,7 @@ function optionDetail(o){
     info("Costing Method", o.costingMethod==="fixed"?"Fixed Cost":"From Ingredients"), info(o.costingMethod==="fixed"?"Fixed Cost":"Ingredients Cost", fmtCost(cost)),
     info("Cost %", price && cost ? (cost/price*100).toFixed(1)+" %" : "—")]);
   h += ingEditor("modifier-options", o);
+  h += pdNutAlg(o, "option");
   return h;
 }
 // the Modifiers section of a product
@@ -7324,7 +7331,7 @@ document.addEventListener("submit", async e => { if(e.target.id !== "detForm") r
   await submitCrud(e); crudEdit = prev && $("#crudScrim").classList.contains("show") ? prev : null; const fm = $("#detForm");
   if(fm && fm.querySelector("#cErr")?.textContent){ b.disabled = false; b.textContent = "Save"; fm.querySelector("#cErr").scrollIntoView({ block:"center" }); return; }   // a field needs fixing
   if(fm) delete fm.dataset.dirty; DCHG.clear(); if(DET.key==="products"){ DET.edit = false; toast("Product saved"); } render(); });
-document.addEventListener("click", e => { if(e.target.closest("[data-detedit]")){ e.preventDefault(); if(DET.key!=="products") return; DET.edit = true; render(); window.scrollTo(0,0); return; }
+document.addEventListener("click", e => { if(e.target.closest("[data-detedit]")){ e.preventDefault(); return; }
   if(e.target.closest("[data-detview]")){ e.preventDefault(); const fm = $("#detForm"); if(fm) delete fm.dataset.dirty; DCHG.clear(); DET.edit = false; render(); } });
 // after a redraw, hide the fields that only apply to another choice (e.g. fixed cost)
 new MutationObserver(() => { const fm = document.getElementById("detForm"); if(fm && !fm.dataset.w){ fm.dataset.w = "1"; crudWhen(fm, DET.key); } }).observe(document.body, { childList:true, subtree:true });
