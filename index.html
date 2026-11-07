@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="408-1794080207">
+<meta name="slick-build" content="409-1794080413">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -6143,7 +6143,8 @@ const hasRecipe = it => !!it && (it.ingredients||[]).length > 0;
 const itemUnitCost = (it, depth=0) => !it ? 0 : (+it.cost || (hasRecipe(it) && depth < 4 ? recipeCost(it.ingredients, depth+1) : 0));
 const ingCost = (it, qty, depth=0) => !it ? 0 : (+qty||0) / (+it.factor || 1) * itemUnitCost(it, depth);
 const recipeCost = (list, depth=0) => (list||[]).reduce((s,l) => s + ingCost(itemOf(l.itemId), l.qty, depth), 0);
-const productCost = p => p.costingMethod==="fixed" ? (+p.cost||0) : recipeCost(p.ingredients);
+const isFixedCost = p => /fixed/i.test(String(p?.costingMethod||""));
+const productCost = p => isFixedCost(p) ? (+p.cost||0) : recipeCost(p.ingredients);
 const fmtCost = n => CUR() + " " + (+n||0).toLocaleString("en-US",{maximumFractionDigits:5});
 
 // a stable text form of a value for "did anything change?" checks: object keys sorted, empty values dropped, lists of ids sorted
@@ -6344,12 +6345,14 @@ function productDetail(p){
     <div class="dsec"><h3>Allergens</h3><div class="algs">${F(["allergens"])}</div></div>
 
     <div class="err" id="cErr" style="padding:0 22px 14px"></div></form>`;
-  if(!editing) h += pdTopCard(p, [info("Name", esc(p.name)), info("Brand", esc(brandName(p.brandId))), info("Category", esc(catName(p.categoryId))),
+  const wide = c => c.replace(/^<div/, '<div style="grid-column:1/-1"');   // every saved setting of the product shows here, except the photo
+  if(!editing) h += pdTopCard(p, [info("Name", esc(p.name)), info("Name Localized", esc(p.nameAr||"—")), info("Brand", esc(brandName(p.brandId))), info("Category", esc(catName(p.categoryId))),
     info("SKU", `<span class="code">${esc(p.sku||"—")}</span>`), info("Barcode", esc(p.barcode||"—")), info("Calories", (p.nutrition||{}).calories!=null && (p.nutrition||{}).calories!=="" ? esc(p.nutrition.calories) + " kCal" : "—"), info("Tax Group", varKids(p).length ? "Set on each variant" : esc(tgName(p.taxGroup))),
     info("Pricing Method", p.pricingMethod==="open"?"Open Price":"Fixed Price"), info("Selling Method", p.sellingMethod==="weight"?"Weight":"Unit"),
-    info("Costing Method", p.costingMethod==="fixed"?"Fixed Cost":"From Ingredients"), info("Preparation Time", p.prepTime ? esc(p.prepTime)+" min" : "—"),
-    info("Price", varKids(p).length ? "Set on each variant" : p.pricingMethod==="open" ? "Open" : usd(price)), info(p.costingMethod==="fixed"?"Fixed Cost":"Ingredients Cost", fmtCost(cost)),
-    info("Cost %", price ? `<span style="${pct>40?"color:var(--accent-ink);font-weight:600":""}">${pct.toFixed(1)} %</span>` : "—")]);
+    info("Costing Method", isFixedCost(p)?"Fixed Cost":"From Ingredients"), info("Preparation Time", p.prepTime ? esc(p.prepTime)+" min" : "—"),
+    info("Price", varKids(p).length ? "Set on each variant" : p.pricingMethod==="open" ? "Open" : usd(price)), info(isFixedCost(p)?"Fixed Cost":"Ingredients Cost", fmtCost(cost)),
+    info("Cost %", price ? `<span style="${pct>40?"color:var(--accent-ink);font-weight:600":""}">${pct.toFixed(1)} %</span>` : "—"),
+    wide(info("Description", esc(p.description||"—"))), wide(info("Description Localized", esc(p.descriptionAr||"—")))]);
   h += variantCard(p);
   // a product with variants isn't sold itself: each variant product has its own recipe
   const hasVar = (p.variants||[]).some(v => v.productId);
@@ -6806,8 +6809,8 @@ function optionDetail(o){
   h += infoGrid([info("Name", esc(o.name)), info("Name Localized", esc(o.nameAr||"—")),
     info("Modifier", o.modifierId ? esc(modName(o.modifierId)) : "—"),
     info("SKU", `<span class="code">${esc(o.sku||"—")}</span>`), info("Price", price ? usd(price) : "Free"), info("Tax Group", esc(tgName(o.taxGroup))),
-    info("Costing Method", o.costingMethod==="fixed"?"Fixed Cost":"From Ingredients"), info(o.costingMethod==="fixed"?"Fixed Cost":"Ingredients Cost", fmtCost(cost)),
-    info("Cost %", price && cost ? (cost/price*100).toFixed(1)+" %" : "—")]);
+    info("Costing Method", isFixedCost(o)?"Fixed Cost":"From Ingredients"), info(isFixedCost(o)?"Fixed Cost":"Ingredients Cost", fmtCost(cost)),
+    info("Cost %", price ? (cost/price*100).toFixed(1)+" %" : "—")]);
   h += ingEditor("modifier-options", o);
   h += pdNutAlg(o, "option");
   return h;
