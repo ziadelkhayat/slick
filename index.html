@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="412-1794081131">
+<meta name="slick-build" content="413-1794081366">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -6189,13 +6189,19 @@ function ingEditor(forKey, rec){
       : `<div class="empty">${forKey==="inv-items" ? `To produce this item, add the ingredients needed to produce 1 ${esc(rec.storageUnit||"unit")} of this item here from your inventory items list.` : forKey==="products" ? "Add inventory items as ingredients to this product to be consumed when this product is sold." : "Add the inventory items used by this option. They're consumed on top of the product's own ingredients."}</div>`}</div>`;
 }
 // Update Ingredient (one line) and Edit Quantities (all lines): net quantity and yield %, saved right away
+// an ingredient quantity in both units: storage unit + ingredient unit (stored in ingredient units)
+function ingBoth(i, it, net, head){
+  const su = it?.storageUnit || "storage unit", iu = uomOf(it) || it?.ingredientUnit || "ingredient unit", fac = +it?.factor || 1, n = +net || 0, whole = fac > 1 ? Math.floor(n / fac + 1e-9) : 0, rest = +(n - whole * fac).toFixed(4);
+  return `${head ? `<div class="qitem"><b>${esc(head)}</b>` : ""}<div class="f"><label for="iq_s_${i}">Quantity (${esc(su)}) *</label><input class="sel" id="iq_s_${i}" data-iqs="${i}" data-fac="${fac}" type="number" min="0" step="any" value="${esc(whole)}"></div>
+    <div class="f"><label for="iq_n_${i}">Quantity (${esc(iu)}) *</label><input class="sel" id="iq_n_${i}" data-iqn="${i}" type="number" min="0" step="any" value="${esc(rest)}"></div><p class="qconv">1 ${esc(su)} = ${n2(fac)} ${esc(iu)}</p>${head ? "</div>" : ""}`;
+}
 function ingQtyDialog(ix){
   const one = ix!=null, list = one ? [ix] : DET.ing.map((_, i) => i), box = $("#ccBox"); box.className = "modal sm";
   const it0 = one ? itemOf(DET.ing[ix].itemId) : null;
   box.innerHTML = `<header><h2>${one ? `${esc(it0?.name || "")}${it0?.sku ? " (" + esc(it0.sku) + ")" : ""}` : "Quantities"}</h2><button type="button" class="x" data-ccclose aria-label="Close">×</button></header><div class="body" style="display:block">
-    ${one ? (() => { const l = DET.ing[ix]; return `<div class="f"><label for="iq_n_${ix}">Quantity (${esc(uomOf(it0))})</label><input class="sel" id="iq_n_${ix}" data-iqn="${ix}" type="number" min="0" step="any" value="${esc(ingNet(l) || "")}"></div>
+    ${one ? (() => { const l = DET.ing[ix]; return `${ingBoth(ix, it0, ingNet(l))}
       <div class="f"><label for="iq_y_${ix}">Yield (%)</label><input class="sel" id="iq_y_${ix}" data-iqy="${ix}" type="number" min="1" max="100" step="any" value="${esc(ingYield(l))}"></div>`; })()
-    : list.map(i => { const l = DET.ing[i], it = itemOf(l.itemId); return `<div class="f"><label for="iq_n_${i}">${esc(it?.name || "")} (${esc(uomOf(it))}) *</label><input class="sel" id="iq_n_${i}" data-iqn="${i}" type="number" min="0" step="any" value="${esc(ingNet(l) || "")}"></div>`; }).join("")}
+    : list.map(i => { const l = DET.ing[i], it = itemOf(l.itemId); return ingBoth(i, it, ingNet(l), it?.name || ""); }).join("")}
     <div class="err" id="iqErr"></div></div>
     <footer>${one ? `<button type="button" class="btn lnkdel" data-ingrm="${ix}">Delete</button>` : ""}<span style="flex:1"></span><button type="button" class="btn keep" data-ccclose>Close</button><button type="button" class="btn pri" id="iqSave">Save</button></footer>`;
   $("#ccScrim").classList.add("show");
@@ -6204,7 +6210,8 @@ document.addEventListener("click", async e => {
   if(!DET.id || !DET.ing) return;
   const ed = e.target.closest("[data-ingedit]"); if(ed && !e.target.closest("button")){ e.preventDefault(); return ingQtyDialog(+ed.dataset.ingedit); }
   if(e.target.closest("[data-ingqtys]")){ e.preventDefault(); return ingQtyDialog(null); }
-  if(e.target.closest("#iqSave")){ const ins = [...document.querySelectorAll("#ccBox [data-iqn]")];
+  if(e.target.closest("#iqSave")){ document.querySelectorAll("#ccBox [data-iqs]").forEach(sv => { const n = document.querySelector(`#ccBox [data-iqn="${sv.dataset.iqs}"]`); if(n && sv.value!=="" && n.value!=="") { n.value = String(+((+sv.value||0) * (+sv.dataset.fac||1) + (+n.value||0)).toFixed(6)); sv.value = "0"; } });
+    const ins = [...document.querySelectorAll("#ccBox [data-iqn]")];
     for(const n of ins){ const i = +n.dataset.iqn, y = document.querySelector(`#ccBox [data-iqy="${i}"]`); if(!(+n.value > 0)) return $("#iqErr").textContent = "Enter a quantity for every ingredient."; if(y && !(+y.value > 0 && +y.value <= 100)) return $("#iqErr").textContent = "Yield is between 1 and 100%."; }
     ins.forEach(n => { const i = +n.dataset.iqn, y = document.querySelector(`#ccBox [data-iqy="${i}"]`), l = DET.ing[i]; l.net = +n.value; if(y) l.yield = +y.value; l.qty = ingGross(l); });   // Quantities keeps each yield
     $("#ccScrim").classList.remove("show"); DET.dirtyIng = true; await saveIngredients(); render(); }
