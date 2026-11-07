@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="425-1794084455">
+<meta name="slick-build" content="426-1794084646">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1145,6 +1145,10 @@ button.x:hover,button.mmdx:hover,.dzchip>button:hover,.chip>button:hover{transfo
 #ccBox footer .btn.danger,#crudBox footer .btn.danger{margin-right:auto}
 /* item rows: same image size, look and gaps as the category rows */
 .mmtbl .mmrow .mmimg{width:34px!important;height:34px!important;border:0!important;border-radius:6px!important;background:#f2f2f7;flex:none}.mmtbl .mmrow .mmprod{gap:12px!important}.mmtbl .mmrow{min-height:52px}
+/* item drawer: the item with its order types and prices on one row; wide enough for every order type */
+.bmdrawer{width:min(1000px,100vw)!important}.bmdrawer header .x{margin-left:auto!important}.bmdpath{font-size:13.5px;color:var(--muted,#77748a);font-weight:500}
+.bmditm{display:flex;align-items:center;gap:12px}.bmditm .mmimg{width:40px;height:40px;flex:none}.bmditm b{display:block;font-size:15px}
+.bmdtw{overflow-x:auto;max-width:100%}.bmdmx{width:100%}.bmdmx .bmdin{width:72px!important;min-width:0}.bmdmx td:first-child{min-width:210px}.bmdmx td,.bmdmx th{padding-left:8px!important;padding-right:8px!important}
 </style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -4441,11 +4445,11 @@ function bmDrawer(br, ch, types){
   const r = BM.item && S.products.find(x => x.id===BM.item && live(x)); if(!r) return "";
   const st = bmState(r), links = bmLinks(r), rule = l => { const mn = +l.min||0, mx = +l.max||0; return mn && mx && mn===mx ? `Choose ${mn}` : mn && mx ? `Choose ${mn} to ${mx}` : mn ? `At least ${mn}` : mx ? `Up to ${mx}` : "Optional"; };
   const base = st.price!=="" ? +st.price : st.fallback;
-  let h = `<div class="bmdscrim" data-bmclose></div><aside class="bmdrawer" role="dialog" aria-label="${esc(r.name)}"><header><span class="mmimg">${r.imageUrl ? `<img src="${esc(r.imageUrl)}" alt="">` : svgIco("image")}</span><div><b>${esc(r.name)}</b><small>${[brandName(br.brandId), br.name, ch[1]].filter(Boolean).map(esc).join(" / ")}</small></div><button type="button" class="x" data-bmclose aria-label="Close">×</button></header><div class="bmdbody">`;
+  let h = `<div class="bmdscrim" data-bmclose></div><aside class="bmdrawer" role="dialog" aria-label="${esc(r.name)}"><header><div class="bmdpath">${[brandName(br.brandId), br.name, ch[1]].filter(Boolean).map(esc).join(" / ")}</div><button type="button" class="x" data-bmclose aria-label="Close">×</button></header><div class="bmdbody">`;
   // one compact table: a column per order type. Header: sell the item as that type. First row: the item's prices. Then each modifier group and its options
   const cols = types, cell = (attr, val, ph, dis, lbl) => `<td class="num"><input inputmode="decimal" class="sel bmdin${val!=="" ? " cust" : ""}" ${attr} value="${esc(val)}" placeholder="${esc(String(ph))}" aria-label="${esc(lbl)}" ${dis ? "disabled" : ""}></td>`;
   h += `<div class="bmdtw"><table class="bmdtbl bmdmx"><thead><tr><th></th>${cols.map(([t, tl]) => `<th class="num"><label class="bmdth" title="Sell ${esc(r.name)} as ${esc(tl)}"><span>${esc(tl)}</span><span class="toggle sm"><input type="checkbox" data-bmtype="${esc(r.id)}|${t}" ${st.types[t]?"checked":""} aria-label="Sell as ${esc(tl)}"><span class="trk"></span></span></label></th>`).join("")}<th class="c">Stock</th></tr></thead><tbody>
-    <tr class="bmditem"><td><b>Item price</b><small>${usd(base)}</small></td>${cols.map(([t, tl]) => cell(`data-bmtprice="${esc(r.id)}|${t}"`, st.tprices[t], base, !st.types[t], tl + " price")).join("")}
+    <tr class="bmditem"><td><span class="bmditm"><span class="mmimg">${r.imageUrl ? `<img src="${esc(r.imageUrl)}" alt="">` : svgIco("image")}</span><span><b>${esc(r.name)}</b><small>${usd(base)}</small></span></span></td>${cols.map(([t, tl]) => cell(`data-bmtprice="${esc(r.id)}|${t}"`, st.tprices[t], base, !st.types[t], tl + " price")).join("")}
       <td class="c"><label class="toggle sm" title="${st.stock ? "In stock" : "Sold out"} at ${esc(br.name)}"><input type="checkbox" data-bmstock="${esc(r.id)}" ${st.stock?"checked":""} ${st.on?"":"disabled"} aria-label="In stock"><span class="trk"></span></label></td></tr>
     ${links.length ? `<tr class="bmdsec"><td colspan="${cols.length + 2}">Modifiers</td></tr>` : ""}
     ${links.map((l, li) => { const os = modOptions(l.modifierId), nOn = os.filter(o => bmOptState(r, o).on).length;
