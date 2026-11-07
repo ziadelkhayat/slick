@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="415-1794081676">
+<meta name="slick-build" content="416-1794082013">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1137,6 +1137,8 @@ button.x:hover,button.mmdx:hover,.dzchip>button:hover,.chip>button:hover{transfo
 /* sales channel item rows: grip, product, on/off switch, menu */
 .mmtbl .mmth,.mmtbl .mmrow:not(.mmorow){grid-template-columns:22px minmax(0,1fr) 52px 36px!important}.mmrow .mmon{justify-self:center}
 .bmdsec td{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:#8a87a0;padding:14px 14px 6px!important;background:#fff}.bmdgrow .bmgrip,.bmdmx tr[data-skn] .bmgrip{width:22px;height:22px;margin-right:6px;vertical-align:middle}.bmdmx tr[data-skn] td:first-child{display:flex;align-items:center}
+.bmdcell{display:inline-flex;align-items:center;gap:6px}.toggle.xs{transform:scale(.78);transform-origin:center}
+.msel-c[data-msx]{cursor:pointer}.msel-c[data-msx]:hover{background:#e3d9fb;text-decoration:line-through}
 </style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -2323,7 +2325,7 @@ function msPaint(m){
   if(m.classList.contains("mselect")){ const sel = m.querySelector("select"), o = sel.options[sel.selectedIndex]; const t = o && o.value!=="" ? o.text : (o?.text && !/^(choose|select)/i.test(o.text) && sel.options[0]?.value!=="" ? o.text : "");
     f.innerHTML = (t ? `<span class="msel-v">${esc(t)}</span>` : `<span class="msel-ph">${esc(o?.text && sel.options[0]?.value==="" && !/…$/.test(o.text) && o.text!=="" ? o.text : "Choose...")}</span>`) + MS_CARET; f.classList.toggle("dis", sel.disabled); m.dataset.v = sel.value; return; }
   const on = [...m.querySelectorAll(".msel-l input:checked")];
-  f.innerHTML = (on.length ? `<span class="msel-cs">${on.map(i => `<span class="msel-c">${esc(msText(i.closest("label")))}<button type="button" data-msx="${esc(i.value)}" aria-label="Remove">×</button></span>`).join("")}</span>` : `<span class="msel-ph">Choose...</span>`) + MS_CARET;
+  f.innerHTML = (on.length ? `<span class="msel-cs">${on.map(i => `<span class="msel-c" data-msx="${esc(i.value)}" role="button" title="Press to remove">${esc(msText(i.closest("label")))}</span>`).join("")}</span>` : `<span class="msel-ph">Choose...</span>`) + MS_CARET;
 }
 function msEnhance(){
   // close buttons: a drawn × so it sits exactly in the middle of the circle
@@ -4348,8 +4350,12 @@ function bmOptState(p, o){
   const b = BM.branch, k = b + ":" + bmMenu()[2][0], s = linkOpt(p, o), d = { ...(BM.saving?.["mo:"+p.id+"|"+o.id]||{}), ...(BM.draft["mo:"+p.id+"|"+o.id]||{}) };
   const pr = (s.price||{})[k];
   const tprices = Object.fromEntries(bmTypes().map(([t]) => { const v = d["tp_"+t] ?? (s.price||{})[k + ":" + t]; return [t, v!=null && v!=="" ? String(v) : ""]; }));   // price per order type
-  return { on: d.on ?? !(s.off||[]).includes(k), price: d.price ?? (pr!=null && pr!=="" ? String(pr) : ""), stock: d.stock ?? !(s.oos||[]).includes(b), tprices };
+  const types = Object.fromEntries(bmTypes().map(([t]) => [t, d["to_"+t] ?? !(s.off||[]).includes(k + ":" + t)]));   // available per order type
+  return { on: d.on ?? !(s.off||[]).includes(k), price: d.price ?? (pr!=null && pr!=="" ? String(pr) : ""), stock: d.stock ?? !(s.oos||[]).includes(b), tprices, types };
 }
+// a modifier group of a product, available per order type on this channel (offTypes: "branch:channel:type")
+function bmGrpTypes(p, l){ const k = BM.branch + ":" + bmMenu()[2][0], d = { ...(BM.saving?.["mg:"+p.id+"|"+l.modifierId]||{}), ...(BM.draft["mg:"+p.id+"|"+l.modifierId]||{}) };
+  return Object.fromEntries(bmTypes().map(([t]) => [t, d["to_"+t] ?? !(l.offTypes||[]).includes(k + ":" + t)])); }
 function bmState(r){
   const b = BM.branch, d = { ...(BM.saving?.[r.id]||{}), ...(BM.draft[r.id]||{}) }, ia = r.inactiveBranchIds||[], inB = !r.branchIds?.length || r.branchIds.includes(b);
   const ch0 = bmMenu()[2][0], types = Object.fromEntries(bmTypes().map(([t]) => [t, d["t_"+t] ?? (inB && !typeOff(ia, b, ch0, t))]));
@@ -4437,9 +4443,11 @@ function bmDrawer(br, ch, types){
       <td class="c"><label class="toggle sm" title="${st.stock ? "In stock" : "Sold out"} at ${esc(br.name)}"><input type="checkbox" data-bmstock="${esc(r.id)}" ${st.stock?"checked":""} ${st.on?"":"disabled"} aria-label="In stock"><span class="trk"></span></label></td></tr>
     ${links.length ? `<tr class="bmdsec"><td colspan="${cols.length + 2}">Modifiers</td></tr>` : ""}
     ${links.map((l, li) => { const os = modOptions(l.modifierId), nOn = os.filter(o => bmOptState(r, o).on).length;
-      return `<tr class="bmdgrow" data-sk="bmg:${esc(r.id)}|${(r.modifiers||[]).indexOf(l)}"><td colspan="${cols.length + 2}"><span class="bmgrip" title="Drag to sort" aria-hidden="true">⋮⋮</span><b>${esc(modName(l.modifierId))}</b><span class="tag">${rule(l)}</span>${+l.free ? `<span class="tag">${l.free} free</span>` : ""}<span class="note">${nOn}/${os.length} on</span></td></tr>` + os.map(o => { const s = bmOptState(r, o), ob = s.price!=="" ? +s.price : +o.price||0;
+      const gt = bmGrpTypes(r, l);
+      return `<tr class="bmdgrow" data-sk="bmg:${esc(r.id)}|${(r.modifiers||[]).indexOf(l)}"><td><span class="bmgrip" title="Drag to sort" aria-hidden="true">⋮⋮</span><b>${esc(modName(l.modifierId))}</b><span class="tag">${rule(l)}</span>${+l.free ? `<span class="tag">${l.free} free</span>` : ""}<span class="note">${nOn}/${os.length} on</span></td>${cols.map(([t, tl]) => `<td class="c"><label class="toggle sm" title="${esc(modName(l.modifierId))} with ${esc(tl)} orders"><input type="checkbox" data-bmgtype="${esc(r.id)}|${esc(l.modifierId)}|${t}" ${gt[t]?"checked":""} ${st.types[t]?"":"disabled"} aria-label="${esc(modName(l.modifierId))} for ${esc(tl)}"><span class="trk"></span></label></td>`).join("")}<td></td></tr>` + os.map(o => { const s = bmOptState(r, o), ob = s.price!=="" ? +s.price : +o.price||0;
         return `<tr class="${s.on ? "" : "off"}" data-sk="opt:${esc(l.modifierId)}|${esc(o.id)}" data-skn="1"><td><span class="bmgrip" title="Drag to sort" aria-hidden="true">⋮⋮</span><label class="bmdon"><span class="toggle sm"><input type="checkbox" data-bmoon="${esc(r.id)}|${esc(o.id)}" ${s.on?"checked":""} aria-label="${esc(o.name)}"><span class="trk"></span></span><span><b>${esc(o.name)}</b><small>${ob ? usd(ob) : "Free"}</small></span></label></td>
-          ${cols.map(([t, tl]) => cell(`data-bmotprice="${esc(r.id)}|${esc(o.id)}|${t}"`, s.tprices[t], ob, !s.on || !st.types[t], o.name + " " + tl + " price")).join("")}
+          ${cols.map(([t, tl]) => cell(`data-bmotprice="${esc(r.id)}|${esc(o.id)}|${t}"`, s.tprices[t], ob, !s.on || !st.types[t] || !s.types[t] || !gt[t], o.name + " " + tl + " price")
+            .replace('<td class="num">', `<td class="num"><span class="bmdcell"><label class="toggle xs" title="${esc(o.name)} with ${esc(tl)} orders"><input type="checkbox" data-bmotype="${esc(r.id)}|${esc(o.id)}|${t}" ${s.types[t]?"checked":""} ${s.on && st.types[t] && gt[t] ? "" : "disabled"} aria-label="${esc(o.name)} for ${esc(tl)}"><span class="trk"></span></label>`).replace(/<\/td>$/, "</span></td>")).join("")}
           <td class="c"><label class="toggle sm" title="${s.stock ? "In stock" : "Sold out"}"><input type="checkbox" data-bmostock="${esc(r.id)}|${esc(o.id)}" ${s.stock?"checked":""} ${s.on?"":"disabled"} aria-label="${esc(o.name)} in stock"><span class="trk"></span></label></td></tr>`; }).join(""); }).join("")}
   </tbody></table></div><p class="note bmdhint">Switch an order type off in its header to stop selling the item as it. Empty price = the price shown under the name.</p></div></aside>`;
   return h;
@@ -4688,13 +4696,18 @@ async function saveBranchMenu(){
   bmStat("Saving…");
   try{
     for(const [id, d] of Object.entries(work)){
+      if(id.startsWith("mg:")){ const [pid, mid] = id.slice(3).split("|"), r = S.products.find(x => x.id===pid); if(!r) continue;
+        const mods = JSON.parse(JSON.stringify(r.modifiers||[])), l = mods.find(x => x.modifierId===mid); if(!l) continue;
+        mchs.forEach(c => OTYPES.forEach(([t]) => { const v = d["to_"+t]; if(v==null) return; const k = b + ":" + c + ":" + t, off = new Set(l.offTypes||[]); v ? off.delete(k) : off.add(k); l.offTypes = [...off]; }));
+        await put("products", pid, { modifiers:mods }); r.modifiers = mods; continue; }
       if(id.startsWith("mo:")){ const [pid, oid] = id.slice(3).split("|"), r = S.products.find(x => x.id===pid), o = S.modifier_options.find(x => x.id===oid); if(!r || !o) continue;
         const mods = JSON.parse(JSON.stringify(r.modifiers||[])), l = mods.find(x => x.modifierId===o.modifierId); if(!l) continue;
         const s = (l.opts ||= {})[oid] ||= {};
         mchs.forEach(c => { const k = b + ":" + c;
           if(d.on!=null){ const off = new Set(s.off||[]); d.on ? off.delete(k) : off.add(k); s.off = [...off]; }
           if(d.price!=null){ s.price ||= {}; if(d.price==="") delete s.price[k]; else s.price[k] = +d.price; }
-          OTYPES.forEach(([t]) => { const v = d["tp_"+t]; if(v==null) return; s.price ||= {}; if(v==="") delete s.price[k + ":" + t]; else s.price[k + ":" + t] = +v; }); });
+          OTYPES.forEach(([t]) => { const v = d["tp_"+t]; if(v==null) return; s.price ||= {}; if(v==="") delete s.price[k + ":" + t]; else s.price[k + ":" + t] = +v; });
+          OTYPES.forEach(([t]) => { const v = d["to_"+t]; if(v==null) return; const off = new Set(s.off||[]); v ? off.delete(k + ":" + t) : off.add(k + ":" + t); s.off = [...off]; }); });
         if(d.stock!=null){ const os = new Set(s.oos||[]); d.stock ? os.delete(b) : os.add(b); s.oos = [...os]; }
         await put("products", pid, { modifiers:mods }); r.modifiers = mods; continue; }
       if(id.startsWith("cat:")){ const c = S.categories.find(x=>x.id===id.slice(4)); if(!c) continue;
@@ -4731,6 +4744,8 @@ $("#view").addEventListener("change", async e => {
   if(t.dataset.bmoprice){ bmSet("mo:"+t.dataset.bmoprice, "price", t.value.trim()); render(); return bmAuto(); }
   if(t.dataset.bmstock){ bmSet(t.dataset.bmstock, "stock", t.checked); render(); return bmAuto(); }
   if(t.dataset.bmprice!=null && t.dataset.bmprice){ bmSet(t.dataset.bmprice, "price", t.value.trim()); render(); return bmAuto(); }
+  if(t.dataset.bmotype){ const [pid, oid, ty] = t.dataset.bmotype.split("|"); bmSet("mo:"+pid+"|"+oid, "to_"+ty, t.checked); render(); return bmAuto(); }
+  if(t.dataset.bmgtype){ const [pid, mid, ty] = t.dataset.bmgtype.split("|"); bmSet("mg:"+pid+"|"+mid, "to_"+ty, t.checked); render(); return bmAuto(); }
   if(t.dataset.bmotprice){ const [pid, oid, ty] = t.dataset.bmotprice.split("|"); bmSet("mo:"+pid+"|"+oid, "tp_"+ty, t.value.trim()); render(); return bmAuto(); }
   if(t.dataset.bmtprice){ const [id, ty] = t.dataset.bmtprice.split("|"); bmSet(id, "tp_"+ty, t.value.trim()); render(); return bmAuto(); }
 });
@@ -6141,7 +6156,11 @@ function resetPageFilters(){
 /* ---------- Detail pages (Foodics-style): product and inventory item, with ingredients (recipes) ---------- */
 const DET = { key:"", id:"", ing:null, br:null, dirtyIng:false, dirtyBr:false, saving:false };
 const ORDER_TYPES = [["dinein","Dine In"],["pickup","Pick Up"],["delivery","Delivery"]];
-const uomOf = it => it?.ingredientUnit || it?.storageUnit || "";
+// an item's units; when none are saved, the unit written in its name, e.g. "Australian Rice (kg)" → kg
+const nameUnit = it => { const m = /\(([^()]*)\)\s*$/.exec(it?.name || ""), u = m && /^\s*[\d.,]*\s*([a-zA-Z]+)\s*$/.exec(m[1]); return u ? u[1] : ""; };
+const storUnit = it => it?.storageUnit || nameUnit(it) || "unit";
+const ingUnit = it => it?.ingredientUnit || it?.storageUnit || nameUnit(it) || "unit";
+const uomOf = it => it?.ingredientUnit || it?.storageUnit || nameUnit(it) || "";
 // cost of using `qty` of an item, where qty is in the item's ingredient unit and cost is per storage unit
 // a produced item with no cost yet is valued at its ingredients (depth-limited to avoid loops)
 const hasRecipe = it => !!it && (it.ingredients||[]).length > 0;
@@ -6195,7 +6214,7 @@ function ingEditor(forKey, rec){
 // Update Ingredient (one line) and Edit Quantities (all lines): net quantity and yield %, saved right away
 // an ingredient quantity in both units: storage unit + ingredient unit (stored in ingredient units)
 function ingBoth(i, it, net, head){
-  const su = it?.storageUnit || "storage unit", iu = uomOf(it) || it?.ingredientUnit || "ingredient unit", fac = +it?.factor || 1, n = +net || 0, whole = fac > 1 ? Math.floor(n / fac + 1e-9) : 0, rest = +(n - whole * fac).toFixed(4);
+  const su = storUnit(it), iu = ingUnit(it), fac = +it?.factor || 1, n = +net || 0, whole = fac > 1 ? Math.floor(n / fac + 1e-9) : 0, rest = +(n - whole * fac).toFixed(4);
   return `${head ? `<div class="qitem"><b>${esc(head)}</b>` : ""}<div class="f"><label for="iq_s_${i}">Quantity (${esc(su)}) *</label><input class="sel" id="iq_s_${i}" data-iqs="${i}" data-fac="${fac}" type="number" min="0" step="any" value="${esc(whole)}"></div>
     <div class="f"><label for="iq_n_${i}">Quantity (${esc(iu)}) *</label><input class="sel" id="iq_n_${i}" data-iqn="${i}" type="number" min="0" step="any" value="${esc(rest)}"></div><p class="qconv">1 ${esc(su)} = ${n2(fac)} ${esc(iu)}</p>${head ? "</div>" : ""}`;
 }
@@ -6894,7 +6913,7 @@ function ccModData(p){
   const ids = new Set((p.modifiers||[]).map(l=>l.modifierId));
   const options = S.modifier_options.filter(o => live(o) && o.active!==false && ids.has(o.modifierId) && !offAt(o.inactiveBranchIds, b, "callcenter") && !(($("#oType .on")?.dataset.ot) && typeOff(o.inactiveBranchIds, b, "callcenter", $("#oType .on").dataset.ot)))
     .sort((x,y)=>(x.sort??999)-(y.sort??999) || x.name.localeCompare(y.name))
-    .filter(o => !(linkOpt(p, o).off||[]).includes(b + ":callcenter"))
+    .filter(o => { const s = linkOpt(p, o), l = (p.modifiers||[]).find(x => x.modifierId===o.modifierId), k = b + ":callcenter", kt = k + ":" + ($("#oType .on")?.dataset.ot || "pickup"); return !(s.off||[]).includes(k) && !(s.off||[]).includes(kt) && !(l?.offTypes||[]).includes(kt); })
     .map(o => { const s = linkOpt(p, o), ot = $("#oType .on")?.dataset.ot || "pickup", pt = (s.price||{})[b + ":callcenter:" + ot], sp = pt!=null && pt!=="" ? pt : (s.price||{})[b + ":callcenter"], c = sp!=null && sp!=="" ? sp : b && ((o.customPrices||{})[b + ":callcenter"] ?? (o.customPrices||{})[b]); return { id:o.id, modifierId:o.modifierId, name:o.name, price: c!=null && c!=="" ? +c : +o.price||0, oos: !!b && ((o.outOfStockBranchIds||[]).includes(b) || (s.oos||[]).includes(b)) }; });
   return { links:(p.modifiers||[]).filter(l=>groups[l.modifierId] && options.some(o => o.modifierId===l.modifierId)), groups, options };   // a modifier with no active options is hidden
 }
@@ -6961,11 +6980,11 @@ function flowInfo(d, K, info){
     d.linkedId && K.kind==="purchase" ? info(K.po ? "Purchasing" : "Purchase order", `<a href="#${K.po?"purchase-orders":"po"}" class="lnk" data-doclink="${K.po?"purchase-orders":"po"}:${esc(d.linkedId)}">${esc(S.inv_docs.find(x=>x.id===d.linkedId)?.ref || "Open")}</a>`) : d.linkedId ? info(K.kind==="torder" ? "Transfer" : "Transfer order", `<a href="#${K.kind==="torder"?"transfers":"transfer-orders"}" class="lnk" data-doclink="${K.kind==="torder"?"transfers":"transfer-orders"}:${esc(d.linkedId)}">${esc(S.inv_docs.find(x=>x.id===d.linkedId)?.ref || "Open")}</a>`) : "",
     d.notes ? info("Notes", esc(d.notes)) : ""].join("");
 }
-const qCell = (kind, key, f, v, lbl, name, itemId) => { const u = f==="qty" ? (itemOf(itemId)?.storageUnit || "") : "";
+const qCell = (kind, key, f, v, lbl, name, itemId) => { const u = f==="qty" ? storUnit(itemOf(itemId)) : "";
   return `<span class="qcell" data-qe="${kind}|${esc(key)}|${f}" data-lbl="${esc(lbl)}" data-name="${esc(name)}" data-item="${esc(itemId||"")}">${n2(+v||0)}${u ? " " + esc(u) : ""}</span>`; };   // quantities are entered by pressing the row (Foodics)
 // a quantity in the item's units (Foodics): storage unit, plus the ingredient unit when the item has one, e.g. 1 gallon + 500 gram
 function qFields(i, lbl, qe, v, it){
-  const su = it?.storageUnit || "storage unit", iu = it?.ingredientUnit || "ingredient unit", fac = +it?.factor || 1, two = true;   // both units, always (Foodics)
+  const su = storUnit(it), iu = ingUnit(it), fac = +it?.factor || 1, two = true;   // both units, always (Foodics)
   if(!it) return `<div class="f"><label for="qe_${i}">${esc(lbl)} *</label><input class="sel" id="qe_${i}" type="number" min="0" step="any" inputmode="decimal" value="${esc(v ?? "")}" data-qset="${esc(qe)}"></div>`;
   const n = +v || 0, whole = two ? Math.floor(n + 1e-9) : n, rest = two ? +((n - whole) * fac).toFixed(4) : 0;
   return `<div class="qgrp" data-qset="${esc(qe)}" data-fac="${two ? fac : 1}">

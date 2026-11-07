@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="398-1794077711">
+<meta name="slick-build" content="416-1794082013">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1106,7 +1106,7 @@ function modData(p){
   const ids = new Set((p.modifiers||[]).map(l=>l.modifierId)), b = curBranch();
   const options = mopts.filter(o => ids.has(o.modifier_id) && !(b && ((o.inactive_branch_ids||[]).includes(b) || (o.inactive_branch_ids||[]).includes(b + ":online") || (o.inactive_branch_ids||[]).includes(b + ":online:" + (mode==="takeaway" ? "pickup" : mode)))) && !(b && (o.out_of_stock_branch_ids||[]).includes(b)))
     .sort((x,y)=>(x.sort??999)-(y.sort??999) || x.name.localeCompare(y.name))
-    .filter(o => { const s = linkOpt(p, o); return !(b && ((s.off||[]).includes(b + ":online") || (s.oos||[]).includes(b))); })
+    .filter(o => { const s = linkOpt(p, o), l = (p.modifiers||[]).find(x => x.modifierId===o.modifier_id), kt = b + ":online:" + (mode==="takeaway" ? "pickup" : mode); return !(b && ((s.off||[]).includes(b + ":online") || (s.off||[]).includes(kt) || (l?.offTypes||[]).includes(kt) || (s.oos||[]).includes(b))); })   // available per order type
     .filter(o => !(((p.modifiers||[]).find(l => l.modifierId===o.modifier_id)?.excluded)||[]).includes(o.id))   // options excluded for this product
     .map(o => { const s = linkOpt(p, o), pt = b && (s.price||{})[b + ":online:" + (mode==="takeaway" ? "pickup" : mode)], sp = pt!=null && pt!=="" && pt!==false ? pt : b && (s.price||{})[b + ":online"], c = sp!=null && sp!=="" && sp!==false ? sp : b && ((o.custom_prices||{})[b + ":online"] ?? (o.custom_prices||{})[b]); return { id:o.id, modifierId:o.modifier_id, name:o.name, price: c!=null && c!=="" && c!==false ? +c : +o.price||0 }; });
   return { links:(p.modifiers||[]).filter(l => mgroups[l.modifierId]), groups:mgroups, options };

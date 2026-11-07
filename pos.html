@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="398-1794077711">
+<meta name="slick-build" content="416-1794082013">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1235,7 +1235,7 @@ function modData(p){
   const ids = new Set((p.modifiers||[]).map(l=>l.modifierId));
   const options = S.modifier_options.filter(o => !o.deleted && o.active!==false && ids.has(o.modifierId) && !(o.inactiveBranchIds||[]).includes(device.branchId) && !(o.inactiveBranchIds||[]).includes(device.branchId + ":pos") && !(o.inactiveBranchIds||[]).includes(device.branchId + ":pos:" + menuType()))
     .sort((a,b)=>(a.sort??999)-(b.sort??999) || a.name.localeCompare(b.name))
-    .filter(o => !(linkOpt(p, o).off||[]).includes(device.branchId + ":pos"))
+    .filter(o => { const s = linkOpt(p, o), l = (p.modifiers||[]).find(x => x.modifierId===o.modifierId), k = device.branchId + ":pos", kt = k + ":" + menuType(); return !(s.off||[]).includes(k) && !(s.off||[]).includes(kt) && !(l?.offTypes||[]).includes(kt); })   // available per order type (Sales Channels)
     .filter(o => !(((p.modifiers||[]).find(l => l.modifierId===o.modifierId)?.excluded)||[]).includes(o.id))   // options excluded for this product
     .map(o => { const s = linkOpt(p, o), pt = (s.price||{})[device.branchId + ":pos:" + menuType()], sp = pt!=null && pt!=="" ? pt : (s.price||{})[device.branchId + ":pos"], c = sp!=null && sp!=="" ? sp : (o.customPrices||{})[device.branchId]; return { id:o.id, modifierId:o.modifierId, name:o.name, price: c!=null && c!=="" ? +c : +o.price||0, oos:(o.outOfStockBranchIds||[]).includes(device.branchId) || (s.oos||[]).includes(device.branchId) }; });
   return { links:(p.modifiers||[]).filter(l => groups[l.modifierId] && options.some(o => o.modifierId===l.modifierId)), groups, options };   // in the order set on the product; a modifier with no active options is hidden
