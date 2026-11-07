@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="390-1794076099">
+<meta name="slick-build" content="391-1794076317">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -4328,7 +4328,7 @@ function viewBranchMenu(){
   h += `<section class="mmmain"><div class="mmbar"><div class="mmtitle"><b>${esc(cur.name)}</b><span class="note">${nOn} of ${inCur.length} on the ${esc(ch[1])} menu at ${esc(br.name)}</span></div><div class="sp"></div>
       ${inCur.length > 6 ? `<input class="sel search" id="bmQ" placeholder="Search products" value="${esc(BM.q)}" aria-label="Search products">` : ""}<button type="button" class="btn pri" data-bmadd="${esc(cur.id)}">+ Add Products</button></div>`;
   if(!inCur.length) return h + `<div class="mmempty big"><b>No products in ${esc(cur.name)}</b><span>Pick the products this category shows on the ${esc(ch[1])} menu.</span><button type="button" class="btn pri" data-bmadd="${esc(cur.id)}">+ Add Products</button></div></section></div>${bmSaveBar(nDraft)}</div>`;
-  h += `<div class="mmtbl"><div class="mmth"><span></span><span>On</span><span>Product · order types</span><span></span></div>`;
+  h += `<div class="mmtbl"><div class="mmth"><span></span><span>On</span><span>Product</span><span></span></div>`;
   if(!rows.length) h += `<div class="mmempty">No products match.</div>`;
   const pill = (attr, on, txt, title) => `<label class="scpill${on?" on":""}"${title ? ` title="${esc(title)}"` : ""}><input type="checkbox" ${attr} ${on?"checked":""}>${txt}</label>`;
   const stockPill = (attr, ok, dis) => `<label class="scstk${ok?" ok":" no"}${dis?" dis":""}" title="Stock at ${esc(br.name)} (all channels)"><input type="checkbox" ${attr} ${ok?"checked":""} ${dis?"disabled":""}><i></i>${ok ? "In stock" : "Sold out"}</label>`;
@@ -4337,7 +4337,7 @@ function viewBranchMenu(){
       ${par ? `<span></span>` : `<span class="bmgrip" title="Drag to sort" aria-hidden="true">${q ? "" : "⋮⋮"}</span>`}
       <label class="toggle" title="On the ${esc(ch[1])} menu"><input type="checkbox" data-bmon="${esc(r.id)}" ${st.on?"checked":""} aria-label="${esc(nm)} on the ${esc(ch[1])} menu"><span class="trk"></span></label>
       <span class="mmprod"${vk.length ? "" : ` data-bmitem="${esc(r.id)}" title="Open ${esc(nm)}: prices and modifiers"`}>${par ? `<span class="mmvl">↳</span>` : `<span class="mmimg">${r.imageUrl ? `<img src="${esc(r.imageUrl)}" alt="">` : svgIco("image")}</span>`}
-        <span class="mmpn"><b>${esc(nm)}</b>${vk.length ? `<small>${vk.length} variants below</small>` : (Object.values(st.tprices).some(Boolean) ? `<span class="mmlinks"><span class="mmtp" title="Has its own price for some order types">Order type prices</span></span>` : "")}<span class="sctypes" role="group" aria-label="Order types">${types.map(([t,tl]) => pill(`data-bmtype="${esc(r.id)}|${t}"`, st.types[t], tl)).join("")}</span></span></span>
+        <span class="mmpn"><b>${esc(nm)}</b>${vk.length ? `<small>${vk.length} variants below</small>` : (Object.values(st.tprices).some(Boolean) ? `<span class="mmlinks"><span class="mmtp" title="Has its own price for some order types">Order type prices</span></span>` : "")}</span></span>
       ${par ? "<span></span>" : `<div class="ddwrap"><button type="button" class="mmdots" data-bmcmenu="p" aria-label="Product actions">⋯</button><div class="ddmenu" hidden><button type="button" class="danger" data-bmrm="${esc(cur.id)}|${esc(r.id)}">Remove</button></div></div>`}</div>`;
     if(false) s += `<div class="mmsub">${bmLinks(r).map(l => `<div class="mmsg">${esc(modName(l.modifierId))}</div>` + modOptions(l.modifierId).map(o => { const os = bmOptState(r, o);
       return `<div class="mmrow mmorow${os.on?"":" off"}${BM.draft["mo:"+r.id+"|"+o.id]?" chg":""}"><span></span><label class="toggle" title="On the ${esc(ch[1])} menu for ${esc(r.name)}"><input type="checkbox" data-bmoon="${esc(r.id)}|${esc(o.id)}" ${os.on?"checked":""} aria-label="${esc(o.name)} with ${esc(r.name)}"><span class="trk"></span></label>
@@ -4389,7 +4389,7 @@ const SC_ALLOWED = { pos:["fast","dinein","pickup","delivery"], callcenter:["pic
 function scDialog(code, pick){
   const b = BM.branch, mine = scFor(b), cur = code ? mine.find(c => scCode(c)===code) : null, kinds = SC_KINDS.filter(([k]) => cur ? k===cur.kind : (k==="integration" || !mine.some(c => c.kind===k && !c.virtual) && !mine.some(c => c.kind===k)));
   const avail = SC_KINDS.filter(([k]) => k==="integration" || !mine.some(c => c.kind===k));
-  const kind = cur?.kind || (pick && avail.some(k => k[0]===pick) ? pick : avail[0][0]), types = (cur?.types || SC_KINDS.find(k => k[0]===kind)[3]).filter(t => SC_ALLOWED[kind].includes(t)), keepName = pick ? $("#scName")?.value : null;
+  const kind = cur?.kind || (pick && avail.some(k => k[0]===pick) ? pick : avail[0][0]), types = (cur?.types || []).filter(t => SC_ALLOWED[kind].includes(t)), keepName = pick ? $("#scName")?.value : null;
   const box = $("#ccBox"); box.className = "modal sm";
   box.innerHTML = `<header><h2>${cur ? "Sales Channel" : "Create Sales Channel"}</h2><button type="button" class="x" data-ccclose aria-label="Close">×</button></header><div class="body" style="display:block">
     <div class="f"><label for="scKind">Type</label><select class="sel" id="scKind" ${cur ? "disabled" : ""}>${(cur ? kinds : SC_KINDS.filter(([k]) => k==="integration" || !mine.some(c => c.kind===k))).map(([k,t]) => `<option value="${k}" ${k===kind?"selected":""}>${t}</option>`).join("")}</select>
@@ -6091,7 +6091,7 @@ function ingEditor(forKey, rec){
   const unit = forKey==="modifier-options" ? "this option (added on top of the product's own ingredients)" : isProd ? "1 portion of this product" : `1 ${esc(rec.storageUnit||"unit")} of this item`;
   const vfor = forKey==="products" && DET.ingFor ? DET.ingFor : "";
   return `<div class="card tbl${forKey==="products" || forKey==="inv-items" ? " secbox" : ""}" style="margin-bottom:16px" id="ingCard"><div class="ttop"><b>Ingredients${vfor ? ` · ${esc(vfor)}` : ""}</b>${vfor ? ` <button class="btn sm" data-pvrec="" style="margin-left:8px">← Product recipe</button>` : ""}<span class="note" style="margin-left:8px">For ${vfor ? "1 " + esc(vfor) : unit}</span><div class="sp"></div>
-      <input class="sel" id="ingAdd" list="ingAddL" placeholder="Add ingredient: name or SKU" style="min-width:240px"><datalist id="ingAddL">${avail.map(i=>`<option value="${esc(i.name)} · ${esc(i.sku||"")}">`).join("")}</datalist>
+      <button type="button" class="btn" data-ingpick>Add Ingredients</button>
       <button class="btn pri sm" data-ingsave ${DET.dirtyIng && !DET.saving ? "" : "disabled"}>${DET.saving?"Saving…":"Save"}</button></div>
     ${rows.length ? `<table><thead><tr>${head}</tr></thead><tbody>${body}</tbody><tfoot><tr><td colspan="3"><b>Total ingredients cost</b></td><td class="num"><b id="ingTotal">${fmtCost(total)}</b></td><td></td></tr></tfoot></table>`
       : `<div class="empty">${forKey==="inv-items" ? `To produce this item, add the ingredients needed to produce 1 ${esc(rec.storageUnit||"unit")} of this item here from your inventory items list.` : forKey==="products" ? "Add inventory items as ingredients to this product to be consumed when this product is sold." : "Add the inventory items used by this option. They're consumed on top of the product's own ingredients."}</div>`}</div>`;
@@ -6612,6 +6612,19 @@ document.addEventListener("input", e => {
   if(!DET.id) return; const t = e.target;
   const q = t.closest("[data-ingq]"); if(q){ DET.ing[+q.dataset.ingq].qty = t.value; return ingLive(+q.dataset.ingq); }
   const bp = t.closest("[data-brp]"); if(bp){ DET.br.customPrices[bp.dataset.brp] = t.value; DET.dirtyBr = true; const b = $("[data-brsave]"); if(b) b.disabled = false; }
+});
+// Add Ingredients: a dialog to pick an inventory item and its quantity (like Link Supplier)
+document.addEventListener("click", async e => {
+  if(e.target.closest("[data-ingpick]")){ e.preventDefault(); if(!DET.id || !DET.ing) return; const used = new Set(DET.ing.map(l => l.itemId));
+    const avail = S.inv_items.filter(i => live(i) && !used.has(i.id) && i.id!==DET.id).sort((a,b) => a.name.localeCompare(b.name)), box = $("#ccBox"); box.className = "modal sm";
+    box.innerHTML = `<header><h2>Add Ingredient</h2><button type="button" class="x" data-ccclose aria-label="Close">×</button></header><div class="body" style="display:block">
+      <div class="f"><label for="igItem">Inventory Item *</label><select class="sel" id="igItem"><option value="">Choose...</option>${avail.map(i => `<option value="${esc(i.id)}">${esc(i.name)}${i.sku ? " · " + esc(i.sku) : ""}</option>`).join("")}</select></div>
+      <div class="f"><label for="igQty">Quantity *</label><div style="display:flex;gap:8px;align-items:center"><input class="sel" id="igQty" type="number" min="0" step="any" style="flex:1"><span class="note" id="igUnit"></span></div></div><div class="err" id="igErr"></div></div>
+      <footer><span style="flex:1"></span><button type="button" class="btn pri" id="igSave">Save</button></footer>`;
+    $("#ccScrim").classList.add("show"); const sel = $("#igItem"); sel.onchange = () => { const it = itemOf(sel.value); $("#igUnit").textContent = it ? uomOf(it) : ""; }; return; }
+  if(e.target.closest("#igSave")){ const id = $("#igItem").value, q = $("#igQty").value; if(!id) return $("#igErr").textContent = "Choose an inventory item."; if(q==="" || +q <= 0) return $("#igErr").textContent = "Enter the quantity.";
+    if(!DET.ing.some(l => l.itemId===id)) DET.ing.push({ itemId:id, qty:+q, ...(DET.key!=="inv-items" ? { types:ORDER_TYPES.map(x=>x[0]) } : {}) });
+    DET.dirtyIng = true; $("#ccScrim").classList.remove("show"); await saveIngredients(); render(); }
 });
 document.addEventListener("change", e => {
   if(!DET.id) return; const t = e.target;
