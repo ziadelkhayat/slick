@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="399-1794077880">
+<meta name="slick-build" content="400-1794078055">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -3075,7 +3075,7 @@ document.addEventListener("change", async e => { if(e.target.id==="srtScope" && 
 
 /* generic modal */
 // "items" field: values added one by one, each its own row (rename in place, remove with ×, reorder with the arrows)
-const itemRow = v => `<div class="itemrow"><span class="igrip bmgrip" title="Drag to sort" aria-hidden="true">⋮⋮</span><input value="${esc(v)}" data-item aria-label="Option"><button type="button" class="btn sm" data-itemrm aria-label="Remove">×</button></div>`;
+const itemRow = v => `<div class="itemrow" data-sk="itr|${Math.random().toString(36).slice(2)}"><span class="igrip bmgrip" title="Drag to sort" aria-hidden="true">⋮⋮</span><input value="${esc(v)}" data-item aria-label="Option"><button type="button" class="btn sm" data-itemrm aria-label="Remove">×</button></div>`;
 function itemAdd(id){ const inp = $("#"+id+"_new"), v = (inp?.value || "").trim(); if(!v) return inp?.focus();
   const box = $("#"+id); if([...box.querySelectorAll("[data-item]")].some(i => i.value.trim().toLowerCase()===v.toLowerCase())){ $("#cErr").textContent = `"${v}" is already in the list.`; return; }
   box.insertAdjacentHTML("beforeend", itemRow(v)); inp.value = ""; inp.focus(); $("#cErr").textContent = ""; }
@@ -3084,11 +3084,6 @@ document.addEventListener("click", e => {
   const rm = e.target.closest("[data-itemrm]"); if(rm){ e.preventDefault(); rm.closest(".itemrow").remove(); return; }
 });
 // drag the ⋮⋮ handle to sort the rows (mouse and touch)
-document.addEventListener("pointerdown", e => { const g = e.target.closest(".igrip"); if(!g) return; e.preventDefault(); const row = g.closest(".itemrow"), box = row.parentNode; row.classList.add("drag");
-  const move = ev => { const over = document.elementFromPoint(ev.clientX, ev.clientY)?.closest(".itemrow"); if(!over || over===row || over.parentNode!==box) return; const r = over.getBoundingClientRect();
-    box.insertBefore(row, ev.clientY > r.top + r.height/2 ? over.nextSibling : over); };
-  const up = () => { row.classList.remove("drag"); document.removeEventListener("pointermove", move); document.removeEventListener("pointerup", up); };
-  document.addEventListener("pointermove", move); document.addEventListener("pointerup", up); });
 document.addEventListener("click", e => {
   if(e.target.id==="avSave"){ e.preventDefault(); return addVariant(); }
   if(e.target.closest("[data-avadd]")){ e.preventDefault(); const p = S.products.find(x=>x.id===DET.id), last = [...document.querySelectorAll("#avRows .avrow")].pop(), src = { price: last?.querySelector('[data-ar="price"]').value ?? p?.price, taxGroup: last?.querySelector('[data-ar="tax"]').value ?? p?.taxGroup };
@@ -6726,9 +6721,9 @@ function modLinks(p){
   const rows = DET.mods;
   return `<div class="card tbl secbox"><div class="ttop"><b>Modifiers</b><div class="sp"></div>
       <button type="button" class="btn" data-modcopy>Copy Modifiers</button><button type="button" class="btn" data-modpick>Add</button></div>
-    ${rows.length ? `<table><thead><tr><th style="width:28px"></th><th>Name</th><th class="num">Options</th><th class="num">Minimum Options</th><th class="num">Maximum Options</th><th class="num">Free Options</th><th>Repeat Options</th><th></th></tr></thead><tbody id="modRows">${rows.map((l, ix) => `<tr data-mix="${ix}" class="clk" data-modedit="${ix}">
-      <td class="grc"><span class="mgrip bmgrip" title="Drag to change the order customers see">⋮⋮</span></td><td><b>${esc(modName(l.modifierId))}</b></td><td class="num">${modOptions(l.modifierId).length}</td>
-      <td class="num">${+l.min||0}</td><td class="num">${+l.max ? +l.max : "No limit"}</td><td class="num">${+l.free||0}</td><td>${l.multi ? "Yes" : "No"}</td>
+    ${rows.length ? `<table style="width:100%"><thead><tr><th style="width:44px"></th><th>Name</th><th class="num">Minimum</th><th class="num">Maximum</th><th class="num">Free</th><th style="width:60px"></th></tr></thead><tbody id="modRows">${rows.map((l, ix) => `<tr data-mix="${ix}" class="clk" data-modedit="${ix}" data-sk="pml|${ix}">
+      <td class="grc"><span class="mgrip bmgrip" title="Drag to change the order customers see">⋮⋮</span></td><td><b>${esc(modName(l.modifierId))}</b></td>
+      <td class="num">${+l.min||0}</td><td class="num">${+l.max ? +l.max : "No limit"}</td><td class="num">${+l.free||0}</td>
       <td class="num"><button class="btn sm" data-modrm="${ix}" aria-label="Remove ${esc(modName(l.modifierId))}">×</button></td></tr>`).join("")}</tbody></table>`
       : `<div class="empty">No modifiers linked.${S.modifiers.filter(live).length ? "" : " Create them first under Menu → Modifiers."}</div>`}</div>`;
 }
@@ -6757,15 +6752,6 @@ document.addEventListener("click", async e => {
     const vals = id => [...document.querySelectorAll("#" + id + " input:checked")].map(i => i.value), def = vals("ml_def"), exc = vals("ml_exc");
     if(def.some(x => exc.includes(x))) return $("#mlErr").textContent = "An option can't be both default and excluded.";
     Object.assign(l, { min:mn, max:mx, free:parseInt($("#ml_free").value)||0, multi:!$("#ml_uniq").checked, defaults:def, excluded:exc }); $("#ccScrim").classList.remove("show"); DET.dirtyMods = true; return saveModLinks(); }
-});
-// drag a product's modifiers into the order the cashier and customer see them
-document.addEventListener("pointerdown", e => {
-  const g = e.target.closest(".mgrip"); if(!g || !DET.mods) return; e.preventDefault();
-  const tb = g.closest("tbody"), row = g.closest("tr"); row.classList.add("mdrag");
-  const move = ev => { const over = [...tb.children].find(r => { if(r===row) return false; const b = r.getBoundingClientRect(); return ev.clientY >= b.top && ev.clientY <= b.bottom; }); if(!over) return; const b = over.getBoundingClientRect(); tb.insertBefore(row, ev.clientY > b.top + b.height/2 ? over.nextSibling : over); };
-  const up = () => { document.removeEventListener("pointermove", move); document.removeEventListener("pointerup", up); row.classList.toggle("mdrag", false);
-    const order = [...tb.children].map(r => +r.dataset.mix); if(order.some((v,i)=>v!==i)){ DET.mods = order.map(i => DET.mods[i]); DET.dirtyMods = true; saveModLinks(); } };
-  document.addEventListener("pointermove", move); document.addEventListener("pointerup", up);
 });
 async function saveModLinks(){
   const list = DET.mods.map(l => ({ modifierId:l.modifierId, min: Math.max(0, parseInt(l.min)||0), max: Math.max(0, parseInt(l.max)||0), free: Math.max(0, parseInt(l.free)||0), ...(l.multi ? { multi:true } : {}), ...(l.opts ? { opts:l.opts } : {}), ...(l.defaults?.length ? { defaults:l.defaults } : {}), ...(l.excluded?.length ? { excluded:l.excluded } : {}) }));   // opts: per-channel option settings from Sales Channels
@@ -7590,7 +7576,10 @@ state.date = todayStr();
 /* ---------- drag to sort, everywhere (Sales Channels, modifier options, payment methods, order sources, reasons) ----------
    Press and drag a row (mouse or finger). The row lifts and follows the pointer, a faded slot shows where it will land,
    the other rows slide out of the way, and on release it settles into place and the new order is saved. */
-const SORT_DONE_X = {};
+const SORT_DONE_X = {
+  itr: () => {},   // list rows in forms: the new order is read when the form is saved
+  pml: keys => { if(!DET.mods) return; DET.mods = keys.map(i => DET.mods[+i]).filter(Boolean); DET.dirtyMods = true; saveModLinks(); }   // a product's modifiers, in the order customers see them
+};
 const SORT_DONE = {
   bmc: ids => bmSaveCats(ids),
   bmp: (ids, cid) => bmSaveItems(cid, ids),
