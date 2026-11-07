@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="370-1794070697">
+<meta name="slick-build" content="371-1794070933">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -2667,16 +2667,15 @@ const CRUD = {
       {k:"password",l:"Password",t:"password",hideIf:r=>!!r.userId,note:"Only for users who work in the back office. They sign in with their email and this password. At least 8 characters. Once set, they change it themselves with Forgot password."},
       {k:"pin",l:"Login PIN",t:"pin",note:"A unique 5-digit PIN the user types to sign in on the cashier app. Generate a random PIN for better security."},
       {k:"displayLocalized",l:"Display localized names (show the apps in the localized language)",t:"chk",def:false},
-      {k:"roleIds",l:"Roles",t:"multi",get:r=>userRoleIds(r),opts:()=>S.roles.filter(live).map(r=>[r.id,r.name]),editOnly:1},
+      
       {k:"active",l:"Active",t:"chk",def:true,editOnly:1}],
     note:"POS users sign in on the tablet with their PIN. For back-office access, add their email and a password: they sign in with them.",
     prep: async (data, id) => {
       const pin = data.pin, pw = data.password || ""; delete data.pin; delete data.password;
       if(pw){ if(!data.email) return "Add the user's email: they sign in to the back office with their email and password.";
         if(pw.length < 8) return "The password needs at least 8 characters."; }
-      if(id){ data.roleIds = data.roleIds || []; if(!data.roleIds.length) return "Pick at least one role."; } else data.roleIds = [];
-      if(!id) data.active = true;
-      data.roleId = data.roleIds[0] || null;   // older screens read the first role
+      // roles are picked on the user's page (Edit Roles), not in this form
+      if(id) delete data.roleIds; else { data.roleIds = []; data.roleId = null; data.active = true; }
       if(data.email) data.email = data.email.toLowerCase();
       if(data.email && S.users.some(u=>u.id!==id && live(u) && (u.email||"").toLowerCase()===data.email)) return "Another user already has this email.";
       if(!id) data.id = newUserId();
@@ -6011,13 +6010,14 @@ async function tagSave(list, on){ const d = tagDoc(); try{ await put("settings",
 // optional Tags on forms: tick tags created in Manage → Tags
 const tagTypeName = type => (TAG_TYPES.find(x => x[0]===type)?.[1] || type).toLowerCase();
 const tagPick = (type, recId, id = "tgPick", cur) => { const l = tagList(type), sel = new Set(cur || (recId ? tagsOf(type, recId) : []));
-  return `<div class="f full"><label>Tags</label>${l.length ? `<div class="multi" id="${id}">${l.map(t => `<label class="chk"><input type="checkbox" value="${esc(t.id)}" ${sel.has(t.id)?"checked":""}> ${esc(t.name)}</label>`).join("")}</div>` : `<div class="note" id="${id}">No ${esc(tagTypeName(type))} tags yet. Create them in Manage → Tags.</div>`}</div>`; };
+  if(!l.length) return "";   // no tags of this kind yet: the field is left out
+  return `<div class="f full"><label>Tags</label><div class="multi" id="${id}">${l.map(t => `<label class="chk"><input type="checkbox" value="${esc(t.id)}" ${sel.has(t.id)?"checked":""}> ${esc(t.name)}</label>`).join("")}</div></div>`; };
 const tagPickGet = (id = "tgPick") => { const el = document.getElementById(id); return el && el.classList.contains("multi") ? [...el.querySelectorAll("input:checked")].map(i => i.value) : null; };
 async function tagSetFor(type, recId, ids){ if(ids==null || !recId) return; const cur = tagsOf(type, recId); if(cur.length===ids.length && cur.every(x => ids.includes(x))) return;
   const on = JSON.parse(JSON.stringify(tagDoc().on || {})), m = on[type] ||= {}; if(ids.length) m[recId] = ids; else delete m[recId]; await tagSave(null, on); }
 function tagEdit(type, recId, after){
   const box = $("#ccBox"); box.className = "modal";
-  box.innerHTML = `<header><h2>Edit Tags</h2><button type="button" class="x" data-ccclose aria-label="Close">×</button></header><div class="body" style="display:block">${tagPick(type, recId, "teTags")}</div>
+  box.innerHTML = `<header><h2>Edit Tags</h2><button type="button" class="x" data-ccclose aria-label="Close">×</button></header><div class="body" style="display:block">${tagPick(type, recId, "teTags") || `<p class="note">No ${esc(tagTypeName(type))} tags yet. Create them in <a href="#tags" class="lnk" data-ccclose>Manage → Tags</a>.</p>`}</div>
   <footer><span style="flex:1"></span>${tagList(type).length ? `<button type="button" class="btn pri" id="teGo">Save</button>` : ""}</footer>`;
   $("#ccScrim").classList.add("show"); const g = $("#teGo"); if(g) g.onclick = async () => { await tagSetFor(type, recId, tagPickGet("teTags")); $("#ccScrim").classList.remove("show"); toast("Tags saved"); after ? after() : render(); };
 }
@@ -6297,7 +6297,7 @@ function userDetail(u){
   const fld = (k, v) => `<div class="udf"><span>${k}</span><div>${v}</div></div>`, dt = t => t ? new Date(t).toLocaleString("en-GB",{day:"numeric",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"}) : "—";
   const sec = (title, btn, body) => `<div class="udsec"><div class="udh"><h3>${title}</h3>${btn}</div><div class="card udcard">${body}</div></div>`;
   return `<div class="udtop"><div class="udrow"><a href="#users" class="btn" data-detback style="text-decoration:none">← Back</a><h1>${esc(u.name)}</h1>${u.active===false ? ' <span class="tag off">Inactive</span>' : ""}<div class="sp"></div>
-      ${u.email ? `<button class="btn" data-usrpw="${esc(u.id)}">Change Password</button>` : ""}<button class="btn" data-usrpin>Change PIN</button><button class="btn pri" data-detedit>Edit User</button></div></div>
+      ${u.email ? `<button class="btn" data-usrpw="${esc(u.id)}">Change Password</button>` : ""}<button class="btn pri" data-detedit>Edit User</button></div></div>
     <div class="udwrap">
       <div class="card udinfo">${fld("Name", esc(u.name))}${fld("Email", esc(u.email || "—"))}${fld("Phone", esc(u.phone || "—"))}${fld("Language", u.language==="ar" ? "Arabic" : "English")}
         ${fld("Display localized names", u.displayLocalized ? "Yes" : "No")}${fld("Console Access", u.email ? (u.userId ? "Yes" : "Not created yet") : "No")}
