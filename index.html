@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="363-1794068713">
+<meta name="slick-build" content="364-1794069179">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1058,6 +1058,9 @@ table.sk-ghost-t{border-collapse:collapse;table-layout:fixed}table.sk-ghost-t td
 #ccBox .body textarea{width:100%;font:inherit;border:1px solid var(--line);border-radius:10px;padding:10px 12px;resize:vertical}
 .stbadge{margin-left:12px;font-size:12px;font-weight:600;padding:4px 10px;border-radius:999px;background:var(--good-soft,#e6f6ec);color:var(--good,#1f8a4c)}.stbadge.off{background:#f1f0f5;color:var(--muted,#77748a)}
 .pdbrl{display:flex;flex-direction:column;gap:2px;max-height:50vh;overflow:auto}.pdbr{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 4px;border-bottom:1px solid var(--line,#ecebf2)}.pdbr .sel{width:120px;text-align:right}.pdbr.chk{justify-content:flex-start}
+.morelist{padding:0!important;overflow:hidden;max-width:820px}.morelist a{display:flex;align-items:center;gap:12px;padding:18px 22px;border-bottom:1px solid var(--line,#ecebf2);color:var(--ink,#1c1b22);text-decoration:none;font-size:15px;font-weight:500}.morelist a:last-child{border-bottom:0}.morelist a:hover{background:var(--bg,#f6f5fa)}.morelist a .chev{margin-left:auto;color:var(--muted);font-size:20px}.morelist .ico{width:20px;height:20px;color:#5b2bc4}
+.morebk{display:inline-flex;align-items:center;gap:6px}.morebk .ico{width:16px;height:16px}
+.lvtbl{width:100%}.lvtbl td,.lvtbl th{padding:6px 4px;text-align:left}.lvtbl .sel{width:90px}
 </style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -1238,10 +1241,11 @@ const NAV = [
   {id:"call-center",t:"Call Center",i:"phone"},
   {id:"customers",t:"Customers",i:"users"},
   {t:"Reports",i:"chart",tabs:1,kids:[["sales-reports","Sales Reports"],["inventory-reports","Inventory Reports"],["business-reports","Business Reports"],["analysis-reports","Analysis Reports"]]},
-  {t:"Inventory",i:"box",tabs:1,kids:[["inv-categories","Inventory Categories"],["inv-items","Items"],["warehouses","Locations"],["suppliers","Suppliers"],["purchase-orders","Purchase Orders"],["transfer-orders","Transfer Orders"],["transfers","Transfers"],["inventory-count","Inventory Count"],["production","Production"],["quantity-adjustments","Quantity Adjustment"],["cost-adjustments","Cost Adjustment"],["spot-check","Inventory Spot Check"],["count-sheets","Count Sheet"]]},
+  {t:"Inventory",i:"box",tabs:1,more:"inventory-more",kids:[["inv-items","Items"],["suppliers","Suppliers"],["inventory-count","Inventory Count"],["purchase-orders","Purchasing"],["transfer-orders","Transfer Orders"],["transfers","Transfers"],["production","Production"],["inventory-more","More"],
+    ["quantity-adjustments","Quantity Adjustment"],["cost-adjustments","Cost Adjustment"],["inv-categories","Inventory Categories"],["warehouses","Warehouses"],["spot-check","Inventory Spot Check"],["count-sheets","Count Sheet"]]},
   {t:"Menu",i:"book",tabs:1,side:[["branch-menu","Sales Channels"]],kids:[["@Menu Builder"],["categories","Categories"],["products","Products"],["variants","Variants"],["modifiers","Modifiers"],["combos","Combos"],["@Menu Settings"],["allergens","Allergens"]]},
   {t:"Web Ordering",i:"globe",tabs:1,kids:[["online-ordering","Settings"],["delivery-zones","Delivery Zones"],["delivery-charges","Delivery Charges"]]},
-  {t:"Manage",i:"gear",tabs:1,kids:[["users","Users"],["roles","Roles"],["brands","Brands"],["branches","Branches"],["devices","Devices"],["taxes","Taxes & Groups"],["currency","Currency"],["payment-methods","Payment Methods"],["order-sources","Order Sources"],["charges","Charges"],["kitchen-flows","Kitchen Flows"],["reasons","Reasons"],["tags","Tags"]]},
+  {t:"Manage",i:"gear",tabs:1,more:"manage-more",kids:[["users","Users"],["roles","Roles"],["branches","Branches"],["devices","Devices"],["manage-more","More"],["brands","Brands"],["taxes","Taxes & Groups"],["currency","Currency"],["payment-methods","Payment Methods"],["order-sources","Order Sources"],["charges","Charges"],["kitchen-flows","Kitchen Flows"],["reasons","Reasons"],["tags","Tags"]]},
   {t:"Marketing",i:"tag",tabs:1,kids:[["discounts","Discounts"],["loyalty","Loyalty"],["gift-cards","Gift Cards"],["promotions","Promotions"],["coupons","Coupons"]]}
 ];
 const TITLES = { account:"Account settings", "inv-levels":"Inventory Levels", "inv-history":"Inventory History", purchasing:"Purchasing" };
@@ -1309,7 +1313,7 @@ Object.assign(I, {
   layout:'<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/>'
 });
 // one icon per screen
-const SUBI = {
+const SUBI = { "inventory-more":"grid", "manage-more":"grid",
   "sales-reports":"bars","inventory-reports":"pie","business-reports":"chart","analysis-reports":"layout",
   "inv-items":"box","suppliers":"truck","purchase-orders":"cart","transfer-orders":"clipboard","transfers":"swap","inventory-count":"sheet","production":"factory",
   "quantity-adjustments":"sliders","cost-adjustments":"dollar","order-transactions":"receipt","inv-categories":"folder","warehouses":"warehouse","spot-check":"search","count-sheets":"list",
@@ -2160,13 +2164,22 @@ function render(){
   if(RPT_HUB[route]) v.innerHTML = viewReports(route);
   else if(route==="dashboard") v.innerHTML = viewDashboard();
   else if(route==="branches") v.innerHTML = viewBranches();
+  else if(route==="inventory-more" || route==="manage-more") v.innerHTML = viewMore(route);
   else if(moduleRoute(route) !== null) v.innerHTML = moduleRoute(route);
   else v.innerHTML = `<h1>${esc(TITLES[route]||"Not found")}</h1><p class="subt">&nbsp;</p>` + placeholder("Coming next", "This screen is part of the plan and will be built in a later step.");
   const tg = NAV.find(n => n.tabs && n.kids.some(k=>k[0]===route));   // Inventory: every screen is a tab at the top of the page
-  if(tg) v.insertAdjacentHTML("afterbegin", `<nav class="ptabs" aria-label="${esc(tg.t)}">${tg.kids.filter(k=>!k[0].startsWith("@")).map(k=>`<a href="#${k[0]}" class="${k[0]===route?"on":""}">${svgIco(SUBI[k[0]]||"list")}${esc(k[1])}</a>`).join("")}</nav>`);
+  if(tg){ const ks = tg.kids.filter(k=>!k[0].startsWith("@")), mi = tg.more ? ks.findIndex(k => k[0]===tg.more) : -1, inMore = mi >= 0 && ks.findIndex(k => k[0]===route) >= mi;
+    v.insertAdjacentHTML("afterbegin", `<nav class="ptabs" aria-label="${esc(tg.t)}">${(mi >= 0 ? ks.slice(0, mi+1) : ks).filter(k => canOpen(k[0])).map(k=>`<a href="#${k[0]}" class="${k[0]===route || (k[0]===tg.more && inMore)?"on":""}">${svgIco(SUBI[k[0]]||"list")}${esc(k[1])}</a>`).join("")}</nav>`);
+    if(inMore && route!==tg.more) v.querySelector(".phead, h1")?.insertAdjacentHTML("beforebegin", `<a href="#${tg.more}" class="btn morebk" style="text-decoration:none;margin:0 0 10px">${svgIco("back")}${esc(tg.t)}</a>`); }
   v.querySelectorAll(".chart").forEach(wireLine);
   if(route==="delivery-zones") setTimeout(initZonesOverview, 0);
   if(route!=="dashboard" && !(route==="discounts" && DS.open)) stickHead(v);
+}
+// "More" (Foodics): the less used screens of a section, as a list of links
+function viewMore(route){
+  const n = NAV.find(x => x.more===route); if(!n) return "";
+  const ks = n.kids.filter(k => !k[0].startsWith("@")), mi = ks.findIndex(k => k[0]===route);
+  return `<div class="phead"><h1>${esc(n.t)}</h1></div><div class="card morelist">${ks.slice(mi+1).filter(k => canOpen(k[0])).map(k => `<a href="#${k[0]}">${svgIco(SUBI[k[0]]||"list")}<span>${esc(k[1])}</span><span class="chev">›</span></a>`).join("")}</div>`;
 }
 // list pages: the title, filters and tabs above a table stay in view while the rows scroll (like Orders)
 function stickHead(v){
@@ -2688,7 +2701,7 @@ const CRUD = {
       {k:"costingMethod",l:"Costing method",t:"select",opts:()=>[["ingredients","From ingredients"],["fixed","Fixed cost"]],def:"ingredients"},{k:"cost",l:"Fixed cost (USD)",t:"number",req:1,when:{k:"costingMethod",is:"fixed"}}]
   },
   suppliers: {
-    col:"suppliers", title:"Suppliers", one:"Supplier",
+    col:"suppliers", title:"Suppliers", one:"Supplier", detail: r => supplierDetail(r),
     tabs:[["all","All",live],["deleted","Deleted",r=>r.deleted]],
     sort:(a,b)=>a.name.localeCompare(b.name),
     search:r=>[r.name,r.code,r.contactName,r.phone,r.email].join(" "),
@@ -2700,7 +2713,7 @@ const CRUD = {
   },
   "inv-items": {
     col:"inv_items", title:"Inventory Items", one:"Item", detail: r => invItemDetail(r),
-    tabs:[["all","All",live],["deleted","Deleted",r=>r.deleted]],
+    tabs:[["all","All",live],["items","Items",r=>live(r) && !hasRecipe(r)],["produced","Products",r=>live(r) && hasRecipe(r)],["deleted","Deleted",r=>r.deleted]],
     sort:(a,b)=>(b.sku||"").localeCompare(a.sku||"",undefined,{numeric:true}),
     search:r=>r.name+" "+(r.sku||"")+" "+(r.category||""),
     filter:r=>!state.invCat || r.category===state.invCat,
@@ -5855,11 +5868,11 @@ function ingEditor(forKey, rec){
   }).join("");
   const unit = forKey==="modifier-options" ? "this option (added on top of the product's own ingredients)" : isProd ? "1 portion of this product" : `1 ${esc(rec.storageUnit||"unit")} of this item`;
   const vfor = forKey==="products" && DET.ingFor ? DET.ingFor : "";
-  return `<div class="card tbl${forKey==="products" ? " secbox" : ""}" style="margin-bottom:16px" id="ingCard"><div class="ttop"><b>Ingredients${vfor ? ` · ${esc(vfor)}` : ""}</b>${vfor ? ` <button class="btn sm" data-pvrec="" style="margin-left:8px">← Product recipe</button>` : ""}<span class="note" style="margin-left:8px">For ${vfor ? "1 " + esc(vfor) : unit}</span><div class="sp"></div>
+  return `<div class="card tbl${forKey==="products" || forKey==="inv-items" ? " secbox" : ""}" style="margin-bottom:16px" id="ingCard"><div class="ttop"><b>Ingredients${vfor ? ` · ${esc(vfor)}` : ""}</b>${vfor ? ` <button class="btn sm" data-pvrec="" style="margin-left:8px">← Product recipe</button>` : ""}<span class="note" style="margin-left:8px">For ${vfor ? "1 " + esc(vfor) : unit}</span><div class="sp"></div>
       <input class="sel" id="ingAdd" list="ingAddL" placeholder="Add ingredient: name or SKU" style="min-width:240px"><datalist id="ingAddL">${avail.map(i=>`<option value="${esc(i.name)} · ${esc(i.sku||"")}">`).join("")}</datalist>
       <button class="btn pri sm" data-ingsave ${DET.dirtyIng && !DET.saving ? "" : "disabled"}>${DET.saving?"Saving…":"Save"}</button></div>
     ${rows.length ? `<table><thead><tr>${head}</tr></thead><tbody>${body}</tbody><tfoot><tr><td colspan="3"><b>Total ingredients cost</b></td><td class="num"><b id="ingTotal">${fmtCost(total)}</b></td><td></td></tr></tfoot></table>`
-      : `<div class="empty">No ingredients yet. ${isProd ? "Add the inventory items (raw or produced) used to make this product." : "Add the inventory items needed to produce this item. Production batches use this list."}</div>`}</div>`;
+      : `<div class="empty">${forKey==="inv-items" ? `To produce this item, add the ingredients needed to produce 1 ${esc(rec.storageUnit||"unit")} of this item here from your inventory items list.` : forKey==="products" ? "Add inventory items as ingredients to this product to be consumed when this product is sold." : "Add the inventory items used by this option. They're consumed on top of the product's own ingredients."}</div>`}</div>`;
 }
 
 /* ---------- Tags (Manage → Tags, Foodics style): labels to group products, items, branches, customers… ---------- */
@@ -6243,8 +6256,13 @@ function invItemDetail(it){
     info("Costing Method", it.costingMethod==="transactions" ? "From Transactions" : "Fixed"), info("Category", esc(it.category||"—")),
     info("Cost", it.cost ? fmtCost(it.cost) + ` <span class="note">/ ${esc(it.storageUnit||"unit")}</span>` : "—"),
     ...(produced || DET.ing.length ? [info("Total Cost of Production", fmtCost(prodCost) + ` <span class="note">/ ${esc(it.storageUnit||"unit")}</span>`)] : [])]);
+  const tg = tagsOf("inventory", it.id), sl = supLinks().filter(l => l.itemId===it.id), lv = invLevels()[it.id] || {};
+  h += pdSec("Tags", `<button type="button" class="btn" data-ivtags>${tg.length ? "Edit Tags" : "Add Tags"}</button>`, tg.length ? `<div class="dzchips">${tg.map(t => `<span class="dzchip" style="padding-right:14px">${esc(tagName(t))}</span>`).join("")}</div>` : `<p class="dzempty">Add tags to help you filter and group items easily. You can create tags such as Weekly Stocktaking, Vegetables, etc.</p>`);
   h += ingEditor("inv-items", it);
-  h += `<div class="grid" style="grid-template-columns:1fr 1fr;gap:16px">
+  h += pdSec("Suppliers", `<button type="button" class="btn" data-suplink="item:${esc(it.id)}">Link Suppliers</button>`, sl.length ? supLinkTable(sl, "item") : `<p class="dzempty">Link this item to the suppliers you purchase from, and you can assign different order units and cost to each supplier.</p>`);
+  const lvb = Object.entries(lv).filter(([b]) => branches.some(x => x.id===b));
+  h += pdSec("Custom Level", `<button type="button" class="btn" data-ivlevel="${esc(it.id)}">Select Branches</button>`, lvb.length ? `<table><thead><tr><th>Branch</th><th class="num">Minimum Level</th><th class="num">Par Level</th><th class="num">Maximum Level</th><th></th></tr></thead><tbody>${lvb.map(([b, v]) => `<tr><td>${esc(branchName(b))}</td><td class="num">${v.min ?? "—"}</td><td class="num">${v.par ?? "—"}</td><td class="num">${v.max ?? "—"}</td><td class="num"><button type="button" class="btn sm" data-ivlevelrm="${esc(it.id)}:${esc(b)}" aria-label="Remove">×</button></td></tr>`).join("")}</tbody></table>` : `<p class="dzempty">You can apply custom inventory levels to some branches instead of the default levels (such as high traffic branches) and specify the minimum and maximum levels for them.</p>`);
+  h += `<div class="grid" style="grid-template-columns:1fr 1fr;gap:16px;margin-top:26px">
     <div class="card"><h3 style="margin:0 0 8px;font-size:15px">Stock</h3>${stock===null ? '<p class="note">Loading…</p>' : stock.length ? `<table><tbody>${stock.map(([t,q])=>`<tr><td>${esc(t)}</td><td class="num">${n2(q)} ${esc(it.storageUnit||"")}</td></tr>`).join("")}</tbody></table>` : '<p class="note">Not counted anywhere yet.</p>'}</div>
     <div class="card"><h3 style="margin:0 0 8px;font-size:15px">Used in</h3>${inProducts.length||inItems.length ? `
       ${inProducts.map(p=>`<div><a href="#products" class="lnk" data-detopen="products:${esc(p.id)}">${esc(p.name)}</a> <span class="note">product · ${n2((p.ingredients.find(l=>l.itemId===it.id)||{}).qty)} ${esc(uomOf(it))}</span></div>`).join("")}
@@ -6252,6 +6270,56 @@ function invItemDetail(it){
   return h;
 }
 
+/* supplier ⇄ item links (order unit, how many storage units it holds, cost per order unit) and per-branch stock levels, kept in settings */
+const supLinks = () => ((typeof S!=="undefined" ? S.settings : []).find(x => x.id==="supplier_items")?.links) || [];
+const invLevels = () => ((typeof S!=="undefined" ? S.settings : []).find(x => x.id==="inv_levels")?.levels) || {};
+function supLinkTable(list, side){
+  return `<table><thead><tr><th>${side==="item" ? "Supplier" : "Item"}</th><th>Order Unit</th><th class="num">Factor</th><th class="num">Cost</th><th></th></tr></thead><tbody>${list.map(l => { const it = itemOf(l.itemId), sp = S.suppliers.find(x => x.id===l.supplierId);
+    return `<tr><td>${side==="item" ? `<a href="#suppliers" class="lnk" data-detopen="suppliers:${esc(l.supplierId)}">${esc(sp?.name || "—")}</a>` : `<a href="#inv-items" class="lnk" data-detopen="inv-items:${esc(l.itemId)}">${esc(it?.name || "—")}</a> <span class="code">${esc(it?.sku||"")}</span>`}</td>
+      <td>${esc(l.orderUnit || it?.storageUnit || "—")}</td><td class="num">${l.factor ? `${n2(l.factor)} ${esc(it?.storageUnit||"")}` : "—"}</td><td class="num">${l.cost!=null && l.cost!=="" ? fmtCost(l.cost) : "—"}</td>
+      <td class="num"><button type="button" class="btn sm" data-suprm="${esc(l.supplierId)}:${esc(l.itemId)}" aria-label="Remove">×</button></td></tr>`; }).join("")}</tbody></table>`;
+}
+function supplierDetail(sp){
+  const tg = tagsOf("supplier", sp.id), sl = supLinks().filter(l => l.supplierId===sp.id);
+  let h = `<div class="phead"><a href="#suppliers" class="btn" data-detback style="text-decoration:none">← Back</a><h1 style="margin-left:10px">${esc(sp.name)}</h1><div class="sp"></div><button class="btn pri" data-detedit>Edit Supplier</button></div>`;
+  h += infoGrid([info("Name", esc(sp.name)), info("Contact Name", esc(sp.contactName||"—")), info("Phone", esc(sp.phone||"—")), info("Primary Email", esc(sp.email||"—")), info("Supplier Code", esc(sp.code||"—")), info("Address", esc(sp.address||"—")), info("Notes", esc(sp.notes||"—"))]);
+  h += pdSec("Tags", `<button type="button" class="btn" data-suptags="${esc(sp.id)}">${tg.length ? "Edit Tags" : "Add Tags"}</button>`, tg.length ? `<div class="dzchips">${tg.map(t => `<span class="dzchip" style="padding-right:14px">${esc(tagName(t))}</span>`).join("")}</div>` : `<p class="dzempty">Add tags to help you filter and group suppliers easily. You can create tags such as Cash Suppliers, High Quality, etc.</p>`);
+  h += pdSec("Inventory Items", `<button type="button" class="btn" data-suplink="sup:${esc(sp.id)}">Link Items</button>`, sl.length ? supLinkTable(sl, "sup") : `<p class="dzempty">Link this supplier to the inventory items you purchase from them, and you can assign different order units and cost to each item.</p>`);
+  const pos = S.inv_docs.filter(d => live(d) && d.kind==="purchase" && d.supplierId===sp.id).slice(0, 20);
+  if(pos.length) h += pdSec("Purchases", "", `<table><thead><tr><th>Reference</th><th>Status</th><th>Business Date</th></tr></thead><tbody>${pos.map(d => `<tr><td>${esc(d.ref||"—")}</td><td>${esc(d.status||"")}</td><td>${esc(d.businessDate||"—")}</td></tr>`).join("")}</tbody></table>`);
+  return h;
+}
+async function setSetting(id, data, msg){ try{ await put("settings", id, data); const r = S.settings.find(x => x.id===id); if(r) Object.assign(r, data); else S.settings.push({ id, ...data }); toast(msg || "Saved"); render(); }catch(err){ console.error(err); toast("Couldn't save"); } }
+document.addEventListener("click", async e => {
+  const box = $("#ccBox"), show = () => { box.className = "modal sm"; $("#ccScrim").classList.add("show"); };
+  if(e.target.closest("[data-ivtags]")){ e.preventDefault(); return tagEdit("inventory", DET.id); }
+  const st = e.target.closest("[data-suptags]"); if(st){ e.preventDefault(); return tagEdit("supplier", st.dataset.suptags); }
+  const lk = e.target.closest("[data-suplink]"); if(lk){ e.preventDefault(); const [side, id] = lk.dataset.suplink.split(":");
+    const opts = side==="item" ? S.suppliers.filter(live).sort((a,b) => a.name.localeCompare(b.name)).map(x => [x.id, x.name]) : S.inv_items.filter(live).sort((a,b) => a.name.localeCompare(b.name)).map(x => [x.id, x.name + (x.sku ? " · " + x.sku : "")]);
+    box.innerHTML = `<header><h2>${side==="item" ? "Link Supplier" : "Link Item"}</h2><button type="button" class="x" data-ccclose aria-label="Close">×</button></header><div class="body" style="display:block">
+      <div class="f"><label for="slPick">${side==="item" ? "Supplier" : "Item"} *</label><input id="slQ" class="sel" placeholder="Type to search" autocomplete="off" style="margin-bottom:8px"><select id="slPick" class="sel" size="6">${opts.map(([v,t]) => `<option value="${esc(v)}">${esc(t)}</option>`).join("")}</select></div>
+      <div class="f"><label for="slUnit">Order Unit</label><input id="slUnit" class="sel" placeholder="e.g. Box, Carton"></div>
+      <div class="f"><label for="slFac">Order Unit To Storage Unit Factor</label><input id="slFac" class="sel" type="number" min="0" step="any" placeholder="e.g. 12"></div>
+      <div class="f"><label for="slCost">Cost (Per Order Unit)</label><input id="slCost" class="sel" type="number" min="0" step="any"></div></div>
+      <footer><span style="flex:1"></span><button type="button" class="btn" data-ccclose>Cancel</button><button type="button" class="btn pri" id="slSave" data-side="${side}" data-id="${esc(id)}">Save</button></footer>`;
+    show(); return; }
+  const sv = e.target.closest("#slSave"); if(sv){ const pick = $("#slPick")?.value; if(!pick) return toast("Choose one from the list");
+    const supplierId = sv.dataset.side==="item" ? pick : sv.dataset.id, itemId = sv.dataset.side==="item" ? sv.dataset.id : pick, v = id => $("#"+id).value.trim();
+    const l = { supplierId, itemId, orderUnit: v("slUnit"), factor: v("slFac")==="" ? null : +v("slFac"), cost: v("slCost")==="" ? null : +v("slCost") };
+    $("#ccScrim").classList.remove("show"); return setSetting("supplier_items", { links: [...supLinks().filter(x => !(x.supplierId===supplierId && x.itemId===itemId)), l] }, "Linked"); }
+  const rm = e.target.closest("[data-suprm]"); if(rm){ e.preventDefault(); const [a, b] = rm.dataset.suprm.split(":"); return setSetting("supplier_items", { links: supLinks().filter(x => !(x.supplierId===a && x.itemId===b)) }, "Link removed"); }
+  const lv = e.target.closest("[data-ivlevel]"); if(lv){ e.preventDefault(); const id = lv.dataset.ivlevel, cur = invLevels()[id] || {}, it = itemOf(id);
+    box.innerHTML = `<header><h2>Custom Level</h2><button type="button" class="x" data-ccclose aria-label="Close">×</button></header><div class="body" style="display:block">
+      <p class="note" style="margin:0 0 10px">In ${esc(it?.storageUnit || "storage units")}. Leave a branch empty to use the item's default levels.</p>
+      <table class="lvtbl"><thead><tr><th>Branch</th><th>Minimum</th><th>Par</th><th>Maximum</th></tr></thead><tbody id="lvRows">${branches.map(b => { const c = cur[b.id] || {}; return `<tr data-b="${esc(b.id)}"><td>${esc(b.name)}</td>${["min","par","max"].map(k => `<td><input class="sel" type="number" min="0" step="any" data-k="${k}" value="${esc(c[k] ?? "")}" aria-label="${k} level in ${esc(b.name)}"></td>`).join("")}</tr>`; }).join("")}</tbody></table></div>
+      <footer><span style="flex:1"></span><button type="button" class="btn" data-ccclose>Cancel</button><button type="button" class="btn pri" id="lvSave" data-id="${esc(id)}">Save</button></footer>`;
+    box.className = "modal"; $("#ccScrim").classList.add("show"); return; }
+  const ls = e.target.closest("#lvSave"); if(ls){ const id = ls.dataset.id, o = {};
+    document.querySelectorAll("#lvRows tr").forEach(tr => { const v = {}; tr.querySelectorAll("[data-k]").forEach(i => { if(i.value.trim()!=="") v[i.dataset.k] = +i.value; }); if(Object.keys(v).length) o[tr.dataset.b] = v; });
+    const all = { ...invLevels() }; if(Object.keys(o).length) all[id] = o; else delete all[id]; $("#ccScrim").classList.remove("show"); return setSetting("inv_levels", { levels: all }, "Levels saved"); }
+  const lr = e.target.closest("[data-ivlevelrm]"); if(lr){ e.preventDefault(); const [id, b] = lr.dataset.ivlevelrm.split(":"), all = JSON.parse(JSON.stringify(invLevels())); if(all[id]){ delete all[id][b]; if(!Object.keys(all[id]).length) delete all[id]; } return setSetting("inv_levels", { levels: all }, "Level removed"); }
+});
+document.addEventListener("input", e => { if(e.target.id!=="slQ") return; const q = e.target.value.trim().toLowerCase(), sel = $("#slPick"); if(!sel) return; let first = null; [...sel.options].forEach(o => { const hit = !q || o.text.toLowerCase().includes(q); o.hidden = !hit; if(hit && !first) first = o; }); if(first) sel.value = first.value; });
 function ingLive(ix){
   const l = DET.ing[ix], it = itemOf(l.itemId), c = $(`[data-ingc="${ix}"]`); if(c) c.textContent = fmtCost(ingCost(it, l.qty));
   const t = $("#ingTotal"); if(t) t.textContent = fmtCost(recipeCost(DET.ing));
