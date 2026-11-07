@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="448-1794090902">
+<meta name="slick-build" content="449-1794091069">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1171,6 +1171,7 @@ body:has(.scrim.show) #bmApplyBar{display:none}
 .bmapall{display:flex;align-items:center;gap:10px;padding:4px 16px 8px;font-weight:600}
 @media(max-width:1100px){.mmtbl .mmrow:not(.mmorow)>.ddwrap,.mmtbl .mmrow:not(.mmorow)>.scprice,.mmtbl .mmrow:not(.mmorow)>.note{grid-column:auto!important}.mmtbl .mmth{display:grid!important}}
 @media(max-width:720px){.mmtbl{overflow-x:auto;-webkit-overflow-scrolling:touch}.mmtbl .mmth,.mmtbl .mmrow:not(.mmorow){min-width:660px}}
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}   /* stop iPhone Safari enlarging text in wide blocks */
 html.mlock,html.mlock body{overflow:hidden!important}.scrim,.bmdrawer,.bmdbody,.modal .body,.modal>*{overscroll-behavior:contain}
 </style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
@@ -1210,7 +1211,7 @@ html.mlock,html.mlock body{overflow:hidden!important}.scrim,.bmdrawer,.bmdbody,.
       <h4 class="fsec">General</h4>
       <div class="f"><label for="fName">Branch name *</label><input id="fName" required maxlength="60" placeholder="e.g. Hamra"></div>
       <div class="f"><label for="fNameAr">Name Localized</label><input id="fNameAr" maxlength="60" dir="auto"></div>
-      <div class="f"><label for="fCode">Reference code *</label><input id="fCode" maxlength="10" placeholder="e.g. B01"></div>
+      <div class="f"><label for="fCode">Reference code *</label><input id="fCode" maxlength="20" placeholder="e.g. B01"></div>
       <div class="f"><label for="fBrand">Brand *</label><select id="fBrand"></select></div>
       <div class="f"><label for="fTaxName">Branch tax registration name</label><input id="fTaxName" maxlength="80" placeholder="Leave empty to use the company's"></div>
       <div class="f"><label for="fTaxNo">Branch tax number</label><input id="fTaxNo" maxlength="40" placeholder="Leave empty to use the company's"></div>
@@ -8008,12 +8009,16 @@ document.getElementById("signOut").addEventListener("click", () => window.WOK &&
   watch("ccBox", "data-ccclose"); watch("crudBox", "data-cclose"); })();
 </script>
 <script>
+/* every Reference field takes at most 20 characters */
+document.addEventListener("focusin", e => { const el = e.target; if(el.tagName!=="INPUT" || /^(checkbox|radio|number|search)$/.test(el.type)) return;
+  const lab = el.id ? document.querySelector('label[for="' + el.id + '"]') : null, t = (lab?.textContent || el.getAttribute("aria-label") || "").toLowerCase();
+  if(/^(cf_reference|dRef|fCode)$/.test(el.id) || /\breference\b/.test(t)) el.maxLength = 20; }, true);
 /* Lock page scroll while any dialog / drawer is open */
 (function(){const H=document.documentElement;let q=0;const sync=()=>{q=0;H.classList.toggle("mlock",!!document.querySelector(".scrim.show,.bmdscrim"));};
 new MutationObserver(()=>{if(!q){q=1;requestAnimationFrame(sync);}}).observe(document.body,{subtree:true,childList:true,attributes:true,attributeFilter:["class"]});
 /* table headers stay pinned under the top bar while the page scrolls (tables that fit their card) */
 const thFit=()=>{const os=document.querySelector(".ostick"),top=document.querySelector(".top");let t=top?top.offsetHeight:0;if(os&&getComputedStyle(os).position==="sticky")t+=os.offsetHeight-6;H.style.setProperty("--thtop",t+"px");
-document.querySelectorAll(".card.tbl").forEach(c=>{const tb=c.querySelector(":scope>table");if(!tb||!tb.tHead)return;c.classList.remove("tfit");if(tb.scrollWidth<=c.clientWidth+1)c.classList.add("tfit");});};
+document.querySelectorAll(".card.tbl").forEach(c=>{const tb=c.querySelector(":scope>table");if(!tb||!tb.tHead)return;c.classList.remove("tfit");let sc=false;for(let el=tb;el&&el!==document.body;el=el.parentElement){if(el===c)continue;const o=getComputedStyle(el);if(/(auto|scroll|hidden|clip)/.test(o.overflowY+o.overflowX)){sc=true;break;}}if(!sc&&tb.scrollWidth<=c.clientWidth+1){c.classList.add("tfit");const o=getComputedStyle(c);if(o.overflowX!=="visible"||o.overflowY!=="visible")c.classList.remove("tfit");}});};
 let tq=0;new MutationObserver(()=>{if(!tq){tq=1;setTimeout(()=>{tq=0;thFit();},120);}}).observe(document.body,{subtree:true,childList:true});addEventListener("resize",()=>setTimeout(thFit,60));
 document.addEventListener("wheel",e=>{if(!H.classList.contains("mlock"))return;const t=e.target;if(t.classList&&(t.classList.contains("scrim")||t.classList.contains("bmdscrim")))e.preventDefault();},{passive:false});
 document.addEventListener("touchmove",e=>{const t=e.target;if(H.classList.contains("mlock")&&t.classList&&(t.classList.contains("scrim")||t.classList.contains("bmdscrim")))e.preventDefault();},{passive:false});})();
