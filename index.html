@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="416-1794082013">
+<meta name="slick-build" content="417-1794082146">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -6213,10 +6213,8 @@ function ingEditor(forKey, rec){
 }
 // Update Ingredient (one line) and Edit Quantities (all lines): net quantity and yield %, saved right away
 // an ingredient quantity in both units: storage unit + ingredient unit (stored in ingredient units)
-function ingBoth(i, it, net, head){
-  const su = storUnit(it), iu = ingUnit(it), fac = +it?.factor || 1, n = +net || 0, whole = fac > 1 ? Math.floor(n / fac + 1e-9) : 0, rest = +(n - whole * fac).toFixed(4);
-  return `${head ? `<div class="qitem"><b>${esc(head)}</b>` : ""}<div class="f"><label for="iq_s_${i}">Quantity (${esc(su)}) *</label><input class="sel" id="iq_s_${i}" data-iqs="${i}" data-fac="${fac}" type="number" min="0" step="any" value="${esc(whole)}"></div>
-    <div class="f"><label for="iq_n_${i}">Quantity (${esc(iu)}) *</label><input class="sel" id="iq_n_${i}" data-iqn="${i}" type="number" min="0" step="any" value="${esc(rest)}"></div><p class="qconv">1 ${esc(su)} = ${n2(fac)} ${esc(iu)}</p>${head ? "</div>" : ""}`;
+function ingBoth(i, it, net, head){   // ingredients: only the ingredient-unit quantity
+  return `<div class="f"><label for="iq_n_${i}">${head ? esc(head) + " " : "Quantity "}(${esc(ingUnit(it))}) *</label><input class="sel" id="iq_n_${i}" data-iqn="${i}" type="number" min="0" step="any" value="${esc(+net || "")}"></div>`;
 }
 function ingQtyDialog(ix){
   const one = ix!=null, list = one ? [ix] : DET.ing.map((_, i) => i), box = $("#ccBox"); box.className = "modal sm";
