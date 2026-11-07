@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="414-1794081493">
+<meta name="slick-build" content="415-1794081676">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1136,6 +1136,7 @@ button.x:hover,button.mmdx:hover,.dzchip>button:hover,.chip>button:hover{transfo
 .qconv{margin:2px 0 6px;color:var(--ink2);font-size:13.5px}.qitem{padding:4px 0 8px;border-bottom:1px solid var(--line,#ecebf2);margin-bottom:10px}.qitem:last-child{border-bottom:0}.qitem > b{display:block;margin-bottom:6px}
 /* sales channel item rows: grip, product, on/off switch, menu */
 .mmtbl .mmth,.mmtbl .mmrow:not(.mmorow){grid-template-columns:22px minmax(0,1fr) 52px 36px!important}.mmrow .mmon{justify-self:center}
+.bmdsec td{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:#8a87a0;padding:14px 14px 6px!important;background:#fff}.bmdgrow .bmgrip,.bmdmx tr[data-skn] .bmgrip{width:22px;height:22px;margin-right:6px;vertical-align:middle}.bmdmx tr[data-skn] td:first-child{display:flex;align-items:center}
 </style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -4434,9 +4435,10 @@ function bmDrawer(br, ch, types){
   h += `<div class="bmdtw"><table class="bmdtbl bmdmx"><thead><tr><th></th>${cols.map(([t, tl]) => `<th class="num"><label class="bmdth" title="Sell ${esc(r.name)} as ${esc(tl)}"><span>${esc(tl)}</span><span class="toggle sm"><input type="checkbox" data-bmtype="${esc(r.id)}|${t}" ${st.types[t]?"checked":""} aria-label="Sell as ${esc(tl)}"><span class="trk"></span></span></label></th>`).join("")}<th class="c">Stock</th></tr></thead><tbody>
     <tr class="bmditem"><td><b>Item price</b><small>${usd(base)}</small></td>${cols.map(([t, tl]) => cell(`data-bmtprice="${esc(r.id)}|${t}"`, st.tprices[t], base, !st.types[t], tl + " price")).join("")}
       <td class="c"><label class="toggle sm" title="${st.stock ? "In stock" : "Sold out"} at ${esc(br.name)}"><input type="checkbox" data-bmstock="${esc(r.id)}" ${st.stock?"checked":""} ${st.on?"":"disabled"} aria-label="In stock"><span class="trk"></span></label></td></tr>
-    ${links.map(l => { const os = modOptions(l.modifierId), nOn = os.filter(o => bmOptState(r, o).on).length;
-      return `<tr class="bmdgrow"><td colspan="${cols.length + 2}"><b>${esc(modName(l.modifierId))}</b><span class="tag">${rule(l)}</span>${+l.free ? `<span class="tag">${l.free} free</span>` : ""}<span class="note">${nOn}/${os.length} on</span></td></tr>` + os.map(o => { const s = bmOptState(r, o), ob = s.price!=="" ? +s.price : +o.price||0;
-        return `<tr class="${s.on ? "" : "off"}"><td><label class="bmdon"><span class="toggle sm"><input type="checkbox" data-bmoon="${esc(r.id)}|${esc(o.id)}" ${s.on?"checked":""} aria-label="${esc(o.name)}"><span class="trk"></span></span><span><b>${esc(o.name)}</b><small>${ob ? usd(ob) : "Free"}</small></span></label></td>
+    ${links.length ? `<tr class="bmdsec"><td colspan="${cols.length + 2}">Modifiers</td></tr>` : ""}
+    ${links.map((l, li) => { const os = modOptions(l.modifierId), nOn = os.filter(o => bmOptState(r, o).on).length;
+      return `<tr class="bmdgrow" data-sk="bmg:${esc(r.id)}|${(r.modifiers||[]).indexOf(l)}"><td colspan="${cols.length + 2}"><span class="bmgrip" title="Drag to sort" aria-hidden="true">⋮⋮</span><b>${esc(modName(l.modifierId))}</b><span class="tag">${rule(l)}</span>${+l.free ? `<span class="tag">${l.free} free</span>` : ""}<span class="note">${nOn}/${os.length} on</span></td></tr>` + os.map(o => { const s = bmOptState(r, o), ob = s.price!=="" ? +s.price : +o.price||0;
+        return `<tr class="${s.on ? "" : "off"}" data-sk="opt:${esc(l.modifierId)}|${esc(o.id)}" data-skn="1"><td><span class="bmgrip" title="Drag to sort" aria-hidden="true">⋮⋮</span><label class="bmdon"><span class="toggle sm"><input type="checkbox" data-bmoon="${esc(r.id)}|${esc(o.id)}" ${s.on?"checked":""} aria-label="${esc(o.name)}"><span class="trk"></span></span><span><b>${esc(o.name)}</b><small>${ob ? usd(ob) : "Free"}</small></span></label></td>
           ${cols.map(([t, tl]) => cell(`data-bmotprice="${esc(r.id)}|${esc(o.id)}|${t}"`, s.tprices[t], ob, !s.on || !st.types[t], o.name + " " + tl + " price")).join("")}
           <td class="c"><label class="toggle sm" title="${s.stock ? "In stock" : "Sold out"}"><input type="checkbox" data-bmostock="${esc(r.id)}|${esc(o.id)}" ${s.stock?"checked":""} ${s.on?"":"disabled"} aria-label="${esc(o.name)} in stock"><span class="trk"></span></label></td></tr>`; }).join(""); }).join("")}
   </tbody></table></div><p class="note bmdhint">Switch an order type off in its header to stop selling the item as it. Empty price = the price shown under the name.</p></div></aside>`;
@@ -7788,6 +7790,8 @@ state.date = todayStr();
    Press and drag a row (mouse or finger). The row lifts and follows the pointer, a faded slot shows where it will land,
    the other rows slide out of the way, and on release it settles into place and the new order is saved. */
 const SORT_DONE_X = {
+  bmg: async (keys, pid) => { const p = S.products.find(x => x.id===pid); if(!p) return; const all = p.modifiers||[], list = [...keys.map(i => all[+i]).filter(Boolean), ...all.filter((_, i) => !keys.includes(String(i)))];   // a product's modifier groups, from its sales channel drawer
+    try{ await put("products", p.id, { modifiers: list }); p.modifiers = list; toast("Modifier order saved"); render(); }catch(err){ console.error(err); toast("Couldn't save the order"); } },
   alg: keys => { const l = allergenList(); algSave(keys.map(i => l[+i]).filter(Boolean)).then(ok => ok && toast("Order saved")); },   // allergens list order
   itr: () => {},   // list rows in forms: the new order is read when the form is saved
   pml: keys => { if(!DET.mods) return; DET.mods = keys.map(i => DET.mods[+i]).filter(Boolean); DET.dirtyMods = true; saveModLinks(); }   // a product's modifiers, in the order customers see them
@@ -7805,7 +7809,7 @@ const SORT_DONE = {
 (function(){
   let D = null, swallowClick = false;
   const skOf = el => { const v = el.dataset.sk, i = v.lastIndexOf("|"); return [v.slice(0, i), v.slice(i+1)]; };
-  const blockOf = el => { const out = [el]; let n = el.nextElementSibling; while(n && !n.dataset.sk){ out.push(n); n = n.nextElementSibling; } return out; };
+  const blockOf = el => { const out = [el]; let n = el.nextElementSibling; while(n && (!n.dataset.sk || (!el.dataset.skn && n.dataset.skn))){ out.push(n); n = n.nextElementSibling; } return out; };
   const sibs = () => [...D.box.children].filter(x => x.dataset.sk && skOf(x)[0]===D.group);
   const flip = mv => { const kids = [...D.box.children], before = new Map(kids.map(k => [k, k.getBoundingClientRect().top])); mv();
     kids.forEach(k => { const d = before.get(k) - k.getBoundingClientRect().top; if(!d) return; k.style.transition = "none"; k.style.transform = `translateY(${d}px)`;
