@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="366-1794069584">
+<meta name="slick-build" content="367-1794069906">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1066,8 +1066,8 @@ table.sk-ghost-t{border-collapse:collapse;table-layout:fixed}table.sk-ghost-t td
 .msel-k{margin-left:auto;flex:none;color:var(--muted,#77748a)}.msel-ph{color:var(--muted,#9a97a8)}.msel-v{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .msel-cs{display:flex;flex-wrap:wrap;gap:6px}.msel-c{display:inline-flex;align-items:center;gap:4px;background:#efe9fb;color:#4a2aa8;border-radius:6px;padding:3px 4px 3px 9px;font-size:13px;font-weight:500}
 .msel-c button{border:0;background:none;color:inherit;cursor:pointer;font-size:15px;line-height:1;padding:0 4px;border-radius:4px}.msel-c button:hover{background:rgba(74,42,168,.12)}
-.msel>.msel-p{position:absolute;left:0;right:0;top:calc(100% + 4px);z-index:60;background:#fff;border:1px solid var(--line2,#dcdae5);border-radius:10px;box-shadow:0 12px 32px rgba(20,18,40,.16);padding:8px;max-width:none}
-.msel.up>.msel-p{top:auto;bottom:calc(100% + 4px)}.msel-q{width:100%;box-sizing:border-box;border:1px solid var(--line2,#dcdae5);border-radius:8px;padding:8px 10px;font:inherit;font-size:14px;margin-bottom:6px}.msel-q:focus{outline:0;border-color:#7a55e0}
+.msel>.msel-p{position:fixed;z-index:1000;background:#fff;border:1px solid var(--line2,#dcdae5);border-radius:10px;box-shadow:0 12px 32px rgba(20,18,40,.16);padding:8px;max-width:none}
+.msel-q{width:100%;box-sizing:border-box;border:1px solid var(--line2,#dcdae5);border-radius:8px;padding:8px 10px;font:inherit;font-size:14px;margin-bottom:6px}.msel-q:focus{outline:0;border-color:#7a55e0}
 .msel-l{display:flex!important;flex-direction:column;gap:0!important;max-height:240px;overflow:auto;padding:0!important;border:0!important}
 .msel .msel-o{display:flex!important;align-items:center;gap:10px;width:100%;box-sizing:border-box;border:0!important;border-radius:6px!important;background:none!important;padding:9px 10px!important;margin:0!important;font:inherit;font-size:14px;text-align:left;cursor:pointer;color:var(--ink,#1c1b22);box-shadow:none!important}
 .msel .msel-o:hover{background:var(--bg,#f4f3f8)!important}.msel .msel-o.on,.msel .msel-o:has(input:checked){color:#4a2aa8;font-weight:600}.msel .msel-o[hidden]{display:none!important}
@@ -1075,6 +1075,7 @@ table.sk-ghost-t{border-collapse:collapse;table-layout:fixed}table.sk-ghost-t td
 .msel .msel-o.on::after,.msel .msel-o:has(input:checked)::after{background:no-repeat center/16px url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%235b2bc4' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E")}
 .msel .msel-o .note{font-weight:400}.msel-none{padding:10px;color:var(--muted)}.mselect>select{display:none!important}
 .multi.msel{display:block!important;max-height:none!important;overflow:visible!important;border:0!important;padding:0!important;background:none!important}
+.segtabs{display:inline-flex;gap:4px;background:var(--bg,#f1f0f6);border-radius:10px;padding:4px;margin:0 0 14px}.segtabs a{padding:8px 16px;border-radius:8px;font-size:14px;font-weight:500;color:var(--ink2,#55526a);text-decoration:none}.segtabs a.on{background:#fff;color:#5b2bc4;font-weight:600;box-shadow:0 1px 4px rgba(20,18,40,.1)}
 </style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -1361,7 +1362,7 @@ new MutationObserver(() => { clearTimeout(decorate.t); decorate.t = setTimeout((
 
 
 function renderNav(route){
-  if(route==="tax-groups") route = "taxes"; if(route==="tables") route = "branches";
+  if(route==="tax-groups") route = "taxes"; if(route==="tables") route = "branches"; if(route==="modifier-options") route = "modifiers";
   $("#nav").innerHTML = NAV.map((n,gi) => {
     if(!canOpen(n.id || n.kids.find(k=>!k[0].startsWith("@"))?.[0])) return "";
     if(n.id) return `<a href="#${n.id}" class="${route===n.id?"on":""}">${svgIco(n.i)}${n.t}</a>`;
@@ -2181,9 +2182,9 @@ function render(){
   else if(route==="inventory-more" || route==="manage-more") v.innerHTML = viewMore(route);
   else if(moduleRoute(route) !== null) v.innerHTML = moduleRoute(route);
   else v.innerHTML = `<h1>${esc(TITLES[route]||"Not found")}</h1><p class="subt">&nbsp;</p>` + placeholder("Coming next", "This screen is part of the plan and will be built in a later step.");
-  const tg = NAV.find(n => n.tabs && n.kids.some(k=>k[0]===route));   // Inventory: every screen is a tab at the top of the page
-  if(tg){ const ks = tg.kids.filter(k=>!k[0].startsWith("@")), mi = tg.more ? ks.findIndex(k => k[0]===tg.more) : -1, inMore = mi >= 0 && ks.findIndex(k => k[0]===route) >= mi;
-    v.insertAdjacentHTML("afterbegin", `<nav class="ptabs" aria-label="${esc(tg.t)}">${(mi >= 0 ? ks.slice(0, mi+1) : ks).filter(k => canOpen(k[0])).map(k=>`<a href="#${k[0]}" class="${k[0]===route || (k[0]===tg.more && inMore)?"on":""}">${svgIco(SUBI[k[0]]||"list")}${esc(k[1])}</a>`).join("")}</nav>`);
+  const troute = route==="modifier-options" ? "modifiers" : route, tg = NAV.find(n => n.tabs && n.kids.some(k=>k[0]===troute));   // Inventory: every screen is a tab at the top of the page
+  if(tg){ const ks = tg.kids.filter(k=>!k[0].startsWith("@")), mi = tg.more ? ks.findIndex(k => k[0]===tg.more) : -1, inMore = mi >= 0 && ks.findIndex(k => k[0]===troute) >= mi;
+    v.insertAdjacentHTML("afterbegin", `<nav class="ptabs" aria-label="${esc(tg.t)}">${(mi >= 0 ? ks.slice(0, mi+1) : ks).filter(k => canOpen(k[0])).map(k=>`<a href="#${k[0]}" class="${k[0]===troute || (k[0]===tg.more && inMore)?"on":""}">${svgIco(SUBI[k[0]]||"list")}${esc(k[1])}</a>`).join("")}</nav>`);
     if(inMore && route!==tg.more) v.querySelector(".phead, h1")?.insertAdjacentHTML("beforebegin", `<a href="#${tg.more}" class="btn morebk" style="text-decoration:none;margin:0 0 10px">${svgIco("back")}${esc(tg.t)}</a>`); }
   v.querySelectorAll(".chart").forEach(wireLine);
   if(route==="delivery-zones") setTimeout(initZonesOverview, 0);
@@ -2212,13 +2213,18 @@ function msEnhance(){
     const p = document.createElement("div"); p.className = "msel-p"; p.hidden = true; p.innerHTML = `<input class="msel-q" placeholder="Type something to start searching" autocomplete="off"><div class="msel-l"></div>`;
     m.prepend(p); m.prepend(f); msPaint(m); });
 }
+// the list floats above everything (dialogs scroll and would cut it off)
+function msPlace(m){ const p = m.querySelector(":scope > .msel-p"), r = m.querySelector(":scope > .msel-f").getBoundingClientRect(), up = innerHeight - r.bottom < 300 && r.top > innerHeight - r.bottom;
+  Object.assign(p.style, { position:"fixed", left: r.left + "px", width: r.width + "px", top: up ? "auto" : (r.bottom + 4) + "px", bottom: up ? (innerHeight - r.top + 4) + "px" : "auto", right:"auto" }); }
+addEventListener("scroll", e => { if(e.target.closest?.(".msel-p")) return; document.querySelectorAll(".msel.open").forEach(msPlace); }, true);
+addEventListener("resize", () => document.querySelectorAll(".msel.open").forEach(msPlace));
 function msClose(except){ document.querySelectorAll(".msel.open").forEach(m => { if(m!==except){ m.classList.remove("open"); m.querySelector(":scope > .msel-p").hidden = true; } }); }
 function msOpen(m){
   msClose(m); const p = m.querySelector(":scope > .msel-p");
   if(m.classList.contains("mselect")){ const sel = m.querySelector("select"); if(sel.disabled) return;
     p.querySelector(".msel-l").innerHTML = [...sel.options].filter(o => !(o.value==="" && /^(choose|select)/i.test(o.text)) && !o.hidden).map(o => `<button type="button" class="msel-o${o.value===sel.value?" on":""}" data-msv="${esc(o.value)}"${o.disabled?" disabled":""}>${esc(o.text)}</button>`).join("") || `<div class="msel-none">No options</div>`; }
   m.classList.add("open"); p.hidden = false; const q = p.querySelector(".msel-q"); q.value = ""; p.querySelectorAll(".msel-o").forEach(o => o.hidden = false);
-  const r = m.getBoundingClientRect(); m.classList.toggle("up", innerHeight - r.bottom < 280 && r.top > 300); setTimeout(() => q.focus(), 0);
+  msPlace(m); setTimeout(() => q.focus(), 0);
 }
 document.addEventListener("click", e => {
   const x = e.target.closest("[data-msx]"); if(x){ e.preventDefault(); e.stopPropagation(); const m = x.closest(".msel"), i = [...m.querySelectorAll(".msel-l input")].find(i => i.value===x.dataset.msx); if(i){ i.checked = false; i.dispatchEvent(new Event("change", { bubbles:true })); } msPaint(m); return; }
@@ -2560,7 +2566,7 @@ const NAV_PERM = { "dashboard":"bo_dashboard", "orders":"bo_orders", "call-cente
 // may the signed-in person do this back-office action? (the owner and admins always may)
 const mayDo = perm => { const p = myPerms(); return !p || p.includes(perm) || p.includes("bo_manage"); };
 function canOpen(route){
-  const p = myPerms(); if(!p) return true; if(route==="tax-groups") route = "taxes"; if(route==="tables") route = "branches";
+  const p = myPerms(); if(!p) return true; if(route==="modifier-options") route = "modifiers"; if(route==="tax-groups") route = "taxes"; if(route==="tables") route = "branches";
   const n = NAV.find(x => x.id===route || (x.kids||[]).some(k=>k[0]===route) || (x.side||[]).some(k=>k[0]===route)); if(!n) return true;
   const need = NAV_PERM[n.id || n.t]; return !need || p.includes(need);
 }
@@ -2756,8 +2762,8 @@ const CRUD = {
     sort:(a,b)=>modName(a.modifierId).localeCompare(modName(b.modifierId)) || bySort(a,b),
     search:r=>r.name+" "+(r.sku||"")+" "+modName(r.modifierId),
     filter:r=>!state.modFilter || r.modifierId===state.modFilter,
-    cols:[["Name",r=>`<b>${esc(r.name)}</b>`],["Modifier",r=>esc(modName(r.modifierId))],["SKU",r=>`<span class="code">${esc(r.sku||"")}</span>`],["Price",r=>+r.price?usd(r.price):'<span class="note">Free</span>',"num"],
-      ["Cost",r=>{ const c = productCost(r); return c ? fmtCost(c) : "—"; },"num"]],
+    cols:[["Name",r=>`<b>${esc(r.name)}</b>`],["SKU",r=>`<span class="code">${esc(r.sku||"")}</span>`],["Modifier",r=>esc(modName(r.modifierId))],["Price",r=>+r.price?usd(r.price):'<span class="note">Free</span>'],
+      ["Tax Group",r=>esc(tgName(r.taxGroup))],["Cost",r=>{ const c = productCost(r); return c ? fmtCost(c) : "—"; }]],
     fields:[{k:"name",l:"Name",req:1},{k:"nameAr",l:"Name Localized"},
       {k:"modifierId",l:"Modifier",t:"select",req:1,opts:()=>S.modifiers.filter(live).sort((a,b)=>a.name.localeCompare(b.name)).map(m=>[m.id,m.name]),auto:()=>state.newOptMod||state.modFilter||""},
       {k:"sku",l:"SKU",auto:()=>nextSku("modifier_options")},{k:"price",l:"Price (USD)",t:"number",def:0},{k:"taxGroup",l:"Tax group",t:"select",opts:()=>taxGroupOpts(),def:"tg_vat"},
@@ -2882,7 +2888,6 @@ document.addEventListener("click", e => { const b = e.target.closest("[data-gens
 
 state.tabs = {}; state.q = {}; state.page = {}; state.catFilter = "";
 function crudView(key){
-  if(key==="modifier-options"){ setTimeout(() => location.replace("#modifiers"), 0); return ""; }   // options are managed inside their modifier
   if(key==="inv-items") loadStock();   // the list shows stock on hand
   const dk = key==="modifiers" && DET.key==="modifier-options" ? DET.key : key;
   if(CRUD[dk].detail && DET.key===dk && DET.id){ const r = S[CRUD[dk].col].find(x=>x.id===DET.id); if(r) return CRUD[dk].detail(r); closeDetail(); }
@@ -2891,7 +2896,7 @@ function crudView(key){
   list.sort(cfg.sort);
   const per = 50, pages = Math.max(1, Math.ceil(list.length/per)), pg = Math.min(state.page[key]||1, pages);
   const shown = list.slice((pg-1)*per, pg*per);
-  let h = `<div class="phead"><h1>${cfg.title}</h1><div class="sp"></div>${IMPEX[key] ? `<span class="ddwrap iewrap"><button type="button" class="btn" data-iemenu>Import / Export <span class="iecv">▾</span></button><span class="ddmenu iemenu" hidden><button type="button" data-imp="${key}">${svgIco("upload")}Import</button><button type="button" data-exp="${key}">${svgIco("download")}Export</button></span></span>` : ""}<button class="btn pri" data-create="${key}">${cfg.addLbl||"Create"} ${cfg.one}</button></div>`;
+  let h = (key==="modifiers" || key==="modifier-options" ? `<div class="segtabs"><a href="#modifiers" class="${key==="modifiers"?"on":""}">Modifiers Groups</a><a href="#modifier-options" class="${key==="modifier-options"?"on":""}">Modifier Options</a></div>` : "") + `<div class="phead"><h1>${key==="modifiers" ? "Modifiers Groups" : cfg.title}</h1><div class="sp"></div>${IMPEX[key] ? `<span class="ddwrap iewrap"><button type="button" class="btn" data-iemenu>Import / Export <span class="iecv">▾</span></button><span class="ddmenu iemenu" hidden><button type="button" data-imp="${key}">${svgIco("upload")}Import</button><button type="button" data-exp="${key}">${svgIco("download")}Export</button></span></span>` : ""}<button class="btn pri" data-create="${key}">${cfg.addLbl||"Create"} ${cfg.one}</button></div>`;
   if(storeMode==="local") h += `<div class="banner">Preview mode: changes won't be saved.</div>`;
   if(cfg.note) h += `<p class="subt" style="margin-top:-6px">${esc(cfg.note)}</p>`;
   if(cfg.top) h += cfg.top();
