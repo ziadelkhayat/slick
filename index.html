@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="356-1794066038">
+<meta name="slick-build" content="357-1794066167">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1032,6 +1032,13 @@ table.sk-ghost-t{border-collapse:collapse;table-layout:fixed}table.sk-ghost-t td
 .cccart .clist{border-bottom:1px solid var(--line);margin-bottom:8px}.cccart .clist .citem:last-child{border-bottom:0}.cccart .ccdline{padding:4px 0;align-items:center}
 .cccart .notesbox{position:sticky;top:0;z-index:4;background:var(--surface,#fff)}.cccart .notesbox:empty{display:none}
 .lpgm{min-height:220px}
+/* detail "info" cards: tidy label/value grid with light dividers (branches, customers, discounts, products, users…) */
+.igrid,.card.odet{display:grid!important;grid-template-columns:repeat(auto-fill,minmax(210px,1fr))!important;gap:0!important;padding:6px 22px!important;margin-bottom:16px}
+.igrid>div,.card.odet>div{padding:14px 0;border-bottom:1px solid var(--line);margin-right:18px;min-width:0}
+.igrid>div>.note:first-child,.card.odet>div>span:first-child{display:block;font-size:11.5px!important;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)!important;margin-bottom:4px}
+.igrid>div>div:last-child,.card.odet>div{font-size:14.5px;font-weight:500;color:var(--ink);overflow-wrap:anywhere}
+.dsinfo.igrid{padding:6px 0!important;box-shadow:none;border:0}
+[data-cusmore]{display:none!important}
 </style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -1981,7 +1988,7 @@ document.addEventListener("change", e => {
 });
 
 function viewBranch(b){
-  const st = b.settings || {}, more = state.brMore, row = (k, v) => `<div><span>${k}</span>${v}</div>`, t12o = v => v ? esc(t12(v)) : "—";
+  const st = b.settings || {}, more = true, row = (k, v) => `<div><span>${k}</span>${v}</div>`, t12o = v => v ? esc(t12(v)) : "—";
   const mon = st.hours?.mon || {}, tg = (S.tax_groups||[]).find(g => g.id===st.taxGroup)?.name;
   const zones = (S.zones||[]).filter(z => !z.deleted && z.branchId===b.id), users = (S.users||[]).filter(u => !u.deleted && !isAdminRow(u) && u.active!==false && (!(u.branchIds||[]).length || u.branchIds.includes(b.id)));
   const devs = S.devices.filter(d => live(d) && d.branchId===b.id), chs = (S.charges||[]).filter(c => !c.deleted && c.active!==false && (!(c.branchIds||[]).length || c.branchIds.includes(b.id)));
@@ -1994,8 +2001,8 @@ function viewBranch(b){
       ${more ? row("Opening From", t12o(mon.open || b.open)) + row("Opening To", t12o(mon.close || b.close)) + row("Business day starts", t12o(st.dayStart || "00:00")) + row("Inventory End of Day", t12o(st.invEnd || st.dayStart || "00:00"))
         + row("Tax Group", esc(tg || "—")) + row("Tax Registration Name", esc(st.taxName || "—")) + row("Tax Number", esc(b.taxNumber || "—")) + row("Phone", esc(b.phone || "—")) + row("Address", esc(b.address || "—"))
         + row("Location", b.lat && b.lng ? `<a class="lnk" target="_blank" rel="noopener" href="https://www.google.com/maps?q=${b.lat},${b.lng}">${b.lat}, ${b.lng}</a>` : "—") + row("Receives call center and web orders", b.callCenter ? "Yes" : "No") + row("Automatic end of day", st.autoDayEnd===false ? "No" : "Yes") : ""}
-      <div style="grid-column:1/-1"><button class="lnk" data-brmore style="background:none;border:0;padding:0;cursor:pointer">${more ? "Show Less" : "Show More"}</button></div></div>
-    ${card("Delivery Zones", `<a class="btn sm" href="#delivery-zones" style="text-decoration:none">Manage Delivery Zones</a>`, tbl(["Name","Delivery charge","Min. order"], zones.map(z => { const c = dcChargeOf(z); return [esc(z.name), c ? `${esc(c.name)} · ${money(+c.value||0)}` : '<span class="note">—</span>', money(+z.minOrder||0)]; })))}
+</div>
+    ${card("Delivery Zones", "", tbl(["Name","Delivery charge","Min. order"], zones.map(z => { const c = dcChargeOf(z); return [esc(z.name), c ? `${esc(c.name)} · ${money(+c.value||0)}` : '<span class="note">—</span>', money(+z.minOrder||0)]; })))}
     ${card("Users", "", tbl(["Name","Email","Phone"], users.map(u => [esc(u.name), esc(u.email||"—"), esc(u.phone||"—")])))}
     ${card("Sections", `<button class="btn sm" data-secadd="${esc(b.id)}">Add Section</button>`, secs.length ? `<table><thead><tr><th>Name</th><th class="num">Tables</th><th>Table names</th></tr></thead><tbody>${secs.map(sc => { const l = tl.filter(t => (t.section||"")===sc);
       return `<tr class="click" data-secopen="${esc(b.id)}" data-sec="${esc(sc)}"><td><b>${esc(sc || "No section")}</b></td><td class="num">${l.length}</td><td>${l.map(t => esc(tblLbl(t.name))).join(", ") || '<span class="note">—</span>'}</td></tr>`; }).join("")}</tbody></table>` : '<p class="note brempty">No data to display!</p>')}
@@ -5708,11 +5715,11 @@ const DS_SECS = [
   ["customerTags","Limit To Customer Tags","Add Customer Tags","Select the customers who are eligible for this discount.",["Name"], () => tagList("customer").map(t => [t.id, t.name]), id => { const n = tagName(id); return n ? [n] : null; }]];
 function dsDetail(d){
   const q = (DS_QUAL.find(x => x[0]===d.qualification)||DS_QUAL[0])[1], ot = { dinein:"Dine In", pickup:"Pick Up", delivery:"Delivery", fast:"Fast Sale" };
-  const more = DS.more ? [info("Name Localized", esc(d.nameAr||"—")), info("Qualification", esc(q)), info("Discount Amount", dsAmtLbl(d)), info("Minimum Order Price", d.minOrder!=null ? money(d.minOrder) : "—"), info("Minimum Product Price", d.minProduct!=null ? money(d.minProduct) : "—"),
+  const more = true ? [info("Name Localized", esc(d.nameAr||"—")), info("Qualification", esc(q)), info("Discount Amount", dsAmtLbl(d)), info("Minimum Order Price", d.minOrder!=null ? money(d.minOrder) : "—"), info("Minimum Product Price", d.minProduct!=null ? money(d.minProduct) : "—"),
     info("Maximum Discount", d.type!=="fixed" && d.maxDiscount!=null ? money(d.maxDiscount) : "—"), info("Order Types", esc((d.orderTypes||[]).map(k => ot[k]||k).join(", ") || "—")), info("Reference", esc(d.reference||"—")), info("Taxable", d.taxable ? "Yes" : "No")] : [];
   return `<div class="phead"><a href="#discounts" class="btn" data-dsback style="text-decoration:none">← Back</a><h1 style="margin-left:10px">${esc(d.name)}</h1><div class="sp"></div><button class="btn" data-dsedit="${esc(d.id)}">Edit Discount</button></div>
-  <div class="card" style="margin-bottom:16px"><div style="display:flex;align-items:center"><b>Details</b><div class="sp"></div><button type="button" class="lnk" data-dsmore style="border:0;background:none;padding:0;margin-left:12px;cursor:pointer">${DS.more ? "Show Less" : "Show More"}</button></div>
-    ${infoGrid([info("Name", esc(d.name)), info("Discount", dsAmtLbl(d)), ...more]).replace('class="card"', 'class="dsinfo"')}</div>
+  <div class="card" style="margin-bottom:16px"><div style="display:flex;align-items:center"><b>Details</b></div>
+    ${infoGrid([info("Name", esc(d.name)), info("Discount", dsAmtLbl(d)), ...more]).replace('class="card igrid"', 'class="igrid dsinfo"')}</div>
   ${DS_SECS.map(([k, title, btn, hint, head, , row]) => { const ids = d[k]||[], rows = ids.map(row).filter(Boolean);
     return `<div class="card tbl" style="margin-bottom:16px"><div class="ttop"><b>${title}</b><div class="sp"></div><button class="btn sm" data-dssec="${k}">${rows.length && btn.startsWith("Add") ? btn.replace("Add","Edit") : btn}</button></div>
       ${rows.length ? `<table><thead><tr>${head.map(h => `<th>${h}</th>`).join("")}</tr></thead><tbody>${rows.map(r => `<tr>${r.map((c,i) => `<td>${i ? esc(c) : `<b>${esc(c)}</b>`}</td>`).join("")}</tr>`).join("")}</tbody></table>` : `<div class="empty" style="padding:22px">${hint}</div>`}</div>`; }).join("")}`;
@@ -5773,7 +5780,7 @@ function openDetail(key, id){
 }
 function closeDetail(){ DET.key = ""; DET.id = ""; DET.ing = null; DET.br = null; DET.var = null; DET.ingFor = ""; DET.dirtyVar = false; }
 const info = (l, v) => `<div><div class="note">${l}</div><div>${v}</div></div>`;
-const infoGrid = cells => `<div class="card" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px 18px;margin-bottom:16px">${cells.join("")}</div>`;
+const infoGrid = cells => `<div class="card igrid">${cells.join("")}</div>`;
 
 function ingEditor(forKey, rec){
   const rows = DET.ing, isProd = forKey==="products" || forKey==="modifier-options";
