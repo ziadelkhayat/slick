@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="411-1794080894">
+<meta name="slick-build" content="412-1794081131">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -6954,11 +6954,11 @@ const qCell = (kind, key, f, v, lbl, name, itemId) => { const u = f==="qty" ? (i
   return `<span class="qcell" data-qe="${kind}|${esc(key)}|${f}" data-lbl="${esc(lbl)}" data-name="${esc(name)}" data-item="${esc(itemId||"")}">${n2(+v||0)}${u ? " " + esc(u) : ""}</span>`; };   // quantities are entered by pressing the row (Foodics)
 // a quantity in the item's units (Foodics): storage unit, plus the ingredient unit when the item has one, e.g. 1 gallon + 500 gram
 function qFields(i, lbl, qe, v, it){
-  const su = it?.storageUnit || "", iu = it?.ingredientUnit || "", fac = +it?.factor || 0, two = su && iu && fac > 1 && iu.toLowerCase()!==su.toLowerCase();
+  const su = it?.storageUnit || "storage unit", iu = it?.ingredientUnit || "ingredient unit", fac = +it?.factor || 1, two = true;   // both units, always (Foodics)
   if(!it) return `<div class="f"><label for="qe_${i}">${esc(lbl)} *</label><input class="sel" id="qe_${i}" type="number" min="0" step="any" inputmode="decimal" value="${esc(v ?? "")}" data-qset="${esc(qe)}"></div>`;
   const n = +v || 0, whole = two ? Math.floor(n + 1e-9) : n, rest = two ? +((n - whole) * fac).toFixed(4) : 0;
   return `<div class="qgrp" data-qset="${esc(qe)}" data-fac="${two ? fac : 1}">
-    <div class="f"><label for="qe_${i}">Quantity${su ? ` (${esc(su)})` : ""} *</label><input class="sel" id="qe_${i}" type="number" min="0" step="any" inputmode="decimal" value="${esc(whole)}" data-qp="s"></div>
+    <div class="f"><label for="qe_${i}">Quantity (${esc(su)}) *</label><input class="sel" id="qe_${i}" type="number" min="0" step="any" inputmode="decimal" value="${esc(whole)}" data-qp="s"></div>
     ${two ? `<div class="f"><label for="qe_${i}b">Quantity (${esc(iu)}) *</label><input class="sel" id="qe_${i}b" type="number" min="0" step="any" inputmode="decimal" value="${esc(rest)}" data-qp="i"></div><p class="qconv">1 ${esc(su)} = ${n2(fac)} ${esc(iu)}</p>` : ""}</div>`;
 }
 const qRead = g => { const s = +g.querySelector('[data-qp="s"]').value || 0, i = +g.querySelector('[data-qp="i"]')?.value || 0; return String(+(s + i / (+g.dataset.fac || 1)).toFixed(6)); };
@@ -7005,7 +7005,7 @@ function flowButtons(d, K){
 }
 function flowHead(d, K, ro, recv){
   const q = K.kind==="purchase" ? "Ordered" : K.kind==="torder" ? "Requested" : d.status==="draft" ? "Quantity" : "Sent";
-  return ["Name","SKU","Storage unit", ...(d.status==="draft" && K.kind!=="purchase" ? ["In stock at source"] : []), d.status==="draft" ? "Quantity" : q,
+  return ["Name","SKU", ...(d.status==="draft" && K.kind!=="purchase" ? ["In stock at source"] : []), d.status==="draft" ? "Quantity" : q,
     ...(recv || (d.status==="closed" && K.kind!=="torder") ? ["Received"] : []), ...(K.kind==="purchase" ? ["Unit cost","Total cost"] : [])];
 }
 function flowRow(d, K, l, ix, it, base, del, qIn, ro, recv, cur, stockLoading){
@@ -7018,7 +7018,7 @@ function flowRow(d, K, l, ix, it, base, del, qIn, ro, recv, cur, stockLoading){
     const c = recv ? r.cost : (l.cost ?? it.cost), q = recv ? r.qty : l.qty;
     costCells = `<td class="num">${draft ? qIn("cost", l.cost ?? it.cost ?? "", "Unit cost") : recv ? rIn("cost", r.cost, "Unit cost") : usd(+c||0)}</td><td class="num" data-doctc="${ix}">${usd((+q||0)*(+c||0))}</td>`;
   }
-  return `<tr>${base}<td>${esc(it.storageUnit||"—")}</td>${srcStock}<td class="num">${qIn("qty", l.qty, "Quantity")}</td>${recvCell}${costCells}${del}</tr>`;
+  return `<tr>${base}${srcStock}<td class="num">${qIn("qty", l.qty, "Quantity")}</td>${recvCell}${costCells}${del}</tr>`;
 }
 async function flowAction(action){
   const d = DOC.edit, K = DOC_KINDS[DOC.open.route]; readDocHeader(); DOC.err = "";
@@ -7389,20 +7389,20 @@ function viewDoc(route){
     if(K.flow) return flowRow(d, K, l, ix, it, base, del, qIn, ro, recv, cur, stockLoading);
     if(K.kind==="quantity"){
       const cost = ro && l.cost!=null ? +l.cost : +it.cost||0, q = +l.qty||0, now = Math.max(0, (cur||0) + (d.direction==="add"?q:-q));
-      return `<tr>${base}<td>${esc(it.storageUnit||"—")}</td>${ro?"":`<td class="num">${stockLoading?"…":cur===undefined?'<span class="note">Not counted</span>':n2(cur)}</td>`}
+      return `<tr>${base}${ro?"":`<td class="num">${stockLoading?"…":cur===undefined?'<span class="note">Not counted</span>':n2(cur)}</td>`}
         <td class="num">${qIn("qty", l.qty, "Quantity")}</td>${ro?"":`<td class="num" data-docnq="${ix}">${stockLoading?"…":n2(now)}</td>`}<td class="num">${cost?usd(cost):"—"}</td><td class="num" data-doctc="${ix}">${cost?usd(cost*q):"—"}</td>${del}</tr>`;
     }
     if(K.kind==="production"){ const uc = ro && l.cost!=null ? +l.cost : recipeCost(it.ingredients), q = +l.qty||0, none = !ro && !(it.ingredients||[]).length;
-      return `<tr>${base}<td>${esc(it.storageUnit||"—")}${none?' <span class="tag off">No ingredients</span>':""}</td><td class="num">${qIn("qty", l.qty, "Quantity")}</td><td class="num">${fmtCost(uc)}</td><td class="num" data-doctc="${ix}">${fmtCost(uc*q)}</td>${del}</tr>`; }
-    if(K.kind==="cost") return `<tr>${base}<td>${esc(it.storageUnit||"—")}</td><td class="num">${ro ? (l.old!=null?usd(l.old):"—") : (+it.cost?usd(it.cost):"—")}</td><td class="num">${ro?usd(l.cost):qIn("cost", l.cost, "New cost")}</td>${del}</tr>`;
+      return `<tr>${base}<td class="num">${none?'<span class="tag off">No ingredients</span> ':""}${qIn("qty", l.qty, "Quantity")}</td><td class="num">${fmtCost(uc)}</td><td class="num" data-doctc="${ix}">${fmtCost(uc*q)}</td>${del}</tr>`; }
+    if(K.kind==="cost") return `<tr>${base}<td class="num">${ro ? (l.old!=null?usd(l.old):"—") : (+it.cost?usd(it.cost):"—")}</td><td class="num">${ro?usd(l.cost):qIn("cost", l.cost, "New cost")}</td>${del}</tr>`;
     if(K.kind==="spot"){ const sys = ro ? l.sys : cur, c = l.qty, v = (c===""||c==null||sys==null) ? null : +c - +sys;
-      return `<tr>${base}<td>${esc(it.storageUnit||"—")}</td><td class="num">${stockLoading&&!ro?"…":sys==null?'<span class="note">Not counted</span>':n2(sys)}</td><td class="num">${qIn("qty", l.qty, "Counted quantity")}</td>
+      return `<tr>${base}<td class="num">${stockLoading&&!ro?"…":sys==null?'<span class="note">Not counted</span>':n2(sys)}</td><td class="num">${qIn("qty", l.qty, "Counted quantity")}</td>
         <td class="num" data-docvar="${ix}" style="${v<0?"color:var(--accent-ink);font-weight:600":""}">${v==null?"—":(v>0?"+":"")+n2(v)}</td>${del}</tr>`; }
     return `<tr>${base}<td>${esc(it.storageUnit||"—")}</td><td>${esc(it.ingredientUnit||"—")}</td>${del}</tr>`;
   });
-  const head = K.flow ? flowHead(d, K, ro, recv) : K.kind==="production" ? ["Name","SKU","Storage unit","Quantity","Unit cost","Total cost"] : K.kind==="quantity" ? ["Name","SKU","Storage unit",...(ro?[]:["Current qty"]),d.direction==="add"?"Added qty":"Deducted qty",...(ro?[]:["New qty"]),"Unit cost","Total cost"]
-    : K.kind==="cost" ? ["Name","SKU","Storage unit",ro?"Old cost":"Current cost","New cost"]
-    : K.kind==="spot" ? ["Name","SKU","Storage unit","System qty","Counted qty","Variance"] : ["Name","SKU","Storage UOM","Ingredients UOM"];
+  const head = K.flow ? flowHead(d, K, ro, recv) : K.kind==="production" ? ["Name","SKU","Quantity","Unit cost","Total cost"] : K.kind==="quantity" ? ["Name","SKU",...(ro?[]:["Current qty"]),d.direction==="add"?"Added qty":"Deducted qty",...(ro?[]:["New qty"]),"Unit cost","Total cost"]
+    : K.kind==="cost" ? ["Name","SKU",ro?"Old cost":"Current cost","New cost"]
+    : K.kind==="spot" ? ["Name","SKU","System qty","Counted qty","Variance"] : ["Name","SKU","Storage UOM","Ingredients UOM"];
   const numCols = new Set(["Current qty","Deducted qty","Added qty","New qty","Unit cost","Total cost","Current cost","Old cost","New cost","System qty","Counted qty","Variance","Quantity","Ordered","Sent","Requested","Received","In stock at source"]);
   h += `<div class="card tbl"><div class="ttop"><b>Items</b><span class="note" style="margin-left:8px">${d.items.length}</span></div>`;
   h += d.items.length ? `<table><thead><tr>${head.map(c=>`<th class="${numCols.has(c)?"num":""}">${c}</th>`).join("")}${ro?"":"<th></th>"}</tr></thead><tbody>${rows.join("")}</tbody>
