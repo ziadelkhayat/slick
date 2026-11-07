@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="421-1794083946">
+<meta name="slick-build" content="422-1794084125">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1135,7 +1135,7 @@ button.x:hover,button.mmdx:hover,.dzchip>button:hover,.chip>button:hover{transfo
 .qcell{display:inline-block;min-width:60px;text-align:right;font-variant-numeric:tabular-nums}tr:has(.qcell){cursor:pointer}tr:has(.qcell):hover td{background:#f7f5fd}
 .qconv{margin:2px 0 6px;color:var(--ink2);font-size:13.5px}.qitem{padding:4px 0 8px;border-bottom:1px solid var(--line,#ecebf2);margin-bottom:10px}.qitem:last-child{border-bottom:0}.qitem > b{display:block;margin-bottom:6px}
 /* sales channel item rows: grip, product, on/off switch, menu */
-.mmtbl .mmth,.mmtbl .mmrow:not(.mmorow),.mmrow.sk-ghost:not(.mmorow){grid-template-columns:22px minmax(0,1fr) 52px 36px!important}.mmrow.sk-ghost .mmpn b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.mmrow .mmon{justify-self:center}
+.mmtbl .mmth,.mmtbl .mmrow:not(.mmorow),.mmrow.sk-ghost:not(.mmorow){grid-template-columns:22px minmax(0,1fr) 44px 28px!important;column-gap:14px!important}.mmtbl .mmrow .mmdots{width:28px}.mmrow.sk-ghost .mmpn b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.mmrow .mmon{justify-self:end}
 .bmdsec td{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:#8a87a0;padding:14px 14px 6px!important;background:#fff}.bmdgrow .bmgrip,.bmdmx tr[data-skn] .bmgrip{width:22px;height:22px;margin-right:6px;vertical-align:middle}.bmdmx tr[data-skn] td:first-child{display:flex;align-items:center}
 .bmdcell{display:inline-flex;align-items:center;gap:6px}.toggle.xs{transform:scale(.78);transform-origin:center}
 .msel-c[data-msx]{cursor:pointer}.msel-c[data-msx]:hover{background:#e3d9fb;text-decoration:line-through}
@@ -4462,14 +4462,14 @@ document.addEventListener("keydown", e => { if(e.key==="Escape" && BM.item && lo
 // Sales Channels list (Foodics style): one row per channel; tap to open its menu
 function scBrandList(list){
   return `<div class="phead"><h1>Sales Channels</h1></div>
-    <div class="card tbl"><table><thead><tr><th>Brand</th><th class="num">Branches</th><th class="num">Sales Channels</th></tr></thead><tbody>${brandList().map(br => { const bs = list.filter(b => !b.brandId || b.brandId===br.id), n = new Set(bs.flatMap(b => scFor(b.id).map(scCode))).size;
-      return `<tr class="clk" data-scbrand="${esc(br.id)}"><td><b>${esc(br.name)}</b></td><td class="num">${bs.length}</td><td class="num">${n}</td></tr>`; }).join("")}</tbody></table></div>`;
+    <div class="card tbl"><table><thead><tr><th>Brand</th><th class="num">Branches</th></tr></thead><tbody>${brandList().map(br => { const bs = list.filter(b => !b.brandId || b.brandId===br.id), n = new Set(bs.flatMap(b => scFor(b.id).map(scCode))).size;
+      return `<tr class="clk" data-scbrand="${esc(br.id)}"><td><b>${esc(br.name)}</b></td><td class="num">${bs.length}</td></tr>`; }).join("")}</tbody></table></div>`;
 }
 function scBranchList(list){
   const ico = c => svgIco((SC_KINDS.find(x => x[0]===c.kind)||SC_KINDS[3])[2]), multi = brandList().length > 0;
   return `<div class="phead">${multi ? `<button type="button" class="btn" data-scbrandback>← Back</button><h1 style="margin-left:10px">${esc(brandName(BM.brand))}</h1>` : `<h1>Sales Channels</h1>`}</div>
-    <div class="card tbl">${list.length ? `<table><thead><tr><th>Branch</th><th>Sales Channels</th><th class="num">Count</th></tr></thead><tbody>${list.map(b => { const cs = scFor(b.id);
-      return `<tr class="clk" data-scbr="${esc(b.id)}"><td><b>${esc(b.name)}</b></td><td>${cs.length ? cs.map(c => `<span class="tag scbtag">${ico(c)}${esc(c.name)}</span>`).join(" ") : `<span class="note">None yet</span>`}</td><td class="num">${cs.length}</td></tr>`; }).join("")}</tbody></table>`
+    <div class="card tbl">${list.length ? `<table><thead><tr><th>Branch</th><th>Sales Channels</th></tr></thead><tbody>${list.map(b => { const cs = scFor(b.id);
+      return `<tr class="clk" data-scbr="${esc(b.id)}"><td><b>${esc(b.name)}</b></td><td>${cs.length ? cs.map(c => `<span class="tag scbtag">${ico(c)}${esc(c.name)}</span>`).join(" ") : `<span class="note">None yet</span>`}</td></tr>`; }).join("")}</tbody></table>`
       : `<div class="empty">No active branches.</div>`}</div>`;
 }
 document.addEventListener("click", async e => {
@@ -4484,9 +4484,9 @@ function scListView(list){
   let h = `<div class="phead"><button type="button" class="btn" data-scbrback>← Back</button><h1 style="margin-left:10px">${esc(br?.name || "")}</h1><span class="note" style="margin-left:10px">${esc(brandName(br?.brandId) || "")}</span><div class="sp"></div><button type="button" class="btn pri" data-scnew>+ Create Sales Channel</button></div>
     <div class="card tbl">`;
   if(!BM_MENUS.length) return h + `<div class="mmempty big"><b>No sales channels at this branch</b><span>Create POS, Call Center, Web Ordering or an integration.</span><button type="button" class="btn pri" data-scnew>+ Create Sales Channel</button></div></div>`;
-  return h + `<table><thead><tr><th>Name</th><th>Type</th><th>Order Types</th><th>Applies To</th><th class="num">Categories</th><th class="num">Items</th></tr></thead><tbody>${BM_MENUS.map(([k, t, , c]) => { const cats = chCats(k), items = new Set(cats.flatMap(x => (x.productIds||[]).map(bmRoot)));
+  return h + `<table><thead><tr><th>Name</th><th>Type</th><th>Order Types</th><th class="num">Categories</th><th class="num">Items</th></tr></thead><tbody>${BM_MENUS.map(([k, t, , c]) => { const cats = chCats(k), items = new Set(cats.flatMap(x => (x.productIds||[]).map(bmRoot)));
       return `<tr class="clk" data-scopen="${esc(k)}"><td><span class="scrow">${svgIco((SC_KINDS.find(x => x[0]===c.kind)||SC_KINDS[3])[2])}<b>${esc(t)}</b></span></td><td>${esc((SC_KINDS.find(x => x[0]===c.kind)||SC_KINDS[3])[1])}</td>
-        <td>${(c.types||[]).map(x => `<span class="tag">${esc(typeName(x))}</span>`).join(" ")}</td><td>${c.kind==="online" ? esc(brandName(c.brandId)) + " <span class=\"note\">· all branches</span>" : esc(branches.find(b => b.id===BM.branch)?.name || "")}</td><td class="num">${cats.length}</td><td class="num">${items.size}</td></tr>`; }).join("")}</tbody></table></div>`;
+        <td>${(c.types||[]).map(x => `<span class="tag">${esc(typeName(x))}</span>`).join(" ")}</td><td class="num">${cats.length}</td><td class="num">${items.size}</td></tr>`; }).join("")}</tbody></table></div>`;
 }
 document.addEventListener("click", e => { const o = e.target.closest("[data-scopen]"); if(o){ e.preventDefault(); BM.menu = o.dataset.scopen; BM.open1 = true; BM.draft = {}; BM.q = ""; BM.item = ""; render(); window.scrollTo(0,0); return; }
   if(e.target.closest("[data-scback]")){ e.preventDefault(); BM.open1 = false; BM.item = ""; render(); } });
