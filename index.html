@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="391-1794076317">
+<meta name="slick-build" content="392-1794076485">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1081,7 +1081,7 @@ table.sk-ghost-t{border-collapse:collapse;table-layout:fixed}table.sk-ghost-t td
 .card.pdtop{padding:22px 24px!important;margin-bottom:16px}.pdtop .pdimg{display:block;width:160px;height:160px;object-fit:cover;border-radius:14px;background:#f6f4ef;margin-bottom:16px}
 .pdtop .pddesc{padding-bottom:16px;margin-bottom:6px;border-bottom:1px solid var(--line,#ecebf2);line-height:1.5}.pdtop .pddesc .note{display:block;font-size:11.5px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
 .pdtop .pdgrid{box-shadow:none!important;border:0!important;padding:0!important;margin:0!important;background:none!important}
-.mmprod[data-bmitem]{cursor:pointer}.mmprod[data-bmitem]:hover .mmpn b{color:#5b2bc4;text-decoration:underline}.mmlinks{display:inline-flex;gap:8px;align-items:center;flex-wrap:wrap}.mmtp{font-size:11.5px;color:#5b2bc4;background:#efe9fb;border-radius:999px;padding:2px 8px}.mmpn b{cursor:default}
+.mmrow[data-bmitem]{cursor:pointer}.mmrow[data-bmitem]:hover{background:#f7f5fd}.mmlinks{display:inline-flex;gap:8px;align-items:center;flex-wrap:wrap}.mmtp{font-size:11.5px;color:#5b2bc4;background:#efe9fb;border-radius:999px;padding:2px 8px}.mmpn b{cursor:default}
 .bmdscrim{position:fixed;inset:0;background:rgba(20,18,40,.35);z-index:900}.bmdrawer{position:fixed;top:0;right:0;bottom:0;width:min(520px,100vw);background:var(--bg,#f6f5fa);z-index:901;display:flex;flex-direction:column;box-shadow:-12px 0 40px rgba(20,18,40,.18)}
 .bmdrawer header{display:flex;align-items:center;gap:12px;padding:16px 20px;background:#fff;border-bottom:1px solid var(--line,#ecebf2)}.bmdrawer header b{display:block;font-size:17px}.bmdrawer header small{color:var(--muted)}
 .bmdrawer header .x{margin-left:auto;width:38px;height:38px;border-radius:50%;border:1.5px solid #cfccd9;background:#fff;font-size:20px;cursor:pointer}
@@ -1111,6 +1111,8 @@ button.x[data-xi]{display:grid!important;place-items:center!important;padding:0!
 .avopt{display:flex!important;align-items:center;gap:12px;padding:12px 14px!important;border-radius:0!important;background:#fff!important;color:var(--ink,#1c1b22)!important;border:0!important;border-bottom:1px solid var(--line,#ecebf2)!important;font-weight:400!important;font-size:14px!important}.avopt:last-child{border-bottom:0!important}
 .avopt b{font-weight:600}.avopt .note{margin-left:auto}.avplus{display:grid;place-items:center;width:26px;height:26px;border-radius:8px;background:#efe9fb;color:#5b2bc4;font-weight:700;flex:none}
 .scrow{display:inline-flex;align-items:center;gap:10px}.scrow .ico{width:18px;height:18px;color:#5b2bc4}
+.mmst{font-size:12px;font-weight:600;padding:3px 9px;border-radius:999px;justify-self:start}.mmst.on{background:#e6f6ec;color:#1f8a4c}.mmst.off{background:#f1f0f5;color:#77748a}
+.bmdonoff{margin-left:auto;display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);cursor:pointer}.bmdrawer header .x{margin-left:8px!important}
 </style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -4328,15 +4330,15 @@ function viewBranchMenu(){
   h += `<section class="mmmain"><div class="mmbar"><div class="mmtitle"><b>${esc(cur.name)}</b><span class="note">${nOn} of ${inCur.length} on the ${esc(ch[1])} menu at ${esc(br.name)}</span></div><div class="sp"></div>
       ${inCur.length > 6 ? `<input class="sel search" id="bmQ" placeholder="Search products" value="${esc(BM.q)}" aria-label="Search products">` : ""}<button type="button" class="btn pri" data-bmadd="${esc(cur.id)}">+ Add Products</button></div>`;
   if(!inCur.length) return h + `<div class="mmempty big"><b>No products in ${esc(cur.name)}</b><span>Pick the products this category shows on the ${esc(ch[1])} menu.</span><button type="button" class="btn pri" data-bmadd="${esc(cur.id)}">+ Add Products</button></div></section></div>${bmSaveBar(nDraft)}</div>`;
-  h += `<div class="mmtbl"><div class="mmth"><span></span><span>On</span><span>Product</span><span></span></div>`;
+  h += `<div class="mmtbl"><div class="mmth"><span></span><span>Status</span><span>Product</span><span></span></div>`;
   if(!rows.length) h += `<div class="mmempty">No products match.</div>`;
   const pill = (attr, on, txt, title) => `<label class="scpill${on?" on":""}"${title ? ` title="${esc(title)}"` : ""}><input type="checkbox" ${attr} ${on?"checked":""}>${txt}</label>`;
   const stockPill = (attr, ok, dis) => `<label class="scstk${ok?" ok":" no"}${dis?" dis":""}" title="Stock at ${esc(br.name)} (all channels)"><input type="checkbox" ${attr} ${ok?"checked":""} ${dis?"disabled":""}><i></i>${ok ? "In stock" : "Sold out"}</label>`;
   const row = (r, par) => { const st = bmState(r), vk = par ? [] : varKids(r), nm = par ? ((par.variants||[]).find(v => v.productId===r.id)?.name || r.name) : r.name, nl = bmLinks(r).length;
-    let s = `<div class="mmrow${par?" mmvar":""}${st.on?"":" off"}${BM.draft[r.id]?" chg":""}"${q || par ? "" : ` data-sk="bmp:${esc(cur.id)}|${esc(r.id)}"`}>
+    let s = `<div class="mmrow${par?" mmvar":""}${st.on?"":" off"}${BM.draft[r.id]?" chg":""}"${vk.length ? "" : ` data-bmitem="${esc(r.id)}"`}${q || par ? "" : ` data-sk="bmp:${esc(cur.id)}|${esc(r.id)}"`}>
       ${par ? `<span></span>` : `<span class="bmgrip" title="Drag to sort" aria-hidden="true">${q ? "" : "⋮⋮"}</span>`}
-      <label class="toggle" title="On the ${esc(ch[1])} menu"><input type="checkbox" data-bmon="${esc(r.id)}" ${st.on?"checked":""} aria-label="${esc(nm)} on the ${esc(ch[1])} menu"><span class="trk"></span></label>
-      <span class="mmprod"${vk.length ? "" : ` data-bmitem="${esc(r.id)}" title="Open ${esc(nm)}: prices and modifiers"`}>${par ? `<span class="mmvl">↳</span>` : `<span class="mmimg">${r.imageUrl ? `<img src="${esc(r.imageUrl)}" alt="">` : svgIco("image")}</span>`}
+      ${vk.length ? `<label class="toggle" title="On the ${esc(ch[1])} menu"><input type="checkbox" data-bmon="${esc(r.id)}" ${st.on?"checked":""} aria-label="${esc(nm)} on the ${esc(ch[1])} menu"><span class="trk"></span></label>` : `<span class="mmst ${st.on ? "on" : "off"}">${st.on ? "On" : "Off"}</span>`}
+      <span class="mmprod">${par ? `<span class="mmvl">↳</span>` : `<span class="mmimg">${r.imageUrl ? `<img src="${esc(r.imageUrl)}" alt="">` : svgIco("image")}</span>`}
         <span class="mmpn"><b>${esc(nm)}</b>${vk.length ? `<small>${vk.length} variants below</small>` : (Object.values(st.tprices).some(Boolean) ? `<span class="mmlinks"><span class="mmtp" title="Has its own price for some order types">Order type prices</span></span>` : "")}</span></span>
       ${par ? "<span></span>" : `<div class="ddwrap"><button type="button" class="mmdots" data-bmcmenu="p" aria-label="Product actions">⋯</button><div class="ddmenu" hidden><button type="button" class="danger" data-bmrm="${esc(cur.id)}|${esc(r.id)}">Remove</button></div></div>`}</div>`;
     if(false) s += `<div class="mmsub">${bmLinks(r).map(l => `<div class="mmsg">${esc(modName(l.modifierId))}</div>` + modOptions(l.modifierId).map(o => { const os = bmOptState(r, o);
@@ -4354,7 +4356,7 @@ function bmDrawer(br, ch, types){
   const r = BM.item && S.products.find(x => x.id===BM.item && live(x)); if(!r) return "";
   const st = bmState(r), links = bmLinks(r), rule = l => { const mn = +l.min||0, mx = +l.max||0; return mn && mx && mn===mx ? `Choose ${mn}` : mn && mx ? `Choose ${mn} to ${mx}` : mn ? `At least ${mn}` : mx ? `Up to ${mx}` : "Optional"; };
   const base = st.price!=="" ? +st.price : st.fallback;
-  let h = `<div class="bmdscrim" data-bmclose></div><aside class="bmdrawer" role="dialog" aria-label="${esc(r.name)}"><header><span class="mmimg">${r.imageUrl ? `<img src="${esc(r.imageUrl)}" alt="">` : svgIco("image")}</span><div><b>${esc(r.name)}</b><small>${esc(ch[1])} · ${esc(br.name)}</small></div><button type="button" class="x" data-bmclose aria-label="Close">×</button></header><div class="bmdbody">`;
+  let h = `<div class="bmdscrim" data-bmclose></div><aside class="bmdrawer" role="dialog" aria-label="${esc(r.name)}"><header><span class="mmimg">${r.imageUrl ? `<img src="${esc(r.imageUrl)}" alt="">` : svgIco("image")}</span><div><b>${esc(r.name)}</b><small>${esc(ch[1])} · ${esc(br.name)}</small></div><label class="bmdonoff"><span>${st.on ? "On the menu" : "Off the menu"}</span><span class="toggle"><input type="checkbox" data-bmon="${esc(r.id)}" ${st.on?"checked":""} aria-label="On the ${esc(ch[1])} menu"><span class="trk"></span></span></label><button type="button" class="x" data-bmclose aria-label="Close">×</button></header><div class="bmdbody">`;
   // one compact table: a column per order type. Header: sell the item as that type. First row: the item's prices. Then each modifier group and its options
   const cols = types, cell = (attr, val, ph, dis, lbl) => `<td class="num"><input inputmode="decimal" class="sel bmdin${val!=="" ? " cust" : ""}" ${attr} value="${esc(val)}" placeholder="${esc(String(ph))}" aria-label="${esc(lbl)}" ${dis ? "disabled" : ""}></td>`;
   h += `<div class="bmdtw"><table class="bmdtbl bmdmx"><thead><tr><th></th>${cols.map(([t, tl]) => `<th class="num"><label class="bmdth" title="Sell ${esc(r.name)} as ${esc(tl)}"><span>${esc(tl)}</span><span class="toggle sm"><input type="checkbox" data-bmtype="${esc(r.id)}|${t}" ${st.types[t]?"checked":""} aria-label="Sell as ${esc(tl)}"><span class="trk"></span></span></label></th>`).join("")}<th class="c">Stock</th></tr></thead><tbody>
@@ -4368,7 +4370,7 @@ function bmDrawer(br, ch, types){
   </tbody></table></div><p class="note bmdhint">Switch an order type off in its header to stop selling the item as it. Empty price = the price shown under the name.</p></div></aside>`;
   return h;
 }
-$("#view").addEventListener("click", e => { const o = e.target.closest("[data-bmitem]"); if(o && !e.target.closest("label,input,button,.sctypes")){ e.preventDefault(); BM.item = o.dataset.bmitem; return render(); }
+$("#view").addEventListener("click", e => { const o = e.target.closest("[data-bmitem]"); if(o && !e.target.closest("label,input,button,.sctypes,.bmgrip,.ddwrap,.toggle")){ e.preventDefault(); BM.item = o.dataset.bmitem; return render(); }
   if(e.target.closest("[data-bmclose]")){ e.preventDefault(); BM.item = ""; render(); } });
 document.addEventListener("keydown", e => { if(e.key==="Escape" && BM.item && location.hash==="#branch-menu"){ BM.item = ""; render(); } });
 // Sales Channels list (Foodics style): one row per channel; tap to open its menu
