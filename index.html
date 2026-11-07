@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="445-1794090182">
+<meta name="slick-build" content="446-1794090339">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1159,6 +1159,7 @@ button.x:hover,button.mmdx:hover,.dzchip>button:hover,.chip>button:hover{transfo
 .bmdmx .bmdon b,.bmdmx .bmdgrow b{white-space:nowrap}
 .dzcard p.dzempty,.dzcard p.brempty,p.empty,p.rsempty,.bempty{max-width:none!important;margin-left:auto!important;margin-right:auto!important;text-align:center!important}.dzcard:has(>.dzempty),.dzcard:has(>p.brempty){display:flex;align-items:center;justify-content:center}.mmempty{margin:0 auto}
 .card.tbl.tfit{overflow:visible}.card.tbl.tfit>table>thead>tr>th{position:sticky;top:var(--thtop,var(--toph,62px));z-index:3;box-shadow:0 1px 0 var(--line,#ecebf2)}
+.bmgon{margin:0 10px 0 2px;vertical-align:middle}
 html.mlock,html.mlock body{overflow:hidden!important}.scrim,.bmdrawer,.bmdbody,.modal .body,.modal>*{overscroll-behavior:contain}
 </style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
@@ -4475,7 +4476,7 @@ function bmDrawer(br, ch, types){
     ${links.length ? `<tr class="bmdsec"><td colspan="${cols.length + 1}">Modifiers</td></tr>` : `<tr><td class="note" style="padding:24px;text-align:center">This item has no modifiers.</td></tr>`}
     ${links.map((l, li) => { const os = modOptions(l.modifierId), nOn = os.filter(o => bmOptState(r, o).on).length;
       const gt = bmGrpTypes(r, l);
-      return `<tr class="bmdgrow" data-sk="bmg:${esc(r.id)}|${(r.modifiers||[]).indexOf(l)}"><td><span class="bmgrip" title="Drag to sort" aria-hidden="true">⋮⋮</span><b>${esc(modName(l.modifierId))}</b><span class="tag">${rule(l)}</span>${+l.free ? `<span class="tag">${l.free} free</span>` : ""}<span class="note">${nOn}/${os.length} on</span></td>${cols.map(([t, tl]) => `<td class="c"><span class="bmdct">${esc(tl)}</span><label class="toggle sm" title="${esc(modName(l.modifierId))} with ${esc(tl)} orders"><input type="checkbox" data-bmgtype="${esc(r.id)}|${esc(l.modifierId)}|${t}" ${gt[t]?"checked":""} ${st.types[t]?"":"disabled"} aria-label="${esc(modName(l.modifierId))} for ${esc(tl)}"><span class="trk"></span></label></td>`).join("")}</tr>` + os.map(o => { const s = bmOptState(r, o), ob = s.price!=="" ? +s.price : +o.price||0;
+      return `<tr class="bmdgrow" data-sk="bmg:${esc(r.id)}|${(r.modifiers||[]).indexOf(l)}"><td><span class="bmgrip" title="Drag to sort" aria-hidden="true">⋮⋮</span><label class="toggle sm bmgon" title="${esc(modName(l.modifierId))} on this menu"><input type="checkbox" data-bmgon="${esc(r.id)}|${esc(l.modifierId)}" ${cols.some(([t]) => gt[t] && st.types[t]) ? "checked" : ""} aria-label="${esc(modName(l.modifierId))} on this menu"><span class="trk"></span></label><b>${esc(modName(l.modifierId))}</b><span class="tag">${rule(l)}</span>${+l.free ? `<span class="tag">${l.free} free</span>` : ""}<span class="note">${nOn}/${os.length} on</span></td>${cols.map(([t, tl]) => `<td class="c"><span class="bmdct">${esc(tl)}</span><label class="toggle sm" title="${esc(modName(l.modifierId))} with ${esc(tl)} orders"><input type="checkbox" data-bmgtype="${esc(r.id)}|${esc(l.modifierId)}|${t}" ${gt[t]?"checked":""} ${st.types[t]?"":"disabled"} aria-label="${esc(modName(l.modifierId))} for ${esc(tl)}"><span class="trk"></span></label></td>`).join("")}</tr>` + os.map(o => { const s = bmOptState(r, o), ob = s.price!=="" ? +s.price : +o.price||0;
         return `<tr class="${s.on ? "" : "off"}" data-sk="opt:${esc(l.modifierId)}|${esc(o.id)}" data-skn="1"><td><span class="bmgrip" title="Drag to sort" aria-hidden="true">⋮⋮</span><label class="bmdon"><span class="toggle sm"><input type="checkbox" data-bmoon="${esc(r.id)}|${esc(o.id)}" ${s.on?"checked":""} aria-label="${esc(o.name)}"><span class="trk"></span></span><span><b>${esc(o.name)}</b><small>${ob ? usd(ob) : "Free"}</small></span></label></td>
           ${cols.map(([t, tl]) => cell(`data-bmotprice="${esc(r.id)}|${esc(o.id)}|${t}"`, s.tprices[t], ob, !s.on || !st.types[t] || !s.types[t] || !gt[t], o.name + " " + tl + " price")
             .replace('<td class="num">', `<td class="num"><span class="bmdcell"><label class="toggle xs" title="${esc(o.name)} with ${esc(tl)} orders"><input type="checkbox" data-bmotype="${esc(r.id)}|${esc(o.id)}|${t}" ${s.types[t]?"checked":""} ${s.on && st.types[t] && gt[t] ? "" : "disabled"} aria-label="${esc(o.name)} for ${esc(tl)}"><span class="trk"></span></label>`).replace(/<\/td>$/, "</span></td>")).join("")}
@@ -4780,6 +4781,7 @@ $("#view").addEventListener("change", async e => {
   if(t.dataset.bmstock){ bmSet(t.dataset.bmstock, "stock", t.checked); render(); return bmAuto(); }
   if(t.dataset.bmprice!=null && t.dataset.bmprice){ bmSet(t.dataset.bmprice, "price", t.value.trim()); render(); return bmAuto(); }
   if(t.dataset.bmotype){ const [pid, oid, ty] = t.dataset.bmotype.split("|"); bmSet("mo:"+pid+"|"+oid, "to_"+ty, t.checked); render(); return bmAuto(); }
+  if(t.dataset.bmgon){ const [pid, mid] = t.dataset.bmgon.split("|"); bmTypes().forEach(([ty]) => bmSet("mg:"+pid+"|"+mid, "to_"+ty, t.checked)); render(); return bmAuto(); }
   if(t.dataset.bmgtype){ const [pid, mid, ty] = t.dataset.bmgtype.split("|"); bmSet("mg:"+pid+"|"+mid, "to_"+ty, t.checked); render(); return bmAuto(); }
   if(t.dataset.bmotprice){ const [pid, oid, ty] = t.dataset.bmotprice.split("|"); bmSet("mo:"+pid+"|"+oid, "tp_"+ty, t.value.trim()); render(); return bmAuto(); }
   if(t.dataset.bmtprice){ const [id, ty] = t.dataset.bmtprice.split("|"); bmSet(id, "tp_"+ty, t.value.trim()); render(); return bmAuto(); }
