@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="378-1794072182">
+<meta name="slick-build" content="379-1794072516">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -2100,7 +2100,7 @@ function viewBranch(b){
         + row("Tax Group", esc(tg || "—")) + row("Tax Registration Name", esc(st.taxName || "—")) + row("Tax Number", esc(b.taxNumber || "—")) + row("Phone", esc(b.phone || "—")) + row("Address", esc(b.address || "—"))
         + row("Location", b.lat && b.lng ? `<a class="lnk" target="_blank" rel="noopener" href="https://www.google.com/maps?q=${b.lat},${b.lng}">${b.lat}, ${b.lng}</a>` : "—") + row("Receives call center and web orders", b.callCenter ? "Yes" : "No") + row("Automatic end of day", st.autoDayEnd===false ? "No" : "Yes") : ""}
 </div>
-    ${card("Delivery Zones", `<button type="button" class="btn" data-brzones="${esc(b.id)}">Edit Delivery Zones</button>`, tbl(["Name","Delivery charge","Min. order"], zones.map(z => { const c = dcChargeOf(z); return [esc(z.name), c ? `${esc(c.name)} · ${money(+c.value||0)}` : '<span class="note">—</span>', money(+z.minOrder||0)]; })))}
+    ${card("Delivery Zones", `<button type="button" class="btn" data-brzones="${esc(b.id)}">Delivery Zones</button>`, tbl(["Name","Delivery charge","Min. order"], zones.map(z => { const c = dcChargeOf(z); return [esc(z.name), c ? `${esc(c.name)} · ${money(+c.value||0)}` : '<span class="note">—</span>', money(+z.minOrder||0)]; })))}
     ${card("Users", "", tbl(["Name","Email","Phone"], users.map(u => [esc(u.name), esc(u.email||"—"), esc(u.phone||"—")])))}
     ${card("Sections", `<button class="btn sm" data-secadd="${esc(b.id)}">Add Section</button>`, secs.length ? `<table><thead><tr><th>Name</th><th class="num">Tables</th><th>Table names</th></tr></thead><tbody>${secs.map(sc => { const l = tl.filter(t => (t.section||"")===sc);
       return `<tr class="click" data-secopen="${esc(b.id)}" data-sec="${esc(sc)}"><td><b>${esc(sc || "No section")}</b></td><td class="num">${l.length}</td><td>${l.map(t => esc(tblLbl(t.name))).join(", ") || '<span class="note">—</span>'}</td></tr>`; }).join("")}</tbody></table>` : '<p class="note brempty">No data to display!</p>')}
@@ -6031,7 +6031,7 @@ async function tagSetFor(type, recId, ids){ if(ids==null || !recId) return; cons
   const on = JSON.parse(JSON.stringify(tagDoc().on || {})), m = on[type] ||= {}; if(ids.length) m[recId] = ids; else delete m[recId]; await tagSave(null, on); }
 function tagEdit(type, recId, after){
   const box = $("#ccBox"); box.className = "modal";
-  box.innerHTML = `<header><h2>Edit Tags</h2><button type="button" class="x" data-ccclose aria-label="Close">×</button></header><div class="body" style="display:block">${tagPick(type, recId, "teTags") || `<p class="note">No ${esc(tagTypeName(type))} tags yet. Create them in <a href="#tags" class="lnk" data-ccclose>Manage → Tags</a>.</p>`}</div>
+  box.innerHTML = `<header><h2>Tags</h2><button type="button" class="x" data-ccclose aria-label="Close">×</button></header><div class="body" style="display:block">${tagPick(type, recId, "teTags") || `<p class="note">No ${esc(tagTypeName(type))} tags yet. Create them in <a href="#tags" class="lnk" data-ccclose>Manage → Tags</a>.</p>`}</div>
   <footer><span style="flex:1"></span>${tagList(type).length ? `<button type="button" class="btn pri" id="teGo">Save</button>` : ""}</footer>`;
   $("#ccScrim").classList.add("show"); const g = $("#teGo"); if(g) g.onclick = async () => { await tagSetFor(type, recId, tagPickGet("teTags")); $("#ccScrim").classList.remove("show"); toast("Tags saved"); after ? after() : render(); };
 }
@@ -6158,7 +6158,7 @@ function pdSections(p, hasVar){
   const cps = Object.entries(B.customPrices||{}).filter(([id, v]) => v!=="" && v!=null && branches.some(b => b.id===id));
   const inact = (B.inactive||[]).filter(id => branches.some(b => b.id===id)), oos = (B.oos||[]).filter(id => branches.some(b => b.id===id));
   const nut = NUTR.filter(([k]) => (p.nutrition||{})[k]!=null && (p.nutrition||{})[k]!==""), alg = p.allergens||[];
-  let h = pdSec("Tags", `<button type="button" class="btn" data-pdtags>Edit Tags</button>`, tg.length ? `<div class="dzchips">${tg.map(t => `<span class="dzchip" style="padding-right:14px">${esc(tagName(t))}</span>`).join("")}</div>` : `<p class="dzempty">No tags added</p>`);
+  let h = pdSec("Tags", `<button type="button" class="btn" data-pdtags>Tags</button>`, tg.length ? `<div class="dzchips">${tg.map(t => `<span class="dzchip" style="padding-right:14px">${esc(tagName(t))}</span>`).join("")}</div>` : `<p class="dzempty">No tags added</p>`);
   if(!hasVar) h += modLinks(p) + ingEditor("products", p);
   // availability per branch (custom price, inactive, out of stock) is set in Sales Channels: items here are the catalog
   h += pdNutAlg(p, "product");
@@ -6166,7 +6166,7 @@ function pdSections(p, hasVar){
 }
 function pdNutAlg(p, what){
   const nut = NUTR.filter(([k]) => (p.nutrition||{})[k]!=null && (p.nutrition||{})[k]!==""), alg = p.allergens||[]; let h = "";
-  h += pdSec("Nutritional Values", `<button type="button" class="btn" data-pdnut>Edit Nutritional Values</button>`, `<table><thead><tr><th>Ingredient</th><th>Value</th><th>Unit</th></tr></thead><tbody>${NUTR.map(([k,l,u]) => `<tr><td>${l}</td><td>${nut.some(n => n[0]===k) ? esc(p.nutrition[k]) : "-"}</td><td>${u==="kcal"?"kCal":u}</td></tr>`).join("")}</tbody></table>`);
+  h += pdSec("Nutritional Values", `<button type="button" class="btn" data-pdnut>Nutritional Values</button>`, `<table><thead><tr><th>Ingredient</th><th>Value</th><th>Unit</th></tr></thead><tbody>${NUTR.map(([k,l,u]) => `<tr><td>${l}</td><td>${nut.some(n => n[0]===k) ? esc(p.nutrition[k]) : "-"}</td><td>${u==="kcal"?"kCal":u}</td></tr>`).join("")}</tbody></table>`);
   h += pdSec("Allergens", `<button type="button" class="btn" data-pdalg>Add Allergens</button>`, alg.length ? `<div class="dzchips">${alg.map(a => `<span class="dzchip">${esc(a)}<button type="button" data-pdalgrm="${esc(a)}" aria-label="Remove ${esc(a)}">×</button></span>`).join("")}</div>` : `<p class="dzempty">Select any allergens from your list that apply to this ${what}. This will ensure the correct information is displayed for your customers.</p>`);
   return h;
 }
@@ -6322,8 +6322,8 @@ function userDetail(u){
       <div class="card udinfo">${fld("Name", esc(u.name))}${fld("Email", esc(u.email || "—"))}${fld("Phone", esc(u.phone || "—"))}${fld("Language", u.language==="ar" ? "Arabic" : "English")}
         ${fld("Display localized names", u.displayLocalized ? "Yes" : "No")}${fld("Console Access", u.email ? (u.userId ? "Yes" : "Not created yet") : "No")}
         ${fld("App Access (PIN)", u.pinHash ? "Yes" : "No")}${fld("Created", dt(u.createdAt))}</div>
-      ${sec("Roles", `<button class="btn sm" data-usrroles="${esc(u.id)}">Edit Roles</button>`, rs.length ? rs.map(r => `<div class="udli">${esc(r.name)}</div>`).join("") : '<div class="udli note">No roles</div>')}
-      ${sec("Branches", `<button class="btn sm" data-usrbr="${esc(u.id)}">Edit Branches</button>`, picked ? `<table><thead><tr><th>Name</th><th>Reference</th></tr></thead><tbody>${brs.map(b => `<tr><td>${esc(b.name)}</td><td>${esc(b.code||"—")}</td></tr>`).join("")}</tbody></table>`
+      ${sec("Roles", `<button class="btn sm" data-usrroles="${esc(u.id)}">Roles</button>`, rs.length ? rs.map(r => `<div class="udli">${esc(r.name)}</div>`).join("") : '<div class="udli note">No roles</div>')}
+      ${sec("Branches", `<button class="btn sm" data-usrbr="${esc(u.id)}">Branches</button>`, picked ? `<table><thead><tr><th>Name</th><th>Reference</th></tr></thead><tbody>${brs.map(b => `<tr><td>${esc(b.name)}</td><td>${esc(b.code||"—")}</td></tr>`).join("")}</tbody></table>`
         : '<div class="udli">Automatically applied on all existing and new branches</div>')}
     </div>`;
 }
@@ -6396,7 +6396,7 @@ function invItemDetail(it){
     info("Cost", it.cost ? fmtCost(it.cost) + ` <span class="note">/ ${esc(it.storageUnit||"unit")}</span>` : "—"),
     ...(produced || DET.ing.length ? [info("Total Cost of Production", fmtCost(prodCost) + ` <span class="note">/ ${esc(it.storageUnit||"unit")}</span>`)] : [])]);
   const tg = tagsOf("inventory", it.id), sl = supLinks().filter(l => l.itemId===it.id), lv = invLevels()[it.id] || {};
-  h += pdSec("Tags", `<button type="button" class="btn" data-ivtags>${tg.length ? "Edit Tags" : "Add Tags"}</button>`, tg.length ? `<div class="dzchips">${tg.map(t => `<span class="dzchip" style="padding-right:14px">${esc(tagName(t))}</span>`).join("")}</div>` : `<p class="dzempty">Add tags to help you filter and group items easily. You can create tags such as Weekly Stocktaking, Vegetables, etc.</p>`);
+  h += pdSec("Tags", `<button type="button" class="btn" data-ivtags>Tags</button>`, tg.length ? `<div class="dzchips">${tg.map(t => `<span class="dzchip" style="padding-right:14px">${esc(tagName(t))}</span>`).join("")}</div>` : `<p class="dzempty">Add tags to help you filter and group items easily. You can create tags such as Weekly Stocktaking, Vegetables, etc.</p>`);
   h += ingEditor("inv-items", it);
   h += pdSec("Suppliers", `<button type="button" class="btn" data-suplink="item:${esc(it.id)}">Link Suppliers</button>`, sl.length ? supLinkTable(sl, "item") : `<p class="dzempty">Link this item to the suppliers you purchase from, and you can assign different order units and cost to each supplier.</p>`);
   const lvb = Object.entries(lv).filter(([b]) => branches.some(x => x.id===b));
@@ -6422,7 +6422,7 @@ function supplierDetail(sp){
   const tg = tagsOf("supplier", sp.id), sl = supLinks().filter(l => l.supplierId===sp.id);
   let h = `<div class="phead"><a href="#suppliers" class="btn" data-detback style="text-decoration:none">← Back</a><h1 style="margin-left:10px">${esc(sp.name)}</h1><div class="sp"></div><button class="btn pri" data-detedit>Edit Supplier</button></div>`;
   h += infoGrid([info("Name", esc(sp.name)), info("Contact Name", esc(sp.contactName||"—")), info("Phone", esc(sp.phone||"—")), info("Primary Email", esc(sp.email||"—")), info("Supplier Code", esc(sp.code||"—")), info("Address", esc(sp.address||"—")), info("Notes", esc(sp.notes||"—"))]);
-  h += pdSec("Tags", `<button type="button" class="btn" data-suptags="${esc(sp.id)}">${tg.length ? "Edit Tags" : "Add Tags"}</button>`, tg.length ? `<div class="dzchips">${tg.map(t => `<span class="dzchip" style="padding-right:14px">${esc(tagName(t))}</span>`).join("")}</div>` : `<p class="dzempty">Add tags to help you filter and group suppliers easily. You can create tags such as Cash Suppliers, High Quality, etc.</p>`);
+  h += pdSec("Tags", `<button type="button" class="btn" data-suptags="${esc(sp.id)}">Tags</button>`, tg.length ? `<div class="dzchips">${tg.map(t => `<span class="dzchip" style="padding-right:14px">${esc(tagName(t))}</span>`).join("")}</div>` : `<p class="dzempty">Add tags to help you filter and group suppliers easily. You can create tags such as Cash Suppliers, High Quality, etc.</p>`);
   h += pdSec("Inventory Items", `<button type="button" class="btn" data-suplink="sup:${esc(sp.id)}">Link Items</button>`, sl.length ? supLinkTable(sl, "sup") : `<p class="dzempty">Link this supplier to the inventory items you purchase from them, and you can assign different order units and cost to each item.</p>`);
   const pos = S.inv_docs.filter(d => live(d) && d.kind==="purchase" && d.supplierId===sp.id).slice(0, 20);
   if(pos.length) h += pdSec("Purchases", "", `<table><thead><tr><th>Reference</th><th>Status</th><th>Business Date</th></tr></thead><tbody>${pos.map(d => `<tr><td>${esc(d.ref||"—")}</td><td>${esc(d.status||"")}</td><td>${esc(d.businessDate||"—")}</td></tr>`).join("")}</tbody></table>`);
@@ -6565,7 +6565,7 @@ function modifierDetail(m){
 function optionDetail(o){
   const cost = productCost(o), price = +o.price || 0;
   let h = `<div class="phead"><a href="#modifier-options" class="btn" data-detback style="text-decoration:none">← Back</a><h1 style="margin-left:10px">${esc(o.name)}</h1>
-    ${o.active===false?'<span class="tag off" style="margin-left:8px">Inactive</span>':'<span class="tag on" style="margin-left:8px">Active</span>'}<div class="sp"></div>
+    <div class="sp"></div>
     <button class="btn pri" data-detedit>Edit Option</button></div>`;
   h += infoGrid([info("Name", esc(o.name)), info("Name Localized", esc(o.nameAr||"—")),
     info("Modifier", o.modifierId ? `<a href="#modifiers" class="lnk" data-detopen="modifiers:${esc(o.modifierId)}">${esc(modName(o.modifierId))}</a>` : "—"),
