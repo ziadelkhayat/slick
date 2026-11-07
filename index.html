@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="433-1794085777">
+<meta name="slick-build" content="434-1794085925">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1135,7 +1135,7 @@ button.x:hover,button.mmdx:hover,.dzchip>button:hover,.chip>button:hover{transfo
 .qcell{display:inline-block;min-width:60px;text-align:right;font-variant-numeric:tabular-nums}tr:has(.qcell){cursor:pointer}tr:has(.qcell):hover td{background:#f7f5fd}
 .qconv{margin:2px 0 6px;color:var(--ink2);font-size:13.5px}.qitem{padding:4px 0 8px;border-bottom:1px solid var(--line,#ecebf2);margin-bottom:10px}.qitem:last-child{border-bottom:0}.qitem > b{display:block;margin-bottom:6px}
 /* sales channel item rows: grip, product, on/off switch, menu */
-.mmtbl .mmth,.mmtbl .mmrow:not(.mmorow),.mmrow.sk-ghost:not(.mmorow){grid-template-columns:22px minmax(0,1fr) 44px 28px!important;column-gap:14px!important}.mmtbl .mmrow .mmdots{width:28px}.mmrow.sk-ghost .mmpn b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.mmrow .mmon{justify-self:end}
+.mmtbl .mmth,.mmtbl .mmrow:not(.mmorow),.mmrow.sk-ghost:not(.mmorow){grid-template-columns:22px minmax(140px,1fr) auto 44px 28px!important;column-gap:14px!important}.mmtyps{display:flex;gap:10px;align-items:center}.mmty{width:118px;display:flex;align-items:center;gap:6px;justify-content:flex-end}.mmth .mmty{justify-content:center;font-size:11.5px}.mmty .bmdin{width:62px!important;padding:6px 8px!important;text-align:right}.mmtbl .mmrow .mmdots{width:28px}.mmrow.sk-ghost .mmpn b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.mmrow .mmon{justify-self:end}
 .bmdsec td{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:#8a87a0;padding:14px 14px 6px!important;background:#fff}.bmdgrow .bmgrip,.bmdmx tr[data-skn] .bmgrip{width:22px;height:22px;margin-right:6px;vertical-align:middle}.bmdmx tr[data-skn] td:first-child{display:flex;align-items:center}
 .bmdcell{display:inline-flex;align-items:center;gap:6px}.toggle.xs{transform:scale(.78);transform-origin:center}
 .msel-c[data-msx]{cursor:pointer}.msel-c[data-msx]:hover{background:#e3d9fb;text-decoration:line-through}
@@ -4426,7 +4426,7 @@ function viewBranchMenu(){
   h += `<section class="mmmain"><div class="mmbar"><div class="mmtitle"><b>${esc(cur.name)}</b><span class="note">${nOn} of ${inCur.length} on the ${esc(ch[1])} menu at ${esc(br.name)}</span></div><div class="sp"></div>
       ${inCur.length > 6 ? `<input class="sel search" id="bmQ" placeholder="Search products" value="${esc(BM.q)}" aria-label="Search products">` : ""}<button type="button" class="btn pri" data-bmadd="${esc(cur.id)}">+ Add Products</button></div>`;
   if(!inCur.length) return h + `<div class="mmempty big"><b>No products in ${esc(cur.name)}</b><span>Pick the products this category shows on the ${esc(ch[1])} menu.</span><button type="button" class="btn pri" data-bmadd="${esc(cur.id)}">+ Add Products</button></div></section></div>${bmSaveBar(nDraft)}</div>`;
-  h += `<div class="mmtbl"><div class="mmth"><span></span><span>Product</span><span>On</span><span></span></div>`;
+  h += `<div class="mmtbl"><div class="mmth"><span></span><span>Product</span><span class="mmtyps">${bmTypes().map(([t, tl]) => `<span class="mmty">${esc(tl)}</span>`).join("")}</span><span>On</span><span></span></div>`;
   if(!rows.length) h += `<div class="mmempty">No products match.</div>`;
   const pill = (attr, on, txt, title) => `<label class="scpill${on?" on":""}"${title ? ` title="${esc(title)}"` : ""}><input type="checkbox" ${attr} ${on?"checked":""}>${txt}</label>`;
   const stockPill = (attr, ok, dis) => `<label class="scstk${ok?" ok":" no"}${dis?" dis":""}" title="Stock at ${esc(br.name)} (all channels)"><input type="checkbox" ${attr} ${ok?"checked":""} ${dis?"disabled":""}><i></i>${ok ? "In stock" : "Sold out"}</label>`;
@@ -4435,6 +4435,7 @@ function viewBranchMenu(){
       ${par ? `<span></span>` : `<span class="bmgrip" title="Drag to sort" aria-hidden="true">${q ? "" : "⋮⋮"}</span>`}
       <span class="mmprod">${par ? `<span class="mmvl">↳</span>` : `<span class="mmimg">${r.imageUrl ? `<img src="${esc(r.imageUrl)}" alt="">` : svgIco("image")}</span>`}
         <span class="mmpn"><b>${esc(nm)}</b>${vk.length ? `<small>${vk.length} variants below</small>` : (Object.values(st.tprices).some(Boolean) ? `<span class="mmlinks"><span class="mmtp" title="Has its own price for some order types">Order type prices</span></span>` : "")}</span></span>
+      <span class="mmtyps">${vk.length ? "" : (() => { const base = st.price!=="" ? +st.price : st.fallback; return bmTypes().map(([t, tl]) => `<span class="mmty"><label class="toggle sm" title="Sell ${esc(nm)} as ${esc(tl)}"><input type="checkbox" data-bmtype="${esc(r.id)}|${t}" ${st.types[t]?"checked":""} aria-label="${esc(nm)} as ${esc(tl)}"><span class="trk"></span></label><input inputmode="decimal" class="sel bmdin${st.tprices[t]!=="" ? " cust" : ""}" data-bmtprice="${esc(r.id)}|${t}" value="${esc(st.tprices[t])}" placeholder="${esc(String(base))}" aria-label="${esc(nm)} ${esc(tl)} price" ${st.types[t] ? "" : "disabled"}></span>`).join(""); })()}</span>
       <label class="toggle mmon" title="On the ${esc(ch[1])} menu"><input type="checkbox" data-bmon="${esc(r.id)}" ${st.on?"checked":""} aria-label="${esc(nm)} on the ${esc(ch[1])} menu"><span class="trk"></span></label>
       ${par ? "<span></span>" : `<div class="ddwrap"><button type="button" class="mmdots" data-bmcmenu="p" aria-label="Product actions">⋯</button><div class="ddmenu" hidden><button type="button" class="danger" data-bmrm="${esc(cur.id)}|${esc(r.id)}">Remove</button></div></div>`}</div>`;
     if(false) s += `<div class="mmsub">${bmLinks(r).map(l => `<div class="mmsg">${esc(modName(l.modifierId))}</div>` + modOptions(l.modifierId).map(o => { const os = bmOptState(r, o);
@@ -4455,8 +4456,8 @@ function bmDrawer(br, ch, types){
   let h = `<div class="bmdscrim" data-bmclose></div><aside class="bmdrawer" role="dialog" aria-label="${esc(r.name)}"><header><div class="bmdpath">${[brandName(br.brandId), br.name, ch[1]].filter(Boolean).map(esc).join(" / ")}</div><button type="button" class="x" data-bmclose aria-label="Close">×</button></header><div class="bmdbody">`;
   // one compact table: a column per order type. Header: sell the item as that type. First row: the item's prices. Then each modifier group and its options
   const cols = types, cell = (attr, val, ph, dis, lbl) => `<td class="num"><input inputmode="decimal" class="sel bmdin${val!=="" ? " cust" : ""}" ${attr} value="${esc(val)}" placeholder="${esc(String(ph))}" aria-label="${esc(lbl)}" ${dis ? "disabled" : ""}></td>`;
-  h += `<div class="bmdtw"><table class="bmdtbl bmdmx"><thead><tr><th></th>${cols.map(([t, tl]) => `<th class="num"><label class="bmdth" title="Sell ${esc(r.name)} as ${esc(tl)}"><span>${esc(tl)}</span><span class="toggle sm"><input type="checkbox" data-bmtype="${esc(r.id)}|${t}" ${st.types[t]?"checked":""} aria-label="Sell as ${esc(tl)}"><span class="trk"></span></span></label></th>`).join("")}</tr></thead><tbody>
-    <tr class="bmditem"><td><span class="bmditm"><span class="mmimg">${r.imageUrl ? `<img src="${esc(r.imageUrl)}" alt="">` : svgIco("image")}</span><span><b>${esc(r.name)}</b><small>${usd(base)}</small></span></span></td>${cols.map(([t, tl]) => cell(`data-bmtprice="${esc(r.id)}|${t}"`, st.tprices[t], base, !st.types[t], tl + " price")).join("")}
+  h += `<div class="bmdtw"><table class="bmdtbl bmdmx"><thead><tr><th></th>${cols.map(([t, tl]) => `<th class="num"><span class="bmdth"><span>${esc(tl)}</span></span></th>`).join("")}</tr></thead><tbody>
+    <tr class="bmditem"><td colspan="${cols.length + 1}"><span class="bmditm"><span class="mmimg">${r.imageUrl ? `<img src="${esc(r.imageUrl)}" alt="">` : svgIco("image")}</span><span><b>${esc(r.name)}</b><small>${usd(base)}</small></span></span></td>
       </tr>
     ${links.length ? `<tr class="bmdsec"><td colspan="${cols.length + 1}">Modifiers</td></tr>` : ""}
     ${links.map((l, li) => { const os = modOptions(l.modifierId), nOn = os.filter(o => bmOptState(r, o).on).length;
@@ -4481,8 +4482,8 @@ function scBrandList(list){
 function scBranchList(list){
   const ico = c => svgIco((SC_KINDS.find(x => x[0]===c.kind)||SC_KINDS[3])[2]), multi = brandList().length > 0;
   return `<div class="phead">${multi ? `<button type="button" class="btn" data-scbrandback>← Back</button><h1 style="margin-left:10px">${esc(brandName(BM.brand))}</h1>` : `<h1>Sales Channels</h1>`}</div>
-    <div class="card tbl">${list.length ? `<table><thead><tr><th>Branch</th><th>Sales Channels</th></tr></thead><tbody>${list.map(b => { const cs = scFor(b.id);
-      return `<tr class="clk" data-scbr="${esc(b.id)}"><td><b>${esc(b.name)}</b></td><td>${cs.length ? cs.map(c => `<span class="tag scbtag">${ico(c)}${esc(c.name)}</span>`).join(" ") : `<span class="note">None yet</span>`}</td></tr>`; }).join("")}</tbody></table>`
+    <div class="card tbl">${list.length ? `<table><thead><tr><th>Branch</th><th class="num">Sales Channels</th></tr></thead><tbody>${list.map(b => { const cs = scFor(b.id);
+      return `<tr class="clk" data-scbr="${esc(b.id)}"><td><b>${esc(b.name)}</b></td><td class="num">${cs.length ? cs.map(c => `<span class="tag scbtag">${ico(c)}${esc(c.name)}</span>`).join(" ") : `<span class="note">None yet</span>`}</td></tr>`; }).join("")}</tbody></table>`
       : `<div class="empty">No active branches.</div>`}</div>`;
 }
 document.addEventListener("click", async e => {
