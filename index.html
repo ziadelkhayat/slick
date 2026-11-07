@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="450-1794091244">
+<meta name="slick-build" content="451-1794091326">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -812,7 +812,7 @@ body.noloc .f:has(> label[for$="NameAr"]),body.noloc .f:has(> label[for$="nameAr
 .olframe{margin:0 auto;width:390px;max-width:100%;height:min(780px,calc(100vh - 170px));border-radius:34px;border:10px solid #17151f;box-shadow:0 24px 60px rgba(23,21,31,.25);overflow:hidden;background:#fff;transition:width .3s var(--ease,ease),border-radius .3s}
 .olframe.desk{width:100%;border-radius:14px;border-width:6px}
 .olframe iframe{width:100%;height:100%;border:0;display:block}
-.olframe.desk iframe{width:200%;height:200%;transform:scale(.5);transform-origin:0 0}
+.olframe.tab{width:min(100%,600px);border-radius:24px;border-width:8px}
 .cc1.pdstyle{grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);max-width:1400px;width:100%;margin:0 auto;align-items:start}
 .cc1.pdstyle>.cc1b{background:none;border:0;padding:0}
 .ccside0{display:none;border:1px dashed var(--line2,#d7d4e2);border-radius:16px;padding:28px 22px;flex-direction:column;gap:6px;color:var(--muted);font-size:14px;text-align:center;justify-content:center;min-height:240px;background:var(--surface)}
@@ -4282,8 +4282,8 @@ function viewOnline(){
           <div class="olqr">${x.tables ? Array.from({length:Math.min(+x.tables,40)},(_,i)=>`<a class="lnk" target="_blank" rel="noopener" href="order.html?brand=${encodeURIComponent(olBrand())}&branch=${encodeURIComponent(b.id)}&table=${i+1}">T${i+1}</a>`).join("") : '<span class="note">Set the number of tables to get a QR link for each.</span>'}</div></div></div>`; }).join("")}
   </div>
   </div>
-  <aside class="olprev"><div class="olpbar"><span class="dots"><i></i><i></i><i></i></span><span>Live preview</span><span class="sp"></span><button type="button" class="${state.olDev==="desk"?"":"on"}" data-oldev="phone" title="Phone">${svgIco("mobile")}</button><button type="button" class="${state.olDev==="desk"?"on":""}" data-oldev="desk" title="Desktop">${svgIco("monitor")}</button></div>
-    <div class="olframe ${state.olDev==="desk"?"desk":""}"><iframe id="olFrame" title="Ordering page preview" src="order.html?brand=${encodeURIComponent(olBrand())}&preview=1"></iframe></div><p class="note" style="text-align:center;margin:8px 0 0">Changes show here before you save.</p></aside></div>`;
+  <aside class="olprev"><div class="olpbar"><span class="dots"><i></i><i></i><i></i></span><span>Live preview</span><span class="sp"></span><button type="button" class="${!state.olDev||state.olDev==="phone"?"on":""}" data-oldev="phone" title="Phone">${svgIco("mobile")}</button><button type="button" class="${state.olDev==="tab"?"on":""}" data-oldev="tab" title="Tablet">${svgIco("tablet")}</button><button type="button" class="${state.olDev==="desk"?"on":""}" data-oldev="desk" title="Desktop">${svgIco("monitor")}</button></div>
+    <div class="olframe ${state.olDev==="desk"?"desk":state.olDev==="tab"?"tab":""}"><iframe id="olFrame" title="Ordering page preview" src="order.html?brand=${encodeURIComponent(olBrand())}&preview=1"></iframe></div><p class="note" style="text-align:center;margin:8px 0 0">Changes show here before you save.</p></aside></div>`;
   return h;
 }
 // everything on the Web Ordering screen, as it will be saved
@@ -4306,6 +4306,14 @@ function olCollect(){
 }
 document.addEventListener("click", e => { const c = e.target.closest("[data-ccsrc]"); if(!c || c.disabled) return; const sel = $("#oSource"); if(!sel) return; sel.value = c.dataset.ccsrc; document.querySelectorAll("[data-ccsrc]").forEach(b => b.classList.toggle("on", b===c)); sel.dispatchEvent(new Event("change", { bubbles:true })); });
 let olT = null;
+/* the preview renders the page at the real device width (phone 390, tablet 820×1180, desktop 1440×900) and scales it to fit, so each view looks the same on any screen */
+function olFit(){ const fr = document.querySelector(".olframe"), ifr = fr?.querySelector("iframe"); if(!fr || !ifr) return;
+  const d = state.olDev==="desk" ? [1440, 900] : state.olDev==="tab" ? [820, 1180] : null;
+  if(!d){ fr.style.height = ""; ifr.style.cssText = ""; return; }
+  const bw = parseFloat(getComputedStyle(fr).borderLeftWidth) || 0, w = fr.clientWidth, sc = w / d[0];
+  fr.style.height = (d[1] * sc + bw * 2) + "px"; ifr.style.cssText = `width:${d[0]}px;height:${d[1]}px;transform:scale(${sc});transform-origin:0 0`; }
+addEventListener("resize", () => setTimeout(olFit, 50));
+new MutationObserver(() => { const fr = document.querySelector(".olframe"); if(fr && !fr.dataset.fit){ fr.dataset.fit = 1; setTimeout(olFit, 0); } }).observe(document.body, { childList:true, subtree:true });
 function olPreview(){ clearTimeout(olT); olT = setTimeout(() => { if(!$("#olOn")) return; const cfg = olCollect(); state.olDraft = { brand:olBrand(), cfg }; $("#olFrame")?.contentWindow?.postMessage({ type:"slick-web-cfg", cfg }, location.origin); }, 120); }
 async function saveOnline(){
   const data = olCollect();
@@ -4318,7 +4326,7 @@ document.addEventListener("click", e => {
   const t = e.target.closest("[data-olbrand]"); if(t){ e.preventDefault(); state.olBrand = t.dataset.olbrand; state.olDraft = null; render(); return; }
   const tb = e.target.closest("[data-oltab]"); if(tb){ state.olTab = tb.dataset.oltab; document.querySelectorAll("[data-oltab]").forEach(b => b.classList.toggle("on", b===tb)); document.querySelectorAll("[data-olpane]").forEach(p => p.classList.toggle("on", p.dataset.olpane===state.olTab)); return; }
   const pr = e.target.closest("[data-olpreset]"); if(pr){ const [a, b] = pr.dataset.olpreset.split("|"); $("#olAcc").value = a; $("#olAccHex").value = a; const r = document.querySelector(`input[name="olBg"][value="${b}"]`); if(r) r.checked = true; document.querySelectorAll("[data-olpreset]").forEach(x => x.classList.toggle("on", x===pr)); olPreview(); return; }
-  const dv = e.target.closest("[data-oldev]"); if(dv){ state.olDev = dv.dataset.oldev; document.querySelectorAll("[data-oldev]").forEach(x => x.classList.toggle("on", x===dv)); $(".olframe")?.classList.toggle("desk", state.olDev==="desk"); return; }
+  const dv = e.target.closest("[data-oldev]"); if(dv){ state.olDev = dv.dataset.oldev; document.querySelectorAll("[data-oldev]").forEach(x => x.classList.toggle("on", x===dv)); const fr = $(".olframe"); fr?.classList.toggle("desk", state.olDev==="desk"); fr?.classList.toggle("tab", state.olDev==="tab"); olFit(); setTimeout(olFit, 340); return; }
   const cp = e.target.closest("[data-olcopy]"); if(cp){ navigator.clipboard?.writeText(cp.dataset.olcopy).then(() => toast("Link copied"), () => toast("Couldn't copy")); return; }
 });
 
