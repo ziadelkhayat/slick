@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="417-1794082146">
+<meta name="slick-build" content="418-1794082699">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -7333,12 +7333,12 @@ function viewDocs(route){
 function docNewDialog(route){
   const K = DOC_KINDS[route]; if(!K) return; const box = $("#ccBox"); box.className = "modal sm";
   const opts = (list, cur) => `<option value="">Choose…</option>${list.map(([k,t]) => `<option value="${esc(k)}" ${k===cur?"selected":""}>${esc(t)}</option>`).join("")}`;
-  const sups = S.suppliers.filter(live).sort((a,b) => a.name.localeCompare(b.name)).map(x => [x.id, x.name]), locs = locList(), defLoc = state.branch!=="all" ? state.branch : "";
+  const sups = S.suppliers.filter(live).sort((a,b) => a.name.localeCompare(b.name)).map(x => [x.id, x.name]), locs = locList(), defLoc = "";   // every field starts on Choose…
   const sel = (id, lbl, list, cur, empty) => `<div class="f"><label for="${id}">${lbl} *</label><select id="${id}" class="sel" data-empty="${esc(empty)}">${opts(list, cur)}</select></div>`;
   const f = [];
   if(K.kind==="purchase") f.push(sel("dnSup", "Supplier", sups, "", "No suppliers"), sel("dnLoc", "Destination", locs, defLoc, "No branches or warehouses"));
   else if(K.kind==="transfer") f.push(sel("dnLoc", "Source", locs, defLoc, "No branches or warehouses"), sel("dnDest", "Destination", locs, "", "No branches or warehouses"));
-  else if(K.kind==="torder") f.push(sel("dnLoc", "Branch", locs, defLoc, "No branches"), sel("dnDest", "Warehouse", locs, S.warehouses.filter(live)[0]?.id || "", "No warehouses"));
+  else if(K.kind==="torder") f.push(sel("dnLoc", "Branch", locs, defLoc, "No branches"), sel("dnDest", "Warehouse", locs, "", "No warehouses"));
   else if(K.kind==="sheet") f.push(`<div class="f"><label for="dnName">Name *</label><input id="dnName" class="sel"></div>`);
   else if(K.loc) f.push(sel("dnLoc", "Branch", locs, defLoc, "No branches or warehouses"));
   if(K.kind==="quantity") f.push(`<div class="f"><label for="dnReason">Reason *</label><select id="dnReason" class="sel">${opts(QA_REASONS_L().map(r => [r, r]), "")}</select></div>`);
@@ -7703,6 +7703,18 @@ function downloadReportCsv(){
 }
 document.body.insertAdjacentHTML("beforeend", `<div class="scrim" id="crudScrim"><form class="modal" id="crudBox" autocomplete="off"></form></div>
   <div class="scrim" id="ccScrim"><div class="modal wide" id="ccBox"></div></div>`);
+// every dialog in the system: Enter saves (its main button), Esc closes
+window.addEventListener("keydown", e => {
+  if(e.key!=="Enter" && e.key!=="Escape") return;
+  const shown = [...document.querySelectorAll(".scrim.show")]; if(!shown.length) return;
+  const top = shown.find(x => x.id==="confirmScrim") || shown[shown.length - 1];
+  if(e.key==="Escape"){ if(document.querySelector(".msel.open")) return; e.preventDefault(); e.stopImmediatePropagation();
+    const x = top.querySelector("header .x") || top.querySelector("[data-ccclose], [data-cclose], [data-close]"); if(x) x.click(); else top.classList.remove("show"); return; }
+  const t = e.target; if(e.shiftKey || t.tagName==="TEXTAREA" || t.tagName==="BUTTON" || t.tagName==="A" || t.closest?.(".msel-p, .msel-f")) return;
+  if(t!==document.body && !top.contains(t)) return;
+  const b = [...top.querySelectorAll("footer .btn.pri, footer button[type=submit], .btn.pri")].filter(x => !x.disabled && x.offsetParent).pop(); if(!b) return;
+  e.preventDefault(); e.stopImmediatePropagation(); b.click();
+}, true);
 $("#crudBox").addEventListener("submit", submitCrud);
 // item page edited in place: Save / Discard light up once something changes
 // changed fields are counted like the Sales Channels save bar ("2 unsaved changes")
