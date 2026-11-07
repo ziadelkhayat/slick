@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="409-1794080413">
+<meta name="slick-build" content="410-1794080521">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -2711,6 +2711,7 @@ const brandFilter = r => state.brand==="all" || r.brandId===state.brand;
 // nutritional values (like Foodics) and the business's allergen list (Menu → Allergens)
 const NUTR = [["calories","Calories","kcal"],["fat","Total fat","g"],["satFat","Saturated fat","g"],["transFat","Trans fat","g"],["cholesterol","Cholesterol","mg"],["carbs","Carbohydrate","g"],["fiber","Fiber","g"],["sugars","Total sugars","g"],["addedSugars","Added sugars","g"],["protein","Protein","g"],["salt","Salt","g"],["sodium","Sodium","mg"],["caffeine","Caffeine","mg"]];
 const DEF_ALLERGENS = ["Celery","Cereals containing gluten","Crustaceans","Eggs","Fish","Lupin","Milk","Molluscs","Mustard","Tree nuts","Peanuts","Sesame","Soy","Sulphites"];
+const allergenAr = () => ({ ...(((typeof S!=="undefined" ? S.settings : []).find(x => x.id==="allergens"))?.ar || {}) });   // localized names, by allergen
 const allergenList = () => { const s = (typeof S!=="undefined" ? S.settings : []).find(x => x.id==="allergens"); return Array.isArray(s?.list) ? s.list : DEF_ALLERGENS; };
 const brandField = {k:"brandId",l:"Brand",t:"select",req:1,opts:()=>brandList().map(b=>[b.id,b.name]),auto:()=>defaultBrand()};
 const CRUD = {
@@ -6305,22 +6306,22 @@ function viewAllergens(){
   const list = allergenList(), used = a => S.products.filter(p => live(p) && (p.allergens||[]).includes(a)).length + S.modifier_options.filter(o => live(o) && (o.allergens||[]).includes(a)).length;
   return `<div class="phead"><h1>Allergens</h1></div>
   <div class="rswrap"><div class="rssec"><div class="rsh"><h3>Allergens</h3><span class="sp"></span><button class="btn" data-algnew>Create Allergen</button></div>
-    <div class="card rslist">${list.length ? list.map((a, i) => `<div class="rsn" data-algedit="${i}" data-sk="alg|${i}"><span class="bmgrip rsgrip" title="Drag to move" aria-hidden="true">⋮⋮</span><span>${esc(a)}</span><span class="sp"></span><span class="note">${used(a)} item${used(a)===1?"":"s"}</span></div>`).join("")
+    <div class="card rslist">${list.length ? list.map((a, i) => `<div class="rsn" data-algedit="${i}" data-sk="alg|${i}"><span class="bmgrip rsgrip" title="Drag to move" aria-hidden="true">⋮⋮</span><span>${esc(a)}</span>${allergenAr()[a] ? `<span class="note" style="margin-left:8px">${esc(allergenAr()[a])}</span>` : ""}<span class="sp"></span><span class="note">${used(a)} item${used(a)===1?"":"s"}</span></div>`).join("")
       : `<div class="rsempty">Add the allergens your items can contain. They show on the item page and to customers.</div>`}</div></div></div>`;
 }
-async function algSave(list){ try{ await put("settings", "allergens", { list }); render(); return true; }catch(err){ console.error(err); toast("Couldn't save"); return false; } }
+async function algSave(list, ar){ ar = ar || allergenAr(); Object.keys(ar).forEach(k => { if(!list.includes(k) || !ar[k]) delete ar[k]; });
+  try{ await put("settings", "allergens", { list, ar }); render(); return true; }catch(err){ console.error(err); toast("Couldn't save"); return false; } }
 async function algRename(from, to){   // the items that have it keep it under the new name
   for(const [col, rows] of [["products", S.products], ["modifier_options", S.modifier_options]]) for(const r of rows.filter(x => (x.allergens||[]).includes(from))){
     const upd = { allergens: r.allergens.map(x => x===from ? to : x) }; try{ await put(col, r.id, upd); Object.assign(r, upd); }catch(err){ console.error(err); } }
 }
 document.addEventListener("click", async e => {
-  if(e.target.closest("[data-algnew]")) return tagAsk("Create Allergen", "", async n => { const l = allergenList(); if(l.some(x => x.toLowerCase()===n.toLowerCase())){ $("#tgErr").textContent = "This allergen already exists."; return false; }
-    const ok = await algSave([...l, n]); if(ok) toast("Allergen created"); return ok; });
+  if(e.target.closest("[data-algnew]")) return tagAsk("Create Allergen", "", async (n, nar) => { const l = allergenList(); if(l.some(x => x.toLowerCase()===n.toLowerCase())){ $("#tgErr").textContent = "This allergen already exists."; return false; }
+    const ok = await algSave([...l, n], { ...allergenAr(), [n]: nar || "" }); if(ok) toast("Allergen created"); return ok; });
   const ed = e.target.closest("[data-algedit]"); if(ed){ e.preventDefault(); const l = allergenList(), a = l[+ed.dataset.algedit]; if(a==null) return;
-    tagAsk(a, a, async n => { if(n!==a && l.some(x => x.toLowerCase()===n.toLowerCase())){ $("#tgErr").textContent = "This allergen already exists."; return false; }
-      if(n===a) return true; await algRename(a, n); const ok = await algSave(l.map(x => x===a ? n : x)); if(ok) toast("Allergen saved"); return ok; }, null,
-      async () => { const ok = await algSave(l.filter(x => x!==a)); if(ok) toast("Allergen deleted"); return ok; });
-    const ar = $("#tgNameAr")?.closest(".f"); if(ar) ar.remove(); }
+    tagAsk(a, a, async (n, nar) => { if(n!==a && l.some(x => x.toLowerCase()===n.toLowerCase())){ $("#tgErr").textContent = "This allergen already exists."; return false; }
+      const ar = allergenAr(); delete ar[a]; ar[n] = nar || ""; if(n!==a) await algRename(a, n); const ok = await algSave(l.map(x => x===a ? n : x), ar); if(ok) toast("Allergen saved"); return ok; }, allergenAr()[a] || "",
+      async () => { const ok = await algSave(l.filter(x => x!==a)); if(ok) toast("Allergen deleted"); return ok; }); }
 });
 function productDetail(p){
   const cost = productCost(p), price = +p.price || 0, pct = price ? cost/price*100 : 0;
