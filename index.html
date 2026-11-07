@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="403-1794079089">
+<meta name="slick-build" content="404-1794079378">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1123,6 +1123,8 @@ button.x,button.mmdx,.dzchip>button,.chip>button{transition:background-color .15
 button.x:hover,button.mmdx:hover,.dzchip>button:hover,.chip>button:hover{transform:rotate(90deg)!important}
 .scbtag{display:inline-flex;align-items:center;gap:6px}.scbtag svg{width:14px;height:14px}
 .msel-none{padding:12px 10px;color:var(--muted,#8a87a0);font-size:13.5px;text-align:center}
+/* tab icons: the accent colour and a little larger, like the icons of the More list */
+.ptabs a .ico{width:19px!important;height:19px!important;color:#5b2bc4;vertical-align:-4px}
 </style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -1214,7 +1216,7 @@ button.x:hover,button.mmdx:hover,.dzchip>button:hover,.chip>button:hover{transfo
 /* ---------- naming: menu "products" are called Items; inventory "items" are called Products ----------
    Done on what's shown, so data and links keep their names. On inventory screens both words swap
    (there "item" meant an inventory item and "product" a menu product); everywhere else Product → Item. */
-const INV_ROUTES = new Set(["inv-categories","inv-items","warehouses","suppliers","purchase-orders","transfer-orders","transfers","inventory-count","production","quantity-adjustments","cost-adjustments","spot-check","count-sheets","inv-levels","inv-history","purchasing","order-transactions","inventory-reports"]);
+const INV_ROUTES = new Set(["inv-categories","inv-items","warehouses","suppliers","po","purchase-orders","transfer-orders","transfers","inventory-count","production","quantity-adjustments","cost-adjustments","spot-check","count-sheets","inv-levels","inv-history","purchasing","order-transactions","inventory-reports"]);
 const NM_SEEN = new WeakMap();
 function nmCase(src, w){ if(src === src.toUpperCase()) return w.toUpperCase(); if(src[0] === src[0].toUpperCase()) return w[0].toUpperCase() + w.slice(1); return w; }
 function nmText(t, inv){
@@ -1304,7 +1306,7 @@ const NAV = [
   {id:"call-center",t:"Call Center",i:"phone"},
   {id:"customers",t:"Customers",i:"users"},
   {t:"Reports",i:"chart",tabs:1,kids:[["sales-reports","Sales Reports"],["inventory-reports","Inventory Reports"],["business-reports","Business Reports"],["analysis-reports","Analysis Reports"]]},
-  {t:"Inventory",i:"box",tabs:1,more:"inventory-more",kids:[["inv-items","Items"],["suppliers","Suppliers"],["inventory-count","Inventory Count"],["purchase-orders","Purchasing"],["transfer-orders","Transfer Orders"],["transfers","Transfers"],["production","Production"],["inventory-more","More"],
+  {t:"Inventory",i:"box",tabs:1,kids:[["inv-items","Items"],["suppliers","Suppliers"],["inventory-count","Inventory Count"],["po","Purchase Orders"],["purchase-orders","Purchasing"],["transfer-orders","Transfer Orders"],["transfers","Transfers"],["production","Production"],
     ["quantity-adjustments","Quantity Adjustment"],["cost-adjustments","Cost Adjustment"],["order-transactions","Order Transactions"],["inv-categories","Inventory Categories"],["warehouses","Warehouses"],["spot-check","Inventory Spot Check"],["count-sheets","Count Sheet"]]},
   {t:"Menu",i:"book",tabs:1,side:[["branch-menu","Sales Channels"]],kids:[["@Menu Builder"],["categories","Categories"],["products","Products"],["variants","Variants"],["modifiers","Modifiers"],["combos","Combos"],["@Menu Settings"],["allergens","Allergens"]]},
   {t:"Web Ordering",i:"globe",tabs:1,kids:[["online-ordering","Settings"],["delivery-zones","Delivery Zones"],["delivery-charges","Delivery Charges"]]},
@@ -1389,7 +1391,7 @@ Object.assign(I, {
 // one icon per screen
 const SUBI = { "inventory-more":"grid", "manage-more":"grid",
   "sales-reports":"bars","inventory-reports":"pie","business-reports":"chart","analysis-reports":"layout",
-  "inv-items":"box","suppliers":"truck","purchase-orders":"cart","transfer-orders":"clipboard","transfers":"swap","inventory-count":"sheet","production":"factory",
+  "inv-items":"box","suppliers":"truck","po":"clipboard","purchase-orders":"cart","transfer-orders":"clipboard","transfers":"swap","inventory-count":"sheet","production":"factory",
   "quantity-adjustments":"sliders","cost-adjustments":"dollar","order-transactions":"receipt","inv-categories":"folder","warehouses":"warehouse","spot-check":"search","count-sheets":"list",
   "categories":"grid","products":"utensils","modifiers":"layers","variants":"sliders","modifier-options":"list","branch-menu":"store","combos":"combo","groups":"folder","price-tags":"pricetag","allergens":"alert","tags":"tag",
   "company":"building","users":"user","roles":"shield","brands":"store","branches":"map","devices":"tablet","tables":"grid","taxes":"percent","payment-methods":"card","order-sources":"source",
@@ -6899,7 +6901,7 @@ async function ccAdd(p){
 /* ---------- Purchase orders, transfer orders, transfers ---------- */
 const supName = id => S.suppliers.find(x=>x.id===id)?.name || "—";
 function docStatusTag(d){
-  const t = d.status==="closed" ? (d.kind==="purchase"||d.kind==="transfer" ? "Received" : d.kind==="torder" ? "Fulfilled" : "Closed")
+  const t = d.status==="closed" ? (d.kind==="purchase" && d.reason==="po" ? "Approved" : d.kind==="purchase"||d.kind==="transfer" ? "Received" : d.kind==="torder" ? "Fulfilled" : "Closed")
     : d.status==="pending" ? (d.kind==="transfer" ? "Sent" : "Pending") : d.status==="rejected" ? "Rejected" : "Draft";
   const cls = d.status==="closed" ? "on" : d.status==="pending" ? "cc" : "off";
   return `<span class="tag ${cls}">${t}</span>`;
@@ -6932,13 +6934,14 @@ function flowInfo(d, K, info){
     info("Business Date", esc(d.businessDate||"—")), who("Creator", d.createdBy), who(K.kind==="transfer"?"Sent by":"Submitted by", d.submittedBy),
     info(K.kind==="transfer"?"Sent At":"Submitted At", fmtDate(d.submittedAt)), who(K.kind==="torder"?"Fulfilled by":"Received by", d.receivedBy),
     info(K.kind==="torder"?"Fulfilled At":"Received At", fmtDate(d.receivedAt)), info("Number of Items", (d.items||[]).length),
-    d.linkedId ? info(K.kind==="torder" ? "Transfer" : "Transfer order", `<a href="#${K.kind==="torder"?"transfers":"transfer-orders"}" class="lnk" data-doclink="${K.kind==="torder"?"transfers":"transfer-orders"}:${esc(d.linkedId)}">${esc(S.inv_docs.find(x=>x.id===d.linkedId)?.ref || "Open")}</a>`) : "",
+    d.linkedId && K.kind==="purchase" ? info(K.po ? "Purchasing" : "Purchase order", `<a href="#${K.po?"purchase-orders":"po"}" class="lnk" data-doclink="${K.po?"purchase-orders":"po"}:${esc(d.linkedId)}">${esc(S.inv_docs.find(x=>x.id===d.linkedId)?.ref || "Open")}</a>`) : d.linkedId ? info(K.kind==="torder" ? "Transfer" : "Transfer order", `<a href="#${K.kind==="torder"?"transfers":"transfer-orders"}" class="lnk" data-doclink="${K.kind==="torder"?"transfers":"transfer-orders"}:${esc(d.linkedId)}">${esc(S.inv_docs.find(x=>x.id===d.linkedId)?.ref || "Open")}</a>`) : "",
     d.notes ? info("Notes", esc(d.notes)) : ""].join("");
 }
 function flowButtons(d, K){
   const b = DOC.busy;
   if(d.status==="draft") return `<button class="btn pri" data-flow="submit" ${b||!d.items.length?"disabled":""}>${b?"Working…":K.kind==="transfer"?"Send":K.kind==="torder"?"Submit request":"Submit order"}</button>`;
   if(d.status!=="pending") return "";
+  if(K.po) return `<button class="btn danger" data-flow="reject" ${b?"disabled":""}>Reject</button><button class="btn pri" data-flow="approve" ${b?"disabled":""}>${b?"Working…":"Approve & create purchasing"}</button>`;
   if(K.kind==="torder") return `<button class="btn danger" data-flow="reject" ${b?"disabled":""}>Reject</button><button class="btn pri" data-flow="fulfil" ${b?"disabled":""}>Create transfer</button>`;
   return `${K.kind==="purchase"?`<button class="btn danger" data-flow="reject" ${b?"disabled":""}>Reject</button>`:""}<button class="btn pri" data-flow="receive" ${b?"disabled":""}>${b?"Working…":"Receive items"}</button>`;
 }
@@ -6968,6 +6971,17 @@ async function flowAction(action){
     if(!(await saveDoc(true))) return;
   }
   if(action==="reject" && !(await askYes(`Reject ${d.ref}?`))) return;
+  if(action==="approve"){   // purchase order approved: a purchasing draft with the same supplier, place and items, to receive when the goods arrive
+    if(!(await askYes(`Approve ${d.ref || "this purchase order"} and create its purchasing?`))) return;
+    DOC.busy = true; render(); const pid = uid("idoc"), now = new Date().toISOString();
+    try{
+      await put("inv_docs", pid, { kind:"purchase", status:"draft", locationId:d.locationId, supplierId:d.supplierId||null, businessDate:daysAgo(0), direction:"deduct", reason:null, notes:d.notes||null, linkedId:d.id, createdBy: state.fullName || state.userName || null,
+        items: d.items.map(l => ({ itemId:l.itemId, qty: +l.qty || 0, cost: l.cost ?? (+itemOf(l.itemId)?.cost || 0) })) });
+      await put("inv_docs", d.id, { status:"closed", linkedId:pid, receivedBy: state.fullName || null, receivedAt: now });
+      Object.assign(d, { status:"closed", linkedId:pid, receivedBy: state.fullName || null, receivedAt: now }); toast("Approved. The purchasing is created as a draft.");
+    }catch(err){ console.error(err); DOC.err = "Couldn't approve: " + (err.message || err); }
+    DOC.busy = false; return render();
+  }
   let lines = null;
   if(action==="receive"){
     lines = d.items.map((l, ix) => ({ itemId:l.itemId, qty: +DOC.recv[ix].qty || 0, ...(K.kind==="purchase" ? { cost: +DOC.recv[ix].cost || 0 } : {}), ordered: +l.qty || 0 }));
@@ -7179,7 +7193,8 @@ const DOC_KINDS = {
   "quantity-adjustments": { kind:"quantity", title:"Quantity Adjustment", plural:"Quantity Adjustment", loc:1, intro:"Deduct waste, expired or damaged stock, or add stock found. Submitting updates the stock level of each item at the chosen branch or warehouse." },
   "cost-adjustments":     { kind:"cost", title:"Cost Adjustment", plural:"Cost Adjustment", intro:"Adjust your inventory value here by creating a cost adjustment transaction with the new cost of your inventory items." },
   "spot-check":           { kind:"spot", title:"Inventory Spot Check", plural:"Inventory Spot Check", loc:1, intro:"The spot check captures the count of items made by the audit team. It does not change the stock levels and is only used as a reference." },
-  "purchase-orders":      { kind:"purchase", title:"Purchase Order", plural:"Purchase Orders", loc:1, flow:1, intro:"Order stock from a supplier. Submit it when it's sent, then receive it when the goods arrive: receiving adds the quantities that actually arrived to the branch or warehouse and updates item costs." },
+  "po":                   { kind:"purchase", po:1, title:"Purchase Order", plural:"Purchase Orders", loc:1, flow:1, intro:"Order stock from a supplier. Submit it for approval; once approved, create the purchasing from it to receive the goods when they arrive." },
+  "purchase-orders":      { kind:"purchase", title:"Purchasing", plural:"Purchasing", loc:1, flow:1, intro:"Order stock from a supplier. Submit it when it's sent, then receive it when the goods arrive: receiving adds the quantities that actually arrived to the branch or warehouse and updates item costs." },
   "transfer-orders":      { kind:"torder", title:"Transfer Order", plural:"Transfer Orders", loc:1, flow:1, intro:"A branch asks a warehouse (or another branch) for stock. The sender fulfils it by creating a transfer with the same items, which they can adjust before sending." },
   "transfers":            { kind:"transfer", title:"Transfer", plural:"Transfers", loc:1, flow:1, intro:"Move stock between branches and warehouses. Sending takes it out of the source; receiving adds what actually arrived at the destination." },
   "production":           { kind:"production", title:"Production", plural:"Production", loc:1, intro:"Make produced items (sauces, prepped proteins, noodles…) from their ingredients. Submitting adds the produced quantity to the chosen branch or warehouse and takes out the ingredients used, based on each item's ingredient list." },
@@ -7187,6 +7202,7 @@ const DOC_KINDS = {
 };
 const QA_REASONS_DEF = ["Waste","Expired","Damaged","Theft","Staff meal","Sample","Found stock","Other"];
 const QA_REASONS_L = () => { const v = (S.settings.find(x => x.id==="app")||{}).qtyReasons; return v==null ? QA_REASONS_DEF : String(v).split("\n").map(x => x.trim()).filter(Boolean); };
+const docOf = K => d => d.kind===K.kind && (K.kind!=="purchase" || (d.reason==="po") === !!K.po);
 const DOC = { tab:{}, q:{}, open:null, edit:null, stock:null, stockAt:0, busy:false, err:"" };
 const invCatNames = () => { const m = S.inv_categories.filter(live).map(c=>c.name); S.inv_items.forEach(i=>{ if(i.category && !m.includes(i.category)) m.push(i.category); }); return m.sort((a,b)=>a.localeCompare(b)); };
 const locList = () => [...activeBranches().map(b=>[b.id,b.name]), ...S.warehouses.filter(live).map(w=>[w.id, w.name + (w.reference?` (${w.reference})`:"") ])];
@@ -7210,7 +7226,7 @@ function viewDocs(route){
   const K = DOC_KINDS[route];
   if(DOC.open && DOC.open.route===route) return viewDoc(route);
   const tab = DOC.tab[route] || "all", q = (DOC.q[route]||"").toLowerCase();
-  const all = S.inv_docs.filter(d => d.kind===K.kind && live(d) && docBrandOk(d));
+  const all = S.inv_docs.filter(d => docOf(K)(d) && live(d) && docBrandOk(d));
   const list = all.filter(d => tab==="all" || d.status===tab).filter(d => !q || ((d.ref||"")+" "+(d.name||"")+" "+locName(d.locationId)+" "+(d.reason||"")).toLowerCase().includes(q))
     .sort((a,b)=>String(b.createdAt).localeCompare(String(a.createdAt)));
   const tabs = K.kind==="sheet" ? [] : K.flow ? [["all","All"],["draft","Draft"],["pending","Pending"],["closed","Closed"],["rejected","Rejected"]] : [["all","All"],["draft","Draft"],["closed","Closed"]];
@@ -7229,7 +7245,7 @@ function viewDocs(route){
 
 function newDoc(route){
   const K = DOC_KINDS[route];
-  DOC.edit = { id:null, kind:K.kind, status:"draft", items:[], businessDate:daysAgo(0), direction:"deduct", reason:K.kind==="quantity"?"Waste":"", locationId: K.loc ? (state.branch!=="all" ? state.branch : (locList()[0]||[])[0] || "") : "", name:"", notes:"" };
+  DOC.edit = { id:null, kind:K.kind, status:"draft", items:[], businessDate:daysAgo(0), direction:"deduct", reason:K.kind==="quantity"?"Waste":K.po?"po":"", locationId: K.loc ? (state.branch!=="all" ? state.branch : (locList()[0]||[])[0] || "") : "", name:"", notes:"" };
   if(K.kind==="torder") DOC.edit.destId = S.warehouses.filter(live)[0]?.id || "";
   DOC.open = { route, id:null }; DOC.err = ""; DOC.recv = null; if(K.loc || K.kind==="cost") loadStock(); render(); window.scrollTo(0,0);
 }
@@ -7277,11 +7293,8 @@ function viewDoc(route){
   }
   // add items bar
   if(!ro){
-    h += `<div class="row fbar">
-      <input class="sel" id="dAdd" list="dAddL" placeholder="Add item: type a name or SKU" style="min-width:280px"><datalist id="dAddL">${avail.map(i=>`<option value="${esc(i.name)} · ${esc(i.sku||"")}">`).join("")}</datalist>
-      <select class="sel" id="dAddCat" aria-label="Add a whole category"><option value="">Add all items of a category…</option>${invCatNames().map(c=>`<option>${esc(c)}</option>`).join("")}</select>
-      ${sheets.length?`<select class="sel" id="dAddSheet" aria-label="Load a count sheet"><option value="">Load count sheet…</option>${sheets.map(s=>`<option value="${esc(s.id)}">${esc(s.name||s.ref)}</option>`).join("")}</select>`:""}
-      <span class="sp"></span>${d.items.length?`<button class="btn sm" data-docclear>Remove all</button>`:""}</div>`;
+    DOC.addAvail = avail.map(i => i.id); DOC.addSheets = sheets.map(x => x.id); DOC.addProd = K.kind==="production";
+    h += `<div class="row fbar"><span class="sp"></span>${d.items.length?`<button class="btn" data-docclear>Remove all</button>`:""}<button class="btn" data-docadd>Add Items</button></div>`;
   }
   // items table
   const rows = d.items.map((l, ix) => {
@@ -7412,7 +7425,7 @@ function printDoc(){
 }
 function exportDocs(route){
   const K = DOC_KINDS[route], out = [["Reference","Name","Branch","Reason","Type","Status","Business date","Item","SKU","Quantity","Cost","Created"]];
-  S.inv_docs.filter(d=>d.kind===K.kind && live(d)).forEach(d => (d.items||[]).forEach(l => { const it = itemOf(l.itemId)||{}; out.push([d.ref, d.name, locName(d.locationId), d.reason, d.direction, d.status, d.businessDate, it.name, it.sku, l.qty, l.cost, d.createdAt]); }));
+  S.inv_docs.filter(d=>docOf(K)(d) && live(d)).forEach(d => (d.items||[]).forEach(l => { const it = itemOf(l.itemId)||{}; out.push([d.ref, d.name, locName(d.locationId), d.reason, d.direction, d.status, d.businessDate, it.name, it.sku, l.qty, l.cost, d.createdAt]); }));
   const csv = out.map(r => r.map(v => `"${String(v??"").replace(/"/g,'""')}"`).join(",")).join("\n");
   const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob(["﻿"+csv], {type:"text/csv"})); a.download = route + ".csv"; a.click();
 }
@@ -7436,6 +7449,24 @@ document.addEventListener("input", e => {
   const qd = t.closest("[data-docq]"); if(qd){ DOC.q[qd.dataset.docq] = t.value; const pos = t.selectionStart; render(); const el = $(`[data-docq="${qd.dataset.docq}"]`); if(el){ el.focus(); el.setSelectionRange(pos,pos); } return; }
   if(DOC.edit && ["dName","dReason","dDate","dNotes"].includes(t.id)){ readDocHeader(); return; }
   const ln = t.closest("[data-docl]"); if(ln && DOC.edit){ const [ix, f] = ln.dataset.docl.split(":"); DOC.edit.items[+ix][f] = t.value; docRowLive(+ix); return; }
+});
+// Add Items (Foodics): a dialog to pick items, or pick tags and add their items; counts can also load a count sheet
+document.addEventListener("click", e => {
+  if(!DOC.open || !DOC.edit) return;
+  if(e.target.closest("[data-docadd]")){ e.preventDefault(); const items = (DOC.addAvail||[]).map(itemOf).filter(Boolean), tg = tagList("inventory"), shs = (DOC.addSheets||[]).map(id => S.inv_docs.find(x => x.id===id)).filter(Boolean), box = $("#ccBox"); box.className = "modal sm";
+    box.innerHTML = `<header><h2>Add Items</h2><button type="button" class="x" data-ccclose aria-label="Close">×</button></header><div class="body" style="display:block">
+      <div class="f" id="daByItems"><label style="display:flex;justify-content:space-between"><span>Items</span>${tg.length ? `<a href="#" class="lnk" data-damode="tags">Select by tags ?</a>` : ""}</label><div class="multi" id="daItems" data-empty="${DOC.addProd ? "No items with a recipe to add" : "No items to add"}">${items.map(i => `<label class="chk"><input type="checkbox" value="${esc(i.id)}"> ${esc(i.name)}${i.sku ? " (" + esc(i.sku) + ")" : ""}</label>`).join("")}</div></div>
+      ${tg.length ? `<div class="f" id="daByTags" hidden><label style="display:flex;justify-content:space-between"><span>Tags</span><a href="#" class="lnk" data-damode="items">Select items ?</a></label><div class="multi" id="daTags">${tg.map(t => `<label class="chk"><input type="checkbox" value="${esc(t.id)}"> ${esc(t.name)}</label>`).join("")}</div></div>` : ""}
+      ${shs.length ? `<div class="f"><label for="daSheet">Count Sheet</label><select id="daSheet" class="sel"><option value="">Choose…</option>${shs.map(x => `<option value="${esc(x.id)}">${esc(x.name||x.ref)}</option>`).join("")}</select></div>` : ""}
+      <div class="err" id="daErr"></div></div>
+      <footer><span style="flex:1"></span><button type="button" class="btn keep" data-ccclose>Close</button><button type="button" class="btn pri" id="daSave">Add</button></footer>`;
+    $("#ccScrim").classList.add("show"); return; }
+  const md = e.target.closest("[data-damode]"); if(md){ e.preventDefault(); const tags = md.dataset.damode==="tags"; $("#daByItems").hidden = tags; $("#daByTags").hidden = !tags; return; }
+  if(e.target.closest("#daSave")){ e.preventDefault(); const vals = id => [...document.querySelectorAll("#" + id + " input:checked")].map(i => i.value), allow = new Set(DOC.addAvail||[]);
+    let ids = $("#daByTags") && !$("#daByTags").hidden ? (DOC.addAvail||[]).filter(id => tagsOf("inventory", id).some(t => vals("daTags").includes(t))) : vals("daItems");
+    const sh = $("#daSheet")?.value ? S.inv_docs.find(x => x.id===$("#daSheet").value) : null; if(sh) ids = [...ids, ...(sh.items||[]).map(l => l.itemId).filter(id => allow.has(id))];
+    if(!ids.length) return $("#daErr").textContent = "Choose at least one item.";
+    readDocHeader(); const n = docAddItems([...new Set(ids)]); $("#ccScrim").classList.remove("show"); toast(`Added ${n} item${n===1?"":"s"}`); return render(); }
 });
 document.addEventListener("change", e => {
   if(!DOC.open || !DOC.edit) return;
