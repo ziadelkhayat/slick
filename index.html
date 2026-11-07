@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="383-1794074711">
+<meta name="slick-build" content="384-1794074842">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1103,6 +1103,10 @@ table.sk-ghost-t{border-collapse:collapse;table-layout:fixed}table.sk-ghost-t td
 .toggle.sm .trk{transform:scale(.85)}
 button.x[data-xi]{display:grid!important;place-items:center!important;padding:0!important;line-height:0!important;font-size:0!important}button.x[data-xi] svg{display:block;width:16px;height:16px}
 .modal>header,#ccBox>header,#crudBox>header,.bmdrawer>header{position:sticky;top:0;z-index:3;background:#fff}.bmdrawer header .x{flex:none}
+.bmdmx{background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 1px 4px rgba(20,18,40,.06)}.bmdmx th{vertical-align:bottom}.bmdth{display:inline-flex;flex-direction:column;align-items:flex-end;gap:6px;cursor:pointer}
+.bmdmx td:first-child{min-width:170px}.bmdmx td>b,.bmdmx .bmdon b{font-size:13.5px}.bmdmx td>small{display:block;color:var(--muted);font-size:12px}.bmdmx .bmdin{width:72px!important;height:32px}
+.bmdmx tr.bmditem{background:#fbfaff}.bmdmx tr.bmdgrow td{background:#f4f2fa;padding:7px 12px;font-size:13px}.bmdmx tr.bmdgrow td>*{margin-right:8px;vertical-align:middle}
+.bmdmx .bmdon{gap:8px}.bmdhint{margin:10px 2px 0}.bmdbody{padding:14px 16px 30px}
 </style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -4329,18 +4333,17 @@ function bmDrawer(br, ch, types){
   const st = bmState(r), links = bmLinks(r), rule = l => { const mn = +l.min||0, mx = +l.max||0; return mn && mx && mn===mx ? `Choose ${mn}` : mn && mx ? `Choose ${mn} to ${mx}` : mn ? `At least ${mn}` : mx ? `Up to ${mx}` : "Optional"; };
   const base = st.price!=="" ? +st.price : st.fallback;
   let h = `<div class="bmdscrim" data-bmclose></div><aside class="bmdrawer" role="dialog" aria-label="${esc(r.name)}"><header><span class="mmimg">${r.imageUrl ? `<img src="${esc(r.imageUrl)}" alt="">` : svgIco("image")}</span><div><b>${esc(r.name)}</b><small>${esc(ch[1])} · ${esc(br.name)}</small></div><button type="button" class="x" data-bmclose aria-label="Close">×</button></header><div class="bmdbody">`;
-  h += `<section><h4>Stock at ${esc(br.name)}</h4><div class="bmdrow bmdstk"><span>${st.stock ? "In stock" : "Sold out"} <small class="note">· all channels</small></span>${stockPill(`data-bmstock="${esc(r.id)}"`, st.stock, !st.on)}</div></section>`;
-  h += `<section><h4>Order types & prices</h4><div class="bmdgrp"><table class="bmdtbl"><thead><tr><th>Order type</th><th class="num">Price</th></tr></thead><tbody>${types.map(([t, tl]) => `<tr class="${st.types[t] ? "" : "off"}"><td><label class="bmdon"><span class="toggle"><input type="checkbox" data-bmtype="${esc(r.id)}|${t}" ${st.types[t]?"checked":""} aria-label="Sell as ${esc(tl)}"><span class="trk"></span></span><span><b>${esc(tl)}</b><small>${st.types[t] ? "Sold" : "Not sold"}</small></span></label></td>
-      <td class="num"><input inputmode="decimal" class="sel bmdin${st.tprices[t]!=="" ? " cust" : ""}" data-bmtprice="${esc(r.id)}|${t}" value="${esc(st.tprices[t])}" placeholder="${esc(String(base))}" aria-label="${esc(tl)} price" ${st.types[t] ? "" : "disabled"}></td></tr>`).join("")}</tbody></table></div><p class="note" style="margin:6px 2px 0">Leave a price empty to use ${usd(base)}.</p></section>`;
-  // modifiers: one table per group; a column per order type the item is sold as (empty = the option's own price)
-  const sold = types.filter(([t]) => st.types[t]), cols = sold.length ? sold : types;
-  h += `<section><h4>Modifiers</h4>${links.length ? links.map(l => { const os = modOptions(l.modifierId), nOn = os.filter(o => bmOptState(r, o).on).length;
-    return `<div class="bmdgrp"><div class="bmdgh"><b>${esc(modName(l.modifierId))}</b><span class="tag">${rule(l)}</span>${+l.free ? `<span class="tag">${l.free} free</span>` : ""}<span class="note">${nOn} of ${os.length} on</span></div>
-      <div class="bmdtw"><table class="bmdtbl"><thead><tr><th>Option</th>${cols.map(([, tl]) => `<th class="num">${esc(tl)}</th>`).join("")}<th class="c">Stock</th></tr></thead><tbody>${os.map(o => { const s = bmOptState(r, o), base = s.price!=="" ? +s.price : +o.price||0;
-        return `<tr class="${s.on ? "" : "off"}"><td><label class="bmdon"><span class="toggle"><input type="checkbox" data-bmoon="${esc(r.id)}|${esc(o.id)}" ${s.on?"checked":""} aria-label="${esc(o.name)}"><span class="trk"></span></span><span><b>${esc(o.name)}</b><small>${base ? usd(base) : "Free"}</small></span></label></td>
-          ${cols.map(([t, tl]) => `<td class="num"><input inputmode="decimal" class="sel bmdin${s.tprices[t]!=="" ? " cust" : ""}" data-bmotprice="${esc(r.id)}|${esc(o.id)}|${t}" value="${esc(s.tprices[t])}" placeholder="${esc(String(base))}" aria-label="${esc(o.name)} ${esc(tl)} price" ${s.on ? "" : "disabled"}></td>`).join("")}
-          <td class="c"><label class="toggle sm" title="${s.stock ? "In stock" : "Sold out"}"><input type="checkbox" data-bmostock="${esc(r.id)}|${esc(o.id)}" ${s.stock?"checked":""} ${s.on?"":"disabled"} aria-label="${esc(o.name)} in stock"><span class="trk"></span></label></td></tr>`; }).join("")}</tbody></table></div></div>`; }).join("")
-    : `<p class="note">No modifiers on this item. Link them on the item's page under Menu → Items.</p>`}<p class="note" style="margin:6px 2px 0">Leave a price empty to use the option's own price. Prices in ${esc(CUR())}.</p></section></div></aside>`;
+  // one compact table: a column per order type. Header: sell the item as that type. First row: the item's prices. Then each modifier group and its options
+  const cols = types, cell = (attr, val, ph, dis, lbl) => `<td class="num"><input inputmode="decimal" class="sel bmdin${val!=="" ? " cust" : ""}" ${attr} value="${esc(val)}" placeholder="${esc(String(ph))}" aria-label="${esc(lbl)}" ${dis ? "disabled" : ""}></td>`;
+  h += `<div class="bmdtw"><table class="bmdtbl bmdmx"><thead><tr><th></th>${cols.map(([t, tl]) => `<th class="num"><label class="bmdth" title="Sell ${esc(r.name)} as ${esc(tl)}"><span>${esc(tl)}</span><span class="toggle sm"><input type="checkbox" data-bmtype="${esc(r.id)}|${t}" ${st.types[t]?"checked":""} aria-label="Sell as ${esc(tl)}"><span class="trk"></span></span></label></th>`).join("")}<th class="c">Stock</th></tr></thead><tbody>
+    <tr class="bmditem"><td><b>Item price</b><small>${usd(base)}</small></td>${cols.map(([t, tl]) => cell(`data-bmtprice="${esc(r.id)}|${t}"`, st.tprices[t], base, !st.types[t], tl + " price")).join("")}
+      <td class="c"><label class="toggle sm" title="${st.stock ? "In stock" : "Sold out"} at ${esc(br.name)}"><input type="checkbox" data-bmstock="${esc(r.id)}" ${st.stock?"checked":""} ${st.on?"":"disabled"} aria-label="In stock"><span class="trk"></span></label></td></tr>
+    ${links.map(l => { const os = modOptions(l.modifierId), nOn = os.filter(o => bmOptState(r, o).on).length;
+      return `<tr class="bmdgrow"><td colspan="${cols.length + 2}"><b>${esc(modName(l.modifierId))}</b><span class="tag">${rule(l)}</span>${+l.free ? `<span class="tag">${l.free} free</span>` : ""}<span class="note">${nOn}/${os.length} on</span></td></tr>` + os.map(o => { const s = bmOptState(r, o), ob = s.price!=="" ? +s.price : +o.price||0;
+        return `<tr class="${s.on ? "" : "off"}"><td><label class="bmdon"><span class="toggle sm"><input type="checkbox" data-bmoon="${esc(r.id)}|${esc(o.id)}" ${s.on?"checked":""} aria-label="${esc(o.name)}"><span class="trk"></span></span><span><b>${esc(o.name)}</b><small>${ob ? usd(ob) : "Free"}</small></span></label></td>
+          ${cols.map(([t, tl]) => cell(`data-bmotprice="${esc(r.id)}|${esc(o.id)}|${t}"`, s.tprices[t], ob, !s.on || !st.types[t], o.name + " " + tl + " price")).join("")}
+          <td class="c"><label class="toggle sm" title="${s.stock ? "In stock" : "Sold out"}"><input type="checkbox" data-bmostock="${esc(r.id)}|${esc(o.id)}" ${s.stock?"checked":""} ${s.on?"":"disabled"} aria-label="${esc(o.name)} in stock"><span class="trk"></span></label></td></tr>`; }).join(""); }).join("")}
+  </tbody></table></div><p class="note bmdhint">Switch an order type off in its header to stop selling the item as it. Empty price = the price shown under the name.</p></div></aside>`;
   return h;
 }
 $("#view").addEventListener("click", e => { const o = e.target.closest("[data-bmitem]"); if(o && !e.target.closest("label,input,button,.sctypes")){ e.preventDefault(); BM.item = o.dataset.bmitem; return render(); }
