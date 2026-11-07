@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="440-1794087287">
+<meta name="slick-build" content="442-1794089253">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -874,7 +874,7 @@ const appSet = () => { const a = { ...APP_DEF, ...BRAND_POS_DEF, ...(S.settings.
   if(a.requireTableGuests !== undefined) a.requireTable = !!a.requireTableGuests; return a; };
 const custGiven = (n, p) => !!(String(n||"").trim() || String(p||"").replace(/[^0-9]/g,"").length >= 6);
 const typeKey = t => t==="takeaway" ? "pickup" : t;
-const menuType = () => otype==="takeaway" ? "pickup" : otype;   // fast sale has its own menu switch in Sales Channels
+const menuType = () => otype==="takeaway" ? "pickup" : otype==="fast" ? "dinein" : otype;   /* fast sale follows the Dine-in settings of Sales Channels */   // fast sale has its own menu switch in Sales Channels
 const chargeList = type => S.charges.filter(c => !c.deleted && c.active!==false && (!(c.orderTypes||[]).length || c.orderTypes.includes(typeKey(type)))
   && (!(c.brandIds||[]).length || c.brandIds.includes(branch?.brandId)) && (!(c.branchIds||[]).length || c.branchIds.includes(device.branchId))).sort((a,b)=>(a.sort??999)-(b.sort??999)||a.name.localeCompare(b.name));
 const pickedCharges = () => chargeList(otype).filter(c => posChg ? posChg.has(c.id) : false);   // charges are only added by the cashier
@@ -1007,8 +1007,8 @@ const allowedTypes = () => { const b = ["dinein","takeaway","delivery"].filter(c
    d = devSet().orderTypes || b, a = ["dinein","takeaway","delivery"].filter(t => b.includes(t) && d.includes(t)); return a.length ? a : ["dinein","takeaway","delivery"]; };
 const defaultType = () => "fast";   // a new order is a fast sale until a table is picked (Tables) or it's taken as pickup / delivery   // the POS starts on Dine-in or Fast sale
 function applyTypes(){ const a = allowedTypes(); $("#otype [data-t=dinein]").style.display = a.includes("dinein") ? "" : "none";
-  const f = $("#otype [data-t=fast]"); if(f) f.style.display = chTypeOn("fast") ? "" : "none";
-  if(!((otype==="fast" && chTypeOn("fast")) || a.includes(otype) || (otype==="dinein" && tableNo))) otype = chTypeOn("fast") ? "fast" : (a[0] || "fast"); }
+  const f = $("#otype [data-t=fast]"); if(f) f.style.display = chTypeOn("dinein") ? "" : "none";
+  if(!((otype==="fast" && chTypeOn("dinein")) || a.includes(otype) || (otype==="dinein" && tableNo))) otype = chTypeOn("dinein") ? "fast" : (a[0] || "fast"); }
 let typeInit = false;
 function renderAll(){
   if(!typeInit && device){ typeInit = true; otype = defaultType(); }

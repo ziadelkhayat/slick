@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="441-1794089138">
+<meta name="slick-build" content="442-1794089253">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -4343,7 +4343,7 @@ function bmItems(){
 // each channel has its own menu per branch: "POS & Call center" and "Web ordering". Prices: customPrices[branch] (POS & call center), customPrices["branch:online"] (web)
 /* sales channels are records per branch (settings "sales_channels"): POS, Call Center and Web Ordering once each (made for every branch),
    plus as many third-party integrations as needed. Each picks the order types it sells. The channel code (pos / callcenter / online / int_…) keys the menus and prices */
-const SC_KINDS = [["pos","POS","tablet",["fast","dinein","pickup","delivery"]],["callcenter","Call Center","phone",["pickup","delivery"]],["online","Web Ordering","globe",["dinein","pickup","delivery"]],["integration","Marketplace","link",["pickup","delivery"]]];
+const SC_KINDS = [["pos","POS","tablet",["dinein","pickup","delivery"]],["callcenter","Call Center","phone",["pickup","delivery"]],["online","Web Ordering","globe",["dinein","pickup","delivery"]],["integration","Marketplace","link",["pickup","delivery"]]];
 const scDoc = () => (typeof S!=="undefined" ? S.settings : []).find(x => x.id==="sales_channels") || {};
 const scCode = c => c.code || c.kind;
 // Web Ordering belongs to the brand (one for all its branches); POS, Call Center and integrations to the branch
@@ -4357,7 +4357,7 @@ function scFor(b, withDeleted){ const inScope = (scDoc().list||[]).filter(c => s
 let BM_MENUS = [];
 const bmMenusRefresh = () => { BM_MENUS = scFor(BM.branch).map(c => [scCode(c), c.name, [scCode(c)], c]); };
 // the order types a channel sells (its own pick, else its kind's default)
-const chTypes = c => { const r = scFor(BM.branch).find(x => scCode(x)===c); return (r?.types?.length ? r.types : null) || SC_KINDS.find(k => k[0]===c)?.[3] || ["pickup","delivery"]; };
+const chTypes = c => { const r = scFor(BM.branch).find(x => scCode(x)===c); return (r?.types?.filter(t => t!=="fast").length ? r.types.filter(t => t!=="fast") : null) || SC_KINDS.find(k => k[0]===c)?.[3] || ["pickup","delivery"]; };
 const CH_TYPES = new Proxy({}, { get: (_, c) => chTypes(String(c)) });
 const chCodesOf = b => scFor(b).map(scCode);
 // per order type inside a channel: "branch:pos:dinein", "branch:online:delivery"… (all three off = the channel is off: "branch:pos")
@@ -4513,13 +4513,13 @@ function scListView(list){
   if(!BM_MENUS.length) return h + `<div class="mmempty big"><b>No sales channels at this branch</b><span>Create POS, Call Center, Web Ordering or an integration.</span><button type="button" class="btn pri" data-scnew>+ Create Sales Channel</button></div></div>`;
   return h + `<table><thead><tr><th>Name</th><th>Type</th><th>Order Types</th><th class="num">Categories</th><th class="num">Items</th></tr></thead><tbody>${BM_MENUS.map(([k, t, , c]) => { const cats = chCats(k), items = new Set(cats.flatMap(x => (x.productIds||[]).map(bmRoot)));
       return `<tr class="clk" data-scopen="${esc(k)}"><td><span class="scrow">${svgIco((SC_KINDS.find(x => x[0]===c.kind)||SC_KINDS[3])[2])}<b>${esc(t)}</b></span></td><td>${esc((SC_KINDS.find(x => x[0]===c.kind)||SC_KINDS[3])[1])}</td>
-        <td>${(c.types||[]).map(x => `<span class="tag">${esc(typeName(x))}</span>`).join(" ")}</td><td class="num">${cats.length}</td><td class="num">${items.size}</td></tr>`; }).join("")}</tbody></table></div>`;
+        <td>${(c.types||[]).filter(x => x!=="fast").map(x => `<span class="tag">${esc(typeName(x))}</span>`).join(" ")}</td><td class="num">${cats.length}</td><td class="num">${items.size}</td></tr>`; }).join("")}</tbody></table></div>`;
 }
 document.addEventListener("click", e => { const o = e.target.closest("[data-scopen]"); if(o){ e.preventDefault(); BM.menu = o.dataset.scopen; BM.open1 = true; BM.draft = {}; BM.q = ""; BM.item = ""; render(); window.scrollTo(0,0); return; }
   if(e.target.closest("[data-scback]")){ e.preventDefault(); BM.open1 = false; BM.item = ""; render(); } });
 // create or edit a sales channel of the chosen branch
 // the order types each kind of channel may sell: POS all, Call Center pickup & delivery, Web Ordering pickup, delivery & dine-in
-const SC_ALLOWED = { pos:["fast","dinein","pickup","delivery"], callcenter:["pickup","delivery"], online:["dinein","pickup","delivery"], integration:["pickup","delivery","dinein"] };
+const SC_ALLOWED = { pos:["dinein","pickup","delivery"], callcenter:["pickup","delivery"], online:["dinein","pickup","delivery"], integration:["pickup","delivery","dinein"] };
 function scDialog(code, pick){
   const b = BM.branch, mine = scFor(b), cur = code ? mine.find(c => scCode(c)===code) : null, kinds = SC_KINDS.filter(([k]) => cur ? k===cur.kind : (k==="integration" || !mine.some(c => c.kind===k && !c.virtual) && !mine.some(c => c.kind===k)));
   const avail = SC_KINDS.filter(([k]) => k==="integration" || !mine.some(c => c.kind===k));
