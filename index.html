@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="353-1794064576">
+<meta name="slick-build" content="354-1794065192">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1031,6 +1031,7 @@ table.sk-ghost-t{border-collapse:collapse;table-layout:fixed}table.sk-ghost-t td
 .ccct .ccn{margin-top:auto;color:var(--accent-ink);font-size:13.5px;font-weight:600}.ccct.hasimg>b{margin-top:2px}
 .cccart .clist{border-bottom:1px solid var(--line);margin-bottom:8px}.cccart .clist .citem:last-child{border-bottom:0}.cccart .ccdline{padding:4px 0;align-items:center}
 .cccart .notesbox{position:sticky;top:0;z-index:4;background:var(--surface,#fff)}.cccart .notesbox:empty{display:none}
+.lpgm{min-height:220px}
 </style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -2226,7 +2227,7 @@ async function lpSearch(q, c){
 function lpMount(box, latSel, lngSel, opts = {}){
   box = typeof box==="string" ? $(box) : box; if(!box) return;
   const la = $(latSel), ln = $(lngSel), id = box.id || (box.id = uid("lp"));
-  if(LP[id]?.map){ LP[id].map.remove(); }
+  if(LP[id]?.map){ try{ LP[id].map.remove(); }catch(e){} }
   box.className = "lp";
   box.innerHTML = `<div class="lps">${lpIco}<input class="sel" data-lpq placeholder="Search for a place, or paste a Google Maps link" autocomplete="off" aria-label="Search location"><div class="lpres" hidden></div></div>
     <div class="lpmap"></div><div class="lpbar"><span class="lpc"></span><span style="flex:1"></span><button type="button" class="lnk" data-lpme>Use my location</button><button type="button" class="lnk" data-lpclr>Clear</button><a class="lnk" data-lpg target="_blank" rel="noopener">View on Google Maps</a></div>`;
@@ -2234,13 +2235,23 @@ function lpMount(box, latSel, lngSel, opts = {}){
   const cur = () => { const a = +la.value, b = +ln.value; return la.value.trim() && ln.value.trim() && !isNaN(a) && !isNaN(b) ? [a,b] : null; };
   const paint = () => { const p = cur(); cap.textContent = p ? `${p[0].toFixed(6)}, ${p[1].toFixed(6)}` : "Search, or tap the map to drop the pin. Drag the pin to adjust.";
     gl.hidden = !p; box.querySelector("[data-lpclr]").hidden = !p; if(p) gl.href = `https://www.google.com/maps?q=${p[0]},${p[1]}`; };
-  const set = (a, b, zoom) => { la.value = (+a).toFixed(6); ln.value = (+b).toFixed(6); place(); if(zoom && st.map) st.map.setView([+a,+b], Math.max(st.map.getZoom(), 16)); paint(); opts.onChange?.(+a, +b); };
-  const place = () => { const p = cur(); if(!st.map) return; if(!p){ if(st.mk){ st.mk.remove(); st.mk = null; } return; }
-    if(!st.mk){ st.mk = L.marker(p, { draggable:true, autoPan:true }).addTo(st.map); st.mk.on("dragend", e => { const ll = e.target.getLatLng(); set(ll.lat, ll.lng); }); } else st.mk.setLatLng(p); };
-  if(typeof L !== "undefined"){
-    const p = cur(); st.map = baseMap(box.querySelector(".lpmap")); st.map.setView(p || LB, p ? 16 : 11);
-    st.map.on("click", e => set(e.latlng.lat, e.latlng.lng)); place(); setTimeout(() => st.map.invalidateSize(), 120);
-  } else box.querySelector(".lpmap").outerHTML = '<div class="note">Map couldn\'t load. Check the internet connection.</div>';
+  // st.map is a small adapter over Google Maps (when a Maps key is set) or Leaflet/OpenStreetMap
+  const set = (a, b, zoom) => { la.value = (+a).toFixed(6); ln.value = (+b).toFixed(6); place(); if(zoom && st.map) st.map.go([+a,+b], Math.max(st.map.zoom(), 16)); paint(); opts.onChange?.(+a, +b); };
+  const place = () => { const p = cur(); if(!st.map) return; st.map.pin(p); };
+  const el = box.querySelector(".lpmap");
+  const leaflet = () => { if(typeof L === "undefined"){ el.outerHTML = '<div class="note">Map couldn\'t load. Check the internet connection.</div>'; return; }
+    const m = baseMap(el), p = cur(); m.setView(p || LB, p ? 16 : 11); let mk = null;
+    st.map = { remove: () => m.remove(), zoom: () => m.getZoom(), go: (c, z) => m.setView(c, z), center: () => m.getCenter(),
+      pin: c => { if(!c){ if(mk){ mk.remove(); mk = null; } return; } if(!mk){ mk = L.marker(c, { draggable:true, autoPan:true }).addTo(m); mk.on("dragend", e => { const ll = e.target.getLatLng(); set(ll.lat, ll.lng); }); } else mk.setLatLng(c); } };
+    m.on("click", e => set(e.latlng.lat, e.latlng.lng)); place(); setTimeout(() => m.invalidateSize(), 120); };
+  const google = async () => { const gm = await lpGoogle().catch(() => null); if(!gm || !window.google?.maps) return false;
+    const { Map } = await google.maps.importLibrary("maps"); if(!box.isConnected) return true; const p = cur();
+    el.classList.add("lpgm"); const m = new Map(el, { center: p ? { lat:p[0], lng:p[1] } : { lat:LB[0], lng:LB[1] }, zoom: p ? 16 : 11, mapTypeControl:false, streetViewControl:false, fullscreenControl:false, clickableIcons:false, gestureHandling:"greedy" });
+    let mk = null;
+    st.map = { remove: () => { mk?.setMap(null); el.innerHTML = ""; }, zoom: () => m.getZoom(), go: (c, z) => { m.setCenter({ lat:c[0], lng:c[1] }); m.setZoom(z); }, center: () => { const c = m.getCenter(); return { lat:c.lat(), lng:c.lng() }; },
+      pin: c => { if(!c){ mk?.setMap(null); mk = null; return; } if(!mk){ mk = new google.maps.Marker({ map:m, position:{ lat:c[0], lng:c[1] }, draggable:true }); mk.addListener("dragend", e => set(e.latLng.lat(), e.latLng.lng())); } else mk.setPosition({ lat:c[0], lng:c[1] }); } };
+    m.addListener("click", e => set(e.latLng.lat(), e.latLng.lng())); place(); return true; };
+  if((company().gmapsKey || "").trim()) google().then(ok => { if(!ok && box.isConnected && !st.map) leaflet(); }); else leaflet();
   paint();
   let t, seq = 0;
   const show = (html) => { rs.innerHTML = html; rs.hidden = !html; };
@@ -2249,7 +2260,7 @@ function lpMount(box, latSel, lngSel, opts = {}){
     if(/goo\.gl|maps\.app/.test(v)){ show(`<div class="lpmsg">Short links can't be read. Open the link, then copy the full address from the browser bar, or search by name.</div>`); return; }
     if(v.length < 3){ show(""); return; }
     t = setTimeout(async () => { const my = ++seq; show(`<div class="lpmsg">Searching…</div>`);
-      try{ const ctr = st.map ? st.map.getCenter() : { lat:LB[0], lng:LB[1] }, r = await lpSearch(v, ctr); if(my!==seq) return; st.res = r.list;
+      try{ const ctr = st.map ? st.map.center() : { lat:LB[0], lng:LB[1] }, r = await lpSearch(v, ctr); if(my!==seq) return; st.res = r.list;
         show(r.list.length ? r.list.map((x,i) => `<button type="button" data-lpr="${i}"><b>${esc(x.label)}</b>${x.sub ? `<small>${esc(x.sub)}</small>` : ""}</button>`).join("") + `<div class="lpsrc">Results from ${r.src}</div>` : `<div class="lpmsg">No places found. Try another name, or tap the map.</div>`); }
       catch(e){ if(my===seq) show(`<div class="lpmsg">Search isn't available right now. Tap the map to drop the pin.</div>`); } }, 400); });
   q.addEventListener("keydown", e => { if(e.key==="Enter"){ e.preventDefault(); rs.querySelector("[data-lpr]")?.click(); } if(e.key==="Escape") show(""); });
@@ -3345,7 +3356,7 @@ function openOrder(id){
       <div class="f"><label for="oBranch">Branch *</label><select id="oBranch" ${ldis}></select></div></div>
       <div id="oAddrF">${(() => { const a = addrSplit(o?.address), ad = ro || (ccLocked && o?.address) ? "disabled" : ""; return `<h4>Delivery address</h4>
         <div class="acards" id="oAddrCards"></div>
-        <div class="f2"><div class="f"><label for="oA_label">Address name</label><input id="oA_label" value="${esc(a.label)}" ${ad} placeholder="Home, Work…"></div>
+        <div class="f2"><div class="f"><label for="oA_type">Address type</label>${addrTypeField("oA", a.label, ad)}</div>
         <div class="f"><label for="oA_street">Area / street *</label><input id="oA_street" value="${esc(a.street)}" ${ad} placeholder="Hamra, Bliss St"></div></div>
         <div class="f2"><div class="f"><label for="oA_building">Building name / no. *</label><input id="oA_building" value="${esc(a.building)}" ${ad}></div>
         <div class="f"><label for="oA_floor">Floor *</label><input id="oA_floor" value="${esc(a.floor)}" ${ad}></div></div>
@@ -3460,14 +3471,24 @@ function ccPinMount(force){ const b = $("#oA_loc"); if(!b || (b.classList.contai
 const ccPin = () => { const a = $("#oA_lat")?.value, b = $("#oA_lng")?.value; return a && b && !isNaN(+a) && !isNaN(+b) ? { lat:+a, lng:+b } : null; };
 const ccPinSet = (a) => { if(!$("#oA_lat")) return; $("#oA_lat").value = a?.lat ?? ""; $("#oA_lng").value = a?.lng ?? ""; if($("#oA_loc")?.classList.contains("lp")) ccPinMount(true); };
 // a placed order's customer can't change; if it becomes delivery and has no address yet, the address can be filled in
-const ccAddrLock = () => { const o = ccEdit && S.orders.find(x=>x.id===ccEdit); if(!ccLocked || !o) return; ADDR_K.forEach(k => { const el = $("#oA_"+k); if(el) el.disabled = !!o.address; }); };
+const ccAddrLock = () => { const o = ccEdit && S.orders.find(x=>x.id===ccEdit); if(!ccLocked || !o) return; ADDR_K.forEach(k => { const el = $("#oA_"+k); if(el) el.disabled = !!o.address; }); const t = $("#oA_type"); if(t) t.disabled = !!o.address; };
 // delivery address: name, area/street, building, floor, extra — kept in one line on the order ("[Home] Hamra · Bldg: … · Floor: … · Info: …")
 const ADDR_K = ["label","street","building","floor","extra"];
+/* address type: pick Apartment / House-Villa / Compound / Office / Hotel, or Other with a typed name */
+const ADDR_TYPES = ["Apartment","House/Villa","Compound","Office","Hotel"];
+function addrTypeField(p, cur, dis){ cur = String(cur||"").trim(); const known = ADDR_TYPES.includes(cur), other = !!cur && !known;
+  return `<select id="${p}_type" class="sel" data-atype="${p}" ${dis||""} aria-label="Address type"><option value="">Choose…</option>${ADDR_TYPES.map(t => `<option ${t===cur?"selected":""}>${t}</option>`).join("")}<option value="__other" ${other?"selected":""}>Other</option></select>
+    <input id="${p}_label" class="sel" value="${esc(cur)}" ${dis||""} placeholder="Name this address (e.g. Mall, School)" style="margin-top:8px${other ? "" : ";display:none"}">`; }
+function addrTypeSync(p){ const sel = $("#"+p+"_type"), inp = $("#"+p+"_label"); if(!sel || !inp) return; const v = inp.value.trim(), known = ADDR_TYPES.includes(v);
+  sel.value = known ? v : v ? "__other" : ""; inp.style.display = v && !known ? "" : "none"; }
+document.addEventListener("change", e => { const sel = e.target.closest("[data-atype]"); if(!sel) return; const inp = $("#"+sel.dataset.atype+"_label"); if(!inp) return;
+  if(sel.value==="__other"){ inp.value = ADDR_TYPES.includes(inp.value) ? "" : inp.value; inp.style.display = ""; inp.focus(); } else { inp.value = sel.value; inp.style.display = "none"; } });
+
 const addrJoin = a => { const c = v => String(v||"").replace(/\s*·\s*/g, ", ").trim(); return [c(a.label) ? "[" + c(a.label).replace(/[\[\]]/g,"") + "]" : "", [c(a.street), c(a.building) && "Bldg: " + c(a.building), c(a.floor) && "Floor: " + c(a.floor), c(a.extra) && "Info: " + c(a.extra)].filter(Boolean).join(" · ")].filter(Boolean).join(" "); };
 const addrSplit = v => { const a = { label:"", street:"", building:"", floor:"", extra:"" }; let s = String(v||"").trim(); const m = /^\[(.*?)\]\s*/.exec(s); if(m){ a.label = m[1]; s = s.slice(m[0].length); }
   s.split(" · ").filter(Boolean).forEach(p => { const k = /^(Bldg|Floor|Info):\s*(.*)$/.exec(p); if(k) a[{ Bldg:"building", Floor:"floor", Info:"extra" }[k[1]]] = k[2]; else a.street = a.street ? a.street + ", " + p : p; }); return a; };
 const ccAddrGet = () => { const a = {}; ADDR_K.forEach(k => a[k] = ($("#oA_"+k)?.value || "").trim()); return a; };
-const ccAddrSet = v => { const a = addrSplit(v); ADDR_K.forEach(k => { const el = $("#oA_"+k); if(el) el.value = a[k]; }); };
+const ccAddrSet = v => { const a = addrSplit(v); ADDR_K.forEach(k => { const el = $("#oA_"+k); if(el) el.value = a[k]; }); addrTypeSync("oA"); };
 function ccActions(o){
   if(!o || o.status==="draft") return `<button type="button" class="btn" data-osave="draft">Save as Draft</button><button type="button" class="btn pri" data-osave="pending">Send to Branch</button>${o ? `<button type="button" class="btn danger" data-ccdeldraft>Cancel Draft</button>` : ""}`;
   const b = [];
@@ -4989,11 +5010,11 @@ function openCusAddr(){
   const zs = (S.zones||[]).filter(z => !z.deleted).sort((a,b) => String(a.name).localeCompare(String(b.name)));
   const box = $("#ccBox"); box.className = "modal";
   box.innerHTML = `<header><h2>Add Address</h2><button type="button" class="x" data-ccclose aria-label="Close">×</button></header>
-  <div class="body">${[["label","Name","Home, Work…"],["street","Area / street",""],["building","Building",""],["floor","Floor",""],["extra","Directions / info",""]].map(([k,l,ph])=>`<div class="f"${k==="extra"?' style="grid-column:1/-1"':""}><label for="cuA_${k}">${l}${k==="street"?" *":""}</label><input id="cuA_${k}" placeholder="${ph}"></div>`).join("")}
+  <div class="body"><div class="f"><label for="cuA_type">Address type</label>${addrTypeField("cuA", "")}</div>${[["street","Area / street",""],["building","Building",""],["floor","Floor",""],["extra","Directions / info",""]].map(([k,l,ph])=>`<div class="f"${k==="extra"?' style="grid-column:1/-1"':""}><label for="cuA_${k}">${l}${k==="street"?" *":""}</label><input id="cuA_${k}" placeholder="${ph}"></div>`).join("")}
     <div class="f" style="grid-column:1/-1"><label for="cuA_zone">Delivery Zone</label><select id="cuA_zone"><option value="">—</option>${zs.map(z=>`<option value="${esc(z.id)}">${esc(z.name)}${z.branchId ? " · " + esc(branchName(z.branchId)||"") : ""}</option>`).join("")}</select></div>
     <div class="f" style="grid-column:1/-1"><label>Location</label><div id="cuA_loc"></div><input type="hidden" id="cuA_lat"><input type="hidden" id="cuA_lng"></div></div>
   <footer><span style="flex:1"></span><button type="button" class="btn pri" id="cuAddrSave">Save</button></footer>`;
-  $("#ccScrim").classList.add("show"); setTimeout(() => { $("#cuA_label")?.focus();
+  $("#ccScrim").classList.add("show"); setTimeout(() => { $("#cuA_type")?.focus();
     lpMount("#cuA_loc", "#cuA_lat", "#cuA_lng", { onPick: r => { if(!$("#cuA_street").value.trim() && r.label) $("#cuA_street").value = r.label.split(",").slice(0,2).join(",").trim(); },
       onChange: (la, ln) => { const z = la!=null && zoneAt(la, ln); if(z) $("#cuA_zone").value = z.id; } }); }, 80);
 }
@@ -5072,7 +5093,7 @@ document.addEventListener("click", e => {
     (lo.items||[]).filter(i => !i.voided).forEach(i => { const p = S.products.find(x=>x.id===i.productId); if(!p || !okIds.has(p.id)){ miss.push(i.name); return; } const opt = (i.options||[]).reduce((a,x)=>a+(+x.price||0),0); cart.push({ productId:p.id, name:i.name, price:+(ccPrice(p)+(i.options?.length?opt:0)).toFixed(2), qty:+i.qty||1, ...(i.options?.length?{options:i.options,mods:i.mods}:{}), ...(i.note?{note:i.note}:{}) }); });
     renderCart(false); toast(miss.length ? `Added to the cart · not available now: ${miss.join(", ")}` : "Order added to the cart"); return; }
   const ua = e.target.closest("[data-useaddr]"); if(ua){ e.preventDefault(); const a = window.__ccCust?.addresses?.[+ua.dataset.useaddr]; if(a){ ccAddrSet(a.address); ccPinSet(a); ccAddrCards(); try{ renderCart(false); }catch(_){} } return; }
-  if(e.target.closest("[data-newaddr]")){ e.preventDefault(); ADDR_K.forEach(k => { const el = $("#oA_"+k); if(el) el.value = ""; }); ccPinSet(null); ccAddrCards(); $("#oA_label")?.focus(); return; }
+  if(e.target.closest("[data-newaddr]")){ e.preventDefault(); ADDR_K.forEach(k => { const el = $("#oA_"+k); if(el) el.value = ""; }); addrTypeSync("oA"); ccPinSet(null); ccAddrCards(); $("#oA_type")?.focus(); return; }
   const st = e.target.closest("[data-ccstep]"); if(st){ e.preventDefault(); ccStep(+st.dataset.ccstep); return; }
   if(e.target.id==="cuTagSave"){ const pick = [...document.querySelectorAll("#cuTagPick input:checked")].map(i => i.value), names = tagList("customer").map(t => t.name.toLowerCase());
     $("#ccScrim").classList.remove("show"); const keep = (CUS.det?.tags||[]).filter(x => !names.includes(String(x).toLowerCase())); cusPatch({ tags:[...keep, ...pick] }, "Tags saved"); return; }
