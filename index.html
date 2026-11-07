@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="354-1794065192">
+<meta name="slick-build" content="355-1794065662">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -2126,6 +2126,10 @@ let lastRoute = location.hash.slice(1) || "dashboard";
 // phone/tablet: slide-in menu
 $("#menuBtn").addEventListener("click", e => { e.stopPropagation(); document.body.classList.toggle("navopen"); });
 document.addEventListener("click", e => { if(document.body.classList.contains("navopen") && (!e.target.closest(".side") || e.target.closest(".side a"))) document.body.classList.remove("navopen"); });
+// clicking the menu entry of the page you're already on (e.g. Customers while a customer is open) goes back to that page's list
+document.addEventListener("click", e => { const a = e.target.closest('#nav a[href^="#"], .ptabs a[href^="#"]'); if(!a || e.ctrlKey || e.metaKey || e.shiftKey) return;
+  const to = a.getAttribute("href").slice(1) || "dashboard", cur = location.hash.slice(1) || "dashboard"; if(to !== cur) return;
+  e.preventDefault(); resetPageFilters(); document.querySelectorAll(".scrim.show").forEach(x => x.classList.remove("show")); render(); window.scrollTo(0,0); });
 window.addEventListener("hashchange", () => { const r = location.hash.slice(1) || "dashboard"; if(r !== lastRoute){ resetPageFilters(); lastRoute = r; document.querySelectorAll(".scrim.show").forEach(x => x.classList.remove("show")); } render(); window.scrollTo(0,0); });
 $("#view").addEventListener("change", async e => {
   const bp = e.target.closest?.("[data-brpay]"); if(bp){ const [bid, mid] = bp.dataset.brpay.split(":"), b = branches.find(x => x.id===bid); if(!b) return;
@@ -4916,7 +4920,7 @@ function viewCustomer(){
         : '<p class="note brempty">Here you can register debit payments and see all credit and debit payments made by this customer.</p>'}</div>` : ""}
     <div class="card brcard"><div class="brch"><h3>Tags</h3><span class="sp"></span><button class="btn sm" id="cuTagBtn">Add Tags</button></div>${c.tags.length ? `<div>${c.tags.map((t,i)=>`<span class="tag cc">${esc(t)} <a href="#customers" class="lnk" data-cdtag="${i}" aria-label="Remove tag" style="text-decoration:none">×</a></span>`).join(" ")}</div>` : '<p class="note brempty">No data to display!</p>'}</div>
     <div class="card brcard"><div class="brch"><h3>Addresses</h3><span class="sp"></span><button class="btn sm" id="cuAddrBtn">Add Address</button></div>${tbl(["Name","Description","Delivery Zone","Created",""],
-      c.addresses.map((a,i) => `<tr><td>${esc(addrSplit(a.address).label || "—")}</td><td>${desc(a.address)} ${a.lat ? mapLink(a) : ""}</td><td>${esc(zn(a.zoneId) || "—")}</td><td>${dtf(a.createdAt)}</td><td class="num"><a href="#customers" class="lnk" data-cdaddr="${i}">Remove</a></td></tr>`)
+      c.addresses.map((a,i) => `<tr class="click" data-cuedaddr="${i}" title="Open address details"><td>${esc(addrSplit(a.address).label || "—")}</td><td>${desc(a.address)} ${a.lat ? mapLink(a) : ""}</td><td>${esc(zn(a.zoneId) || "—")}</td><td>${dtf(a.createdAt)}</td><td class="num"><a href="#customers" class="lnk" data-cdaddr="${i}">Remove</a></td></tr>`)
       .concat(used.map((v,i) => `<tr><td>${esc(addrSplit(v).label || "—")}</td><td>${desc(v)} <span class="tag">from orders</span></td><td>—</td><td>—</td><td class="num"><a href="#customers" class="lnk" data-csaddr="${i}">Save</a></td></tr>`)))}</div>
     <div class="card brcard otbl"><div class="brch"><h3>Orders</h3></div>${tbl(["Reference #","Invoice #","Order #","Business date","Branch","Sales channel","Order type","Order source","Payment Type","Status",`<span class="num">Total</span>`],
       orders.slice(0, 100).map(o=>`<tr class="clk" data-coid="${esc(o.id)}"><td><b>${esc(o.ref || "—")}</b></td><td>${o.status==="refund" ? esc(ordRef(o)) : o.invoice_no ? esc(invNo(o.invoice_no)) : '<span class="note" title="Gets its invoice number when a POS accepts it">—</span>'}</td><td>${o.status==="refund" ? "–" : o.no ? `#${esc(o.no)}` : '<span class="note" title="Gets its number when a POS bills it">—</span>'}</td><td>${o.created_at ? new Date(bizDate(o.created_at, o.branch_id) + "T12:00:00").toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"}) : "—"}</td><td>${esc(branchName(o.branch_id) || "—")}</td><td>${esc(CH_LBL[o.channel]||cap(o.channel))}</td><td>${esc(ordTypeLbl(o.type))}${o.type==="dinein" && o.table_no ? `<div class="note">${esc(/^\d+$/.test(String(o.table_no).trim()) ? "Table " + String(o.table_no).trim() : o.table_no)}</div>` : ""}</td><td>${esc(srcOf(o) || "-")}</td><td>${esc(o.payment?.method || "-")}</td><td><span class="spill s-${o.status}">${ORD_ST[o.status]||o.status}</span></td><td class="num">${money(+o.total||0)}</td></tr>`))}</div>`;
@@ -5006,14 +5010,15 @@ function openCusTags(){
   <footer><span style="flex:1"></span><button type="button" class="btn" data-ccclose>Cancel</button><button type="button" class="btn pri" id="cuTagSave">Save</button></footer>`;
   $("#ccScrim").classList.add("show"); setTimeout(() => $("#cuTagIn")?.focus(), 50);
 }
-function openCusAddr(){
+function openCusAddr(ix){
+  const ed = ix!=null ? (CUS.det?.addresses||[])[ix] : null, ea = ed ? addrSplit(ed.address) : {};
   const zs = (S.zones||[]).filter(z => !z.deleted).sort((a,b) => String(a.name).localeCompare(String(b.name)));
   const box = $("#ccBox"); box.className = "modal";
-  box.innerHTML = `<header><h2>Add Address</h2><button type="button" class="x" data-ccclose aria-label="Close">×</button></header>
-  <div class="body"><div class="f"><label for="cuA_type">Address type</label>${addrTypeField("cuA", "")}</div>${[["street","Area / street",""],["building","Building",""],["floor","Floor",""],["extra","Directions / info",""]].map(([k,l,ph])=>`<div class="f"${k==="extra"?' style="grid-column:1/-1"':""}><label for="cuA_${k}">${l}${k==="street"?" *":""}</label><input id="cuA_${k}" placeholder="${ph}"></div>`).join("")}
-    <div class="f" style="grid-column:1/-1"><label for="cuA_zone">Delivery Zone</label><select id="cuA_zone"><option value="">—</option>${zs.map(z=>`<option value="${esc(z.id)}">${esc(z.name)}${z.branchId ? " · " + esc(branchName(z.branchId)||"") : ""}</option>`).join("")}</select></div>
-    <div class="f" style="grid-column:1/-1"><label>Location</label><div id="cuA_loc"></div><input type="hidden" id="cuA_lat"><input type="hidden" id="cuA_lng"></div></div>
-  <footer><span style="flex:1"></span><button type="button" class="btn pri" id="cuAddrSave">Save</button></footer>`;
+  box.innerHTML = `<header><h2>${ed ? "Address Details" : "Add Address"}</h2><button type="button" class="x" data-ccclose aria-label="Close">×</button></header>
+  <div class="body"><div class="f"><label for="cuA_type">Address type</label>${addrTypeField("cuA", ea.label || "")}</div>${[["street","Area / street",""],["building","Building",""],["floor","Floor",""],["extra","Directions / info",""]].map(([k,l,ph])=>`<div class="f"${k==="extra"?' style="grid-column:1/-1"':""}><label for="cuA_${k}">${l}${k==="street"?" *":""}</label><input id="cuA_${k}" placeholder="${ph}" value="${esc(ea[k]||"")}"></div>`).join("")}
+    <div class="f" style="grid-column:1/-1"><label for="cuA_zone">Delivery Zone</label><select id="cuA_zone"><option value="">—</option>${zs.map(z=>`<option value="${esc(z.id)}" ${ed?.zoneId===z.id?"selected":""}>${esc(z.name)}${z.branchId ? " · " + esc(branchName(z.branchId)||"") : ""}</option>`).join("")}</select></div>
+    <div class="f" style="grid-column:1/-1"><label>Location</label><div id="cuA_loc"></div><input type="hidden" id="cuA_lat" value="${ed?.lat ?? ""}"><input type="hidden" id="cuA_lng" value="${ed?.lng ?? ""}"></div></div>
+  <footer><span style="flex:1"></span><button type="button" class="btn pri" id="cuAddrSave" data-ix="${ix ?? ""}">${ed ? "Save changes" : "Save"}</button></footer>`;
   $("#ccScrim").classList.add("show"); setTimeout(() => { $("#cuA_type")?.focus();
     lpMount("#cuA_loc", "#cuA_lat", "#cuA_lng", { onPick: r => { if(!$("#cuA_street").value.trim() && r.label) $("#cuA_street").value = r.label.split(",").slice(0,2).join(",").trim(); },
       onChange: (la, ln) => { const z = la!=null && zoneAt(la, ln); if(z) $("#cuA_zone").value = z.id; } }); }, 80);
@@ -5050,6 +5055,7 @@ $("#view").addEventListener("click", async e => {
   if(e.target.id==="cuHaPay"){ openHaPay(); return; }
   if(e.target.id==="cuHaLim"){ e.preventDefault(); openHaLimit(); return; }
   if(e.target.id==="cuAddrBtn"){ openCusAddr(); return; }
+  const ra = e.target.closest("[data-cuedaddr]"); if(ra && !e.target.closest("a,button")){ openCusAddr(+ra.dataset.cuedaddr); return; }
   const dt = e.target.closest("[data-cdtag]"); if(dt){ e.preventDefault(); const t = [...CUS.det.tags]; t.splice(+dt.dataset.cdtag, 1); cusPatch({ tags:t }, "Tag removed"); return; }
   const da = e.target.closest("[data-cdaddr]"); if(da){ e.preventDefault(); if(!(await askYes("Remove this address?"))) return; const a = [...CUS.det.addresses]; a.splice(+da.dataset.cdaddr, 1); cusPatch({ addresses:a }, "Address removed"); return; }
   const sa = e.target.closest("[data-csaddr]"); if(sa){ e.preventDefault(); const v = CUS.det.__used?.[+sa.dataset.csaddr]; if(v) cusPatch({ addresses:[...CUS.det.addresses, { address:v, createdAt:new Date().toISOString() }] }, "Address saved"); return; }
@@ -5101,7 +5107,9 @@ document.addEventListener("click", e => {
     if(!a.street){ $("#cuA_street").focus(); return toast("Enter the area / street"); }
     $("#ccScrim").classList.remove("show"); const z = $("#cuA_zone").value || null;
     const la = $("#cuA_lat").value, ln = $("#cuA_lng").value;
-    cusPatch({ addresses:[...(CUS.det?.addresses||[]), { address: addrJoin(a), zoneId: z, ...(la && ln ? { lat:+la, lng:+ln } : {}), createdAt: new Date().toISOString() }] }, "Address added"); return; }
+    const ix = e.target.dataset.ix, list = [...(CUS.det?.addresses||[])], row = { address: addrJoin(a), zoneId: z, ...(la && ln ? { lat:+la, lng:+ln } : {}) };
+    if(ix !== "" && list[+ix]){ const o = { ...list[+ix] }; delete o.lat; delete o.lng; list[+ix] = { ...o, ...row }; return cusPatch({ addresses:list }, "Address updated"); }
+    cusPatch({ addresses:[...list, { ...row, createdAt: new Date().toISOString() }] }, "Address added"); return; }
   if(e.target.id==="cuSave") return saveCustomer();
   const co = e.target.closest("tr[data-coid]"); if(co) return openOrderDetail(co.dataset.coid);
 });
