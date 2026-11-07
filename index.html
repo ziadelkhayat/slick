@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="358-1794066291">
+<meta name="slick-build" content="359-1794066459">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1039,6 +1039,15 @@ table.sk-ghost-t{border-collapse:collapse;table-layout:fixed}table.sk-ghost-t td
 .igrid>div>div:last-child,.card.odet>div{font-size:14.5px;font-weight:500;color:var(--ink);overflow-wrap:anywhere}
 .dsinfo.igrid{padding:6px 0!important;box-shadow:none;border:0}
 [data-cusmore]{display:none!important}
+.dzsec{margin:28px 0 0;max-width:820px}.dzsec h3{font-size:16px;font-weight:600;margin:0 0 12px}
+.dzcard{display:flex;align-items:center;justify-content:space-between;gap:24px;background:var(--surface,#fff);border-radius:12px;box-shadow:0 1px 6px rgba(20,18,30,.08);padding:22px 24px}
+.dzcard p{margin:0;color:var(--muted);font-size:14px;line-height:1.55;max-width:560px}.dzcard .btn{white-space:nowrap;flex:none}
+.dzwide{max-width:none}.dzh{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}.dzh h3{margin:0}
+.dzempty{margin:0;width:100%;text-align:center;color:var(--muted)}.dzchips{display:flex;flex-wrap:wrap;gap:8px}
+.dzchip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:999px;padding:6px 6px 6px 14px;font-size:14px}
+.dzchip button{border:0;background:var(--bg);border-radius:50%;width:24px;height:24px;cursor:pointer;color:var(--muted);font-size:16px;line-height:1}
+.dztbl{display:block;padding:0;overflow:hidden}.dztbl table{width:100%;margin:0}.dztbl .brempty{padding:22px;text-align:center;margin:0}
+.dzsec .dzh .btn{background:var(--surface,#fff)}
 </style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -1434,14 +1443,45 @@ async function paintBranchData(id){
   if(!id){ box.style.display = "none"; box.innerHTML = ""; return; }
   BD.id = id; BD.orders = BD.inv = null; box.style.display = "";
   const draw = () => { const n = v => v==null ? "…" : v.toLocaleString();
-    box.innerHTML = `<h4 class="fsec" style="margin-top:4px">Branch data</h4>
-      <div class="bdrow"><div><b>Orders</b><span class="note">${n(BD.orders)} order${BD.orders===1?"":"s"}, with their shifts and end-of-day records</span></div><button type="button" class="btn danger" id="bdDelOrders" ${!BD.orders || BD.busy ? "disabled" : ""}>Delete orders</button></div>
-      <div class="bdrow"><div><b>Inventory transactions</b><span class="note">${n(BD.inv)} record${BD.inv===1?"":"s"}: purchases, transfers, adjustments, production, counts and consumption</span></div><button type="button" class="btn danger" id="bdDelInv" ${!BD.inv || BD.busy ? "disabled" : ""}>Delete inventory transactions</button></div>
-      <p class="note" style="margin:6px 0 0">Deleting is permanent. The branch itself can be deleted once it has no orders and no inventory transactions.</p>`; };
+    const sec = (t, d, btn) => `<div class="dzsec"><h3>${t}</h3><div class="dzcard"><p>${d}</p>${btn}</div></div>`;
+    box.innerHTML = sec("Delete Branch Orders", `If you delete this branch's orders (${n(BD.orders)} order${BD.orders===1?"":"s"}, with their shifts and end-of-day records), all the data will be permanently deleted.`, `<button type="button" class="btn danger" id="bdDelOrders" ${!BD.orders || BD.busy ? "disabled" : ""}>Delete Orders</button>`)
+      + sec("Delete Branch Inventory Transactions", `If you delete this branch's inventory transactions (${n(BD.inv)} record${BD.inv===1?"":"s"}: purchases, transfers, adjustments, production, counts and consumption), all the data will be permanently deleted.`, `<button type="button" class="btn danger" id="bdDelInv" ${!BD.inv || BD.busy ? "disabled" : ""}>Delete Transactions</button>`); };
   draw();
   try{ Object.assign(BD, await countBranchData(id)); }catch(e){ console.error(e); }
   if(BD.id===id) draw();
 }
+
+/* branch: inactive payment methods, picked from a dialog and removed with × */
+async function brPaySet(bid, mid, off){ const b = branches.find(x => x.id===bid); if(!b) return; const cur = new Set(b.settings?.inactivePayments || []); off ? cur.add(mid) : cur.delete(mid);
+  try{ await saveBranch({ settings: { ...(b.settings||{}), inactivePayments: [...cur] }, updatedAt: new Date().toISOString() }, bid); toast(off ? "Payment method turned off at this branch" : "Payment method available at this branch"); render(); }
+  catch(err){ console.error(err); toast("Couldn't save. You may not have edit access."); } }
+document.addEventListener("click", async e => {
+  const rm = e.target.closest("[data-brpayrm]"); if(rm){ e.preventDefault(); const [bid, mid] = rm.dataset.brpayrm.split(":"); return brPaySet(bid, mid, false); }
+  const pk = e.target.closest("[data-brpaypick]"); if(pk){ e.preventDefault(); const b = branches.find(x => x.id===pk.dataset.brpaypick); if(!b) return;
+    const off = new Set(b.settings?.inactivePayments || []), list = (S.payment_methods||[]).filter(m => !m.deleted && m.active!==false && !off.has(m.id));
+    const box = $("#ccBox"); box.className = "modal sm";
+    box.innerHTML = `<header><h2>Payment Methods</h2><button type="button" class="x" data-ccclose aria-label="Close">×</button></header>
+      <div class="body" style="display:block"><div class="f"><label for="brPaySel">Payment Method</label>${list.length ? `<input id="brPayQ" class="sel" placeholder="Type to search" autocomplete="off" style="margin-bottom:8px"><select id="brPaySel" class="sel" size="${Math.min(8, Math.max(3, list.length))}">${list.map(m => `<option value="${esc(m.id)}">${esc(m.name)}</option>`).join("")}</select>` : `<p class="note">Every payment method is already inactive at this branch.</p>`}</div></div>
+      <footer><span style="flex:1"></span><button type="button" class="btn" data-ccclose>Cancel</button>${list.length ? `<button type="button" class="btn pri" id="brPaySave" data-bid="${esc(b.id)}">Save</button>` : ""}</footer>`;
+    $("#ccScrim").classList.add("show"); setTimeout(() => $("#brPayQ")?.focus(), 50); return; }
+  const sv = e.target.closest("#brPaySave"); if(sv){ const v = $("#brPaySel")?.value; if(!v) return toast("Choose a payment method"); $("#ccScrim").classList.remove("show"); return brPaySet(sv.dataset.bid, v, true); }
+});
+document.addEventListener("input", e => { if(e.target.id !== "brPayQ") return; const q = e.target.value.trim().toLowerCase(), sel = $("#brPaySel"); if(!sel) return;
+  let first = null; [...sel.options].forEach(o => { const hit = !q || o.text.toLowerCase().includes(q); o.hidden = !hit; if(hit && !first) first = o; }); if(first) sel.value = first.value; });
+
+/* branch: pick which delivery zones it serves (a zone belongs to one branch) */
+document.addEventListener("click", async e => {
+  const zb = e.target.closest("[data-brzones]"); if(zb){ e.preventDefault(); const b = branches.find(x => x.id===zb.dataset.brzones); if(!b) return;
+    const zs = (S.zones||[]).filter(z => !z.deleted).sort((a,c) => String(a.name).localeCompare(String(c.name)));
+    const box = $("#ccBox"); box.className = "modal sm";
+    box.innerHTML = `<header><h2>Delivery Zones</h2><button type="button" class="x" data-ccclose aria-label="Close">×</button></header>
+      <div class="body" style="display:block"><div class="f"><label>Delivery Zones</label>${zs.length ? `<input id="brZoneQ" class="sel" placeholder="Type to search" autocomplete="off" style="margin-bottom:8px"><div class="multi" id="brZoneList" style="max-height:300px;overflow:auto">${zs.map(z => `<label class="chk" data-zn="${esc(String(z.name).toLowerCase())}"><input type="checkbox" value="${esc(z.id)}" ${z.branchId===b.id?"checked":""}> ${esc(z.name)}${z.branchId && z.branchId!==b.id ? ` <span class="note">· now ${esc(branchName(z.branchId)||"")}</span>` : ""}</label>`).join("")}</div>` : `<p class="note">No delivery zones yet. Draw them in Web Ordering → Delivery Zones.</p>`}</div></div>
+      <footer><span style="flex:1"></span><button type="button" class="btn" data-ccclose>Cancel</button>${zs.length ? `<button type="button" class="btn pri" id="brZoneSave" data-bid="${esc(b.id)}">Save</button>` : ""}</footer>`;
+    $("#ccScrim").classList.add("show"); return; }
+  const sv = e.target.closest("#brZoneSave"); if(sv){ const pick = new Set([...document.querySelectorAll("#brZoneList input:checked")].map(i => i.value)); sv.disabled = true;
+    try{ await saveBranchZones(sv.dataset.bid, pick); $("#ccScrim").classList.remove("show"); toast("Delivery zones saved"); render(); }catch(err){ console.error(err); sv.disabled = false; toast("Couldn't save. You may not have edit access."); } }
+});
+document.addEventListener("input", e => { if(e.target.id !== "brZoneQ") return; const q = e.target.value.trim().toLowerCase(); document.querySelectorAll("#brZoneList [data-zn]").forEach(l => l.style.display = !q || l.dataset.zn.includes(q) ? "" : "none"); });
 async function wipeBranch(kind){
   const b = branches.find(x => x.id===BD.id); if(!b || BD.busy) return;
   const what = kind==="orders" ? `all ${BD.orders} orders` : `all ${BD.inv} inventory transactions`;
@@ -1993,7 +2033,7 @@ function viewBranch(b){
   const zones = (S.zones||[]).filter(z => !z.deleted && z.branchId===b.id), users = (S.users||[]).filter(u => !u.deleted && !isAdminRow(u) && u.active!==false && (!(u.branchIds||[]).length || u.branchIds.includes(b.id)));
   const devs = S.devices.filter(d => live(d) && d.branchId===b.id), chs = (S.charges||[]).filter(c => !c.deleted && c.active!==false && (!(c.branchIds||[]).length || c.branchIds.includes(b.id)));
   const tl = tblList(b.id), secs = tblSecs(b.id), offPay = st.inactivePayments || [], pms = (S.payment_methods||[]).filter(m => !m.deleted && m.active!==false);
-  const card = (title, btn, body) => `<div class="card brcard"><div class="brch"><h3>${title}</h3><span class="sp"></span>${btn||""}</div>${body}</div>`;
+  const card = (title, btn, body) => `<div class="dzsec dzwide"><div class="dzh"><h3>${title}</h3>${btn||""}</div><div class="dzcard dztbl">${body}</div></div>`;
   const tbl = (head, rows) => rows.length ? `<table><thead><tr>${head.map(h=>`<th>${h}</th>`).join("")}</tr></thead><tbody>${rows.map(r=>`<tr>${r.map(c=>`<td>${c}</td>`).join("")}</tr>`).join("")}</tbody></table>` : '<p class="note brempty">No data to display!</p>';
   const typesOf = c => (c.orderTypes||[]).length ? c.orderTypes.map(t=>esc(TYPE_LBL[t]||t)).join(", ") : "All order types";
   return `<div class="phead"><a class="btn" href="#branches" data-brback style="text-decoration:none">← Back</a><h1>${esc(b.name)}</h1><div class="sp"></div><button class="btn pri" data-edit="${esc(b.id)}">Edit Branch</button></div>
@@ -2002,14 +2042,15 @@ function viewBranch(b){
         + row("Tax Group", esc(tg || "—")) + row("Tax Registration Name", esc(st.taxName || "—")) + row("Tax Number", esc(b.taxNumber || "—")) + row("Phone", esc(b.phone || "—")) + row("Address", esc(b.address || "—"))
         + row("Location", b.lat && b.lng ? `<a class="lnk" target="_blank" rel="noopener" href="https://www.google.com/maps?q=${b.lat},${b.lng}">${b.lat}, ${b.lng}</a>` : "—") + row("Receives call center and web orders", b.callCenter ? "Yes" : "No") + row("Automatic end of day", st.autoDayEnd===false ? "No" : "Yes") : ""}
 </div>
-    ${card("Delivery Zones", "", tbl(["Name","Delivery charge","Min. order"], zones.map(z => { const c = dcChargeOf(z); return [esc(z.name), c ? `${esc(c.name)} · ${money(+c.value||0)}` : '<span class="note">—</span>', money(+z.minOrder||0)]; })))}
+    ${card("Delivery Zones", `<button type="button" class="btn" data-brzones="${esc(b.id)}">Edit Delivery Zones</button>`, tbl(["Name","Delivery charge","Min. order"], zones.map(z => { const c = dcChargeOf(z); return [esc(z.name), c ? `${esc(c.name)} · ${money(+c.value||0)}` : '<span class="note">—</span>', money(+z.minOrder||0)]; })))}
     ${card("Users", "", tbl(["Name","Email","Phone"], users.map(u => [esc(u.name), esc(u.email||"—"), esc(u.phone||"—")])))}
     ${card("Sections", `<button class="btn sm" data-secadd="${esc(b.id)}">Add Section</button>`, secs.length ? `<table><thead><tr><th>Name</th><th class="num">Tables</th><th>Table names</th></tr></thead><tbody>${secs.map(sc => { const l = tl.filter(t => (t.section||"")===sc);
       return `<tr class="click" data-secopen="${esc(b.id)}" data-sec="${esc(sc)}"><td><b>${esc(sc || "No section")}</b></td><td class="num">${l.length}</td><td>${l.map(t => esc(tblLbl(t.name))).join(", ") || '<span class="note">—</span>'}</td></tr>`; }).join("")}</tbody></table>` : '<p class="note brempty">No data to display!</p>')}
     ${card("Assigned Devices", "", tbl(["Name","Reference","Type","Status"], devs.map(d => [esc(d.name), esc(d.reference||"—"), esc(devType(d.type)), devStatus(d)])))}
     ${card("Assigned Charges", "", tbl(["Name","Value","Applies On"], chs.map(c => [esc(c.name), c.type==="percent" ? (+c.value||0)+"%" : money(+c.value||0), typesOf(c)])))}
-    ${card("Inactive Payment Methods", "", `<p class="note" style="margin:0 0 8px">Deactivate specific payment methods at this branch.</p><div class="multi">${pms.length ? pms.map(m => `<label class="chk"><input type="checkbox" data-brpay="${esc(b.id)}:${esc(m.id)}" ${offPay.includes(m.id)?"checked":""}> ${esc(m.name)}</label>`).join("") : '<span class="note">No payment methods yet.</span>'}</div>`)}
-    <div class="card brcard"><div id="bdData"></div><div class="bdrow"><div><b>Delete Branch</b><span class="note">If you delete this branch, all of its data is permanently deleted.</span></div><button class="btn danger" data-brdel="${esc(b.id)}">Delete Branch</button></div></div>`;
+    <div class="dzsec dzwide"><div class="dzh"><h3>Inactive Payment Methods <span class="tip" title="Payment methods that can't be used at this branch">ⓘ</span></h3><button type="button" class="btn" data-brpaypick="${esc(b.id)}">Select Payment Method</button></div>
+      <div class="dzcard">${offPay.filter(id => pms.some(m => m.id===id)).length ? `<div class="dzchips">${offPay.map(id => pms.find(m => m.id===id)).filter(Boolean).map(m => `<span class="dzchip">${esc(m.name)}<button type="button" data-brpayrm="${esc(b.id)}:${esc(m.id)}" aria-label="Make ${esc(m.name)} available again">×</button></span>`).join("")}</div>` : `<p class="dzempty">All payment methods are available at this branch</p>`}</div></div>
+    <div id="bdData"></div><div class="dzsec"><h3>Delete Branch</h3><div class="dzcard"><p>If you delete this branch, all of its data will be permanently deleted. A branch can be deleted once it has no orders and no inventory transactions.</p><button class="btn danger" data-brdel="${esc(b.id)}">Delete Branch</button></div></div>`;
 }
 function viewBranches(){
   const ob = state.brOpen && branches.find(x => x.id===state.brOpen); if(ob){ setTimeout(() => paintBranchData(ob.id), 0); return viewBranch(ob); }
