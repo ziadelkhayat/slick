@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="440-1794087287">
+<meta name="slick-build" content="441-1794089138">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -4433,7 +4433,7 @@ function viewBranchMenu(){
           <span class="scimg">${c.imageUrl ? `<img src="${esc(c.imageUrl)}" alt="">` : svgIco("image")}</span>
           <span class="mmct"><b>${esc(c.name)}</b>${on ? "" : `<small>Hidden</small>`}</span>
           <label class="toggle" title="${on ? "Shown" : "Hidden"} on the ${esc(ch[1])} menu"><input type="checkbox" data-bmcat="${esc(c.id)}" ${on?"checked":""} aria-label="Show ${esc(c.name)}"><span class="trk"></span></label>
-          <div class="ddwrap"><button type="button" class="mmdots" data-bmcmenu="${esc(c.id)}" aria-label="Category actions">⋯</button><div class="ddmenu" hidden><button type="button" class="danger" data-bmcdel="${esc(c.id)}">Delete</button></div></div></div>`; }).join("") || `<div class="mmempty">${cats.length ? "No categories match." : `<b>No categories yet</b><span>Add the first category of the ${esc(ch[1])} menu.</span>`}</div>`}</div></aside>`;
+          <div class="ddwrap"><button type="button" class="mmdots" data-bmcmenu="${esc(c.id)}" aria-label="Category actions">⋯</button><div class="ddmenu" hidden><button type="button" data-bmcedit="${esc(c.id)}">Edit</button><button type="button" class="danger" data-bmcdel="${esc(c.id)}">Delete</button></div></div></div>`; }).join("") || `<div class="mmempty">${cats.length ? "No categories match." : `<b>No categories yet</b><span>Add the first category of the ${esc(ch[1])} menu.</span>`}</div>`}</div></aside>`;
   // right: the chosen category's products
   if(!cur) return h + `<section class="mmmain"><div class="mmempty big"><b>Start the ${esc(ch[1])} menu</b><span>Add a category on the left, then add products to it.</span><button type="button" class="btn pri" data-bmnewcat>+ Add Category</button></div></section></div>${bmSaveBar(nDraft)}</div>`;
   const nOn = inCur.filter(p => bmState(p).on).length;
@@ -4793,7 +4793,7 @@ $("#view").addEventListener("click", async e => {
   const mn = e.target.closest("[data-bmmenu]"); if(mn){ e.preventDefault(); if(Object.keys(BM.draft).length && !(await askYes("Discard unsaved changes?"))) return; BM.menu = mn.dataset.bmmenu; BM.draft = {}; BM.stat = ""; return render(); }
   const dm = e.target.closest("[data-bmcmenu]"); if(dm){ e.preventDefault(); e.stopPropagation(); const m = dm.nextElementSibling, was = m.hidden; document.querySelectorAll(".mm .ddmenu").forEach(x => x.hidden = true); m.hidden = !was; return; }
   if(!e.target.closest(".mm .ddmenu")) document.querySelectorAll(".mm .ddmenu").forEach(x => x.hidden = true);
-  const pk = e.target.closest("[data-bmpick]"); if(pk && !e.target.closest(".toggle,.ddwrap")){ e.preventDefault(); if(BM.cat !== pk.dataset.bmpick){ BM.cat = pk.dataset.bmpick; BM.q = ""; render(); } else openCrud("chcat", pk.dataset.bmpick); return; }   // press the open category again to edit it
+  const pk = e.target.closest("[data-bmpick]"); if(pk && !e.target.closest(".toggle,.ddwrap")){ e.preventDefault(); if(BM.cat !== pk.dataset.bmpick){ BM.cat = pk.dataset.bmpick; BM.q = ""; render(); } return; }   // press the open category again to edit it
   if(e.target.closest("[data-bmorder]")){ e.preventDefault(); $("#bmMoreM").hidden = true; const cs = chCats(bmMenu()[0]);
     try{ await bmSyncCats(cs.map(c => c.id)); for(const c of cs) await bmSyncItems(c, [...new Set((c.productIds||[]).map(bmRoot))]); toast("Category and item order copied to all sales channels"); render(); }
     catch(err){ console.error(err); toast("Couldn't save the new order"); } return; }
@@ -4804,7 +4804,7 @@ $("#view").addEventListener("click", async e => {
   const mo = e.target.closest("[data-bmmods]"); if(mo){ e.preventDefault(); BM.mopen ||= new Set(); const id = mo.dataset.bmmods; BM.mopen.has(id) ? BM.mopen.delete(id) : BM.mopen.add(id); return render(); }
   const ex = e.target.closest("[data-bmexp]"); if(ex){ e.preventDefault(); const g = ex.dataset.bmexp; BM.open ||= new Set(); BM.open.has(g) ? BM.open.delete(g) : BM.open.add(g); return render(); }
   if(e.target.closest("[data-bmnewcat]")){ e.preventDefault(); openCrud("chcat"); return; }
-  const ce = e.target.closest("[data-bmcedit]"); if(ce){ e.preventDefault(); openCrud("chcat", ce.dataset.bmcedit); return; }
+  const ce = e.target.closest("[data-bmcedit]"); if(ce){ e.preventDefault(); ce.closest(".ddmenu")?.setAttribute("hidden",""); openCrud("chcat", ce.dataset.bmcedit); return; }
   const cd = e.target.closest("[data-bmcdel]"); if(cd){ e.preventDefault(); return bmDelCat(cd.dataset.bmcdel); }
   const ad = e.target.closest("[data-bmadd]"); if(ad){ e.preventDefault(); return bmAddItems(ad.dataset.bmadd); }
   const rm = e.target.closest("[data-bmrm]"); if(rm){ e.preventDefault(); const [cid, pid] = rm.dataset.bmrm.split("|"), c = S.categories.find(x => x.id===cid); if(!c) return;
