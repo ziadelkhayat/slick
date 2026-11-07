@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="400-1794078055">
+<meta name="slick-build" content="401-1794078223">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -6196,7 +6196,7 @@ function modAddToProducts(mods, after){
   $("#ccScrim").classList.add("show");
   $("#maQ").oninput = e => { const q = e.target.value.trim().toLowerCase(); box.querySelectorAll(".mlist label").forEach(l => l.hidden = q && !l.dataset.n.includes(q)); };
   $("#maGo").onclick = async () => { const pick = [...box.querySelectorAll(".mlist input:checked")].map(i => i.value); if(!pick.length){ $("#maErr").textContent = "Pick at least one product."; return; }
-    let n = 0; try{ for(const id of pick){ const p = S.products.find(x => x.id===id), cur = p.modifiers || [], add = mods.filter(m => !cur.some(l => l.modifierId===m.id)).map(m => ({ modifierId:m.id, min:0, max:0 }));
+    let n = 0; try{ for(const id of pick){ const p = S.products.find(x => x.id===id), cur = p.modifiers || [], add = mods.filter(m => !cur.some(l => l.modifierId===m.id)).map(m => ({ modifierId:m.id, min:1, max:1 }));
         if(add.length){ await put("products", id, { modifiers:[...cur, ...add] }); n++; } }
       $("#ccScrim").classList.remove("show"); toast(`Added to ${n} product${n===1?"":"s"}`); after && after(); }
     catch(err){ console.error(err); $("#maErr").textContent = "Couldn't save. Only the owner or an admin can change the menu."; } };
@@ -6736,11 +6736,11 @@ document.addEventListener("click", async e => {
       <footer><span style="flex:1"></span><button type="button" class="btn keep" data-ccclose>Close</button>${avail.length ? `<button type="button" class="btn pri" id="mpSave">Save</button>` : ""}</footer>`;
     $("#ccScrim").classList.add("show"); return; }
   if(e.target.closest("#mpSave")){ const ids = [...document.querySelectorAll("#mpList input:checked")].map(i => i.value); if(!ids.length) return $("#mpErr").textContent = "Choose at least one modifier.";
-    ids.forEach(id => DET.mods.push({ modifierId:id, min:0, max:0, free:0 })); $("#ccScrim").classList.remove("show"); DET.dirtyMods = true; return saveModLinks(); }
+    ids.forEach(id => DET.mods.push({ modifierId:id, min:1, max:1, free:0 })); /* new links start required, pick one */ $("#ccScrim").classList.remove("show"); DET.dirtyMods = true; return saveModLinks(); }
   const ed = e.target.closest("[data-modedit]"); if(ed && !e.target.closest("button,.mgrip")){ e.preventDefault(); const ix = +ed.dataset.modedit, l = DET.mods[ix], box = $("#ccBox"); box.className = "modal sm";
     box.innerHTML = `<header><h2>${esc(modName(l.modifierId))}</h2><button type="button" class="x" data-ccclose aria-label="Close">×</button></header><div class="body" style="display:block">
-      <div class="f"><label for="ml_min">Minimum Options</label><input class="sel" id="ml_min" type="number" min="0" step="1" value="${esc(+l.min||0)}"></div>
-      <div class="f"><label for="ml_max">Maximum Options</label><input class="sel" id="ml_max" type="number" min="0" step="1" value="${esc(+l.max||0)}"><p class="note" style="margin:6px 0 0">0 = no limit</p></div>
+      <div class="f"><label for="ml_min">Minimum Options</label><input class="sel" id="ml_min" type="number" min="0" step="1" value="${esc(+l.min||0)}"><p class="note" style="margin:6px 0 0">0 = optional · 1 or more = required</p></div>
+      <div class="f"><label for="ml_max">Maximum Options</label><input class="sel" id="ml_max" type="number" min="1" step="1" value="${esc(+l.max || Math.max(1, modOptions(l.modifierId).length))}"><p class="note" style="margin:6px 0 0">1 or more</p></div>
       <div class="f"><label for="ml_free">Free Options</label><input class="sel" id="ml_free" type="number" min="0" step="1" value="${esc(+l.free||0)}"></div>
       ${(() => { const os = modOptions(l.modifierId), pick = (id, cur) => `<div class="multi" id="${id}">${os.map(o => `<label class="chk"><input type="checkbox" value="${esc(o.id)}" ${(cur||[]).includes(o.id) ? "checked" : ""}> ${esc(o.name)}</label>`).join("")}</div>`;
         return `<div class="f"><label>Default Options</label>${pick("ml_def", l.defaults)}</div><div class="f"><label>Excluded Options</label>${pick("ml_exc", l.excluded)}</div>`; })()}
@@ -6748,7 +6748,9 @@ document.addEventListener("click", async e => {
       <footer><button type="button" class="btn lnkdel" data-modrm="${ix}">Delete</button><span style="flex:1"></span><button type="button" class="btn keep" data-ccclose>Close</button><button type="button" class="btn pri" id="mlSave" data-ix="${ix}">Save</button></footer>`;
     $("#ccScrim").classList.add("show"); return; }
   const sv = e.target.closest("#mlSave"); if(sv){ const l = DET.mods[+sv.dataset.ix], mn = parseInt($("#ml_min").value)||0, mx = parseInt($("#ml_max").value)||0;
-    if(mx && mn > mx) return $("#mlErr").textContent = "Minimum can't be more than maximum.";
+    if(mn < 0) return $("#mlErr").textContent = "Minimum can't be below 0.";
+    if(mx < 1) return $("#mlErr").textContent = "Maximum must be 1 or more.";
+    if(mn > mx) return $("#mlErr").textContent = "Minimum can't be more than maximum.";
     const vals = id => [...document.querySelectorAll("#" + id + " input:checked")].map(i => i.value), def = vals("ml_def"), exc = vals("ml_exc");
     if(def.some(x => exc.includes(x))) return $("#mlErr").textContent = "An option can't be both default and excluded.";
     Object.assign(l, { min:mn, max:mx, free:parseInt($("#ml_free").value)||0, multi:!$("#ml_uniq").checked, defaults:def, excluded:exc }); $("#ccScrim").classList.remove("show"); DET.dirtyMods = true; return saveModLinks(); }
@@ -6774,7 +6776,7 @@ document.addEventListener("click", e => {
 });
 document.addEventListener("change", e => { const m = e.target.closest("[data-modmulti]"); if(m && DET.mods){ DET.mods[+m.dataset.modmulti].multi = m.checked; modDirty(); } });
 document.addEventListener("input", e => { const m = e.target.closest("[data-modl]"); if(m && DET.mods){ const [ix, f] = m.dataset.modl.split(":"); DET.mods[+ix][f] = e.target.value; modDirty(); } });
-document.addEventListener("change", e => { if(e.target.id==="modAdd" && e.target.value && DET.mods){ DET.mods.push({ modifierId:e.target.value, min:0, max:0, free:0 }); DET.dirtyMods = true; render(); } });
+document.addEventListener("change", e => { if(e.target.id==="modAdd" && e.target.value && DET.mods){ DET.mods.push({ modifierId:e.target.value, min:1, max:1, free:0 }); DET.dirtyMods = true; render(); } });
 // call center: pick options for the chosen branch
 function ccModData(p){
   const b = $("#oBranch")?.value || "", groups = {}; S.modifiers.filter(live).forEach(m => groups[m.id] = { name:m.name, sort:m.sort });
