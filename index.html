@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="442-1794089253">
+<meta name="slick-build" content="443-1794089521">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1158,6 +1158,7 @@ button.x:hover,button.mmdx:hover,.dzchip>button:hover,.chip>button:hover{transfo
 .mmtbl .mmprod{min-width:0;overflow:hidden}.mmtbl .mmpn{min-width:0;overflow:hidden}.mmtbl .mmpn b{display:block;white-space:nowrap!important}
 .bmdmx .bmdon b,.bmdmx .bmdgrow b{white-space:nowrap}
 .dzcard p.dzempty,.dzcard p.brempty,p.empty,p.rsempty,.bempty{max-width:none!important;margin-left:auto!important;margin-right:auto!important;text-align:center!important}.dzcard:has(>.dzempty),.dzcard:has(>p.brempty){display:flex;align-items:center;justify-content:center}.mmempty{margin:0 auto}
+.card.tbl.tfit{overflow:visible}.card.tbl.tfit>table>thead>tr>th{position:sticky;top:var(--thtop,var(--toph,62px));z-index:3;box-shadow:0 1px 0 var(--line,#ecebf2)}
 html.mlock,html.mlock body{overflow:hidden!important}.scrim,.bmdrawer,.bmdbody,.modal .body,.modal>*{overscroll-behavior:contain}
 </style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
@@ -7932,6 +7933,10 @@ document.getElementById("signOut").addEventListener("click", () => window.WOK &&
 /* Lock page scroll while any dialog / drawer is open */
 (function(){const H=document.documentElement;let q=0;const sync=()=>{q=0;H.classList.toggle("mlock",!!document.querySelector(".scrim.show,.bmdscrim"));};
 new MutationObserver(()=>{if(!q){q=1;requestAnimationFrame(sync);}}).observe(document.body,{subtree:true,childList:true,attributes:true,attributeFilter:["class"]});
+/* table headers stay pinned under the top bar while the page scrolls (tables that fit their card) */
+const thFit=()=>{const os=document.querySelector(".ostick"),top=document.querySelector(".top");let t=top?top.offsetHeight:0;if(os&&getComputedStyle(os).position==="sticky")t+=os.offsetHeight-6;H.style.setProperty("--thtop",t+"px");
+document.querySelectorAll(".card.tbl").forEach(c=>{const tb=c.querySelector(":scope>table");if(!tb||!tb.tHead)return;c.classList.remove("tfit");if(tb.scrollWidth<=c.clientWidth+1)c.classList.add("tfit");});};
+let tq=0;new MutationObserver(()=>{if(!tq){tq=1;setTimeout(()=>{tq=0;thFit();},120);}}).observe(document.body,{subtree:true,childList:true});addEventListener("resize",()=>setTimeout(thFit,60));
 document.addEventListener("wheel",e=>{if(!H.classList.contains("mlock"))return;const t=e.target;if(t.classList&&(t.classList.contains("scrim")||t.classList.contains("bmdscrim")))e.preventDefault();},{passive:false});
 document.addEventListener("touchmove",e=>{const t=e.target;if(H.classList.contains("mlock")&&t.classList&&(t.classList.contains("scrim")||t.classList.contains("bmdscrim")))e.preventDefault();},{passive:false});})();
 </script>
