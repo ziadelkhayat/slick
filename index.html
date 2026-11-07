@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="402-1794078340">
+<meta name="slick-build" content="403-1794079089">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1121,6 +1121,8 @@ button.x[data-xi]{display:grid!important;place-items:center!important;padding:0!
 /* every × close/remove button turns a quarter on hover, like the sales channel drawer */
 button.x,button.mmdx,.dzchip>button,.chip>button{transition:background-color .15s,border-color .15s,color .15s,transform .2s ease!important}
 button.x:hover,button.mmdx:hover,.dzchip>button:hover,.chip>button:hover{transform:rotate(90deg)!important}
+.scbtag{display:inline-flex;align-items:center;gap:6px}.scbtag svg{width:14px;height:14px}
+.msel-none{padding:12px 10px;color:var(--muted,#8a87a0);font-size:13.5px;text-align:center}
 </style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -1561,7 +1563,7 @@ document.addEventListener("click", async e => {
     const zs = (S.zones||[]).filter(z => !z.deleted).sort((a,c) => String(a.name).localeCompare(String(c.name)));
     const box = $("#ccBox"); box.className = "modal sm";
     box.innerHTML = `<header><h2>Delivery Zones</h2><button type="button" class="x" data-ccclose aria-label="Close">×</button></header>
-      <div class="body" style="display:block"><div class="f"><label>Delivery Zones</label>${zs.length ? `<div class="multi" id="brZoneList">${zs.map(z => `<label class="chk" data-zn="${esc(String(z.name).toLowerCase())}"><input type="checkbox" value="${esc(z.id)}" ${z.branchId===b.id?"checked":""}> ${esc(z.name)}${z.branchId && z.branchId!==b.id ? ` <span class="note">· now ${esc(branchName(z.branchId)||"")}</span>` : ""}</label>`).join("")}</div>` : `<p class="note">No delivery zones yet. Draw them in Web Ordering → Delivery Zones.</p>`}</div></div>
+      <div class="body" style="display:block"><div class="f"><label>Delivery Zones</label>${zs.length ? `<div class="multi" id="brZoneList">${zs.map(z => `<label class="chk" data-zn="${esc(String(z.name).toLowerCase())}"><input type="checkbox" value="${esc(z.id)}" ${z.branchId===b.id?"checked":""}> ${esc(z.name)}${z.branchId && z.branchId!==b.id ? ` <span class="note">· now ${esc(branchName(z.branchId)||"")}</span>` : ""}</label>`).join("")}</div>` : `<div class="multi" id="brZoneList" data-empty="No delivery zones"></div><p class="note">Delivery zones are drawn in Web Ordering → Delivery Zones.</p>`}</div></div>
       <footer><span style="flex:1"></span><button type="button" class="btn" data-ccclose>Cancel</button>${zs.length ? `<button type="button" class="btn pri" id="brZoneSave" data-bid="${esc(b.id)}">Save</button>` : ""}</footer>`;
     $("#ccScrim").classList.add("show"); return; }
   const sv = e.target.closest("#brZoneSave"); if(sv){ const pick = new Set([...document.querySelectorAll("#brZoneList input:checked")].map(i => i.value)); sv.disabled = true;
@@ -2177,6 +2179,56 @@ const IB_SVG = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stro
 function ibMake(html){ const s = document.createElement("span"); s.className = "ib"; s.tabIndex = 0; s.setAttribute("role", "button"); s.setAttribute("aria-label", "More info"); s.innerHTML = IB_SVG; s.dataset.tip = html; return s; }
 function ibAttach(target, html){ if(!target || !html.trim()) return false; const old = target.querySelector(":scope > .ib"); if(old){ old.dataset.tip += "<br><br>" + html; return true; } target.appendChild(ibMake(html)); return true; }
 const ibPlain = el => !el.id && !el.querySelector("a,button,input,select,textarea,img,svg,.ib") && !el.closest("td,th,.citem,.clist,.ocard,.cins,.pager,.kh,.ttop,.cart,.err,.ib,.ibub,.side,.top,.ccx .ccside,.acards,.pgrid,.rptbl,.odet") && el.textContent.trim().length > 0;
+/* ---------- Foodics help bubbles: the same ⓘ text Foodics shows beside each field ---------- */
+const FT_LOC = "Enter the localized name in a 2nd language of your choice.";
+const FTIPS = {
+  product: { name:"The product name.", category:"Choose the category of this product.", sku:"Unique code for the product, you can generate one.", pricingmethod:"Open price means the price can be entered by the cashier, otherwise choose fixed.", price:"If the price is fixed, enter it here.", taxgroup:"To choose the tax group this product belongs to.", costingmethod:"Should the cost of this product be based on its ingredients cost or is it fixed cost?", sellingmethod:"Is this product sold as a unit or by weight?" },
+  category: { name:"Enter a category name.", reference:"Unique code for the category. The reference may only contain small letters and dashes." },
+  combo: { name:"The combo's name.", category:"Choose the category of this combo.", sku:"Stock Keeping Unit is a code of numbers or letters identify the combo.", includemodifiers:"Enabling this option will include the modifier options price in the product price and combo price." },
+  "gift card": { name:"The gift card name.", category:"Choose the category of this gift card.", sku:"Stock Keeping Unit is a code of numbers or letters identify the gift card.", pricingmethod:"Fixed: the price set on the console. Open: the cashier can put the price.", price:"Set gift card price." },
+  "modifier option": { name:"The name of modifier option.", modifier:"Choose the modifier of this option.", sku:"Stock Keeping Unit is a code of numbers or letters identify the modifier option.", price:"To set modifier option price.", taxgroup:"To choose the tax group applied to this modifier option.", costingmethod:"Choose the way of modifier option costing." },
+  option: null,
+  modifier: { name:"The modifier's name.", reference:"Numbers or letters help to reach modifier." },
+  group: { name:"The group's name." },
+  "inventory category": { name:"Inventory category name, like Vegetables or Fruits.", reference:"Unique code for the category. The reference may only contain small letters and dashes." },
+  item: { name:"Inventory item name.", sku:"Stock keeping unit, a unique code for your item.", category:"You can add an item to a category, like vegetables.", storageunit:"How this item is stored, example: Box or KG.", ingredientunit:"How this item is used in your products ingredients, example: GRAM or ML.", storagetoingredient:"The conversion factor between storage unit and ingredient unit.", costingmethod:"If you don't have a fixed cost for this item it will be calculated from purchase transactions.", cost:"Fixed cost per storage unit." },
+  supplier: { name:"Supplier Company Name.", code:"Unique code for this supplier. The code may only contain letters and numbers.", contactname:"Supplier contact name.", phone:"Supplier phone number.", email:"Enter an email to send Purchase Orders from Slick.", primaryemail:"Enter an email to send Purchase Orders from Slick.", additionalemails:"Emails will be added as a CC to the Purchase Orders email, separate multiple emails by a comma (,)" },
+  user: { name:"The user's name.", language:"The user prefered interface language.", phonenumber:"The user's phone number with country code.", email:"The user's email to login to the console. It's not needed if the user will only use the Cashier App.", password:"The password to login to the console.", loginpin:"This should be a unique 5 digit PIN the user will use to login to the Cashier App. Generate a random pin for better security.", displaylocalizednames:"Show the console and apps in the localized language." },
+  role: { name:"The name of the role in the organization." },
+  device: { type:"Choose the type of device.", name:"For example: Main Cashier, 2nd Floor Cashier, etc…", reference:"Reference number or ID of the device.", branch:"The branch where this device will be used." },
+  discount: { name:"The discount name.", qualification:"Choose whether the discount can be applied on an order level, a product level or both.", discounttype:"Whether it's a fixed amount discount or percentage discount.", type:"Whether it's a fixed amount discount or percentage discount.", discountamount:"Amount of the discount that will be applied on orders or products.", amount:"Amount of the discount that will be applied on orders or products.", reference:"Reference number or ID of the discount. The reference may only contain small letters and dashes.", taxable:"Check this if you want the customer to pay the full amount of taxes of the order before applying the discount. If you leave it unchecked, the customer will not pay the full amount of taxes of the order." },
+  "timed event": { name:"The timed event's name, used for reporting.", type:"Set fixed price, reduce or increase price by percent/amount, or activate/deactivate products while the event runs.", fixedprice:"The product's price will be fixed to this amount.", startdate:"The timed event will start automatically on this date.", enddate:"The timed event will end automatically on this date." },
+  coupon: { name:"The name of the coupon, used for reporting.", coupontype:"Choose whether the coupon type will be on an order level or a product level.", code:"The coupon code that will be used by the customers. It must only contain numbers or letters.", discount:"This coupon is linked to a predefined discount that applies to products or orders matching its coupon type.", maximumuses:"Maximum amount of times this coupon can be used.", startdate:"The coupon becomes usable on this date.", enddate:"The coupon becomes unusable on this date." },
+  promotion: { name:"The name of the promotion, for reporting and tracking.", startdate:"The promotion becomes active on this date.", enddate:"The promotion becomes inactive on this date.", starttime:"The promotion becomes active on this hour.", endtime:"The promotion becomes inactive on this hour.", appliesondays:"The promotion only works on these days.", appliesonordertypes:"The promotion only works on these order types.", priority:"The promotion's priority if there's a conflict with another promotion. 1 is lower priority than 2, lower than 3, etc…", includemodifiers:"Check this if the promotion applies on the product's modifiers too.", promotiontype:"Choose one type to configure the promotion." },
+  tax: { name:"The name of the tax charge. for example VAT.", rate:"Enter the tax percentage value. For example 5." },
+  "payment method": { name:"The payment method's name. e.g MasterCard.", type:"Cash, card (debit or credit), or others like online payment methods.", code:"A reference number or a code to uniquely identify the payment method.", codereference:"A reference number or a code to uniquely identify the payment method.", openthecashdrawerwhenused:"If checked, the cash drawer will open automatically when this payment method is used in a sales transaction." },
+  charge: { name:"Name of the charge, e.g. delivery fees.", type:"Type of the charge, either a fixed amount or a percentage of the total order value.", isopenvalue:"If it's open, the cashier can input the charge value manually.", value:"The fixed value of the charge if it's not open.", ordertypesitappliesto:"This charge will be applicable only on these order types.", taxgroup:"The charge will be taxed based on this tax group, if none were chosen charge won't be taxed.", branches:"This charge will be applicable only on these branches." },
+  zone: { name:"The name of delivery zone.", zoneareaname:"The name of delivery zone.", reference:"Unique code for the Delivery Zone. The reference may only contain small letters and dashes." },
+  tag: { name:"A name for the tag, like VIP Customers." },
+  reason: { name:"Reason for voiding or returning an order like Customer Cancelled." },
+  "kitchen flow": { name:"The kitchen flow name." },
+  "price tag": { automaticallyapplyonallexistingandnewbranch:"When selected, it will apply to any branch currently in the business or any newly added branches." },
+  "*": { namelocalized:FT_LOC, descriptionlocalized:"Enter the localized description in a 2nd language of your choice.",
+    receiptheader:"You can enter text here to show at the header of the receipts.", receiptfooter:"You can enter text here to show at the footer of the receipts.", invoicetitle:"You can enter text here to be printed as title in invoice.",
+    printlanguage:"Select a language or multiple languages for the receipt printer.", showordernumber:"Show or hide order number from the receipts.", showcalories:"Check this to show calories in the receipts.", showsubtotal:"Check this to show the receipt's subtotal (before taxes) with the final price.", showrounding:"Check this to show the rounding amount in the receipts.", showcloserusername:"Check this to show the order closer username in the receipts.", showcreatorusername:"Check this to show the order creator username in the receipts.", showchecknumber:"Check this to show the check number in the receipts.", hidefreemodifieroptions:"Check this to hide modifier options with zero price in the receipts.",
+    presettenderedamounts:"Enter the values of the common cash bills used by the customers up to two values separated by a comma, like 50,100", predefinedtipspercentages:"Enter tips percentages that will be suggested to customers in check if tips are enabled. e.g. 10,20,30", inactiveuserslogout:"For better security, if a user is not active for this long, the cashier will automatically logout.", returnperiod:"How long after the order is closed can it be returned and refunded to the customer.", roundingmethod:"Up adds, Down deducts, Average rounds to the nearest number that fulfills the selected rounding level.", enabletips:"Allows the cashier to add tips to all types of orders.", alwaysaskforvoidreasons:"The cashier can't void an order or product without a reason.", autosendtokitchenafterfullpayment:"When an order is fully paid, it will be sent to the kitchen screen and printer automatically.", singletillmode:"This setting allows one Cashier user to open a till at any given time during the business day.", preventsellingoutofstockproducts:"Prevents the cashier app from selling stock products if they are out of stock.",
+    agents:"Users who can make an online order.", allowdiscounts:"Allow call center agents to make discounts.", allowcoupons:"Allow call center agents to apply coupons on orders.", alloweditingorders:"Allow Call Center Agents to Edit Active orders from the Call Center.", allowvoidingactiveorders:"Allow Call Center Agents to Void Active orders from the Call Center.",
+    header:"You can enter text here to show at the header of the transactions when printing.", footer:"You can enter text here to show at the footer of the transactions when printing." }
+};
+const ftNorm = t => String(t||"").replace(/\(.*?\)/g, "").replace(/[^a-z]/gi, "").toLowerCase();
+// which kind of record a dialog edits: its title ("Create Product", "Edit Inventory Item"…) names it
+function ftCtx(box){ const t = (box.querySelector("header h2")?.textContent || "").toLowerCase(); let best = "";
+  Object.keys(FTIPS).forEach(k => { if(k!=="*" && new RegExp("\\b" + k + "(s)?\\b").test(t) && k.length > best.length) best = k; }); return best; }
+function ftTips(root){
+  (root || document).querySelectorAll("#crudBox, #ccBox, .detform, .settings-form, form.card").forEach(box => {
+    const ctx = ftCtx(box.closest(".modal") || box), map = { ...FTIPS["*"], ...(FTIPS[ctx] || {}) };
+    box.querySelectorAll(".f > label:not(.chk), .f > label.chk").forEach(lab => { if(lab.dataset.ft || lab.querySelector(".ib")) return; lab.dataset.ft = 1;
+      const key = ftNorm([...lab.childNodes].filter(n => n.nodeType===3 || n.tagName==="SPAN" || n.tagName==="B").map(n => n.textContent).join(" ")), tip = map[key];
+      if(tip) lab.appendChild(ibMake(esc(tip))); });
+  });
+}
+new MutationObserver(() => { clearTimeout(ftTips.t); ftTips.t = setTimeout(() => ftTips(), 60); }).observe(document.documentElement, { childList:true, subtree:true });
+FTIPS.option = FTIPS["modifier option"];
 function infoize(root){
   if(!root) return;
   // 1. help under a form field → icon beside the field's label
@@ -2264,10 +2316,10 @@ function msEnhance(){
   document.querySelectorAll("button.x:not([data-xi]),button.mmdx:not([data-xi])").forEach(b => { if(b.textContent.trim()!=="×") return; b.dataset.xi = "1"; b.innerHTML = `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>`; });
   // remove buttons ("×" on a row) show a bin icon, like Foodics
   document.querySelectorAll("button.btn:not([data-trash])").forEach(b => { if(b.textContent.trim()!=="×" || b.closest("header")) return; b.dataset.trash = "1"; b.classList.add("trashbtn"); if(!b.getAttribute("aria-label")) b.setAttribute("aria-label", "Delete"); b.innerHTML = ccIco("trash"); });
-  document.querySelectorAll(".multi:not([data-ms])").forEach(m => { m.dataset.ms = "1"; const labels = [...m.querySelectorAll(":scope > label")]; if(!labels.length || labels.some(l => !l.querySelector("input[type=checkbox],input[type=radio]"))) return;
+  document.querySelectorAll(".multi:not([data-ms])").forEach(m => { m.dataset.ms = "1"; const labels = [...m.querySelectorAll(":scope > label")]; if((!labels.length && !m.dataset.empty) || labels.some(l => !l.querySelector("input[type=checkbox],input[type=radio]"))) return;
     m.classList.add("msel"); const f = document.createElement("div"); f.className = "msel-f"; f.tabIndex = 0; f.setAttribute("role", "button");
     const p = document.createElement("div"); p.className = "msel-p"; p.hidden = true; p.innerHTML = `<input class="msel-q" placeholder="Type something to start searching" autocomplete="off">`;
-    const l = document.createElement("div"); l.className = "msel-l"; labels.forEach(x => { x.classList.add("msel-o"); l.appendChild(x); }); p.appendChild(l); m.prepend(p); m.prepend(f); msPaint(m); });
+    const l = document.createElement("div"); l.className = "msel-l"; labels.forEach(x => { x.classList.add("msel-o"); l.appendChild(x); }); if(!labels.length) l.innerHTML = `<div class="msel-none">${esc(m.dataset.empty)}</div>`; p.appendChild(l); m.prepend(p); m.prepend(f); msPaint(m); });
   document.querySelectorAll(":is(#crudBox,#ccBox,.detform,.modal,.bsf,.f) select.sel:not([multiple]):not([size]):not([data-ms]):not([hidden])").forEach(sel => { sel.dataset.ms = "1"; if(sel.style.display==="none") return;
     const m = document.createElement("div"); m.className = "msel mselect"; sel.parentNode.insertBefore(m, sel); m.appendChild(sel);
     const f = document.createElement("div"); f.className = "msel-f sel"; f.tabIndex = 0; f.setAttribute("role", "button"); if(sel.id) f.setAttribute("aria-label", sel.getAttribute("aria-label") || sel.id);
@@ -2283,7 +2335,7 @@ function msClose(except){ document.querySelectorAll(".msel.open").forEach(m => {
 function msOpen(m){
   msClose(m); const p = m.querySelector(":scope > .msel-p");
   if(m.classList.contains("mselect")){ const sel = m.querySelector("select"); if(sel.disabled) return;
-    p.querySelector(".msel-l").innerHTML = [...sel.options].filter(o => !(o.value==="" && /^(choose|select)/i.test(o.text)) && !o.hidden).map(o => `<button type="button" class="msel-o${o.value===sel.value?" on":""}" data-msv="${esc(o.value)}"${o.disabled?" disabled":""}>${esc(o.text)}</button>`).join("") || `<div class="msel-none">No options</div>`; }
+    p.querySelector(".msel-l").innerHTML = [...sel.options].filter(o => !(o.value==="" && /^(choose|select)/i.test(o.text)) && !o.hidden).map(o => `<button type="button" class="msel-o${o.value===sel.value?" on":""}" data-msv="${esc(o.value)}"${o.disabled?" disabled":""}>${esc(o.text)}</button>`).join("") || `<div class="msel-none">${esc(sel.dataset.empty || "No options")}</div>`; }
   m.classList.add("open"); p.hidden = false; const q = p.querySelector(".msel-q"); q.value = ""; p.querySelectorAll(".msel-o").forEach(o => o.hidden = false);
   msPlace(m); setTimeout(() => q.focus(), 0);
 }
@@ -4296,11 +4348,14 @@ function bmState(r){
 }
 function viewBranchMenu(){
   BM.kind = "products";   // modifier options are set under each product
-  const list = branches.filter(b=>b.active!==false && brandFilter(b));
+  let list = branches.filter(b=>b.active!==false);
   if(!list.some(b=>b.id===BM.branch)) BM.branch = (state.branch!=="all" && list.some(b=>b.id===state.branch)) ? state.branch : list[0]?.id || "";
   bmMenusRefresh();
   // first page: the list of this branch's sales channels; each opens on its own page
-  if(!BM.open1 || !BM_MENUS.some(m => m[0]===BM.menu)) return scListView(list);
+  if(brandList().length > 1 && !brandList().some(x => x.id===BM.brand)) return scBrandList(list);   // page 1: pick a brand
+  if(brandList().length > 1) list = list.filter(b => !b.brandId || b.brandId===BM.brand);
+  if(!BM.brOpen || !list.some(b => b.id===BM.branch)) return scBranchList(list);   // then pick a branch   // page 1: pick a branch
+  if(!BM.open1 || !BM_MENUS.some(m => m[0]===BM.menu)) return scListView(list);   // page 2: that branch's channels (create / delete here)
   const br = branches.find(b=>b.id===BM.branch), ch = bmMenu(), types = bmTypes(), nDraft = Object.keys(BM.draft).length, rec = ch[3] || {};
   let h = `<div class="phead"><button type="button" class="btn" data-scback>← Back</button><h1 style="margin-left:10px" data-ico="${(SC_KINDS.find(k => k[0]===rec.kind)||SC_KINDS[3])[2]}">${esc(ch[1])}</h1><span class="note" style="margin-left:8px">${esc(rec.kind==="online" ? brandName(rec.brandId) + " · all branches" : branches.find(b=>b.id===BM.branch)?.name || "")}</span><div class="sp"></div><button type="button" class="btn" data-scedit="${esc(ch[0])}">Settings</button></div>`;
   if(!br) return h + `<div class="card empty">No branches yet. Add them under Manage → Branches.</div>`;
@@ -4377,10 +4432,29 @@ $("#view").addEventListener("click", e => { const o = e.target.closest("[data-bm
   if(e.target.closest("[data-bmclose]")){ e.preventDefault(); BM.item = ""; render(); } });
 document.addEventListener("keydown", e => { if(e.key==="Escape" && BM.item && location.hash==="#branch-menu"){ BM.item = ""; render(); } });
 // Sales Channels list (Foodics style): one row per channel; tap to open its menu
+function scBrandList(list){
+  return `<div class="phead"><h1>Sales Channels</h1></div>
+    <div class="card tbl"><table><thead><tr><th>Brand</th><th class="num">Branches</th><th class="num">Sales Channels</th></tr></thead><tbody>${brandList().map(br => { const bs = list.filter(b => !b.brandId || b.brandId===br.id), n = new Set(bs.flatMap(b => scFor(b.id).map(scCode))).size;
+      return `<tr class="clk" data-scbrand="${esc(br.id)}"><td><b>${esc(br.name)}</b></td><td class="num">${bs.length}</td><td class="num">${n}</td></tr>`; }).join("")}</tbody></table></div>`;
+}
+function scBranchList(list){
+  const ico = c => svgIco((SC_KINDS.find(x => x[0]===c.kind)||SC_KINDS[3])[2]), multi = brandList().length > 1;
+  return `<div class="phead">${multi ? `<button type="button" class="btn" data-scbrandback>← Back</button><h1 style="margin-left:10px">${esc(brandName(BM.brand))}</h1><span class="note" style="margin-left:10px">Sales Channels</span>` : `<h1>Sales Channels</h1>`}</div>
+    <div class="card tbl">${list.length ? `<table><thead><tr><th>Branch</th><th>Sales Channels</th><th class="num">Count</th></tr></thead><tbody>${list.map(b => { const cs = scFor(b.id);
+      return `<tr class="clk" data-scbr="${esc(b.id)}"><td><b>${esc(b.name)}</b></td><td>${cs.length ? cs.map(c => `<span class="tag scbtag">${ico(c)}${esc(c.name)}</span>`).join(" ") : `<span class="note">None yet</span>`}</td><td class="num">${cs.length}</td></tr>`; }).join("")}</tbody></table>`
+      : `<div class="empty">No active branches.</div>`}</div>`;
+}
+document.addEventListener("click", async e => {
+  const bd = e.target.closest("[data-scbrand]"); if(bd){ e.preventDefault(); BM.brand = bd.dataset.scbrand; BM.brOpen = false; BM.open1 = false; render(); window.scrollTo(0,0); return; }
+  if(e.target.closest("[data-scbrandback]")){ e.preventDefault(); BM.brand = ""; BM.brOpen = false; BM.open1 = false; render(); return; }
+  const o = e.target.closest("[data-scbr]"); if(o){ e.preventDefault(); BM.branch = o.dataset.scbr; BM.brOpen = true; BM.open1 = false; BM.draft = {}; BM.item = ""; render(); window.scrollTo(0,0); return; }
+  if(e.target.closest("[data-scbrback]")){ e.preventDefault(); if(Object.keys(BM.draft||{}).length && !(await askYes("Discard unsaved changes for this branch?"))) return; BM.brOpen = false; BM.open1 = false; BM.draft = {}; BM.item = ""; render(); }
+});
 function scListView(list){
   const typeName = t => (OTYPES.find(x => x[0]===t)||[t,t])[1];
-  let h = `<div class="phead"><h1>Sales Channels</h1><div class="sp"></div>${scopeBar(false)}<button type="button" class="btn pri" data-scnew>+ Create Sales Channel</button></div>
-    <div class="card tbl"><div class="ttop"><label class="scbr"><span>Branch</span><select class="sel" id="bmBranch" aria-label="Branch">${list.map(b=>`<option value="${esc(b.id)}" ${b.id===BM.branch?"selected":""}>${brandList().length>1?esc(brandName(b.brandId))+" · ":""}${esc(b.name)}</option>`).join("")}</select></label></div>`;
+  const br = branches.find(b => b.id===BM.branch);
+  let h = `<div class="phead"><button type="button" class="btn" data-scbrback>← Back</button><h1 style="margin-left:10px">${esc(br?.name || "")}</h1><span class="note" style="margin-left:10px">Sales Channels${brandList().length>1 ? " · " + esc(brandName(br?.brandId)) : ""}</span><div class="sp"></div><button type="button" class="btn pri" data-scnew>+ Create Sales Channel</button></div>
+    <div class="card tbl">`;
   if(!BM_MENUS.length) return h + `<div class="mmempty big"><b>No sales channels at this branch</b><span>Create POS, Call Center, Web Ordering or an integration.</span><button type="button" class="btn pri" data-scnew>+ Create Sales Channel</button></div></div>`;
   return h + `<table><thead><tr><th>Name</th><th>Type</th><th>Order Types</th><th>Applies To</th><th class="num">Categories</th><th class="num">Items</th></tr></thead><tbody>${BM_MENUS.map(([k, t, , c]) => { const cats = chCats(k), items = new Set(cats.flatMap(x => (x.productIds||[]).map(bmRoot)));
       return `<tr class="clk" data-scopen="${esc(k)}"><td><span class="scrow">${svgIco((SC_KINDS.find(x => x[0]===c.kind)||SC_KINDS[3])[2])}<b>${esc(t)}</b></span></td><td>${esc((SC_KINDS.find(x => x[0]===c.kind)||SC_KINDS[3])[1])}</td>
@@ -5084,7 +5158,7 @@ async function cusBulk(act){
   if(act==="tagAdd" || act==="tagDel"){
     const box = $("#ccBox"); box.className = "modal";
     box.innerHTML = `<header><h2>${act==="tagAdd" ? "Add Tags" : "Remove Tags"}</h2><button type="button" class="x" data-ccclose aria-label="Close">×</button></header>
-      <div class="body" style="display:block"><p class="note" style="margin:0 0 10px">${ids.length} selected</p>${tagList("customer").length ? `<div class="mlist">${tagList("customer").map(t => `<label class="chk mitem"><input type="checkbox" value="${esc(t.name)}"> ${esc(t.name)}</label>`).join("")}</div>` : `<p class="note">No customer tags yet. Create them in <a href="#tags" class="lnk" data-ccclose>Manage → Tags</a>.</p>`}<div class="err" id="cbTagErr"></div></div>
+      <div class="body" style="display:block"><p class="note" style="margin:0 0 10px">${ids.length} selected</p>${tagList("customer").length ? `<div class="mlist">${tagList("customer").map(t => `<label class="chk mitem"><input type="checkbox" value="${esc(t.name)}"> ${esc(t.name)}</label>`).join("")}</div>` : msEmptyBox("Tags", "cbEmpty", "No customer tags", "Tags are created in Manage → Tags.")}<div class="err" id="cbTagErr"></div></div>
       <footer><span style="flex:1"></span><button type="button" class="btn" data-ccclose>Close</button>${tagList("customer").length ? `<button type="button" class="btn pri" id="cbTagGo">Apply</button>` : ""}</footer>`;
     $("#ccScrim").classList.add("show"); if(!tagList("customer").length) return;
     $("#cbTagGo").onclick = async () => { const tg = [...box.querySelectorAll(".mlist input:checked")].map(i => i.value); if(!tg.length){ $("#cbTagErr").textContent = "Pick at least one tag."; return; } $("#ccScrim").classList.remove("show");
@@ -5307,7 +5381,7 @@ function openHaLimit(){
 function openCusTags(){
   const box = $("#ccBox"); box.className = "modal";
   box.innerHTML = `<header><h2>Add Tags</h2><button type="button" class="x" data-ccclose aria-label="Close">×</button></header>
-  <div class="body" style="display:block">${tagList("customer").length ? `<div class="multi" id="cuTagPick">${tagList("customer").map(t => `<label class="chk"><input type="checkbox" value="${esc(t.name)}" ${(CUS.det?.tags||[]).some(x => String(x).toLowerCase()===t.name.toLowerCase()) ? "checked" : ""}> ${esc(t.name)}</label>`).join("")}</div>` : `<div class="note">No customer tags yet. Create them in Manage → Tags.</div>`}<div hidden><input id="cuTagIn"><span class="note">Separate tags with commas.</span></div></div>
+  <div class="body" style="display:block">${tagList("customer").length ? `<div class="multi" id="cuTagPick">${tagList("customer").map(t => `<label class="chk"><input type="checkbox" value="${esc(t.name)}" ${(CUS.det?.tags||[]).some(x => String(x).toLowerCase()===t.name.toLowerCase()) ? "checked" : ""}> ${esc(t.name)}</label>`).join("")}</div>` : msEmptyBox("Tags", "cuTagPick", "No customer tags", "Tags are created in Manage → Tags.")}<div hidden><input id="cuTagIn"><span class="note">Separate tags with commas.</span></div></div>
   <footer><span style="flex:1"></span><button type="button" class="btn" data-ccclose>Cancel</button><button type="button" class="btn pri" id="cuTagSave">Save</button></footer>`;
   $("#ccScrim").classList.add("show"); setTimeout(() => $("#cuTagIn")?.focus(), 50);
 }
@@ -6137,6 +6211,7 @@ const tagUsed = t => t.type==="customer" ? null : Object.values(((tagDoc().on||{
 async function tagSave(list, on){ const d = tagDoc(); try{ await put("settings", "tags", { list: list ?? d.list ?? [], on: on ?? d.on ?? {} }); return true; }catch(err){ console.error(err); toast("Couldn't save. Only the owner or an admin can change tags."); return false; } }
 // optional Tags on forms: tick tags created in Manage → Tags
 const tagTypeName = type => (TAG_TYPES.find(x => x[0]===type)?.[1] || type).toLowerCase();
+const msEmptyBox = (label, id, empty, hint) => `<div class="f full"><label>${esc(label)}</label><div class="multi" id="${id}" data-empty="${esc(empty)}"></div>${hint ? `<p class="note">${hint}</p>` : ""}</div>`;
 const tagPick = (type, recId, id = "tgPick", cur) => { const l = tagList(type), sel = new Set(cur || (recId ? tagsOf(type, recId) : []));
   if(!l.length) return "";   // no tags of this kind yet: the field is left out
   return `<div class="f full"><label>Tags</label><div class="multi" id="${id}">${l.map(t => `<label class="chk"><input type="checkbox" value="${esc(t.id)}" ${sel.has(t.id)?"checked":""}> ${esc(t.name)}</label>`).join("")}</div></div>`; };
@@ -6145,7 +6220,7 @@ async function tagSetFor(type, recId, ids){ if(ids==null || !recId) return; cons
   const on = JSON.parse(JSON.stringify(tagDoc().on || {})), m = on[type] ||= {}; if(ids.length) m[recId] = ids; else delete m[recId]; await tagSave(null, on); }
 function tagEdit(type, recId, after){
   const box = $("#ccBox"); box.className = "modal";
-  box.innerHTML = `<header><h2>Tags</h2><button type="button" class="x" data-ccclose aria-label="Close">×</button></header><div class="body" style="display:block">${tagPick(type, recId, "teTags") || `<p class="note">No ${esc(tagTypeName(type))} tags yet. Create them in <a href="#tags" class="lnk" data-ccclose>Manage → Tags</a>.</p>`}</div>
+  box.innerHTML = `<header><h2>Tags</h2><button type="button" class="x" data-ccclose aria-label="Close">×</button></header><div class="body" style="display:block">${tagPick(type, recId, "teTags") || msEmptyBox("Tags", "teTags", `No ${tagTypeName(type)} tags`, "Tags are created in Manage → Tags.")}</div>
   <footer><span style="flex:1"></span>${tagList(type).length ? `<button type="button" class="btn pri" id="teGo">Save</button>` : ""}</footer>`;
   $("#ccScrim").classList.add("show"); const g = $("#teGo"); if(g) g.onclick = async () => { await tagSetFor(type, recId, tagPickGet("teTags")); $("#ccScrim").classList.remove("show"); toast("Tags saved"); after ? after() : render(); };
 }
@@ -6178,7 +6253,7 @@ function tagBulk(type, ids, add, after){
   const l = tagList(type), box = $("#ccBox"); box.className = "modal";
   box.innerHTML = `<header><h2>${add ? "Add Tags" : "Remove Tags"}</h2><button type="button" class="x" data-ccclose aria-label="Close">×</button></header>
   <div class="body" style="display:block"><p class="note" style="margin:0 0 10px">${ids.length} selected</p>
-    ${l.length ? `<div class="mlist">${l.map(t => `<label class="chk mitem"><input type="checkbox" value="${esc(t.id)}"> ${esc(t.name)}</label>`).join("")}</div>` : `<p class="note">No ${esc(TAG_TYPES.find(x => x[0]===type)?.[1].toLowerCase() || "")} tags yet. Create them in <a href="#tags" class="lnk" data-ccclose>Manage → Tags</a>.</p>`}<div class="err" id="tbErr"></div></div>
+    ${l.length ? `<div class="mlist">${l.map(t => `<label class="chk mitem"><input type="checkbox" value="${esc(t.id)}"> ${esc(t.name)}</label>`).join("")}</div>` : msEmptyBox("Tags", "tbEmpty", `No ${TAG_TYPES.find(x => x[0]===type)?.[1].toLowerCase() || ""} tags`, "Tags are created in Manage → Tags.")}<div class="err" id="tbErr"></div></div>
   <footer><span style="flex:1"></span><button type="button" class="btn" data-ccclose>Close</button>${l.length ? `<button type="button" class="btn pri" id="tbGo">Apply</button>` : ""}</footer>`;
   $("#ccScrim").classList.add("show"); if(!l.length) return;
   $("#tbGo").onclick = async () => { const pick = [...box.querySelectorAll(".mlist input:checked")].map(i => i.value); if(!pick.length){ $("#tbErr").textContent = "Pick at least one tag."; return; }
@@ -6214,17 +6289,27 @@ document.addEventListener("click", async e => {
     if(await tagSave((tagDoc().list||[]).map(x => x.id===id ? { ...x, deleted:true } : x))){ toast("Tag deleted"); render(); } }   // moves to Deleted; Restore brings it back
 });
 function viewAllergens(){
-  const list = allergenList(), used = a => S.products.filter(p => live(p) && (p.allergens||[]).includes(a)).length;
-  return `<div class="phead"><h1>Allergens</h1></div><div class="card"><div class="algpage">${list.map(a => `<span class="algchip"><b>${esc(a)}</b><span class="note">${used(a)} item${used(a)===1?"":"s"}</span><button type="button" class="x" data-algdel="${esc(a)}" aria-label="Remove ${esc(a)}">×</button></span>`).join("")}</div>
-    <div class="row" style="margin-top:16px;gap:8px"><input class="sel" id="algNew" placeholder="Add an allergen, e.g. Shellfish" style="flex:1;max-width:340px"><button type="button" class="btn pri" data-algadd>Add</button></div></div>`;
+  // same layout as Tags: title + Create Allergen, a card of rows (drag ⋮⋮ to sort, press a row to rename or delete)
+  const list = allergenList(), used = a => S.products.filter(p => live(p) && (p.allergens||[]).includes(a)).length + S.modifier_options.filter(o => live(o) && (o.allergens||[]).includes(a)).length;
+  return `<div class="phead"><h1>Allergens</h1></div>
+  <div class="rswrap"><div class="rssec"><div class="rsh"><h3>Allergens</h3><span class="sp"></span><button class="btn" data-algnew>Create Allergen</button></div>
+    <div class="card rslist">${list.length ? list.map((a, i) => `<div class="rsn" data-algedit="${i}" data-sk="alg|${i}"><span class="bmgrip rsgrip" title="Drag to move" aria-hidden="true">⋮⋮</span><span>${esc(a)}</span><span class="sp"></span><span class="note">${used(a)} item${used(a)===1?"":"s"}</span></div>`).join("")
+      : `<div class="rsempty">Add the allergens your items can contain. They show on the item page and to customers.</div>`}</div></div></div>`;
 }
-async function algSave(list){ try{ await put("settings", "allergens", { list }); render(); }catch(err){ console.error(err); toast("Couldn't save"); } }
+async function algSave(list){ try{ await put("settings", "allergens", { list }); render(); return true; }catch(err){ console.error(err); toast("Couldn't save"); return false; } }
+async function algRename(from, to){   // the items that have it keep it under the new name
+  for(const [col, rows] of [["products", S.products], ["modifier_options", S.modifier_options]]) for(const r of rows.filter(x => (x.allergens||[]).includes(from))){
+    const upd = { allergens: r.allergens.map(x => x===from ? to : x) }; try{ await put(col, r.id, upd); Object.assign(r, upd); }catch(err){ console.error(err); } }
+}
 document.addEventListener("click", async e => {
-  if(e.target.closest("[data-algadd]")){ const i = $("#algNew"), n = (i?.value||"").trim(); if(!n) return i?.focus(); const l = allergenList(); if(l.some(x => x.toLowerCase()===n.toLowerCase())) return toast("Already in the list"); return algSave([...l, n]); }
-  const d = e.target.closest("[data-algdel]"); if(d){ const a = d.dataset.algdel, n = S.products.filter(p => live(p) && (p.allergens||[]).includes(a)).length;
-    if(n && !(await askYes(`${a} is set on ${n} item${n===1?"":"s"}. Remove it from the list? The items keep it until edited.`))) return; return algSave(allergenList().filter(x => x!==a)); }
+  if(e.target.closest("[data-algnew]")) return tagAsk("Create Allergen", "", async n => { const l = allergenList(); if(l.some(x => x.toLowerCase()===n.toLowerCase())){ $("#tgErr").textContent = "This allergen already exists."; return false; }
+    const ok = await algSave([...l, n]); if(ok) toast("Allergen created"); return ok; });
+  const ed = e.target.closest("[data-algedit]"); if(ed){ e.preventDefault(); const l = allergenList(), a = l[+ed.dataset.algedit]; if(a==null) return;
+    tagAsk(a, a, async n => { if(n!==a && l.some(x => x.toLowerCase()===n.toLowerCase())){ $("#tgErr").textContent = "This allergen already exists."; return false; }
+      if(n===a) return true; await algRename(a, n); const ok = await algSave(l.map(x => x===a ? n : x)); if(ok) toast("Allergen saved"); return ok; }, null,
+      async () => { const ok = await algSave(l.filter(x => x!==a)); if(ok) toast("Allergen deleted"); return ok; });
+    const ar = $("#tgNameAr")?.closest(".f"); if(ar) ar.remove(); }
 });
-document.addEventListener("keydown", e => { if(e.key==="Enter" && e.target.id==="algNew"){ e.preventDefault(); document.querySelector("[data-algadd]")?.click(); } });
 function productDetail(p){
   const cost = productCost(p), price = +p.price || 0, pct = price ? cost/price*100 : 0;
   const brs = branches.filter(b => !p.brandId || !b.brandId || b.brandId===p.brandId);
@@ -6323,7 +6408,7 @@ document.addEventListener("click", async e => {
   if(e.target.closest("#pdAlgSave")){ const v = [...document.querySelectorAll("#pdAlg input:checked")].map(i => i.value); $("#ccScrim").classList.remove("show"); return pdPut({ allergens:v }, "Allergens saved"); }
   const ar = e.target.closest("[data-pdalgrm]"); if(ar){ e.preventDefault(); return pdPut({ allergens:(p.allergens||[]).filter(a => a!==ar.dataset.pdalgrm) }, "Allergen removed"); }
   if(e.target.closest("[data-modcopy]")){ e.preventDefault(); const src = S.products.filter(x => live(x) && x.id!==p.id && (x.modifiers||[]).length).sort((a,b) => a.name.localeCompare(b.name));
-    box.innerHTML = `<header><h2>Copy Modifiers</h2><button type="button" class="x" data-ccclose aria-label="Close">×</button></header><div class="body" style="display:block"><div class="f"><label for="mcSel">Copy from product</label>${src.length ? `<select id="mcSel" class="sel">${src.map(x => `<option value="${esc(x.id)}">${esc(x.name)} (${x.modifiers.length})</option>`).join("")}</select>` : `<p class="note">No other product has modifiers yet.</p>`}</div><p class="note">Its modifiers and their rules are added to this product.</p></div>
+    box.innerHTML = `<header><h2>Copy Modifiers</h2><button type="button" class="x" data-ccclose aria-label="Close">×</button></header><div class="body" style="display:block"><div class="f"><label for="mcSel">Copy from product</label>${src.length ? `<select id="mcSel" class="sel">${src.map(x => `<option value="${esc(x.id)}">${esc(x.name)} (${x.modifiers.length})</option>`).join("")}</select>` : `<select id="mcSel" class="sel" data-empty="No other product has modifiers"><option value="">Choose…</option></select>`}</div><p class="note">Its modifiers and their rules are added to this product.</p></div>
       <footer><span style="flex:1"></span><button type="button" class="btn" data-ccclose>Cancel</button>${src.length ? `<button type="button" class="btn pri" id="mcGo">Copy</button>` : ""}</footer>`;
     show(); return; }
   if(e.target.closest("#mcGo")){ const x = S.products.find(y => y.id===$("#mcSel")?.value); if(!x) return; const have = new Set(DET.mods.map(l => l.modifierId));
@@ -6449,7 +6534,7 @@ function openUserRoles(id){
   const u = S.users.find(x => x.id===id); if(!u) return; const cur = new Set(userRoleIds(u)), list = S.roles.filter(r => live(r) || cur.has(r.id));
   const box = $("#ccBox"); box.className = "modal";
   box.innerHTML = `<header><h2>Edit Roles</h2><button type="button" class="x" data-ccclose aria-label="Close">×</button></header>
-  <div class="body" style="display:block"><div class="mlist">${list.length ? list.map(r => `<label class="chk mitem"><input type="checkbox" value="${esc(r.id)}" ${cur.has(r.id)?"checked":""}> ${esc(r.name)}</label>`).join("") : '<span class="note">No roles yet. Create one in Manage → Roles.</span>'}</div><div class="err" id="urErr"></div></div>
+  <div class="body" style="display:block"><div class="mlist">${list.length ? list.map(r => `<label class="chk mitem"><input type="checkbox" value="${esc(r.id)}" ${cur.has(r.id)?"checked":""}> ${esc(r.name)}</label>`).join("") : ""}</div>${list.length ? "" : msEmptyBox("Roles", "urEmpty", "No roles", "Roles are created in Manage → Roles.")}<div class="err" id="urErr"></div></div>
   <footer><span style="flex:1"></span><button type="button" class="btn" data-ccclose>Cancel</button><button type="button" class="btn pri" data-urapply="${esc(id)}">Apply</button></footer>`;
   $("#ccScrim").classList.add("show");
 }
@@ -6545,7 +6630,7 @@ document.addEventListener("click", async e => {
   const lk = e.target.closest("[data-suplink]"); if(lk){ e.preventDefault(); const [side, id] = lk.dataset.suplink.split(":");
     const opts = side==="item" ? S.suppliers.filter(live).sort((a,b) => a.name.localeCompare(b.name)).map(x => [x.id, x.name]) : S.inv_items.filter(live).sort((a,b) => a.name.localeCompare(b.name)).map(x => [x.id, x.name + (x.sku ? " · " + x.sku : "")]);
     box.innerHTML = `<header><h2>${side==="item" ? "Link Supplier" : "Link Item"}</h2><button type="button" class="x" data-ccclose aria-label="Close">×</button></header><div class="body" style="display:block">
-      <div class="f"><label for="slPick">${side==="item" ? "Supplier" : "Item"} *</label><select id="slPick" class="sel"><option value="">Choose...</option>${opts.map(([v,t]) => `<option value="${esc(v)}">${esc(t)}</option>`).join("")}</select></div>
+      <div class="f"><label for="slPick">${side==="item" ? "Supplier" : "Item"} *</label><select id="slPick" class="sel" data-empty="${side==="item" ? "No suppliers" : "No inventory items"}"><option value="">Choose...</option>${opts.map(([v,t]) => `<option value="${esc(v)}">${esc(t)}</option>`).join("")}</select></div>
 </div>
       <footer><span style="flex:1"></span><button type="button" class="btn" data-ccclose>Cancel</button><button type="button" class="btn pri" id="slSave" data-side="${side}" data-id="${esc(id)}">Save</button></footer>`;
     show(); return; }
@@ -6660,7 +6745,7 @@ document.addEventListener("click", async e => {
     const avail = S.inv_items.filter(i => live(i) && !used.has(i.id) && i.id!==DET.id).sort((a,b) => a.name.localeCompare(b.name)), box = $("#ccBox"); box.className = "modal sm";
     const tg = tagList("inventory");
     box.innerHTML = `<header><h2>Add Items</h2><button type="button" class="x" data-ccclose aria-label="Close">×</button></header><div class="body" style="display:block">
-      <div class="f" id="igByItems"><label style="display:flex;justify-content:space-between"><span>Items</span>${tg.length ? `<a href="#" class="lnk" data-igmode="tags">Select by tags ?</a>` : ""}</label><div class="multi" id="igItems">${avail.map(i => `<label class="chk"><input type="checkbox" value="${esc(i.id)}"> ${esc(i.name)}${i.sku ? " (" + esc(i.sku) + ")" : ""}</label>`).join("")}</div></div>
+      <div class="f" id="igByItems"><label style="display:flex;justify-content:space-between"><span>Items</span>${tg.length ? `<a href="#" class="lnk" data-igmode="tags">Select by tags ?</a>` : ""}</label><div class="multi" id="igItems" data-empty="No inventory items to add">${avail.map(i => `<label class="chk"><input type="checkbox" value="${esc(i.id)}"> ${esc(i.name)}${i.sku ? " (" + esc(i.sku) + ")" : ""}</label>`).join("")}</div></div>
       ${tg.length ? `<div class="f" id="igByTags" hidden><label style="display:flex;justify-content:space-between"><span>Tags</span><a href="#" class="lnk" data-igmode="items">Select items ?</a></label><div class="multi" id="igTags">${tg.map(t => `<label class="chk"><input type="checkbox" value="${esc(t.id)}"> ${esc(t.name)}</label>`).join("")}</div></div>` : ""}
       <div class="err" id="igErr"></div></div>
       <footer><span style="flex:1"></span><button type="button" class="btn pri" id="igSave">Add</button></footer>`;
@@ -6732,7 +6817,7 @@ document.addEventListener("click", async e => {
   if(!DET.id || !DET.mods) return;
   if(e.target.closest("[data-modpick]")){ e.preventDefault(); const used = new Set(DET.mods.map(l => l.modifierId)), avail = S.modifiers.filter(m => live(m) && !used.has(m.id)).sort(bySort), box = $("#ccBox"); box.className = "modal sm";
     box.innerHTML = `<header><h2>Add Modifiers</h2><button type="button" class="x" data-ccclose aria-label="Close">×</button></header><div class="body" style="display:block">
-      <div class="f"><label>Modifiers</label>${avail.length ? `<div class="multi" id="mpList">${avail.map(m => `<label class="chk"><input type="checkbox" value="${esc(m.id)}"> ${esc(m.name)}${m.reference ? " (" + esc(m.reference) + ")" : ""}</label>`).join("")}</div>` : `<p class="note">Every modifier is already linked. Create more under Menu → Modifiers.</p>`}</div><div class="err" id="mpErr"></div></div>
+      <div class="f"><label>Modifiers</label>${avail.length ? `<div class="multi" id="mpList">${avail.map(m => `<label class="chk"><input type="checkbox" value="${esc(m.id)}"> ${esc(m.name)}${m.reference ? " (" + esc(m.reference) + ")" : ""}</label>`).join("")}</div>` : `<div class="multi" id="mpList" data-empty="No modifiers left to add"></div><p class="note">Modifiers are created in Menu → Modifiers.</p>`}</div><div class="err" id="mpErr"></div></div>
       <footer><span style="flex:1"></span><button type="button" class="btn keep" data-ccclose>Close</button>${avail.length ? `<button type="button" class="btn pri" id="mpSave">Save</button>` : ""}</footer>`;
     $("#ccScrim").classList.add("show"); return; }
   if(e.target.closest("#mpSave")){ const ids = [...document.querySelectorAll("#mpList input:checked")].map(i => i.value); if(!ids.length) return $("#mpErr").textContent = "Choose at least one modifier.";
@@ -7579,6 +7664,7 @@ state.date = todayStr();
    Press and drag a row (mouse or finger). The row lifts and follows the pointer, a faded slot shows where it will land,
    the other rows slide out of the way, and on release it settles into place and the new order is saved. */
 const SORT_DONE_X = {
+  alg: keys => { const l = allergenList(); algSave(keys.map(i => l[+i]).filter(Boolean)).then(ok => ok && toast("Order saved")); },   // allergens list order
   itr: () => {},   // list rows in forms: the new order is read when the form is saved
   pml: keys => { if(!DET.mods) return; DET.mods = keys.map(i => DET.mods[+i]).filter(Boolean); DET.dirtyMods = true; saveModLinks(); }   // a product's modifiers, in the order customers see them
 };
