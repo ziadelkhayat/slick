@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="361-1794067221">
+<meta name="slick-build" content="370-1794070697">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -719,8 +719,8 @@ const chPos = (c, p) => { const ids = c.product_ids||[], k = [p.id, ...(p.varian
 const inCat = (c, p) => useCh ? chPos(c, p) >= 0 : p.category_id===c.id;
 const catOrder = c => (a, b) => useCh ? chPos(c, a) - chPos(c, b) : (a.sort??9999)-(b.sort??9999) || a.name.localeCompare(b.name);
 const visible = () => products.filter(p => p.pricing_method!=="open" && (!curBranch() || (!(p.inactive_branch_ids||[]).includes(curBranch()) && !(p.inactive_branch_ids||[]).includes(curBranch() + ":online") && !(p.inactive_branch_ids||[]).includes(curBranch() + ":online:" + (mode==="takeaway" ? "pickup" : mode)) && !(cats.find(c=>c.id===p.category_id)?.inactive_branch_ids||[]).includes(curBranch()) && !(cats.find(c=>c.id===p.category_id)?.inactive_branch_ids||[]).includes(curBranch() + ":online"))));
-const priceOf = p => { const b = curBranch(), cp = p.custom_prices||{}, w = b && cp[b + ":online"], c = b && cp[b];   // the web menu's own price, else the branch price
-  return w!=null && w!=="" && w!==false ? +w : c!=null && c!=="" && c!==false ? +c : +p.price; };
+const priceOf = p => { const b = curBranch(), cp = p.custom_prices||{}, ot = b && cp[b + ":online:" + (mode==="takeaway" ? "pickup" : mode)], w = b && cp[b + ":online"], c = b && cp[b];   // the order type's web price, else the web menu's price, else the branch price
+  return ot!=null && ot!=="" && ot!==false ? +ot : w!=null && w!=="" && w!==false ? +w : c!=null && c!=="" && c!==false ? +c : +p.price; };
 // variants are full products linked from their parent (variants = [{ name, productId }]); only the parent is listed and it asks for the variant
 const kidIds = () => new Set(products.flatMap(p => (p.variants||[]).map(v => v.productId).filter(Boolean)));
 const kidsOf = p => { const ok = visible(); return (p.variants||[]).map(v => ({ name:v.name, p: ok.find(x => x.id===v.productId) })).filter(x => x.p && !oos(x.p)); };

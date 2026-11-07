@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="361-1794067221">
+<meta name="slick-build" content="370-1794070697">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -796,7 +796,11 @@ function startApp(id){
 
 /* ---------- data helpers ---------- */
 const live = r => !r.deleted;
-const prodPrice = p => { const c = (p.customPrices||{})[device.branchId]; return c!=null && c!=="" ? +c : +p.price||0; };
+// price at this branch: the order type's own price (Sales Channels → price per order type), else the POS price, else the item price
+const prodPrice = p => { const cp = p.customPrices||{}, t = cp[device.branchId + ":pos:" + menuType()], c = t!=null && t!=="" ? t : cp[device.branchId]; return c!=null && c!=="" ? +c : +p.price||0; };
+// switching order type re-prices the items not sent yet
+function repriceCart(){ cart.forEach(i => { if(i.saved || i.manualPrice) return; const p = S.products.find(x => x.id===i.productId); if(!p || p.pricingMethod==="open") return;
+  const opt = (i.options||[]).reduce((a, x) => a + (+x.price||0), 0), np = +(prodPrice(p) + opt).toFixed(2); if(np !== +i.price){ i.price = np; reDisc(i); } }); }
 // variants are full products linked from their parent (parent.variants = [{ name, productId }]); the menu shows the parent, which asks for the variant
 const kidIds = () => new Set(S.products.flatMap(p => (p.variants||[]).map(v => v.productId).filter(Boolean)));
 const kidsOf = p => { const ok = products(); return (p.variants||[]).map(v => ({ name:v.name, p: ok.find(x => x.id===v.productId) })).filter(x => x.p); };
@@ -1287,7 +1291,7 @@ $("#extra").addEventListener("click", e => { const ht = e.target.closest("[data-
   if(cx && cx.dataset.ctx==="table") return openTables();
   if(cx && cx.dataset.ctx==="custpage") return openCustPage();
   if(cx && cx.dataset.ctx==="pddetails"){ PD = { type: otype==="delivery" ? "delivery" : "takeaway", phone: cust.phone, name: cust.name, addr: { ...(cust.addr||{}) }, source: cust.source || "", cust:null, edit:true }; return openPDNew(); }
-  if(cx && cx.dataset.ctx==="fast"){ const go = () => { otype = "fast"; tableNo = ""; cust = { name:"", phone:"", addr:{} }; posChg = null; renderCart(); renderMenu(); };
+  if(cx && cx.dataset.ctx==="fast"){ const go = () => { otype = "fast"; tableNo = ""; cust = { name:"", phone:"", addr:{} }; posChg = null; repriceCart(); renderCart(); renderMenu(); };
     if((otype==="takeaway" || otype==="delivery") && (cust.name || cust.phone)) askYes("Make this a fast sale? The customer details are removed.", "Fast sale").then(y => y && go()); else go(); return; }
   if(e.target.closest("[data-unload]")) return unloadOrder(); });
 $("#acts").addEventListener("click", e => { const b = e.target.closest("[data-act]"); if(!b || b.disabled) return; const a = b.dataset.act, eo = editOrder();
@@ -1306,7 +1310,7 @@ $("#otype").addEventListener("click", async e => { const b = e.target.closest("[
   if(editOrder()) return toast("This order is already sent; its type can't change");
   if((otype==="takeaway" || otype==="delivery") && (cust.name || cust.phone) && !(await askYes("Switch to " + (b.dataset.t==="fast" ? "Fast sale" : "Dine-in") + "? The customer details are removed."))) return;
   if(otype==="takeaway" || otype==="delivery") cust = { name:"", phone:"", addr:{} };
-  otype = b.dataset.t; posChg = null; renderCart(); renderMenu(); });   // the menu can differ per order type
+  otype = b.dataset.t; posChg = null; repriceCart(); renderCart(); renderMenu(); });   // the menu can differ per order type
 $("#totals").addEventListener("click", e => { if(e.target.closest("[data-discx]")){ discount = 0; DSET = null; renderCart(); toast("Discount removed"); return; }
   const cx = e.target.closest("[data-chgx]"); if(cx){ if(!can("pos_charges")) return deny("changing charges"); if(!posChg) posChg = new Set(pickedCharges().map(c=>c.id)); posChg.delete(cx.dataset.chgx); delete posOpen[cx.dataset.chgx]; renderCart(); return; } const b = e.target.closest("[data-chg]"); if(!b) return; if(!can("pos_charges")) return deny("changing charges");
   if(!posChg) posChg = new Set(pickedCharges().map(c=>c.id)); posChg.has(b.dataset.chg) ? posChg.delete(b.dataset.chg) : posChg.add(b.dataset.chg); renderCart(); });
