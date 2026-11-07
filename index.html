@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="372-1794071028">
+<meta name="slick-build" content="373-1794071145">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1277,6 +1277,11 @@ const NAV = [
   {t:"Manage",i:"gear",tabs:1,kids:[["users","Users"],["roles","Roles"],["brands","Brands"],["branches","Branches"],["devices","Devices"],["taxes","Taxes & Groups"],["currency","Currency"],["payment-methods","Payment Methods"],["order-sources","Order Sources"],["charges","Charges"],["kitchen-flows","Kitchen Flows"],["reasons","Reasons"],["tags","Tags"]]},
   {t:"Marketing",i:"tag",tabs:1,kids:[["discounts","Discounts"],["loyalty","Loyalty"],["gift-cards","Gift Cards"],["promotions","Promotions"],["coupons","Coupons"]]}
 ];
+// Modifiers list: "Options (n)" opens its options, "Products (n)" the items that use it
+document.addEventListener("click", e => { const t = e.target; if(!t.closest) return;
+  const mo = t.closest("[data-modopts]"); if(mo){ e.preventDefault(); e.stopImmediatePropagation(); const id = mo.dataset.modopts; location.hash = "modifier-options"; setTimeout(() => { state.modFilter = id; state.tabs["modifier-options"] = "all"; state.page["modifier-options"] = 1; render(); }, 60); return; }
+  const mp = t.closest("[data-modprods]"); if(mp){ e.preventDefault(); e.stopImmediatePropagation(); const id = mp.dataset.modprods; location.hash = "products"; setTimeout(() => { state.catFilter = ""; state.prodMod = id; state.tabs.products = "all"; state.page.products = 1; render(); }, 60); return; }
+  if(t.closest("[data-clearpm]")){ e.preventDefault(); state.prodMod = ""; render(); } }, true);
 // references (everywhere): small letters and dashes only
 const refClean = v => String(v||"").toLowerCase().replace(/[\s_]+/g, "-").replace(/[^a-z-]/g, "").replace(/-{2,}/g, "-");
 document.addEventListener("input", e => { const i = e.target; if(!i.matches?.("#cf_reference,#ds_reference,#dRef,#dsRef,[data-ref]")) return; const v = refClean(i.value); if(v!==i.value){ const p = Math.max(0, (i.selectionStart||0) - (i.value.length - v.length)); i.value = v; try{ i.setSelectionRange(p, p); }catch(_){} } });
@@ -2726,7 +2731,7 @@ const CRUD = {
       if(ka !== kb || (pa||a).id !== (pb||b).id) return String(ka).localeCompare(String(kb)) || String((pa||a).id).localeCompare(String((pb||b).id));
       if(!pa) return -1; if(!pb) return 1; return pa.variants.findIndex(v=>v.productId===a.id) - pa.variants.findIndex(v=>v.productId===b.id); },
     search:r=>r.name+" "+(r.sku||"")+" "+catName(r.categoryId)+" "+(varParent(r.id)?.name||""),
-    filter:r=>brandFilter(r) && (!state.catFilter || r.categoryId===state.catFilter),
+    filter:r=>brandFilter(r) && (!state.catFilter || r.categoryId===state.catFilter) && (!state.prodMod || (r.modifiers||[]).some(l => l.modifierId===state.prodMod)),
     cols:[["Name",r=>`<span class="pname">${r.imageUrl?`<img class="pthumb" src="${esc(r.imageUrl)}" alt="" loading="lazy">`:`<span class="pthumb none"></span>`}${(() => { const par = varParent(r.id), n = (r.variants||[]).filter(v=>v.productId).length;
       return par ? `<span class="vchild">↳ <b>${esc(r.name)}</b> <span class="tag">${esc(varGroup(par))} · ${esc(par.variants.find(v=>v.productId===r.id)?.name||"")}</span></span>`
         : `<b>${esc(r.name)}</b>${n ? ` <span class="tag cc">${n} variant${n===1?"":"s"}</span>` : ""}`; })()}</span>`],["SKU",r=>`<span class="code">${esc(r.sku||"")}</span>`],["Category",r=>esc(catName(r.categoryId))],
@@ -2745,12 +2750,13 @@ const CRUD = {
       {k:"allergens",l:"",t:"multi",full:1,inline:1,opts:()=>allergenList().map(a=>[a,a]),empty:"No allergens yet: add them under Menu → Allergens."}]
   },
   modifiers: {
-    col:"modifiers", title:"Modifiers", one:"Modifier", detail: r => modifierDetail(r),
+    col:"modifiers", title:"Modifiers", one:"Modifier",   // a modifier group opens its edit dialog; its options are under Modifier Options
     tabs:[["all","All",live],["deleted","Deleted",r=>r.deleted]],
     sort:(a,b)=>a.name.localeCompare(b.name),
     search:r=>r.name+" "+(r.reference||""),
     cols:[["Name",r=>`<b>${esc(r.name)}</b>${r.nameAr?` <span class="note">${esc(r.nameAr)}</span>`:""}`],["Reference",r=>esc(r.reference||"—")],
-      ["Options",r=>S.modifier_options.filter(o=>live(o)&&o.modifierId===r.id).length,"num"],["Linked Products",r=>S.products.filter(p=>live(p)&&(p.modifiers||[]).some(l=>l.modifierId===r.id)).length,"num"],["Created",r=>fmtDate(r.createdAt)]],
+      ["Options",r=>{ const n = S.modifier_options.filter(o=>live(o)&&o.modifierId===r.id).length; return `<a class="lnk" href="#modifier-options" data-modopts="${esc(r.id)}">Options (${n})</a>`; }],
+      ["Linked Products",r=>{ const n = S.products.filter(p=>live(p)&&(p.modifiers||[]).some(l=>l.modifierId===r.id)).length; return n ? `<a class="lnk" href="#products" data-modprods="${esc(r.id)}">Products (${n})</a>` : "Products (0)"; }],["Created",r=>fmtDate(r.createdAt)]],
     fields:[{k:"name",l:"Name",req:1},{k:"nameAr",l:"Name Localized"},{k:"reference",l:"Reference"}],
     unique:"name",
     note:"A modifier is a group of choices, like Sauce or Add Toppings. Add its options, then link it to products (open a product → Modifiers)."
@@ -2923,6 +2929,7 @@ function crudView(key){
   const scopeHere = cfg.filter===brandFilter || ["products","delivery-zones"].includes(key);
   if(key==="delivery-zones") h += `<div class="card" style="padding:0;overflow:hidden;margin-bottom:16px"><div id="zonesMap" style="height:380px"></div><div id="zonesLegend" class="legend"></div></div>`;
   h += `<div class="card tbl"><div class="ttop"><div class="ttabs">${cfg.tabs.map(t=>`<a href="#${key}" data-tab="${key}:${t[0]}" class="${tab===t[0]?"on":""}">${t[1]}</a>`).join("")}</div>
+    ${key==="products"&&state.prodMod?`<span class="chip">Modifier: ${esc(modName(state.prodMod))} <button data-clearpm aria-label="Clear">×</button></span>`:""}
     ${key==="modifier-options"&&state.modFilter?`<span class="chip">Modifier: ${esc(modName(state.modFilter))} <button data-clearmod aria-label="Clear">×</button></span>`:""}
     ${key==="inv-items" ? `<select class="sel" id="invCat" aria-label="Category"><option value="">All categories</option>${invCatNames().map(n=>`<option ${state.invCat===n?"selected":""}>${esc(n)}</option>`).join("")}</select>` : ""}
     ${key==="products" ? `<select class="sel" id="prodCat" aria-label="Category"><option value="">All categories</option>${S.categories.filter(c=>live(c)&&!c.channel).sort(bySort).map(c=>`<option value="${esc(c.id)}" ${state.catFilter===c.id?"selected":""}>${state.brand==="all"&&brandList().length>1?esc(brandName(c.brandId))+" · ":""}${esc(c.name)}</option>`).join("")}</select>` : ""}
