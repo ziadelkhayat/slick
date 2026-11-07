@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="432-1794085604">
+<meta name="slick-build" content="433-1794085777">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -2335,6 +2335,9 @@ function msPaint(m){
   if(m.classList.contains("mselect")){ const sel = m.querySelector("select"), o = sel.options[sel.selectedIndex]; const t = o && o.value!=="" ? o.text : (o?.text && !/^(choose|select)/i.test(o.text) && sel.options[0]?.value!=="" ? o.text : "");
     f.innerHTML = (t ? `<span class="msel-v">${esc(t)}</span>` : `<span class="msel-ph">${esc(o?.text && sel.options[0]?.value==="" && !/…$/.test(o.text) && o.text!=="" ? o.text : "Choose...")}</span>`) + MS_CARET; f.classList.toggle("dis", sel.disabled); m.dataset.v = sel.value; return; }
   const on = [...m.querySelectorAll(".msel-l input:checked")];
+  m.querySelectorAll(".msel-l > label").forEach(x => { x.hidden = !!x.querySelector("input:checked"); });
+  const l0 = m.querySelector(".msel-l"); if(l0){ let none = l0.querySelector(".msel-all"); const left = [...l0.querySelectorAll(":scope > label")].some(x => !x.hidden);
+    if(!left && l0.querySelector(":scope > label")){ if(!none){ none = document.createElement("div"); none.className = "msel-none msel-all"; none.textContent = "Everything is selected"; l0.appendChild(none); } } else if(none) none.remove(); }
   f.innerHTML = (on.length ? `<span class="msel-cs">${on.map(i => `<span class="msel-c" data-msx="${esc(i.value)}" role="button" title="Press to remove">${esc(msText(i.closest("label")))}</span>`).join("")}</span>` : `<span class="msel-ph">Choose...</span>`) + MS_CARET;
 }
 function msEnhance(){
@@ -2362,7 +2365,7 @@ function msOpen(m){
   msClose(m); const p = m.querySelector(":scope > .msel-p");
   if(m.classList.contains("mselect")){ const sel = m.querySelector("select"); if(sel.disabled) return;
     p.querySelector(".msel-l").innerHTML = [...sel.options].filter(o => !(o.value==="" && /^(choose|select)/i.test(o.text)) && !o.hidden).map(o => `<button type="button" class="msel-o${o.value===sel.value?" on":""}" data-msv="${esc(o.value)}"${o.disabled?" disabled":""}>${esc(o.text)}</button>`).join("") || `<div class="msel-none">${esc(sel.dataset.empty || "No options")}</div>`; }
-  m.classList.add("open"); p.hidden = false; const q = p.querySelector(".msel-q"); q.value = ""; p.querySelectorAll(".msel-o").forEach(o => o.hidden = false);
+  m.classList.add("open"); p.hidden = false; const q = p.querySelector(".msel-q"); q.value = ""; p.querySelectorAll(".msel-o").forEach(o => o.hidden = !!o.querySelector?.("input:checked"));
   msPlace(m); setTimeout(() => q.focus(), 0);
 }
 document.addEventListener("click", e => {
@@ -2375,7 +2378,7 @@ document.addEventListener("click", e => {
 }, true);
 document.addEventListener("change", e => { const m = e.target.closest?.(".msel:not(.mselect)"); if(m) msPaint(m); });
 document.addEventListener("input", e => { if(!e.target.classList?.contains("msel-q")) return; const q = e.target.value.trim().toLowerCase();
-  e.target.parentElement.querySelectorAll(".msel-o").forEach(o => { o.hidden = !!q && !o.textContent.toLowerCase().includes(q); }); });
+  e.target.parentElement.querySelectorAll(".msel-o").forEach(o => { o.hidden = !!o.querySelector?.("input:checked") || (!!q && !o.textContent.toLowerCase().includes(q)); }); });
 document.addEventListener("keydown", e => {
   if(e.key==="Escape" && document.querySelector(".msel.open")){ e.stopPropagation(); msClose(); return; }
   const f = e.target.closest?.(".msel-f"); if(f && (e.key==="Enter" || e.key===" " || e.key==="ArrowDown")){ e.preventDefault(); msOpen(f.parentElement); return; }
