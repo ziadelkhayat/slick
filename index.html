@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="355-1794065662">
+<meta name="slick-build" content="356-1794066038">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -5763,7 +5763,7 @@ const canonJ = v => JSON.stringify((function c(x){ if(Array.isArray(x)) return x
 const detChanged = () => !!DET.snap && ((DET.dirtyIng && canonJ(DET.ing)!==DET.snap.ing) || (DET.dirtyBr && canonJ(DET.br)!==DET.snap.br) || (DET.dirtyMods && canonJ(DET.mods)!==DET.snap.mods));
 function openDetail(key, id){
   const r = S[CRUD[key].col].find(x=>x.id===id); if(!r) return;
-  DCHG.clear(); DET.key = key; DET.id = id; DET.dirtyIng = false; DET.dirtyBr = false; DET.var = null; DET.ingFor = "";
+  DCHG.clear(); DET.key = key; DET.id = id; DET.edit = false; DET.dirtyIng = false; DET.dirtyBr = false; DET.var = null; DET.ingFor = "";
   DET.ing = JSON.parse(JSON.stringify(Array.isArray(r.ingredients) ? r.ingredients : []));
   DET.br = { customPrices: { ...(r.customPrices||{}) }, inactive: [...(r.inactiveBranchIds||[])], oos: [...(r.outOfStockBranchIds||[])] };
   DET.mods = JSON.parse(JSON.stringify(Array.isArray(r.modifiers) ? r.modifiers : [])); DET.dirtyMods = false;
@@ -5910,9 +5910,10 @@ function productDetail(p){
     if(el.tagName==="DIV"){ if(el.querySelector("[data-nk]")){ const o = {}; el.querySelectorAll("[data-nk]").forEach(i => { if(i.value!=="") o[i.dataset.nk] = +i.value; }); draft[k] = o; } else draft[k] = [...el.querySelectorAll("input:checked")].map(i => i.value); return; }
     draft[k] = el.type==="checkbox" ? el.checked : el.value; }); }
   let h = `<div class="phead"><a href="#products" class="btn" data-detback style="text-decoration:none">← Back</a><h1 style="margin-left:10px">${esc(p.name)}</h1>
-    <div class="sp"></div><span class="dacts">${p.deleted ? `<button type="button" class="btn" data-detrestore>Restore</button>` : `<button type="button" class="btn danger" data-detdelete>Delete</button>`}<button type="submit" form="detForm" class="btn pri" id="detSave">Save</button></span></div>`;
+    <div class="sp"></div><span class="dacts">${p.deleted ? `<button type="button" class="btn" data-detrestore>Restore</button>` : `<button type="button" class="btn danger" data-detdelete>Delete</button>`}${DET.edit || draft ? `<button type="button" class="btn" data-detview>Cancel</button><button type="submit" form="detForm" class="btn pri" id="detSave">Save</button>` : `<button type="button" class="btn pri" data-detedit>✎ Edit Product</button>`}</span></div>`;
   const F = keys => openCrud("products", p.id, keys, draft), vk = varKids(p).length;
-  h += `<form id="detForm" class="card detform" data-id="${esc(p.id)}"${draft ? ' data-dirty="1"' : ""} novalidate>
+  const editing = DET.edit || !!draft;
+  if(editing) h += `<form id="detForm" class="card detform" data-id="${esc(p.id)}"${draft ? ' data-dirty="1"' : ""} novalidate>
     <div class="dsec dtop">${F(["imageUrl"])}<div class="dgrid d2">${F(["name","nameAr"])}${F(["description"])}</div></div>
     <div class="dsec"><h3>Details</h3><div class="dgrid">${F(["categoryId", ...(brandList().length > 1 ? ["brandId"] : []), "sku", "sellingMethod", "prepTime"])}</div></div>
     <div class="dsec"><h3>Price</h3>${vk ? `<p class="note" style="margin:0">Each variant has its own price and tax: open it from Variants below.</p>` : `<div class="dgrid">${F(["pricingMethod","price","taxGroup"])}</div>`}</div>
@@ -5920,13 +5921,13 @@ function productDetail(p){
     <div class="dsec"><h3>Allergens</h3><div class="algs">${F(["allergens"])}</div></div>
 
     <div class="err" id="cErr" style="padding:0 22px 14px"></div></form>`;
-  if(false) h += infoGrid([info("Name", esc(p.name)), info("Name Localized", esc(p.nameAr||"—")), info("Brand", esc(brandName(p.brandId))), info("Category", esc(catName(p.categoryId))),
+  if(!editing) h += infoGrid([info("Name", esc(p.name)), info("Name Localized", esc(p.nameAr||"—")), info("Brand", esc(brandName(p.brandId))), info("Category", esc(catName(p.categoryId))),
     info("SKU", `<span class="code">${esc(p.sku||"—")}</span>`), info("Tax Group", varKids(p).length ? "Set on each variant" : esc(tgName(p.taxGroup))),
     info("Pricing Method", p.pricingMethod==="open"?"Open Price":"Fixed Price"), info("Selling Method", p.sellingMethod==="weight"?"Weight":"Unit"),
     info("Costing Method", p.costingMethod==="fixed"?"Fixed Cost":"From Ingredients"), info("Preparation Time", p.prepTime ? esc(p.prepTime)+" min" : "—"),
     info("Price", varKids(p).length ? "Set on each variant" : p.pricingMethod==="open" ? "Open" : usd(price)), info(p.costingMethod==="fixed"?"Fixed Cost":"Ingredients Cost", fmtCost(cost)),
     info("Cost %", price ? `<span style="${pct>40?"color:var(--accent-ink);font-weight:600":""}">${pct.toFixed(1)} %</span>` : "—")]);
-  if(false) h += `<div class="card" style="margin-bottom:16px;display:flex;gap:16px;align-items:flex-start">${p.imageUrl && !varParent(p.id)?`<img src="${esc(p.imageUrl)}" alt="" style="width:160px;height:160px;object-fit:cover;border-radius:12px">`:""}<div>${p.description?`<div class="note">Description</div>${esc(p.description)}`:'<span class="note">No description</span>'}</div></div>`;
+  if(!editing && (p.imageUrl || p.description)) h += `<div class="card" style="margin-bottom:16px;display:flex;gap:16px;align-items:flex-start">${p.imageUrl && !varParent(p.id)?`<img src="${esc(p.imageUrl)}" alt="" style="width:160px;height:160px;object-fit:cover;border-radius:12px">`:""}<div>${p.description?`<div class="note">Description</div>${esc(p.description)}`:'<span class="note">No description</span>'}</div></div>`;
   h += variantCard(p);
   // a product with variants isn't sold itself: each variant product has its own recipe
   const hasVar = (p.variants||[]).some(v => v.productId);
@@ -6994,7 +6995,9 @@ document.addEventListener("submit", async e => { if(e.target.id !== "detForm") r
   const prev = crudEdit; crudEdit = { key: DET.key, id: DET.id, inline: true }; const b = $("#detSave"); b.disabled = true; b.textContent = "Saving…";
   await submitCrud(e); crudEdit = prev && $("#crudScrim").classList.contains("show") ? prev : null; const fm = $("#detForm");
   if(fm && fm.querySelector("#cErr")?.textContent){ b.disabled = false; b.textContent = "Save"; fm.querySelector("#cErr").scrollIntoView({ block:"center" }); return; }   // a field needs fixing
-  if(fm) delete fm.dataset.dirty; DCHG.clear(); render(); });
+  if(fm) delete fm.dataset.dirty; DCHG.clear(); if(DET.key==="products"){ DET.edit = false; toast("Product saved"); } render(); });
+document.addEventListener("click", e => { if(e.target.closest("[data-detedit]")){ e.preventDefault(); DET.edit = true; render(); window.scrollTo(0,0); return; }
+  if(e.target.closest("[data-detview]")){ e.preventDefault(); const fm = $("#detForm"); if(fm) delete fm.dataset.dirty; DCHG.clear(); DET.edit = false; render(); } });
 // after a redraw, hide the fields that only apply to another choice (e.g. fixed cost)
 new MutationObserver(() => { const fm = document.getElementById("detForm"); if(fm && !fm.dataset.w){ fm.dataset.w = "1"; crudWhen(fm, DET.key); } }).observe(document.body, { childList:true, subtree:true });
 document.addEventListener("click", async e => {
