@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="430-1794085268">
+<meta name="slick-build" content="431-1794085440">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -2836,7 +2836,7 @@ const CRUD = {
     tabs:[["all","All",r=>live(r)&&!!r.channel]],
     fields:[{k:"name",l:"Name",req:1},{k:"nameAr",l:"Name Localized"},{k:"imageUrl",l:"Image",t:"image",full:1}],
     prep: async (data, id) => { if(!id){ const ch = bmMenu()[0], mine = S.categories.filter(c => live(c) && c.channel===ch);
-      data.channel = ch; data.productIds = []; data.sort = (Math.max(0, ...mine.map(c => +c.sort||0)) + 10); data.id = "cat_" + ch + "_" + Date.now().toString(36); } return ""; }
+      data.channel = ch; data.productIds = []; if(ch!=="online") data.inactiveBranchIds = ["only:" + BM.branch]; data.sort = (Math.max(0, ...mine.map(c => +c.sort||0)) + 10); data.id = "cat_" + ch + "_" + Date.now().toString(36); } return ""; }
   },
   products: {
     col:"products", title:"Products", one:"Product", detail: r => productDetail(r), bulk:1,
@@ -3806,12 +3806,12 @@ function fillOrderBranches(sel){
 function availableProducts(){
   const br = $("#oBranch")?.value, bd = $("#oBrand")?.value;
   if(brandList().length && !bd) return [];
-  const chc = ccCats(br), useCh = chCats("callcenter").length > 0;
+  const chc = ccCats(br), useCh = chCats("callcenter", br).length > 0;
   return S.products.filter(p => live(p) && p.active!==false && (!bd || p.brandId===bd) && (!br || (!offAt(p.inactiveBranchIds, br, "callcenter") && !(($("#oType .on")?.dataset.ot) && typeOff(p.inactiveBranchIds, br, "callcenter", $("#oType .on").dataset.ot))
     && (useCh ? chc.some(c => chPos(c, p) >= 0 || varParent(p.id) && chPos(c, varParent(p.id)) >= 0) : !offAt(S.categories.find(c=>c.id===p.categoryId)?.inactiveBranchIds, br, "callcenter")))));
 }
 // the call center menu's own categories at this branch (Sales Channels); older setups use the menu categories
-function ccCats(br){ const chc = chCats("callcenter"); return (chc.length ? chc : S.categories.filter(c => live(c) && !c.channel)).filter(c => !br || !offAt(c.inactiveBranchIds, br, "callcenter")); }
+function ccCats(br){ const chc = chCats("callcenter", br); return (chc.length ? chc : S.categories.filter(c => live(c) && !c.channel)).filter(c => !br || !offAt(c.inactiveBranchIds, br, "callcenter")); }
 const chPos = (c, p) => { const ids = c.productIds||[], k = [p.id, ...(p.variants||[]).map(v => v.productId)].map(x => ids.indexOf(x)).filter(i => i >= 0); return k.length ? Math.min(...k) : -1; };   // a main product is in a channel category when it or one of its variants is listed
 function ccHas(c, p){ return c.channel ? chPos(c, p) >= 0 : p.categoryId===c.id; }
 function ccOrder(c){ return (a, b) => c && c.channel ? chPos(c, a) - chPos(c, b) : bySort(a, b);
@@ -4292,7 +4292,8 @@ document.addEventListener("click", e => {
 /* ---------- Branch Menus: what each branch sells, at what price, and what's out of stock ---------- */
 const BM = { branch:"", kind:"products", q:"", draft:{} };
 // the categories of a sales channel, in menu order
-const chCats = ch => S.categories.filter(c => live(c) && c.channel===ch).sort(bySort);
+const catAt = (c, b) => { if(!b) return true; const ia = c.inactiveBranchIds||[]; if(ia.includes("x:" + b)) return false; const only = ia.filter(k => String(k).startsWith("only:")); return !only.length || only.includes("only:" + b); };
+const chCats = (ch, b = (typeof BM!=="undefined" ? BM.branch : "")) => S.categories.filter(c => live(c) && c.channel===ch && catAt(c, b)).sort(bySort);
 const chProd = id => { const p = S.products.find(x => x.id===id); return p && live(p) ? p : null; };
 // a variant is listed under its main product: categories hold the main product (older ones may hold variants)
 const bmRoot = id => varParent(id)?.id || id;
@@ -4323,7 +4324,7 @@ function bmItems(){
 // each channel has its own menu per branch: "POS & Call center" and "Web ordering". Prices: customPrices[branch] (POS & call center), customPrices["branch:online"] (web)
 /* sales channels are records per branch (settings "sales_channels"): POS, Call Center and Web Ordering once each (made for every branch),
    plus as many third-party integrations as needed. Each picks the order types it sells. The channel code (pos / callcenter / online / int_…) keys the menus and prices */
-const SC_KINDS = [["pos","POS","tablet",["fast","dinein","pickup","delivery"]],["callcenter","Call Center","phone",["pickup","delivery"]],["online","Web Ordering","globe",["dinein","pickup","delivery"]],["integration","Integration","link",["pickup","delivery"]]];
+const SC_KINDS = [["pos","POS","tablet",["fast","dinein","pickup","delivery"]],["callcenter","Call Center","phone",["pickup","delivery"]],["online","Web Ordering","globe",["dinein","pickup","delivery"]],["integration","Marketplace","link",["pickup","delivery"]]];
 const scDoc = () => (typeof S!=="undefined" ? S.settings : []).find(x => x.id==="sales_channels") || {};
 const scCode = c => c.code || c.kind;
 // Web Ordering belongs to the brand (one for all its branches); POS, Call Center and integrations to the branch
@@ -4507,7 +4508,7 @@ function scDialog(code, pick){
   const box = $("#ccBox"); box.className = "modal sm";
   box.innerHTML = `<header><h2>${cur ? "Sales Channel" : "Create Sales Channel"}</h2><button type="button" class="x" data-ccclose aria-label="Close">×</button></header><div class="body" style="display:block">
     <div class="f"><label for="scKind">Type</label><select class="sel" id="scKind" ${cur ? "disabled" : ""}>${(cur ? kinds : SC_KINDS.filter(([k]) => k==="integration" || !mine.some(c => c.kind===k))).map(([k,t]) => `<option value="${k}" ${k===kind?"selected":""}>${t}</option>`).join("")}</select>
-      ${cur ? "" : `<p class="note" style="margin:6px 0 0">POS and Call Center exist once per branch, Web Ordering once per brand. Add as many integrations (delivery apps…) as you need.</p>`}</div>
+      ${cur ? "" : `<p class="note" style="margin:6px 0 0">POS and Call Center exist once per branch, Web Ordering once per brand. Add as many marketplaces (delivery apps…) as you need.</p>`}</div>
     <div class="f"><label for="scName">Name *</label><input class="sel" id="scName" value="${esc(cur?.name || (kind==="integration" ? (keepName && !SC_KINDS.some(k => k[1]===keepName) ? keepName : "") : SC_KINDS.find(k => k[0]===kind)[1]))}" placeholder="e.g. Toters"></div>
     <div class="f"><label>Order Types *</label><div class="multi" id="scTypes">${OTYPES.filter(([t]) => SC_ALLOWED[kind].includes(t)).map(([t,tl]) => `<label class="chk"><input type="checkbox" value="${t}" ${types.includes(t)?"checked":""}> ${tl}</label>`).join("")}</div></div>
     <div class="err" id="scErr"></div></div>
@@ -4529,6 +4530,8 @@ document.addEventListener("click", async e => {
     const rec = kind==="online" ? { id:"brand|" + scBrandOf(b) + "|online", kind, code:newCode, name, brandId:scBrandOf(b), types } : { id:b + "|" + newCode, kind, code:newCode, name, branchId:b, types };
     const ok = await scSaveList(b, list => code ? list.map(c => scCode(c)===code && !c.deleted ? { ...c, name, types } : c)
       : [...list.filter(c => !(c.deleted && c.kind===kind && kind!=="integration")), { ...rec, createdAt:new Date().toISOString() }]);   // a deleted POS / Call Center / Web Ordering is created again
+    if(ok && !code && kind!=="online") for(const c of S.categories.filter(c => live(c) && c.channel===newCode && catAt(c, b))){   // build from scratch: the shared categories leave this branch's menu
+      const next = [...(c.inactiveBranchIds||[]).filter(k => k!=="only:" + b), "x:" + b]; try{ await put("categories", c.id, { inactiveBranchIds:next }); c.inactiveBranchIds = next; }catch(err){ console.error(err); } }
     if(ok){ $("#ccScrim").classList.remove("show"); BM.menu = newCode; BM.open1 = true; BM.draft = {}; toast(code ? "Sales channel saved" : "Sales channel created"); render(); } return; }
   const dl = e.target.closest("#scDel"); if(dl){ if(!(await askYes("Delete this sales channel? Its menu is no longer used."))) return; const code = dl.dataset.code;
     if(await scSaveList(BM.branch, list => list.map(c => scCode(c)===code && !c.deleted ? { ...c, deleted:true } : c))){ $("#ccScrim").classList.remove("show"); BM.menu = ""; BM.open1 = false; toast("Sales channel deleted"); render(); } }
@@ -4632,9 +4635,11 @@ async function bmCopy(src){
     if(BM.kind!=="options" && sch===ch) for(const c of chCats(ch)){ const off = offSetOf(c.inactiveBranchIds, b), srcOff = offAt(c.inactiveBranchIds, sb, sch); srcOff ? off.add(ch) : off.delete(ch);
       const next = chList(c.inactiveBranchIds, b, off); if(JSON.stringify(next)!==JSON.stringify(c.inactiveBranchIds||[])){ await put("categories", c.id, { inactiveBranchIds:next }); c.inactiveBranchIds = next; } }
     if(BM.kind!=="options" && sch!==ch){   // another channel: its categories replace this channel's
-      for(const c of chCats(ch)) await db.collection("categories").doc(c.id).delete();
+      for(const c of chCats(ch)){ const ia = c.inactiveBranchIds||[];
+        if(ia.includes("only:" + b) && ia.filter(k => String(k).startsWith("only:")).length===1) await db.collection("categories").doc(c.id).delete();
+        else { const next = [...ia.filter(k => k!=="only:" + b), "x:" + b]; await put("categories", c.id, { inactiveBranchIds:next }); c.inactiveBranchIds = next; } }
       for(const [k, c] of chCats(sch).entries()) await put("categories", "cat_" + ch + "_" + Date.now().toString(36) + k, { name:c.name, nameAr:c.nameAr||null, brandId:c.brandId||null, imageUrl:c.imageUrl||null, sort:c.sort, channel:ch, productIds:[...(c.productIds||[])],
-        inactiveBranchIds:(c.inactiveBranchIds||[]).map(x => x.endsWith(":" + sch) ? x.slice(0, -sch.length) + ch : x) }); }
+        inactiveBranchIds:[...(c.inactiveBranchIds||[]).filter(x => !/^(only|x):/.test(x)).map(x => x.endsWith(":" + sch) ? x.slice(0, -sch.length) + ch : x), ...(ch==="online" ? [] : ["only:" + b])] }); }
     bmStat("All changes saved"); toast(n ? `Copied ${label} · ${n} item${n===1?"":"s"} changed` : "Already the same"); render();
   }catch(err){ console.error(err); bmStat("Not saved"); toast("Couldn't copy. Only the owner or an admin can change the menu."); render(); }
 }

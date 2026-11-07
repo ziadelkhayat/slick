@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="416-1794082013">
+<meta name="slick-build" content="431-1794085440">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1071,7 +1071,8 @@ const chPos = (c, p) => { const ids = c.productIds||[], k = [p.id, ...(p.variant
 function renderMenu(){
   const kids = kidIds(), prods = products().filter(p => !kids.has(p.id) && (!(p.variants||[]).some(v => v.productId) || kidsOf(p).length));
   // the POS menu's own categories (Sales Channels); older setups without them use the menu categories
-  const chc = S.categories.filter(c => live(c) && c.channel==="pos"), useCh = chc.length > 0, has = (c, p) => useCh ? chPos(c, p) >= 0 : p.categoryId===c.id;
+  const catAt = c => { const ia = c.inactiveBranchIds||[], b = device.branchId; if(ia.includes("x:" + b)) return false; const only = ia.filter(k => String(k).startsWith("only:")); return !only.length || only.includes("only:" + b); };   // this branch's POS menu
+  const chc = S.categories.filter(c => live(c) && c.channel==="pos" && catAt(c)), useCh = chc.length > 0, has = (c, p) => useCh ? chPos(c, p) >= 0 : p.categoryId===c.id;
   const cats = (useCh ? chc : S.categories.filter(c => live(c) && !c.channel)).filter(c => !(c.inactiveBranchIds||[]).includes(device.branchId) && !(c.inactiveBranchIds||[]).includes(device.branchId + ":pos") && prods.some(p => has(c, p))).sort((a,b)=>(a.sort??999)-(b.sort??999) || a.name.localeCompare(b.name));
   const inOrder = c => (a, b) => useCh ? chPos(c, a) - chPos(c, b) : (a.sort??9999)-(b.sort??9999) || a.name.localeCompare(b.name);
   if(cat && !cats.some(c=>c.id===cat)) cat = "";
