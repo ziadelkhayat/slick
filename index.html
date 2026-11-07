@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="398-1794077711">
+<meta name="slick-build" content="399-1794077880">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -993,7 +993,7 @@ th.grc,td.grc{width:28px;padding-right:0!important;color:#b3afc2;cursor:grab}tr[
 .tgtabs{margin:0 0 14px}.tgsec{padding:18px 22px;margin-bottom:14px}.tgh{display:flex;align-items:center;gap:8px;margin-bottom:6px}.tgh h3{margin:0;font-size:16px}.tgsec table{width:100%}.tgsec td{padding:10px 0;border-top:1px solid var(--line)}.tghelp{margin:4px 0 0}
 .rsn[draggable="true"]{cursor:grab}.rsn .rsgrip{color:#b3afc2;margin-right:10px;touch-action:none;cursor:grab}.rsn.dragging{opacity:.45}.rsn.dropto{box-shadow:inset 0 2px 0 #5b2bc4}
 /* drag to sort */
-[data-sk]{cursor:grab;user-select:none;-webkit-user-select:none}
+[data-sk] .bmgrip{user-select:none;-webkit-user-select:none}
 .sk-dragging,.sk-dragging *{cursor:grabbing!important;user-select:none!important}
 .sk-ph{opacity:.35;outline:2px dashed #b9a6f5;outline-offset:-2px;border-radius:10px}
 .sk-ghost{position:fixed!important;z-index:9999;pointer-events:none;margin:0!important;background:var(--surface,#fff);box-shadow:0 14px 34px rgba(30,20,70,.22),0 2px 6px rgba(30,20,70,.12)!important;border-radius:12px;transform:scale(1.02);opacity:.97}
@@ -3075,7 +3075,7 @@ document.addEventListener("change", async e => { if(e.target.id==="srtScope" && 
 
 /* generic modal */
 // "items" field: values added one by one, each its own row (rename in place, remove with ×, reorder with the arrows)
-const itemRow = v => `<div class="itemrow"><span class="igrip" title="Drag to sort" aria-hidden="true">⋮⋮</span><input value="${esc(v)}" data-item aria-label="Option"><button type="button" class="btn sm" data-itemrm aria-label="Remove">×</button></div>`;
+const itemRow = v => `<div class="itemrow"><span class="igrip bmgrip" title="Drag to sort" aria-hidden="true">⋮⋮</span><input value="${esc(v)}" data-item aria-label="Option"><button type="button" class="btn sm" data-itemrm aria-label="Remove">×</button></div>`;
 function itemAdd(id){ const inp = $("#"+id+"_new"), v = (inp?.value || "").trim(); if(!v) return inp?.focus();
   const box = $("#"+id); if([...box.querySelectorAll("[data-item]")].some(i => i.value.trim().toLowerCase()===v.toLowerCase())){ $("#cErr").textContent = `"${v}" is already in the list.`; return; }
   box.insertAdjacentHTML("beforeend", itemRow(v)); inp.value = ""; inp.focus(); $("#cErr").textContent = ""; }
@@ -6727,7 +6727,7 @@ function modLinks(p){
   return `<div class="card tbl secbox"><div class="ttop"><b>Modifiers</b><div class="sp"></div>
       <button type="button" class="btn" data-modcopy>Copy Modifiers</button><button type="button" class="btn" data-modpick>Add</button></div>
     ${rows.length ? `<table><thead><tr><th style="width:28px"></th><th>Name</th><th class="num">Options</th><th class="num">Minimum Options</th><th class="num">Maximum Options</th><th class="num">Free Options</th><th>Repeat Options</th><th></th></tr></thead><tbody id="modRows">${rows.map((l, ix) => `<tr data-mix="${ix}" class="clk" data-modedit="${ix}">
-      <td class="mgrip" title="Drag to change the order customers see">⋮⋮</td><td><b>${esc(modName(l.modifierId))}</b></td><td class="num">${modOptions(l.modifierId).length}</td>
+      <td class="grc"><span class="mgrip bmgrip" title="Drag to change the order customers see">⋮⋮</span></td><td><b>${esc(modName(l.modifierId))}</b></td><td class="num">${modOptions(l.modifierId).length}</td>
       <td class="num">${+l.min||0}</td><td class="num">${+l.max ? +l.max : "No limit"}</td><td class="num">${+l.free||0}</td><td>${l.multi ? "Yes" : "No"}</td>
       <td class="num"><button class="btn sm" data-modrm="${ix}" aria-label="Remove ${esc(modName(l.modifierId))}">×</button></td></tr>`).join("")}</tbody></table>`
       : `<div class="empty">No modifiers linked.${S.modifiers.filter(live).length ? "" : " Create them first under Menu → Modifiers."}</div>`}</div>`;
@@ -7638,7 +7638,7 @@ const SORT_DONE = {
   document.addEventListener("pointerdown", e => {
     if(e.button > 0 || D) return; const el = e.target.closest?.("[data-sk]"); if(!el) return;
     if(e.target.closest("input,button,select,textarea,a,label,.toggle,.ddwrap,.scprice")) return;   // controls inside the row keep working
-    if(e.pointerType!=="mouse" && !e.target.closest(".bmgrip,.rsgrip")) return;   // on touch screens drag by the ⋮⋮ so the page still scrolls
+    if(!e.target.closest(".bmgrip,.rsgrip")) return;   // sorting only by holding the ⋮⋮ handle, everywhere
     const [group] = skOf(el); D = { el, box: el.parentElement, group, x0: e.clientX, y0: e.clientY, on:false };
     document.addEventListener("pointermove", move, { capture:true, passive:false });
     if(e.pointerType!=="mouse") e.preventDefault();
