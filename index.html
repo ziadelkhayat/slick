@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="362-1794067461">
+<meta name="slick-build" content="363-1794068713">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -2618,7 +2618,7 @@ const CRUD = {
   },
   products: {
     col:"products", title:"Products", one:"Product", detail: r => productDetail(r), bulk:1,
-    tabs:[["all","All",live],["deleted","Deleted",r=>r.deleted]],
+    tabs:[["all","All",live],["active","Active",r=>live(r) && r.active!==false],["inactive","Inactive",r=>live(r) && r.active===false],["deleted","Deleted",r=>r.deleted]],
     // variants sit right under their product, in the set's order
     sort:(a,b)=>{ const pa = varParent(a.id), pb = varParent(b.id), ka = (pa||a).name||"", kb = (pb||b).name||"";
       if(ka !== kb || (pa||a).id !== (pb||b).id) return String(ka).localeCompare(String(kb)) || String((pa||a).id).localeCompare(String((pb||b).id));
@@ -2629,7 +2629,7 @@ const CRUD = {
       return par ? `<span class="vchild">↳ <b>${esc(r.name)}</b> <span class="tag">${esc(varGroup(par))} · ${esc(par.variants.find(v=>v.productId===r.id)?.name||"")}</span></span>`
         : `<b>${esc(r.name)}</b>${n ? ` <span class="tag cc">${n} variant${n===1?"":"s"}</span>` : ""}`; })()}</span>`],["SKU",r=>`<span class="code">${esc(r.sku||"")}</span>`],["Category",r=>esc(catName(r.categoryId))],
       ["Price",r=>{ const k = varKids(r); return k.length ? "From " + usd(Math.min(...k.map(x=>+x.price||0))) : r.pricingMethod==="open"?"Open":usd(r.price); }],
-      ["Tax Group",r=>varKids(r).length ? '<span class="note">Per variant</span>' : esc(tgName(r.taxGroup))]],
+      ["Tax Group",r=>varKids(r).length ? '<span class="note">Per variant</span>' : esc(tgName(r.taxGroup))],["Active",r=>r.deleted ? "—" : r.active===false ? "Inactive" : "Active"]],
     fields:[{k:"name",l:"Name",req:1},{k:"nameAr",l:"Name Localized"},brandField,{k:"sku",l:"SKU",auto:()=>nextSku("products")},
       {k:"categoryId",l:"Category",t:"select",req:1,opts:()=>S.categories.filter(c=>live(c)&&!c.channel).sort(bySort).map(c=>[c.id,c.name])},
       {k:"pricingMethod",l:"Pricing method",t:"select",opts:()=>[["fixed","Fixed price"],["open","Open Price"]],def:"fixed",hideIf:r=>varKids(r).length},
@@ -3034,6 +3034,10 @@ async function uploadImage(file){
 document.addEventListener("change", async e => { const f = e.target; if(!f.id || !f.id.endsWith("_file") || !f.files?.[0]) return; const base = f.id.slice(0,-5), st = $("#"+base+"_st");
   st.textContent = "Uploading photo…"; try{ const url = await uploadImage(f.files[0]); if(!document.querySelector(`[data-imgclear="${base}"]`)) st.insertAdjacentHTML("beforebegin", `<button type="button" class="btn imgrm" data-imgclear="${base}">Remove photo</button>`); $("#"+base).value = url; $("#"+base).dispatchEvent(new Event("input", { bubbles:true })); $("#"+base+"_prev").innerHTML = `<img src="${esc(url)}" alt="">`; const bl = document.querySelector(`label.imgbtn[for="${base}_file"] span`); if(bl) bl.textContent = "Change photo"; st.textContent = "Photo ready. Save to keep it."; }
   catch(err){ console.error(err); st.textContent = "Couldn't upload the photo. Only the owner or an admin can add photos."; } finally{ f.value = ""; } });
+// a photo that fails to load (slow network, cached error): retry once, then say so instead of looking empty
+document.addEventListener("error", e => { const i = e.target; if(!(i instanceof HTMLImageElement) || !i.closest(".imgprev")) return;
+  if(!i.dataset.retry){ i.dataset.retry = "1"; const u = i.getAttribute("src"); i.src = u + (u.includes("?") ? "&" : "?") + "r=" + Date.now(); return; }
+  i.replaceWith(Object.assign(document.createElement("span"), { className:"imgph", textContent:"Photo couldn't load · tap to replace" })); }, true);
 // drag a photo onto a photo box
 document.addEventListener("dragover", e => { const z = e.target.closest?.(".imgpick"); if(!z) return; e.preventDefault(); z.classList.add("drag"); });
 document.addEventListener("dragleave", e => { e.target.closest?.(".imgpick")?.classList.remove("drag"); });
@@ -5984,7 +5988,7 @@ function productDetail(p){
 
     <div class="err" id="cErr" style="padding:0 22px 14px"></div></form>`;
   if(!editing) h += infoGrid([info("Name", esc(p.name)), info("Name Localized", esc(p.nameAr||"—")), info("Brand", esc(brandName(p.brandId))), info("Category", esc(catName(p.categoryId))),
-    info("SKU", `<span class="code">${esc(p.sku||"—")}</span>`), info("Tax Group", varKids(p).length ? "Set on each variant" : esc(tgName(p.taxGroup))),
+    info("SKU", `<span class="code">${esc(p.sku||"—")}</span>`), info("Barcode", esc(p.barcode||"—")), info("Calories", p.calories!=null && p.calories!=="" ? esc(p.calories) : "—"), info("Tax Group", varKids(p).length ? "Set on each variant" : esc(tgName(p.taxGroup))),
     info("Pricing Method", p.pricingMethod==="open"?"Open Price":"Fixed Price"), info("Selling Method", p.sellingMethod==="weight"?"Weight":"Unit"),
     info("Costing Method", p.costingMethod==="fixed"?"Fixed Cost":"From Ingredients"), info("Preparation Time", p.prepTime ? esc(p.prepTime)+" min" : "—"),
     info("Price", varKids(p).length ? "Set on each variant" : p.pricingMethod==="open" ? "Open" : usd(price)), info(p.costingMethod==="fixed"?"Fixed Cost":"Ingredients Cost", fmtCost(cost)),
@@ -6006,13 +6010,13 @@ function pdSections(p, hasVar){
   const cps = Object.entries(B.customPrices||{}).filter(([id, v]) => v!=="" && v!=null && branches.some(b => b.id===id));
   const inact = (B.inactive||[]).filter(id => branches.some(b => b.id===id)), oos = (B.oos||[]).filter(id => branches.some(b => b.id===id));
   const nut = NUTR.filter(([k]) => (p.nutrition||{})[k]!=null && (p.nutrition||{})[k]!==""), alg = p.allergens||[];
-  let h = pdSec("Tags", `<button type="button" class="btn" data-pdtags>Edit Tags</button>`, tg.length ? `<div class="dzchips">${tg.map(t => `<span class="dzchip" style="padding-right:14px">${esc(tagName(t))}</span>`).join("")}</div>` : `<p class="dzempty">Add tags to help you filter and group products easily</p>`);
+  let h = pdSec("Tags", `<button type="button" class="btn" data-pdtags>Edit Tags</button>`, tg.length ? `<div class="dzchips">${tg.map(t => `<span class="dzchip" style="padding-right:14px">${esc(tagName(t))}</span>`).join("")}</div>` : `<p class="dzempty">No tags added</p>`);
   if(!hasVar) h += modLinks(p) + ingEditor("products", p);
-  h += pdSec("Custom Price", `<button type="button" class="btn" data-pdbr="price">Select Branches</button>`, cps.length ? `<table><thead><tr><th>Branch</th><th class="num">Price</th><th></th></tr></thead><tbody>${cps.map(([id, v]) => `<tr><td>${esc(branchName(id))}</td><td class="num">${usd(+v)}</td><td class="num"><button type="button" class="btn sm" data-pdbrrm="price:${esc(id)}" aria-label="Remove">×</button></td></tr>`).join("")}</tbody></table>` : `<p class="dzempty">Set a different price for this product in specific branches</p>`, "A different price in specific branches");
-  h += pdSec("Inactive In Branches", `<button type="button" class="btn" data-pdbr="inactive">Select Branches</button>`, inact.length ? pdChips(inact, "inactive") : `<p class="dzempty">This product is active in all branches</p>`, "Hidden from the menu in these branches");
-  h += pdSec("Out of Stock", `<button type="button" class="btn" data-pdbr="oos">Select Branches</button>`, oos.length ? pdChips(oos, "oos") : `<p class="dzempty">This product is in stock in all branches</p>`, "Shown on the menu but can't be ordered in these branches");
-  h += pdSec("Nutritional Values", `<button type="button" class="btn" data-pdnut>Edit</button>`, nut.length ? `<table><thead><tr><th>Name</th><th class="num">Value</th></tr></thead><tbody>${nut.map(([k,l,u]) => `<tr><td>${l}</td><td class="num">${esc(p.nutrition[k])} ${u}</td></tr>`).join("")}</tbody></table>` : `<p class="dzempty">No nutritional values added</p>`);
-  h += pdSec("Allergens", `<button type="button" class="btn" data-pdalg>Add Allergens</button>`, alg.length ? `<div class="dzchips">${alg.map(a => `<span class="dzchip">${esc(a)}<button type="button" data-pdalgrm="${esc(a)}" aria-label="Remove ${esc(a)}">×</button></span>`).join("")}</div>` : `<p class="dzempty">No allergens added</p>`);
+  h += pdSec("Custom Price", `<button type="button" class="btn" data-pdbr="price">Select Branches</button>`, cps.length ? `<table><thead><tr><th>Branch</th><th class="num">Price</th><th></th></tr></thead><tbody>${cps.map(([id, v]) => `<tr><td>${esc(branchName(id))}</td><td class="num">${usd(+v)}</td><td class="num"><button type="button" class="btn sm" data-pdbrrm="price:${esc(id)}" aria-label="Remove">×</button></td></tr>`).join("")}</tbody></table>` : `<p class="dzempty">Set a different price for this product in the branches you select here.</p>`);
+  h += pdSec("Inactive In Branches", `<button type="button" class="btn" data-pdbr="inactive">Select Branches</button>`, inact.length ? pdChips(inact, "inactive") : `<p class="dzempty">Deactivate this product in the branches you select here to hide it from the menu.</p>`);
+  h += pdSec("Out of Stock", `<button type="button" class="btn" data-pdbr="oos">Select Branches</button>`, oos.length ? pdChips(oos, "oos") : `<p class="dzempty">Set this product as Out of Stock in the branches you select here, the Cashier can still sell Out of Stock products.</p>`);
+  h += pdSec("Nutritional Values", `<button type="button" class="btn" data-pdnut>Edit Nutritional Values</button>`, `<table><thead><tr><th>Ingredient</th><th>Value</th><th>Unit</th></tr></thead><tbody>${NUTR.map(([k,l,u]) => `<tr><td>${l}</td><td>${nut.some(n => n[0]===k) ? esc(p.nutrition[k]) : "-"}</td><td>${u==="kcal"?"kCal":u}</td></tr>`).join("")}</tbody></table>`);
+  h += pdSec("Allergens", `<button type="button" class="btn" data-pdalg>Add Allergens</button>`, alg.length ? `<div class="dzchips">${alg.map(a => `<span class="dzchip">${esc(a)}<button type="button" data-pdalgrm="${esc(a)}" aria-label="Remove ${esc(a)}">×</button></span>`).join("")}</div>` : `<p class="dzempty">Select any allergens from your list that apply to this product. This will ensure the correct information is displayed for your customers.</p>`);
   return h;
 }
 async function pdPut(upd, msg){ const p = S.products.find(x => x.id===DET.id); if(!p) return;
@@ -6370,7 +6374,7 @@ function modLinks(p){
   const avail = S.modifiers.filter(m => live(m) && !used.has(m.id)).sort(bySort);
   const num = (ix, f, v, lbl) => `<input type="number" min="0" step="1" class="sel" data-modl="${ix}:${f}" value="${esc(v ?? "")}" style="width:70px;text-align:right" aria-label="${lbl}">`;
   return `<div class="card tbl secbox"><div class="ttop"><b>Modifiers</b><span class="note" style="margin-left:8px" title="Minimum 1 makes a choice required · maximum 0 means no limit · Repeat lets the same option be picked more than once · free options aren't charged">Choices the customer makes</span><div class="sp"></div>
-      <button type="button" class="btn sm" data-modcopy>Copy</button><select class="sel" id="modAdd" aria-label="Add a modifier"><option value="">Add Modifiers…</option>${avail.map(m=>`<option value="${esc(m.id)}">${esc(m.name)} (${modOptions(m.id).length})</option>`).join("")}</select>
+      <button type="button" class="btn sm" data-modcopy>Copy Modifiers</button><select class="sel" id="modAdd" aria-label="Add a modifier"><option value="">Add Modifiers…</option>${avail.map(m=>`<option value="${esc(m.id)}">${esc(m.name)} (${modOptions(m.id).length})</option>`).join("")}</select>
       <button class="btn pri sm" data-modsave ${DET.dirtyMods && !DET.saving ? "" : "disabled"}>${DET.saving?"Saving…":"Save"}</button></div>
     ${rows.length ? `<table><thead><tr><th style="width:28px"></th><th>Name</th><th class="num">Options</th><th class="num">Minimum Options</th><th class="num">Maximum Options</th><th class="num">Free Options</th><th title="The same option can be picked more than once, e.g. 2 × Extra cheese">Repeat options</th><th></th></tr></thead><tbody id="modRows">${rows.map((l, ix) => `<tr data-mix="${ix}">
       <td class="mgrip" title="Drag to change the order customers see">⋮⋮</td><td><a href="#modifiers" class="lnk" data-detopen="modifiers:${esc(l.modifierId)}">${esc(modName(l.modifierId))}</a></td><td class="num">${modOptions(l.modifierId).length}</td>
