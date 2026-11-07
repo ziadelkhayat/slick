@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="405-1794079648">
+<meta name="slick-build" content="406-1794079790">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1130,6 +1130,8 @@ button.x:hover,button.mmdx:hover,.dzchip>button:hover,.chip>button:hover{transfo
 .nav .sub a .ico{width:19px!important;height:19px!important}
 .btn .ico{width:18px;height:18px;color:#5b2bc4}.btn.pri .ico,.btn.danger .ico{color:currentColor}
 .scch .ico,.scrow .ico,.mmcat .scimg .ico,.kicon .ico,.iemenu .ico{color:#5b2bc4}
+/* orders list: one line per order */
+.otbl table{font-size:13px}.otbl th,.otbl td{white-space:nowrap;padding-left:10px!important;padding-right:10px!important}.otbl td .note{font-size:12px}.otbl .spill,.otbl .tag{white-space:nowrap}
 </style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -4954,8 +4956,8 @@ function viewOrders(){
   <div class="card tbl otbl obody">${ORD.err ? `<p class="note" style="padding:16px">Couldn't load orders: ${esc(ORD.err)}</p>` : `<table><thead><tr><th>Reference #</th><th>Invoice #</th><th>Order #</th>${brandList().length > 1 ? "<th>Brand</th>" : ""}<th>Branch</th><th>Customer</th><th>Status</th><th>Sales channel</th><th>Order type</th><th>Order source</th><th>Business date</th><th>Payment Type</th><th class="num">Total</th></tr></thead><tbody>${
     ORD.rows.length ? ORD.rows.map(o => `<tr class="clk" data-oid="${esc(o.id)}"><td><b>${esc(o.ref || "—")}</b></td><td>${o.status==="refund" ? esc(ordRef(o)) : o.invoiceNo ? esc(invNo(o.invoiceNo)) : '<span class="note" title="Gets its invoice number when a POS accepts it">—</span>'}</td><td>${o.status==="refund" ? "–" : o.no ? `#${esc(o.no)}` : '<span class="note" title="Gets its number when a POS bills it">—</span>'}</td>
       ${brandList().length > 1 ? `<td>${esc(brandName(o.brandId) || "—")}</td>` : ""}<td>${esc(branches.find(x=>x.id===o.branchId)?.name || "—")}</td>
-      <td>${esc(o.customerName || "—")}${o.phone?`<div class="note">${esc(o.phone)}</div>`:""}</td><td><span class="spill s-${o.status}">${ORD_ST[o.status]||o.status}</span></td>
-      <td><span class="tag cc">${esc(CH_LBL[o.channel] || cap(o.channel))}</span></td><td>${esc(ordTypeLbl(o.type))}${o.type==="dinein" && o.table ? `<div class="note">${esc(/^\d+$/.test(String(o.table).trim()) ? "Table " + String(o.table).trim() : o.table)}</div>` : ""}</td><td>${esc(srcOf(o) || "-")}</td>
+      <td>${esc(o.customerName || "—")}${o.phone?` <span class="note">${esc(o.phone)}</span>`:""}</td><td><span class="spill s-${o.status}">${ORD_ST[o.status]||o.status}</span></td>
+      <td><span class="tag cc">${esc(CH_LBL[o.channel] || cap(o.channel))}</span></td><td>${esc(ordTypeLbl(o.type))}${o.type==="dinein" && o.table ? ` <span class="note">· ${esc(/^\d+$/.test(String(o.table).trim()) ? "Table " + String(o.table).trim() : o.table)}</span>` : ""}</td><td>${esc(srcOf(o) || "-")}</td>
       <td>${o.createdAt ? new Date(bizDate(o.createdAt, o.branchId) + "T12:00:00").toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"}) : "—"}</td><td>${esc(o.payment?.method || "-")}</td><td class="num">${money(+o.total||0)}</td></tr>`).join("")
     : `<tr><td colspan="13" class="note" style="padding:24px;text-align:center">${ORD.loading ? "Loading orders…" : "No orders match these filters."}</td></tr>`
   }</tbody></table>`}
