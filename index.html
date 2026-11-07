@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="419-1794083239">
+<meta name="slick-build" content="420-1794083833">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1135,7 +1135,7 @@ button.x:hover,button.mmdx:hover,.dzchip>button:hover,.chip>button:hover{transfo
 .qcell{display:inline-block;min-width:60px;text-align:right;font-variant-numeric:tabular-nums}tr:has(.qcell){cursor:pointer}tr:has(.qcell):hover td{background:#f7f5fd}
 .qconv{margin:2px 0 6px;color:var(--ink2);font-size:13.5px}.qitem{padding:4px 0 8px;border-bottom:1px solid var(--line,#ecebf2);margin-bottom:10px}.qitem:last-child{border-bottom:0}.qitem > b{display:block;margin-bottom:6px}
 /* sales channel item rows: grip, product, on/off switch, menu */
-.mmtbl .mmth,.mmtbl .mmrow:not(.mmorow){grid-template-columns:22px minmax(0,1fr) 52px 36px!important}.mmrow .mmon{justify-self:center}
+.mmtbl .mmth,.mmtbl .mmrow:not(.mmorow),.mmrow.sk-ghost:not(.mmorow){grid-template-columns:22px minmax(0,1fr) 52px 36px!important}.mmrow.sk-ghost .mmpn b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.mmrow .mmon{justify-self:center}
 .bmdsec td{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:#8a87a0;padding:14px 14px 6px!important;background:#fff}.bmdgrow .bmgrip,.bmdmx tr[data-skn] .bmgrip{width:22px;height:22px;margin-right:6px;vertical-align:middle}.bmdmx tr[data-skn] td:first-child{display:flex;align-items:center}
 .bmdcell{display:inline-flex;align-items:center;gap:6px}.toggle.xs{transform:scale(.78);transform-origin:center}
 .msel-c[data-msx]{cursor:pointer}.msel-c[data-msx]:hover{background:#e3d9fb;text-decoration:line-through}
@@ -4382,7 +4382,7 @@ function viewBranchMenu(){
   if(!BM.brOpen || !list.some(b => b.id===BM.branch)) return scBranchList(list);   // then pick a branch   // page 1: pick a branch
   if(!BM.open1 || !BM_MENUS.some(m => m[0]===BM.menu)) return scListView(list);   // page 2: that branch's channels (create / delete here)
   const br = branches.find(b=>b.id===BM.branch), ch = bmMenu(), types = bmTypes(), nDraft = Object.keys(BM.draft).length, rec = ch[3] || {};
-  let h = `<div class="phead"><button type="button" class="btn" data-scback>← Back</button><h1 style="margin-left:10px" data-ico="${(SC_KINDS.find(k => k[0]===rec.kind)||SC_KINDS[3])[2]}">${esc(ch[1])}</h1><span class="note" style="margin-left:8px">${esc(rec.kind==="online" ? brandName(rec.brandId) + " · all branches" : branches.find(b=>b.id===BM.branch)?.name || "")}</span><div class="sp"></div><button type="button" class="btn" data-scedit="${esc(ch[0])}">Settings</button></div>`;
+  let h = `<div class="phead"><button type="button" class="btn" data-scback>← Back</button><h1 style="margin-left:10px" data-ico="${(SC_KINDS.find(k => k[0]===rec.kind)||SC_KINDS[3])[2]}">${esc(ch[1])}</h1><span class="note" style="margin-left:8px">${esc(rec.kind==="online" ? brandName(rec.brandId) + " / all branches" : [brandName(branches.find(b=>b.id===BM.branch)?.brandId), branches.find(b=>b.id===BM.branch)?.name].filter(Boolean).join(" / "))} / ${esc(ch[1])}</span><div class="sp"></div><button type="button" class="btn" data-scedit="${esc(ch[0])}">Settings</button></div>`;
   if(!br) return h + `<div class="card empty">No branches yet. Add them under Manage → Branches.</div>`;
   const q = BM.q.trim().toLowerCase(), all = bmItems();
   const others = list.filter(b => b.id!==br.id).map(b => [ch[0] + "|" + b.id, b.name]);
@@ -4439,7 +4439,7 @@ function bmDrawer(br, ch, types){
   const r = BM.item && S.products.find(x => x.id===BM.item && live(x)); if(!r) return "";
   const st = bmState(r), links = bmLinks(r), rule = l => { const mn = +l.min||0, mx = +l.max||0; return mn && mx && mn===mx ? `Choose ${mn}` : mn && mx ? `Choose ${mn} to ${mx}` : mn ? `At least ${mn}` : mx ? `Up to ${mx}` : "Optional"; };
   const base = st.price!=="" ? +st.price : st.fallback;
-  let h = `<div class="bmdscrim" data-bmclose></div><aside class="bmdrawer" role="dialog" aria-label="${esc(r.name)}"><header><span class="mmimg">${r.imageUrl ? `<img src="${esc(r.imageUrl)}" alt="">` : svgIco("image")}</span><div><b>${esc(r.name)}</b><small>${esc(ch[1])} · ${esc(br.name)}</small></div><button type="button" class="x" data-bmclose aria-label="Close">×</button></header><div class="bmdbody">`;
+  let h = `<div class="bmdscrim" data-bmclose></div><aside class="bmdrawer" role="dialog" aria-label="${esc(r.name)}"><header><span class="mmimg">${r.imageUrl ? `<img src="${esc(r.imageUrl)}" alt="">` : svgIco("image")}</span><div><b>${esc(r.name)}</b><small>${[brandName(br.brandId), br.name, ch[1]].filter(Boolean).map(esc).join(" / ")}</small></div><button type="button" class="x" data-bmclose aria-label="Close">×</button></header><div class="bmdbody">`;
   // one compact table: a column per order type. Header: sell the item as that type. First row: the item's prices. Then each modifier group and its options
   const cols = types, cell = (attr, val, ph, dis, lbl) => `<td class="num"><input inputmode="decimal" class="sel bmdin${val!=="" ? " cust" : ""}" ${attr} value="${esc(val)}" placeholder="${esc(String(ph))}" aria-label="${esc(lbl)}" ${dis ? "disabled" : ""}></td>`;
   h += `<div class="bmdtw"><table class="bmdtbl bmdmx"><thead><tr><th></th>${cols.map(([t, tl]) => `<th class="num"><label class="bmdth" title="Sell ${esc(r.name)} as ${esc(tl)}"><span>${esc(tl)}</span><span class="toggle sm"><input type="checkbox" data-bmtype="${esc(r.id)}|${t}" ${st.types[t]?"checked":""} aria-label="Sell as ${esc(tl)}"><span class="trk"></span></span></label></th>`).join("")}<th class="c">Stock</th></tr></thead><tbody>
