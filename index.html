@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="434-1794085925">
+<meta name="slick-build" content="435-1794086418">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1149,6 +1149,8 @@ button.x:hover,button.mmdx:hover,.dzchip>button:hover,.chip>button:hover{transfo
 .bmdrawer{width:min(1000px,100vw)!important}.bmdrawer header .x{margin-left:auto!important}.bmdpath{font-size:13.5px;color:var(--muted,#77748a);font-weight:500}
 .bmditm{display:flex;align-items:center;gap:12px}.bmditm .mmimg{width:40px;height:40px;flex:none}.bmditm b{display:block;font-size:15px}
 .bmdtw{overflow-x:auto;max-width:100%}.bmdmx{width:100%}.bmdmx .bmdin{width:72px!important;min-width:0}.bmdmx td:first-child{min-width:210px}.bmdmx td,.bmdmx th{padding-left:8px!important;padding-right:8px!important}
+.mmth .mmty,.bmdth,.bmdth span,.bmdmx thead th{text-transform:none!important;letter-spacing:0!important;font-size:13px!important;font-weight:600;color:#3a3850}
+.bmdrawer header .bmdname{font-size:16px}.bmdrawer header .bmdpath{margin-left:auto}.bmdrawer header .x{margin-left:12px!important}.bmdrawer header .mmimg{width:40px;height:40px;flex:none}.bmdct{font-size:13px;font-weight:600;color:#3a3850;text-align:center;text-transform:none}
 </style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -4453,13 +4455,12 @@ function bmDrawer(br, ch, types){
   const r = BM.item && S.products.find(x => x.id===BM.item && live(x)); if(!r) return "";
   const st = bmState(r), links = bmLinks(r), rule = l => { const mn = +l.min||0, mx = +l.max||0; return mn && mx && mn===mx ? `Choose ${mn}` : mn && mx ? `Choose ${mn} to ${mx}` : mn ? `At least ${mn}` : mx ? `Up to ${mx}` : "Optional"; };
   const base = st.price!=="" ? +st.price : st.fallback;
-  let h = `<div class="bmdscrim" data-bmclose></div><aside class="bmdrawer" role="dialog" aria-label="${esc(r.name)}"><header><div class="bmdpath">${[brandName(br.brandId), br.name, ch[1]].filter(Boolean).map(esc).join(" / ")}</div><button type="button" class="x" data-bmclose aria-label="Close">×</button></header><div class="bmdbody">`;
+  let h = `<div class="bmdscrim" data-bmclose></div><aside class="bmdrawer" role="dialog" aria-label="${esc(r.name)}"><header><span class="mmimg">${r.imageUrl ? `<img src="${esc(r.imageUrl)}" alt="">` : svgIco("image")}</span><b class="bmdname">${esc(r.name)}</b><span class="bmdpath">${[brandName(br.brandId), br.name, ch[1]].filter(Boolean).map(esc).join(" / ")}</span><button type="button" class="x" data-bmclose aria-label="Close">×</button></header><div class="bmdbody">`;
   // one compact table: a column per order type. Header: sell the item as that type. First row: the item's prices. Then each modifier group and its options
   const cols = types, cell = (attr, val, ph, dis, lbl) => `<td class="num"><input inputmode="decimal" class="sel bmdin${val!=="" ? " cust" : ""}" ${attr} value="${esc(val)}" placeholder="${esc(String(ph))}" aria-label="${esc(lbl)}" ${dis ? "disabled" : ""}></td>`;
-  h += `<div class="bmdtw"><table class="bmdtbl bmdmx"><thead><tr><th></th>${cols.map(([t, tl]) => `<th class="num"><span class="bmdth"><span>${esc(tl)}</span></span></th>`).join("")}</tr></thead><tbody>
-    <tr class="bmditem"><td colspan="${cols.length + 1}"><span class="bmditm"><span class="mmimg">${r.imageUrl ? `<img src="${esc(r.imageUrl)}" alt="">` : svgIco("image")}</span><span><b>${esc(r.name)}</b><small>${usd(base)}</small></span></span></td>
-      </tr>
-    ${links.length ? `<tr class="bmdsec"><td colspan="${cols.length + 1}">Modifiers</td></tr>` : ""}
+  h += `<div class="bmdtw"><table class="bmdtbl bmdmx"><tbody>
+
+    ${links.length ? `<tr class="bmdsec"><td>Modifiers</td>${cols.map(([t, tl]) => `<td class="c bmdct">${esc(tl)}</td>`).join("")}</tr>` : `<tr><td class="note" style="padding:24px;text-align:center">This item has no modifiers.</td></tr>`}
     ${links.map((l, li) => { const os = modOptions(l.modifierId), nOn = os.filter(o => bmOptState(r, o).on).length;
       const gt = bmGrpTypes(r, l);
       return `<tr class="bmdgrow" data-sk="bmg:${esc(r.id)}|${(r.modifiers||[]).indexOf(l)}"><td><span class="bmgrip" title="Drag to sort" aria-hidden="true">⋮⋮</span><b>${esc(modName(l.modifierId))}</b><span class="tag">${rule(l)}</span>${+l.free ? `<span class="tag">${l.free} free</span>` : ""}<span class="note">${nOn}/${os.length} on</span></td>${cols.map(([t, tl]) => `<td class="c"><label class="toggle sm" title="${esc(modName(l.modifierId))} with ${esc(tl)} orders"><input type="checkbox" data-bmgtype="${esc(r.id)}|${esc(l.modifierId)}|${t}" ${gt[t]?"checked":""} ${st.types[t]?"":"disabled"} aria-label="${esc(modName(l.modifierId))} for ${esc(tl)}"><span class="trk"></span></label></td>`).join("")}</tr>` + os.map(o => { const s = bmOptState(r, o), ob = s.price!=="" ? +s.price : +o.price||0;
@@ -4467,7 +4468,7 @@ function bmDrawer(br, ch, types){
           ${cols.map(([t, tl]) => cell(`data-bmotprice="${esc(r.id)}|${esc(o.id)}|${t}"`, s.tprices[t], ob, !s.on || !st.types[t] || !s.types[t] || !gt[t], o.name + " " + tl + " price")
             .replace('<td class="num">', `<td class="num"><span class="bmdcell"><label class="toggle xs" title="${esc(o.name)} with ${esc(tl)} orders"><input type="checkbox" data-bmotype="${esc(r.id)}|${esc(o.id)}|${t}" ${s.types[t]?"checked":""} ${s.on && st.types[t] && gt[t] ? "" : "disabled"} aria-label="${esc(o.name)} for ${esc(tl)}"><span class="trk"></span></label>`).replace(/<\/td>$/, "</span></td>")).join("")}
           </tr>`; }).join(""); }).join("")}
-  </tbody></table></div><p class="note bmdhint">Switch an order type off in its header to stop selling the item as it. Empty price = the price shown under the name.</p></div></aside>`;
+  </tbody></table></div><p class="note bmdhint">Empty price = the option's own price.</p></div></aside>`;
   return h;
 }
 $("#view").addEventListener("click", e => { const o = e.target.closest("[data-bmitem]"); if(o && !e.target.closest("label,input,button,.sctypes,.bmgrip,.ddwrap,.toggle")){ e.preventDefault(); BM.item = o.dataset.bmitem; return render(); }
@@ -4510,13 +4511,13 @@ const SC_ALLOWED = { pos:["fast","dinein","pickup","delivery"], callcenter:["pic
 function scDialog(code, pick){
   const b = BM.branch, mine = scFor(b), cur = code ? mine.find(c => scCode(c)===code) : null, kinds = SC_KINDS.filter(([k]) => cur ? k===cur.kind : (k==="integration" || !mine.some(c => c.kind===k && !c.virtual) && !mine.some(c => c.kind===k)));
   const avail = SC_KINDS.filter(([k]) => k==="integration" || !mine.some(c => c.kind===k));
-  const kind = cur?.kind || (pick && avail.some(k => k[0]===pick) ? pick : avail[0][0]), types = (cur?.types || []).filter(t => SC_ALLOWED[kind].includes(t)), keepName = pick ? $("#scName")?.value : null;
+  const kind = cur?.kind || (pick && avail.some(k => k[0]===pick) ? pick : ""), types = kind ? (cur?.types || []).filter(t => SC_ALLOWED[kind].includes(t)) : [], keepName = pick ? $("#scName")?.value : null;   // a new channel starts empty: pick the type first
   const box = $("#ccBox"); box.className = "modal sm";
   box.innerHTML = `<header><h2>${cur ? "Sales Channel" : "Create Sales Channel"}</h2><button type="button" class="x" data-ccclose aria-label="Close">×</button></header><div class="body" style="display:block">
-    <div class="f"><label for="scKind">Type</label><select class="sel" id="scKind" ${cur ? "disabled" : ""}>${(cur ? kinds : SC_KINDS.filter(([k]) => k==="integration" || !mine.some(c => c.kind===k))).map(([k,t]) => `<option value="${k}" ${k===kind?"selected":""}>${t}</option>`).join("")}</select>
+    <div class="f"><label for="scKind">Type</label><select class="sel" id="scKind" ${cur ? "disabled" : ""}>${cur ? "" : `<option value="" ${kind ? "" : "selected"}>Choose…</option>`}${(cur ? kinds : SC_KINDS.filter(([k]) => k==="integration" || !mine.some(c => c.kind===k))).map(([k,t]) => `<option value="${k}" ${k===kind?"selected":""}>${t}</option>`).join("")}</select>
       ${cur ? "" : `<p class="note" style="margin:6px 0 0">POS and Call Center exist once per branch, Web Ordering once per brand. Add as many marketplaces (delivery apps…) as you need.</p>`}</div>
-    <div class="f"><label for="scName">Name *</label><input class="sel" id="scName" value="${esc(cur?.name || (kind==="integration" ? (keepName && !SC_KINDS.some(k => k[1]===keepName) ? keepName : "") : SC_KINDS.find(k => k[0]===kind)[1]))}" placeholder="e.g. Toters"></div>
-    <div class="f"><label>Order Types *</label><div class="multi" id="scTypes">${OTYPES.filter(([t]) => SC_ALLOWED[kind].includes(t)).map(([t,tl]) => `<label class="chk"><input type="checkbox" value="${t}" ${types.includes(t)?"checked":""}> ${tl}</label>`).join("")}</div></div>
+    <div class="f"><label for="scName">Name *</label><input class="sel" id="scName" value="${esc(cur?.name || (keepName && !SC_KINDS.some(k => k[1]===keepName) ? keepName : ""))}" placeholder="e.g. Toters"></div>
+    <div class="f"><label>Order Types *</label><div class="multi" id="scTypes" data-empty="Choose the type first">${OTYPES.filter(([t]) => kind && SC_ALLOWED[kind].includes(t)).map(([t,tl]) => `<label class="chk"><input type="checkbox" value="${t}" ${types.includes(t)?"checked":""}> ${tl}</label>`).join("")}</div></div>
     <div class="err" id="scErr"></div></div>
     <footer>${cur ? `<button type="button" class="btn danger" id="scDel" data-code="${esc(code)}">Delete</button>` : ""}<span style="flex:1"></span><button type="button" class="btn pri" id="scSave" data-code="${esc(code||"")}">Save</button></footer>`;
   $("#ccScrim").classList.add("show");
@@ -4531,7 +4532,7 @@ document.addEventListener("click", async e => {
   if(e.target.closest("[data-scnew]")){ e.preventDefault(); return scDialog(""); }
   const ed = e.target.closest("[data-scedit]"); if(ed){ e.preventDefault(); return scDialog(ed.dataset.scedit); }
   const sv = e.target.closest("#scSave"); if(sv){ const code = sv.dataset.code, kind = $("#scKind").value, name = $("#scName").value.trim(), types = [...document.querySelectorAll("#scTypes input:checked")].map(i => i.value), err = m => { $("#scErr").textContent = m; };
-    if(!name) return err("Enter a name."); if(!types.length) return err("Pick at least one order type."); if(types.some(t => !SC_ALLOWED[kind].includes(t))) return err("This channel can't sell one of these order types.");
+    if(!kind) return err("Choose the type."); if(!name) return err("Enter a name."); if(!types.length) return err("Pick at least one order type."); if(types.some(t => !SC_ALLOWED[kind].includes(t))) return err("This channel can't sell one of these order types.");
     const b = BM.branch, newCode = code || (kind==="integration" ? "int_" + Date.now().toString(36) : kind);
     const rec = kind==="online" ? { id:"brand|" + scBrandOf(b) + "|online", kind, code:newCode, name, brandId:scBrandOf(b), types } : { id:b + "|" + newCode, kind, code:newCode, name, branchId:b, types };
     const ok = await scSaveList(b, list => code ? list.map(c => scCode(c)===code && !c.deleted ? { ...c, name, types } : c)
