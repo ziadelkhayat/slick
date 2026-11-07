@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="406-1794079790">
+<meta name="slick-build" content="407-1794080035">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1132,6 +1132,7 @@ button.x:hover,button.mmdx:hover,.dzchip>button:hover,.chip>button:hover{transfo
 .scch .ico,.scrow .ico,.mmcat .scimg .ico,.kicon .ico,.iemenu .ico{color:#5b2bc4}
 /* orders list: one line per order */
 .otbl table{font-size:13px}.otbl th,.otbl td{white-space:nowrap;padding-left:10px!important;padding-right:10px!important}.otbl td .note{font-size:12px}.otbl .spill,.otbl .tag{white-space:nowrap}
+.qcell{display:inline-block;min-width:60px;text-align:right;font-variant-numeric:tabular-nums}tr:has(.qcell){cursor:pointer}tr:has(.qcell):hover td{background:#f7f5fd}
 </style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -6944,6 +6945,37 @@ function flowInfo(d, K, info){
     d.linkedId && K.kind==="purchase" ? info(K.po ? "Purchasing" : "Purchase order", `<a href="#${K.po?"purchase-orders":"po"}" class="lnk" data-doclink="${K.po?"purchase-orders":"po"}:${esc(d.linkedId)}">${esc(S.inv_docs.find(x=>x.id===d.linkedId)?.ref || "Open")}</a>`) : d.linkedId ? info(K.kind==="torder" ? "Transfer" : "Transfer order", `<a href="#${K.kind==="torder"?"transfers":"transfer-orders"}" class="lnk" data-doclink="${K.kind==="torder"?"transfers":"transfer-orders"}:${esc(d.linkedId)}">${esc(S.inv_docs.find(x=>x.id===d.linkedId)?.ref || "Open")}</a>`) : "",
     d.notes ? info("Notes", esc(d.notes)) : ""].join("");
 }
+const qCell = (kind, key, f, v, lbl, name) => `<span class="qcell" data-qe="${kind}|${esc(key)}|${f}" data-lbl="${esc(lbl)}" data-name="${esc(name)}">${v===""||v==null ? '<span class="note">—</span>' : n2(v)}</span>`;   // quantities are entered by pressing the row (Foodics)
+// press a row with quantities: a dialog with the item's fields; Save puts them back (Delete removes the line)
+function qSet(kind, key, f, v){
+  if(kind==="docl" && DOC.edit){ DOC.edit.items[+key][f] = v; }
+  else if(kind==="recv" && DOC.recv){ DOC.recv[+key][f] = v; }
+  else if(kind==="ic"){ (IC.draft[IC.branch] ||= {})[key] = v; }
+}
+document.addEventListener("click", e => {
+  if(e.target.closest("button,a,input,select,label,.bmgrip")) return;
+  const row = e.target.closest("tr"); const cells = row ? [...row.querySelectorAll("[data-qe]")] : []; if(!cells.length || !row.closest("#view")) return;
+  e.preventDefault(); const [kind, key] = cells[0].dataset.qe.split("|"), box = $("#ccBox"); box.className = "modal sm";
+  box.innerHTML = `<header><h2>${esc(cells[0].dataset.name)}</h2><button type="button" class="x" data-ccclose aria-label="Close">×</button></header><div class="body" style="display:block">
+    ${cells.map((c, i) => { const [k, ky, f] = c.dataset.qe.split("|"), v = k==="docl" ? DOC.edit?.items[+ky]?.[f] : k==="recv" ? DOC.recv?.[+ky]?.[f] : (IC.draft[IC.branch]||{})[ky];
+      return `<div class="f"><label for="qe_${i}">${esc(c.dataset.lbl)}</label><input class="sel" id="qe_${i}" type="number" min="0" step="any" inputmode="decimal" value="${esc(v ?? "")}" data-qset="${esc(c.dataset.qe)}"></div>`; }).join("")}</div>
+    <footer>${kind==="docl" ? `<button type="button" class="btn lnkdel" data-docrm="${esc(key)}" data-ccclose>Delete</button>` : ""}<span style="flex:1"></span><button type="button" class="btn keep" data-ccclose>Close</button><button type="button" class="btn pri" id="qeSave">Save</button></footer>`;
+  $("#ccScrim").classList.add("show"); setTimeout(() => $("#qe_0")?.select(), 50);
+});
+document.addEventListener("click", e => {
+  if(!e.target.closest("#qeSave")) return; e.preventDefault();
+  document.querySelectorAll("#ccBox [data-qset]").forEach(i => { const [k, ky, f] = i.dataset.qset.split("|"); if(i.value!=="" && (isNaN(+i.value) || +i.value < 0)) return; qSet(k, ky, f, i.value); });
+  $("#ccScrim").classList.remove("show"); render();
+});
+document.addEventListener("keydown", e => { if(e.key==="Enter" && e.target.closest?.("#ccBox [data-qset]")){ e.preventDefault(); $("#qeSave")?.click(); } });
+// Edit Quantities: every line's quantity in one dialog
+document.addEventListener("click", e => {
+  if(!e.target.closest("[data-docqtys]") || !DOC.edit) return; e.preventDefault(); const box = $("#ccBox"); box.className = "modal sm";
+  box.innerHTML = `<header><h2>Quantities</h2><button type="button" class="x" data-ccclose aria-label="Close">×</button></header><div class="body" style="display:block">
+    ${DOC.edit.items.map((l, ix) => `<div class="f"><label for="qe_${ix}">${esc(itemOf(l.itemId)?.name || "Item")}${itemOf(l.itemId)?.storageUnit ? ` (${esc(itemOf(l.itemId).storageUnit)})` : ""}</label><input class="sel" id="qe_${ix}" type="number" min="0" step="any" inputmode="decimal" value="${esc(l.qty ?? "")}" data-qset="docl|${ix}|qty"></div>`).join("")}</div>
+    <footer><span style="flex:1"></span><button type="button" class="btn keep" data-ccclose>Close</button><button type="button" class="btn pri" id="qeSave">Save</button></footer>`;
+  $("#ccScrim").classList.add("show");
+});
 function flowButtons(d, K){
   const b = DOC.busy;
   if(d.status==="draft") return `<button class="btn pri" data-flow="submit" ${b||!d.items.length?"disabled":""}>${b?"Working…":K.kind==="transfer"?"Send":K.kind==="torder"?"Submit request":"Submit order"}</button>`;
@@ -6960,7 +6992,7 @@ function flowHead(d, K, ro, recv){
 function flowRow(d, K, l, ix, it, base, del, qIn, ro, recv, cur, stockLoading){
   const draft = d.status==="draft", r = recv ? DOC.recv[ix] : null;
   const srcStock = draft && K.kind!=="purchase" ? `<td class="num">${stockLoading?"…":stockOf(K.kind==="torder" ? d.destId : d.locationId, l.itemId)===undefined?'<span class="note">Not counted</span>':n2(stockOf(K.kind==="torder" ? d.destId : d.locationId, l.itemId))}</td>` : "";
-  const rIn = (f, v, lbl) => `<input type="number" min="0" step="any" inputmode="decimal" class="sel" data-docrecv="${ix}:${f}" value="${esc(v ?? "")}" style="width:110px;text-align:right" aria-label="${lbl} of ${esc(it.name)}">`;
+  const rIn = (f, v, lbl) => qCell("recv", ix, f, v, lbl, it.name);
   const recvCell = recv ? `<td class="num">${rIn("qty", r.qty, "Received quantity")}</td>` : (d.status==="closed" && K.kind!=="torder") ? `<td class="num">${n2(l.qty)}</td>` : "";
   let costCells = "";
   if(K.kind==="purchase"){
@@ -7250,6 +7282,32 @@ function viewDocs(route){
   return h + `</div>`;
 }
 
+// New transaction (Foodics): a small dialog asks the essentials (supplier, source, destination…), Save creates the draft and opens it
+function docNewDialog(route){
+  const K = DOC_KINDS[route]; if(!K) return; const box = $("#ccBox"); box.className = "modal sm";
+  const opts = (list, cur) => `<option value="">Choose…</option>${list.map(([k,t]) => `<option value="${esc(k)}" ${k===cur?"selected":""}>${esc(t)}</option>`).join("")}`;
+  const sups = S.suppliers.filter(live).sort((a,b) => a.name.localeCompare(b.name)).map(x => [x.id, x.name]), locs = locList(), defLoc = state.branch!=="all" ? state.branch : "";
+  const sel = (id, lbl, list, cur, empty) => `<div class="f"><label for="${id}">${lbl} *</label><select id="${id}" class="sel" data-empty="${esc(empty)}">${opts(list, cur)}</select></div>`;
+  const f = [];
+  if(K.kind==="purchase") f.push(sel("dnSup", "Supplier", sups, "", "No suppliers"), sel("dnLoc", "Destination", locs, defLoc, "No branches or warehouses"));
+  else if(K.kind==="transfer") f.push(sel("dnLoc", "Source", locs, defLoc, "No branches or warehouses"), sel("dnDest", "Destination", locs, "", "No branches or warehouses"));
+  else if(K.kind==="torder") f.push(sel("dnLoc", "Branch", locs, defLoc, "No branches"), sel("dnDest", "Warehouse", locs, S.warehouses.filter(live)[0]?.id || "", "No warehouses"));
+  else if(K.kind==="sheet") f.push(`<div class="f"><label for="dnName">Name *</label><input id="dnName" class="sel"></div>`);
+  else if(K.loc) f.push(sel("dnLoc", "Branch", locs, defLoc, "No branches or warehouses"));
+  if(K.kind==="quantity") f.push(`<div class="f"><label for="dnReason">Reason *</label><select id="dnReason" class="sel">${opts(QA_REASONS_L().map(r => [r, r]), "")}</select></div>`);
+  if(!f.length){ newDoc(route); return; }   // nothing to ask (cost adjustment)
+  box.innerHTML = `<header><h2>New ${esc(K.title)}</h2><button type="button" class="x" data-ccclose aria-label="Close">×</button></header><div class="body" style="display:block">${f.join("")}<div class="err" id="dnErr"></div></div>
+    <footer><span style="flex:1"></span><button type="button" class="btn keep" data-ccclose>Close</button><button type="button" class="btn pri" id="dnSave" data-route="${esc(route)}">Save</button></footer>`;
+  $("#ccScrim").classList.add("show");
+}
+document.addEventListener("click", async e => {
+  const b = e.target.closest("#dnSave"); if(!b) return; e.preventDefault(); const route = b.dataset.route, v = id => $("#" + id)?.value?.trim() ?? null, err = m => { $("#dnErr").textContent = m; };
+  const need = ["dnSup","dnLoc","dnDest","dnName","dnReason"].filter(id => $("#" + id)); if(need.some(id => !v(id))) return err("Fill in every field marked *.");
+  if(v("dnDest") && v("dnDest")===v("dnLoc")) return err("Source and destination must be different.");
+  $("#ccScrim").classList.remove("show"); newDoc(route); const d = DOC.edit;
+  if(v("dnSup")!=null) d.supplierId = v("dnSup"); if(v("dnLoc")!=null) d.locationId = v("dnLoc"); if(v("dnDest")!=null) d.destId = v("dnDest"); if(v("dnName")!=null) d.name = v("dnName"); if(v("dnReason")!=null) d.reason = v("dnReason");
+  render(); await saveDoc(true);
+});
 function newDoc(route){
   const K = DOC_KINDS[route];
   DOC.edit = { id:null, kind:K.kind, status:"draft", items:[], businessDate:daysAgo(0), direction:"deduct", reason:K.kind==="quantity"?"Waste":K.po?"po":"", locationId: K.loc ? (state.branch!=="all" ? state.branch : (locList()[0]||[])[0] || "") : "", name:"", notes:"" };
@@ -7301,13 +7359,13 @@ function viewDoc(route){
   // add items bar
   if(!ro){
     DOC.addAvail = avail.map(i => i.id); DOC.addSheets = sheets.map(x => x.id); DOC.addProd = K.kind==="production";
-    h += `<div class="row fbar"><span class="sp"></span>${d.items.length?`<button class="btn" data-docclear>Remove all</button>`:""}<button class="btn" data-docadd>Add Items</button></div>`;
+    h += `<div class="row fbar"><span class="sp"></span>${d.items.length?`<button class="btn" data-docclear>Remove all</button>`:""}${d.items.length && K.kind!=="cost" ? `<button class="btn" data-docqtys>Edit Quantities</button>` : ""}<button class="btn" data-docadd>Add Items</button></div>`;
   }
   // items table
   const rows = d.items.map((l, ix) => {
     const it = itemOf(l.itemId) || { name:"(deleted item)", sku:"" }, cur = K.loc ? stockOf(loc, l.itemId) : undefined;
     const del = ro ? "" : `<td><button class="btn sm" data-docrm="${ix}" aria-label="Remove ${esc(it.name)}">×</button></td>`;
-    const qIn = (f, v, lbl) => ro ? n2(v) : `<input type="number" min="0" step="any" inputmode="decimal" class="sel" data-docl="${ix}:${f}" value="${esc(v ?? "")}" style="width:110px;text-align:right" aria-label="${lbl} of ${esc(it.name)}">`;
+    const qIn = (f, v, lbl) => ro ? n2(v) : qCell("docl", ix, f, v, lbl, it.name);
     const base = `<td><b>${esc(it.name)}</b></td><td><span class="code">${esc(it.sku||"")}</span></td>`;
     if(K.flow) return flowRow(d, K, l, ix, it, base, del, qIn, ro, recv, cur, stockLoading);
     if(K.kind==="quantity"){
@@ -7438,7 +7496,7 @@ function exportDocs(route){
 }
 document.addEventListener("click", async e => {
   const t = e.target;
-  const nw = t.closest("[data-docnew]"); if(nw){ e.preventDefault(); return newDoc(nw.dataset.docnew); }
+  const nw = t.closest("[data-docnew]"); if(nw){ e.preventDefault(); return docNewDialog(nw.dataset.docnew); }
   const op = t.closest("[data-docopen]"); if(op){ const [r, id] = op.dataset.docopen.split(":"); return openDoc(r, id); }
   const tb = t.closest("[data-doctab]"); if(tb){ e.preventDefault(); const [r, k] = tb.dataset.doctab.split(":"); DOC.tab[r] = k; return render(); }
   const ex = t.closest("[data-docexport]"); if(ex) return exportDocs(ex.dataset.docexport);
@@ -7525,7 +7583,7 @@ function viewInventoryCount(){
         return `<tr><td><b>${esc(i.name)}</b> <span class="code">${esc(i.sku||"")}</span></td><td>${esc(i.category||"—")}</td><td>${esc(i.storageUnit||"—")}</td>
           <td class="num"${low?' style="color:var(--accent-ink);font-weight:600"':""}>${l ? `${(+l.qty).toLocaleString()} <span class="note">· ${fmtD(l.counted_at)}</span>` : '<span class="note">Never</span>'}</td>
           <td class="num">${+i.minLevel ? (+i.minLevel).toLocaleString() : "—"}</td>
-          <td class="num"><input type="number" min="0" step="any" inputmode="decimal" class="sel" data-ic="${esc(i.id)}" value="${esc(d[i.id] ?? "")}" style="width:120px;text-align:right" aria-label="Counted quantity of ${esc(i.name)}"></td></tr>`; }).join("")
+          <td class="num">${qCell("ic", i.id, "qty", d[i.id], "Counted now", i.name)}</td></tr>`; }).join("")
       : `<tr><td colspan="6" class="note">No items match.</td></tr>`
     }</tbody></table></div>`;
 }
