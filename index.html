@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="410-1794080521">
+<meta name="slick-build" content="411-1794080894">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -4364,8 +4364,8 @@ function viewBranchMenu(){
   if(!list.some(b=>b.id===BM.branch)) BM.branch = (state.branch!=="all" && list.some(b=>b.id===state.branch)) ? state.branch : list[0]?.id || "";
   bmMenusRefresh();
   // first page: the list of this branch's sales channels; each opens on its own page
-  if(brandList().length > 1 && !brandList().some(x => x.id===BM.brand)) return scBrandList(list);   // page 1: pick a brand
-  if(brandList().length > 1) list = list.filter(b => !b.brandId || b.brandId===BM.brand);
+  if(brandList().length && !brandList().some(x => x.id===BM.brand)) return scBrandList(list);   // page 1: pick a brand (always, even with one)
+  if(brandList().length) list = list.filter(b => !b.brandId || b.brandId===BM.brand);
   if(!BM.brOpen || !list.some(b => b.id===BM.branch)) return scBranchList(list);   // then pick a branch   // page 1: pick a branch
   if(!BM.open1 || !BM_MENUS.some(m => m[0]===BM.menu)) return scListView(list);   // page 2: that branch's channels (create / delete here)
   const br = branches.find(b=>b.id===BM.branch), ch = bmMenu(), types = bmTypes(), nDraft = Object.keys(BM.draft).length, rec = ch[3] || {};
@@ -4450,7 +4450,7 @@ function scBrandList(list){
       return `<tr class="clk" data-scbrand="${esc(br.id)}"><td><b>${esc(br.name)}</b></td><td class="num">${bs.length}</td><td class="num">${n}</td></tr>`; }).join("")}</tbody></table></div>`;
 }
 function scBranchList(list){
-  const ico = c => svgIco((SC_KINDS.find(x => x[0]===c.kind)||SC_KINDS[3])[2]), multi = brandList().length > 1;
+  const ico = c => svgIco((SC_KINDS.find(x => x[0]===c.kind)||SC_KINDS[3])[2]), multi = brandList().length > 0;
   return `<div class="phead">${multi ? `<button type="button" class="btn" data-scbrandback>← Back</button><h1 style="margin-left:10px">${esc(brandName(BM.brand))}</h1><span class="note" style="margin-left:10px">Sales Channels</span>` : `<h1>Sales Channels</h1>`}</div>
     <div class="card tbl">${list.length ? `<table><thead><tr><th>Branch</th><th>Sales Channels</th><th class="num">Count</th></tr></thead><tbody>${list.map(b => { const cs = scFor(b.id);
       return `<tr class="clk" data-scbr="${esc(b.id)}"><td><b>${esc(b.name)}</b></td><td>${cs.length ? cs.map(c => `<span class="tag scbtag">${ico(c)}${esc(c.name)}</span>`).join(" ") : `<span class="note">None yet</span>`}</td><td class="num">${cs.length}</td></tr>`; }).join("")}</tbody></table>`
@@ -4465,7 +4465,7 @@ document.addEventListener("click", async e => {
 function scListView(list){
   const typeName = t => (OTYPES.find(x => x[0]===t)||[t,t])[1];
   const br = branches.find(b => b.id===BM.branch);
-  let h = `<div class="phead"><button type="button" class="btn" data-scbrback>← Back</button><h1 style="margin-left:10px">${esc(br?.name || "")}</h1><span class="note" style="margin-left:10px">Sales Channels${brandList().length>1 ? " · " + esc(brandName(br?.brandId)) : ""}</span><div class="sp"></div><button type="button" class="btn pri" data-scnew>+ Create Sales Channel</button></div>
+  let h = `<div class="phead"><button type="button" class="btn" data-scbrback>← Back</button><h1 style="margin-left:10px">${esc(br?.name || "")}</h1><span class="note" style="margin-left:10px">Sales Channels${brandList().length ? " · " + esc(brandName(br?.brandId)) : ""}</span><div class="sp"></div><button type="button" class="btn pri" data-scnew>+ Create Sales Channel</button></div>
     <div class="card tbl">`;
   if(!BM_MENUS.length) return h + `<div class="mmempty big"><b>No sales channels at this branch</b><span>Create POS, Call Center, Web Ordering or an integration.</span><button type="button" class="btn pri" data-scnew>+ Create Sales Channel</button></div></div>`;
   return h + `<table><thead><tr><th>Name</th><th>Type</th><th>Order Types</th><th>Applies To</th><th class="num">Categories</th><th class="num">Items</th></tr></thead><tbody>${BM_MENUS.map(([k, t, , c]) => { const cats = chCats(k), items = new Set(cats.flatMap(x => (x.productIds||[]).map(bmRoot)));
@@ -6951,15 +6951,15 @@ function flowInfo(d, K, info){
     d.notes ? info("Notes", esc(d.notes)) : ""].join("");
 }
 const qCell = (kind, key, f, v, lbl, name, itemId) => { const u = f==="qty" ? (itemOf(itemId)?.storageUnit || "") : "";
-  return `<span class="qcell" data-qe="${kind}|${esc(key)}|${f}" data-lbl="${esc(lbl)}" data-name="${esc(name)}" data-item="${esc(itemId||"")}">${f==="qty" ? n2(+v||0) + (u ? " " + esc(u) : "") : v===""||v==null ? '<span class="note">—</span>' : n2(v)}</span>`; };   // quantities are entered by pressing the row (Foodics)
+  return `<span class="qcell" data-qe="${kind}|${esc(key)}|${f}" data-lbl="${esc(lbl)}" data-name="${esc(name)}" data-item="${esc(itemId||"")}">${n2(+v||0)}${u ? " " + esc(u) : ""}</span>`; };   // quantities are entered by pressing the row (Foodics)
 // a quantity in the item's units (Foodics): storage unit, plus the ingredient unit when the item has one, e.g. 1 gallon + 500 gram
 function qFields(i, lbl, qe, v, it){
   const su = it?.storageUnit || "", iu = it?.ingredientUnit || "", fac = +it?.factor || 0, two = su && iu && fac > 1 && iu.toLowerCase()!==su.toLowerCase();
-  if(!it) return `<div class="f"><label for="qe_${i}">${esc(lbl)}</label><input class="sel" id="qe_${i}" type="number" min="0" step="any" inputmode="decimal" value="${esc(v ?? "")}" data-qset="${esc(qe)}"></div>`;
+  if(!it) return `<div class="f"><label for="qe_${i}">${esc(lbl)} *</label><input class="sel" id="qe_${i}" type="number" min="0" step="any" inputmode="decimal" value="${esc(v ?? "")}" data-qset="${esc(qe)}"></div>`;
   const n = +v || 0, whole = two ? Math.floor(n + 1e-9) : n, rest = two ? +((n - whole) * fac).toFixed(4) : 0;
   return `<div class="qgrp" data-qset="${esc(qe)}" data-fac="${two ? fac : 1}">
-    <div class="f"><label for="qe_${i}">Quantity${su ? ` (${esc(su)})` : ""}</label><input class="sel" id="qe_${i}" type="number" min="0" step="any" inputmode="decimal" value="${esc(whole)}" data-qp="s"></div>
-    ${two ? `<div class="f"><label for="qe_${i}b">Quantity (${esc(iu)})</label><input class="sel" id="qe_${i}b" type="number" min="0" step="any" inputmode="decimal" value="${esc(rest)}" data-qp="i"></div><p class="qconv">1 ${esc(su)} = ${n2(fac)} ${esc(iu)}</p>` : ""}</div>`;
+    <div class="f"><label for="qe_${i}">Quantity${su ? ` (${esc(su)})` : ""} *</label><input class="sel" id="qe_${i}" type="number" min="0" step="any" inputmode="decimal" value="${esc(whole)}" data-qp="s"></div>
+    ${two ? `<div class="f"><label for="qe_${i}b">Quantity (${esc(iu)}) *</label><input class="sel" id="qe_${i}b" type="number" min="0" step="any" inputmode="decimal" value="${esc(rest)}" data-qp="i"></div><p class="qconv">1 ${esc(su)} = ${n2(fac)} ${esc(iu)}</p>` : ""}</div>`;
 }
 const qRead = g => { const s = +g.querySelector('[data-qp="s"]').value || 0, i = +g.querySelector('[data-qp="i"]')?.value || 0; return String(+(s + i / (+g.dataset.fac || 1)).toFixed(6)); };
 // press a row with quantities: a dialog with the item's fields; Save puts them back (Delete removes the line)
@@ -6975,11 +6975,14 @@ document.addEventListener("click", e => {
   box.innerHTML = `<header><h2>${esc(cells[0].dataset.name)}</h2><button type="button" class="x" data-ccclose aria-label="Close">×</button></header><div class="body" style="display:block">
     ${cells.map((c, i) => { const [k, ky, f] = c.dataset.qe.split("|"), v = k==="docl" ? DOC.edit?.items[+ky]?.[f] : k==="recv" ? DOC.recv?.[+ky]?.[f] : (IC.draft[IC.branch]||{})[ky];
       return qFields(i, c.dataset.lbl, c.dataset.qe, v, f==="qty" ? itemOf(c.dataset.item) : null); }).join("")}</div>
-    <footer>${kind==="docl" ? `<button type="button" class="btn lnkdel" data-docrm="${esc(key)}" data-ccclose>Delete</button>` : ""}<span style="flex:1"></span><button type="button" class="btn keep" data-ccclose>Close</button><button type="button" class="btn pri" id="qeSave">Save</button></footer>`;
+    <footer>${kind==="docl" ? `<button type="button" class="btn lnkdel" data-qedel="${esc(key)}">Delete</button>` : ""}<span style="flex:1"></span><button type="button" class="btn keep" data-ccclose>Close</button><button type="button" class="btn pri" id="qeSave">Save</button></footer>`;
   $("#ccScrim").classList.add("show"); setTimeout(() => $("#qe_0")?.select(), 50);
 });
 document.addEventListener("click", e => {
+  const dl = e.target.closest("[data-qedel]"); if(dl && DOC.edit){ e.preventDefault(); readDocHeader(); DOC.edit.items.splice(+dl.dataset.qedel, 1); $("#ccScrim").classList.remove("show"); return render(); }
   if(!e.target.closest("#qeSave")) return; e.preventDefault();
+  const empty = [...document.querySelectorAll("#ccBox input[type=number]")].find(i => i.value.trim()==="" || isNaN(+i.value) || +i.value < 0);
+  if(empty){ empty.focus(); let er = $("#ccBox .err"); if(!er){ er = document.createElement("div"); er.className = "err"; $("#ccBox .body").appendChild(er); } er.textContent = "Fill in every field marked *."; return; }
   document.querySelectorAll("#ccBox [data-qset]").forEach(i => { const [k, ky, f] = i.dataset.qset.split("|"), val = i.classList.contains("qgrp") ? qRead(i) : i.value; if(val!=="" && (isNaN(+val) || +val < 0)) return; qSet(k, ky, f, val); });
   $("#ccScrim").classList.remove("show"); render();
 });
