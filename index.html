@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="365-1794069465">
+<meta name="slick-build" content="366-1794069584">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -2694,7 +2694,7 @@ const CRUD = {
   },
   products: {
     col:"products", title:"Products", one:"Product", detail: r => productDetail(r), bulk:1,
-    tabs:[["all","All",live],["active","Active",r=>live(r) && r.active!==false],["inactive","Inactive",r=>live(r) && r.active===false],["deleted","Deleted",r=>r.deleted]],
+    tabs:[["all","All",live],["deleted","Deleted",r=>r.deleted]],
     // variants sit right under their product, in the set's order
     sort:(a,b)=>{ const pa = varParent(a.id), pb = varParent(b.id), ka = (pa||a).name||"", kb = (pb||b).name||"";
       if(ka !== kb || (pa||a).id !== (pb||b).id) return String(ka).localeCompare(String(kb)) || String((pa||a).id).localeCompare(String((pb||b).id));
@@ -2705,7 +2705,7 @@ const CRUD = {
       return par ? `<span class="vchild">↳ <b>${esc(r.name)}</b> <span class="tag">${esc(varGroup(par))} · ${esc(par.variants.find(v=>v.productId===r.id)?.name||"")}</span></span>`
         : `<b>${esc(r.name)}</b>${n ? ` <span class="tag cc">${n} variant${n===1?"":"s"}</span>` : ""}`; })()}</span>`],["SKU",r=>`<span class="code">${esc(r.sku||"")}</span>`],["Category",r=>esc(catName(r.categoryId))],
       ["Price",r=>{ const k = varKids(r); return k.length ? "From " + usd(Math.min(...k.map(x=>+x.price||0))) : r.pricingMethod==="open"?"Open":usd(r.price); }],
-      ["Tax Group",r=>varKids(r).length ? '<span class="note">Per variant</span>' : esc(tgName(r.taxGroup))],["Active",r=>r.deleted ? "—" : r.active===false ? "Inactive" : "Active"]],
+      ["Tax Group",r=>varKids(r).length ? '<span class="note">Per variant</span>' : esc(tgName(r.taxGroup))]],
     fields:[{k:"name",l:"Name",req:1},{k:"nameAr",l:"Name Localized"},brandField,{k:"sku",l:"SKU",auto:()=>nextSku("products")},
       {k:"categoryId",l:"Category",t:"select",req:1,opts:()=>S.categories.filter(c=>live(c)&&!c.channel).sort(bySort).map(c=>[c.id,c.name])},
       {k:"pricingMethod",l:"Pricing method",t:"select",opts:()=>[["fixed","Fixed price"],["open","Open Price"]],def:"fixed",hideIf:r=>varKids(r).length},
@@ -6051,8 +6051,8 @@ function productDetail(p){
     if(el.tagName==="DIV"){ if(el.querySelector("[data-nk]")){ const o = {}; el.querySelectorAll("[data-nk]").forEach(i => { if(i.value!=="") o[i.dataset.nk] = +i.value; }); draft[k] = o; } else draft[k] = [...el.querySelectorAll("input:checked")].map(i => i.value); return; }
     draft[k] = el.type==="checkbox" ? el.checked : el.value; }); }
   let h = `<div class="phead"><a href="#products" class="btn" data-detback style="text-decoration:none">← Back</a><h1 style="margin-left:10px">${esc(p.name)}</h1>
-    ${p.deleted ? `<span class="stbadge off">Deleted</span>` : `<span class="stbadge ${p.active===false?"off":""}">${p.active===false?"Inactive":"Active"}</span>`}
-    <div class="sp"></div><span class="dacts">${p.deleted ? `<button type="button" class="btn" data-detrestore>Restore</button>` : DET.edit || draft ? `<button type="button" class="btn danger" data-detdelete>Delete Product</button><button type="button" class="btn" data-detview>Cancel</button><button type="submit" form="detForm" class="btn pri" id="detSave">Save</button>` : `<button type="button" class="btn" data-pdactive>${p.active===false?"Activate Product":"Deactivate Product"}</button><button type="button" class="btn pri" data-detedit>Edit Product</button>`}</span></div>`;
+    ${p.deleted ? `<span class="stbadge off">Deleted</span>` : ""}
+    <div class="sp"></div><span class="dacts">${p.deleted ? `<button type="button" class="btn" data-detrestore>Restore</button>` : DET.edit || draft ? `<button type="button" class="btn danger" data-detdelete>Delete Product</button><button type="button" class="btn" data-detview>Cancel</button><button type="submit" form="detForm" class="btn pri" id="detSave">Save</button>` : `<button type="button" class="btn pri" data-detedit>Edit Product</button>`}</span></div>`;
   const F = keys => openCrud("products", p.id, keys, draft), vk = varKids(p).length;
   const editing = DET.edit || !!draft;
   if(editing) h += `<form id="detForm" class="card detform" data-id="${esc(p.id)}"${draft ? ' data-dirty="1"' : ""} novalidate>
@@ -6088,9 +6088,7 @@ function pdSections(p, hasVar){
   const nut = NUTR.filter(([k]) => (p.nutrition||{})[k]!=null && (p.nutrition||{})[k]!==""), alg = p.allergens||[];
   let h = pdSec("Tags", `<button type="button" class="btn" data-pdtags>Edit Tags</button>`, tg.length ? `<div class="dzchips">${tg.map(t => `<span class="dzchip" style="padding-right:14px">${esc(tagName(t))}</span>`).join("")}</div>` : `<p class="dzempty">No tags added</p>`);
   if(!hasVar) h += modLinks(p) + ingEditor("products", p);
-  h += pdSec("Custom Price", `<button type="button" class="btn" data-pdbr="price">Select Branches</button>`, cps.length ? `<table><thead><tr><th>Branch</th><th class="num">Price</th><th></th></tr></thead><tbody>${cps.map(([id, v]) => `<tr><td>${esc(branchName(id))}</td><td class="num">${usd(+v)}</td><td class="num"><button type="button" class="btn sm" data-pdbrrm="price:${esc(id)}" aria-label="Remove">×</button></td></tr>`).join("")}</tbody></table>` : `<p class="dzempty">Set a different price for this product in the branches you select here.</p>`);
-  h += pdSec("Inactive In Branches", `<button type="button" class="btn" data-pdbr="inactive">Select Branches</button>`, inact.length ? pdChips(inact, "inactive") : `<p class="dzempty">Deactivate this product in the branches you select here to hide it from the menu.</p>`);
-  h += pdSec("Out of Stock", `<button type="button" class="btn" data-pdbr="oos">Select Branches</button>`, oos.length ? pdChips(oos, "oos") : `<p class="dzempty">Set this product as Out of Stock in the branches you select here, the Cashier can still sell Out of Stock products.</p>`);
+  // availability per branch (custom price, inactive, out of stock) is set in Sales Channels: items here are the catalog
   h += pdSec("Nutritional Values", `<button type="button" class="btn" data-pdnut>Edit Nutritional Values</button>`, `<table><thead><tr><th>Ingredient</th><th>Value</th><th>Unit</th></tr></thead><tbody>${NUTR.map(([k,l,u]) => `<tr><td>${l}</td><td>${nut.some(n => n[0]===k) ? esc(p.nutrition[k]) : "-"}</td><td>${u==="kcal"?"kCal":u}</td></tr>`).join("")}</tbody></table>`);
   h += pdSec("Allergens", `<button type="button" class="btn" data-pdalg>Add Allergens</button>`, alg.length ? `<div class="dzchips">${alg.map(a => `<span class="dzchip">${esc(a)}<button type="button" data-pdalgrm="${esc(a)}" aria-label="Remove ${esc(a)}">×</button></span>`).join("")}</div>` : `<p class="dzempty">Select any allergens from your list that apply to this product. This will ensure the correct information is displayed for your customers.</p>`);
   return h;
