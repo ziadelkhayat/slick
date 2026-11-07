@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="407-1794080035">
+<meta name="slick-build" content="408-1794080207">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1133,6 +1133,7 @@ button.x:hover,button.mmdx:hover,.dzchip>button:hover,.chip>button:hover{transfo
 /* orders list: one line per order */
 .otbl table{font-size:13px}.otbl th,.otbl td{white-space:nowrap;padding-left:10px!important;padding-right:10px!important}.otbl td .note{font-size:12px}.otbl .spill,.otbl .tag{white-space:nowrap}
 .qcell{display:inline-block;min-width:60px;text-align:right;font-variant-numeric:tabular-nums}tr:has(.qcell){cursor:pointer}tr:has(.qcell):hover td{background:#f7f5fd}
+.qconv{margin:2px 0 6px;color:var(--ink2);font-size:13.5px}.qitem{padding:4px 0 8px;border-bottom:1px solid var(--line,#ecebf2);margin-bottom:10px}.qitem:last-child{border-bottom:0}.qitem > b{display:block;margin-bottom:6px}
 </style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -6945,7 +6946,18 @@ function flowInfo(d, K, info){
     d.linkedId && K.kind==="purchase" ? info(K.po ? "Purchasing" : "Purchase order", `<a href="#${K.po?"purchase-orders":"po"}" class="lnk" data-doclink="${K.po?"purchase-orders":"po"}:${esc(d.linkedId)}">${esc(S.inv_docs.find(x=>x.id===d.linkedId)?.ref || "Open")}</a>`) : d.linkedId ? info(K.kind==="torder" ? "Transfer" : "Transfer order", `<a href="#${K.kind==="torder"?"transfers":"transfer-orders"}" class="lnk" data-doclink="${K.kind==="torder"?"transfers":"transfer-orders"}:${esc(d.linkedId)}">${esc(S.inv_docs.find(x=>x.id===d.linkedId)?.ref || "Open")}</a>`) : "",
     d.notes ? info("Notes", esc(d.notes)) : ""].join("");
 }
-const qCell = (kind, key, f, v, lbl, name) => `<span class="qcell" data-qe="${kind}|${esc(key)}|${f}" data-lbl="${esc(lbl)}" data-name="${esc(name)}">${v===""||v==null ? '<span class="note">—</span>' : n2(v)}</span>`;   // quantities are entered by pressing the row (Foodics)
+const qCell = (kind, key, f, v, lbl, name, itemId) => { const u = f==="qty" ? (itemOf(itemId)?.storageUnit || "") : "";
+  return `<span class="qcell" data-qe="${kind}|${esc(key)}|${f}" data-lbl="${esc(lbl)}" data-name="${esc(name)}" data-item="${esc(itemId||"")}">${f==="qty" ? n2(+v||0) + (u ? " " + esc(u) : "") : v===""||v==null ? '<span class="note">—</span>' : n2(v)}</span>`; };   // quantities are entered by pressing the row (Foodics)
+// a quantity in the item's units (Foodics): storage unit, plus the ingredient unit when the item has one, e.g. 1 gallon + 500 gram
+function qFields(i, lbl, qe, v, it){
+  const su = it?.storageUnit || "", iu = it?.ingredientUnit || "", fac = +it?.factor || 0, two = su && iu && fac > 1 && iu.toLowerCase()!==su.toLowerCase();
+  if(!it) return `<div class="f"><label for="qe_${i}">${esc(lbl)}</label><input class="sel" id="qe_${i}" type="number" min="0" step="any" inputmode="decimal" value="${esc(v ?? "")}" data-qset="${esc(qe)}"></div>`;
+  const n = +v || 0, whole = two ? Math.floor(n + 1e-9) : n, rest = two ? +((n - whole) * fac).toFixed(4) : 0;
+  return `<div class="qgrp" data-qset="${esc(qe)}" data-fac="${two ? fac : 1}">
+    <div class="f"><label for="qe_${i}">Quantity${su ? ` (${esc(su)})` : ""}</label><input class="sel" id="qe_${i}" type="number" min="0" step="any" inputmode="decimal" value="${esc(whole)}" data-qp="s"></div>
+    ${two ? `<div class="f"><label for="qe_${i}b">Quantity (${esc(iu)})</label><input class="sel" id="qe_${i}b" type="number" min="0" step="any" inputmode="decimal" value="${esc(rest)}" data-qp="i"></div><p class="qconv">1 ${esc(su)} = ${n2(fac)} ${esc(iu)}</p>` : ""}</div>`;
+}
+const qRead = g => { const s = +g.querySelector('[data-qp="s"]').value || 0, i = +g.querySelector('[data-qp="i"]')?.value || 0; return String(+(s + i / (+g.dataset.fac || 1)).toFixed(6)); };
 // press a row with quantities: a dialog with the item's fields; Save puts them back (Delete removes the line)
 function qSet(kind, key, f, v){
   if(kind==="docl" && DOC.edit){ DOC.edit.items[+key][f] = v; }
@@ -6958,21 +6970,21 @@ document.addEventListener("click", e => {
   e.preventDefault(); const [kind, key] = cells[0].dataset.qe.split("|"), box = $("#ccBox"); box.className = "modal sm";
   box.innerHTML = `<header><h2>${esc(cells[0].dataset.name)}</h2><button type="button" class="x" data-ccclose aria-label="Close">×</button></header><div class="body" style="display:block">
     ${cells.map((c, i) => { const [k, ky, f] = c.dataset.qe.split("|"), v = k==="docl" ? DOC.edit?.items[+ky]?.[f] : k==="recv" ? DOC.recv?.[+ky]?.[f] : (IC.draft[IC.branch]||{})[ky];
-      return `<div class="f"><label for="qe_${i}">${esc(c.dataset.lbl)}</label><input class="sel" id="qe_${i}" type="number" min="0" step="any" inputmode="decimal" value="${esc(v ?? "")}" data-qset="${esc(c.dataset.qe)}"></div>`; }).join("")}</div>
+      return qFields(i, c.dataset.lbl, c.dataset.qe, v, f==="qty" ? itemOf(c.dataset.item) : null); }).join("")}</div>
     <footer>${kind==="docl" ? `<button type="button" class="btn lnkdel" data-docrm="${esc(key)}" data-ccclose>Delete</button>` : ""}<span style="flex:1"></span><button type="button" class="btn keep" data-ccclose>Close</button><button type="button" class="btn pri" id="qeSave">Save</button></footer>`;
   $("#ccScrim").classList.add("show"); setTimeout(() => $("#qe_0")?.select(), 50);
 });
 document.addEventListener("click", e => {
   if(!e.target.closest("#qeSave")) return; e.preventDefault();
-  document.querySelectorAll("#ccBox [data-qset]").forEach(i => { const [k, ky, f] = i.dataset.qset.split("|"); if(i.value!=="" && (isNaN(+i.value) || +i.value < 0)) return; qSet(k, ky, f, i.value); });
+  document.querySelectorAll("#ccBox [data-qset]").forEach(i => { const [k, ky, f] = i.dataset.qset.split("|"), val = i.classList.contains("qgrp") ? qRead(i) : i.value; if(val!=="" && (isNaN(+val) || +val < 0)) return; qSet(k, ky, f, val); });
   $("#ccScrim").classList.remove("show"); render();
 });
-document.addEventListener("keydown", e => { if(e.key==="Enter" && e.target.closest?.("#ccBox [data-qset]")){ e.preventDefault(); $("#qeSave")?.click(); } });
+document.addEventListener("keydown", e => { if(e.key==="Enter" && e.target.closest?.("#ccBox [data-qset], #ccBox [data-qp]")){ e.preventDefault(); $("#qeSave")?.click(); } });
 // Edit Quantities: every line's quantity in one dialog
 document.addEventListener("click", e => {
   if(!e.target.closest("[data-docqtys]") || !DOC.edit) return; e.preventDefault(); const box = $("#ccBox"); box.className = "modal sm";
   box.innerHTML = `<header><h2>Quantities</h2><button type="button" class="x" data-ccclose aria-label="Close">×</button></header><div class="body" style="display:block">
-    ${DOC.edit.items.map((l, ix) => `<div class="f"><label for="qe_${ix}">${esc(itemOf(l.itemId)?.name || "Item")}${itemOf(l.itemId)?.storageUnit ? ` (${esc(itemOf(l.itemId).storageUnit)})` : ""}</label><input class="sel" id="qe_${ix}" type="number" min="0" step="any" inputmode="decimal" value="${esc(l.qty ?? "")}" data-qset="docl|${ix}|qty"></div>`).join("")}</div>
+    ${DOC.edit.items.map((l, ix) => `<div class="qitem"><b>${esc(itemOf(l.itemId)?.name || "Item")}</b>${qFields(ix, "Quantity", "docl|" + ix + "|qty", l.qty, itemOf(l.itemId) || {})}</div>`).join("")}</div>
     <footer><span style="flex:1"></span><button type="button" class="btn keep" data-ccclose>Close</button><button type="button" class="btn pri" id="qeSave">Save</button></footer>`;
   $("#ccScrim").classList.add("show");
 });
@@ -6992,7 +7004,7 @@ function flowHead(d, K, ro, recv){
 function flowRow(d, K, l, ix, it, base, del, qIn, ro, recv, cur, stockLoading){
   const draft = d.status==="draft", r = recv ? DOC.recv[ix] : null;
   const srcStock = draft && K.kind!=="purchase" ? `<td class="num">${stockLoading?"…":stockOf(K.kind==="torder" ? d.destId : d.locationId, l.itemId)===undefined?'<span class="note">Not counted</span>':n2(stockOf(K.kind==="torder" ? d.destId : d.locationId, l.itemId))}</td>` : "";
-  const rIn = (f, v, lbl) => qCell("recv", ix, f, v, lbl, it.name);
+  const rIn = (f, v, lbl) => qCell("recv", ix, f, v, lbl, it.name, l.itemId);
   const recvCell = recv ? `<td class="num">${rIn("qty", r.qty, "Received quantity")}</td>` : (d.status==="closed" && K.kind!=="torder") ? `<td class="num">${n2(l.qty)}</td>` : "";
   let costCells = "";
   if(K.kind==="purchase"){
@@ -7365,7 +7377,7 @@ function viewDoc(route){
   const rows = d.items.map((l, ix) => {
     const it = itemOf(l.itemId) || { name:"(deleted item)", sku:"" }, cur = K.loc ? stockOf(loc, l.itemId) : undefined;
     const del = ro ? "" : `<td><button class="btn sm" data-docrm="${ix}" aria-label="Remove ${esc(it.name)}">×</button></td>`;
-    const qIn = (f, v, lbl) => ro ? n2(v) : qCell("docl", ix, f, v, lbl, it.name);
+    const qIn = (f, v, lbl) => ro ? n2(v) : qCell("docl", ix, f, v, lbl, it.name, l.itemId);
     const base = `<td><b>${esc(it.name)}</b></td><td><span class="code">${esc(it.sku||"")}</span></td>`;
     if(K.flow) return flowRow(d, K, l, ix, it, base, del, qIn, ro, recv, cur, stockLoading);
     if(K.kind==="quantity"){
@@ -7431,7 +7443,7 @@ function readDocHeader(){
 }
 function docAddItems(ids){
   const d = DOC.edit, have = new Set(d.items.map(l=>l.itemId)); let n = 0;
-  ids.forEach(id => { if(!have.has(id) && itemOf(id) && (d.kind!=="production" || hasRecipe(itemOf(id)))){ d.items.push({ itemId:id, qty:"", cost: d.kind==="cost" ? (itemOf(id).cost ?? "") : undefined }); have.add(id); n++; } });
+  ids.forEach(id => { if(!have.has(id) && itemOf(id) && (d.kind!=="production" || hasRecipe(itemOf(id)))){ d.items.push({ itemId:id, qty: d.kind==="cost" ? "" : 0, cost: d.kind==="cost" ? (itemOf(id).cost ?? "") : undefined }); have.add(id); n++; } });
   return n;
 }
 async function saveDoc(silent){
@@ -7583,7 +7595,7 @@ function viewInventoryCount(){
         return `<tr><td><b>${esc(i.name)}</b> <span class="code">${esc(i.sku||"")}</span></td><td>${esc(i.category||"—")}</td><td>${esc(i.storageUnit||"—")}</td>
           <td class="num"${low?' style="color:var(--accent-ink);font-weight:600"':""}>${l ? `${(+l.qty).toLocaleString()} <span class="note">· ${fmtD(l.counted_at)}</span>` : '<span class="note">Never</span>'}</td>
           <td class="num">${+i.minLevel ? (+i.minLevel).toLocaleString() : "—"}</td>
-          <td class="num">${qCell("ic", i.id, "qty", d[i.id], "Counted now", i.name)}</td></tr>`; }).join("")
+          <td class="num">${qCell("ic", i.id, "qty", d[i.id], "Counted now", i.name, i.id)}</td></tr>`; }).join("")
       : `<tr><td colspan="6" class="note">No items match.</td></tr>`
     }</tbody></table></div>`;
 }
