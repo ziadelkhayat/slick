@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="364-1794069179">
+<meta name="slick-build" content="365-1794069465">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1061,6 +1061,20 @@ table.sk-ghost-t{border-collapse:collapse;table-layout:fixed}table.sk-ghost-t td
 .morelist{padding:0!important;overflow:hidden;max-width:820px}.morelist a{display:flex;align-items:center;gap:12px;padding:18px 22px;border-bottom:1px solid var(--line,#ecebf2);color:var(--ink,#1c1b22);text-decoration:none;font-size:15px;font-weight:500}.morelist a:last-child{border-bottom:0}.morelist a:hover{background:var(--bg,#f6f5fa)}.morelist a .chev{margin-left:auto;color:var(--muted);font-size:20px}.morelist .ico{width:20px;height:20px;color:#5b2bc4}
 .morebk{display:inline-flex;align-items:center;gap:6px}.morebk .ico{width:16px;height:16px}
 .lvtbl{width:100%}.lvtbl td,.lvtbl th{padding:6px 4px;text-align:left}.lvtbl .sel{width:90px}
+.msel{position:relative;display:block}.msel>.msel-f{display:flex;align-items:center;gap:8px;min-height:44px;width:100%;box-sizing:border-box;border:1px solid var(--line2,#dcdae5);border-radius:10px;background:#fff;padding:6px 12px;cursor:pointer;font:inherit;text-align:left}
+.msel>.msel-f:focus,.msel.open>.msel-f{outline:0;border-color:#7a55e0;box-shadow:0 0 0 3px rgba(122,85,224,.15)}.msel>.msel-f.dis{background:var(--bg,#f6f5fa);cursor:default;opacity:.7}
+.msel-k{margin-left:auto;flex:none;color:var(--muted,#77748a)}.msel-ph{color:var(--muted,#9a97a8)}.msel-v{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.msel-cs{display:flex;flex-wrap:wrap;gap:6px}.msel-c{display:inline-flex;align-items:center;gap:4px;background:#efe9fb;color:#4a2aa8;border-radius:6px;padding:3px 4px 3px 9px;font-size:13px;font-weight:500}
+.msel-c button{border:0;background:none;color:inherit;cursor:pointer;font-size:15px;line-height:1;padding:0 4px;border-radius:4px}.msel-c button:hover{background:rgba(74,42,168,.12)}
+.msel>.msel-p{position:absolute;left:0;right:0;top:calc(100% + 4px);z-index:60;background:#fff;border:1px solid var(--line2,#dcdae5);border-radius:10px;box-shadow:0 12px 32px rgba(20,18,40,.16);padding:8px;max-width:none}
+.msel.up>.msel-p{top:auto;bottom:calc(100% + 4px)}.msel-q{width:100%;box-sizing:border-box;border:1px solid var(--line2,#dcdae5);border-radius:8px;padding:8px 10px;font:inherit;font-size:14px;margin-bottom:6px}.msel-q:focus{outline:0;border-color:#7a55e0}
+.msel-l{display:flex!important;flex-direction:column;gap:0!important;max-height:240px;overflow:auto;padding:0!important;border:0!important}
+.msel .msel-o{display:flex!important;align-items:center;gap:10px;width:100%;box-sizing:border-box;border:0!important;border-radius:6px!important;background:none!important;padding:9px 10px!important;margin:0!important;font:inherit;font-size:14px;text-align:left;cursor:pointer;color:var(--ink,#1c1b22);box-shadow:none!important}
+.msel .msel-o:hover{background:var(--bg,#f4f3f8)!important}.msel .msel-o.on,.msel .msel-o:has(input:checked){color:#4a2aa8;font-weight:600}.msel .msel-o[hidden]{display:none!important}
+.msel .msel-o input{position:absolute;opacity:0;pointer-events:none;width:1px;height:1px}.msel .msel-o::after{content:"";margin-left:auto;width:16px;height:16px;flex:none}
+.msel .msel-o.on::after,.msel .msel-o:has(input:checked)::after{background:no-repeat center/16px url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%235b2bc4' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E")}
+.msel .msel-o .note{font-weight:400}.msel-none{padding:10px;color:var(--muted)}.mselect>select{display:none!important}
+.multi.msel{display:block!important;max-height:none!important;overflow:visible!important;border:0!important;padding:0!important;background:none!important}
 </style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -1475,9 +1489,9 @@ document.addEventListener("click", async e => {
     const off = new Set(b.settings?.inactivePayments || []), list = (S.payment_methods||[]).filter(m => !m.deleted && m.active!==false && !off.has(m.id));
     const box = $("#ccBox"); box.className = "modal sm";
     box.innerHTML = `<header><h2>Payment Methods</h2><button type="button" class="x" data-ccclose aria-label="Close">×</button></header>
-      <div class="body" style="display:block"><div class="f"><label for="brPaySel">Payment Method</label>${list.length ? `<input id="brPayQ" class="sel" placeholder="Type to search" autocomplete="off" style="margin-bottom:8px"><select id="brPaySel" class="sel" size="${Math.min(8, Math.max(3, list.length))}">${list.map(m => `<option value="${esc(m.id)}">${esc(m.name)}</option>`).join("")}</select>` : `<p class="note">Every payment method is already inactive at this branch.</p>`}</div></div>
+      <div class="body" style="display:block"><div class="f"><label for="brPaySel">Payment Method</label>${list.length ? `<select id="brPaySel" class="sel"><option value="">Choose...</option>${list.map(m => `<option value="${esc(m.id)}">${esc(m.name)}</option>`).join("")}</select>` : `<p class="note">Every payment method is already inactive at this branch.</p>`}</div></div>
       <footer><span style="flex:1"></span><button type="button" class="btn" data-ccclose>Cancel</button>${list.length ? `<button type="button" class="btn pri" id="brPaySave" data-bid="${esc(b.id)}">Save</button>` : ""}</footer>`;
-    $("#ccScrim").classList.add("show"); setTimeout(() => $("#brPayQ")?.focus(), 50); return; }
+    $("#ccScrim").classList.add("show"); return; }
   const sv = e.target.closest("#brPaySave"); if(sv){ const v = $("#brPaySel")?.value; if(!v) return toast("Choose a payment method"); $("#ccScrim").classList.remove("show"); return brPaySet(sv.dataset.bid, v, true); }
 });
 document.addEventListener("input", e => { if(e.target.id !== "brPayQ") return; const q = e.target.value.trim().toLowerCase(), sel = $("#brPaySel"); if(!sel) return;
@@ -1489,7 +1503,7 @@ document.addEventListener("click", async e => {
     const zs = (S.zones||[]).filter(z => !z.deleted).sort((a,c) => String(a.name).localeCompare(String(c.name)));
     const box = $("#ccBox"); box.className = "modal sm";
     box.innerHTML = `<header><h2>Delivery Zones</h2><button type="button" class="x" data-ccclose aria-label="Close">×</button></header>
-      <div class="body" style="display:block"><div class="f"><label>Delivery Zones</label>${zs.length ? `<input id="brZoneQ" class="sel" placeholder="Type to search" autocomplete="off" style="margin-bottom:8px"><div class="multi" id="brZoneList" style="max-height:300px;overflow:auto">${zs.map(z => `<label class="chk" data-zn="${esc(String(z.name).toLowerCase())}"><input type="checkbox" value="${esc(z.id)}" ${z.branchId===b.id?"checked":""}> ${esc(z.name)}${z.branchId && z.branchId!==b.id ? ` <span class="note">· now ${esc(branchName(z.branchId)||"")}</span>` : ""}</label>`).join("")}</div>` : `<p class="note">No delivery zones yet. Draw them in Web Ordering → Delivery Zones.</p>`}</div></div>
+      <div class="body" style="display:block"><div class="f"><label>Delivery Zones</label>${zs.length ? `<div class="multi" id="brZoneList">${zs.map(z => `<label class="chk" data-zn="${esc(String(z.name).toLowerCase())}"><input type="checkbox" value="${esc(z.id)}" ${z.branchId===b.id?"checked":""}> ${esc(z.name)}${z.branchId && z.branchId!==b.id ? ` <span class="note">· now ${esc(branchName(z.branchId)||"")}</span>` : ""}</label>`).join("")}</div>` : `<p class="note">No delivery zones yet. Draw them in Web Ordering → Delivery Zones.</p>`}</div></div>
       <footer><span style="flex:1"></span><button type="button" class="btn" data-ccclose>Cancel</button>${zs.length ? `<button type="button" class="btn pri" id="brZoneSave" data-bid="${esc(b.id)}">Save</button>` : ""}</footer>`;
     $("#ccScrim").classList.add("show"); return; }
   const sv = e.target.closest("#brZoneSave"); if(sv){ const pick = new Set([...document.querySelectorAll("#brZoneList input:checked")].map(i => i.value)); sv.disabled = true;
@@ -2175,6 +2189,55 @@ function render(){
   if(route==="delivery-zones") setTimeout(initZonesOverview, 0);
   if(route!=="dashboard" && !(route==="discounts" && DS.open)) stickHead(v);
 }
+/* Foodics-style dropdowns: a field showing "Choose..." (or the picked chips) that opens a list with a search box.
+   Checkbox lists (.multi) become multi-select dropdowns and form selects become searchable dropdowns. The real
+   checkboxes / <select> stay underneath, so every screen keeps reading them exactly as before. */
+const MS_CARET = `<svg class="msel-k" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>`;
+const msText = l => { const c = l.cloneNode(true); c.querySelectorAll("input,.note,small").forEach(x => x.remove()); return c.textContent.trim(); };
+function msPaint(m){
+  const f = m.querySelector(":scope > .msel-f"); if(!f) return;
+  if(m.classList.contains("mselect")){ const sel = m.querySelector("select"), o = sel.options[sel.selectedIndex]; const t = o && o.value!=="" ? o.text : (o?.text && !/^(choose|select)/i.test(o.text) && sel.options[0]?.value!=="" ? o.text : "");
+    f.innerHTML = (t ? `<span class="msel-v">${esc(t)}</span>` : `<span class="msel-ph">${esc(o?.text && sel.options[0]?.value==="" && !/…$/.test(o.text) && o.text!=="" ? o.text : "Choose...")}</span>`) + MS_CARET; f.classList.toggle("dis", sel.disabled); m.dataset.v = sel.value; return; }
+  const on = [...m.querySelectorAll(".msel-l input:checked")];
+  f.innerHTML = (on.length ? `<span class="msel-cs">${on.map(i => `<span class="msel-c">${esc(msText(i.closest("label")))}<button type="button" data-msx="${esc(i.value)}" aria-label="Remove">×</button></span>`).join("")}</span>` : `<span class="msel-ph">Choose...</span>`) + MS_CARET;
+}
+function msEnhance(){
+  document.querySelectorAll(".multi:not([data-ms])").forEach(m => { m.dataset.ms = "1"; const labels = [...m.querySelectorAll(":scope > label")]; if(!labels.length || labels.some(l => !l.querySelector("input[type=checkbox],input[type=radio]"))) return;
+    m.classList.add("msel"); const f = document.createElement("div"); f.className = "msel-f"; f.tabIndex = 0; f.setAttribute("role", "button");
+    const p = document.createElement("div"); p.className = "msel-p"; p.hidden = true; p.innerHTML = `<input class="msel-q" placeholder="Type something to start searching" autocomplete="off">`;
+    const l = document.createElement("div"); l.className = "msel-l"; labels.forEach(x => { x.classList.add("msel-o"); l.appendChild(x); }); p.appendChild(l); m.prepend(p); m.prepend(f); msPaint(m); });
+  document.querySelectorAll(":is(#crudBox,#ccBox,.detform,.modal,.bsf,.f) select.sel:not([multiple]):not([size]):not([data-ms]):not([hidden])").forEach(sel => { sel.dataset.ms = "1"; if(sel.style.display==="none") return;
+    const m = document.createElement("div"); m.className = "msel mselect"; sel.parentNode.insertBefore(m, sel); m.appendChild(sel);
+    const f = document.createElement("div"); f.className = "msel-f sel"; f.tabIndex = 0; f.setAttribute("role", "button"); if(sel.id) f.setAttribute("aria-label", sel.getAttribute("aria-label") || sel.id);
+    const p = document.createElement("div"); p.className = "msel-p"; p.hidden = true; p.innerHTML = `<input class="msel-q" placeholder="Type something to start searching" autocomplete="off"><div class="msel-l"></div>`;
+    m.prepend(p); m.prepend(f); msPaint(m); });
+}
+function msClose(except){ document.querySelectorAll(".msel.open").forEach(m => { if(m!==except){ m.classList.remove("open"); m.querySelector(":scope > .msel-p").hidden = true; } }); }
+function msOpen(m){
+  msClose(m); const p = m.querySelector(":scope > .msel-p");
+  if(m.classList.contains("mselect")){ const sel = m.querySelector("select"); if(sel.disabled) return;
+    p.querySelector(".msel-l").innerHTML = [...sel.options].filter(o => !(o.value==="" && /^(choose|select)/i.test(o.text)) && !o.hidden).map(o => `<button type="button" class="msel-o${o.value===sel.value?" on":""}" data-msv="${esc(o.value)}"${o.disabled?" disabled":""}>${esc(o.text)}</button>`).join("") || `<div class="msel-none">No options</div>`; }
+  m.classList.add("open"); p.hidden = false; const q = p.querySelector(".msel-q"); q.value = ""; p.querySelectorAll(".msel-o").forEach(o => o.hidden = false);
+  const r = m.getBoundingClientRect(); m.classList.toggle("up", innerHeight - r.bottom < 280 && r.top > 300); setTimeout(() => q.focus(), 0);
+}
+document.addEventListener("click", e => {
+  const x = e.target.closest("[data-msx]"); if(x){ e.preventDefault(); e.stopPropagation(); const m = x.closest(".msel"), i = [...m.querySelectorAll(".msel-l input")].find(i => i.value===x.dataset.msx); if(i){ i.checked = false; i.dispatchEvent(new Event("change", { bubbles:true })); } msPaint(m); return; }
+  const f = e.target.closest(".msel-f"); if(f){ e.preventDefault(); const m = f.parentElement; m.classList.contains("open") ? msClose() : msOpen(m); return; }
+  const o = e.target.closest(".mselect .msel-o"); if(o){ e.preventDefault(); const m = o.closest(".msel"), sel = m.querySelector("select"); sel.value = o.dataset.msv; sel.dispatchEvent(new Event("input", { bubbles:true })); sel.dispatchEvent(new Event("change", { bubbles:true })); msClose(); if(document.contains(m)) msPaint(m); return; }
+  if(e.target.closest(".msel-p")){ const m = e.target.closest(".msel"); if(m.querySelector(".msel-l input[type=radio]")) setTimeout(() => { msPaint(m); msClose(); }, 0); return; }
+  if(e.target.closest("[data-mtog]")) setTimeout(() => document.querySelectorAll(".msel:not(.mselect)").forEach(msPaint), 0);
+  msClose();
+}, true);
+document.addEventListener("change", e => { const m = e.target.closest?.(".msel:not(.mselect)"); if(m) msPaint(m); });
+document.addEventListener("input", e => { if(!e.target.classList?.contains("msel-q")) return; const q = e.target.value.trim().toLowerCase();
+  e.target.parentElement.querySelectorAll(".msel-o").forEach(o => { o.hidden = !!q && !o.textContent.toLowerCase().includes(q); }); });
+document.addEventListener("keydown", e => {
+  if(e.key==="Escape" && document.querySelector(".msel.open")){ e.stopPropagation(); msClose(); return; }
+  const f = e.target.closest?.(".msel-f"); if(f && (e.key==="Enter" || e.key===" " || e.key==="ArrowDown")){ e.preventDefault(); msOpen(f.parentElement); return; }
+  if(e.target.classList?.contains("msel-q") && e.key==="Enter"){ e.preventDefault(); const first = [...e.target.parentElement.querySelectorAll(".msel-o")].find(o => !o.hidden); first?.click(); }
+}, true);
+let msT = 0; new MutationObserver(() => { if(msT) return; msT = requestAnimationFrame(() => { msT = 0; msEnhance(); }); }).observe(document.documentElement, { childList:true, subtree:true });
+setInterval(() => document.querySelectorAll(".mselect").forEach(m => { const sel = m.querySelector("select"); if(sel && (m.dataset.v!==sel.value || m.querySelector(".msel-f").classList.contains("dis")!==sel.disabled)) msPaint(m); }), 400);
 // "More" (Foodics): the less used screens of a section, as a list of links
 function viewMore(route){
   const n = NAV.find(x => x.more===route); if(!n) return "";
@@ -6045,9 +6108,9 @@ document.addEventListener("click", async e => {
   const br = e.target.closest("[data-pdbr]"); if(br){ e.preventDefault(); const kind = br.dataset.pdbr, B = DET.br, brs = pdBrs(p);
     const title = { price:"Custom Price", inactive:"Inactive In Branches", oos:"Out of Stock" }[kind];
     box.innerHTML = `<header><h2>${title}</h2><button type="button" class="x" data-ccclose aria-label="Close">×</button></header><div class="body" style="display:block">
-      <input id="pdBrQ" class="sel" placeholder="Search branches" autocomplete="off" style="margin-bottom:10px;width:100%"><div id="pdBrList" class="pdbrl">${brs.map(b => kind==="price"
+      ${kind==="price" ? `<input id="pdBrQ" class="sel" placeholder="Search branches" autocomplete="off" style="margin-bottom:10px;width:100%">` : `<div class="f" style="margin:0"><label>Branches</label>`}<div id="pdBrList" class="${kind==="price" ? "pdbrl" : "multi"}">${brs.map(b => kind==="price"
         ? `<label class="pdbr" data-n="${esc(b.name.toLowerCase())}"><span>${esc(b.name)}</span><input type="number" min="0" step="any" class="sel" data-pdbrp="${esc(b.id)}" value="${esc(B.customPrices[b.id] ?? "")}" placeholder="${esc(p.price ?? "")}" aria-label="Price in ${esc(b.name)}"></label>`
-        : `<label class="pdbr chk" data-n="${esc(b.name.toLowerCase())}"><input type="checkbox" value="${esc(b.id)}" ${(kind==="inactive" ? B.inactive : B.oos).includes(b.id) ? "checked" : ""}> ${esc(b.name)}</label>`).join("") || '<p class="note">No branches yet.</p>'}</div>
+        : `<label class="chk"><input type="checkbox" value="${esc(b.id)}" ${(kind==="inactive" ? B.inactive : B.oos).includes(b.id) ? "checked" : ""}> ${esc(b.name)}</label>`).join("") || '<p class="note">No branches yet.</p>'}</div>${kind==="price" ? "" : "</div>"}
       ${kind==="price" ? `<p class="note" style="margin:10px 0 0">Leave empty to use the product's price (${usd(+p.price||0)}).</p>` : ""}</div>
       <footer><span style="flex:1"></span><button type="button" class="btn" data-ccclose>Cancel</button><button type="button" class="btn pri" id="pdBrSave" data-kind="${kind}">Save</button></footer>`;
     show(); return; }
@@ -6064,7 +6127,7 @@ document.addEventListener("click", async e => {
     show(); return; }
   if(e.target.closest("#pdNutSave")){ const o = {}; document.querySelectorAll("#pdNut [data-nk]").forEach(i => { if(i.value.trim()!=="") o[i.dataset.nk] = +i.value; }); $("#ccScrim").classList.remove("show"); return pdPut({ nutrition:o, calories: o.calories ?? null }, "Nutritional values saved"); }
   if(e.target.closest("[data-pdalg]")){ e.preventDefault(); const cur = new Set(p.allergens||[]);
-    box.innerHTML = `<header><h2>Allergens</h2><button type="button" class="x" data-ccclose aria-label="Close">×</button></header><div class="body" style="display:block"><div class="multi" id="pdAlg">${allergenList().map(a => `<label class="chk"><input type="checkbox" value="${esc(a)}" ${cur.has(a)?"checked":""}> ${esc(a)}</label>`).join("")}</div></div>
+    box.innerHTML = `<header><h2>Add Allergens</h2><button type="button" class="x" data-ccclose aria-label="Close">×</button></header><div class="body" style="display:block"><div class="f"><label>Allergens</label><div class="multi" id="pdAlg">${allergenList().map(a => `<label class="chk"><input type="checkbox" value="${esc(a)}" ${cur.has(a)?"checked":""}> ${esc(a)}</label>`).join("")}</div></div></div>
       <footer><span style="flex:1"></span><button type="button" class="btn" data-ccclose>Cancel</button><button type="button" class="btn pri" id="pdAlgSave">Save</button></footer>`;
     show(); return; }
   if(e.target.closest("#pdAlgSave")){ const v = [...document.querySelectorAll("#pdAlg input:checked")].map(i => i.value); $("#ccScrim").classList.remove("show"); return pdPut({ allergens:v }, "Allergens saved"); }
@@ -6297,7 +6360,7 @@ document.addEventListener("click", async e => {
   const lk = e.target.closest("[data-suplink]"); if(lk){ e.preventDefault(); const [side, id] = lk.dataset.suplink.split(":");
     const opts = side==="item" ? S.suppliers.filter(live).sort((a,b) => a.name.localeCompare(b.name)).map(x => [x.id, x.name]) : S.inv_items.filter(live).sort((a,b) => a.name.localeCompare(b.name)).map(x => [x.id, x.name + (x.sku ? " · " + x.sku : "")]);
     box.innerHTML = `<header><h2>${side==="item" ? "Link Supplier" : "Link Item"}</h2><button type="button" class="x" data-ccclose aria-label="Close">×</button></header><div class="body" style="display:block">
-      <div class="f"><label for="slPick">${side==="item" ? "Supplier" : "Item"} *</label><input id="slQ" class="sel" placeholder="Type to search" autocomplete="off" style="margin-bottom:8px"><select id="slPick" class="sel" size="6">${opts.map(([v,t]) => `<option value="${esc(v)}">${esc(t)}</option>`).join("")}</select></div>
+      <div class="f"><label for="slPick">${side==="item" ? "Supplier" : "Item"} *</label><select id="slPick" class="sel"><option value="">Choose...</option>${opts.map(([v,t]) => `<option value="${esc(v)}">${esc(t)}</option>`).join("")}</select></div>
       <div class="f"><label for="slUnit">Order Unit</label><input id="slUnit" class="sel" placeholder="e.g. Box, Carton"></div>
       <div class="f"><label for="slFac">Order Unit To Storage Unit Factor</label><input id="slFac" class="sel" type="number" min="0" step="any" placeholder="e.g. 12"></div>
       <div class="f"><label for="slCost">Cost (Per Order Unit)</label><input id="slCost" class="sel" type="number" min="0" step="any"></div></div>
