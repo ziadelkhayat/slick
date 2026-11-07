@@ -36,8 +36,11 @@
     if(!links.length && !o.edit) return Promise.resolve({ options: [], unitPrice: +o.basePrice||0, mods: "" });
     if(!document.getElementById("smpCss")){ const st = document.createElement("style"); st.id = "smpCss"; st.textContent = css; document.head.appendChild(st); }
     return new Promise(resolve => {
-      const sel = links.map(() => new Map());                     // option id -> how many
+      const sel = links.map(() => new Map());
+      const cnt0 = gi => [...sel[gi].values()].reduce((a, n) => a + n, 0);                     // option id -> how many
       // editing a cart line: start from what was picked, plus its quantity and note
+      // Foodics-style default options: preselected on a new line
+      if(!(o.initial||[]).length) links.forEach((l, gi) => (l.defaults||[]).forEach(id => { if(l.opts.some(y => y.id===id) && !((+l.max||0) > 0 && cnt0(gi) >= +l.max)) sel[gi].set(id, 1); }));
       (o.initial||[]).forEach(x => { const gi = links.findIndex(l => l.modifierId===x.modifierId && l.opts.some(y => y.id===x.id)); if(gi >= 0) sel[gi].set(x.id, (sel[gi].get(x.id)||0) + 1); });
       let qty = Math.max(1, +o.qty||1), note = o.note || "", discT = o.discType || "pct", discV = o.discValue != null && o.discValue !== "" ? String(o.discValue) : "";
       // item discount (editing only, when the person may give one): a percent of the line or an amount off it
