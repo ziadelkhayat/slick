@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="418-1794082699">
+<meta name="slick-build" content="419-1794083239">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1139,6 +1139,10 @@ button.x:hover,button.mmdx:hover,.dzchip>button:hover,.chip>button:hover{transfo
 .bmdsec td{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:#8a87a0;padding:14px 14px 6px!important;background:#fff}.bmdgrow .bmgrip,.bmdmx tr[data-skn] .bmgrip{width:22px;height:22px;margin-right:6px;vertical-align:middle}.bmdmx tr[data-skn] td:first-child{display:flex;align-items:center}
 .bmdcell{display:inline-flex;align-items:center;gap:6px}.toggle.xs{transform:scale(.78);transform-origin:center}
 .msel-c[data-msx]{cursor:pointer}.msel-c[data-msx]:hover{background:#e3d9fb;text-decoration:line-through}
+/* dialog fields: even spacing; quantity groups and the conversion line */
+#ccBox .body .f,#crudBox .body .f{margin-bottom:16px}#ccBox .body .f:last-child{margin-bottom:0}
+.qgrp .f{margin-bottom:16px!important}.qconv{margin:-4px 0 4px!important;font-size:13px;color:var(--muted,#77748a)}
+#ccBox footer .btn.danger,#crudBox footer .btn.danger{margin-right:auto}
 </style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -6224,7 +6228,7 @@ function ingQtyDialog(ix){
       <div class="f"><label for="iq_y_${ix}">Yield (%)</label><input class="sel" id="iq_y_${ix}" data-iqy="${ix}" type="number" min="1" max="100" step="any" value="${esc(ingYield(l))}"></div>`; })()
     : list.map(i => { const l = DET.ing[i], it = itemOf(l.itemId); return ingBoth(i, it, ingNet(l), it?.name || ""); }).join("")}
     <div class="err" id="iqErr"></div></div>
-    <footer>${one ? `<button type="button" class="btn lnkdel" data-ingrm="${ix}">Delete</button>` : ""}<span style="flex:1"></span><button type="button" class="btn keep" data-ccclose>Close</button><button type="button" class="btn pri" id="iqSave">Save</button></footer>`;
+    <footer>${one ? `<button type="button" class="btn danger" data-ingrm="${ix}">Delete</button>` : ""}<span style="flex:1"></span><button type="button" class="btn keep" data-ccclose>Close</button><button type="button" class="btn pri" id="iqSave">Save</button></footer>`;
   $("#ccScrim").classList.add("show");
 }
 document.addEventListener("click", async e => {
@@ -6758,7 +6762,7 @@ document.addEventListener("click", async e => {
       <div class="f"><label for="pv_tax">Tax Group</label><select class="sel" id="pv_tax"><option value="">Choose…</option>${taxGroupOpts().map(([g,n]) => `<option value="${esc(g)}" ${k.taxGroup===g?"selected":""}>${esc(n)}</option>`).join("")}</select></div>
       <div class="f"><label for="pv_sku">SKU</label><input class="sel" id="pv_sku" value="${esc(k.sku||"")}"></div>
       <p class="note" style="margin:4px 0 0">Recipe, modifiers and the rest are on <a href="#products" class="lnk" data-detopen="products:${esc(k.id)}">its product page</a>.</p><div class="err" id="pvErr"></div></div>
-      <footer><button type="button" class="btn lnkdel" data-pvrm="${esc(k.id)}">Delete</button><span style="flex:1"></span><button type="button" class="btn keep" data-ccclose>Close</button><button type="button" class="btn pri" id="pvSave" data-id="${esc(k.id)}">Save</button></footer>`;
+      <footer><button type="button" class="btn danger" data-pvrm="${esc(k.id)}">Delete</button><span style="flex:1"></span><button type="button" class="btn keep" data-ccclose>Close</button><button type="button" class="btn pri" id="pvSave" data-id="${esc(k.id)}">Save</button></footer>`;
     $("#ccScrim").classList.add("show"); return; }
   const pvs = t.closest("#pvSave"); if(pvs){ e.preventDefault(); const k = S.products.find(x => x.id===pvs.dataset.id); if(!k) return; const pr = $("#pv_price").value.trim(), sku = $("#pv_sku").value.trim();
     if(pr==="" || isNaN(+pr) || +pr < 0) return $("#pvErr").textContent = "Enter the price.";
@@ -6873,7 +6877,7 @@ document.addEventListener("click", async e => {
       ${(() => { const os = modOptions(l.modifierId), pick = (id, cur) => `<div class="multi" id="${id}">${os.map(o => `<label class="chk"><input type="checkbox" value="${esc(o.id)}" ${(cur||[]).includes(o.id) ? "checked" : ""}> ${esc(o.name)}</label>`).join("")}</div>`;
         return `<div class="f"><label>Default Options</label>${pick("ml_def", l.defaults)}</div><div class="f"><label>Excluded Options</label>${pick("ml_exc", l.excluded)}</div>`; })()}
       <div class="f"><label class="chk"><input type="checkbox" id="ml_uniq" ${l.multi ? "" : "checked"}> Unique Options</label></div><div class="err" id="mlErr"></div></div>
-      <footer><button type="button" class="btn lnkdel" data-modrm="${ix}">Delete</button><span style="flex:1"></span><button type="button" class="btn keep" data-ccclose>Close</button><button type="button" class="btn pri" id="mlSave" data-ix="${ix}">Save</button></footer>`;
+      <footer><button type="button" class="btn danger" data-modrm="${ix}">Delete</button><span style="flex:1"></span><button type="button" class="btn keep" data-ccclose>Close</button><button type="button" class="btn pri" id="mlSave" data-ix="${ix}">Save</button></footer>`;
     $("#ccScrim").classList.add("show"); return; }
   const sv = e.target.closest("#mlSave"); if(sv){ const l = DET.mods[+sv.dataset.ix], mn = parseInt($("#ml_min").value)||0, mx = parseInt($("#ml_max").value)||0;
     if(mn < 0) return $("#mlErr").textContent = "Minimum can't be below 0.";
@@ -7003,7 +7007,7 @@ document.addEventListener("click", e => {
   box.innerHTML = `<header><h2>${esc(cells[0].dataset.name)}</h2><button type="button" class="x" data-ccclose aria-label="Close">×</button></header><div class="body" style="display:block">
     ${cells.map((c, i) => { const [k, ky, f] = c.dataset.qe.split("|"), v = k==="docl" ? DOC.edit?.items[+ky]?.[f] : k==="recv" ? DOC.recv?.[+ky]?.[f] : (IC.draft[IC.branch]||{})[ky];
       return qFields(i, c.dataset.lbl, c.dataset.qe, v, f==="qty" ? itemOf(c.dataset.item) : null); }).join("")}</div>
-    <footer>${kind==="docl" ? `<button type="button" class="btn lnkdel" data-qedel="${esc(key)}">Delete</button>` : ""}<span style="flex:1"></span><button type="button" class="btn keep" data-ccclose>Close</button><button type="button" class="btn pri" id="qeSave">Save</button></footer>`;
+    <footer>${kind==="docl" ? `<button type="button" class="btn danger" data-qedel="${esc(key)}">Delete</button>` : ""}<span style="flex:1"></span><button type="button" class="btn keep" data-ccclose>Close</button><button type="button" class="btn pri" id="qeSave">Save</button></footer>`;
   $("#ccScrim").classList.add("show"); setTimeout(() => $("#qe_0")?.select(), 50);
 });
 document.addEventListener("click", e => {
