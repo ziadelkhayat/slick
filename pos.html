@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="431-1794085440">
+<meta name="slick-build" content="432-1794085604">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -999,11 +999,16 @@ setInterval(autoDayEnd, 60000);
 setInterval(() => { if(device && devSet().autoAccept) autoAccept(); }, 60000);   // scheduled web orders are accepted when their time comes close
 /* ---------- device & branch settings (Manage → Devices → Settings, Manage → Branches) ---------- */
 const devSet = () => device?.settings || {}, brSet = () => branch?.settings || {};
-const allowedTypes = () => { const b = ["dinein","takeaway","delivery"],   // order types are fixed for every branch
+// this branch's POS sales channel (Sales Channels): none saved yet = POS with every order type; deleted = no menu here
+const posCh = () => { const l = ((S.settings.find(x => x.id==="sales_channels")||{}).list||[]).filter(c => c.kind==="pos" && c.branchId===device?.branchId);
+  return l.length ? (l.find(c => !c.deleted) || null) : { types:["fast","dinein","pickup","delivery"] }; };
+const chTypeOn = t => { const c = posCh(); return !!c && (c.types||[]).includes(t==="takeaway" ? "pickup" : t); };
+const allowedTypes = () => { const b = ["dinein","takeaway","delivery"].filter(chTypeOn),   // order types are fixed for every branch
    d = devSet().orderTypes || b, a = ["dinein","takeaway","delivery"].filter(t => b.includes(t) && d.includes(t)); return a.length ? a : ["dinein","takeaway","delivery"]; };
 const defaultType = () => "fast";   // a new order is a fast sale until a table is picked (Tables) or it's taken as pickup / delivery   // the POS starts on Dine-in or Fast sale
 function applyTypes(){ const a = allowedTypes(); $("#otype [data-t=dinein]").style.display = a.includes("dinein") ? "" : "none";
-  if(!(otype==="fast" || a.includes(otype) || (otype==="dinein" && tableNo))) otype = defaultType(); }
+  const f = $("#otype [data-t=fast]"); if(f) f.style.display = chTypeOn("fast") ? "" : "none";
+  if(!((otype==="fast" && chTypeOn("fast")) || a.includes(otype) || (otype==="dinein" && tableNo))) otype = chTypeOn("fast") ? "fast" : (a[0] || "fast"); }
 let typeInit = false;
 function renderAll(){
   if(!typeInit && device){ typeInit = true; otype = defaultType(); }
@@ -1069,6 +1074,7 @@ const catStyle = (c, i) => { const m = CAT_ICON.find(([r]) => r.test(c?.name||""
 // a main product is in a channel category when it or one of its variants is listed
 const chPos = (c, p) => { const ids = c.productIds||[], k = [p.id, ...(p.variants||[]).map(v => v.productId)].map(x => ids.indexOf(x)).filter(i => i >= 0); return k.length ? Math.min(...k) : -1; };
 function renderMenu(){
+  if(!posCh()){ const m = $("#grid"); if(m) m.innerHTML = `<div class="empty" style="padding:40px;text-align:center;color:var(--muted)"><b>No POS menu at this branch</b><br>The POS sales channel of this branch was deleted. Create it again in the back office under Menu → Sales Channels.</div>`; if($("#mcats")) $("#mcats").innerHTML = ""; return; }
   const kids = kidIds(), prods = products().filter(p => !kids.has(p.id) && (!(p.variants||[]).some(v => v.productId) || kidsOf(p).length));
   // the POS menu's own categories (Sales Channels); older setups without them use the menu categories
   const catAt = c => { const ia = c.inactiveBranchIds||[], b = device.branchId; if(ia.includes("x:" + b)) return false; const only = ia.filter(k => String(k).startsWith("only:")); return !only.length || only.includes("only:" + b); };   // this branch's POS menu

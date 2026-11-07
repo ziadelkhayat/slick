@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="431-1794085440">
+<meta name="slick-build" content="432-1794085604">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -3806,12 +3806,14 @@ function fillOrderBranches(sel){
 function availableProducts(){
   const br = $("#oBranch")?.value, bd = $("#oBrand")?.value;
   if(brandList().length && !bd) return [];
+  if(!ccOn(br)) return [];
   const chc = ccCats(br), useCh = chCats("callcenter", br).length > 0;
   return S.products.filter(p => live(p) && p.active!==false && (!bd || p.brandId===bd) && (!br || (!offAt(p.inactiveBranchIds, br, "callcenter") && !(($("#oType .on")?.dataset.ot) && typeOff(p.inactiveBranchIds, br, "callcenter", $("#oType .on").dataset.ot))
     && (useCh ? chc.some(c => chPos(c, p) >= 0 || varParent(p.id) && chPos(c, varParent(p.id)) >= 0) : !offAt(S.categories.find(c=>c.id===p.categoryId)?.inactiveBranchIds, br, "callcenter")))));
 }
 // the call center menu's own categories at this branch (Sales Channels); older setups use the menu categories
-function ccCats(br){ const chc = chCats("callcenter", br); return (chc.length ? chc : S.categories.filter(c => live(c) && !c.channel)).filter(c => !br || !offAt(c.inactiveBranchIds, br, "callcenter")); }
+const ccOn = br => !br || scFor(br).some(c => c.kind==="callcenter");   // the branch's Call Center sales channel exists
+function ccCats(br){ if(!ccOn(br)) return []; const chc = chCats("callcenter", br); return (chc.length ? chc : S.categories.filter(c => live(c) && !c.channel)).filter(c => !br || !offAt(c.inactiveBranchIds, br, "callcenter")); }
 const chPos = (c, p) => { const ids = c.productIds||[], k = [p.id, ...(p.variants||[]).map(v => v.productId)].map(x => ids.indexOf(x)).filter(i => i >= 0); return k.length ? Math.min(...k) : -1; };   // a main product is in a channel category when it or one of its variants is listed
 function ccHas(c, p){ return c.channel ? chPos(c, p) >= 0 : p.categoryId===c.id; }
 function ccOrder(c){ return (a, b) => c && c.channel ? chPos(c, a) - chPos(c, b) : bySort(a, b);

@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="430-1794085268">
+<meta name="slick-build" content="432-1794085604">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -642,8 +642,9 @@ if(!brand){ $("#main").innerHTML = `<div class="closed"><b>This restaurant isn't
 
 PUB = await sb.rpc("slick_public_settings").then(r => (!r.error && r.data) ? { ...PUB, ...r.data, decimals: r.data.decimals ?? 2 } : PUB, () => PUB);
 let incl = true;   // set below: true when every tax is inclusive
-const [st, br, ca, pr, zo, mg, tx, tg, mo] = await Promise.all([
+const [st, scd, br, ca, pr, zo, mg, tx, tg, mo] = await Promise.all([
   sb.from("settings").select("data").eq("id","online_"+brandId).maybeSingle(),
+  sb.from("settings").select("data").eq("id","sales_channels").maybeSingle(),
   sb.from("branches").select("id,name,open_time,close_time,settings,active").eq("brand_id", brandId),
   sb.from("categories").select("id,name,sort,inactive_branch_ids,deleted,channel,product_ids,image_url").order("sort").order("name"),
   sb.from("products").select("id,deleted,name,price,description,category_id,active,channels,branch_ids,pricing_method,custom_prices,inactive_branch_ids,out_of_stock_branch_ids,modifiers,sort,image_url,tax_group,variants,nutrition,allergens").eq("brand_id", brandId).order("sort").order("name"),
@@ -662,6 +663,7 @@ const taxIn = () => +taxParts().tax.toFixed(2);
 const grand = () => +(sub() + fee() + taxParts().add).toFixed(2);
 const mopts = (mo.data||[]).filter(o => !o.deleted && o.active!==false);
 if(pr.error){ const r2 = await sb.from("products").select("id,deleted,name,price,description,category_id,active,channels,branch_ids,pricing_method,custom_prices,inactive_branch_ids,out_of_stock_branch_ids,modifiers,sort,image_url,tax_group,variants").eq("brand_id", brandId).order("sort").order("name"); if(!r2.error){ pr.data = r2.data; pr.error = null; } }   // nutrition & allergens not readable yet: show the menu without them
+{ const l = ((scd?.data?.data||{}).list||[]).filter(c => c.kind==="online" && (c.brandId||"")===(brandId||"")); if(l.length && !l.some(c => !c.deleted)){ $("#main").innerHTML = `<div class="closed"><b>Online ordering isn't available right now.</b>Please order by phone or visit us.</div>`; return; } }   // this brand's Web Ordering sales channel was deleted
 if([st,br,ca,pr,zo].some(r => r.error)){ $("#main").innerHTML = `<div class="closed"><b>We couldn't load the menu.</b>Please try again in a moment.</div>`; return; }
 const cfg = st.data?.data || {}, branches = br.data.filter(b => b.active !== false), allCats = ca.data.filter(c => !c.deleted), webCats = allCats.filter(c => c.channel==="online"), useCh = webCats.length > 0, cats = useCh ? webCats : allCats.filter(c => !c.channel), products = pr.data.filter(p => !p.deleted && p.active!==false), zones = zo.data.filter(z => !z.deleted && z.active !== false && branches.some(b => b.id === z.branch_id));
 const bcfg = id => (cfg.branches||{})[id] || {};
