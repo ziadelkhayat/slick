@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="396-1794077198">
+<meta name="slick-build" content="397-1794077399">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -6324,11 +6324,11 @@ document.addEventListener("click", async e => {
   if(e.target.closest("#pdAlgSave")){ const v = [...document.querySelectorAll("#pdAlg input:checked")].map(i => i.value); $("#ccScrim").classList.remove("show"); return pdPut({ allergens:v }, "Allergens saved"); }
   const ar = e.target.closest("[data-pdalgrm]"); if(ar){ e.preventDefault(); return pdPut({ allergens:(p.allergens||[]).filter(a => a!==ar.dataset.pdalgrm) }, "Allergen removed"); }
   if(e.target.closest("[data-modcopy]")){ e.preventDefault(); const src = S.products.filter(x => live(x) && x.id!==p.id && (x.modifiers||[]).length).sort((a,b) => a.name.localeCompare(b.name));
-    box.innerHTML = `<header><h2>Copy Modifiers</h2><button type="button" class="x" data-ccclose aria-label="Close">×</button></header><div class="body" style="display:block"><div class="f"><label for="mcSel">Copy from product</label>${src.length ? `<select id="mcSel" class="sel">${src.map(x => `<option value="${esc(x.id)}">${esc(x.name)} (${x.modifiers.length})</option>`).join("")}</select>` : `<p class="note">No other product has modifiers yet.</p>`}</div><p class="note">Its modifiers and their rules are added to this product. Click Save after to keep them.</p></div>
+    box.innerHTML = `<header><h2>Copy Modifiers</h2><button type="button" class="x" data-ccclose aria-label="Close">×</button></header><div class="body" style="display:block"><div class="f"><label for="mcSel">Copy from product</label>${src.length ? `<select id="mcSel" class="sel">${src.map(x => `<option value="${esc(x.id)}">${esc(x.name)} (${x.modifiers.length})</option>`).join("")}</select>` : `<p class="note">No other product has modifiers yet.</p>`}</div><p class="note">Its modifiers and their rules are added to this product.</p></div>
       <footer><span style="flex:1"></span><button type="button" class="btn" data-ccclose>Cancel</button>${src.length ? `<button type="button" class="btn pri" id="mcGo">Copy</button>` : ""}</footer>`;
     show(); return; }
   if(e.target.closest("#mcGo")){ const x = S.products.find(y => y.id===$("#mcSel")?.value); if(!x) return; const have = new Set(DET.mods.map(l => l.modifierId));
-    x.modifiers.forEach(l => { if(!have.has(l.modifierId)) DET.mods.push(JSON.parse(JSON.stringify(l))); }); $("#ccScrim").classList.remove("show"); modDirty(); render(); toast("Modifiers copied · click Save"); }
+    x.modifiers.forEach(l => { if(!have.has(l.modifierId)) DET.mods.push(JSON.parse(JSON.stringify(l))); }); $("#ccScrim").classList.remove("show"); DET.dirtyMods = true; saveModLinks(); }
 });
 document.addEventListener("input", e => { if(e.target.id!=="pdBrQ") return; const q = e.target.value.trim().toLowerCase(); document.querySelectorAll("#pdBrList .pdbr").forEach(l => { l.hidden = !!q && !l.dataset.n.includes(q); }); });
 // variants: each variant is a full product (own price, tax, SKU, recipe, modifiers); the main product keeps the links (variants = [{ name, productId }])
@@ -6703,25 +6703,48 @@ function optionDetail(o){
 }
 // the Modifiers section of a product
 function modLinks(p){
-  const rows = DET.mods, used = new Set(rows.map(l=>l.modifierId));
-  const avail = S.modifiers.filter(m => live(m) && !used.has(m.id)).sort(bySort);
-  const num = (ix, f, v, lbl) => `<input type="number" min="0" step="1" class="sel" data-modl="${ix}:${f}" value="${esc(v ?? "")}" style="width:70px;text-align:right" aria-label="${lbl}">`;
-  return `<div class="card tbl secbox"><div class="ttop"><b>Modifiers</b><span class="note" style="margin-left:8px" title="Minimum 1 makes a choice required · maximum 0 means no limit · Repeat lets the same option be picked more than once · free options aren't charged">Choices the customer makes</span><div class="sp"></div>
-      <button type="button" class="btn sm" data-modcopy>Copy Modifiers</button><select class="sel" id="modAdd" aria-label="Add a modifier"><option value="">Add Modifiers…</option>${avail.map(m=>`<option value="${esc(m.id)}">${esc(m.name)} (${modOptions(m.id).length})</option>`).join("")}</select>
-      <button class="btn pri sm" data-modsave ${DET.dirtyMods && !DET.saving ? "" : "disabled"}>${DET.saving?"Saving…":"Save"}</button></div>
-    ${rows.length ? `<table><thead><tr><th style="width:28px"></th><th>Name</th><th class="num">Options</th><th class="num">Minimum Options</th><th class="num">Maximum Options</th><th class="num">Free Options</th><th title="The same option can be picked more than once, e.g. 2 × Extra cheese">Repeat options</th><th></th></tr></thead><tbody id="modRows">${rows.map((l, ix) => `<tr data-mix="${ix}">
-      <td class="mgrip" title="Drag to change the order customers see">⋮⋮</td><td>${esc(modName(l.modifierId))}</td><td class="num">${modOptions(l.modifierId).length}</td>
-      <td class="num">${num(ix,"min",l.min,"Minimum options")}</td><td class="num">${num(ix,"max",l.max,"Maximum options")}</td><td class="num">${num(ix,"free",l.free,"Free options")}</td><td><label class="toggle"><input type="checkbox" data-modmulti="${ix}" ${l.multi?"checked":""} aria-label="Allow the same option more than once"><span class="trk"></span></label></td>
-      <td><button class="btn sm" data-modrm="${ix}" aria-label="Remove ${esc(modName(l.modifierId))}">×</button></td></tr>`).join("")}</tbody></table>`
+  const rows = DET.mods;
+  return `<div class="card tbl secbox"><div class="ttop"><b>Modifiers</b><div class="sp"></div>
+      <button type="button" class="btn" data-modcopy>Copy Modifiers</button><button type="button" class="btn" data-modpick>Add Modifiers</button></div>
+    ${rows.length ? `<table><thead><tr><th style="width:28px"></th><th>Name</th><th class="num">Options</th><th class="num">Minimum Options</th><th class="num">Maximum Options</th><th class="num">Free Options</th><th>Repeat Options</th><th></th></tr></thead><tbody id="modRows">${rows.map((l, ix) => `<tr data-mix="${ix}" class="clk" data-modedit="${ix}">
+      <td class="mgrip" title="Drag to change the order customers see">⋮⋮</td><td><b>${esc(modName(l.modifierId))}</b></td><td class="num">${modOptions(l.modifierId).length}</td>
+      <td class="num">${+l.min||0}</td><td class="num">${+l.max ? +l.max : "No limit"}</td><td class="num">${+l.free||0}</td><td>${l.multi ? "Yes" : "No"}</td>
+      <td class="num"><button class="btn sm" data-modrm="${ix}" aria-label="Remove ${esc(modName(l.modifierId))}">×</button></td></tr>`).join("")}</tbody></table>`
       : `<div class="empty">No modifiers linked.${S.modifiers.filter(live).length ? "" : " Create them first under Menu → Modifiers."}</div>`}</div>`;
 }
+// Add Modifiers (pick several) and one modifier's rules (minimum, maximum, free, repeat): dialogs that save right away
+document.addEventListener("click", async e => {
+  if(!DET.id || !DET.mods) return;
+  if(e.target.closest("[data-modpick]")){ e.preventDefault(); const used = new Set(DET.mods.map(l => l.modifierId)), avail = S.modifiers.filter(m => live(m) && !used.has(m.id)).sort(bySort), box = $("#ccBox"); box.className = "modal sm";
+    box.innerHTML = `<header><h2>Add Modifiers</h2><button type="button" class="x" data-ccclose aria-label="Close">×</button></header><div class="body" style="display:block">
+      <div class="f"><label>Modifiers</label>${avail.length ? `<div class="multi" id="mpList">${avail.map(m => `<label class="chk"><input type="checkbox" value="${esc(m.id)}"> ${esc(m.name)}${m.reference ? " (" + esc(m.reference) + ")" : ""}</label>`).join("")}</div>` : `<p class="note">Every modifier is already linked. Create more under Menu → Modifiers.</p>`}</div><div class="err" id="mpErr"></div></div>
+      <footer><span style="flex:1"></span><button type="button" class="btn keep" data-ccclose>Close</button>${avail.length ? `<button type="button" class="btn pri" id="mpSave">Save</button>` : ""}</footer>`;
+    $("#ccScrim").classList.add("show"); return; }
+  if(e.target.closest("#mpSave")){ const ids = [...document.querySelectorAll("#mpList input:checked")].map(i => i.value); if(!ids.length) return $("#mpErr").textContent = "Choose at least one modifier.";
+    ids.forEach(id => DET.mods.push({ modifierId:id, min:0, max:0, free:0 })); $("#ccScrim").classList.remove("show"); DET.dirtyMods = true; return saveModLinks(); }
+  const ed = e.target.closest("[data-modedit]"); if(ed && !e.target.closest("button,.mgrip")){ e.preventDefault(); const ix = +ed.dataset.modedit, l = DET.mods[ix], box = $("#ccBox"); box.className = "modal sm";
+    box.innerHTML = `<header><h2>${esc(modName(l.modifierId))}</h2><button type="button" class="x" data-ccclose aria-label="Close">×</button></header><div class="body" style="display:block">
+      <div class="f"><label for="ml_min">Minimum Options</label><input class="sel" id="ml_min" type="number" min="0" step="1" value="${esc(+l.min||0)}"></div>
+      <div class="f"><label for="ml_max">Maximum Options</label><input class="sel" id="ml_max" type="number" min="0" step="1" value="${esc(+l.max||0)}"><p class="note" style="margin:6px 0 0">0 = no limit</p></div>
+      <div class="f"><label for="ml_free">Free Options</label><input class="sel" id="ml_free" type="number" min="0" step="1" value="${esc(+l.free||0)}"></div>
+      ${(() => { const os = modOptions(l.modifierId), pick = (id, cur) => `<div class="multi" id="${id}">${os.map(o => `<label class="chk"><input type="checkbox" value="${esc(o.id)}" ${(cur||[]).includes(o.id) ? "checked" : ""}> ${esc(o.name)}</label>`).join("")}</div>`;
+        return `<div class="f"><label>Default Options</label>${pick("ml_def", l.defaults)}</div><div class="f"><label>Excluded Options</label>${pick("ml_exc", l.excluded)}</div>`; })()}
+      <div class="f"><label class="chk"><input type="checkbox" id="ml_uniq" ${l.multi ? "" : "checked"}> Unique Options <span class="note">(each option can be picked once)</span></label></div><div class="err" id="mlErr"></div></div>
+      <footer><button type="button" class="btn lnkdel" data-modrm="${ix}">Delete</button><span style="flex:1"></span><button type="button" class="btn keep" data-ccclose>Close</button><button type="button" class="btn pri" id="mlSave" data-ix="${ix}">Save</button></footer>`;
+    $("#ccScrim").classList.add("show"); return; }
+  const sv = e.target.closest("#mlSave"); if(sv){ const l = DET.mods[+sv.dataset.ix], mn = parseInt($("#ml_min").value)||0, mx = parseInt($("#ml_max").value)||0;
+    if(mx && mn > mx) return $("#mlErr").textContent = "Minimum can't be more than maximum.";
+    const vals = id => [...document.querySelectorAll("#" + id + " input:checked")].map(i => i.value), def = vals("ml_def"), exc = vals("ml_exc");
+    if(def.some(x => exc.includes(x))) return $("#mlErr").textContent = "An option can't be both default and excluded.";
+    Object.assign(l, { min:mn, max:mx, free:parseInt($("#ml_free").value)||0, multi:!$("#ml_uniq").checked, defaults:def, excluded:exc }); $("#ccScrim").classList.remove("show"); DET.dirtyMods = true; return saveModLinks(); }
+});
 // drag a product's modifiers into the order the cashier and customer see them
 document.addEventListener("pointerdown", e => {
   const g = e.target.closest(".mgrip"); if(!g || !DET.mods) return; e.preventDefault();
   const tb = g.closest("tbody"), row = g.closest("tr"); row.classList.add("mdrag");
   const move = ev => { const over = [...tb.children].find(r => { if(r===row) return false; const b = r.getBoundingClientRect(); return ev.clientY >= b.top && ev.clientY <= b.bottom; }); if(!over) return; const b = over.getBoundingClientRect(); tb.insertBefore(row, ev.clientY > b.top + b.height/2 ? over.nextSibling : over); };
   const up = () => { document.removeEventListener("pointermove", move); document.removeEventListener("pointerup", up); row.classList.toggle("mdrag", false);
-    const order = [...tb.children].map(r => +r.dataset.mix); if(order.some((v,i)=>v!==i)){ DET.mods = order.map(i => DET.mods[i]); modDirty(); render(); } };
+    const order = [...tb.children].map(r => +r.dataset.mix); if(order.some((v,i)=>v!==i)){ DET.mods = order.map(i => DET.mods[i]); DET.dirtyMods = true; saveModLinks(); } };
   document.addEventListener("pointermove", move); document.addEventListener("pointerup", up);
 });
 async function saveModLinks(){
@@ -6740,7 +6763,7 @@ document.addEventListener("click", e => {
   const cm = t.closest("[data-clearmod]"); if(cm){ state.modFilter = ""; return render(); }
   if(!DET.id || DET.key!=="products") return;
   if(t.closest("[data-modsave]")){ const pp = DET.key==="products" && S.products.find(x=>x.id===DET.id); if(pp && (pp.variants||[]).some(v=>v.productId)) return toast("This product has variants: set modifiers on each variant"); return saveModLinks(); }
-  const rm = t.closest("[data-modrm]"); if(rm){ DET.mods.splice(+rm.dataset.modrm, 1); DET.dirtyMods = true; return render(); }
+  const rm = t.closest("[data-modrm]"); if(rm){ DET.mods.splice(+rm.dataset.modrm, 1); DET.dirtyMods = true; $("#ccScrim")?.classList.remove("show"); return saveModLinks(); }
   const mv = t.closest("[data-modmv]"); if(mv){ const [ix, d] = mv.dataset.modmv.split(":").map(Number), j = ix + d; [DET.mods[ix], DET.mods[j]] = [DET.mods[j], DET.mods[ix]]; DET.dirtyMods = true; return render(); }
 });
 document.addEventListener("change", e => { const m = e.target.closest("[data-modmulti]"); if(m && DET.mods){ DET.mods[+m.dataset.modmulti].multi = m.checked; modDirty(); } });
