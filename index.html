@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="381-1794072856">
+<meta name="slick-build" content="382-1794074304">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1094,6 +1094,13 @@ table.sk-ghost-t{border-collapse:collapse;table-layout:fixed}table.sk-ghost-t td
 #crudBox .btn.lnkdel{border:0!important;background:none!important;color:#d0313c!important;padding-left:0;margin-right:auto;box-shadow:none!important}
 #crudBox.onecol footer .btn[data-cclose]{display:inline-flex!important}
 .btn.trashbtn{display:inline-grid!important;place-items:center;width:40px;height:40px;min-width:40px;padding:0!important;border-radius:10px;color:var(--ink,#1c1b22)}.btn.trashbtn.sm{width:34px;height:34px;min-width:34px}.btn.trashbtn svg{width:18px;height:18px}.btn.trashbtn:hover{color:#d0313c;border-color:#f0c2c6;background:#fff6f6}
+.bmdopt{border-bottom:1px solid var(--line,#ecebf2)}.bmdopt:last-child{border-bottom:0}.bmdopt .bmdrow{border-bottom:0;padding-bottom:4px}.bmdopt.off .bmdrow>span{color:var(--muted)}
+.bmdtp{display:flex;flex-wrap:wrap;gap:8px;padding:0 14px 12px 64px;background:#fff}.bmdtp label{display:flex;flex-direction:column;gap:3px;font-size:11.5px;color:var(--muted)}.bmdtp label.off{opacity:.45}.bmdtp .scprice input{width:64px}
+.bmdrawer{width:min(720px,100vw)!important}.bmdtw{overflow-x:auto}.bmdtbl{width:100%;border-collapse:collapse}.bmdtbl th{font-size:11.5px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);text-align:left;padding:8px 12px;background:#faf9fd;border-bottom:1px solid var(--line,#ecebf2);white-space:nowrap}
+.bmdtbl th.num,.bmdtbl td.num{text-align:right}.bmdtbl th.c,.bmdtbl td.c{text-align:center;width:70px}.bmdtbl td{padding:8px 12px;border-bottom:1px solid var(--line,#ecebf2);vertical-align:middle}.bmdtbl tr:last-child td{border-bottom:0}
+.bmdtbl tr.off b,.bmdtbl tr.off small{color:var(--muted)}.bmdon{display:flex;align-items:center;gap:10px;cursor:pointer}.bmdon b{display:block;font-weight:600;font-size:14px}.bmdon small{display:block;color:var(--muted);font-size:12px}
+.bmdin{width:84px!important;height:36px;text-align:right;padding:4px 10px!important;font-size:14px}.bmdin.cust{border-color:#b9a4f3;background:#f7f3ff;color:#4a2aa8;font-weight:600}.bmdin:disabled{opacity:.45}
+.toggle.sm .trk{transform:scale(.85)}
 </style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -4240,7 +4247,8 @@ const linkOpt = (p, o) => ((p.modifiers||[]).find(l => l.modifierId===o.modifier
 function bmOptState(p, o){
   const b = BM.branch, k = b + ":" + bmMenu()[2][0], s = linkOpt(p, o), d = { ...(BM.saving?.["mo:"+p.id+"|"+o.id]||{}), ...(BM.draft["mo:"+p.id+"|"+o.id]||{}) };
   const pr = (s.price||{})[k];
-  return { on: d.on ?? !(s.off||[]).includes(k), price: d.price ?? (pr!=null && pr!=="" ? String(pr) : ""), stock: d.stock ?? !(s.oos||[]).includes(b) };
+  const tprices = Object.fromEntries(bmTypes().map(([t]) => { const v = d["tp_"+t] ?? (s.price||{})[k + ":" + t]; return [t, v!=null && v!=="" ? String(v) : ""]; }));   // price per order type
+  return { on: d.on ?? !(s.off||[]).includes(k), price: d.price ?? (pr!=null && pr!=="" ? String(pr) : ""), stock: d.stock ?? !(s.oos||[]).includes(b), tprices };
 }
 function bmState(r){
   const b = BM.branch, d = { ...(BM.saving?.[r.id]||{}), ...(BM.draft[r.id]||{}) }, ia = r.inactiveBranchIds||[], inB = !r.branchIds?.length || r.branchIds.includes(b);
@@ -4318,15 +4326,17 @@ function bmDrawer(br, ch, types){
   const base = st.price!=="" ? +st.price : st.fallback;
   let h = `<div class="bmdscrim" data-bmclose></div><aside class="bmdrawer" role="dialog" aria-label="${esc(r.name)}"><header><span class="mmimg">${r.imageUrl ? `<img src="${esc(r.imageUrl)}" alt="">` : svgIco("image")}</span><div><b>${esc(r.name)}</b><small>${esc(ch[1])} · ${esc(br.name)}</small></div><button type="button" class="x" data-bmclose aria-label="Close">×</button></header><div class="bmdbody">`;
   h += `<section><h4>Stock at ${esc(br.name)}</h4><div class="bmdrow bmdstk"><span>${st.stock ? "In stock" : "Sold out"} <small class="note">· all channels</small></span>${stockPill(`data-bmstock="${esc(r.id)}"`, st.stock, !st.on)}</div></section>`;
-  h += `<section><h4>Order types & prices</h4>
-    ${types.map(([t, tl]) => `<div class="bmdrow${st.types[t] ? "" : " off"}"><label class="toggle" title="Sold as ${esc(tl)}"><input type="checkbox" data-bmtype="${esc(r.id)}|${t}" ${st.types[t]?"checked":""} aria-label="Sell as ${esc(tl)}"><span class="trk"></span></label><span>${esc(tl)}</span>
-      <span class="scprice${st.tprices[t]!=="" ? " cust" : ""}"><span class="cur">${esc(CUR())}</span><input inputmode="decimal" class="sel" data-bmtprice="${esc(r.id)}|${t}" value="${esc(st.tprices[t])}" placeholder="${esc(String(base))}" aria-label="${esc(tl)} price" ${st.types[t] ? "" : "disabled"}></span></div>`).join("")}</section>`;
+  h += `<section><h4>Order types & prices</h4><div class="bmdgrp"><table class="bmdtbl"><thead><tr><th>Order type</th><th class="num">Price</th></tr></thead><tbody>${types.map(([t, tl]) => `<tr class="${st.types[t] ? "" : "off"}"><td><label class="bmdon"><span class="toggle"><input type="checkbox" data-bmtype="${esc(r.id)}|${t}" ${st.types[t]?"checked":""} aria-label="Sell as ${esc(tl)}"><span class="trk"></span></span><span><b>${esc(tl)}</b><small>${st.types[t] ? "Sold" : "Not sold"}</small></span></label></td>
+      <td class="num"><input inputmode="decimal" class="sel bmdin${st.tprices[t]!=="" ? " cust" : ""}" data-bmtprice="${esc(r.id)}|${t}" value="${esc(st.tprices[t])}" placeholder="${esc(String(base))}" aria-label="${esc(tl)} price" ${st.types[t] ? "" : "disabled"}></td></tr>`).join("")}</tbody></table></div><p class="note" style="margin:6px 2px 0">Leave a price empty to use ${usd(base)}.</p></section>`;
+  // modifiers: one table per group; a column per order type the item is sold as (empty = the option's own price)
+  const sold = types.filter(([t]) => st.types[t]), cols = sold.length ? sold : types;
   h += `<section><h4>Modifiers</h4>${links.length ? links.map(l => { const os = modOptions(l.modifierId), nOn = os.filter(o => bmOptState(r, o).on).length;
-    return `<div class="bmdgrp"><div class="bmdgh"><b>${esc(modName(l.modifierId))}</b><span class="tag">${rule(l)}</span>${+l.free ? `<span class="tag">${l.free} free</span>` : ""}<span class="note">${nOn} of ${os.length} on</span></div>${os.map(o => { const s = bmOptState(r, o);
-      return `<div class="bmdrow${s.on ? "" : " off"}"><label class="toggle"><input type="checkbox" data-bmoon="${esc(r.id)}|${esc(o.id)}" ${s.on?"checked":""} aria-label="${esc(o.name)}"><span class="trk"></span></label><span>${esc(o.name)}</span>
-        <span class="scprice${s.price!=="" ? " cust" : ""}"><span class="cur">${esc(CUR())}</span><input inputmode="decimal" class="sel" data-bmoprice="${esc(r.id)}|${esc(o.id)}" value="${esc(s.price)}" placeholder="${esc(String(+o.price||0))}" aria-label="Price of ${esc(o.name)}"></span>
-        <label class="scstk${s.stock?" ok":" no"}${s.on?"":" dis"}"><input type="checkbox" data-bmostock="${esc(r.id)}|${esc(o.id)}" ${s.stock?"checked":""} ${s.on?"":"disabled"}><i></i>${s.stock ? "In stock" : "Sold out"}</label></div>`; }).join("")}</div>`; }).join("")
-    : `<p class="note">No modifiers on this item. Link them on the item's page under Menu → Items.</p>`}</section></div></aside>`;
+    return `<div class="bmdgrp"><div class="bmdgh"><b>${esc(modName(l.modifierId))}</b><span class="tag">${rule(l)}</span>${+l.free ? `<span class="tag">${l.free} free</span>` : ""}<span class="note">${nOn} of ${os.length} on</span></div>
+      <div class="bmdtw"><table class="bmdtbl"><thead><tr><th>Option</th>${cols.map(([, tl]) => `<th class="num">${esc(tl)}</th>`).join("")}<th class="c">Stock</th></tr></thead><tbody>${os.map(o => { const s = bmOptState(r, o), base = s.price!=="" ? +s.price : +o.price||0;
+        return `<tr class="${s.on ? "" : "off"}"><td><label class="bmdon"><span class="toggle"><input type="checkbox" data-bmoon="${esc(r.id)}|${esc(o.id)}" ${s.on?"checked":""} aria-label="${esc(o.name)}"><span class="trk"></span></span><span><b>${esc(o.name)}</b><small>${base ? usd(base) : "Free"}</small></span></label></td>
+          ${cols.map(([t, tl]) => `<td class="num"><input inputmode="decimal" class="sel bmdin${s.tprices[t]!=="" ? " cust" : ""}" data-bmotprice="${esc(r.id)}|${esc(o.id)}|${t}" value="${esc(s.tprices[t])}" placeholder="${esc(String(base))}" aria-label="${esc(o.name)} ${esc(tl)} price" ${s.on ? "" : "disabled"}></td>`).join("")}
+          <td class="c"><label class="toggle sm" title="${s.stock ? "In stock" : "Sold out"}"><input type="checkbox" data-bmostock="${esc(r.id)}|${esc(o.id)}" ${s.stock?"checked":""} ${s.on?"":"disabled"} aria-label="${esc(o.name)} in stock"><span class="trk"></span></label></td></tr>`; }).join("")}</tbody></table></div></div>`; }).join("")
+    : `<p class="note">No modifiers on this item. Link them on the item's page under Menu → Items.</p>`}<p class="note" style="margin:6px 2px 0">Leave a price empty to use the option's own price. Prices in ${esc(CUR())}.</p></section></div></aside>`;
   return h;
 }
 $("#view").addEventListener("click", e => { const o = e.target.closest("[data-bmitem]"); if(o && !e.target.closest("label,input,button,.sctypes")){ e.preventDefault(); BM.item = o.dataset.bmitem; return render(); }
@@ -4511,7 +4521,8 @@ async function saveBranchMenu(){
         const s = (l.opts ||= {})[oid] ||= {};
         mchs.forEach(c => { const k = b + ":" + c;
           if(d.on!=null){ const off = new Set(s.off||[]); d.on ? off.delete(k) : off.add(k); s.off = [...off]; }
-          if(d.price!=null){ s.price ||= {}; if(d.price==="") delete s.price[k]; else s.price[k] = +d.price; } });
+          if(d.price!=null){ s.price ||= {}; if(d.price==="") delete s.price[k]; else s.price[k] = +d.price; }
+          OTYPES.forEach(([t]) => { const v = d["tp_"+t]; if(v==null) return; s.price ||= {}; if(v==="") delete s.price[k + ":" + t]; else s.price[k + ":" + t] = +v; }); });
         if(d.stock!=null){ const os = new Set(s.oos||[]); d.stock ? os.delete(b) : os.add(b); s.oos = [...os]; }
         await put("products", pid, { modifiers:mods }); r.modifiers = mods; continue; }
       if(id.startsWith("cat:")){ const c = S.categories.find(x=>x.id===id.slice(4)); if(!c) continue;
@@ -4548,6 +4559,7 @@ $("#view").addEventListener("change", async e => {
   if(t.dataset.bmoprice){ bmSet("mo:"+t.dataset.bmoprice, "price", t.value.trim()); render(); return bmAuto(); }
   if(t.dataset.bmstock){ bmSet(t.dataset.bmstock, "stock", t.checked); render(); return bmAuto(); }
   if(t.dataset.bmprice!=null && t.dataset.bmprice){ bmSet(t.dataset.bmprice, "price", t.value.trim()); render(); return bmAuto(); }
+  if(t.dataset.bmotprice){ const [pid, oid, ty] = t.dataset.bmotprice.split("|"); bmSet("mo:"+pid+"|"+oid, "tp_"+ty, t.value.trim()); render(); return bmAuto(); }
   if(t.dataset.bmtprice){ const [id, ty] = t.dataset.bmtprice.split("|"); bmSet(id, "tp_"+ty, t.value.trim()); render(); return bmAuto(); }
 });
 $("#view").addEventListener("input", e => { if(e.target.id==="bmCatQ"){ const v = e.target.value; BM.cq = v; render(); const el = $("#bmCatQ"); if(el){ el.focus(); el.setSelectionRange(v.length, v.length); } } });
@@ -6627,7 +6639,7 @@ function ccModData(p){
   const options = S.modifier_options.filter(o => live(o) && o.active!==false && ids.has(o.modifierId) && !offAt(o.inactiveBranchIds, b, "callcenter") && !(($("#oType .on")?.dataset.ot) && typeOff(o.inactiveBranchIds, b, "callcenter", $("#oType .on").dataset.ot)))
     .sort((x,y)=>(x.sort??999)-(y.sort??999) || x.name.localeCompare(y.name))
     .filter(o => !(linkOpt(p, o).off||[]).includes(b + ":callcenter"))
-    .map(o => { const s = linkOpt(p, o), sp = (s.price||{})[b + ":callcenter"], c = sp!=null && sp!=="" ? sp : b && ((o.customPrices||{})[b + ":callcenter"] ?? (o.customPrices||{})[b]); return { id:o.id, modifierId:o.modifierId, name:o.name, price: c!=null && c!=="" ? +c : +o.price||0, oos: !!b && ((o.outOfStockBranchIds||[]).includes(b) || (s.oos||[]).includes(b)) }; });
+    .map(o => { const s = linkOpt(p, o), ot = $("#oType .on")?.dataset.ot || "pickup", pt = (s.price||{})[b + ":callcenter:" + ot], sp = pt!=null && pt!=="" ? pt : (s.price||{})[b + ":callcenter"], c = sp!=null && sp!=="" ? sp : b && ((o.customPrices||{})[b + ":callcenter"] ?? (o.customPrices||{})[b]); return { id:o.id, modifierId:o.modifierId, name:o.name, price: c!=null && c!=="" ? +c : +o.price||0, oos: !!b && ((o.outOfStockBranchIds||[]).includes(b) || (s.oos||[]).includes(b)) }; });
   return { links:(p.modifiers||[]).filter(l=>groups[l.modifierId] && options.some(o => o.modifierId===l.modifierId)), groups, options };   // a modifier with no active options is hidden
 }
 // edit a line already in the cart: its options, quantity and note
