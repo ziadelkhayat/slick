@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="426-1794084646">
+<meta name="slick-build" content="427-1794084848">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -4394,11 +4394,12 @@ function viewBranchMenu(){
   const others = list.filter(b => b.id!==br.id).map(b => [ch[0] + "|" + b.id, b.name]);
   // top bar: which channel, which branch, bulk actions
   h += `<div class="card scwrap"><div class="sctop">
-      <label class="scbr"><span>Branch</span><select class="sel" id="bmBranch" aria-label="Branch">${list.map(b=>`<option value="${esc(b.id)}" ${b.id===BM.branch?"selected":""}>${brandList().length>1?esc(brandName(b.brandId))+" · ":""}${esc(b.name)}</option>`).join("")}</select></label>
+
       <div class="sp"></div>${bmSaveBtns(nDraft)}
       <div class="ddwrap"><button type="button" class="btn" id="bmMore">Actions ▾</button><div class="ddmenu" id="bmMoreM" hidden>
         <button type="button" data-bmorder>Use this order on all channels</button><div class="ddsep"></div><button type="button" data-bmbulk="on">Turn everything on</button><button type="button" data-bmbulk="off">Turn everything off</button>
-        ${others.length ? `<div class="ddsep"></div>` : ""}${others.map(([v,t]) => `<button type="button" data-bmcopy="${esc(v)}">Copy from ${esc(t)}</button>`).join("")}</div></div></div>`;
+        </div></div>
+      ${others.length ? `<div class="ddwrap"><button type="button" class="btn" id="bmCopyB">Copy From ▾</button><div class="ddmenu" id="bmCopyM" hidden>${others.map(([v,t]) => `<button type="button" data-bmcopy="${esc(v)}">${esc(t)}</button>`).join("")}</div></div>` : ""}</div>`;
   const cats = chCats(ch[0]), cq = (BM.cq||"").trim().toLowerCase();
   if(!cats.some(c => c.id===BM.cat)) BM.cat = cats[0]?.id || "";
   const cur = cats.find(c => c.id===BM.cat), inCur = cur ? bmCatProds(cur).filter(p => all.includes(p)) : [];
@@ -4784,11 +4785,12 @@ $("#view").addEventListener("click", async e => {
   const ad = e.target.closest("[data-bmadd]"); if(ad){ e.preventDefault(); return bmAddItems(ad.dataset.bmadd); }
   const rm = e.target.closest("[data-bmrm]"); if(rm){ e.preventDefault(); const [cid, pid] = rm.dataset.bmrm.split("|"), c = S.categories.find(x => x.id===cid); if(!c) return;
     const ids = (c.productIds||[]).filter(x => bmRoot(x)!==pid); put("categories", cid, { productIds:ids }).then(() => { c.productIds = ids; toast("Removed from " + c.name); render(); }, err => { console.error(err); toast("Couldn't save."); }); return; }
-  if(e.target.closest("#bmMore")){ const m = $("#bmMoreM"); m.hidden = !m.hidden; return; }
+  if(e.target.closest("#bmMore")){ const m = $("#bmMoreM"); m.hidden = !m.hidden; if($("#bmCopyM")) $("#bmCopyM").hidden = true; return; }
+  if(e.target.closest("#bmCopyB")){ const m = $("#bmCopyM"); m.hidden = !m.hidden; $("#bmMoreM").hidden = true; return; }
   const bk = e.target.closest("[data-bmbulk]"); if(bk){ $("#bmMoreM").hidden = true; const on = bk.dataset.bmbulk==="on";
     if(!(await askYes(`Turn every ${BM.kind==="options" ? "modifier option" : "product"} ${on ? "on" : "off"} on the ${bmMenu()[1]} menu at ${branches.find(x=>x.id===BM.branch)?.name}?`))) return;
     bmItems().flatMap(r => [r, ...varKids(r)]).forEach(r => bmTypes().forEach(([ty]) => bmSet(r.id, "t_"+ty, on))); render(); return bmAuto(); }
-  const cp = e.target.closest("[data-bmcopy]"); if(cp){ $("#bmMoreM").hidden = true; return bmCopy(cp.dataset.bmcopy); }
+  const cp = e.target.closest("[data-bmcopy]"); if(cp){ $("#bmMoreM").hidden = true; if($("#bmCopyM")) $("#bmCopyM").hidden = true; return bmCopy(cp.dataset.bmcopy); }
   const a = e.target.closest("[data-bmall]"); if(a){ e.preventDefault(); const i = a.dataset.bmall.lastIndexOf(":"), g = a.dataset.bmall.slice(0,i), on = a.dataset.bmall.slice(i+1)==="1";
     bmItems().filter(r => (BM.kind==="options" ? modName(r.modifierId) : catName(r.categoryId))===g).forEach(r => bmSet(r.id, "on", on)); render(); return bmAuto(); }
 });
