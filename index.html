@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="387-1794075413">
+<meta name="slick-build" content="388-1794075548">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1110,6 +1110,7 @@ button.x[data-xi]{display:grid!important;place-items:center!important;padding:0!
 .avopts>div{display:flex!important;flex-direction:column!important;gap:0!important;border:1px solid var(--line,#ecebf2);border-radius:12px;overflow:hidden;background:#fff}
 .avopt{display:flex!important;align-items:center;gap:12px;padding:12px 14px!important;border-radius:0!important;background:#fff!important;color:var(--ink,#1c1b22)!important;border:0!important;border-bottom:1px solid var(--line,#ecebf2)!important;font-weight:400!important;font-size:14px!important}.avopt:last-child{border-bottom:0!important}
 .avopt b{font-weight:600}.avopt .note{margin-left:auto}.avplus{display:grid;place-items:center;width:26px;height:26px;border-radius:8px;background:#efe9fb;color:#5b2bc4;font-weight:700;flex:none}
+.scrow{display:inline-flex;align-items:center;gap:10px}.scrow .ico{width:18px;height:18px;color:#5b2bc4}
 </style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -4293,17 +4294,15 @@ function viewBranchMenu(){
   const list = branches.filter(b=>b.active!==false && brandFilter(b));
   if(!list.some(b=>b.id===BM.branch)) BM.branch = (state.branch!=="all" && list.some(b=>b.id===state.branch)) ? state.branch : list[0]?.id || "";
   bmMenusRefresh();
-  if(!BM_MENUS.length) return `<div class="phead"><h1>Sales Channels</h1><div class="sp"></div>${scopeBar(false)}</div><div class="card scwrap"><div class="sctop"><label class="scbr"><span>Branch</span><select class="sel" id="bmBranch" aria-label="Branch">${list.map(b=>`<option value="${esc(b.id)}" ${b.id===BM.branch?"selected":""}>${esc(b.name)}</option>`).join("")}</select></label></div>
-    <div class="mmempty big"><b>No sales channels at this branch</b><span>Create POS, Call Center, Web Ordering or an integration.</span><button type="button" class="btn pri" data-scnew>+ Sales Channel</button></div></div>`;
-  const br = branches.find(b=>b.id===BM.branch), ch = bmMenu(), types = bmTypes(), nDraft = Object.keys(BM.draft).length;
-  let h = `<div class="phead"><h1>Sales Channels</h1><div class="sp"></div>${scopeBar(false)}</div>`;
+  // first page: the list of this branch's sales channels; each opens on its own page
+  if(!BM.open1 || !BM_MENUS.some(m => m[0]===BM.menu)) return scListView(list);
+  const br = branches.find(b=>b.id===BM.branch), ch = bmMenu(), types = bmTypes(), nDraft = Object.keys(BM.draft).length, rec = ch[3] || {};
+  let h = `<div class="phead"><button type="button" class="btn" data-scback>← Back</button><h1 style="margin-left:10px">${esc(ch[1])}</h1><span class="tag" style="margin-left:8px">${esc((SC_KINDS.find(k => k[0]===rec.kind)||SC_KINDS[3])[1])}</span><span class="note" style="margin-left:8px">${esc(rec.kind==="online" ? brandName(rec.brandId) + " · all branches" : branches.find(b=>b.id===BM.branch)?.name || "")}</span><div class="sp"></div><button type="button" class="btn" data-scedit="${esc(ch[0])}">Settings</button></div>`;
   if(!br) return h + `<div class="card empty">No branches yet. Add them under Manage → Branches.</div>`;
   const q = BM.q.trim().toLowerCase(), all = bmItems();
   const others = list.filter(b => b.id!==br.id).map(b => [ch[0] + "|" + b.id, b.name]);
   // top bar: which channel, which branch, bulk actions
   h += `<div class="card scwrap"><div class="sctop">
-      <div class="scseg" role="tablist">${BM_MENUS.map(([k,t,,c]) => `<button type="button" role="tab" aria-selected="${ch[0]===k}" data-bmmenu="${esc(k)}" class="${ch[0]===k?"on":""}">${svgIco((SC_KINDS.find(x => x[0]===c.kind)||SC_KINDS[3])[2])}<span>${esc(t)}</span></button>`).join("")}</div>
-      <button type="button" class="btn sm" data-scedit="${esc(ch[0])}" title="Sales channel settings: name and order types">Settings</button><button type="button" class="btn sm pri" data-scnew>+ Sales Channel</button>
       <label class="scbr"><span>Branch</span><select class="sel" id="bmBranch" aria-label="Branch">${list.map(b=>`<option value="${esc(b.id)}" ${b.id===BM.branch?"selected":""}>${brandList().length>1?esc(brandName(b.brandId))+" · ":""}${esc(b.name)}</option>`).join("")}</select></label>
       <div class="sp"></div>${bmSaveBtns(nDraft)}
       <div class="ddwrap"><button type="button" class="btn" id="bmMore">Actions ▾</button><div class="ddmenu" id="bmMoreM" hidden>
@@ -4372,6 +4371,18 @@ function bmDrawer(br, ch, types){
 $("#view").addEventListener("click", e => { const o = e.target.closest("[data-bmitem]"); if(o && !e.target.closest("label,input,button,.sctypes")){ e.preventDefault(); BM.item = o.dataset.bmitem; return render(); }
   if(e.target.closest("[data-bmclose]")){ e.preventDefault(); BM.item = ""; render(); } });
 document.addEventListener("keydown", e => { if(e.key==="Escape" && BM.item && location.hash==="#branch-menu"){ BM.item = ""; render(); } });
+// Sales Channels list (Foodics style): one row per channel; tap to open its menu
+function scListView(list){
+  const typeName = t => (OTYPES.find(x => x[0]===t)||[t,t])[1];
+  let h = `<div class="phead"><h1>Sales Channels</h1><div class="sp"></div>${scopeBar(false)}<button type="button" class="btn pri" data-scnew>+ Create Sales Channel</button></div>
+    <div class="card tbl"><div class="ttop"><label class="scbr"><span>Branch</span><select class="sel" id="bmBranch" aria-label="Branch">${list.map(b=>`<option value="${esc(b.id)}" ${b.id===BM.branch?"selected":""}>${brandList().length>1?esc(brandName(b.brandId))+" · ":""}${esc(b.name)}</option>`).join("")}</select></label></div>`;
+  if(!BM_MENUS.length) return h + `<div class="mmempty big"><b>No sales channels at this branch</b><span>Create POS, Call Center, Web Ordering or an integration.</span><button type="button" class="btn pri" data-scnew>+ Create Sales Channel</button></div></div>`;
+  return h + `<table><thead><tr><th>Name</th><th>Type</th><th>Order Types</th><th>Applies To</th><th class="num">Categories</th><th class="num">Items</th></tr></thead><tbody>${BM_MENUS.map(([k, t, , c]) => { const cats = chCats(k), items = new Set(cats.flatMap(x => (x.productIds||[]).map(bmRoot)));
+      return `<tr class="clk" data-scopen="${esc(k)}"><td><span class="scrow">${svgIco((SC_KINDS.find(x => x[0]===c.kind)||SC_KINDS[3])[2])}<b>${esc(t)}</b></span></td><td>${esc((SC_KINDS.find(x => x[0]===c.kind)||SC_KINDS[3])[1])}</td>
+        <td>${(c.types||[]).map(x => `<span class="tag">${esc(typeName(x))}</span>`).join(" ")}</td><td>${c.kind==="online" ? esc(brandName(c.brandId)) + " <span class=\"note\">· all branches</span>" : esc(branches.find(b => b.id===BM.branch)?.name || "")}</td><td class="num">${cats.length}</td><td class="num">${items.size}</td></tr>`; }).join("")}</tbody></table></div>`;
+}
+document.addEventListener("click", e => { const o = e.target.closest("[data-scopen]"); if(o){ e.preventDefault(); BM.menu = o.dataset.scopen; BM.open1 = true; BM.draft = {}; BM.q = ""; BM.item = ""; render(); window.scrollTo(0,0); return; }
+  if(e.target.closest("[data-scback]")){ e.preventDefault(); BM.open1 = false; BM.item = ""; render(); } });
 // create or edit a sales channel of the chosen branch
 // the order types each kind of channel may sell: POS all, Call Center pickup & delivery, Web Ordering pickup, delivery & dine-in
 const SC_ALLOWED = { pos:["fast","dinein","pickup","delivery"], callcenter:["pickup","delivery"], online:["dinein","pickup","delivery"], integration:["pickup","delivery","dinein"] };
@@ -4404,9 +4415,9 @@ document.addEventListener("click", async e => {
     const rec = kind==="online" ? { id:"brand|" + scBrandOf(b) + "|online", kind, code:newCode, name, brandId:scBrandOf(b), types } : { id:b + "|" + newCode, kind, code:newCode, name, branchId:b, types };
     const ok = await scSaveList(b, list => code ? list.map(c => scCode(c)===code && !c.deleted ? { ...c, name, types } : c)
       : [...list.filter(c => !(c.deleted && c.kind===kind && kind!=="integration")), { ...rec, createdAt:new Date().toISOString() }]);   // a deleted POS / Call Center / Web Ordering is created again
-    if(ok){ $("#ccScrim").classList.remove("show"); BM.menu = newCode; BM.draft = {}; toast(code ? "Sales channel saved" : "Sales channel created"); render(); } return; }
+    if(ok){ $("#ccScrim").classList.remove("show"); BM.menu = newCode; BM.open1 = true; BM.draft = {}; toast(code ? "Sales channel saved" : "Sales channel created"); render(); } return; }
   const dl = e.target.closest("#scDel"); if(dl){ if(!(await askYes("Delete this sales channel? Its menu is no longer used."))) return; const code = dl.dataset.code;
-    if(await scSaveList(BM.branch, list => list.map(c => scCode(c)===code && !c.deleted ? { ...c, deleted:true } : c))){ $("#ccScrim").classList.remove("show"); BM.menu = ""; toast("Sales channel deleted"); render(); } }
+    if(await scSaveList(BM.branch, list => list.map(c => scCode(c)===code && !c.deleted ? { ...c, deleted:true } : c))){ $("#ccScrim").classList.remove("show"); BM.menu = ""; BM.open1 = false; toast("Sales channel deleted"); render(); } }
 });
 // the save bar shows up once something is changed
 const bmSaveBtns = n => "";   // every change saves on its own: no unsaved-changes bar
@@ -6021,6 +6032,7 @@ document.addEventListener("input", e => { if(e.target.id==="dsQ"){ DS.q = e.targ
 
 /* filters belong to the page: leaving a page puts its filters back to the defaults */
 function resetPageFilters(){
+  try{ BM.open1 = false; BM.item = ""; }catch(_){}
   Object.assign(state, { range:"day", dmode:"day", days:1, date:todayStr(), dateSet:false, compare:false, cmpDate:"", cmpDays:0, dashTab:"general", branch:"all", brand:"all", devOpen:null, brOpen:null }); if(!RPT.keep){ RPT.key = ""; RPT.brand = ""; } RPT.keep = false; DASH.key = "";
   if(ORD.keep) ORD.keep = false; else Object.assign(ORD, { tab:"all", range:"week", q:"", from:"", to:"", channel:"", type:"", pay:"", source:"", brand:"", branch:"", page:1, key:"", open:null });
   Object.assign(CUS, { filter:"all", q:"", sort:"last", page:1, key:"", open:null, det:null, more:false, fopen:false, flt:{} });
