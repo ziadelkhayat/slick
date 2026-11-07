@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="367-1794069906">
+<meta name="slick-build" content="368-1794070209">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1257,12 +1257,18 @@ const NAV = [
   {id:"customers",t:"Customers",i:"users"},
   {t:"Reports",i:"chart",tabs:1,kids:[["sales-reports","Sales Reports"],["inventory-reports","Inventory Reports"],["business-reports","Business Reports"],["analysis-reports","Analysis Reports"]]},
   {t:"Inventory",i:"box",tabs:1,more:"inventory-more",kids:[["inv-items","Items"],["suppliers","Suppliers"],["inventory-count","Inventory Count"],["purchase-orders","Purchasing"],["transfer-orders","Transfer Orders"],["transfers","Transfers"],["production","Production"],["inventory-more","More"],
-    ["quantity-adjustments","Quantity Adjustment"],["cost-adjustments","Cost Adjustment"],["inv-categories","Inventory Categories"],["warehouses","Warehouses"],["spot-check","Inventory Spot Check"],["count-sheets","Count Sheet"]]},
+    ["quantity-adjustments","Quantity Adjustment"],["cost-adjustments","Cost Adjustment"],["order-transactions","Order Transactions"],["inv-categories","Inventory Categories"],["warehouses","Warehouses"],["spot-check","Inventory Spot Check"],["count-sheets","Count Sheet"]]},
   {t:"Menu",i:"book",tabs:1,side:[["branch-menu","Sales Channels"]],kids:[["@Menu Builder"],["categories","Categories"],["products","Products"],["variants","Variants"],["modifiers","Modifiers"],["combos","Combos"],["@Menu Settings"],["allergens","Allergens"]]},
   {t:"Web Ordering",i:"globe",tabs:1,kids:[["online-ordering","Settings"],["delivery-zones","Delivery Zones"],["delivery-charges","Delivery Charges"]]},
-  {t:"Manage",i:"gear",tabs:1,more:"manage-more",kids:[["users","Users"],["roles","Roles"],["branches","Branches"],["devices","Devices"],["manage-more","More"],["brands","Brands"],["taxes","Taxes & Groups"],["currency","Currency"],["payment-methods","Payment Methods"],["order-sources","Order Sources"],["charges","Charges"],["kitchen-flows","Kitchen Flows"],["reasons","Reasons"],["tags","Tags"]]},
+  {t:"Manage",i:"gear",tabs:1,kids:[["users","Users"],["roles","Roles"],["brands","Brands"],["branches","Branches"],["devices","Devices"],["taxes","Taxes & Groups"],["currency","Currency"],["payment-methods","Payment Methods"],["order-sources","Order Sources"],["charges","Charges"],["kitchen-flows","Kitchen Flows"],["reasons","Reasons"],["tags","Tags"]]},
   {t:"Marketing",i:"tag",tabs:1,kids:[["discounts","Discounts"],["loyalty","Loyalty"],["gift-cards","Gift Cards"],["promotions","Promotions"],["coupons","Coupons"]]}
 ];
+// references (everywhere): small letters and dashes only
+const refClean = v => String(v||"").toLowerCase().replace(/[\s_]+/g, "-").replace(/[^a-z-]/g, "").replace(/-{2,}/g, "-");
+document.addEventListener("input", e => { const i = e.target; if(!i.matches?.("#cf_reference,#ds_reference,#dRef,#dsRef,[data-ref]")) return; const v = refClean(i.value); if(v!==i.value){ const p = Math.max(0, (i.selectionStart||0) - (i.value.length - v.length)); i.value = v; try{ i.setSelectionRange(p, p); }catch(_){} } });
+document.addEventListener("focusin", e => { const i = e.target; if(i.matches?.("#cf_reference,#ds_reference,#dRef,#dsRef,[data-ref]") && !i.placeholder) i.placeholder = "small letters and - only, e.g. main-kitchen"; });
+// screens reached from another screen: they show that screen's tab, sidebar entry and Back
+const ROUTE_PARENT = { "tax-groups":"taxes", "modifier-options":"modifiers", "tables":"branches" };
 const TITLES = { account:"Account settings", "inv-levels":"Inventory Levels", "inv-history":"Inventory History", purchasing:"Purchasing" };
 NAV.forEach(n => { if(n.id) TITLES[n.id]=n.t; [...(n.kids||[]), ...(n.side||[])].forEach(k => { if(!k[0].startsWith("@")) TITLES[k[0]] = k[1]; }); }); TITLES["online-ordering"] = "Web Ordering";
 const svgIco = k => `<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${I[k]||""}</svg>`;
@@ -1362,7 +1368,7 @@ new MutationObserver(() => { clearTimeout(decorate.t); decorate.t = setTimeout((
 
 
 function renderNav(route){
-  if(route==="tax-groups") route = "taxes"; if(route==="tables") route = "branches"; if(route==="modifier-options") route = "modifiers";
+  route = ROUTE_PARENT[route] || route;
   $("#nav").innerHTML = NAV.map((n,gi) => {
     if(!canOpen(n.id || n.kids.find(k=>!k[0].startsWith("@"))?.[0])) return "";
     if(n.id) return `<a href="#${n.id}" class="${route===n.id?"on":""}">${svgIco(n.i)}${n.t}</a>`;
@@ -2182,10 +2188,10 @@ function render(){
   else if(route==="inventory-more" || route==="manage-more") v.innerHTML = viewMore(route);
   else if(moduleRoute(route) !== null) v.innerHTML = moduleRoute(route);
   else v.innerHTML = `<h1>${esc(TITLES[route]||"Not found")}</h1><p class="subt">&nbsp;</p>` + placeholder("Coming next", "This screen is part of the plan and will be built in a later step.");
-  const troute = route==="modifier-options" ? "modifiers" : route, tg = NAV.find(n => n.tabs && n.kids.some(k=>k[0]===troute));   // Inventory: every screen is a tab at the top of the page
+  const troute = ROUTE_PARENT[route] || route, tg = NAV.find(n => n.tabs && n.kids.some(k=>k[0]===troute));   // Inventory: every screen is a tab at the top of the page
   if(tg){ const ks = tg.kids.filter(k=>!k[0].startsWith("@")), mi = tg.more ? ks.findIndex(k => k[0]===tg.more) : -1, inMore = mi >= 0 && ks.findIndex(k => k[0]===troute) >= mi;
     v.insertAdjacentHTML("afterbegin", `<nav class="ptabs" aria-label="${esc(tg.t)}">${(mi >= 0 ? ks.slice(0, mi+1) : ks).filter(k => canOpen(k[0])).map(k=>`<a href="#${k[0]}" class="${k[0]===troute || (k[0]===tg.more && inMore)?"on":""}">${svgIco(SUBI[k[0]]||"list")}${esc(k[1])}</a>`).join("")}</nav>`);
-    if(inMore && route!==tg.more) v.querySelector(".phead, h1")?.insertAdjacentHTML("beforebegin", `<a href="#${tg.more}" class="btn morebk" style="text-decoration:none;margin:0 0 10px">${svgIco("back")}${esc(tg.t)}</a>`); }
+    if(inMore && troute!==tg.more) v.querySelector(".phead, h1")?.insertAdjacentHTML("beforebegin", `<a href="#${tg.more}" class="btn morebk" style="text-decoration:none;margin:0 0 10px">${svgIco("back")}${esc(tg.t)}</a>`); }
   v.querySelectorAll(".chart").forEach(wireLine);
   if(route==="delivery-zones") setTimeout(initZonesOverview, 0);
   if(route!=="dashboard" && !(route==="discounts" && DS.open)) stickHead(v);
@@ -2566,7 +2572,7 @@ const NAV_PERM = { "dashboard":"bo_dashboard", "orders":"bo_orders", "call-cente
 // may the signed-in person do this back-office action? (the owner and admins always may)
 const mayDo = perm => { const p = myPerms(); return !p || p.includes(perm) || p.includes("bo_manage"); };
 function canOpen(route){
-  const p = myPerms(); if(!p) return true; if(route==="modifier-options") route = "modifiers"; if(route==="tax-groups") route = "taxes"; if(route==="tables") route = "branches";
+  const p = myPerms(); if(!p) return true; route = ROUTE_PARENT[route] || route;
   const n = NAV.find(x => x.id===route || (x.kids||[]).some(k=>k[0]===route) || (x.side||[]).some(k=>k[0]===route)); if(!n) return true;
   const need = NAV_PERM[n.id || n.t]; return !need || p.includes(need);
 }
@@ -2820,7 +2826,7 @@ const CRUD = {
     sort:(a,b)=>(a.reference||"").localeCompare(b.reference||"",undefined,{numeric:true}) || a.name.localeCompare(b.name),
     search:r=>r.name+" "+(r.reference||""),
     cols:[["Name",r=>`<b>${esc(r.name)}</b>`],["Reference",r=>`<span class="code">${esc(r.reference||"")}</span>`],["Address",r=>esc(r.address||"—")],["Created",r=>fmtDate(r.createdAt)]],
-    fields:[{k:"name",l:"Name",req:1},{k:"reference",l:"Reference",auto:()=>"W"+String(S.warehouses.length+1).padStart(2,"0")},{k:"address",l:"Address",full:1}],
+    fields:[{k:"name",l:"Name",req:1},{k:"reference",l:"Reference"},{k:"address",l:"Address",full:1}],
     unique:"name"
   },
   "order-sources": {
@@ -3368,7 +3374,7 @@ async function submitCrud(e){
     else if(f.t==="number") data[f.k] = el.value==="" ? null : +el.value;
     else if(f.t==="phone"){ const n = el.value.replace(/[^\d]/g, "").replace(/^0+/, ""); data[f.k] = n ? (CQ("#cf_"+f.k+"_cc")?.value || "+961") + " " + n : ""; }
     else if(f.t==="password") data[f.k] = el.value;
-    else data[f.k] = el.value.trim();
+    else data[f.k] = f.k==="reference" ? refClean(el.value) : el.value.trim();
     if(f.req && (data[f.k]===""||data[f.k]===null)){ CQ("#cErr").textContent = f.l + " is required."; el.focus(); return; }
     if(f.k==="factor" && !(data.factor > 0)){ CQ("#cErr").textContent = "The factor must be more than 0 (how many ingredient units are in one storage unit)."; el.focus(); return; }
   }
@@ -3886,7 +3892,7 @@ async function setOrderStatus(s){
 /* ---------- Devices: POS app (APK) setup from the dashboard ---------- */
 const DEV_TYPES = [["cashier","POS"],["kds","KDS"],["notifier","Notifier"],["display","Display"],["sub_cashier","Sub POS"]];
 const devType = t => (DEV_TYPES.find(x => x[0]===t) || [, t==="waiter" ? "Waiter" : (t || "—")])[1];
-const devRef = () => { let n = 0; S.devices.forEach(d => { const m = /^C(\d+)$/i.exec(d.reference||""); if(m) n = Math.max(n, +m[1]); }); return "C" + String(n+1).padStart(2,"0"); };
+const devRef = () => { const used = new Set(S.devices.map(d => d.reference)); const a = "abcdefghijklmnopqrstuvwxyz"; for(let n = 0; ; n++){ const r = "cashier-" + (n < 26 ? a[n] : a[Math.floor(n/26)-1] + a[n%26]); if(!used.has(r)) return r; } };
 const devStatus = d => d.activatedAt ? '<span class="tag on">Used</span>' : '<span class="tag off">Not used</span>';
 function viewDevice(d){
   const s = d.settings || {}, row = (k, v) => `<div><span>${k}</span>${v}</div>`, dt = t => t ? new Date(t).toLocaleString("en-GB",{day:"numeric",month:"long",hour:"2-digit",minute:"2-digit"}) : "—";
