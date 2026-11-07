@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="376-1794071606">
+<meta name="slick-build" content="377-1794072101">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1093,6 +1093,7 @@ table.sk-ghost-t{border-collapse:collapse;table-layout:fixed}table.sk-ghost-t td
 #crudBox.onecol{max-width:460px!important}#crudBox.onecol .body{display:block!important}#crudBox.onecol .body .f{margin-bottom:14px}
 #crudBox .btn.lnkdel{border:0!important;background:none!important;color:#d0313c!important;padding-left:0;margin-right:auto;box-shadow:none!important}
 #crudBox.onecol footer .btn[data-cclose]{display:inline-flex!important}
+.btn.trashbtn{display:inline-grid!important;place-items:center;width:40px;height:40px;min-width:40px;padding:0!important;border-radius:10px;color:var(--ink,#1c1b22)}.btn.trashbtn.sm{width:34px;height:34px;min-width:34px}.btn.trashbtn svg{width:18px;height:18px}.btn.trashbtn:hover{color:#d0313c;border-color:#f0c2c6;background:#fff6f6}
 </style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -2231,6 +2232,8 @@ function msPaint(m){
   f.innerHTML = (on.length ? `<span class="msel-cs">${on.map(i => `<span class="msel-c">${esc(msText(i.closest("label")))}<button type="button" data-msx="${esc(i.value)}" aria-label="Remove">×</button></span>`).join("")}</span>` : `<span class="msel-ph">Choose...</span>`) + MS_CARET;
 }
 function msEnhance(){
+  // remove buttons ("×" on a row) show a bin icon, like Foodics
+  document.querySelectorAll("button.btn:not([data-trash])").forEach(b => { if(b.textContent.trim()!=="×" || b.closest("header")) return; b.dataset.trash = "1"; b.classList.add("trashbtn"); if(!b.getAttribute("aria-label")) b.setAttribute("aria-label", "Delete"); b.innerHTML = ccIco("trash"); });
   document.querySelectorAll(".multi:not([data-ms])").forEach(m => { m.dataset.ms = "1"; const labels = [...m.querySelectorAll(":scope > label")]; if(!labels.length || labels.some(l => !l.querySelector("input[type=checkbox],input[type=radio]"))) return;
     m.classList.add("msel"); const f = document.createElement("div"); f.className = "msel-f"; f.tabIndex = 0; f.setAttribute("role", "button");
     const p = document.createElement("div"); p.className = "msel-p"; p.hidden = true; p.innerHTML = `<input class="msel-q" placeholder="Type something to start searching" autocomplete="off">`;
@@ -2741,7 +2744,7 @@ const CRUD = {
       ["Price",r=>{ const k = varKids(r); return k.length ? "From " + usd(Math.min(...k.map(x=>+x.price||0))) : r.pricingMethod==="open"?"Open":usd(r.price); }],
       ["Tax Group",r=>varKids(r).length ? '<span class="note">Per variant</span>' : esc(tgName(r.taxGroup))]],
     // the same fields and order as Foodics; nutritional values and allergens are set from their sections on the item's page
-    fields:[{k:"imageUrl",l:"Image",t:"image",full:1},{k:"name",l:"Name",req:1},
+    fields:[{k:"imageUrl",l:"Image",t:"image",full:1},{k:"name",l:"Name",req:1},{k:"nameAr",l:"Name Localized"},
       {k:"categoryId",l:"Category",t:"select",req:1,opts:()=>S.categories.filter(c=>live(c)&&!c.channel).sort(bySort).map(c=>[c.id,c.name])},brandField,
       {k:"sku",l:"SKU",auto:()=>nextSku("products")},
       {k:"pricingMethod",l:"Pricing Method",t:"select",opts:()=>[["fixed","Fixed Price"],["open","Open Price"]],def:"fixed",hideIf:r=>varKids(r).length},
@@ -2749,7 +2752,7 @@ const CRUD = {
       {k:"costingMethod",l:"Costing Method",t:"select",opts:()=>[["ingredients","From Ingredients"],["fixed","Fixed Cost"]],def:"ingredients",hideIf:r=>varKids(r).length},{k:"cost",l:"Fixed Cost (USD)",t:"number",req:1,when:{k:"costingMethod",is:"fixed"},hideIf:r=>varKids(r).length},
       {k:"sellingMethod",l:"Selling Method",t:"select",opts:()=>[["unit","Unit"],["weight","Weight"]],def:"unit"},
       {k:"barcode",l:"Barcode"},{k:"prepTime",l:"Preparation Time (Minute)",t:"number"},{k:"calories",l:"Calories",t:"number"},
-      {k:"description",l:"Description",t:"textarea",full:1},{k:"nameAr",l:"Name Localized"},{k:"descriptionAr",l:"Description Localized",t:"textarea",full:1}]
+      {k:"description",l:"Description",t:"textarea",full:1},{k:"descriptionAr",l:"Description Localized",t:"textarea",full:1}]
   },
   modifiers: {
     col:"modifiers", title:"Modifiers", one:"Modifier", oneCol:1,   // a modifier group opens its edit dialog; its options are under Modifier Options
