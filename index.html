@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="510-1794165016">
+<meta name="slick-build" content="512-1794165510">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1187,6 +1187,7 @@ html.rr #view,html.rr #view *,html.rr #view *::before,html.rr #view *::after{ani
 html.mlock{overflow:hidden!important}html.mlock body{position:fixed!important;left:0;right:0;width:100%;overflow:hidden!important}.scrim,.bmdrawer,.bmdbody,.modal .body,.modal>*{overscroll-behavior:contain}
 .qty button.qdel{color:#d92d20}.qty button.qdel svg{display:block;margin:auto}
 .brtbl{display:flex;align-items:center;gap:14px;flex-wrap:wrap;border:1px solid var(--line);border-radius:14px;padding:12px 14px;background:var(--surface,#fff)}.brtbl-l{display:flex;flex-wrap:wrap;gap:8px;flex:1;min-width:0}.brsec{display:inline-flex;align-items:center;gap:8px;padding:7px 12px;border-radius:999px;background:var(--accent-soft,#f0ecff)}.brsec b{font-weight:600;font-size:13.5px}.brsec small{color:var(--muted,#6f6b85);font-size:12.5px}.brtbl .btn{margin-left:auto}
+.rlgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:16px;margin-top:8px}.rlcard{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--surface,#fff);border:1px solid var(--line);border-radius:14px;padding:16px 12px 16px 20px;box-shadow:0 1px 3px rgba(20,16,40,.05);cursor:pointer;transition:border-color .15s}.rlcard:hover{border-color:var(--accent,#6a4cf5)}.rlcard b{display:block;font-size:15px}.rlcard small{color:var(--muted,#6f6b85);font-size:12.5px}.rlcard .ddwrap{position:relative}.rldots{width:36px;height:36px;border:0;background:none;border-radius:10px;font-size:20px;font-weight:700;cursor:pointer;color:var(--ink,#1b1830)}.rldots:hover{background:var(--sunk,#f3f2f8)}.rlcard .ddmenu{position:absolute;right:0;top:calc(100% + 4px);z-index:20;min-width:190px;background:#fff;padding:6px;display:flex;flex-direction:column}.rlcard .ddmenu[hidden]{display:none}.rlcard .ddmenu button{text-align:left;border:0;background:none;padding:10px 12px;border-radius:8px;font:inherit;cursor:pointer}.rlcard .ddmenu button:hover{background:var(--sunk,#f3f2f8)}
 </style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -4898,8 +4899,34 @@ $("#view").addEventListener("click", async e => {
 });
 
 /* ---------- wiring ---------- */
+/* Roles (like Foodics): one card per role; the card opens the role, ⋮ adds it to or removes it from users */
+function viewRoles(){
+  const rs = (S.roles||[]).filter(live).sort((a,b) => a.name.localeCompare(b.name)), q = (state.q?.roles || "").trim().toLowerCase(), shown = rs.filter(r => !q || r.name.toLowerCase().includes(q));
+  return `<div class="phead"><h1>Roles</h1><div class="sp"></div><button type="button" class="btn pri" data-rlnew>Create Role</button></div>
+    <div class="rlgrid">${shown.map(r => { const n = S.users.filter(u => live(u) && !isAdminRow(u) && userRoleIds(u).includes(r.id)).length;
+      return `<div class="rlcard" data-rlopen="${esc(r.id)}" role="button" tabindex="0"><div><b>${esc(r.name)}</b><small>${n} user${n===1?"":"s"}</small></div>
+        <div class="ddwrap"><button type="button" class="rldots" data-rlmenu="${esc(r.id)}" aria-label="Role actions">⋮</button><div class="ddmenu" hidden><button type="button" data-rlusers="${esc(r.id)}|add">Add To Users</button><button type="button" data-rlusers="${esc(r.id)}|del">Remove From Users</button></div></div></div>`; }).join("") || `<div class="empty">No roles yet.</div>`}</div>`; }
+document.addEventListener("click", async e => {
+  if(e.target.closest("[data-rlnew]")){ e.preventDefault(); return openCrud("roles"); }
+  const mb = e.target.closest("[data-rlmenu]"); if(mb){ e.stopPropagation(); const m = mb.nextElementSibling, open = m.hidden; document.querySelectorAll(".rlcard .ddmenu").forEach(x => x.hidden = true); m.hidden = !open; return; }
+  const ub = e.target.closest("[data-rlusers]"); if(ub){ e.stopPropagation(); ub.closest(".ddmenu").hidden = true; const [rid, mode] = ub.dataset.rlusers.split("|"), r = S.roles.find(x => x.id===rid); if(!r) return;
+    const us = S.users.filter(u => live(u) && !isAdminRow(u) && (mode==="add" ? !userRoleIds(u).includes(rid) : userRoleIds(u).includes(rid))).sort((a,b) => String(a.name).localeCompare(String(b.name)));
+    const box = $("#ccBox"); box.className = "modal sm";
+    box.innerHTML = `<header><h2>${mode==="add" ? "Add To Users" : "Remove From Users"}</h2><button type="button" class="x" data-ccclose aria-label="Close">×</button></header>
+      <div class="body" style="display:block"><div class="f"><label>Users</label>${us.length ? `<div class="multi" id="rlUserList">${us.map(u => `<label class="chk"><input type="checkbox" value="${esc(u.id)}"> ${esc(u.name)}</label>`).join("")}</div>` : `<p class="note">${mode==="add" ? "Every user already has this role." : "No users have this role."}</p>`}</div></div>
+      <footer><span style="flex:1"></span><button type="button" class="btn" data-ccclose>Cancel</button>${us.length ? `<button type="button" class="btn pri" id="rlUserSave" data-rl="${esc(rid)}|${mode}">Save</button>` : ""}</footer>`;
+    $("#ccScrim").classList.add("show"); return; }
+  const sv = e.target.closest("#rlUserSave"); if(sv){ const [rid, mode] = sv.dataset.rl.split("|"), ids = [...document.querySelectorAll("#rlUserList input:checked")].map(i => i.value); if(!ids.length) return toast("Choose at least one user");
+    sv.disabled = true;
+    try{ for(const id of ids){ const u = S.users.find(x => x.id===id); if(!u) continue; const cur = userRoleIds(u), next = mode==="add" ? [...new Set([...cur, rid])] : cur.filter(x => x!==rid);
+        await put("users", id, { roleIds: next, roleId: next[0] || null }); }
+      $("#ccScrim").classList.remove("show"); render(); }catch(err){ console.error(err); sv.disabled = false; toast("Couldn't save. You may not have edit access."); } return; }
+  const oc = e.target.closest("[data-rlopen]"); if(oc && !e.target.closest(".ddwrap")) return openCrud("roles", oc.dataset.rlopen);
+  if(!e.target.closest(".rlcard .ddwrap")) document.querySelectorAll(".rlcard .ddmenu").forEach(x => x.hidden = true);
+});
 function moduleRoute(route){
   if(route==="roles") setTimeout(purgeDeletedRoles, 1500);
+  if(route==="roles") return viewRoles();
   if(CRUD[route]) return crudView(route);
   if(route==="call-center") return viewCallCenter();
   if(route==="devices") return viewDevices();
