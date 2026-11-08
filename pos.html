@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="498-1794163062">
+<meta name="slick-build" content="510-1794165016">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -567,6 +567,21 @@ html body *:not(.receipt):not(.receipt *):not(.rpaper *):not(svg):not(svg *){fon
 
 button.x[data-close]{transition:background-color .15s,transform .2s ease}button.x[data-close]:hover{transform:rotate(90deg)}
 .qty button.qdel{color:#d92d20}.qty button.qdel svg{display:block;margin:auto}
+/* action buttons: square touch tiles */
+.abar{justify-content:flex-end!important}
+.abtn{flex:0 0 auto!important;width:84px!important;min-width:0!important;max-width:none!important;height:84px!important;aspect-ratio:auto;padding:6px 4px!important;gap:6px!important;border-radius:14px!important}
+.abtn svg{width:24px!important;height:24px!important}
+.abtn span{white-space:normal;text-align:center;line-height:1.15}
+/* selection boxes: same look as the other fields, big touch targets; short lists become tap buttons */
+#modal select:not([multiple]),.f select:not([multiple]){-webkit-appearance:none;appearance:none;width:100%;background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236a4cf5' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") no-repeat right 14px center/18px;border:1px solid var(--line);border-radius:12px;padding:0 44px 0 14px;min-height:52px;color:var(--ink);font-weight:500;cursor:pointer}
+#modal select:focus,.f select:focus{outline:none;border-color:var(--acc);box-shadow:0 0 0 3px var(--accs)}
+.segsel{display:flex;gap:4px;background:var(--sunk,#f7f6fb);border:1px solid var(--line);border-radius:14px;padding:4px;min-height:52px}
+.segsel button{flex:1 1 0;min-width:0;border:0;background:none;border-radius:10px;font-weight:600;font-size:15px;color:var(--ink2);min-height:44px;padding:0 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:background .15s,color .15s}
+.segsel button.on{background:#fff;color:var(--acc);box-shadow:0 1px 4px rgba(20,16,40,.1)}
+.segsel.dis{opacity:.5;pointer-events:none}
+.dvsh{display:flex;align-items:center;gap:10px;margin:2px 0 12px;font-size:15px}.dvsh svg{width:22px;height:22px;fill:none;stroke:var(--acc);stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}.dvsh .mut{margin-left:auto;font-size:13px}
+/* item photos fill the top of the tile edge to edge */
+#grid .prod.hasimg>img,#grid .ctile2.hasimg>img{width:calc(100% + 24px)!important;margin:-12px -12px 4px!important;height:108px!important;object-fit:cover!important;background:#f6f4ef!important}
 </style>
 <script>
 /* ---------- naming: menu "products" are called Items; inventory "items" are called Products ----------
@@ -715,7 +730,7 @@ function openTags(){
   const oSel = new Set(posTags || []), cSel = new Set((posCustTags || []).map(x => x.toLowerCase()));
   const box = (title, l, sel, attr) => `<div class="tgsec"><b>${title}</b>${l.length ? `<div class="tgl">${l.map(t => `<label class="tgc"><input type="checkbox" ${attr}="${esc(attr==="data-tco" ? t.id : t.name)}" ${(attr==="data-tco" ? sel.has(t.id) : sel.has(t.name.toLowerCase())) ? "checked" : ""}><span>${esc(t.name)}</span></label>`).join("")}</div>` : `<div class="mut" style="font-size:13px">No tags available.</div>`}</div>`;
   modal("tags", `<div class="mh"><h2>Tags</h2><button class="x" data-close aria-label="Close">×</button></div><div class="mb">${box("Order Tags", ot, oSel, "data-tco")}
-    ${ph.length >= 6 ? box("Customer Tags", ct, cSel, "data-tcc") : `<div class="mut" style="font-size:13px;margin-top:12px">Add the customer's phone to tag the customer.</div>`}</div>
+    ${ph.length >= 6 ? box("Customer Tags", ct, cSel, "data-tcc") : ""}</div>
     <div class="mf"><button class="btn pri" id="tagsApply">Apply</button></div>`);
   $("#tagsApply").onclick = () => { posTags = [...document.querySelectorAll("[data-tco]:checked")].map(i => i.dataset.tco); if(document.querySelector("[data-tcc]")) posCustTags = [...document.querySelectorAll("[data-tcc]:checked")].map(i => i.dataset.tcc); closeModal(); renderCart(); toast("Tags set"); };
 }
@@ -1384,7 +1399,7 @@ function openDiscount(){
   const sets = dsHere();
   modal("disc", `<div class="mh"><h2>Discount</h2><button class="x" data-close aria-label="Close">×</button></div><div class="mb">
     ${sets.length ? `<div class="dsets">${sets.map(d => { const c = d.open ? { amt:1 } : dsCalc(d); return `<button type="button" class="dset${DSET?.id===d.id?" on":""}" data-dset="${esc(d.id)}" ${c.amt > 0 || !cart.length ? "" : "disabled"}><b>${esc(d.name)}</b><span>${d.open ? (d.type==="fixed" ? "Open amount" : "Open %") : (d.type==="fixed" ? usd(+d.amount||0) : (+d.amount||0) + "%") + (c.amt > 0 ? " · −" + usd(c.amt) : !cart.length ? " · applies to the items you add" : " · " + esc(c.why))}</span></button>`; }).join("")}</div>
-    <div id="dsOpen" hidden style="margin-top:14px"><div class="mut" id="dsOpenL" style="font-size:13px;margin-bottom:6px"></div><div style="display:flex;gap:8px"><input id="dsOpenV" inputmode="decimal" style="flex:1"><button type="button" class="btn pri" id="dsOpenGo">Apply</button></div><div class="mut" id="dsOpenN" style="font-size:13px;color:var(--bad,#e5484d);min-height:16px;margin-top:4px"></div></div>` : `<div class="mut" style="text-align:center;padding:26px 10px;font-size:14px">No discounts available for this order.</div>`}</div>`);
+    <div id="dsOpen" hidden style="margin-top:14px"><div class="mut" id="dsOpenL" style="font-size:13px;margin-bottom:6px"></div><div style="display:flex;gap:8px"><input id="dsOpenV" inputmode="decimal" style="flex:1"><button type="button" class="btn pri" id="dsOpenGo">Apply</button></div><div class="mut" id="dsOpenN" style="font-size:13px;color:var(--bad,#e5484d);min-height:16px;margin-top:4px"></div></div>` : `<div class="mut" style="text-align:center;padding:26px 10px;font-size:14px">No discounts available</div>`}</div>`);
 }
 $("#modal").addEventListener("click", async e => {
   const d = e.target.closest("[data-disc]"); if(d){ if(+d.dataset.disc > 0 && appSet().discNeedsCustomer && !custGiven(cust.name, cust.phone)){ toast("Add the customer first: discounts need customer info"); return; } if(+d.dataset.disc > 0 && appSet().discountApproval && !(await approve("pos_discount", "Approve discount"))) return; DSET = null; discount = +d.dataset.disc; discType = "pct"; closeModal(); renderCart(); return; }
@@ -2307,20 +2322,7 @@ const RP_CSS = `.rc{text-align:center;display:flex;flex-direction:column;gap:2px
 function printReport(){
   const f = document.createElement("iframe"); f.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0"; document.body.appendChild(f);
   const doc = f.contentWindow.document;
-  doc.open(); doc.write(`<!doctype html><html><head><meta charset="utf-8"><title>Report</title><style>@page{size:80mm auto;margin:2mm 3mm}html,body{margin:0}body{width:72mm;font:12px/1.35 Arial,Helvetica,sans-serif;color:#000}${RP_CSS}/* action buttons: square touch tiles */
-.abar{justify-content:flex-end!important}
-.abtn{flex:1 1 0!important;min-width:72px!important;max-width:96px!important;height:auto!important;aspect-ratio:1/1;padding:6px 4px!important;gap:6px!important;border-radius:14px!important}
-.abtn svg{width:24px!important;height:24px!important}
-.abtn span{white-space:normal;text-align:center;line-height:1.15}
-/* selection boxes: same look as the other fields, big touch targets; short lists become tap buttons */
-#modal select:not([multiple]),.f select:not([multiple]){-webkit-appearance:none;appearance:none;width:100%;background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236a4cf5' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") no-repeat right 14px center/18px;border:1px solid var(--line);border-radius:12px;padding:0 44px 0 14px;min-height:52px;color:var(--ink);font-weight:500;cursor:pointer}
-#modal select:focus,.f select:focus{outline:none;border-color:var(--acc);box-shadow:0 0 0 3px var(--accs)}
-.segsel{display:flex;gap:4px;background:var(--sunk,#f7f6fb);border:1px solid var(--line);border-radius:14px;padding:4px;min-height:52px}
-.segsel button{flex:1 1 0;min-width:0;border:0;background:none;border-radius:10px;font-weight:600;font-size:15px;color:var(--ink2);min-height:44px;padding:0 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:background .15s,color .15s}
-.segsel button.on{background:#fff;color:var(--acc);box-shadow:0 1px 4px rgba(20,16,40,.1)}
-.segsel.dis{opacity:.5;pointer-events:none}
-.dvsh{display:flex;align-items:center;gap:10px;margin:2px 0 12px;font-size:15px}.dvsh svg{width:22px;height:22px;fill:none;stroke:var(--acc);stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}.dvsh .mut{margin-left:auto;font-size:13px}
-</style></head><body>${reportHtml()}</body></html>`); doc.close();
+  doc.open(); doc.write(`<!doctype html><html><head><meta charset="utf-8"><title>Report</title><style>@page{size:80mm auto;margin:2mm 3mm}html,body{margin:0}body{width:72mm;font:12px/1.35 Arial,Helvetica,sans-serif;color:#000}${RP_CSS}</style></head><body>${reportHtml()}</body></html>`); doc.close();
   setTimeout(() => { try{ f.contentWindow.focus(); f.contentWindow.print(); }catch(e){ toast("Couldn't print on this device"); } setTimeout(() => f.remove(), 2000); }, 250);
 }
 function reportText(){

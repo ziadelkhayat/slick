@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="506-1794164339">
+<meta name="slick-build" content="510-1794165016">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1186,6 +1186,7 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}@media(max-width:820px)
 html.rr #view,html.rr #view *,html.rr #view *::before,html.rr #view *::after{animation:none!important}
 html.mlock{overflow:hidden!important}html.mlock body{position:fixed!important;left:0;right:0;width:100%;overflow:hidden!important}.scrim,.bmdrawer,.bmdbody,.modal .body,.modal>*{overscroll-behavior:contain}
 .qty button.qdel{color:#d92d20}.qty button.qdel svg{display:block;margin:auto}
+.brtbl{display:flex;align-items:center;gap:14px;flex-wrap:wrap;border:1px solid var(--line);border-radius:14px;padding:12px 14px;background:var(--surface,#fff)}.brtbl-l{display:flex;flex-wrap:wrap;gap:8px;flex:1;min-width:0}.brsec{display:inline-flex;align-items:center;gap:8px;padding:7px 12px;border-radius:999px;background:var(--accent-soft,#f0ecff)}.brsec b{font-weight:600;font-size:13.5px}.brsec small{color:var(--muted,#6f6b85);font-size:12.5px}.brtbl .btn{margin-left:auto}
 </style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -3991,7 +3992,7 @@ function ccTagsDlg(){
   const cur = ccTags || (ccEdit ? tagsOf("order", ccEdit) : []);
   const cu = window.__ccCust, ct = tagList("customer"), cn = new Set((cu?.tags||[]).map(x => String(x).toLowerCase()));
   if(!tagList("order").length && !ct.length) return ccOverlay(`<h3 style="margin:0 0 12px">Tags</h3><p class="note" style="text-align:center;padding:20px 0">No tags available for this order.</p><div class="slk-ask-f" style="margin-top:12px"><button type="button" class="slk-ask-no" data-dlgx>Cancel</button></div>`, () => {});
-  const custBox = cu?.id ? `${ct.length ? `<h3 style="margin:16px 0 8px">Customer Tags</h3>` : ""}${ct.length ? `<div class="multi" id="ccCTg">${ct.map(t => `<label class="chk"><input type="checkbox" value="${esc(t.name)}" ${cn.has(t.name.toLowerCase())?"checked":""}> ${esc(t.name)}</label>`).join("")}</div>` : ""}` : `<p class="note" style="margin-top:12px">Enter the customer's phone to tag the customer.</p>`;
+  const custBox = cu?.id ? `${ct.length ? `<h3 style="margin:16px 0 8px">Customer Tags</h3>` : ""}${ct.length ? `<div class="multi" id="ccCTg">${ct.map(t => `<label class="chk"><input type="checkbox" value="${esc(t.name)}" ${cn.has(t.name.toLowerCase())?"checked":""}> ${esc(t.name)}</label>`).join("")}</div>` : ""}` : "";
   ccOverlay(`<h3 style="margin:0 0 12px">Order Tags</h3>${tagPick("order", null, "ccTg", cur)}${custBox}<div class="slk-ask-f" style="margin-top:12px"><button type="button" class="slk-ask-no" data-dlgx>Cancel</button><button type="button" class="slk-ask-yes" id="ccTgGo">Apply</button></div>`, (w, close) => {
     w.querySelector("#ccTgGo").onclick = async () => { ccTags = tagPickGet("ccTg") || [];
       const ce = w.querySelector("#ccCTg"); if(ce && cu?.id){ const names = ct.map(t => t.name.toLowerCase()), next = [...(cu.tags||[]).filter(x => !names.includes(String(x).toLowerCase())), ...[...ce.querySelectorAll("input:checked")].map(i => i.value)];
@@ -7581,8 +7582,7 @@ function printDoc(){
   const d = DOC.edit, K = DOC_KINDS[DOC.open.route]; if(!d) return;
   const w = window.open("", "_blank", "width=820,height=900"); if(!w) return toast("Allow pop-ups to print");
   const rows = d.items.map(l => { const it = itemOf(l.itemId) || {}; return `<tr><td>${esc(it.name||"")}</td><td>${esc(it.sku||"")}</td><td>${esc(it.storageUnit||"")}</td>${K.kind==="sheet"?"<td></td>":K.kind==="cost"?`<td>${l.cost??""}</td>`:`<td>${l.qty??""}</td>`}</tr>`; }).join("");
-  w.document.write(`<!doctype html><title>${esc(d.ref||K.title)}</title><style>body{font:13px/1.4 Inter,Arial,sans-serif;padding:24px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ccc;padding:6px 8px;text-align:left}th{background:#f3f2f7}.brtbl{display:flex;align-items:center;gap:14px;flex-wrap:wrap;border:1px solid var(--line);border-radius:14px;padding:12px 14px;background:var(--surface,#fff)}.brtbl-l{display:flex;flex-wrap:wrap;gap:8px;flex:1;min-width:0}.brsec{display:inline-flex;align-items:center;gap:8px;padding:7px 12px;border-radius:999px;background:var(--accent-soft,#f0ecff)}.brsec b{font-weight:600;font-size:13.5px}.brsec small{color:var(--muted,#6f6b85);font-size:12.5px}.brtbl .btn{margin-left:auto}
-</style>
+  w.document.write(`<!doctype html><title>${esc(d.ref||K.title)}</title><style>body{font:13px/1.4 Inter,Arial,sans-serif;padding:24px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ccc;padding:6px 8px;text-align:left}th{background:#f3f2f7}</style>
     <h2>${esc(K.title)} ${esc(d.ref||"")}${d.name?" — "+esc(d.name):""}</h2><p>${K.loc?"Branch: "+esc(locName(d.locationId))+" · ":""}${d.reason?"Reason: "+esc(d.reason)+" · ":""}${d.businessDate?"Date: "+esc(d.businessDate):""}</p>
     <table><thead><tr><th>Name</th><th>SKU</th><th>Unit</th><th>${K.kind==="sheet"||K.kind==="spot"?"Counted":K.kind==="cost"?"New cost":"Quantity"}</th></tr></thead><tbody>${rows}</tbody></table><script>window.onload=()=>window.print()<\/script>`);
   w.document.close();
