@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="555-1794181047">
+<meta name="slick-build" content="556-1794181628">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1280,14 +1280,16 @@ async function sendOrder(after){   // after: "bill" or "kitchen" = print that ti
   if(!orderInfoOk()) return;
   const t = totals(), now = new Date().toISOString(), eo = editOrder();
   try{
-    if(eo){ await db.collection("orders").doc(eo.id).update({ ...orderFields(t), updatedAt: now }); await posTagsCommit(eo.id); toast(`Saved · order ${ordRef(eo)}`); unloadOrder(); }
+    if(eo){ const nu = unsentItems(); await db.collection("orders").doc(eo.id).update({ ...orderFields(t), updatedAt: now }); await posTagsCommit(eo.id); toast(`Saved · order ${ordRef(eo)}`);
+      if(after==="kitchen" && nu.length) printKitchen({ ...eo, ...orderFields(t), items: nu }, "Kitchen ticket " + ordRef(eo));   // only the newly added items go to the kitchen
+      unloadOrder(); }
     else { const id = "pos_" + Date.now().toString(36) + Math.random().toString(36).slice(2,5), no = nextOrderNo();
       const doc = { no, channel:"pos", source:"", brandId:branch?.brandId || null, branchId:device.branchId, deviceId:device.id, shiftId:openShift()?.id || null, agent:cashier?.name || device.name, ...orderFields(t), status:"active", createdAt:now, updatedAt:now };
       await db.collection("orders").doc(id).set(doc);
       await posTagsCommit(id); toast(`Order #${no} sent to the kitchen · open it from Orders to add items or bill it`); resetOrder();
       const o = { id, ...doc };
-      if(after==="bill") printText(receiptText({ ...o, payment:null }), "Bill " + ordRef(o));
-      if(after==="kitchen") printText(kitchenText(o), "Kitchen ticket " + ordRef(o)); }
+      if(after==="bill") printReceipt({ ...o, payment:null }, "Bill " + ordRef(o));
+      if(after==="kitchen") printKitchen(o, "Kitchen ticket " + ordRef(o)); }
   }catch(err){ console.error(err); toast("Couldn't send the order. Try again."); }
 }
 // "−" on an item already sent to the kitchen voids it (manager PIN); on a closed order the item can be returned
@@ -1392,7 +1394,7 @@ $("#acts").addEventListener("click", e => { const b = e.target.closest("[data-ac
   if(a==="voidall"){ OV.open = eo.id; window.__keep = null; return openVR("void", "all"); }
   if(a==="retitems"){ OV.open = eo.id; return openVR("return", "items"); }
   if(a==="retall"){ OV.open = eo.id; return openVR("return", "all"); }
-  if(a==="reprint"){ if(!can("pos_reprint")) return deny("reprinting receipts"); return printText(receiptText(eo), "Receipt " + ordRef(eo)); }
+  if(a==="reprint"){ if(!can("pos_reprint")) return deny("reprinting receipts"); return printReceipt(eo, "Receipt " + ordRef(eo)); }
 });
 $("#otype").addEventListener("click", async e => { const b = e.target.closest("[data-t]"); if(!b) return;
   if(b.dataset.t==="pd") return toast("Pickup and delivery orders are taken from the Pickup & delivery screen");
@@ -1563,8 +1565,8 @@ $("#modal").addEventListener("click", async e => {
   const vm = e.target.closest("[data-vrmode]"); if(vm){ const [k,m] = vm.dataset.vrmode.split(":"); return openVR(k, m); }
   const stb = e.target.closest("[data-st]"); if(stb){ document.querySelectorAll("[data-st]").forEach(b => b.classList.toggle("on", b===stb)); return; }
   const vg = e.target.closest("#vrGo"); if(vg) return doVR(vg.dataset.kind, vg.dataset.mode);
-  if(e.target.closest("[data-kticket]")){ const o = S.orders.find(x=>x.id===OV.open); if(o) printText(kitchenText(o), "Kitchen ticket " + ordRef(o)); return; }
-  if(e.target.closest("[data-reprint]")){ if(!can("pos_reprint")) return deny("reprinting receipts"); const o = S.orders.find(x=>x.id===OV.open); if(o) printText(receiptText(o), "Receipt " + ordRef(o)); return; }
+  if(e.target.closest("[data-kticket]")){ const o = S.orders.find(x=>x.id===OV.open); if(o) printKitchen(o, "Kitchen ticket " + ordRef(o)); return; }
+  if(e.target.closest("[data-reprint]")){ if(!can("pos_reprint")) return deny("reprinting receipts"); const o = S.orders.find(x=>x.id===OV.open); if(o) printReceipt(o, "Receipt " + ordRef(o)); return; }
   if(e.target.closest("#doOpenShift")) return doOpenShift();
   const de = e.target.closest("#doDayEnd"); if(de) return doDayEnd(de.dataset.day);
   if(e.target.closest("#goDayEnd")){ closeModal(); return openDayEnd(); }
@@ -2052,11 +2054,11 @@ $("#abar").addEventListener("click", e => { const b = e.target.closest("[data-a]
   if(a==="more"){ e.stopPropagation(); return $("#morePop").classList.toggle("hide"); }
   hideMore();
   if(a==="print"){ if((!eo || isOpenOrd(eo)) && !openShift()) return toast("Open a shift before printing"); if(!eo){ if(!cart.length) return toast("Add items first"); if(otype==="fast") return toast("A fast sale is paid right away: tap Pay"); if(!can("pos_print_check")) return deny("printing the invoice of an active order"); return sendOrder("bill"); }   // a new cart becomes an active order, then its invoice prints if(!isOpenOrd(eo) && !can("pos_reprint")) return deny("reprinting receipts"); if(isOpenOrd(eo) && !can("pos_print_check")) return deny("printing the invoice of an active order");
-    return printText(receiptText(isOpenOrd(eo) ? { ...eo, ...orderFields(totals()), payment:null } : eo), (isOpenOrd(eo) ? "Bill " : "Receipt ") + ordRef(eo)); }
+    return printReceipt(isOpenOrd(eo) ? { ...eo, ...orderFields(totals()), payment:null } : eo, (isOpenOrd(eo) ? "Bill " : "Receipt ") + ordRef(eo)); }
   if(a==="kitchen"){ if(!eo) return !cart.length ? toast("Add items first") : otype==="fast" ? toast("A fast sale is paid right away: tap Pay") : sendOrder("kitchen");
-    if(isOpenOrd(eo) && cart.some(i => i.qty > (i.saved||0))) return sendOrder();
+    if(isOpenOrd(eo) && cart.some(i => i.qty > (i.saved||0))) return sendOrder("kitchen");
     if(isOpenOrd(eo) && !can("pos_reprint_kitchen")) return deny("reprinting the kitchen receipt");
-    return printText(kitchenText(eo), "Kitchen ticket " + ordRef(eo)); }
+    return printKitchen(eo, "Kitchen ticket " + ordRef(eo)); }
   if(a==="void"){
     if(eo && isOpenOrd(eo)){ OV.open = eo.id; window.__keep = null; return openVR("void", "all"); }
     if(eo){ if(eo.status!=="closed" || fullyBack(eo)) return toast("Nothing left to return on this order"); OV.open = eo.id; return openVR("return", "all"); }   // a closed order is returned, not voided
@@ -2399,6 +2401,42 @@ const RP_CSS = `.rc{text-align:center;display:flex;flex-direction:column;gap:2px
 .rl{display:flex;align-items:baseline;gap:8px;padding:3px 0;font-variant-numeric:tabular-nums}.rl span{flex:1;min-width:0}.rl i{font-style:normal;min-width:28px;text-align:right}.rl b{min-width:86px;text-align:right;font-weight:600}.rmut span{color:#888}
 .rend{text-align:center;margin-top:12px;padding-top:8px;border-top:1px dashed #999;font-size:11px}`;
 // receipts and kitchen tickets go straight to the printer (no preview on screen)
+// Direct printing on the printers set in Devices → Printers (network printers, raw ESC/POS on port 9100, through the Slick POS app)
+const RAWP = () => window.Capacitor?.Plugins?.RawPrinter;
+function escpos(text, copies){
+  const enc = new TextEncoder(), body = enc.encode(String(text).replace(/\r/g, "") + "\n\n\n\n"), one = [0x1b, 0x40, ...body, 0x1d, 0x56, 0x42, 0x00];   // init, text, feed, cut
+  const all = []; for(let k = 0; k < Math.max(1, +copies || 1); k++) all.push(...one);
+  let s = ""; for(let i = 0; i < all.length; i += 0x8000) s += String.fromCharCode.apply(null, all.slice(i, i + 0x8000)); return btoa(s);
+}
+// a kitchen printer can be limited to some categories: it gets only those items
+function prHasItem(pr, it){ if(!(pr.cats||[]).length) return true; const p = S.products.find(x => x.id===it.productId), root = p && (S.products.find(x => (x.variants||[]).some(v => v.productId===p.id)) || p);
+  return pr.cats.some(cid => { const c = S.categories.find(x => x.id===cid); if(!c || !root) return false; return c.channel ? (c.productIds||[]).some(id => id===root.id || id===p.id) : root.categoryId===c.id; }); }
+// kind: "receipt" or "kitchen"; make(printer) gives the text for that printer (null = nothing to print on it)
+async function printJob(kind, make, title){
+  const list = prList().filter(x => x.on!==false && (x.kind===kind || (kind==="receipt" && x.kind==="order")));
+  const what = kind==="kitchen" ? "kitchen" : "receipt";
+  if(!list.length) return errBox(`No ${what} printer is set up on this tablet. Add one in Devices → Printers.`);
+  const plug = RAWP();
+  if(!plug){ const t = make(list[0]); if(t) printText(t, title); return; }   // in a browser (not the Slick POS app): the system print window
+  const jobs = list.map(pr => [pr, make(pr)]).filter(([, t]) => t);
+  if(!jobs.length) return;
+  const bad = [];
+  for(const [pr, t] of jobs){
+    if(pr.conn!=="network") { bad.push(`${pr.name}: ${pr.conn==="bluetooth" ? "Bluetooth" : pr.conn==="usb" ? "USB" : "built-in"} printers aren't supported yet (use a network printer)`); continue; }
+    if(!String(pr.ip||"").trim()) { bad.push(`${pr.name}: no IP address set`); continue; }
+    const [host, port] = String(pr.ip).trim().split(":");
+    try{ await plug.print({ host, port: +port || 9100, data: escpos(t, pr.copies), timeout: 5000 }); }
+    catch(e){ bad.push(`${pr.name} (${pr.ip}) is unreachable. Check it's on and on the same network.`); }
+  }
+  if(bad.length) errBox(bad.join("\n")); else toast(jobs.length > 1 ? `Sent to ${jobs.length} printers` : "Printed");
+}
+function errBox(msg){
+  const el = document.createElement("div"); el.className = "apv";
+  el.innerHTML = `<div class="apvbox" style="text-align:left;max-width:440px"><p style="font-size:17px;font-weight:700;margin:2px 0 8px;color:#b42318">Printing failed</p><p style="font-size:15px;margin:0 0 18px;line-height:1.45;white-space:pre-line">${esc(msg)}</p><div style="display:flex;justify-content:flex-end"><button class="btn pri" data-ok>OK</button></div></div>`;
+  el.addEventListener("click", e => { if(e.target.closest("[data-ok]") || e.target===el) el.remove(); }); document.body.appendChild(el);
+}
+const printReceipt = (o, title) => printJob("receipt", () => receiptText(o), title);
+const printKitchen = (o, title) => printJob("kitchen", pr => { const items = (o.items||[]).filter(i => prHasItem(pr, i)); return items.length ? kitchenText({ ...o, items }) : null; }, title);
 function printText(text, title){
   const f = document.createElement("iframe"); f.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0"; document.body.appendChild(f);
   const doc = f.contentWindow.document;
