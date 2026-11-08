@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="514-1794170279">
+<meta name="slick-build" content="515-1794170592">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -599,6 +599,11 @@ button.x{position:relative!important}button.x::before{content:"";position:absolu
 #whereBox.moved{display:none!important}.lbwhere{margin-top:8px}.lbwhere .card{margin:0}.lbwhere .scanbtn{width:100%}
 .lbopen{margin-top:8px}.lbopen .chip{display:inline-flex!important}
 .custl{display:flex;flex-direction:column}.custr{display:flex;align-items:center;gap:14px;padding:14px 0;border-bottom:1px solid var(--line)}.custr img,.custi{width:64px;height:64px;border-radius:14px;object-fit:cover;flex:none;border:1px solid var(--line);display:grid;place-items:center;color:var(--mut)}.custn{flex:1;min-width:0}.custn b{display:block;font-size:15px;font-weight:600}.custn .mlist{margin:2px 0 0;padding:0;list-style:none;color:var(--ink2);font-size:12.5px}.custp{display:block;font-weight:800;font-size:14.5px;margin-top:4px}.custadd{display:block;margin:18px auto 6px;border:0;background:none;color:var(--acc);font:700 16px/1.2 inherit;font-family:inherit;text-decoration:underline dashed;text-underline-offset:6px;cursor:pointer}
+/* bottom sheets: no ✕ (tap outside or swipe down closes them); back arrows stay */
+#sheet .lshead .x[data-close]{display:none!important}
+#sheet .lshead{grid-template-columns:auto 1fr!important}
+#sheet .grab{width:46px;height:5px;margin:8px auto 10px;cursor:grab;touch-action:none}
+#sheet.drag{transition:none!important}
 </style>
 </head>
 <body class="lay-grid">
@@ -1727,5 +1732,19 @@ if(PREVIEW){ addEventListener("message", e => { if(e.origin !== location.origin 
   if(document.readyState === "loading") document.addEventListener("DOMContentLoaded", fit); else fit();
   addEventListener("orientationchange", () => setTimeout(fit, 300)); })();</script>
 <script>setTimeout(() => document.documentElement.classList.add("ready"), 1500);</script>
+<script>/* swipe a bottom sheet down to close it (from the handle or the header, or anywhere when it is scrolled to the top) */
+(function(){ const sc = document.getElementById("scrim"), sh = document.getElementById("sheet"); if(!sc || !sh) return;
+  let y0 = null, dy = 0, t0 = 0;
+  const atTop = () => (sc.scrollTop || 0) <= 0 && (sh.scrollTop || 0) <= 0;
+  sh.addEventListener("touchstart", e => { if(e.touches.length !== 1) return; const onHead = e.target.closest(".grab, .lshead"); if(!onHead && !atTop()) return;
+    if(e.target.closest("input, textarea, select, .lq, .mapbox, .leaflet-container")) return; y0 = e.touches[0].clientY; dy = 0; t0 = Date.now(); }, { passive:true });
+  sh.addEventListener("touchmove", e => { if(y0 == null) return; dy = e.touches[0].clientY - y0; if(dy <= 0){ sh.style.transform = ""; return; }
+    sh.classList.add("drag"); sh.style.transform = `translateY(${dy}px)`; if(e.cancelable) e.preventDefault(); }, { passive:false });
+  const end = () => { if(y0 == null) return; const fast = dy > 40 && Date.now() - t0 < 250; sh.classList.remove("drag");
+    if(dy > 110 || fast){ sh.style.transition = "transform .2s ease"; sh.style.transform = "translateY(100%)"; setTimeout(() => { sc.classList.remove("show"); sh.style.transform = ""; sh.style.transition = ""; }, 190); }
+    else { sh.style.transition = "transform .2s ease"; sh.style.transform = ""; setTimeout(() => sh.style.transition = "", 210); }
+    y0 = null; dy = 0; };
+  sh.addEventListener("touchend", end); sh.addEventListener("touchcancel", end);
+})();</script>
 </body>
 </html>
