@@ -35,6 +35,9 @@
   .smp .og label:has(input:checked)::after{content:"✓";position:absolute;top:6px;right:8px;width:20px;height:20px;border-radius:50%;background:var(--acc,#5b2bc4);color:#fff;font-size:12px;display:flex;align-items:center;justify-content:center}
   .smp .og label .p{margin-left:0;font-weight:500;font-size:13px}.smp .og label .oos{margin-left:0}
   .smp .og label.qrow .qs{margin-left:0;margin-top:2px}.smp .og label.qrow .qs button{width:34px;height:34px}
+  .smp .og{grid-template-columns:repeat(4,minmax(0,1fr))!important}@media(max-width:560px){.smp .og{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
+  .smp .og label{height:108px;min-height:0!important;box-sizing:border-box;overflow:hidden;justify-content:flex-start!important}.smp .og label>*{flex:none}.smp .og label .p{margin-top:0}.smp .og label.qrow .qs{margin-top:auto!important}
+  .smp .og label{display:flex;align-items:center!important;justify-content:center!important;text-align:center}.smp .og label.qrow .qs{margin-top:6px!important;justify-content:center}.smp .og label .nm{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
   .smp.narrow{width:min(420px,100%)}.smp.narrow .smnp button{height:50px}
   .smp textarea{width:100%;box-sizing:border-box;border:1px solid #ddd8ea;border-radius:10px;padding:9px 10px;font:inherit;font-size:14px;resize:vertical}
   .smp footer button{border:0;border-radius:10px;background:#5b2bc4;color:#fff;font:inherit;font-weight:600;padding:12px 18px;min-height:48px;cursor:pointer}.smp footer button.smc{background:#fff;color:#1c1b22;border:1px solid #e5e3ec}`;
