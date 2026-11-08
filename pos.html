@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="548-1794179755">
+<meta name="slick-build" content="549-1794179903">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -671,7 +671,7 @@ window.SLICK_OFFLINE = true;</script>
 <script src="supabase.js"></script>
 <script>if(!window.supabase) document.write('<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"><\/script>');</script>
 <script src="wokdb.js?v=36"></script>
-<script src="modpick.js?v=18"></script>
+<script src="modpick.js?v=19"></script>
 </head>
 <body>
 <div id="boot" class="center"><div class="panel"><div class="logo">S</div><h1>Slick POS</h1><p>Connecting…</p></div></div>
@@ -1274,8 +1274,8 @@ async function sendOrder(after){   // after: "bill" or "kitchen" = print that ti
       await db.collection("orders").doc(id).set(doc);
       await posTagsCommit(id); toast(`Order #${no} sent to the kitchen · open it from Orders to add items or bill it`); resetOrder();
       const o = { id, ...doc };
-      if(after==="bill") modal("receipt", `<div class="mh"><h2>Bill ${esc(ordRef(o))}</h2><button class="x" data-close aria-label="Close">×</button></div><div class="mb"><div class="receipt">${esc(receiptText({ ...o, payment:null }))}</div></div><div class="mf"><button class="btn pri" data-close>Done</button></div>`);
-      if(after==="kitchen") modal("receipt", `<div class="mh"><h2>Kitchen ticket ${esc(ordRef(o))}</h2><button class="x" data-close aria-label="Close">×</button></div><div class="mb"><div class="receipt">${esc(kitchenText(o))}</div></div><div class="mf"><button class="btn pri" data-close>Done</button></div>`); }
+      if(after==="bill") printText(receiptText({ ...o, payment:null }), "Bill " + ordRef(o));
+      if(after==="kitchen") printText(kitchenText(o), "Kitchen ticket " + ordRef(o)); }
   }catch(err){ console.error(err); toast("Couldn't send the order. Try again."); }
 }
 // "−" on an item already sent to the kitchen voids it (manager PIN); on a closed order the item can be returned
@@ -1334,7 +1334,9 @@ $("#grid").addEventListener("click", e => { const b = e.target.closest("[data-ad
 // long press a cart item: its note and discount
 const LP = { t:0, done:false, x:0, y:0 };
 $("#lines").addEventListener("pointerdown", e => { const ed = !e.target.closest("button, input, a") && e.target.closest("[data-edit]"); if(!ed) return; LP.done = false; LP.x = e.clientX; LP.y = e.clientY; clearTimeout(LP.t);
-  LP.t = setTimeout(() => { LP.done = true; const eo = editOrder(); if(eo && !isOpenOrd(eo)) return; const i = cart[+ed.dataset.edit]; if(!i) return; if(i.saved) return toast("This item was sent to the kitchen: void it from the Void button"); try{ navigator.vibrate?.(15); }catch(_){} editLine(+ed.dataset.edit, "extras"); }, 500); });
+  LP.t = setTimeout(() => { LP.done = true; const eo = editOrder(); if(eo && !isOpenOrd(eo)) return; const i = cart[+ed.dataset.edit]; if(!i) return; try{ navigator.vibrate?.(15); }catch(_){}
+    if(eo){ if(!can("pos_item_discount")) return deny("item discounts"); return editLine(+ed.dataset.edit, "disc"); }   // an active order: the item discount only
+    editLine(+ed.dataset.edit, "extras"); }, 500); });
 $("#lines").addEventListener("pointermove", e => { if(Math.abs(e.clientX - LP.x) + Math.abs(e.clientY - LP.y) > 10) clearTimeout(LP.t); });
 ["pointerup","pointercancel","pointerleave"].forEach(ev => $("#lines").addEventListener(ev, () => clearTimeout(LP.t)));
 $("#lines").addEventListener("contextmenu", e => { if(e.target.closest("[data-edit]")) e.preventDefault(); });
@@ -1377,7 +1379,7 @@ $("#acts").addEventListener("click", e => { const b = e.target.closest("[data-ac
   if(a==="voidall"){ OV.open = eo.id; window.__keep = null; return openVR("void", "all"); }
   if(a==="retitems"){ OV.open = eo.id; return openVR("return", "items"); }
   if(a==="retall"){ OV.open = eo.id; return openVR("return", "all"); }
-  if(a==="reprint"){ if(!can("pos_reprint")) return deny("reprinting receipts"); return modal("receipt", `<div class="mh"><h2>Receipt ${esc(ordRef(eo))}</h2><button class="x" data-close aria-label="Close">×</button></div><div class="mb"><div class="receipt">${esc(receiptText(eo))}</div></div><div class="mf"><button class="btn pri" data-close>Done</button></div>`); }
+  if(a==="reprint"){ if(!can("pos_reprint")) return deny("reprinting receipts"); return printText(receiptText(eo), "Receipt " + ordRef(eo)); }
 });
 $("#otype").addEventListener("click", async e => { const b = e.target.closest("[data-t]"); if(!b) return;
   if(b.dataset.t==="pd") return toast("Pickup and delivery orders are taken from the Pickup & delivery screen");
@@ -1547,8 +1549,8 @@ $("#modal").addEventListener("click", async e => {
   const vm = e.target.closest("[data-vrmode]"); if(vm){ const [k,m] = vm.dataset.vrmode.split(":"); return openVR(k, m); }
   const stb = e.target.closest("[data-st]"); if(stb){ document.querySelectorAll("[data-st]").forEach(b => b.classList.toggle("on", b===stb)); return; }
   const vg = e.target.closest("#vrGo"); if(vg) return doVR(vg.dataset.kind, vg.dataset.mode);
-  if(e.target.closest("[data-kticket]")){ const o = S.orders.find(x=>x.id===OV.open); if(o) modal("receipt", `<div class="mh"><h2>Kitchen ticket ${esc(ordRef(o))}</h2><button class="x" data-ovopen="${esc(o.id)}" aria-label="Back">←</button></div><div class="mb"><div class="receipt">${esc(kitchenText(o))}</div></div>`); return; }
-  if(e.target.closest("[data-reprint]")){ if(!can("pos_reprint")) return deny("reprinting receipts"); const o = S.orders.find(x=>x.id===OV.open); if(o) modal("receipt", `<div class="mh"><h2>Receipt ${esc(ordRef(o))}</h2><button class="x" data-ovopen="${esc(o.id)}" aria-label="Back">←</button></div><div class="mb"><div class="receipt">${esc(receiptText(o))}</div></div><div class="mf"><button class="btn pri" data-ovopen="${esc(o.id)}">Done</button></div>`); return; }
+  if(e.target.closest("[data-kticket]")){ const o = S.orders.find(x=>x.id===OV.open); if(o) printText(kitchenText(o), "Kitchen ticket " + ordRef(o)); return; }
+  if(e.target.closest("[data-reprint]")){ if(!can("pos_reprint")) return deny("reprinting receipts"); const o = S.orders.find(x=>x.id===OV.open); if(o) printText(receiptText(o), "Receipt " + ordRef(o)); return; }
   if(e.target.closest("#doOpenShift")) return doOpenShift();
   const de = e.target.closest("#doDayEnd"); if(de) return doDayEnd(de.dataset.day);
   if(e.target.closest("#goDayEnd")){ closeModal(); return openDayEnd(); }
@@ -2036,11 +2038,11 @@ $("#abar").addEventListener("click", e => { const b = e.target.closest("[data-a]
   if(a==="more"){ e.stopPropagation(); return $("#morePop").classList.toggle("hide"); }
   hideMore();
   if(a==="print"){ if((!eo || isOpenOrd(eo)) && !openShift()) return toast("Open a shift before printing"); if(!eo){ if(!cart.length) return toast("Add items first"); if(otype==="fast") return toast("A fast sale is paid right away: tap Pay"); if(!can("pos_print_check")) return deny("printing the invoice of an active order"); return sendOrder("bill"); }   // a new cart becomes an active order, then its invoice prints if(!isOpenOrd(eo) && !can("pos_reprint")) return deny("reprinting receipts"); if(isOpenOrd(eo) && !can("pos_print_check")) return deny("printing the invoice of an active order");
-    return modal("receipt", `<div class="mh"><h2>${isOpenOrd(eo) ? "Bill" : "Receipt"} ${esc(ordRef(eo))}</h2><button class="x" data-close aria-label="Close">×</button></div><div class="mb"><div class="receipt">${esc(receiptText(isOpenOrd(eo) ? { ...eo, ...orderFields(totals()), payment:null } : eo))}</div></div><div class="mf"><button class="btn pri" data-close>Done</button></div>`); }
+    return printText(receiptText(isOpenOrd(eo) ? { ...eo, ...orderFields(totals()), payment:null } : eo), (isOpenOrd(eo) ? "Bill " : "Receipt ") + ordRef(eo)); }
   if(a==="kitchen"){ if(!eo) return !cart.length ? toast("Add items first") : otype==="fast" ? toast("A fast sale is paid right away: tap Pay") : sendOrder("kitchen");
     if(isOpenOrd(eo) && cart.some(i => i.qty > (i.saved||0))) return sendOrder();
     if(isOpenOrd(eo) && !can("pos_reprint_kitchen")) return deny("reprinting the kitchen receipt");
-    return modal("receipt", `<div class="mh"><h2>Kitchen ticket ${esc(ordRef(eo))}</h2><button class="x" data-close aria-label="Close">×</button></div><div class="mb"><div class="receipt">${esc(kitchenText(eo))}</div></div><div class="mf"><button class="btn pri" data-close>Done</button></div>`); }
+    return printText(kitchenText(eo), "Kitchen ticket " + ordRef(eo)); }
   if(a==="void"){
     if(eo && isOpenOrd(eo)){ OV.open = eo.id; window.__keep = null; return openVR("void", "all"); }
     if(eo){ if(eo.status!=="closed" || fullyBack(eo)) return toast("Nothing left to return on this order"); OV.open = eo.id; return openVR("return", "all"); }   // a closed order is returned, not voided
@@ -2382,6 +2384,13 @@ const RP_CSS = `.rc{text-align:center;display:flex;flex-direction:column;gap:2px
 .rh{margin:10px 0 4px;padding-bottom:3px;border-bottom:1px dashed #999;font-weight:800;text-transform:capitalize;letter-spacing:.04em;font-size:12px}
 .rl{display:flex;align-items:baseline;gap:8px;padding:3px 0;font-variant-numeric:tabular-nums}.rl span{flex:1;min-width:0}.rl i{font-style:normal;min-width:28px;text-align:right}.rl b{min-width:86px;text-align:right;font-weight:600}.rmut span{color:#888}
 .rend{text-align:center;margin-top:12px;padding-top:8px;border-top:1px dashed #999;font-size:11px}`;
+// receipts and kitchen tickets go straight to the printer (no preview on screen)
+function printText(text, title){
+  const f = document.createElement("iframe"); f.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0"; document.body.appendChild(f);
+  const doc = f.contentWindow.document;
+  doc.open(); doc.write(`<!doctype html><html><head><meta charset="utf-8"><title>${esc(title||"Print")}</title><style>@page{size:80mm auto;margin:2mm 3mm}html,body{margin:0}body{width:72mm}pre{margin:0;font:12px/1.35 "Courier New",monospace;white-space:pre-wrap;color:#000}</style></head><body><pre>${esc(text)}</pre></body></html>`); doc.close();
+  setTimeout(() => { try{ f.contentWindow.focus(); f.contentWindow.print(); }catch(e){ toast("Couldn't print on this device"); } setTimeout(() => f.remove(), 2000); }, 200);
+}
 function printReport(){
   const f = document.createElement("iframe"); f.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0"; document.body.appendChild(f);
   const doc = f.contentWindow.document;
