@@ -38,7 +38,7 @@
   .smp .og{grid-template-columns:repeat(4,minmax(0,1fr))!important}@media(max-width:560px){.smp .og{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
   .smp .og label{height:108px;min-height:0!important;box-sizing:border-box;overflow:hidden;justify-content:flex-start!important}.smp .og label>*{flex:none}.smp .og label .p{margin-top:0}.smp .og label.qrow .qs{margin-top:auto!important}
   .smp .og label{display:flex;align-items:center!important;justify-content:center!important;text-align:center}.smp .og label.qrow .qs{margin-top:6px!important;justify-content:center}.smp .og label .nm{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-  .smp .og label:has(input:checked)::after{display:none!important}.smp .og label.qtap{position:relative;cursor:pointer}.smp .og label.qtap .qn{position:absolute;top:6px;left:8px;min-width:22px;height:22px;padding:0 6px;border-radius:11px;background:var(--acc,#5b2bc4);color:#fff;font-size:12.5px;font-weight:700;display:flex;align-items:center;justify-content:center;box-sizing:border-box}.smp .og label.qtap .qminus{position:absolute;top:0;right:0;bottom:0;width:25%;display:flex;align-items:center;justify-content:center;border-left:1px dashed color-mix(in srgb,var(--acc,#5b2bc4) 35%,transparent);color:var(--acc,#5b2bc4);font-size:22px;font-weight:600}.smp .og label.qtap.on{padding-right:calc(25% + 6px)}
+  .smp .og label:has(input:checked)::after{display:none!important}.smp .og label.qtap{position:relative;cursor:pointer}.smp .og label.qtap .qn{position:absolute;top:6px;right:8px;min-width:22px;height:22px;padding:0 6px;border-radius:11px;background:var(--acc,#5b2bc4);color:#fff;font-size:12.5px;font-weight:700;display:flex;align-items:center;justify-content:center;box-sizing:border-box}.smp .og label.qtap .qminus{position:absolute;top:0;left:0;bottom:0;width:25%;display:flex;align-items:center;justify-content:center;border-right:1px dashed color-mix(in srgb,var(--acc,#5b2bc4) 35%,transparent);color:var(--acc,#5b2bc4);font-size:22px;font-weight:600}
   .smp.narrow{width:min(420px,100%)}.smp.narrow .smnp button{height:50px}
   .smp textarea{width:100%;box-sizing:border-box;border:1px solid #ddd8ea;border-radius:10px;padding:9px 10px;font:inherit;font-size:14px;resize:vertical}
   .smp footer button{border:0;border-radius:10px;background:#5b2bc4;color:#fff;font:inherit;font-weight:600;padding:12px 18px;min-height:48px;cursor:pointer}.smp footer button.smc{background:#fff;color:#1c1b22;border:1px solid #e5e3ec}`;
@@ -68,8 +68,8 @@
           const one = (+l.max||0) === 1, full = (+l.max||0) > 0 && cnt(gi) >= +l.max;
           return `<div class="g"><b>${esc(o.groups?.[l.modifierId]?.name || "Options")}</b><span class="${+l.min?"req":""}">${rule(l)}</span>${+l.free?`<span>${l.free} free</span>`:""}${l.multi && !one?`<span>· repeat allowed</span>`:""}</div><div class="og">` +
             l.opts.map(x => { const n = sel[gi].get(x.id)||0, on = n > 0;
-              // a repeatable option: tap the left ¾ of the tile to add one, the right ¼ to take one away
-              if(l.multi && !one) return `<label class="qrow qtap${on?" on":""}${(full && !on) || x.oos ? " dis" : ""}" data-qt="${gi}:${esc(x.id)}" role="button" aria-label="${esc(x.name)}: ${n}">${esc(x.name)}${x.oos?'<span class="oos">Out of stock</span>':""}<span class="p">${+x.price ? "+" + money(x.price) : ""}</span>${on ? `<span class="qn">${n}</span><span class="qminus" aria-hidden="true">−</span>` : ""}</label>`;
+              // a repeatable option: tap the right ¾ of the tile to add one, the left ¼ to take one away
+              if(l.multi && !one) return `<label class="qrow qtap${on?" on":""}${(full && !on) || x.oos ? " dis" : ""}" data-qt="${gi}:${esc(x.id)}" role="button" aria-label="${esc(x.name)}: ${n}">${esc(x.name)}${x.oos?'<span class="oos">Out of stock</span>':""}<span class="p">${+x.price ? "+" + money(x.price) : ""}</span>${on ? `<span class="qn">${n}</span>` : ""}</label>`;
               const dis = !on && ((full && !one) || x.oos);
               return `<label class="${dis?"dis":""}"><input type="${one && +l.min >= 1 ? "radio" : "checkbox"}" name="g${gi}" data-g="${gi}" value="${esc(x.id)}" ${on?"checked":""} ${dis?"disabled":""}>${esc(x.name)}${x.oos?'<span class="oos">Out of stock</span>':""}<span class="p">${+x.price ? "+" + money(x.price) : ""}</span></label>`; }).join("") + `</div>`;
         }).join("")}${o.edit && o.only!=="mods" && o.only!=="disc" ? `<div class="g"><b>Item note</b></div><textarea data-note rows="2">${esc(note)}</textarea>` : ""}${o.edit && o.allowDiscount && o.only!=="mods" ? `<div class="g"><b>Item discount</b>${discOf() ? `<span>−${money(discOf())}</span>` : ""}</div>
@@ -88,7 +88,7 @@
         const dt = e.target.closest("[data-dt]"); if(dt){ e.preventDefault(); discT = dt.dataset.dt; return redraw(); }
         const qq = e.target.closest("[data-qq]"); if(qq){ e.preventDefault(); qty = Math.max(1, qty + (+qq.dataset.qq)); return redraw(); }
         const qt = e.target.closest("[data-qt]");
-        if(qt){ e.preventDefault(); const r = qt.getBoundingClientRect(), d = (e.clientX - r.left) < r.width * 0.75 ? 1 : -1, [g, id] = qt.dataset.qt.split(":"), gi = +g, l = links[gi], x = l.opts.find(y => y.id===id), n = (sel[gi].get(id)||0) + d;
+        if(qt){ e.preventDefault(); const r = qt.getBoundingClientRect(), d = (e.clientX - r.left) < r.width * 0.25 ? -1 : 1, [g, id] = qt.dataset.qt.split(":"), gi = +g, l = links[gi], x = l.opts.find(y => y.id===id), n = (sel[gi].get(id)||0) + d;
           if(d > 0 && (x?.oos || ((+l.max||0) > 0 && cnt(gi) >= +l.max))) return;
           if(n <= 0) sel[gi].delete(id); else sel[gi].set(id, n); return redraw(); }
         const q = e.target.closest("[data-q]");
