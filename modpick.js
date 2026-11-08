@@ -35,6 +35,7 @@
   .smp .og label:has(input:checked)::after{content:"✓";position:absolute;top:6px;right:8px;width:20px;height:20px;border-radius:50%;background:var(--acc,#5b2bc4);color:#fff;font-size:12px;display:flex;align-items:center;justify-content:center}
   .smp .og label .p{margin-left:0;font-weight:500;font-size:13px}.smp .og label .oos{margin-left:0}
   .smp .og label.qrow .qs{margin-left:0;margin-top:2px}.smp .og label.qrow .qs button{width:34px;height:34px}
+  .smp.narrow{width:min(420px,100%)}.smp.narrow .smnp button{height:50px}
   .smp textarea{width:100%;box-sizing:border-box;border:1px solid #ddd8ea;border-radius:10px;padding:9px 10px;font:inherit;font-size:14px;resize:vertical}
   .smp footer button{border:0;border-radius:10px;background:#5b2bc4;color:#fff;font:inherit;font-weight:600;padding:12px 18px;min-height:48px;cursor:pointer}.smp footer button.smc{background:#fff;color:#1c1b22;border:1px solid #e5e3ec}`;
   // o.only: "mods" = just the modifiers (no note / discount), "extras" = just the note and discount
@@ -59,7 +60,7 @@
       const priceOf = () => { let t = +o.basePrice||0; links.forEach((l, gi) => { let free = +l.free||0; units(l, gi).forEach(x => { if(free > 0) free--; else t += +x.price||0; }); }); return t; };
       const rule = l => { const mn = +l.min||0, mx = +l.max||0; if(mn && mx && mn===mx) return `Choose ${mn}`; if(mn && mx) return `Choose ${mn} to ${mx}`; if(mn) return `Choose at least ${mn}`; if(mx) return `Up to ${mx}`; return "Optional"; };
       const draw = () => {
-        el.innerHTML = `<div class="smp" role="dialog" aria-modal="true" aria-label="${esc(o.name)}"><header><h3>${esc(o.name)}</h3></header><div class="b">${(o.only==="extras" ? [] : links).map((l, gi) => {
+        el.innerHTML = `<div class="smp${o.only==="extras" ? " narrow" : ""}" role="dialog" aria-modal="true" aria-label="${esc(o.name)}"><header><h3>${esc(o.name)}</h3></header><div class="b">${(o.only==="extras" ? [] : links).map((l, gi) => {
           const one = (+l.max||0) === 1, full = (+l.max||0) > 0 && cnt(gi) >= +l.max;
           return `<div class="g"><b>${esc(o.groups?.[l.modifierId]?.name || "Options")}</b><span class="${+l.min?"req":""}">${rule(l)}</span>${+l.free?`<span>${l.free} free</span>`:""}${l.multi && !one?`<span>· repeat allowed</span>`:""}</div><div class="og">` +
             l.opts.map(x => { const n = sel[gi].get(x.id)||0, on = n > 0;
