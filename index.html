@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="463-1794142075">
+<meta name="slick-build" content="464-1794142531">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1180,6 +1180,7 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}@media(max-width:820px)
 .sctci{display:inline-grid;place-items:center;width:32px;height:32px;border-radius:9px;background:var(--accent-soft,#efeafd);color:var(--accent,#5b2bc4);flex:none;font-weight:700}.sctci svg{width:17px;height:17px}.sctgo{margin-left:auto;color:var(--muted);font-size:20px}
 .sctadd{color:var(--accent,#5b2bc4);font-weight:600}.sctnone{padding:6px 40px}
 .secbox>table{width:100%!important;display:table!important}
+.top{position:relative!important;top:auto!important}
 html.mlock,html.mlock body{overflow:hidden!important}.scrim,.bmdrawer,.bmdbody,.modal .body,.modal>*{overscroll-behavior:contain}
 </style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
@@ -1670,7 +1671,7 @@ const bizDate = (t = new Date(), bid) => { const ms = +new Date(t), d0 = new Dat
 const dayBounds = (from, to, bid) => { const c = dayCut(bid), t0 = new Date(from+"T00:00:00"), t1 = new Date((to||from)+"T00:00:00"); t1.setDate(t1.getDate()+1); t0.setMinutes(c); t1.setMinutes(c); return [t0, t1]; };
 const todayStr = () => bizDate(new Date(), typeof state!=="undefined" && state.branch && state.branch!=="all" ? state.branch : undefined);   // an early day end at the branch counts, like on the POS
 window.SlickDay = { dayCut, dayStartH, bizDate, dayBounds };
-const setTopH = () => { const tb = document.querySelector(".top"); if(tb) document.documentElement.style.setProperty("--toph", tb.offsetHeight + "px"); };
+const setTopH = () => { document.documentElement.style.setProperty("--toph", "0px"); };   // the top bar scrolls away with the page
 addEventListener("resize", setTopH); addEventListener("load", setTopH); setTimeout(setTopH, 800);
 const rangeDays = () => Math.max(1, state.days || 1);
 const dashFrom = () => { const d = new Date(state.date+"T12:00:00"); d.setDate(d.getDate() - rangeDays() + 1); return new Date(d - d.getTimezoneOffset()*60000).toISOString().slice(0,10); };
@@ -4798,7 +4799,7 @@ const bmCatOn = id => { const d = BM.draft["cat:"+id] || BM.saving?.["cat:"+id];
 let bmQueue = Promise.resolve();
 const bmStat = t => { BM.stat = t; const el = $("#bmStat"); if(el) el.textContent = t; };
 let bmAutoT = null;
-function bmAuto(){ BM.stat = "Saving…"; clearTimeout(bmAutoT); bmAutoT = setTimeout(bmSaveNow, 250); }   // every toggle, price and stock change saves straight away
+function bmAuto(){ try{ bmLastAdd(BM.draft); }catch(e){} BM.stat = "Saving…"; clearTimeout(bmAutoT); bmAutoT = setTimeout(bmSaveNow, 250); }   // every toggle, price and stock change saves straight away
 function bmSaveNow(){ bmQueue = bmQueue.then(saveBranchMenu, saveBranchMenu); }
 async function saveBranchMenu(){
   const work = BM.draft; if(!Object.keys(work).length) return;
@@ -4806,7 +4807,6 @@ async function saveBranchMenu(){
   bmStat("Saving…");
   try{
     await bmApplyWork(work, BM.branch, bmMenu()[2]);
-    bmLastAdd(work);
     BM.saving = null; BM.stat = ""; toast("Saved"); render();
   }catch(err){ console.error(err); BM.saving = null; bmStat("Not saved"); toast("Couldn't save. Only the owner or an admin can change the menu."); render(); }
 }
@@ -4856,7 +4856,7 @@ async function bmApplyWork(work, b, mchs){
 function bmLastAdd(work){ const ctx = BM.branch + "|" + bmMenu()[0];
   if(BM.lastCtx !== ctx){ BM.last = {}; BM.lastCtx = ctx; }
   for(const [id, d] of Object.entries(work)) Object.assign(BM.last[id] ||= {}, JSON.parse(JSON.stringify(d)));
-  BM.lastNew = true; clearTimeout(BM.apT); BM.apT = setTimeout(bmBarSync, 900); }
+  BM.lastNew = true; clearTimeout(BM.apT); BM.apT = setTimeout(bmBarSync, 150); }
 const bmLastN = () => Object.keys(BM.last||{}).length;
 // the channel at branch b that matches the current one (same code, else same kind and name)
 function bmMatchCh(b){ const cur = bmMenu()[3] || {}, code = bmMenu()[0], l = scFor(b);
@@ -4867,7 +4867,7 @@ function bmBarSync(){
   const here = location.hash.slice(1).split("?")[0]==="branch-menu" && BM.open1 && bmLastN() && BM.lastCtx === BM.branch + "|" + bmMenu()[0];
   const open = !!document.querySelector("#ccScrim.show #bmApGo");
   if(open){ const n = bmLastN(), el = $("#bmApN"); if(el) el.textContent = `${n} change${n===1?"":"s"}`; return; }
-  const ae = document.activeElement; if(here && BM.lastNew && ae && ae.tagName==="INPUT" && ae.type!=="checkbox"){ clearTimeout(BM.apT); BM.apT = setTimeout(bmBarSync, 900); return; }   // still typing a price
+  const ae = document.activeElement; if(here && BM.lastNew && ae && ae.tagName==="INPUT" && ae.type!=="checkbox"){ clearTimeout(BM.apT); BM.apT = setTimeout(bmBarSync, 700); return; }   // still typing a price
   if(here && BM.lastNew && !document.querySelector(".scrim.show")){ BM.lastNew = false; bmApplyDialog(); }
 }
 function bmApplyDialog(){
@@ -4883,7 +4883,7 @@ function bmApplyDialog(){
     ${list("ch", "Other channels at " + esc(br?.name||""), chs)}${list("br", esc(chName) + " at other branches", brs)}
     ${chs.length || brs.length ? "" : `<p class="note">There are no other channels or branches to apply this on.</p>`}
     <div class="err" id="bmApErr"></div></div>
-    <footer><button type="button" class="btn keep" data-ccclose data-bmapx>Skip</button><span style="flex:1"></span><button type="button" class="btn pri" id="bmApGo">Apply</button></footer>`;
+    <footer><button type="button" class="btn" data-bmapx data-bmskip>Skip</button><span style="flex:1"></span><button type="button" class="btn pri" id="bmApGo">Apply</button></footer>`;
   $("#ccScrim").classList.add("show");
   const vis = k => [...box.querySelectorAll(`[data-sec="${k}"] .bmaplist label:not([hidden]) input:not(:disabled)`)];
   const syncAll = () => box.querySelectorAll("[data-apall]").forEach(a => { const v = vis(a.dataset.apall); a.checked = v.length > 0 && v.every(i => i.checked); a.disabled = !v.length; });
@@ -4893,7 +4893,7 @@ function bmApplyDialog(){
   syncAll();
 }
 document.addEventListener("click", async e => {
-  if(e.target.closest("[data-bmapx]")){ BM.last = {}; BM.lastNew = false; return; }
+  if(e.target.closest("[data-bmapx]")){ BM.last = {}; BM.lastNew = false; if(e.target.closest("[data-bmskip]")) $("#ccScrim").classList.remove("show"); return; }
   const go = e.target.closest("#bmApGo"); if(go){ e.preventDefault();
     const sel = [...document.querySelectorAll("#ccBox .bmaplist input:checked")].map(i => i.value);
     if(!sel.length){ $("#bmApErr").textContent = "Select at least one channel or branch, or press Skip."; return; }
@@ -8079,7 +8079,11 @@ document.addEventListener("focusin", e => { const el = e.target; if(el.tagName!=
 (function(){const H=document.documentElement;let q=0;const sync=()=>{q=0;H.classList.toggle("mlock",!!document.querySelector(".scrim.show,.bmdscrim"));};
 new MutationObserver(()=>{if(!q){q=1;requestAnimationFrame(sync);}}).observe(document.body,{subtree:true,childList:true,attributes:true,attributeFilter:["class"]});
 /* table headers stay pinned under the top bar while the page scrolls (tables that fit their card) */
-const thFit=()=>{const os=document.querySelector(".ostick"),top=document.querySelector(".top");let t=top?top.offsetHeight:0;if(os&&getComputedStyle(os).position==="sticky")t+=os.offsetHeight-6;H.style.setProperty("--thtop",t+"px");
+const thFit=()=>{const os=document.querySelector(".ostick");let t=0;
+if(os&&getComputedStyle(os).position==="sticky"){ /* the title and the page tabs scroll away; only the filters / tabs row under the title stays pinned */
+  const ph=os.querySelector(":scope > .phead"),nx=ph&&ph.nextElementSibling,off=nx?Math.max(0,Math.round(nx.getBoundingClientRect().top-os.getBoundingClientRect().top)):0;
+  if(os.style.top!==(-off)+"px")os.style.top=(-off)+"px"; t=Math.max(0,os.offsetHeight-off);}
+H.style.setProperty("--thtop",t+"px");
 document.querySelectorAll(".card.tbl").forEach(c=>{const tb=c.querySelector(":scope>table");if(!tb||!tb.tHead)return;c.classList.remove("tfit");let sc=false;for(let el=tb;el&&el!==document.body;el=el.parentElement){if(el===c)continue;const o=getComputedStyle(el);if(/(auto|scroll|hidden|clip)/.test(o.overflowY+o.overflowX)){sc=true;break;}}if(!sc&&tb.scrollWidth<=c.clientWidth+1){c.classList.add("tfit");const o=getComputedStyle(c);if(o.overflowX!=="visible"||o.overflowY!=="visible")c.classList.remove("tfit");}});};
 let tq=0;new MutationObserver(()=>{if(!tq){tq=1;setTimeout(()=>{tq=0;thFit();},120);}}).observe(document.body,{subtree:true,childList:true});addEventListener("resize",()=>setTimeout(thFit,60));
 document.addEventListener("wheel",e=>{if(!H.classList.contains("mlock"))return;const t=e.target;if(t.classList&&(t.classList.contains("scrim")||t.classList.contains("bmdscrim")))e.preventDefault();},{passive:false});
