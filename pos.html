@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="543-1794179060">
+<meta name="slick-build" content="544-1794179189">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1262,15 +1262,19 @@ function orderInfoOk(){
   return true;
 }
 // Send: save the order as open (to the kitchen) without payment; on an open order, send what was added
-async function sendOrder(){
+async function sendOrder(after){   // after: "bill" or "kitchen" = print that ticket of the new order once it is created
   if(!cart.length) return; if(!openShift()) return toast("Open a shift before saving orders"); if(otype==="fast") return toast("A fast sale can't be saved: tap Pay, or assign a table"); const blk = saleBlock(); if(blk) return toast(blk);
   if(!orderInfoOk()) return;
   const t = totals(), now = new Date().toISOString(), eo = editOrder();
   try{
     if(eo){ await db.collection("orders").doc(eo.id).update({ ...orderFields(t), updatedAt: now }); await posTagsCommit(eo.id); toast(`Saved · order ${ordRef(eo)}`); unloadOrder(); }
     else { const id = "pos_" + Date.now().toString(36) + Math.random().toString(36).slice(2,5), no = nextOrderNo();
-      await db.collection("orders").doc(id).set({ no, channel:"pos", source:"", brandId:branch?.brandId || null, branchId:device.branchId, deviceId:device.id, shiftId:openShift()?.id || null, agent:cashier?.name || device.name, ...orderFields(t), status:"active", createdAt:now, updatedAt:now });
-      await posTagsCommit(id); toast(`Order #${no} sent to the kitchen · open it from Orders to add items or bill it`); resetOrder(); }
+      const doc = { no, channel:"pos", source:"", brandId:branch?.brandId || null, branchId:device.branchId, deviceId:device.id, shiftId:openShift()?.id || null, agent:cashier?.name || device.name, ...orderFields(t), status:"active", createdAt:now, updatedAt:now };
+      await db.collection("orders").doc(id).set(doc);
+      await posTagsCommit(id); toast(`Order #${no} sent to the kitchen · open it from Orders to add items or bill it`); resetOrder();
+      const o = { id, ...doc };
+      if(after==="bill") modal("receipt", `<div class="mh"><h2>Bill ${esc(ordRef(o))}</h2><button class="x" data-close aria-label="Close">×</button></div><div class="mb"><div class="receipt">${esc(receiptText({ ...o, payment:null }))}</div></div><div class="mf"><button class="btn pri" data-close>Done</button></div>`);
+      if(after==="kitchen") modal("receipt", `<div class="mh"><h2>Kitchen ticket ${esc(ordRef(o))}</h2><button class="x" data-close aria-label="Close">×</button></div><div class="mb"><div class="receipt">${esc(kitchenText(o))}</div></div><div class="mf"><button class="btn pri" data-close>Done</button></div>`); }
   }catch(err){ console.error(err); toast("Couldn't send the order. Try again."); }
 }
 // "−" on an item already sent to the kitchen voids it (manager PIN); on a closed order the item can be returned
@@ -2021,7 +2025,7 @@ function paintAbar(){ const hb = document.getElementById("holdBadge"); if(hb && 
   const eo = editOrder(), open = eo && isOpenOrd(eo), closed = eo && !open, off = (a, v) => document.querySelector(`#abar [data-a="${a}"]`)?.classList.toggle("off", !!v);
   const vb = document.querySelector('#abar [data-a="void"]'); if(vb){ vb.classList.toggle("hide", !eo || (closed && (eo.status!=="closed" || fullyBack(eo)))); vb.querySelector("span").textContent = closed ? "Return" : "Void";
     vb.querySelector("svg").innerHTML = closed ? '<path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>' : '<circle cx="12" cy="12" r="9"/><path d="M5.6 18.4 18.4 5.6"/>'; }
-  off("print", !eo || (isOpenOrd(eo) && !openShift())); off("hold", !!eo || !cart.length || !openShift()); off("retrieve", !heldList().length); off("kitchen", !eo && (!cart.length || otype==="fast")); off("void", eo ? (closed && (eo.status!=="closed" || fullyBack(eo))) : !cart.length); off("notes", closed); off("disc", closed); off("chg", closed);
+  off("print", (!eo && (!cart.length || otype==="fast")) || ((!eo || isOpenOrd(eo)) && !openShift())); off("hold", !!eo || !cart.length || !openShift()); off("retrieve", !heldList().length); off("kitchen", !eo && (!cart.length || otype==="fast")); off("void", eo ? (closed && (eo.status!=="closed" || fullyBack(eo))) : !cart.length); off("notes", closed); off("disc", closed); off("chg", closed);
   // a done order shows only Print, Return and Tags (a voided or fully returned one: Print and Tags)
   ["notes","chg","disc","kitchen"].forEach(k => document.querySelector(`#abar [data-a="${k}"]`)?.classList.toggle("hide", !!closed));
   ["hold","retrieve"].forEach(k => document.querySelector(`#abar [data-a="${k}"]`)?.classList.toggle("hide", !!eo));
@@ -2030,9 +2034,9 @@ function paintAbar(){ const hb = document.getElementById("holdBadge"); if(hb && 
 $("#abar").addEventListener("click", e => { const b = e.target.closest("[data-a]"); if(!b) return; const a = b.dataset.a, eo = editOrder();
   if(a==="more"){ e.stopPropagation(); return $("#morePop").classList.toggle("hide"); }
   hideMore();
-  if(a==="print"){ if((!eo || isOpenOrd(eo)) && !openShift()) return toast("Open a shift before printing"); if(!eo) return toast(cart.length ? "Send or pay the order first, then print it" : "Open an order from Orders to print it"); if(!isOpenOrd(eo) && !can("pos_reprint")) return deny("reprinting receipts"); if(isOpenOrd(eo) && !can("pos_print_check")) return deny("printing the invoice of an active order");
+  if(a==="print"){ if((!eo || isOpenOrd(eo)) && !openShift()) return toast("Open a shift before printing"); if(!eo){ if(!cart.length) return toast("Add items first"); if(otype==="fast") return toast("A fast sale is paid right away: tap Pay"); if(!can("pos_print_check")) return deny("printing the invoice of an active order"); return sendOrder("bill"); }   // a new cart becomes an active order, then its invoice prints if(!isOpenOrd(eo) && !can("pos_reprint")) return deny("reprinting receipts"); if(isOpenOrd(eo) && !can("pos_print_check")) return deny("printing the invoice of an active order");
     return modal("receipt", `<div class="mh"><h2>${isOpenOrd(eo) ? "Bill" : "Receipt"} ${esc(ordRef(eo))}</h2><button class="x" data-close aria-label="Close">×</button></div><div class="mb"><div class="receipt">${esc(receiptText(isOpenOrd(eo) ? { ...eo, ...orderFields(totals()), payment:null } : eo))}</div></div><div class="mf"><button class="btn pri" data-close>Done</button></div>`); }
-  if(a==="kitchen"){ if(!eo) return !cart.length ? toast("Add items first") : otype==="fast" ? toast("A fast sale is paid right away: tap Pay") : sendOrder();
+  if(a==="kitchen"){ if(!eo) return !cart.length ? toast("Add items first") : otype==="fast" ? toast("A fast sale is paid right away: tap Pay") : sendOrder("kitchen");
     if(isOpenOrd(eo) && cart.some(i => i.qty > (i.saved||0))) return sendOrder();
     if(isOpenOrd(eo) && !can("pos_reprint_kitchen")) return deny("reprinting the kitchen receipt");
     return modal("receipt", `<div class="mh"><h2>Kitchen ticket ${esc(ordRef(eo))}</h2><button class="x" data-close aria-label="Close">×</button></div><div class="mb"><div class="receipt">${esc(kitchenText(eo))}</div></div><div class="mf"><button class="btn pri" data-close>Done</button></div>`); }
