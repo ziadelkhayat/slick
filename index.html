@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="512-1794165510">
+<meta name="slick-build" content="517-1794172450">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1188,6 +1188,7 @@ html.mlock{overflow:hidden!important}html.mlock body{position:fixed!important;le
 .qty button.qdel{color:#d92d20}.qty button.qdel svg{display:block;margin:auto}
 .brtbl{display:flex;align-items:center;gap:14px;flex-wrap:wrap;border:1px solid var(--line);border-radius:14px;padding:12px 14px;background:var(--surface,#fff)}.brtbl-l{display:flex;flex-wrap:wrap;gap:8px;flex:1;min-width:0}.brsec{display:inline-flex;align-items:center;gap:8px;padding:7px 12px;border-radius:999px;background:var(--accent-soft,#f0ecff)}.brsec b{font-weight:600;font-size:13.5px}.brsec small{color:var(--muted,#6f6b85);font-size:12.5px}.brtbl .btn{margin-left:auto}
 .rlgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:16px;margin-top:8px}.rlcard{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--surface,#fff);border:1px solid var(--line);border-radius:14px;padding:16px 12px 16px 20px;box-shadow:0 1px 3px rgba(20,16,40,.05);cursor:pointer;transition:border-color .15s}.rlcard:hover{border-color:var(--accent,#6a4cf5)}.rlcard b{display:block;font-size:15px}.rlcard small{color:var(--muted,#6f6b85);font-size:12.5px}.rlcard .ddwrap{position:relative}.rldots{width:36px;height:36px;border:0;background:none;border-radius:10px;font-size:20px;font-weight:700;cursor:pointer;color:var(--ink,#1b1830)}.rldots:hover{background:var(--sunk,#f3f2f8)}.rlcard .ddmenu{position:absolute;right:0;top:calc(100% + 4px);z-index:20;min-width:190px;background:#fff;padding:6px;display:flex;flex-direction:column}.rlcard .ddmenu[hidden]{display:none}.rlcard .ddmenu button{text-align:left;border:0;background:none;padding:10px 12px;border-radius:8px;font:inherit;cursor:pointer}.rlcard .ddmenu button:hover{background:var(--sunk,#f3f2f8)}
+.acode.free{background:#e3f6ea!important;color:#15803d;font-weight:700}.acode.used{background:#fdeaea!important;color:#c62828;font-weight:700}
 </style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -2203,7 +2204,7 @@ function viewBranches(){
   const bsel = (state.brSel ||= new Set()); [...bsel].forEach(id => { if(!list.some(b => b.id===id)) bsel.delete(id); });
   const ball = list.every(b => bsel.has(b.id));
   h += `<div class="card tbl"><table><thead><tr><th class="noedit bkc"><input type="checkbox" data-brall ${ball?"checked":""} aria-label="Select all"></th>${bsel.size
-      ? `<th colspan="4" class="bkbar"><b>${bsel.size} Selected</b><span class="ddwrap"><button type="button" class="btn sm" data-bracts>Actions ▾</button><span class="ddmenu" id="brActM" hidden><button type="button" data-brbulk="add">Add Tags</button><button type="button" data-brbulk="del">Remove Tags</button></span></span></th>`
+      ? `<th colspan="5" class="bkbar"><b>${bsel.size} Selected</b><span class="ddwrap"><button type="button" class="btn sm" data-bracts>Actions ▾</button><span class="ddmenu" id="brActM" hidden><button type="button" data-brbulk="add">Add Tags</button><button type="button" data-brbulk="del">Remove Tags</button></span></span></th>`
       : `<th>Name</th><th>Reference</th><th>Tax group</th><th>Created</th>`}</tr></thead><tbody>${
     list.map(b => `<tr class="clk" data-bropen="${esc(b.id)}"><td class="noedit bkc"><input type="checkbox" data-brsel="${esc(b.id)}" ${bsel.has(b.id)?"checked":""} aria-label="Select ${esc(b.name)}"></td>
       <td><b>${esc(b.name)}</b>${tagChips("branch", b.id)}${brandList().length > 1 ? ` <span class="note">${esc(brandName(b.brandId))}</span>` : ""}</td>
@@ -4107,15 +4108,15 @@ async function setOrderStatus(s){
 const DEV_TYPES = [["cashier","POS"],["kds","KDS"],["notifier","Notifier"],["display","Display"],["sub_cashier","Sub POS"]];
 const devType = t => (DEV_TYPES.find(x => x[0]===t) || [, t==="waiter" ? "Waiter" : (t || "—")])[1];
 const devRef = () => { const used = new Set(S.devices.map(d => d.reference)); const a = "abcdefghijklmnopqrstuvwxyz"; for(let n = 0; ; n++){ const r = "cashier-" + (n < 26 ? a[n] : a[Math.floor(n/26)-1] + a[n%26]); if(!used.has(r)) return r; } };
-const devStatus = d => d.activatedAt ? '<span class="tag on">Used</span>' : '<span class="tag off">Not used</span>';
+const devStatus = d => d.activatedAt ? '<span class="tag on">Used</span>' : '<span class="tag off">Not Used</span>';
 function viewDevice(d){
   const s = d.settings || {}, row = (k, v) => `<div><span>${k}</span>${v}</div>`, dt = t => t ? new Date(t).toLocaleString("en-GB",{day:"numeric",month:"long",hour:"2-digit",minute:"2-digit"}) : "—";
   const last = S.orders.filter(o => o.deviceId===d.id).reduce((m,o) => o.createdAt > m ? o.createdAt : m, "");
-  return `<div class="phead"><a class="btn" href="#devices" data-devback style="text-decoration:none">← Back</a><h1>${esc(d.name)}</h1><span class="acode" title="Activation code">${esc(String(d.code||"").split("").join(" "))}</span><div class="sp"></div>
+  return `<div class="phead"><a class="btn" href="#devices" data-devback style="text-decoration:none">← Back</a><h1>${esc(d.name)}</h1><span class="acode ${d.activatedAt ? "used" : "free"}" title="${d.activatedAt ? "Activation code (already used: deactivate the device to get a new one)" : "Activation code (enter it on the tablet to activate)"}">${esc(String(d.code||"").split("").join(" "))}</span><div class="sp"></div>
       <button class="btn" data-devset="${esc(d.id)}">Device Settings</button><button class="btn pri" data-devedit="${esc(d.id)}">Edit Device</button></div>
     <div class="card odet" style="margin-bottom:16px">${row("Reference", esc(d.reference || "—"))}${row("Type", esc(devType(d.type)))}${row("Branch", esc(branchName(d.branchId)))}${row("Brand", esc(brandName(branches.find(b=>b.id===d.branchId)?.brandId) || "—"))}
       ${row("Status", devStatus(d))}${row("Receives Online Orders", s.master ? "Yes" : "No")}${row("Activated", dt(d.activatedAt))}${row("Last Online", dt(d.lastSeen))}${row("Last Order", dt(last))}</div>
-    <div class="card bdrow" style="padding:16px 18px"><div><b>Deactivate Device</b><span class="note">Make sure all its orders are uploaded. The tablet signs out and a new activation code is generated.</span></div><button class="btn danger" data-devcode="${esc(d.id)}">Deactivate Device</button></div>
+    ${d.activatedAt ? `<div class="card bdrow" style="padding:16px 18px"><div><b>Deactivate Device</b><span class="note">Make sure all its orders are uploaded. The tablet signs out and a new activation code is generated.</span></div><button class="btn danger" data-devcode="${esc(d.id)}">Deactivate Device</button></div>` : ""}
     <div class="card bdrow" style="padding:16px 18px;margin-top:12px"><div><b>Delete Device</b><span class="note">Removes this device from Slick. Its past orders are kept.</span></div><button class="btn danger" data-devdel="${esc(d.id)}">Delete Device</button></div>`;
 }
 function viewDevices(){
@@ -4128,8 +4129,8 @@ function viewDevices(){
   if(storeMode==="local") h += `<div class="banner">Preview mode: devices won't be saved.</div>`;
   h += `<div class="card tbl"><div class="ttop"><div class="ttabs">${[["all","All"], ...DEV_TYPES].map(([k,t]) => `<a href="#devices" data-devtab="${k}" class="${dt===k?"on":""}">${t}</a>`).join("")}</div></div>${list.length ? `<table><thead><tr><th class="noedit bkc"><input type="checkbox" data-devall ${list.every(d => dsel.has(d.id))?"checked":""} aria-label="Select all"></th>${dsel.size
       ? `<th colspan="4" class="bkbar"><b>${dsel.size} Selected</b><span class="ddwrap"><button type="button" class="btn sm" data-devacts>Actions ▾</button><span class="ddmenu" id="devActM" hidden><button type="button" data-devbulk="add">Add Tags</button><button type="button" data-devbulk="del">Remove Tags</button><button type="button" data-devbulk="sync">Force Sync Data</button></span></span></th>`
-      : `<th>Name</th><th>Reference</th><th>Status</th><th>Branch</th>`}</tr></thead><tbody>${list.map(d=>`<tr class="clk" data-devopen="${esc(d.id)}"><td class="noedit bkc"><input type="checkbox" data-devsel="${esc(d.id)}" ${dsel.has(d.id)?"checked":""} aria-label="Select ${esc(d.name)}"></td>
-    <td><b>${esc(d.name)}</b>${tagChips("device", d.id)}</td><td>${esc(d.reference || "—")}</td><td>${devStatus(d)}</td><td>${esc(branchName(d.branchId))}</td></tr>`).join("")}</tbody></table>`
+      : `<th>Name</th><th>Reference</th><th>Type</th><th>Status</th><th>Branch</th>`}</tr></thead><tbody>${list.map(d=>`<tr class="clk" data-devopen="${esc(d.id)}"><td class="noedit bkc"><input type="checkbox" data-devsel="${esc(d.id)}" ${dsel.has(d.id)?"checked":""} aria-label="Select ${esc(d.name)}"></td>
+    <td><b>${esc(d.name)}</b>${tagChips("device", d.id)}</td><td>${esc(d.reference || "—")}</td><td>${esc(devType(d.type))}</td><td>${devStatus(d)}</td><td>${esc(branchName(d.branchId))}</td></tr>`).join("")}</tbody></table>`
     : `<div class="empty">${all.length ? "No devices of this type." : "No devices yet. Create one for each tablet, kitchen screen or printer station."}</div>`}</div>`;
   return h;
 }
