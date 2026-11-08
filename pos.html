@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="539-1794178293">
+<meta name="slick-build" content="540-1794178431">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -759,7 +759,7 @@ function syncCheck(){ const at = device?.settings?.syncAt; if(!at) return; const
 let posTags = null, posCustTags = null;
 const tgDoc = () => S.settings.find(x => x.id==="tags") || {};
 const tgList = type => (tgDoc().list||[]).filter(t => t.type===type && !t.deleted).sort((a,b) => (a.sort ?? 9999) - (b.sort ?? 9999) || a.name.localeCompare(b.name));
-function openTags(){
+function openTags(saveTo){   // saveTo: a done / void / returned order id, saved right away on Apply
   const ot = tgList("order"), ct = tgList("customer"), ph = String(cust.phone||"").replace(/\D/g,"");
   if(!ot.length && !ct.length) return modal("tags", `<div class="mh"><h2>Tags</h2><button class="x" data-close aria-label="Close">×</button></div><div class="mb"><div class="mut" style="text-align:center;padding:26px 10px;font-size:14px">No tags available for this order.</div></div>`);
   const oSel = new Set(posTags || []), cSel = new Set((posCustTags || []).map(x => x.toLowerCase()));
@@ -767,7 +767,7 @@ function openTags(){
   modal("tags", `<div class="mh"><h2>Tags</h2><button class="x" data-close aria-label="Close">×</button></div><div class="mb">${box("Order Tags", ot, oSel, "data-tco")}
     ${ph.length >= 6 ? box("Customer Tags", ct, cSel, "data-tcc") : ""}</div>
     <div class="mf"><button class="btn pri" id="tagsApply">Apply</button></div>`);
-  $("#tagsApply").onclick = () => { posTags = [...document.querySelectorAll("[data-tco]:checked")].map(i => i.dataset.tco); if(document.querySelector("[data-tcc]")) posCustTags = [...document.querySelectorAll("[data-tcc]:checked")].map(i => i.dataset.tcc); closeModal(); renderCart(); toast("Tags set"); };
+  $("#tagsApply").onclick = () => { posTags = [...document.querySelectorAll("[data-tco]:checked")].map(i => i.dataset.tco); if(document.querySelector("[data-tcc]")) posCustTags = [...document.querySelectorAll("[data-tcc]:checked")].map(i => i.dataset.tcc); closeModal(); if(saveTo) return posTagsCommit(saveTo).then(() => { renderCart(); toast("Tags saved"); }); renderCart(); toast("Tags set"); };
 }
 async function posTagsCommit(oid){
   const ot = posTags, ct = posCustTags, ph = String(cust.phone||""); posTags = null; posCustTags = null;
@@ -2011,7 +2011,7 @@ function paintAbar(){ const hb = document.getElementById("holdBadge"); if(hb && 
   const eo = editOrder(), open = eo && isOpenOrd(eo), closed = eo && !open, off = (a, v) => document.querySelector(`#abar [data-a="${a}"]`)?.classList.toggle("off", !!v);
   const vb = document.querySelector('#abar [data-a="void"]'); if(vb){ vb.classList.toggle("hide", !eo || (closed && (eo.status!=="closed" || fullyBack(eo)))); vb.querySelector("span").textContent = closed ? "Return" : "Void";
     vb.querySelector("svg").innerHTML = closed ? '<path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>' : '<circle cx="12" cy="12" r="9"/><path d="M5.6 18.4 18.4 5.6"/>'; }
-  off("print", !eo || (isOpenOrd(eo) && !openShift())); off("hold", !!eo || !cart.length || !openShift()); off("retrieve", !heldList().length); off("kitchen", !eo && (!cart.length || otype==="fast")); off("void", eo ? (closed && (eo.status!=="closed" || fullyBack(eo))) : !cart.length); off("notes", closed); off("disc", closed); off("chg", closed); off("tags", closed);
+  off("print", !eo || (isOpenOrd(eo) && !openShift())); off("hold", !!eo || !cart.length || !openShift()); off("retrieve", !heldList().length); off("kitchen", !eo && (!cart.length || otype==="fast")); off("void", eo ? (closed && (eo.status!=="closed" || fullyBack(eo))) : !cart.length); off("notes", closed); off("disc", closed); off("chg", closed);
   // a done order shows only Print, Return and Tags (a voided or fully returned one: Print and Tags)
   ["notes","chg","disc","hold","retrieve","kitchen"].forEach(k => document.querySelector(`#abar [data-a="${k}"]`)?.classList.toggle("hide", !!closed)); }
 $("#abar").addEventListener("click", e => { const b = e.target.closest("[data-a]"); if(!b) return; const a = b.dataset.a, eo = editOrder();
@@ -2027,7 +2027,7 @@ $("#abar").addEventListener("click", e => { const b = e.target.closest("[data-a]
     if(eo){ if(eo.status!=="closed" || fullyBack(eo)) return toast("Nothing left to return on this order"); OV.open = eo.id; return openVR("return", "all"); }   // a closed order is returned, not voided
     return; }
   if(a==="disc"){ if(eo && !isOpenOrd(eo)) return toast("This order is closed"); return openDiscount(); }
-  if(a==="tags"){ if(eo && !isOpenOrd(eo)) return toast("This order is closed"); if(eo && posTags==null) posTags = (tgDoc().on?.order?.[eo.id] || []).slice(); return openTags(); }
+  if(a==="tags"){ if(eo && !isOpenOrd(eo)){ posTags = (tgDoc().on?.order?.[eo.id] || []).slice(); return openTags(eo.id); } if(eo && posTags==null) posTags = (tgDoc().on?.order?.[eo.id] || []).slice(); return openTags(); }
   if(a==="chg"){ if(eo && !isOpenOrd(eo)) return toast("This order is closed"); return openCharges(); }
   if(a==="hold") return eo ? toast("This order was already sent: find it under Orders") : cart.length ? holdOrder() : toast("Add items, then Hold to park the order");
   if(a==="retrieve") return heldList().length ? openHeld() : toast("No held orders");
