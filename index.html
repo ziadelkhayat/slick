@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="480-1794145818">
+<meta name="slick-build" content="481-1794145923">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1167,7 +1167,7 @@ button.x:hover,button.mmdx:hover,.dzchip>button:hover,.chip>button:hover{transfo
 .bmaplist{display:flex;flex-direction:column;gap:2px;max-height:46vh;overflow:auto;border:1px solid var(--line,#ecebf2);border-radius:12px;padding:6px}
 .bmaplist .chk{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;cursor:pointer}.bmaplist .chk:hover{background:#f6f5fa}
 .bmaplist .chk span{display:flex;flex-direction:column}.bmaplist .chk small{color:var(--muted);font-size:12px}.bmaplist .chk.dis{opacity:.5;cursor:default}
-#ccScrim:has(#bmApGo){z-index:960}.bmapsec{margin-bottom:12px}.bmapsec .bmapall{padding:4px 4px 8px}
+.bmapsec{margin-bottom:12px}.bmapsec .bmapall{padding:4px 4px 8px}
 .bmapall{display:flex;align-items:center;gap:10px;padding:4px 16px 8px;font-weight:600}
 @media(max-width:1100px){.mmtbl .mmrow:not(.mmorow)>.ddwrap,.mmtbl .mmrow:not(.mmorow)>.scprice,.mmtbl .mmrow:not(.mmorow)>.note{grid-column:auto!important}.mmtbl .mmth{display:grid!important}}
 @media(max-width:720px){.mmtbl{overflow-x:auto;-webkit-overflow-scrolling:touch}.mmtbl .mmth,.mmtbl .mmrow:not(.mmorow){min-width:660px}}
@@ -4892,59 +4892,8 @@ const bmLastN = () => Object.keys(BM.last||{}).length;
 function bmMatchCh(b){ const cur = bmMenu()[3] || {}, code = bmMenu()[0], l = scFor(b);
   return (l.find(c => scCode(c)===code) || l.find(c => c.kind===cur.kind && String(c.name).trim().toLowerCase()===String(cur.name||"").trim().toLowerCase()) || null); }
 // after a change is saved, one dialog offers the other channels of this branch and the same channel at other branches
-function bmBarSync(){
-  document.getElementById("bmApplyBar")?.remove(); return;
-  const here = location.hash.slice(1).split("?")[0]==="branch-menu" && BM.open1 && bmLastN() && BM.lastCtx === BM.branch + "|" + bmMenu()[0];
-  const open = !!document.querySelector("#ccScrim.show #bmApGo");
-  if(open){ const n = bmLastN(), el = $("#bmApN"); if(el) el.textContent = `${n} change${n===1?"":"s"}`; return; }
-  const ae = document.activeElement; if(here && BM.lastNew && ae && ae.tagName==="INPUT" && ae.type!=="checkbox"){ clearTimeout(BM.apT); BM.apT = setTimeout(bmBarSync, 700); return; }   // still typing a price
-  if(here && BM.lastNew && !document.querySelector(".scrim.show")){ BM.lastNew = false; bmApplyDialog(); }
-}
-function bmApplyDialog(){
-  const br = branches.find(x => x.id===BM.branch), n = Object.keys(BM.draft||{}).length, chName = bmMenu()[1];
-  const chs = scFor(BM.branch).filter(c => scCode(c)!==bmMenu()[0]).map(c => ["ch|" + scCode(c), c.name, (SC_KINDS.find(k => k[0]===c.kind)||SC_KINDS[3])[1]]);
-  const kindOf = c => (SC_KINDS.find(k => k[0]===c.kind)||SC_KINDS[3])[1];
-  const obr = branches.filter(x => x.id!==BM.branch && live(x)).map(x => [x, scFor(x.id).map(c => ["bc|" + x.id + "|" + scCode(c), c.name, kindOf(c)])]).filter(([, o]) => o.length), brs = obr.flatMap(([, o]) => o);
-  const list = (key, title, opts) => opts.length ? `<div class="bmapsec" data-sec="${key}"><label class="chk bmapall"><input type="checkbox" data-apall="${key}"> <span>${title}</span></label>
-    <div class="bmaplist">${opts.map(([v, t, sub, dis]) => `<label class="chk${dis ? " dis" : ""}" data-q="${esc((t + " " + sub).toLowerCase())}"><input type="checkbox" value="${esc(v)}" ${dis ? "disabled" : ""}> <span>${esc(t)}<small>${esc(sub)}</small></span></label>`).join("")}</div></div>` : "";
-  const box = $("#ccBox"); box.className = "modal";
-  box.innerHTML = `<header><h2>Save Changes</h2><button type="button" class="x" data-ccclose aria-label="Close">×</button></header><div class="body" style="display:block">
-    <p class="note" style="margin:0 0 12px"><b id="bmApN">${n} change${n===1?"":"s"}</b> on ${esc(chName)} at ${esc(br?.name||"")}. Select where else to apply them too, or just save.</p>
-    ${chs.length + brs.length > 6 ? `<input class="sel" id="bmApQ" placeholder="Search channels and branches" style="margin-bottom:10px">` : ""}
-    ${chs.length ? `<h4 class="bmaph">Save to channels in this branch</h4>` + list("ch", "All channels at " + esc(br?.name||""), chs) : ""}
-    ${obr.length ? `<h4 class="bmaph">Save to channels in other branches</h4>` + obr.map(([x, o]) => list("b_" + x.id, esc(x.name), o)).join("") : ""}
-    ${chs.length || brs.length ? "" : `<p class="note">There are no other channels or branches to apply this on.</p>`}
-    <div class="err" id="bmApErr"></div></div>
-    <footer><span style="flex:1"></span><button type="button" class="btn" id="bmJustSave">Save</button><button type="button" class="btn pri" id="bmApGo">Apply and Save</button></footer>`;
-  $("#ccScrim").classList.add("show");
-  const vis = k => [...box.querySelectorAll(`[data-sec="${k}"] .bmaplist label:not([hidden]) input:not(:disabled)`)];
-  const syncAll = () => box.querySelectorAll("[data-apall]").forEach(a => { const v = vis(a.dataset.apall); a.checked = v.length > 0 && v.every(i => i.checked); a.disabled = !v.length; });
-  box.querySelectorAll("[data-apall]").forEach(a => a.onchange = () => { vis(a.dataset.apall).forEach(i => i.checked = a.checked); });
-  box.querySelectorAll(".bmaplist").forEach(l => l.onchange = syncAll);
-  const q = $("#bmApQ"); if(q) q.oninput = () => { const v = q.value.trim().toLowerCase(); box.querySelectorAll(".bmaplist label").forEach(l => l.hidden = !!v && !l.dataset.q.includes(v)); syncAll(); };
-  syncAll();
-}
-document.addEventListener("click", async e => {
-  if(e.target.closest("[data-bmapx]")){ BM.last = {}; BM.lastNew = false; if(e.target.closest("[data-bmskip]")) $("#ccScrim").classList.remove("show"); return; }
-  if(e.target.closest("[data-bmsave]")){ e.preventDefault(); if(!Object.keys(BM.draft||{}).length) return; return bmApplyDialog(); }
-  if(e.target.closest("#bmJustSave")){ e.preventDefault(); $("#ccScrim").classList.remove("show"); return bmSaveNow(); }
-  const go = e.target.closest("#bmApGo"); if(go){ e.preventDefault();
-    const sel = [...document.querySelectorAll("#ccBox .bmaplist input:checked")].map(i => i.value);
-    if(!sel.length){ $("#bmApErr").textContent = "Select at least one channel or branch, or press Save."; return; }
-    const work = JSON.parse(JSON.stringify(BM.draft||{})); go.disabled = true; go.textContent = "Saving…";
-    try{
-      bmSaveNow(); await bmQueue;   // this channel first
-      let nc = 0, nb = 0;
-      const nbs = new Set();
-      for(const v of sel){ const p = v.split("|");
-        if(p[0]==="ch"){ await bmApplyWork(work, BM.branch, [p[1]]); nc++; }
-        else if(p[0]==="bc"){ await bmApplyWork(work, p[1], [p[2]]); nc++; nbs.add(p[1]); } }
-      nb = nbs.size;
-      $("#ccScrim").classList.remove("show"); BM.last = {}; BM.lastNew = false;
-      toast("Saved and applied on " + nc + " channel" + (nc===1 ? "" : "s") + (nb ? " (" + nb + " other branch" + (nb===1 ? "" : "es") + ")" : "")); render();
-    }catch(err){ console.error(err); go.disabled = false; go.textContent = "Apply"; $("#bmApErr").textContent = "Couldn't apply everywhere. Only the owner or an admin can change the menu."; go.textContent = "Apply and Save"; }
-  }
-});
+function bmBarSync(){ document.getElementById("bmApplyBar")?.remove(); }
+document.addEventListener("click", e => { if(e.target.closest("[data-bmsave]")){ e.preventDefault(); if(Object.keys(BM.draft||{}).length) bmSaveNow(); } });   // Save saves this channel
 window.addEventListener("hashchange", () => setTimeout(bmBarSync, 0));
 $("#view").addEventListener("change", async e => {
   const t = e.target;
