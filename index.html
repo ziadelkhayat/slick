@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="457-1794132321">
+<meta name="slick-build" content="458-1794132512">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1174,6 +1174,11 @@ button.x:hover,button.mmdx:hover,.dzchip>button:hover,.chip>button:hover{transfo
 html{-webkit-text-size-adjust:100%;text-size-adjust:100%}@media(max-width:820px){input:not([type=checkbox]):not([type=radio]),select,textarea{font-size:16px!important}}   /* stop iPhone Safari enlarging text in wide blocks */
 .olcard:has(input[name="olHead"][value="minimal"]:checked) .f:has(#olCover_prev){display:none}
 .bmdmx td.num,.bmdmx td.c{width:1%;white-space:nowrap;padding-left:6px!important;padding-right:6px!important}.bmdmx td:first-child{min-width:0!important}.bmdmx .bmdin{width:50px!important}
+.sctree{padding:6px!important}.sctrow{display:flex;align-items:center;gap:12px;width:100%;border:0;background:none;text-align:left;padding:12px 14px;border-radius:10px;cursor:pointer;font:inherit;color:inherit}.sctrow:hover{background:#f6f5fa}.sctrow .note{margin-left:auto}
+.sctl1{font-size:15px}.sctl2{padding-left:40px}.sctl3{padding-left:72px}.sctl3 small{display:block;color:var(--muted);font-size:12px}.sctbd+.sctbd{border-top:1px solid var(--line,#ecebf2)}
+.sctchev{display:inline-grid;place-items:center;width:20px;height:20px;transition:transform .18s;color:var(--muted)}.sctchev svg{width:14px;height:14px;transform:rotate(-90deg)}.sctchev.on svg{transform:none}
+.sctci{display:inline-grid;place-items:center;width:32px;height:32px;border-radius:9px;background:var(--accent-soft,#efeafd);color:var(--accent,#5b2bc4);flex:none;font-weight:700}.sctci svg{width:17px;height:17px}.sctgo{margin-left:auto;color:var(--muted);font-size:20px}
+.sctadd{color:var(--accent,#5b2bc4);font-weight:600}.sctnone{padding:6px 40px}
 html.mlock,html.mlock body{overflow:hidden!important}.scrim,.bmdrawer,.bmdbody,.modal .body,.modal>*{overscroll-behavior:contain}
 </style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
@@ -4427,10 +4432,7 @@ function viewBranchMenu(){
   if(!list.some(b=>b.id===BM.branch)) BM.branch = (state.branch!=="all" && list.some(b=>b.id===state.branch)) ? state.branch : list[0]?.id || "";
   bmMenusRefresh();
   // first page: the list of this branch's sales channels; each opens on its own page
-  if(brandList().length && !brandList().some(x => x.id===BM.brand)) return scBrandList(list);   // page 1: pick a brand (always, even with one)
-  if(brandList().length) list = list.filter(b => !b.brandId || b.brandId===BM.brand);
-  if(!BM.brOpen || !list.some(b => b.id===BM.branch)) return scBranchList(list);   // then pick a branch   // page 1: pick a branch
-  if(!BM.open1 || !BM_MENUS.some(m => m[0]===BM.menu)) return scListView(list);   // page 2: that branch's channels (create / delete here)
+  if(!BM.open1 || !BM_MENUS.some(m => m[0]===BM.menu)) return scTree(list);   // one page: brands → branches → channels; a channel opens on its own page
   const br = branches.find(b=>b.id===BM.branch), ch = bmMenu(), types = bmTypes(), nDraft = Object.keys(BM.draft).length, rec = ch[3] || {};
   let h = `<div class="phead"><button type="button" class="btn" data-scback>← Back</button><h1 style="margin-left:10px" data-ico="${(SC_KINDS.find(k => k[0]===rec.kind)||SC_KINDS[3])[2]}">${esc(ch[1])}</h1><span class="note" style="margin-left:8px">${esc(rec.kind==="online" ? brandName(rec.brandId) + " / all branches" : [brandName(branches.find(b=>b.id===BM.branch)?.brandId), branches.find(b=>b.id===BM.branch)?.name].filter(Boolean).join(" / "))}</span><div class="sp"></div><button type="button" class="btn" data-scedit="${esc(ch[0])}">Settings</button></div>`;
   if(!br) return h + `<div class="card empty">No branches yet. Add them under Manage → Branches.</div>`;
@@ -4509,7 +4511,29 @@ function bmDrawer(br, ch, types){
 $("#view").addEventListener("click", e => { const o = e.target.closest("[data-bmitem]"); if(o && !e.target.closest("label,input,button,.sctypes,.bmgrip,.ddwrap,.toggle")){ e.preventDefault(); BM.item = o.dataset.bmitem; return render(); }
   if(e.target.closest("[data-bmclose]")){ e.preventDefault(); BM.item = ""; render(); } });
 document.addEventListener("keydown", e => { if(e.key==="Escape" && BM.item && location.hash==="#branch-menu"){ BM.item = ""; render(); } });
-// Sales Channels list (Foodics style): one row per channel; tap to open its menu
+// Sales Channels: everything on one page. A brand opens to its branches, a branch to its channels; a channel opens its own page
+function scTree(list){
+  const ex = BM.exp ||= new Set(BM.branch ? [BM.branch, "b:" + (branches.find(b => b.id===BM.branch)?.brandId || "")] : []);
+  const ico = c => svgIco((SC_KINDS.find(x => x[0]===c.kind)||SC_KINDS[3])[2]), chev = on => `<span class="sctchev${on ? " on" : ""}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></span>`;
+  const brRow = b => { const cs = scFor(b.id), on = ex.has(b.id);
+    return `<div class="sctbr${on ? " open" : ""}"><button type="button" class="sctrow sctl2" data-sctx="${esc(b.id)}">${chev(on)}<b>${esc(b.name)}</b><span class="note">${cs.length} channel${cs.length===1 ? "" : "s"}</span></button>
+      ${on ? `<div class="sctchs">${cs.map(c => `<button type="button" class="sctrow sctl3" data-scch="${esc(scCode(c))}|${esc(b.id)}"><span class="sctci">${ico(c)}</span><span><b>${esc(c.name)}</b><small>${esc((SC_KINDS.find(k => k[0]===c.kind)||SC_KINDS[3])[1])} · ${(c.types||[]).filter(t => t!=="fast").map(t => (OTYPES.find(x => x[0]===t)||[t,t])[1]).join(", ")}</small></span><span class="sctgo">›</span></button>`).join("")}
+        <button type="button" class="sctrow sctl3 sctadd" data-scnewb="${esc(b.id)}"><span class="sctci">+</span><span>Create Sales Channel</span></button></div>` : ""}</div>`; };
+  let h = `<div class="phead"><h1>Sales Channels</h1></div><div class="card sctree">`;
+  if(!list.length) return h + `<div class="empty">No active branches.</div></div>`;
+  if(brandList().length){
+    h += brandList().map(bd => { const bs = list.filter(b => b.brandId===bd.id), on = ex.has("b:" + bd.id);
+      return `<div class="sctbd"><button type="button" class="sctrow sctl1" data-sctx="b:${esc(bd.id)}">${chev(on)}<b>${esc(bd.name)}</b><span class="note">${bs.length} branch${bs.length===1 ? "" : "es"}</span></button>${on ? bs.map(brRow).join("") || `<p class="note sctnone">No branches in this brand.</p>` : ""}</div>`; }).join("");
+    const loose = list.filter(b => !b.brandId || !brandList().some(x => x.id===b.brandId)); if(loose.length) h += loose.map(brRow).join("");
+  } else h += list.map(brRow).join("");
+  return h + `</div>`;
+}
+document.addEventListener("click", e => {
+  const tx = e.target.closest("[data-sctx]"); if(tx){ e.preventDefault(); const k = tx.dataset.sctx, ex = BM.exp ||= new Set(); ex.has(k) ? ex.delete(k) : ex.add(k); return render(); }
+  const ch = e.target.closest("[data-scch]"); if(ch){ e.preventDefault(); const [code, b] = ch.dataset.scch.split("|"); BM.branch = b; bmMenusRefresh(); BM.menu = code; BM.open1 = true; BM.brOpen = true; BM.draft = {}; BM.q = ""; BM.item = ""; render(); window.scrollTo(0,0); return; }
+  const nb = e.target.closest("[data-scnewb]"); if(nb){ e.preventDefault(); BM.branch = nb.dataset.scnewb; bmMenusRefresh(); return scDialog(""); }
+});
+// (older pages, kept for reference)
 function scBrandList(list){
   return `<div class="phead"><h1>Sales Channels</h1></div>
     <div class="card tbl"><table><thead><tr><th>Brand</th><th class="num">Branches</th></tr></thead><tbody>${brandList().map(br => { const bs = list.filter(b => !b.brandId || b.brandId===br.id), n = new Set(bs.flatMap(b => scFor(b.id).map(scCode))).size;
