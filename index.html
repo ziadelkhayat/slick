@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="460-1794141562">
+<meta name="slick-build" content="461-1794141691">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -2376,6 +2376,32 @@ function msPaint(m){
     if(!left && l0.querySelector(":scope > label")){ if(!none){ none = document.createElement("div"); none.className = "msel-none msel-all"; none.textContent = "Everything is selected"; l0.appendChild(none); } } else if(none) none.remove(); }
   f.innerHTML = (on.length ? `<span class="msel-cs">${on.map(i => `<span class="msel-c" data-msx="${esc(i.value)}" role="button" title="Press to remove">${esc(msText(i.closest("label")))}</span>`).join("")}</span>` : `<span class="msel-ph">Choose...</span>`) + MS_CARET;
 }
+/* Modifier Options filter (like Foodics): name, modifiers, SKU, updated after, allergens */
+const moF = () => state.moF ||= { name:"", mods:[], sku:"", after:"", alg:[] };
+const moFilterN = () => { const f = moF(); return [f.name, f.mods.length, f.sku, f.after, f.alg.length].filter(Boolean).length; };
+function moFilterOk(r){ const f = moF();
+  if(f.name && !String(r.name||"").toLowerCase().includes(f.name.toLowerCase()) && !String(r.nameAr||"").toLowerCase().includes(f.name.toLowerCase())) return false;
+  if(f.mods.length && !f.mods.includes(r.modifierId)) return false;
+  if(f.sku && !String(r.sku||"").toLowerCase().includes(f.sku.toLowerCase())) return false;
+  if(f.after && !(String(r.updatedAt||r.createdAt||"") >= f.after)) return false;
+  if(f.alg.length && !f.alg.some(a => (r.allergens||[]).includes(a))) return false;
+  return true; }
+document.addEventListener("click", e => {
+  if(e.target.closest("[data-mofclear]")){ e.preventDefault(); state.moF = null; return render(); }
+  if(e.target.closest("[data-mofilter]")){ e.preventDefault(); const f = moF(), box = $("#ccBox"); box.className = "modal sm";
+    const chk = (v, t, on) => `<label class="chk"><input type="checkbox" value="${esc(v)}" ${on ? "checked" : ""}> ${esc(t)}</label>`;
+    box.innerHTML = `<header><h2>Filter</h2><button type="button" class="x" data-ccclose aria-label="Close">×</button></header><div class="body" style="display:block">
+      <div class="f"><label for="mofName">Name</label><input class="sel" id="mofName" value="${esc(f.name)}"></div>
+      <div class="f"><label>Modifiers</label><div class="multi" id="mofMods" data-empty="No modifiers">${S.modifiers.filter(live).sort((a,b)=>a.name.localeCompare(b.name)).map(m => chk(m.id, m.name, f.mods.includes(m.id))).join("")}</div></div>
+      <div class="f"><label for="mofSku">SKU</label><input class="sel" id="mofSku" value="${esc(f.sku)}"></div>
+      <div class="f"><label for="mofAfter">Updated After</label><input class="sel" type="date" id="mofAfter" value="${esc(f.after)}"></div>
+      <div class="f"><label>Allergens</label><div class="multi" id="mofAlg" data-empty="No allergens">${allergenList().map(a => chk(a, a, f.alg.includes(a))).join("")}</div></div></div>
+      <footer><button type="button" class="btn keep" data-ccclose>Close</button><span style="flex:1"></span><button type="button" class="btn pri" id="mofGo">Apply</button></footer>`;
+    $("#ccScrim").classList.add("show"); return; }
+  if(e.target.closest("#mofGo")){ e.preventDefault(); const vals = id => [...document.querySelectorAll(`#${id} input:checked`)].map(i => i.value);
+    state.moF = { name:$("#mofName").value.trim(), mods:vals("mofMods"), sku:$("#mofSku").value.trim(), after:$("#mofAfter").value, alg:vals("mofAlg") };
+    state.page = state.page || {}; state.page["modifier-options"] = 1; $("#ccScrim").classList.remove("show"); render(); }
+});
 function msEnhance(){
   // close buttons: a drawn × so it sits exactly in the middle of the circle
   document.querySelectorAll("button.x:not([data-xi]),button.mmdx:not([data-xi])").forEach(b => { if(b.textContent.trim()!=="×") return; b.dataset.xi = "1"; b.innerHTML = `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>`; });
@@ -2940,7 +2966,7 @@ const CRUD = {
     tabs:[["all","All",live],["deleted","Deleted",r=>r.deleted]],
     sort:(a,b)=>modName(a.modifierId).localeCompare(modName(b.modifierId)) || bySort(a,b),
     search:r=>r.name+" "+(r.sku||"")+" "+modName(r.modifierId),
-    filter:r=>!state.modFilter || r.modifierId===state.modFilter,
+    filter:r=>(!state.modFilter || r.modifierId===state.modFilter) && moFilterOk(r),
     cols:[["Name",r=>`<b>${esc(r.name)}</b>`],["SKU",r=>`<span class="code">${esc(r.sku||"")}</span>`],["Modifier",r=>esc(modName(r.modifierId))],["Price",r=>+r.price?usd(r.price):'<span class="note">Free</span>'],
       ["Tax Group",r=>esc(tgName(r.taxGroup))],["Cost",r=>{ const c = productCost(r); return c ? fmtCost(c) : "—"; }]],
     fields:[{k:"name",l:"Name",req:1},{k:"nameAr",l:"Name Localized"},
@@ -3084,6 +3110,7 @@ function crudView(key){
   h += `<div class="card tbl"><div class="ttop"><div class="ttabs">${cfg.tabs.map(t=>`<a href="#${key}" data-tab="${key}:${t[0]}" class="${tab===t[0]?"on":""}">${t[1]}</a>`).join("")}</div>
     ${key==="products"&&state.prodMod?`<span class="chip">Modifier: ${esc(modName(state.prodMod))} <button data-clearpm aria-label="Clear">×</button></span>`:""}
     ${key==="modifier-options"&&state.modFilter?`<span class="chip">Modifier: ${esc(modName(state.modFilter))} <button data-clearmod aria-label="Clear">×</button></span>`:""}
+    ${key==="modifier-options" ? `<button type="button" class="btn${moFilterN() ? " on" : ""}" data-mofilter>${svgIco("filter")} Filter${moFilterN() ? ` (${moFilterN()})` : ""}</button>${moFilterN() ? `<button type="button" class="lnk" data-mofclear>Clear</button>` : ""}` : ""}
     ${key==="inv-items" ? `<select class="sel" id="invCat" aria-label="Category"><option value="">All categories</option>${invCatNames().map(n=>`<option ${state.invCat===n?"selected":""}>${esc(n)}</option>`).join("")}</select>` : ""}
     ${key==="products" ? `<select class="sel" id="prodCat" aria-label="Category"><option value="">All categories</option>${S.categories.filter(c=>live(c)&&!c.channel).sort(bySort).map(c=>`<option value="${esc(c.id)}" ${state.catFilter===c.id?"selected":""}>${state.brand==="all"&&brandList().length>1?esc(brandName(c.brandId))+" · ":""}${esc(c.name)}</option>`).join("")}</select>` : ""}
     <div class="sp"></div>${scopeHere ? scopeBar(false) : ""}<input class="sel search" data-search="${key}" placeholder="Search" value="${esc(state.q[key]||"")}" aria-label="Search ${cfg.title}"></div>`;
