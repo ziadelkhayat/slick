@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="495-1794162322">
+<meta name="slick-build" content="496-1794162432">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -6026,11 +6026,12 @@ async function saveCurrency(){
 document.addEventListener("click", e => { if(e.target.closest("#curSave")) saveCurrency(); });
 /* Reasons (Manage → Reasons, Foodics style): a card per kind; tap a reason to edit it; drag to reorder; deleted ones under Deleted */
 const RS_KINDS = [["vr","Void and Return Reason"],["qtyReasons","Quantity Adjustment Reason"],["drawerReasons","Drawer Operation Reason"]];
-const RS_DEF = { qtyReasons:["Waste","Expired","Damaged","Theft","Staff meal","Sample","Found stock"], drawerReasons:["Cash Change"] };
+const RS_GONE = new Set(["Damaged","Theft","Staff meal","Sample","Found stock"]);   // removed for good, even from saved lists
+const RS_DEF = { qtyReasons:["Waste","Expired"], drawerReasons:["Cash Change"] };
 const RS = { tab:"general" };
 const rsSplit = v => String(v || "").split("\n").map(x => x.trim()).filter(Boolean);
 // void and return share one list (the POS offers it for both)
-function rsGet(k){ const a = appSet(); if(k==="vr") return [...new Set([...rsSplit(a.voidReasons), ...rsSplit(a.returnReasons)])]; return a[k]==null ? (RS_DEF[k]||[]).slice() : rsSplit(a[k]); }
+function rsGet(k){ const a = appSet(); if(k==="vr") return [...new Set([...rsSplit(a.voidReasons), ...rsSplit(a.returnReasons)])]; return (a[k]==null ? (RS_DEF[k]||[]).slice() : rsSplit(a[k])).filter(x => k!=="qtyReasons" || !RS_GONE.has(x)); }
 const rsDelGet = k => rsSplit(appSet()[k + "Del"]);
 async function rsPut(k, list, del){ const d = k==="vr" ? { voidReasons: list.join("\n"), returnReasons: list.join("\n") } : { [k]: list.join("\n") }; if(del) d[k + "Del"] = del.join("\n");
   try{ await put("settings", "app", d); render(); return true; }catch(err){ console.error(err); toast("Couldn't save. Only the owner or an admin can change reasons."); return false; } }
@@ -7342,8 +7343,8 @@ const DOC_KINDS = {
   "production":           { kind:"production", title:"Production", plural:"Production", loc:1, intro:"Make produced items (sauces, prepped proteins, noodles…) from their ingredients. Submitting adds the produced quantity to the chosen branch or warehouse and takes out the ingredients used, based on each item's ingredient list." },
   "count-sheets":         { kind:"sheet", title:"Inventory Count Sheet", plural:"Count Sheet", intro:"A count sheet is a saved list of items. Pick it in Inventory Count, adjustments or spot checks to load just those items." }
 };
-const QA_REASONS_DEF = ["Waste","Expired","Damaged","Theft","Staff meal","Sample","Found stock","Other"];
-const QA_REASONS_L = () => { const v = (S.settings.find(x => x.id==="app")||{}).qtyReasons; return v==null ? QA_REASONS_DEF : String(v).split("\n").map(x => x.trim()).filter(Boolean); };
+const QA_REASONS_DEF = ["Waste","Expired","Other"];
+const QA_REASONS_L = () => { const v = (S.settings.find(x => x.id==="app")||{}).qtyReasons; return v==null ? QA_REASONS_DEF : String(v).split("\n").map(x => x.trim()).filter(x => x && !RS_GONE.has(x)); };
 const docOf = K => d => d.kind===K.kind && (K.kind!=="purchase" || (d.reason==="po") === !!K.po);
 const DOC = { tab:{}, q:{}, open:null, edit:null, stock:null, stockAt:0, busy:false, err:"" };
 const invCatNames = () => { const m = S.inv_categories.filter(live).map(c=>c.name); S.inv_items.forEach(i=>{ if(i.category && !m.includes(i.category)) m.push(i.category); }); return m.sort((a,b)=>a.localeCompare(b)); };
