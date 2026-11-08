@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="541-1794178665">
+<meta name="slick-build" content="542-1794178886">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -670,7 +670,7 @@ window.SLICK_OFFLINE = true;</script>
 <script src="supabase.js"></script>
 <script>if(!window.supabase) document.write('<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"><\/script>');</script>
 <script src="wokdb.js?v=36"></script>
-<script src="modpick.js?v=14"></script>
+<script src="modpick.js?v=15"></script>
 </head>
 <body>
 <div id="boot" class="center"><div class="panel"><div class="logo">S</div><h1>Slick POS</h1><p>Connecting…</p></div></div>
@@ -1326,10 +1326,17 @@ async function addProduct(p){
   renderCart();
 }
 $("#grid").addEventListener("click", e => { const b = e.target.closest("[data-add]"); if(!b) return; const p = S.products.find(x=>x.id===b.dataset.add); if(p) addProduct(p); });
-async function editLine(ix){
+// long press a cart item: its note and discount
+const LP = { t:0, done:false, x:0, y:0 };
+$("#lines").addEventListener("pointerdown", e => { const ed = !e.target.closest("button, input, a") && e.target.closest("[data-edit]"); if(!ed) return; LP.done = false; LP.x = e.clientX; LP.y = e.clientY; clearTimeout(LP.t);
+  LP.t = setTimeout(() => { LP.done = true; const eo = editOrder(); if(eo && !isOpenOrd(eo)) return; const i = cart[+ed.dataset.edit]; if(!i) return; if(i.saved) return toast("This item was sent to the kitchen: void it from the Void button"); try{ navigator.vibrate?.(15); }catch(_){} editLine(+ed.dataset.edit, "extras"); }, 500); });
+$("#lines").addEventListener("pointermove", e => { if(Math.abs(e.clientX - LP.x) + Math.abs(e.clientY - LP.y) > 10) clearTimeout(LP.t); });
+["pointerup","pointercancel","pointerleave"].forEach(ev => $("#lines").addEventListener(ev, () => clearTimeout(LP.t)));
+$("#lines").addEventListener("contextmenu", e => { if(e.target.closest("[data-edit]")) e.preventDefault(); });
+async function editLine(ix, only){   // only: "mods" (tap) or "extras" (long press: note and discount)
   const i = cart[ix], p = i && S.products.find(x=>x.id===i.productId); if(!i || !window.SlickMods) return;
   const base = (+i.price||0) - (i.options||[]).reduce((t,x)=>t+(+x.price||0),0);   // the item's own price, before its options
-  const r = await SlickMods.pick({ name:i.name, basePrice:base, ...(p ? modData(p) : { links:[], groups:{}, options:[] }), money:usd, edit:true, initial:i.options||[], qty:i.qty, note:i.note||"", allowDiscount: can("pos_item_discount"), discType:i.discType, discValue:i.discValue }); if(!r) return;
+  const r = await SlickMods.pick({ name:i.name, basePrice:base, ...(p ? modData(p) : { links:[], groups:{}, options:[] }), money:usd, edit:true, only, initial:i.options||[], qty:i.qty, note:i.note||"", allowDiscount: can("pos_item_discount"), discType:i.discType, discValue:i.discValue }); if(!r) return;
   if(+r.disc > (+i.disc||0) + 0.001 && appSet().discNeedsCustomer && !custGiven(cust.name, cust.phone)){ toast("Add the customer first: discounts need customer info"); return; }
   if(+r.disc > (+i.disc||0) + 0.001 && appSet().discountApproval && !(await approve("pos_item_discount", "Approve item discount"))) return;
   Object.assign(i, { price:r.unitPrice, qty:r.qty, options:r.options, note:r.note, mods:SlickMods.label(r.mods, r.note) });
@@ -1341,7 +1348,9 @@ $("#lines").addEventListener("click", e => { const dx = e.target.closest("[data-
   const nx = e.target.closest("[data-onotex]"); if(nx){ if(nx.dataset.onotex==="k") kitchenNote = ""; else orderNote = ""; renderCart(); if(EDIT && isOpenOrd(editOrder()||{})) toast("Note removed · press Save to keep the change"); return; }
   const on = e.target.closest("[data-onote]"); if(on) return openNotes(on.dataset.onote);
   const eo = editOrder(), ro = eo && !isOpenOrd(eo);
-  const ed = !e.target.closest("button, input, a") && e.target.closest("[data-edit]"); if(ed){ if(ro) return; const i = cart[+ed.dataset.edit]; if(i?.saved) return toast("This item was sent to the kitchen: void it with − instead of changing it"); return editLine(+ed.dataset.edit); }
+  const ed = !e.target.closest("button, input, a") && e.target.closest("[data-edit]"); if(ed){ if(LP.done){ LP.done = false; return; } if(ro) return; const i = cart[+ed.dataset.edit], p = i && S.products.find(x => x.id===i.productId);
+    if(!p || !modData(p).links?.length) return;   // tap edits the modifiers; an item without modifiers has nothing to change here
+    if(i?.saved) return toast("This item was sent to the kitchen: void it from the Void button"); return editLine(+ed.dataset.edit, "mods"); }
   const b = e.target.closest("[data-q]"); if(!b || ro) return; const [ix,d] = b.dataset.q.split(":").map(Number), i = cart[ix];
   if(d < 0 && i.qty <= (i.saved||0)) return;           // already sent: the cart buttons never void; voids are done from the Void button only
   i.qty += d; if(i.qty<=0) cart.splice(ix,1); else reDisc(i); renderCart(); });

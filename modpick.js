@@ -37,6 +37,7 @@
   .smp .og label.qrow .qs{margin-left:0;margin-top:2px}.smp .og label.qrow .qs button{width:34px;height:34px}
   .smp textarea{width:100%;box-sizing:border-box;border:1px solid #ddd8ea;border-radius:10px;padding:9px 10px;font:inherit;font-size:14px;resize:vertical}
   .smp footer button{border:0;border-radius:10px;background:#5b2bc4;color:#fff;font:inherit;font-weight:600;padding:12px 18px;min-height:48px;cursor:pointer}.smp footer button.smc{background:#fff;color:#1c1b22;border:1px solid #e5e3ec}`;
+  // o.only: "mods" = just the modifiers (no note / discount), "extras" = just the note and discount
   function pick(o){
     const money = o.money || (n => "USD " + (+n||0).toFixed(2));
     const links = (o.links||[]).map(l => ({ ...l, opts: (o.options||[]).filter(x => x.modifierId===l.modifierId) })).filter(l => l.opts.length);
@@ -58,7 +59,7 @@
       const priceOf = () => { let t = +o.basePrice||0; links.forEach((l, gi) => { let free = +l.free||0; units(l, gi).forEach(x => { if(free > 0) free--; else t += +x.price||0; }); }); return t; };
       const rule = l => { const mn = +l.min||0, mx = +l.max||0; if(mn && mx && mn===mx) return `Choose ${mn}`; if(mn && mx) return `Choose ${mn} to ${mx}`; if(mn) return `Choose at least ${mn}`; if(mx) return `Up to ${mx}`; return "Optional"; };
       const draw = () => {
-        el.innerHTML = `<div class="smp" role="dialog" aria-modal="true" aria-label="${esc(o.name)}"><header><h3>${esc(o.name)}</h3></header><div class="b">${links.map((l, gi) => {
+        el.innerHTML = `<div class="smp" role="dialog" aria-modal="true" aria-label="${esc(o.name)}"><header><h3>${esc(o.name)}</h3></header><div class="b">${(o.only==="extras" ? [] : links).map((l, gi) => {
           const one = (+l.max||0) === 1, full = (+l.max||0) > 0 && cnt(gi) >= +l.max;
           return `<div class="g"><b>${esc(o.groups?.[l.modifierId]?.name || "Options")}</b><span class="${+l.min?"req":""}">${rule(l)}</span>${+l.free?`<span>${l.free} free</span>`:""}${l.multi && !one?`<span>· repeat allowed</span>`:""}</div><div class="og">` +
             l.opts.map(x => { const n = sel[gi].get(x.id)||0, on = n > 0;
@@ -66,7 +67,7 @@
                 <span class="qs"><button type="button" data-q="${gi}:${esc(x.id)}:-1" ${on?"":"disabled"} aria-label="Less ${esc(x.name)}">−</button><b>${n}</b><button type="button" data-q="${gi}:${esc(x.id)}:1" ${full||x.oos?"disabled":""} aria-label="More ${esc(x.name)}">+</button></span></label>`;
               const dis = !on && ((full && !one) || x.oos);
               return `<label class="${dis?"dis":""}"><input type="${one && +l.min >= 1 ? "radio" : "checkbox"}" name="g${gi}" data-g="${gi}" value="${esc(x.id)}" ${on?"checked":""} ${dis?"disabled":""}>${esc(x.name)}${x.oos?'<span class="oos">Out of stock</span>':""}<span class="p">${+x.price ? "+" + money(x.price) : ""}</span></label>`; }).join("") + `</div>`;
-        }).join("")}${o.edit ? `<div class="g"><b>Item note</b></div><textarea data-note rows="2">${esc(note)}</textarea>` : ""}${o.edit && o.allowDiscount ? `<div class="g"><b>Item discount</b>${discOf() ? `<span>−${money(discOf())}</span>` : ""}</div>
+        }).join("")}${o.edit && o.only!=="mods" ? `<div class="g"><b>Item note</b></div><textarea data-note rows="2">${esc(note)}</textarea>` : ""}${o.edit && o.allowDiscount && o.only!=="mods" ? `<div class="g"><b>Item discount</b>${discOf() ? `<span>−${money(discOf())}</span>` : ""}</div>
           <div class="dz"><button type="button" data-dt="pct" class="${discT==="pct"?"on":""}">%</button><button type="button" data-dt="amt" class="${discT==="amt"?"on":""}">${esc(o.cur || String(money(0)).replace(/[-\d.,\s]+/g, "").trim() || "USD")}</button><input data-dv inputmode="${touch && PAD ? "none" : "decimal"}" aria-label="${discT==="amt"?"Amount off":"Percent off"}" value="${esc(discV)}"></div>${PAD ? `<div class="smnp">${["1","2","3","4","5","6","7","8","9",".","0","⌫"].map(k => `<button type="button" data-np="${k}" aria-label="${k==="⌫"?"Delete":k}">${k}</button>`).join("")}</div>` : ""}` : ""}</div><footer><span class="err" data-err></span><button type="button" data-x class="smc">Cancel</button><button type="button" data-ok>${o.edit ? "Save" : "Add · " + money(priceOf() * qty)}</button></footer></div>`;
       };
       const redraw = () => { const y = el.querySelector(".b")?.scrollTop; draw(); const b = el.querySelector(".b"); if(b) b.scrollTop = y; };
@@ -90,7 +91,7 @@
           if(bad >= 0){ el.querySelector("[data-err]").textContent = `${o.groups?.[links[bad].modifierId]?.name || "Options"}: ${rule(links[bad]).toLowerCase()}`; return; }
           const chosen = []; links.forEach((l, gi) => { let free = +l.free||0; units(l, gi).forEach(x => { const charge = free > 0 ? 0 : (+x.price||0); if(free > 0) free--; chosen.push({ id:x.id, modifierId:l.modifierId, name:x.name, price:charge }); }); });
           const tally = []; chosen.forEach(x => { const t = tally.find(y => y.name===x.name); if(t) t.n++; else tally.push({ name:x.name, n:1 }); });
-          return close({ options: chosen, unitPrice: +priceOf().toFixed(2), mods: tally.map(t => (t.n > 1 ? t.n + "× " : "") + t.name).join(", "), ...(o.edit ? { qty, note: note.trim(), ...(o.allowDiscount ? { disc: discOf(), discType: discT, discValue: +String(discV).replace(",", ".") || 0 } : {}) } : {}) });
+          return close({ options: chosen, unitPrice: +priceOf().toFixed(2), mods: tally.map(t => (t.n > 1 ? t.n + "× " : "") + t.name).join(", "), ...(o.edit ? { qty, note: note.trim(), ...(o.allowDiscount && o.only!=="mods" ? { disc: discOf(), discType: discT, discValue: +String(discV).replace(",", ".") || 0 } : {}) } : {}) });
         }
       });
       el.addEventListener("input", e => { if(e.target.matches("[data-note]")) note = e.target.value;
