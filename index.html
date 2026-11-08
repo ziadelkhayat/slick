@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="491-1794161739">
+<meta name="slick-build" content="495-1794162322">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -2717,7 +2717,12 @@ const typingInView = () => { const a = document.activeElement; return a && $("#v
 function softRender(){ if(typingInView()){ pendingRender = true; return; } render(); }
 document.addEventListener("focusout", () => setTimeout(() => { if(pendingRender && !typingInView()){ pendingRender = false; render(); } }, 0));
 const uid = p => p + "_" + Date.now().toString(36) + Math.random().toString(36).slice(2,6);
-async function put(col, id, data){
+async function put(col, id, data){ const r = await put0(col, id, data);
+  // a delivery charge that is turned off, deleted or restored also changes the fee of the zones that use it
+  if(col==="charges" && id && ("active" in data || "deleted" in data || "value" in data || "type" in data)) try{ const c = S.charges.find(x => x.id===id) || {}, m = { ...c, ...data }, fee = !m.deleted && m.active!==false && (m.type||"fixed")==="fixed" ? (+m.value||0) : 0;
+    for(const z of (S.zones||[]).filter(z => dcMap()[z.id]===id && +z.fee!==fee)) await put0("zones", z.id, { fee }); }catch(e){ console.error(e); }
+  return r; }
+async function put0(col, id, data){
   const now = new Date().toISOString();
   if(storeMode === "db"){
     if(id && S[col].some(r => r.id===id)) await db.collection(col).doc(id).update({ ...data, updatedAt: now });
@@ -3065,7 +3070,7 @@ const CRUD = {
     sort:(a,b)=>bySort(a,b), search:r=>r.name+" "+(r.nameAr||""),
     cols:[["Name",r=>`<b>${esc(r.name)}</b>${r.nameAr?` <span class="note">${esc(r.nameAr)}</span>`:""}`],["Type",r=>r.type==="percent"?"Percentage":r.type==="open"?"Open amount":"Amount"],["Value",r=>r.type==="percent"?(+r.value||0)+" %":r.type==="open"?"Open":usd(r.value),"num"],
       ["Order types",r=>(r.orderTypes||[]).length ? r.orderTypes.map(t=>esc(TYPE_LBL[t]||t)).join(", ") : "All"],["Brands / branches",r=>[(r.brandIds||[]).length ? r.brandIds.map(brandName).join(", ") : "All brands", (r.branchIds||[]).length ? (r.branchIds.includes("-") ? "no branches" : r.branchIds.length+" branch(es)") : "all branches"].map(esc).join(" · ")],
-      ["Status",r=>r.active===false?'<span class="tag off">Inactive</span>':'<span class="tag on">Active</span>']],
+      ["Status",r=>r.deleted?'<span class="tag off">Deleted</span>':r.active===false?'<span class="tag off">Inactive</span>':'<span class="tag on">Active</span>']],
     fields:[{k:"name",l:"Name",req:1,ph:"e.g. Delivery charge, Service charge"},{k:"nameAr",l:"Name Localized"},
       {k:"type",l:"Type",t:"select",req:1,opts:()=>[["fixed","Amount"],["percent","Percentage"],["open","Open amount"]],def:"fixed"},{k:"value",l:"Value",t:"number",ph:"e.g. 2 or 10 (empty for open amount)"},
       {k:"taxGroup",l:"Tax Group",t:"select",opts:()=>(S.tax_groups||[]).filter(live).map(g => [g.id, g.name])},
@@ -3075,7 +3080,7 @@ const CRUD = {
       {k:"active",l:"Active",t:"chk",def:true}],
     unique:"name",
     prep: data => { if(data.type==="open"){ data.value = 0; return ""; } if(data.value==null || !(data.value >= 0)) return "Value is required."; if(data.type==="percent" && data.value > 100) return "A percentage can't be more than 100."; return ""; },
-    saved: async (old, data) => { if(!old?.id || data.value==null) return; for(const z of (S.zones||[]).filter(z => dcMap()[z.id]===old.id && +z.fee!==+data.value)) await put("zones", z.id, { fee: data.type==="percent" ? 0 : +data.value||0 }); }
+    saved: async (old, data) => { if(!old?.id || data.value==null || data.active===false || old.deleted) return; for(const z of (S.zones||[]).filter(z => dcMap()[z.id]===old.id && +z.fee!==+data.value)) await put("zones", z.id, { fee: data.type==="percent" ? 0 : +data.value||0 }); }
   },
   "delivery-zones": {
     col:"zones", title:"Delivery Zones", one:"Delivery Zone",
