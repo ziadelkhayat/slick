@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="477-1794145015">
+<meta name="slick-build" content="479-1794145617">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -2334,7 +2334,15 @@ document.addEventListener("mouseover", e => { const ic = e.target.closest?.(".ib
 document.addEventListener("mouseout", e => { const ic = e.target.closest?.(".ib"); if(ic && !ibPin) ibHide(); });
 document.addEventListener("keydown", e => { if(e.key==="Escape" && ibBub){ ibPin = null; ibHide(); } });
 addEventListener("scroll", () => { if(ibBub){ ibPin = null; ibHide(); } }, true);
-function render(){ setTimeout(() => typeof bmBarSync==="function" && bmBarSync(), 0);
+/* re-drawing a page keeps every scroll where it was (the page, lists, drawers, table boxes) */
+const KEEP_SCROLL = "#view .bmdbody, #view .tscroll, #view .bmdtw, #view .mmcats, #view .mmtbl, #view .mm, #view .mmside, #view .mmmain, #view .rswrap, #view .bswrap, #view [data-keepscroll]";
+let RENDER_ROUTE = "";
+function render(){ const route = location.hash.slice(1) || "dashboard", same = route===RENDER_ROUTE; RENDER_ROUTE = route;
+  const wy = window.scrollY, keep = same ? [...document.querySelectorAll(KEEP_SCROLL)].map((el, i) => [i, el.scrollTop, el.scrollLeft]).filter(x => x[1] || x[2]) : [];
+  const r = render0.apply(this, arguments);
+  if(same){ if(window.scrollY !== wy) window.scrollTo(0, wy); if(keep.length){ const els = [...document.querySelectorAll(KEEP_SCROLL)]; keep.forEach(([i, t, l]) => { const el = els[i]; if(el){ el.scrollTop = t; el.scrollLeft = l; } }); } }
+  return r; }
+function render0(){ setTimeout(() => typeof bmBarSync==="function" && bmBarSync(), 0);
   const route = (location.hash.slice(1) || "dashboard");
   renderNav(route); document.body.dataset.route = route; document.body.classList.toggle("noloc", company().localization===false);
   if(!state.dateSet) state.date = todayStr();   // follows the business day (end time comes from Company settings)
@@ -4507,7 +4515,7 @@ function viewBranchMenu(){
         return `<div class="mmcat${c.id===BM.cat?" sel":""}${on?"":" off"}" data-bmpick="${esc(c.id)}"${cq ? "" : ` data-sk="bmc|${esc(c.id)}"`}>
           <span class="bmgrip" title="Drag to move" aria-hidden="true">⋮⋮</span>
           <span class="scimg">${c.imageUrl ? `<img src="${esc(c.imageUrl)}" alt="">` : svgIco("image")}</span>
-          <span class="mmct"><b>${esc(c.name)}</b>${on ? "" : `<small>Hidden</small>`}</span>
+          <span class="mmct"><b>${esc(c.name)}</b></span>
           <label class="toggle" title="${on ? "Shown" : "Hidden"} on the ${esc(ch[1])} menu"><input type="checkbox" data-bmcat="${esc(c.id)}" ${on?"checked":""} aria-label="Show ${esc(c.name)}"><span class="trk"></span></label>
           <div class="ddwrap"><button type="button" class="mmdots" data-bmcmenu="${esc(c.id)}" aria-label="Category actions">⋯</button><div class="ddmenu" hidden><button type="button" data-bmcedit="${esc(c.id)}">Edit</button><button type="button" class="danger" data-bmcdel="${esc(c.id)}">Delete</button></div></div></div>`; }).join("") || `<div class="mmempty">${cats.length ? "No categories match." : `<b>No categories yet</b><span>Add the first category of the ${esc(ch[1])} menu.</span>`}</div>`}</div></aside>`;
   // right: the chosen category's products
