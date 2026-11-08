@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="485-1794154051">
+<meta name="slick-build" content="486-1794154860">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -940,7 +940,7 @@ tr.click:hover td,.otbl tr.clk:hover td,tr.clk:hover td{background:#f8f6fd}
 .ddmenu,#acctMenu,#ubMenu,.ofpop,.drp{border-radius:14px!important;border:1px solid var(--line)!important;box-shadow:0 16px 40px rgba(23,21,31,.16)!important;animation:popIn .16s var(--ease)}
 @keyframes popIn{from{opacity:0;transform:translateY(-6px) scale(.98)}to{opacity:1;transform:none}}
 /* page change motion */
-#view.vin{animation:viewIn .32s var(--ease)}
+#view.vin{animation:none}
 @keyframes viewIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 .toast,#toast{border-radius:12px;box-shadow:0 12px 32px rgba(23,21,31,.2)}
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}}
@@ -1483,7 +1483,7 @@ function decorate(route){
   v.querySelectorAll(".kpi .kh h3").forEach(h3 => { if(h3.dataset.deco) return; h3.dataset.deco = 1; const m = KPI_ICONS.find(([re]) => re.test(h3.textContent));
     h3.style.display = "flex"; h3.style.alignItems = "center"; h3.insertAdjacentHTML("afterbegin", `<span class="kicon">${svgIco(m ? m[1] : "chart")}</span>`); });
 }
-new MutationObserver(() => { clearTimeout(decorate.t); decorate.t = setTimeout(() => decorate(location.hash.slice(1) || "dashboard"), 0); }).observe(document.getElementById("view"), { childList:true, subtree:true });
+new MutationObserver(() => {  cancelAnimationFrame(decorate.t); decorate.t = requestAnimationFrame(() => decorate(location.hash.slice(1) || "dashboard")); }).observe(document.getElementById("view"), { childList:true, subtree:true });
 
 
 
@@ -2296,7 +2296,7 @@ function ftTips(root){
       if(tip) lab.appendChild(ibMake(esc(tip))); });
   });
 }
-new MutationObserver(() => { clearTimeout(ftTips.t); ftTips.t = setTimeout(() => ftTips(), 60); }).observe(document.documentElement, { childList:true, subtree:true });
+new MutationObserver(() => { if(ftTips.t) return; ftTips.t = requestAnimationFrame(() => { ftTips.t = 0; ftTips(); }); }).observe(document.documentElement, { childList:true, subtree:true });
 FTIPS.option = FTIPS["modifier option"]; FTIPS.item = FTIPS["menu item"] = FTIPS.product;   // menu items = Foodics products; inventory items have their own tips
 function infoize(root){
   if(!root) return;
