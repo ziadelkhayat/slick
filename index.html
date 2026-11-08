@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="474-1794144583">
+<meta name="slick-build" content="475-1794144792">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -4807,11 +4807,12 @@ function bmSet(id, k, v){ const d = BM.draft[id] ||= {}; d[k] = v; bmPrune(id); 
 // a change put back the way it was is no longer a change: drop draft values that match what is saved
 function bmPrune(id){
   const d = BM.draft[id]; if(!d) return; delete BM.draft[id];
-  const same = (k, a, b) => k==="price" ? String(a ?? "").trim()==="" ? String(b ?? "").trim()==="" : String(b ?? "").trim()!=="" && +a===+b : a===b;
+  const same = (k, a, b) => (k==="price" || k.startsWith("tp_")) ? String(a ?? "").trim()==="" ? String(b ?? "").trim()==="" : String(b ?? "").trim()!=="" && +a===+b : a===b;
   let base = null;
   if(id.startsWith("cat:")) base = { on: bmCatOn(id.slice(4)) };
-  else if(id.startsWith("mo:")){ const [pid, oid] = id.slice(3).split("|"), r = S.products.find(x => x.id===pid), o = S.modifier_options.find(x => x.id===oid); if(r && o) base = bmOptState(r, o); }
-  else { const r = S.products.find(x => x.id===id) || S.modifier_options.find(x => x.id===id); if(r){ const st = bmState(r); base = { on: st.on, stock: st.stock, price: st.price }; Object.entries(st.types).forEach(([t, v]) => base["t_"+t] = v); } }
+  else if(id.startsWith("mo:")){ const [pid, oid] = id.slice(3).split("|"), r = S.products.find(x => x.id===pid), o = S.modifier_options.find(x => x.id===oid); if(r && o){ const st = bmOptState(r, o); base = { on: st.on, price: st.price, stock: st.stock }; bmTypes().forEach(([t]) => { base["to_"+t] = st.types[t]; base["tp_"+t] = st.tprices[t]; }); } }
+  else if(id.startsWith("mg:")){ const [pid, mid] = id.slice(3).split("|"), r = S.products.find(x => x.id===pid), l = (r?.modifiers||[]).find(x => x.modifierId===mid); if(l){ const k = BM.branch + ":" + bmMenu()[2][0]; base = {}; bmTypes().forEach(([t]) => base["to_"+t] = !(l.offTypes||[]).includes(k + ":" + t)); } }   // nothing changed = nothing to save
+  else { const r = S.products.find(x => x.id===id) || S.modifier_options.find(x => x.id===id); if(r){ const st = bmState(r); base = { on: st.on, stock: st.stock, price: st.price }; Object.entries(st.types).forEach(([t, v]) => base["t_"+t] = v); Object.entries(st.tprices||{}).forEach(([t, v]) => base["tp_"+t] = v); } }
   const left = {}; Object.entries(d).forEach(([k, v]) => { if(!base || !(k in base) || !same(k, base[k], v)) left[k] = v; });
   if(Object.keys(left).length) BM.draft[id] = left;
 }
