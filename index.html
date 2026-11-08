@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="454-1794092652">
+<meta name="slick-build" content="456-1794132055">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -2846,7 +2846,7 @@ const CRUD = {
     sort:(a,b)=>a.name.localeCompare(b.name),
     search:r=>r.name,
     cols:[["Brand",r=>`<b>${esc(r.name)}</b>${r.nameAr?` <span class="note">${esc(r.nameAr)}</span>`:""}`],
-      ["Branches",r=>branches.filter(b=>b.brandId===r.id).length,"num"],["Products",r=>S.products.filter(p=>live(p)&&p.brandId===r.id).length,"num"],
+      ["Branches",r=>branches.filter(b=>b.brandId===r.id).length,"num"],
       ["Status",r=>r.active===false?'<span class="tag off">Inactive</span>':'<span class="tag on">Active</span>']],
     fields:[{k:"name",l:"Brand name",req:1},{k:"nameAr",l:"Name Localized"},{k:"active",l:"Active",t:"chk",def:true}],
     canDelete: r => { const n = branches.filter(b => b.brandId===r.id).length; return n ? `Delete this brand's ${n} branch${n===1?"":"es"} first (Manage → Branches).` : ""; }
@@ -2878,7 +2878,7 @@ const CRUD = {
       if(ka !== kb || (pa||a).id !== (pb||b).id) return String(ka).localeCompare(String(kb)) || String((pa||a).id).localeCompare(String((pb||b).id));
       if(!pa) return -1; if(!pb) return 1; return pa.variants.findIndex(v=>v.productId===a.id) - pa.variants.findIndex(v=>v.productId===b.id); },
     search:r=>r.name+" "+(r.sku||"")+" "+catName(r.categoryId)+" "+(varParent(r.id)?.name||""),
-    filter:r=>brandFilter(r) && (!state.catFilter || r.categoryId===state.catFilter) && (!state.prodMod || (r.modifiers||[]).some(l => l.modifierId===state.prodMod)),
+    filter:r=>(!state.catFilter || r.categoryId===state.catFilter) && (!state.prodMod || (r.modifiers||[]).some(l => l.modifierId===state.prodMod)),
     cols:[["Name",r=>`<span class="pname">${r.imageUrl?`<img class="pthumb" src="${esc(r.imageUrl)}" alt="" loading="lazy">`:`<span class="pthumb none"></span>`}${(() => { const par = varParent(r.id), n = (r.variants||[]).filter(v=>v.productId).length;
       return par ? `<span class="vchild">↳ <b>${esc(r.name)}</b> <span class="tag">${esc(varGroup(par))} · ${esc(par.variants.find(v=>v.productId===r.id)?.name||"")}</span></span>`
         : `<b>${esc(r.name)}</b>${n ? ` <span class="tag cc">${n} variant${n===1?"":"s"}</span>` : ""}`; })()}</span>`],["SKU",r=>`<span class="code">${esc(r.sku||"")}</span>`],["Category",r=>esc(catName(r.categoryId))],
@@ -2886,7 +2886,7 @@ const CRUD = {
       ["Tax Group",r=>varKids(r).length ? '<span class="note">Per variant</span>' : esc(tgName(r.taxGroup))]],
     // the same fields and order as Foodics; nutritional values and allergens are set from their sections on the item's page
     fields:[{k:"imageUrl",l:"Image",t:"image",full:1},{k:"name",l:"Name",req:1},{k:"nameAr",l:"Name Localized"},
-      {k:"categoryId",l:"Category",t:"select",req:1,opts:()=>S.categories.filter(c=>live(c)&&!c.channel).sort(bySort).map(c=>[c.id,c.name])},brandField,
+      {k:"categoryId",l:"Category",t:"select",req:1,opts:()=>S.categories.filter(c=>live(c)&&!c.channel).sort(bySort).map(c=>[c.id,c.name])},
       {k:"sku",l:"SKU",auto:()=>nextSku("products")},
       {k:"pricingMethod",l:"Pricing Method",t:"select",opts:()=>[["fixed","Fixed Price"],["open","Open Price"]],def:"fixed",hideIf:r=>varKids(r).length},
       {k:"price",l:"Price (USD)",t:"number",req:1,hideIf:r=>varKids(r).length},{k:"taxGroup",l:"Tax Group",t:"select",opts:()=>taxGroupOpts(),def:"tg_vat",hideIf:r=>varKids(r).length},
@@ -3318,19 +3318,18 @@ const byName = (list, v) => { const t = String(v||"").trim().toLowerCase(); retu
 const tgByName = v => { const t = String(v||"").trim().toLowerCase(); if(!t) return null; return S.tax_groups.find(g => live(g) && (g.name.toLowerCase()===t || tgName(g.id).toLowerCase()===t)) || null; };
 // one spec per page: the columns, how to find an existing row, and how to turn a CSV line into a record
 const IMPEX = {
-  products: { file:"products", head:["SKU","Name","Name Localized","Brand","Category","Price","Pricing Method","Tax Group","Costing Method","Cost","Preparation Time","Description","Active"],
-    rows: () => S.products.filter(live).filter(brandFilter).sort(CRUD.products.sort).map(r => [r.sku, r.name, r.nameAr, brandName(r.brandId), catName(r.categoryId), r.price, r.pricingMethod||"fixed", r.taxGroup ? S.tax_groups.find(g=>g.id===r.taxGroup)?.name : "", r.costingMethod||"ingredients", r.cost, r.prepTime, r.description, r.active===false?"No":"Yes"]),
+  products: { file:"products", head:["SKU","Name","Name Localized","Category","Price","Pricing Method","Tax Group","Costing Method","Cost","Preparation Time","Description","Active"],
+    rows: () => S.products.filter(live).sort(CRUD.products.sort).map(r => [r.sku, r.name, r.nameAr, catName(r.categoryId), r.price, r.pricingMethod||"fixed", r.taxGroup ? S.tax_groups.find(g=>g.id===r.taxGroup)?.name : "", r.costingMethod||"ingredients", r.cost, r.prepTime, r.description, r.active===false?"No":"Yes"]),
     build: (x, ctx) => {
       const bl = brandList(), bySku = x.sku && S.products.find(p => live(p) && (p.sku||"").toLowerCase()===x.sku.toLowerCase()),
         cats = S.categories.filter(c => live(c) && !c.channel && c.name.trim().toLowerCase()===String(x.category||"").trim().toLowerCase()),
         brand = x.brand ? byName(bl, x.brand) : (bl.length===1 ? bl[0] : state.brand!=="all" ? bl.find(b=>b.id===state.brand)
           : bySku ? bl.find(b=>b.id===bySku.brandId) : cats.length===1 ? bl.find(b=>b.id===cats[0].brandId) : null);   // no Brand column: work it out from the SKU or category
-      if(bl.length && !brand) return { err: x.brand ? `brand "${x.brand}" not found` : "brand is required" };
       const cat = S.categories.find(c => live(c) && !c.channel && c.name.trim().toLowerCase()===String(x.category||"").trim().toLowerCase());
-      const ex = (x.sku && S.products.find(p => live(p) && (p.sku||"").toLowerCase()===x.sku.toLowerCase())) || S.products.find(p => live(p) && p.name.trim().toLowerCase()===x.name.toLowerCase() && (!brand || p.brandId===brand.id));
+      const ex = (x.sku && S.products.find(p => live(p) && (p.sku||"").toLowerCase()===x.sku.toLowerCase())) || S.products.find(p => live(p) && p.name.trim().toLowerCase()===x.name.toLowerCase());
       if(!cat && !ex) return { err: x.category ? `category "${x.category}" not found` : "category is required" };
       const d = { name:x.name };
-      if(brand) d.brandId = brand.id; if(cat) d.categoryId = cat.id;
+      if(cat) d.categoryId = cat.id;   // menu items belong to no brand: the sales channels decide where they sell
       if("name (arabic)" in x && x["name (arabic)"]!=="") d.nameAr = x["name (arabic)"];
       if(x.price!=="" && x.price!=null) d.price = numOr(x.price, 0);
       if(x["pricing method"]) d.pricingMethod = /open/i.test(x["pricing method"]) ? "open" : "fixed";
@@ -3840,7 +3839,7 @@ function availableProducts(){
   if(brandList().length && !bd) return [];
   if(!ccOn(br)) return [];
   const chc = ccCats(br), useCh = chCats("callcenter", br).length > 0;
-  return S.products.filter(p => live(p) && p.active!==false && (!bd || p.brandId===bd) && (!br || (!offAt(p.inactiveBranchIds, br, "callcenter") && !(($("#oType .on")?.dataset.ot) && typeOff(p.inactiveBranchIds, br, "callcenter", $("#oType .on").dataset.ot))
+  return S.products.filter(p => live(p) && p.active!==false && (!br || (!offAt(p.inactiveBranchIds, br, "callcenter") && !(($("#oType .on")?.dataset.ot) && typeOff(p.inactiveBranchIds, br, "callcenter", $("#oType .on").dataset.ot))
     && (useCh ? chc.some(c => chPos(c, p) >= 0 || varParent(p.id) && chPos(c, varParent(p.id)) >= 0) : !offAt(S.categories.find(c=>c.id===p.categoryId)?.inactiveBranchIds, br, "callcenter")))));
 }
 // the call center menu's own categories at this branch (Sales Channels); older setups use the menu categories
@@ -4359,7 +4358,7 @@ function bmItems(){
   const br = branches.find(b=>b.id===BM.branch); if(!br) return [];
   if(BM.kind==="options") return S.modifier_options.filter(o=>live(o)&&o.active!==false).sort((a,b)=>modName(a.modifierId).localeCompare(modName(b.modifierId))||bySort(a,b));
   const seen = new Set(), out = [];
-  chCats(bmMenu()[0]).forEach(c => bmCatProds(c).forEach(p => { if(!seen.has(p.id) && (!br.brandId||!p.brandId||p.brandId===br.brandId)){ seen.add(p.id); out.push(p); } }));
+  chCats(bmMenu()[0]).forEach(c => bmCatProds(c).forEach(p => { if(!seen.has(p.id)){ seen.add(p.id); out.push(p); } }));
   return out;
 }
 // an item can be switched off per channel at a branch: inactiveBranchIds holds "branch" (off everywhere) or "branch:pos" / "branch:callcenter" / "branch:online"
@@ -4635,7 +4634,7 @@ async function bmDelCat(id){
 // Sales Channels: pick products to put in a channel category
 function bmAddItems(id){
   const c = S.categories.find(x => x.id===id); if(!c) return; const br = branches.find(b => b.id===BM.branch), have = new Set((c.productIds||[]).map(bmRoot)), kidIds = varChildIds();
-  const prods = S.products.filter(p => live(p) && !kidIds.has(p.id) && !have.has(p.id) && (!br?.brandId || !p.brandId || p.brandId===br.brandId));
+  const prods = S.products.filter(p => live(p) && !kidIds.has(p.id) && !have.has(p.id));
   const groups = {}; prods.forEach(p => (groups[catName(p.categoryId)] ||= []).push(p));
   const box = $("#ccBox"); box.className = "modal wide";
   const tile = p => `<label class="batile" data-n="${esc((p.name+" "+(p.sku||"")).toLowerCase())}"><input type="checkbox" value="${esc(p.id)}"><span class="baimg">${p.imageUrl ? `<img src="${esc(p.imageUrl)}" alt="" loading="lazy">` : ""}</span><span class="banm"><b>${esc(p.name)}</b><small>${varKids(p).length ? "From " + usd(Math.min(...varKids(p).map(x=>+x.price||0))) : p.pricingMethod==="open" ? "Open price" : usd(p.price)}</small></span><span class="bachk" aria-hidden="true"></span></label>`;
@@ -5957,7 +5956,7 @@ function brandDetail(b){
   const admin = !state.role || state.role==="owner" || state.role==="admin", dis = admin ? "" : "disabled", tab = BS_TABS.find(t => t[0]===state.bsTab) || BS_TABS[0];
   const v = { ...brandSet(b.id), ...(state.bsDraft?.[b.id] || {}) }, row = (k, x) => `<div><span>${k}</span>${x}</div>`, brs = branches.filter(x => x.brandId===b.id);
   return `<div class="phead"><a href="#brands" class="btn" data-detback style="text-decoration:none">← Back</a><h1 style="margin-left:10px">${esc(b.name)}</h1><div class="sp"></div><button class="btn pri" data-detedit>Edit Brand</button></div>
-    <div class="card odet" style="margin-bottom:16px;padding:16px 18px">${row("Name", esc(b.name))}${row("Name Localized", esc(b.nameAr || "—"))}${row("Branches", brs.length)}${row("Products", S.products.filter(p=>live(p)&&p.brandId===b.id).length)}${row("Status", b.active===false ? "Inactive" : "Active")}</div>
+    <div class="card odet" style="margin-bottom:16px;padding:16px 18px">${row("Name", esc(b.name))}${row("Name Localized", esc(b.nameAr || "—"))}${row("Branches", brs.length)}${row("Status", b.active===false ? "Inactive" : "Active")}</div>
     <div class="bswrap"><nav class="bsnav"><b>Settings</b>${BS_TABS.map(([k,t])=>`<a href="#brands" data-bstab="${k}" class="${tab[0]===k?"on":""}">${t}</a>`).join("")}</nav>
     <div class="card bsbody" data-bsbrand="${esc(b.id)}"><h3>${tab[2]}</h3>${admin?"":`<div class="banner">Only the owner or an admin can change settings.</div>`}
       ${tab[3].map(f => bsField(f, v, b, dis)).join("")}
@@ -6478,7 +6477,7 @@ document.addEventListener("click", async e => {
 });
 function productDetail(p){
   const cost = productCost(p), price = +p.price || 0, pct = price ? cost/price*100 : 0;
-  const brs = branches.filter(b => !p.brandId || !b.brandId || b.brandId===p.brandId);
+  const brs = branches.slice();
   const yes = (arr, id) => arr.includes(id);
   const usedIn = [];
   // keep what is being typed when the page redraws (new orders, other changes)
@@ -6500,7 +6499,7 @@ function productDetail(p){
 
     <div class="err" id="cErr" style="padding:0 22px 14px"></div></form>`;
   const wide = c => c.replace(/^<div/, '<div style="grid-column:1/-1"');   // every saved setting of the product shows here, except the photo
-  if(!editing) h += pdTopCard(p, [info("Name", esc(p.name)), info("Name Localized", esc(p.nameAr||"—")), info("Brand", esc(brandName(p.brandId))), info("Category", esc(catName(p.categoryId))),
+  if(!editing) h += pdTopCard(p, [info("Name", esc(p.name)), info("Name Localized", esc(p.nameAr||"—")), info("Category", esc(catName(p.categoryId))),
     info("SKU", `<span class="code">${esc(p.sku||"—")}</span>`), info("Barcode", esc(p.barcode||"—")), info("Calories", (p.nutrition||{}).calories!=null && (p.nutrition||{}).calories!=="" ? esc(p.nutrition.calories) + " kCal" : "—"), info("Tax Group", varKids(p).length ? "Set on each variant" : esc(tgName(p.taxGroup))),
     info("Pricing Method", p.pricingMethod==="open"?"Open Price":"Fixed Price"), info("Selling Method", p.sellingMethod==="weight"?"Weight":"Unit"),
     info("Costing Method", isFixedCost(p)?"Fixed Cost":"From Ingredients"), info("Preparation Time", p.prepTime ? esc(p.prepTime)+" min" : "—"),
@@ -6518,7 +6517,7 @@ function productDetail(p){
 const pdTopCard = (p, cells) => `<div class="card pdtop"><div class="igrid pdgrid">${cells.join("")}</div></div>`;   // photo and descriptions are set in Edit
 /* product page sections (Foodics order): Tags, Modifiers, Ingredients, Custom Price, Inactive In Branches, Out of Stock, Nutritional Values, Allergens */
 const pdSec = (title, btn, body, tip) => `<div class="dzsec dzwide"><div class="dzh"><h3>${title}${tip ? ` <span class="tip" title="${esc(tip)}">ⓘ</span>` : ""}</h3>${btn ? `<span class="row" style="gap:8px">${btn}</span>` : ""}</div><div class="dzcard${/^<table/.test(body) ? " dztbl" : ""}">${body}</div></div>`;
-const pdBrs = p => branches.filter(b => !p.brandId || !b.brandId || b.brandId===p.brandId);
+const pdBrs = p => branches.slice();
 const pdChips = (ids, rm) => `<div class="dzchips">${ids.map(id => branches.find(b => b.id===id)).filter(Boolean).map(b => `<span class="dzchip">${esc(b.name)}<button type="button" data-pdbrrm="${rm}:${esc(b.id)}" aria-label="Remove ${esc(b.name)}">×</button></span>`).join("")}</div>`;
 function pdSections(p, hasVar){
   const tg = tagsOf("product", p.id), B = DET.br || { customPrices:{}, inactive:[], oos:[] };
@@ -7905,7 +7904,7 @@ $("#ccScrim").addEventListener("click", async e => { if(e.target.id==="repCsv") 
 $("#ccScrim").addEventListener("input", e => { if(e.target.id==="oSearch") renderOrderMenu(); if(e.target.closest(".ccleft") && $("#oErr1")) $("#oErr1").textContent = ""; });
 $("#ccScrim").addEventListener("click", e => { if(e.target.closest("#oCatBack")){ state.oCat = ""; if($("#oSearch")) $("#oSearch").value = ""; renderOrderMenu(); } });
 $("#ccScrim").addEventListener("change", e => {
-  if(e.target.id==="oBrand"){ fillOrderBranches(""); cart = cart.filter(i => S.products.find(p=>p.id===i.productId)?.brandId===e.target.value); state.oCat=""; renderOrderMenu(); renderCart(false); setTimeout(() => $("#oBranch")?.focus(), 0); }
+  if(e.target.id==="oBrand"){ fillOrderBranches(""); state.oCat=""; renderOrderMenu(); renderCart(false); setTimeout(() => $("#oBranch")?.focus(), 0); }
   if(e.target.id==="oBranch"){ const ok = new Set(availableProducts().map(p=>p.id)), miss = [];
     cart = cart.filter(i => { if(i.saved) return true; const p = S.products.find(x=>x.id===i.productId); if(!p || !ok.has(p.id)){ miss.push(i.name); return false; } const opt = (i.options||[]).reduce((a,x)=>a+(+x.price||0),0); i.price = +(ccPrice(p)+opt).toFixed(2); return true; });
     renderOrderMenu(); renderCart(false); if(miss.length) toast("Removed, not sold at this branch: " + miss.join(", ")); }
