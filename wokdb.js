@@ -249,6 +249,8 @@
     if(error && isNet(error) && cached && cached.user_id === user.id) return useStaff(cached);
     if(!data && !error){ const c = await sb.rpc("slick_claim_login"); if(c.data) ({ data } = await sb.from("staff").select("*").eq("user_id", user.id).maybeSingle()); }   // first sign-in of a user added under Manage → Users
     if(!data){ await sb.auth.signOut(); return gate("This login isn't set up as staff yet. Ask the owner to add you."); }
+    // a user turned off (or deleted) under Manage → Users can't sign in to the back office
+    try{ const su = await sb.from("staff_users").select("active,deleted").eq("user_id", user.id).maybeSingle(); if(data.active===false || su.data?.active===false || su.data?.deleted){ await sb.auth.signOut(); return gate("This user is deactivated. Ask the owner to activate you."); } }catch(e){}
     useStaff({ ...data, email: user.email });
   }
   (async () => {
