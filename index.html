@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="534-1794176989">
+<meta name="slick-build" content="535-1794177228">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1197,6 +1197,7 @@ html.mlock{overflow:hidden!important}html.mlock body{position:fixed!important;le
 /* every list search bar and the add button beside it share one size */.sel.search:not([style]):not(#oSearch){flex:0 1 260px!important;width:260px;max-width:100%;min-width:0!important;height:40px!important;box-sizing:border-box}.mmbar .btn.pri,.mmcbar .btn.pri,.mmhd .btn.pri{height:40px;padding:0 16px!important;font-size:14px!important;white-space:nowrap;display:inline-flex;align-items:center}.mmcbar{flex-wrap:nowrap}.mmcbar .mmtitle{flex:0 1 auto;min-width:0}.mmcbar .sp{flex:1}
 .mmside,.mmmain{container-type:inline-size}.mmcbar .mmtitle,.mmbar .mmtitle{flex:none;white-space:nowrap}.mmcbar .mmtitle .note,.mmbar .mmtitle .note{white-space:nowrap}@container (max-width:620px){.mmcbar,.mmbar{flex-wrap:wrap!important;row-gap:10px!important}.mmcbar .mmtitle,.mmbar .mmtitle{flex:1 0 100%}.mmcbar .sp,.mmbar .sp{display:none}.mmcbar .sel.search,.mmbar .sel.search{flex:1 1 0!important;width:auto}}
 .mmiselbar{margin:0 0 10px}.mmrow .bmcsel{width:18px;height:18px;margin:0;accent-color:var(--accent,#6a4cf5);cursor:pointer}
+.mmmselbar{margin:0 0 10px}.bmdmx .bmmsel{width:18px;height:18px;margin:0 8px 0 0!important;vertical-align:middle;accent-color:var(--accent,#6a4cf5);cursor:pointer}
 </style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -4567,13 +4568,18 @@ function bmDrawer(br, ch, types){
   let h = `<div class="bmdscrim" data-bmclose></div><aside class="bmdrawer" role="dialog" aria-label="${esc(r.name)}"><header><span class="mmimg">${r.imageUrl ? `<img src="${esc(r.imageUrl)}" alt="">` : svgIco("image")}</span><b class="bmdname">${esc(r.name)}</b><span class="bmdpath">${[brandName(br.brandId), br.name, ch[1]].filter(Boolean).map(esc).join(" / ")}</span><button type="button" class="x" data-bmclose aria-label="Close">×</button></header><div class="bmdbody">`;
   // one compact table: a column per order type. Header: sell the item as that type. First row: the item's prices. Then each modifier group and its options
   const cols = types, cell = (attr, val, ph, dis, lbl) => `<td class="num"><input inputmode="decimal" class="sel bmdin${val!=="" ? " cust" : ""}" ${attr} value="${esc(val)}" placeholder="${esc(String(ph))}" aria-label="${esc(lbl)}" ${dis ? "disabled" : ""}></td>`;
+  // select modifier groups and options, then turn them on / off together
+  const msel = (BM.msel ||= new Set()), mkeys = links.flatMap(l => ["g:" + r.id + "|" + l.modifierId, ...modOptions(l.modifierId).map(o => "o:" + r.id + "|" + o.id)]); [...msel].forEach(k => { if(!mkeys.includes(k)) msel.delete(k); });
+  const mbox = (k, nm) => `<input type="checkbox" class="bmcsel bmmsel" data-bmmsel="${esc(k)}" ${msel.has(k)?"checked":""} aria-label="Select ${esc(nm)}">`;
+  if(links.length) h += `<div class="mmselbar mmmselbar"><label class="chk"><input type="checkbox" data-bmmselall ${mkeys.length && mkeys.every(k => msel.has(k))?"checked":""} aria-label="Select all modifiers"> ${msel.size ? `<b>${msel.size} Selected</b>` : "Select All"}</label>
+      <span class="ddwrap mmacts"><button type="button" class="btn sm" data-bmcacts>Actions ▾</button><span class="ddmenu" hidden><button type="button" data-bmmbulk="on">Activate</button><button type="button" data-bmmbulk="off">Deactivate</button></span></span></div>`;
   h += `<div class="bmdtw"><table class="bmdtbl bmdmx"><tbody>
 
     ${links.length ? `<tr class="bmdsec"><td colspan="${cols.length + 1}">Modifiers</td></tr>` : ""}
     ${links.map((l, li) => { const os = modOptions(l.modifierId), nOn = os.filter(o => bmOptState(r, o).on).length;
       const gt = bmGrpTypes(r, l);
-      return `<tr class="bmdgrow${cols.some(([t]) => gt[t]) ? "" : " off"}" data-sk="bmg:${esc(r.id)}|${(r.modifiers||[]).indexOf(l)}"><td><span class="bmgrip" title="Drag to sort" aria-hidden="true">⋮⋮</span><label class="toggle sm bmgon" title="${esc(modName(l.modifierId))} on this menu"><input type="checkbox" data-bmgon="${esc(r.id)}|${esc(l.modifierId)}" ${cols.some(([t]) => gt[t]) ? "checked" : ""} aria-label="${esc(modName(l.modifierId))} on this menu"><span class="trk"></span></label><b>${esc(modName(l.modifierId))}</b><span class="tag">${rule(l)}</span>${+l.free ? `<span class="tag">${l.free} free</span>` : ""}<span class="note">${nOn}/${os.length} on</span></td>${cols.map(([t, tl]) => `<td class="c"><span class="bmdct">${esc(tl)}</span><label class="toggle sm" title="${esc(modName(l.modifierId))} with ${esc(tl)} orders"><input type="checkbox" data-bmgtype="${esc(r.id)}|${esc(l.modifierId)}|${t}" ${gt[t]?"checked":""} aria-label="${esc(modName(l.modifierId))} for ${esc(tl)}"><span class="trk"></span></label></td>`).join("")}</tr>` + os.map(o => { const s = bmOptState(r, o), ob = s.price!=="" ? +s.price : +o.price||0;
-        return `<tr class="${s.on ? "" : "off"}" data-sk="opt:${esc(l.modifierId)}|${esc(o.id)}" data-skn="1"><td><span class="bmgrip" title="Drag to sort" aria-hidden="true">⋮⋮</span><label class="bmdon"><span class="toggle sm"><input type="checkbox" data-bmoon="${esc(r.id)}|${esc(o.id)}" ${s.on?"checked":""} aria-label="${esc(o.name)}"><span class="trk"></span></span><span><b>${esc(o.name)}</b><small>${ob ? usd(ob) : "Free"}</small></span></label></td>
+      return `<tr class="bmdgrow${cols.some(([t]) => gt[t]) ? "" : " off"}" data-sk="bmg:${esc(r.id)}|${(r.modifiers||[]).indexOf(l)}"><td>${mbox("g:" + r.id + "|" + l.modifierId, modName(l.modifierId))}<span class="bmgrip" title="Drag to sort" aria-hidden="true">⋮⋮</span><label class="toggle sm bmgon" title="${esc(modName(l.modifierId))} on this menu"><input type="checkbox" data-bmgon="${esc(r.id)}|${esc(l.modifierId)}" ${cols.some(([t]) => gt[t]) ? "checked" : ""} aria-label="${esc(modName(l.modifierId))} on this menu"><span class="trk"></span></label><b>${esc(modName(l.modifierId))}</b><span class="tag">${rule(l)}</span>${+l.free ? `<span class="tag">${l.free} free</span>` : ""}<span class="note">${nOn}/${os.length} on</span></td>${cols.map(([t, tl]) => `<td class="c"><span class="bmdct">${esc(tl)}</span><label class="toggle sm" title="${esc(modName(l.modifierId))} with ${esc(tl)} orders"><input type="checkbox" data-bmgtype="${esc(r.id)}|${esc(l.modifierId)}|${t}" ${gt[t]?"checked":""} aria-label="${esc(modName(l.modifierId))} for ${esc(tl)}"><span class="trk"></span></label></td>`).join("")}</tr>` + os.map(o => { const s = bmOptState(r, o), ob = s.price!=="" ? +s.price : +o.price||0;
+        return `<tr class="${s.on ? "" : "off"}" data-sk="opt:${esc(l.modifierId)}|${esc(o.id)}" data-skn="1"><td>${mbox("o:" + r.id + "|" + o.id, o.name)}<span class="bmgrip" title="Drag to sort" aria-hidden="true">⋮⋮</span><label class="bmdon"><span class="toggle sm"><input type="checkbox" data-bmoon="${esc(r.id)}|${esc(o.id)}" ${s.on?"checked":""} aria-label="${esc(o.name)}"><span class="trk"></span></span><span><b>${esc(o.name)}</b><small>${ob ? usd(ob) : "Free"}</small></span></label></td>
           ${cols.map(([t, tl]) => cell(`data-bmotprice="${esc(r.id)}|${esc(o.id)}|${t}"`, s.tprices[t], ob, !s.types[t], o.name + " " + tl + " price")
             .replace('<td class="num">', `<td class="num"><span class="bmdcell"><label class="toggle xs" title="${esc(o.name)} with ${esc(tl)} orders"><input type="checkbox" data-bmotype="${esc(r.id)}|${esc(o.id)}|${t}" ${s.types[t]?"checked":""} aria-label="${esc(o.name)} for ${esc(tl)}"><span class="trk"></span></label>`).replace(/<\/td>$/, "</span></td>")).join("")}
           </tr>`; }).join(""); }).join("")}
@@ -4703,13 +4709,18 @@ document.addEventListener("click", async e => {
 // Sales Channels: delete a channel category for good (its products stay in Menu → Products)
 /* Sales Channels categories: select (or select all) and turn on / off / delete together */
 document.addEventListener("change", e => { const t = e.target;
+  if(t.matches?.("[data-bmmsel]")){ const sel = (BM.msel ||= new Set()); t.checked ? sel.add(t.dataset.bmmsel) : sel.delete(t.dataset.bmmsel); render(); return; }
+  if(t.matches?.("[data-bmmselall]")){ const sel = (BM.msel ||= new Set()); document.querySelectorAll("[data-bmmsel]").forEach(x => t.checked ? sel.add(x.dataset.bmmsel) : sel.delete(x.dataset.bmmsel)); render(); return; }
   if(t.matches?.("[data-bmisel]")){ const sel = (BM.isel ||= new Set()); t.checked ? sel.add(t.dataset.bmisel) : sel.delete(t.dataset.bmisel); render(); return; }
   if(t.matches?.("[data-bmiselall]")){ const sel = (BM.isel ||= new Set()), ids = [...document.querySelectorAll("[data-bmisel]")].map(x => x.dataset.bmisel); ids.forEach(id => t.checked ? sel.add(id) : sel.delete(id)); render(); return; }
   if(t.matches?.("[data-bmcsel]")){ const sel = (BM.csel ||= new Set()); t.checked ? sel.add(t.dataset.bmcsel) : sel.delete(t.dataset.bmcsel); render(); return; }
   if(t.matches?.("[data-bmcselall]")){ const sel = (BM.csel ||= new Set()), cq = (BM.cq||"").trim().toLowerCase(), vis = bmCatRows(chCats(bmMenu()[0]), cq).map(x => x.c);
     if(t.checked) vis.forEach(c => sel.add(c.id)); else vis.forEach(c => sel.delete(c.id)); render(); }
 });
-document.addEventListener("click", async e => { const b = e.target.closest("[data-bmcsel],[data-bmcselall],[data-bmisel],[data-bmiselall]"); if(b){ e.stopPropagation(); return; }
+document.addEventListener("click", async e => { const b = e.target.closest("[data-bmcsel],[data-bmcselall],[data-bmisel],[data-bmiselall],[data-bmmsel],[data-bmmselall]"); if(b){ e.stopPropagation(); return; }
+  const mb = e.target.closest("[data-bmmbulk]"); if(mb){ mb.closest(".ddmenu").hidden = true; e.preventDefault(); const keys = [...(BM.msel || [])], on = mb.dataset.bmmbulk==="on"; if(!keys.length) return toast("Select modifiers first");
+    keys.forEach(k => { const [pid, xid] = k.slice(2).split("|"); if(k.startsWith("g:")) bmTypes().forEach(([ty]) => bmSet("mg:"+pid+"|"+xid, "to_"+ty, on)); else { const id = "mo:"+pid+"|"+xid; bmSet(id, "on", on); bmTypes().forEach(([ty]) => bmSet(id, "to_"+ty, on)); } });
+    BM.msel = new Set(); render(); return bmAuto(); }
   const ib = e.target.closest("[data-bmibulk]"); if(ib){ ib.closest(".ddmenu").hidden = true; e.preventDefault(); const ids = [...(BM.isel || [])], act = ib.dataset.bmibulk; if(!ids.length) return toast("Select items first");
     if(act==="on" || act==="off"){ ids.forEach(id => { const p = S.products.find(x => x.id===id); [p, ...(p ? varKids(p) : [])].filter(Boolean).forEach(r => bmTypes().forEach(([ty]) => bmSet(r.id, "t_"+ty, act==="on"))); }); BM.isel = new Set(); render(); return bmAuto(); }
     const c = S.categories.find(x => x.id===BM.cat); if(!c) return;
