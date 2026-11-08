@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="473-1794144287">
+<meta name="slick-build" content="474-1794144583">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1374,7 +1374,8 @@ const NAV = [
   {t:"Menu",i:"book",tabs:1,side:[["branch-menu","Sales Channels"]],kids:[["@Menu Builder"],["categories","Categories"],["products","Products"],["variants","Variants"],["modifiers","Modifiers"],["combos","Combos"],["@Menu Settings"],["allergens","Allergens"]]},
   {t:"Web Ordering",i:"globe",tabs:1,kids:[["online-ordering","Settings"],["delivery-zones","Delivery Zones"],["delivery-charges","Delivery Charges"]]},
   {t:"Manage",i:"gear",tabs:1,kids:[["users","Users"],["roles","Roles"],["brands","Brands"],["branches","Branches"],["devices","Devices"],["taxes","Taxes & Groups"],["currency","Currency"],["payment-methods","Payment Methods"],["order-sources","Order Sources"],["charges","Charges"],["kitchen-flows","Kitchen Flows"],["reasons","Reasons"],["tags","Tags"]]},
-  {t:"Marketing",i:"tag",tabs:1,kids:[["discounts","Discounts"],["loyalty","Loyalty"],["gift-cards","Gift Cards"],["promotions","Promotions"],["coupons","Coupons"]]}
+  {t:"Marketing",i:"tag",tabs:1,kids:[["discounts","Discounts"],["loyalty","Loyalty"],["gift-cards","Gift Cards"],["promotions","Promotions"],["coupons","Coupons"]]},
+  {id:"marketplace",t:"Marketplace",i:"store"}
 ];
 // Modifiers list: "Options (n)" opens its options, "Products (n)" the items that use it
 document.addEventListener("click", e => { const t = e.target; if(!t.closest) return;
@@ -1387,7 +1388,7 @@ document.addEventListener("input", e => { const i = e.target; if(!i.matches?.("#
 document.addEventListener("focusin", e => { const i = e.target; if(i.matches?.("#cf_reference,#ds_reference,#dRef,#dsRef,[data-ref]") && !i.placeholder) i.placeholder = "small letters and - only, e.g. main-kitchen"; });
 // screens reached from another screen: they show that screen's tab, sidebar entry and Back
 const ROUTE_PARENT = { "tax-groups":"taxes", "modifier-options":"modifiers", "tables":"branches" };
-const TITLES = { account:"Account settings", "inv-levels":"Inventory Levels", "inv-history":"Inventory History", purchasing:"Purchasing" };
+const TITLES = { marketplace:"Marketplace", account:"Account settings", "inv-levels":"Inventory Levels", "inv-history":"Inventory History", purchasing:"Purchasing" };
 NAV.forEach(n => { if(n.id) TITLES[n.id]=n.t; [...(n.kids||[]), ...(n.side||[])].forEach(k => { if(!k[0].startsWith("@")) TITLES[k[0]] = k[1]; }); }); TITLES["online-ordering"] = "Web Ordering";
 const svgIco = k => `<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${I[k]||""}</svg>`;
 /* ---------- icons for every screen (lucide-style strokes) ---------- */
@@ -2353,6 +2354,7 @@ function render(){ setTimeout(() => typeof bmBarSync==="function" && bmBarSync()
   if(storeMode==="loading"){ v.innerHTML = `<div class="ph"><div>Loading…</div></div>`; return; }
   if(!canOpen(route)){ v.innerHTML = `<h1>${esc(TITLES[route]||"")}</h1>` + placeholder("No access", "Your role doesn't include this area. Ask the owner to change your role under Manage → Roles."); return; }
   if(RPT_HUB[route]) v.innerHTML = viewReports(route);
+  else if(route==="marketplace") v.innerHTML = viewMarketplace();
   else if(route==="dashboard") v.innerHTML = viewDashboard();
   else if(route==="branches") v.innerHTML = viewBranches();
   else if(route==="inventory-more" || route==="manage-more") v.innerHTML = viewMore(route);
@@ -2409,6 +2411,19 @@ document.addEventListener("click", e => {
     state.page = state.page || {}; state.page["modifier-options"] = 1; $("#ccScrim").classList.remove("show"); render(); }
 });
 document.addEventListener("click", e => { const b = e.target.closest("[data-ptmore]"); document.querySelectorAll(".ptmm").forEach(m => { if(!b || m.parentNode!==b.parentNode) m.hidden = true; }); if(b){ e.preventDefault(); const m = b.nextElementSibling; m.hidden = !m.hidden; } });
+/* Marketplace: third-party apps. Delivery apps connect as Marketplace sales channels; the rest are coming */
+const MKT = [["Delivery Apps", "Orders from these apps come in through a Marketplace sales channel at each branch.", ["Toters","Talabat","Deliveroo","Careem Food","Uber Eats","Wolt"], true],
+  ["Payments", "Card and online payment providers.", ["Areeba","Network International","Stripe"], false],
+  ["Accounting", "Send sales, purchases and inventory to your accounting software.", ["Xero","QuickBooks","Zoho Books"], false],
+  ["Messaging", "Order updates and marketing to your customers.", ["WhatsApp Business","SMS"], false]];
+function viewMarketplace(){
+  const ints = (scDoc().list||[]).filter(c => c.kind==="integration" && !c.deleted), used = n => ints.filter(c => String(c.name).trim().toLowerCase()===n.toLowerCase());
+  return `<div class="phead"><h1>Marketplace</h1></div>` + MKT.map(([t, d, apps, live]) => `<div class="rssec"><div class="rsh"><h3>${esc(t)}</h3></div><p class="note" style="margin:-4px 0 12px">${esc(d)}</p>
+    <div class="mktg">${apps.map(a => { const u = live ? used(a) : [];
+      return `<div class="card mktc"><span class="mkti">${esc(a.split(" ").map(w => w[0]).join("").slice(0,2).toUpperCase())}</span><div class="mktn"><b>${esc(a)}</b><small>${u.length ? `Connected · ${u.length} branch${u.length===1 ? "" : "es"}` : live ? "Not connected" : "Coming soon"}</small></div>
+        ${live ? `<button type="button" class="btn${u.length ? "" : " pri"}" data-mktgo>${u.length ? "Manage" : "Set Up"}</button>` : `<button type="button" class="btn" disabled>Coming Soon</button>`}</div>`; }).join("")}</div></div>`).join("");
+}
+document.addEventListener("click", e => { if(e.target.closest("[data-mktgo]")){ e.preventDefault(); BM.open1 = false; BM.exp = new Set(); location.hash = "branch-menu"; } });
 function msEnhance(){
   // close buttons: a drawn × so it sits exactly in the middle of the circle
   document.querySelectorAll("button.x:not([data-xi]),button.mmdx:not([data-xi])").forEach(b => { if(b.textContent.trim()!=="×") return; b.dataset.xi = "1"; b.innerHTML = `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>`; });
@@ -2774,7 +2789,7 @@ function myPerms(){
   if(!rs.length) return state.role==="admin" ? null : ["bo_dashboard","bo_orders","bo_callcenter","bo_customers"];
   return [...new Set(rs.flatMap(r => r.permissions || []))];
 }
-const NAV_PERM = { "dashboard":"bo_dashboard", "orders":"bo_orders", "call-center":"bo_callcenter", "customers":"bo_customers", "Reports":"bo_reports", "Inventory":"bo_inventory", "Menu":"bo_menu", "Manage":"bo_manage", "Web Ordering":"bo_manage", "Marketing":"bo_marketing" };
+const NAV_PERM = { "marketplace":"bo_manage", "dashboard":"bo_dashboard", "orders":"bo_orders", "call-center":"bo_callcenter", "customers":"bo_customers", "Reports":"bo_reports", "Inventory":"bo_inventory", "Menu":"bo_menu", "Manage":"bo_manage", "Web Ordering":"bo_manage", "Marketing":"bo_marketing" };
 // may the signed-in person do this back-office action? (the owner and admins always may)
 const mayDo = perm => { const p = myPerms(); return !p || p.includes(perm) || p.includes("bo_manage"); };
 function canOpen(route){
@@ -6513,7 +6528,7 @@ document.addEventListener("click", async e => {
       <div class="f" style="margin-bottom:14px"><label>Name</label><input class="sel" value="${esc(t.name)}" disabled></div><div class="f"><label>Name Localized</label><input class="sel" value="${esc(t.nameAr||"")}" disabled></div></div>
       <footer><button type="button" class="btn" data-tagres="${esc(t.id)}" style="margin-right:auto">Restore</button><span style="flex:1"></span></footer>`;
     $("#ccScrim").classList.add("show"); return; }
-  const rs = e.target.closest("[data-tagres]"); if(rs){ if(!(await askYes("The restored tag may not be usable everywhere it was used before, because links removed when it was deleted are not restored with it."))) return; $("#ccScrim").classList.remove("show"); e.preventDefault(); if(await tagSave((tagDoc().list||[]).map(x => x.id===rs.dataset.tagres ? { ...x, deleted:false } : x))){ toast("Tag restored"); render(); } return; }
+  const rs = e.target.closest("[data-tagres]"); if(rs){ $("#ccScrim").classList.remove("show"); e.preventDefault(); if(await tagSave((tagDoc().list||[]).map(x => x.id===rs.dataset.tagres ? { ...x, deleted:false } : x))){ toast("Tag restored"); render(); } return; }
   const nw = e.target.closest("[data-tagnew]"); if(nw) TG.type = nw.dataset.tagnew;
   if(nw) return tagAsk("Create " + (TAG_TYPES.find(x => x[0]===TG.type)?.[1] || "") + " Tag", "", async (n, ar) => { if(tagList(TG.type).some(t => t.name.toLowerCase()===n.toLowerCase())){ $("#tgErr").textContent = "A tag with this name already exists."; return false; }
     const ok = await tagSave([...(tagDoc().list||[]), { id:"tg_" + Date.now().toString(36), name:n, nameAr:ar, type:TG.type }]); if(ok){ toast("Tag created"); render(); } return ok; });
@@ -8111,5 +8126,10 @@ document.addEventListener("touchmove",e=>{const t=e.target;if(H.classList.contai
 </script>
 <script>/* a dialog closes with its × (or Esc), not by clicking the dimmed page around it */
 window.addEventListener("click", e => { const t = e.target; if(t && t.classList && (t.classList.contains("scrim") || t.classList.contains("smp-scrim") || t.classList.contains("bmdscrim") || /Scrim$/.test(t.id||""))){ e.stopImmediatePropagation(); e.preventDefault(); } }, true);</script>
+<script>/* every Restore asks first, like Foodics */
+window.addEventListener("click", e => { const b = e.target.closest && e.target.closest("button,a,[role=button]"); if(!b || b.dataset.rsok || b.closest("#confirmScrim")) return;
+  if(!(/^restore$/i.test((b.textContent||"").trim()) || b.matches("[data-detrestore],#cRestore,[data-tagres]"))) return;
+  e.stopImmediatePropagation(); e.preventDefault();
+  askYes("Are you sure you want to restore this?").then(y => { if(!y) return; b.dataset.rsok = "1"; b.click(); delete b.dataset.rsok; }); }, true);</script>
 </body>
 </html>
