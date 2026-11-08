@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="508-1794164662">
+<meta name="slick-build" content="509-1794164762">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1203,7 +1203,7 @@ function itemCard(p){ const n = cart.filter(i => i.productId===p.id || (p.varian
     <div class="tx"><b>${n ? `<span class="inq">${n}×</span>` : ""}${esc(p.name)}</b>${price ? `<div class="pr">${price}</div>` : `<div class="pr cz">Customization available</div>`}${p.description && SH().desc !== false ? `<small>${esc(p.description)}</small>` : ""}${out ? `<span class="soldout">Sold out</span>` : ""}</div>${out ? "" : qaCtl(p, n)}</div>`; }
 // quick add on the menu: "+" adds straight to the basket (items with options open their page); once added it becomes − qty +
 function qaCtl(p, n){ const simple = !kidsOf(p).length && !hasMods(p), one = cart.filter(i => i.productId===p.id).length;
-  return n && simple && one===1
+  return n
     ? `<span class="qa qa2" data-qa><button type="button" data-qa-m="${esc(p.id)}" aria-label="${n > 1 ? "One less" : "Remove"} ${esc(p.name)}">${n > 1 ? ic("minus") : ic("trash")}</button><b>${n}</b><button type="button" data-qa-p="${esc(p.id)}" aria-label="One more ${esc(p.name)}">${ic("plus")}</button></span>`
     : `<span class="qa${n ? " qan" : ""}" data-qa><button type="button" data-qa-p="${esc(p.id)}" aria-label="${n ? n + " in the basket, add another" : "Add"} ${esc(p.name)}">${n ? `<b>${n}</b>` : ic("plus")}</button></span>`; }
 /* ---------- item page: photo, description, option groups, quantity, then add to the order ---------- */
@@ -1307,8 +1307,10 @@ $("#main").addEventListener("click", e => {
     const y = scrollY; renderMenu(); scrollTo(0,y); return; }
   const qp = e.target.closest("[data-qa-p]"), qm = e.target.closest("[data-qa-m]");
   if(qp || qm){ const p = products.find(x => x.id===(qp || qm).dataset[qp ? "qaP" : "qaM"]); if(!p) return;
-    if(qp && (kidsOf(p).length || hasMods(p))) return openItem(p);
-    const line = cart.find(i => i.productId===p.id && !(i.options||[]).length && !i.note);
+    // lines of this item in the basket (its variants too); + repeats the last one as it was chosen, − takes one off it
+    const mine = cart.filter(i => i.productId===p.id || (p.variants||[]).some(v => v.productId===i.productId)), last = mine[mine.length - 1];
+    if(qp && !last && (kidsOf(p).length || hasMods(p))) return openItem(p);
+    const line = (kidsOf(p).length || hasMods(p)) ? last : (cart.find(i => i.productId===p.id && !(i.options||[]).length && !i.note) || last);
     if(qp){ if(line) line.qty++; else cart.push({ productId:p.id, name:p.name, price:priceOf(p), qty:1 }); }
     else if(line){ line.qty--; if(line.qty < 1) cart.splice(cart.indexOf(line), 1); }
     const y = scrollY; renderMenu(); scrollTo(0, y); return; }
