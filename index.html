@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="520-1794173454">
+<meta name="slick-build" content="523-1794174021">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1189,6 +1189,7 @@ html.mlock{overflow:hidden!important}html.mlock body{position:fixed!important;le
 .brtbl{display:flex;align-items:center;gap:14px;flex-wrap:wrap;border:1px solid var(--line);border-radius:14px;padding:12px 14px;background:var(--surface,#fff)}.brtbl-l{display:flex;flex-wrap:wrap;gap:8px;flex:1;min-width:0}.brsec{display:inline-flex;align-items:center;gap:8px;padding:7px 12px;border-radius:999px;background:var(--accent-soft,#f0ecff)}.brsec b{font-weight:600;font-size:13.5px}.brsec small{color:var(--muted,#6f6b85);font-size:12.5px}.brtbl .btn{margin-left:auto}
 .rlgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:16px;margin-top:8px}.rlcard{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--surface,#fff);border:1px solid var(--line);border-radius:14px;padding:16px 12px 16px 20px;box-shadow:0 1px 3px rgba(20,16,40,.05);cursor:pointer;transition:border-color .15s}.rlcard:hover{border-color:var(--accent,#6a4cf5)}.rlcard b{display:block;font-size:15px}.rlcard small{color:var(--muted,#6f6b85);font-size:12.5px}.rlcard .ddwrap{position:relative}.rldots{width:36px;height:36px;border:0;background:none;border-radius:10px;font-size:20px;font-weight:700;cursor:pointer;color:var(--ink,#1b1830)}.rldots:hover{background:var(--sunk,#f3f2f8)}.rlcard .ddmenu{position:absolute;right:0;top:calc(100% + 4px);z-index:20;min-width:190px;background:#fff;padding:6px;display:flex;flex-direction:column}.rlcard .ddmenu[hidden]{display:none}.rlcard .ddmenu button{text-align:left;border:0;background:none;padding:10px 12px;border-radius:8px;font:inherit;cursor:pointer}.rlcard .ddmenu button:hover{background:var(--sunk,#f3f2f8)}
 .acode.free{background:#e3f6ea!important;color:#15803d;font-weight:700}.acode.used{background:#fdeaea!important;color:#c62828;font-weight:700}
+.mmselbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 10px;margin:6px 0 2px;border:1px solid var(--line);border-radius:12px;background:var(--surface,#fff)}.mmselbar .chk{display:inline-flex;align-items:center;gap:8px;font-size:13.5px}.mmselbar .sp{flex:1}.mmcat .bmcsel{width:18px;height:18px;flex:none;accent-color:var(--accent,#6a4cf5);cursor:pointer;margin:0}.mmcat .toggle{flex:none}
 </style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -4491,12 +4492,17 @@ function viewBranchMenu(){
   // left: the channel's categories
   h += `<div class="mm"><aside class="mmside"><div class="mmhd"><b>Categories</b><button type="button" class="btn pri sm" data-bmnewcat>+ Add</button></div>
       ${cats.length ? `<input class="sel search" id="bmCatQ" placeholder="Search categories" value="${esc(BM.cq||"")}" aria-label="Search categories">` : ""}
+      ${(() => { const vis = cats.filter(c => !cq || c.name.toLowerCase().includes(cq)), sel = (BM.csel ||= new Set()); [...sel].forEach(id => { if(!cats.some(c => c.id===id)) sel.delete(id); });
+        if(!vis.length) return ""; const all = vis.every(c => sel.has(c.id));
+        return `<div class="mmselbar"><label class="chk"><input type="checkbox" data-bmcselall ${all?"checked":""} aria-label="Select all categories"> ${sel.size ? `<b>${sel.size} Selected</b>` : "Select All"}</label>
+          ${sel.size ? `<span class="sp"></span><button type="button" class="btn sm" data-bmcbulk="on">Turn On</button><button type="button" class="btn sm" data-bmcbulk="off">Turn Off</button><button type="button" class="btn sm danger" data-bmcbulk="del">Delete</button>` : ""}</div>`; })()}
       <div class="mmcats">${cats.filter(c => !cq || c.name.toLowerCase().includes(cq)).map(c => { const on = bmCatOn(c.id), ps = bmCatProds(c).filter(p => all.includes(p)), nOn = ps.filter(p => bmState(p).on).length;
         return `<div class="mmcat${c.id===BM.cat?" sel":""}${on?"":" off"}" data-bmpick="${esc(c.id)}"${cq ? "" : ` data-sk="bmc|${esc(c.id)}"`}>
+          <input type="checkbox" class="bmcsel" data-bmcsel="${esc(c.id)}" ${(BM.csel ||= new Set()).has(c.id)?"checked":""} aria-label="Select ${esc(c.name)}">
           <span class="bmgrip" title="Drag to move" aria-hidden="true">⋮⋮</span>
+          <label class="toggle" title="${on ? "Shown" : "Hidden"} on the ${esc(ch[1])} menu"><input type="checkbox" data-bmcat="${esc(c.id)}" ${on?"checked":""} aria-label="Show ${esc(c.name)}"><span class="trk"></span></label>
           <span class="scimg">${c.imageUrl ? `<img src="${esc(c.imageUrl)}" alt="">` : svgIco("image")}</span>
           <span class="mmct"><b>${esc(c.name)}</b></span>
-          <label class="toggle" title="${on ? "Shown" : "Hidden"} on the ${esc(ch[1])} menu"><input type="checkbox" data-bmcat="${esc(c.id)}" ${on?"checked":""} aria-label="Show ${esc(c.name)}"><span class="trk"></span></label>
           <div class="ddwrap"><button type="button" class="mmdots" data-bmcmenu="${esc(c.id)}" aria-label="Category actions">⋯</button><div class="ddmenu" hidden><button type="button" data-bmcedit="${esc(c.id)}">Edit</button><button type="button" class="danger" data-bmcdel="${esc(c.id)}">Delete</button></div></div></div>`; }).join("") || `<div class="mmempty">${cats.length ? "No categories match." : `<b>No categories yet</b><span>Add the first category of the ${esc(ch[1])} menu.</span>`}</div>`}</div></aside>`;
   // right: the chosen category's products
   if(!cur) return h + `<section class="mmmain"><div class="mmempty big"><b>Start the ${esc(ch[1])} menu</b><span>Add a category on the left, then add products to it.</span><button type="button" class="btn pri" data-bmnewcat>+ Add Category</button></div></section></div>${bmSaveBar(nDraft)}</div>`;
@@ -4666,6 +4672,19 @@ document.addEventListener("click", async e => {
   }
 }, true);
 // Sales Channels: delete a channel category for good (its products stay in Menu → Products)
+/* Sales Channels categories: select (or select all) and turn on / off / delete together */
+document.addEventListener("change", e => { const t = e.target;
+  if(t.matches?.("[data-bmcsel]")){ const sel = (BM.csel ||= new Set()); t.checked ? sel.add(t.dataset.bmcsel) : sel.delete(t.dataset.bmcsel); render(); return; }
+  if(t.matches?.("[data-bmcselall]")){ const sel = (BM.csel ||= new Set()), cq = (BM.cq||"").trim().toLowerCase(), vis = chCats(bmMenu()[0]).filter(c => !cq || c.name.toLowerCase().includes(cq));
+    if(t.checked) vis.forEach(c => sel.add(c.id)); else vis.forEach(c => sel.delete(c.id)); render(); }
+});
+document.addEventListener("click", async e => { const b = e.target.closest("[data-bmcsel],[data-bmcselall]"); if(b){ e.stopPropagation(); return; }
+  const k = e.target.closest("[data-bmcbulk]"); if(!k) return; e.preventDefault(); const ids = [...(BM.csel || [])]; if(!ids.length) return; const act = k.dataset.bmcbulk;
+  if(act==="on" || act==="off"){ ids.forEach(id => bmSet("cat:"+id, "on", act==="on")); BM.csel = new Set(); render(); return bmAuto(); }
+  if(act==="del"){ if(!(await askYes(`Delete ${ids.length} categor${ids.length===1?"y":"ies"} from the ${bmMenu()[1]} menu? They are removed for good. Their products stay in Menu → Products.`))) return;
+    try{ for(const id of ids){ if(storeMode==="db") await db.collection("categories").doc(id).delete(); else S.categories = S.categories.filter(x => x.id!==id); } BM.csel = new Set(); render(); }
+    catch(err){ console.error(err); toast("Couldn't delete. Only the owner or an admin can change the menu."); } }
+}, true);
 async function bmDelCat(id){
   const c = S.categories.find(x => x.id===id); if(!c) return;
   if(!(await askYes(`Delete the category "${c.name}" from the ${bmMenu()[1]} menu? It is removed for good. Its products stay in Menu → Products.`))) return;
