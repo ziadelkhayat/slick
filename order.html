@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="511-1794165150">
+<meta name="slick-build" content="513-1794168772">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -598,6 +598,7 @@ button.x::before{content:"";width:16px;height:16px;background:currentColor;-webk
 .hin .chips .chip.open,.hin .chips .chip.shut{display:none!important}.hstyle-minimal .covchip{display:none}
 #whereBox.moved{display:none!important}.lbwhere{margin-top:8px}.lbwhere .card{margin:0}.lbwhere .scanbtn{width:100%}
 .lbopen{margin-top:8px}.lbopen .chip{display:inline-flex!important}
+.custl{display:flex;flex-direction:column}.custr{display:flex;align-items:center;gap:14px;padding:14px 0;border-bottom:1px solid var(--line)}.custr img,.custi{width:64px;height:64px;border-radius:14px;object-fit:cover;flex:none;border:1px solid var(--line);display:grid;place-items:center;color:var(--mut)}.custn{flex:1;min-width:0}.custn b{display:block;font-size:15px;font-weight:600}.custn .mlist{margin:2px 0 0;padding:0;list-style:none;color:var(--ink2);font-size:12.5px}.custp{display:block;font-weight:800;font-size:14.5px;margin-top:4px}.custadd{display:block;margin:18px auto 6px;border:0;background:none;color:var(--acc);font:700 16px/1.2 inherit;font-family:inherit;text-decoration:underline dashed;text-underline-offset:6px;cursor:pointer}
 </style>
 </head>
 <body class="lay-grid">
@@ -1208,6 +1209,21 @@ function qaCtl(p, n){ const simple = !kidsOf(p).length && !hasMods(p), one = car
   return n
     ? `<span class="qa qa2" data-qa><button type="button" data-qa-m="${esc(p.id)}" aria-label="${n > 1 ? "One less" : "Remove"} ${esc(p.name)}">${n > 1 ? ic("minus") : ic("trash")}</button><b>${n}</b><button type="button" data-qa-p="${esc(p.id)}" aria-label="One more ${esc(p.name)}">${ic("plus")}</button></span>`
     : `<span class="qa${n ? " qan" : ""}" data-qa><button type="button" data-qa-p="${esc(p.id)}" aria-label="${n ? n + " in the basket, add another" : "Add"} ${esc(p.name)}">${n ? `<b>${n}</b>` : ic("plus")}</button></span>`; }
+/* "Your customizations": every basket line of an item with choices, each with − qty +, and "Add new customization" */
+let CUSTP = null;
+function openCust(p){ CUSTP = p; drawCust(); $("#scrim").classList.add("show"); }
+function drawCust(){ const p = CUSTP, sh = $("#sheet"); if(!p) return;
+  const lines = cart.map((i, ix) => [i, ix]).filter(([i]) => i.productId===p.id || (p.variants||[]).some(v => v.productId===i.productId));
+  if(!lines.length){ $("#scrim").classList.remove("show"); CUSTP = null; return; }
+  sh.className = "sheet locsheet custsheet";
+  sh.innerHTML = `<div class="grab"></div><div class="lshead"><span></span><h3>Your customizations</h3><button type="button" class="x" data-close aria-label="Close">×</button></div>
+    <div class="custl">${lines.map(([i, ix]) => `<div class="custr">${p.image_url ? `<img src="${esc(p.image_url)}" alt="">` : `<span class="custi">${ic("img")}</span>`}<div class="custn"><b>${esc(i.name)}</b>${modList(i)}<span class="custp">${usd(i.price * i.qty)}</span></div>
+      <span class="lq"><button type="button" data-custq="${ix}:-1" aria-label="${i.qty > 1 ? "One less" : "Remove"}">${i.qty > 1 ? ic("minus") : ic("trash")}</button><b>${i.qty}</b><button type="button" data-custq="${ix}:1" aria-label="One more">${ic("plus")}</button></span></div>`).join("")}</div>
+    <button type="button" class="custadd" data-custnew>Add new customization</button>`; }
+document.addEventListener("click", e => { let t;
+  if(t = e.target.closest("[data-custq]")){ const [ix, d] = t.dataset.custq.split(":").map(Number), it = cart[ix]; if(!it) return; it.qty += d; if(it.qty < 1) cart.splice(ix, 1);
+    const y = scrollY; renderMenu(); scrollTo(0, y); drawCust(); return; }
+  if(e.target.closest("[data-custnew]")){ const p = CUSTP; $("#scrim").classList.remove("show"); CUSTP = null; if(p) openItem(p); } });
 /* ---------- item page: photo, description, option groups, quantity, then add to the order ---------- */
 function catProg(){ const b = $("#catBar"), i = $("#cprog"); if(!b || !i) return; const w = b.scrollWidth || 1; i.parentElement.style.visibility = b.scrollWidth > b.clientWidth + 2 ? "" : "hidden"; i.style.width = (b.clientWidth / w * 100) + "%"; i.style.left = (b.scrollLeft / w * 100) + "%"; }
 const IT = { p:null, kids:[], kid:null, links:[], groups:{}, sel:[], qty:1, note:"", err:-1 };
@@ -1312,6 +1328,7 @@ $("#main").addEventListener("click", e => {
     // lines of this item in the basket (its variants too); + repeats the last one as it was chosen, − takes one off it
     const mine = cart.filter(i => i.productId===p.id || (p.variants||[]).some(v => v.productId===i.productId)), last = mine[mine.length - 1];
     if(qp && !last && (kidsOf(p).length || hasMods(p))) return openItem(p);
+    if((kidsOf(p).length || hasMods(p)) && last) return openCust(p);   // items with choices: "Your customizations" (like Talabat)
     const line = (kidsOf(p).length || hasMods(p)) ? last : (cart.find(i => i.productId===p.id && !(i.options||[]).length && !i.note) || last);
     if(qp){ if(line) line.qty++; else cart.push({ productId:p.id, name:p.name, price:priceOf(p), qty:1 }); }
     else if(line){ line.qty--; if(line.qty < 1) cart.splice(cart.indexOf(line), 1); }
