@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="500-1794163306">
+<meta name="slick-build" content="501-1794163481">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1222,11 +1222,11 @@ html.mlock{overflow:hidden!important}html.mlock body{position:fixed!important;le
     <header><h2 id="mTitle">Add branch</h2><button type="button" class="x" data-close aria-label="Close">×</button></header>
     <div class="body bform">
       <h4 class="fsec">General</h4>
+      <div class="f"><label for="fBrand">Brand *</label><select id="fBrand"></select></div>
       <div class="f"><label for="fName">Branch name *</label><input id="fName" required maxlength="60" placeholder="e.g. Hamra"></div>
       <div class="f"><label for="fNameAr">Name Localized</label><input id="fNameAr" maxlength="60" dir="auto"></div>
       <div class="f"><label for="fCode">Reference code *</label><input id="fCode" maxlength="20" placeholder="e.g. B01"></div>
       <div class="f"><label for="fTaxGroup">Tax group</label><select id="fTaxGroup" class="sel"></select><div class="note">Used for items that have no tax group of their own.</div></div>
-      <div class="f"><label for="fBrand">Brand *</label><select id="fBrand"></select></div>
       <div class="f"><label for="fTaxName">Branch tax registration name</label><input id="fTaxName" maxlength="80" placeholder="Leave empty to use the company's"></div>
       <div class="f"><label for="fTaxNo">Branch tax number</label><input id="fTaxNo" maxlength="40" placeholder="Leave empty to use the company's"></div>
       <div class="f"><label for="fPhone">Phone</label><input id="fPhone" maxlength="30"></div>
@@ -2890,7 +2890,7 @@ const CRUD = {
   },
   brands: {
     col:"brands", title:"Brands", one:"Brand", detail: r => brandDetail(r),
-    tabs:[["all","All",live],["deleted","Deleted",r=>r.deleted]],
+    tabs:[["all","All",live],["active","Active",r=>live(r)&&r.active!==false],["inactive","Inactive",r=>live(r)&&r.active===false],["deleted","Deleted",r=>r.deleted]],
     sort:(a,b)=>a.name.localeCompare(b.name),
     search:r=>r.name,
     cols:[["Brand",r=>`<b>${esc(r.name)}</b>${r.nameAr?` <span class="note">${esc(r.nameAr)}</span>`:""}`],
@@ -5928,7 +5928,7 @@ function bsField(f, v, b, dis){
 function brandDetail(b){
   const admin = !state.role || state.role==="owner" || state.role==="admin", dis = admin ? "" : "disabled", tab = BS_TABS.find(t => t[0]===state.bsTab) || BS_TABS[0];
   const v = { ...brandSet(b.id), ...(state.bsDraft?.[b.id] || {}) }, row = (k, x) => `<div><span>${k}</span>${x}</div>`, brs = branches.filter(x => x.brandId===b.id);
-  return `<div class="phead"><a href="#brands" class="btn" data-detback style="text-decoration:none">← Back</a><h1 style="margin-left:10px">${esc(b.name)}</h1><div class="sp"></div><button class="btn pri" data-detedit>Edit Brand</button></div>
+  return `<div class="phead"><a href="#brands" class="btn" data-detback style="text-decoration:none">← Back</a><h1 style="margin-left:10px">${esc(b.name)}</h1>${b.active===false ? ' <span class="tag off">Inactive</span>' : ""}<div class="sp"></div><button class="btn${b.active===false ? "" : " danger"}" data-dettoggle>${b.active===false ? "Activate" : "Deactivate"}</button><button class="btn pri" data-detedit>Edit Brand</button></div>
     <div class="card odet" style="margin-bottom:16px;padding:16px 18px">${row("Name", esc(b.name))}${row("Name Localized", esc(b.nameAr || "—"))}${row("Branches", brs.length)}${row("Status", b.active===false ? "Inactive" : "Active")}</div>
     <div class="bswrap"><nav class="bsnav"><b>Settings</b>${BS_TABS.map(([k,t])=>`<a href="#brands" data-bstab="${k}" class="${tab[0]===k?"on":""}">${t}</a>`).join("")}</nav>
     <div class="card bsbody" data-bsbrand="${esc(b.id)}"><h3>${tab[2]}</h3>${admin?"":`<div class="banner">Only the owner or an admin can change settings.</div>`}
