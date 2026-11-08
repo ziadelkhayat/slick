@@ -118,7 +118,22 @@
       }
     }, 150);
   }
-  const channels = {};
+  const channels = {}, rtOk = {};
+  // live updates: every change in the database reaches every open screen; a dropped connection reconnects by itself
+  function live(col){
+    const t = tableOf(col);
+    if(channels[col]){ try{ sb.removeChannel(channels[col]); }catch(e){} }
+    rtOk[col] = false;
+    channels[col] = sb.channel("rt-" + t + "-" + Date.now().toString(36)).on("postgres_changes", { event: "*", schema: "public", table: t }, () => refresh(col))
+      .subscribe(st => { if(st === "SUBSCRIBED"){ if(rtOk[col] === false && rtOk["_seen_" + col]) refresh(col); rtOk[col] = true; rtOk["_seen_" + col] = true; }
+        else if(st === "CHANNEL_ERROR" || st === "TIMED_OUT" || st === "CLOSED"){ rtOk[col] = false; clearTimeout(timers["rt_" + col]); timers["rt_" + col] = setTimeout(() => { if(listeners[col]?.length) live(col); }, 3000); } });
+  }
+  const catchUp = () => Object.keys(listeners).forEach(c => { if(!listeners[c].length) return; refresh(c); if(!rtOk[c]) live(c); });
+  document.addEventListener("visibilitychange", () => { if(!document.hidden) catchUp(); });   // tablet woke up / app back in front
+  window.addEventListener("online", catchUp); window.addEventListener("focus", catchUp);
+  // safety net: if the live connection is down, poll every 10 s; while it is up, a quiet re-check every 2 min
+  setInterval(() => { if(document.hidden) return; Object.keys(listeners).forEach(c => { if(listeners[c].length && !rtOk[c]) refresh(c); }); }, 10000);
+  setInterval(() => { if(!document.hidden) Object.keys(listeners).forEach(c => listeners[c].length && refresh(c)); }, 120000);
   async function send(op){
     const t = tableOf(op.col);
     if(op.op === "set"){ const { error } = await sb.from(t).upsert(toRow(op.col, op.id, op.data)); if(error) throw error; }
@@ -173,9 +188,7 @@
         (listeners[col] ||= []).push({ next, error });
         if(OFF){ const cached = ls.get(cacheKey(col), null); if(cached){ local[col] = withPending(col, cached); const rows = local[col]; setTimeout(() => next({ docs: rows.map(r => { const { id, ...d } = r; return { id, data: () => ({ ...d }) }; }), metadata:{ fromCache:true, hasPendingWrites:false } }), 0); } }
         refresh(col);
-        if(!channels[col]){
-          channels[col] = sb.channel("rt-" + t).on("postgres_changes", { event: "*", schema: "public", table: t }, () => refresh(col)).subscribe();
-        }
+        if(!channels[col]) live(col);
         return () => { listeners[col] = (listeners[col]||[]).filter(l => l.next !== next); };
       },
       doc(id){
