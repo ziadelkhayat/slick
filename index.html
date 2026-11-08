@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="498-1794163062">
+<meta name="slick-build" content="499-1794163164">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1239,12 +1239,10 @@ html.mlock{overflow:hidden!important}html.mlock body{position:fixed!important;le
       <div class="f full"><label class="chk"><input type="checkbox" id="fAutoDay"> Automatic end of day</label><div class="note">At the start time, if the previous day wasn't ended manually and all its orders are closed, the branch POS ends it automatically.</div></div>
       <div class="f full"><div class="note">Sales before this time count on the previous business day. Set it after your closing time, e.g. 03:00 if you close at 2 AM. Must be between 12:00 AM and 11:59 AM.</div></div>
       <h4 class="fsec">Opening hours</h4>
-      <div class="f full"><div class="hours" id="fHours"></div><div class="note">Times after midnight (e.g. closes 02:00) count for the day that opened.</div></div>
+      <div class="f full"><div class="hours" id="fHours"></div></div>
       <h4 class="fsec">Sections & tables</h4>
       <div class="f full"><div id="fTables"></div></div>
       <h4 class="fsec">Tags</h4><div id="fTagsWrap" class="full" style="grid-column:1/-1"></div>
-      <h4 class="fsec">Charges at this branch</h4>
-      <div class="f full"><div class="multi" id="fCharges"></div><div class="note">Ticked charges apply to orders at this branch. Add or change charges in Manage → Charges.</div></div>
       <h4 class="fsec">Receipt</h4>
       <div class="f full"><label for="fRHead">Receipt header</label><textarea id="fRHead" rows="2" maxlength="300" placeholder="e.g. Welcome to The Wok Hamra"></textarea></div>
       <div class="f full"><label for="fRFoot">Receipt footer</label><textarea id="fRFoot" rows="2" maxlength="300" placeholder="e.g. Thank you! Follow us @thewok"></textarea></div>
@@ -2545,18 +2543,15 @@ function openForm(id){
   $("#fRHead").value = st.receiptHeader || ""; $("#fRFoot").value = st.receiptFooter || "";
   $("#fTaxGroup").innerHTML = `<option value="">Choose…</option>` + (S.tax_groups||[]).filter(g => !g.deleted).map(g => `<option value="${esc(g.id)}" ${st.taxGroup===g.id?"selected":""}>${esc(g.name)}</option>`).join("");
   if(b){ const tl = tblList(b.id), secs = tblSecs(b.id);
-    $("#fTables").innerHTML = `${tl.length ? `<div class="multi">${secs.map(sc => { const n = tl.filter(t => (t.section||"")===sc); return `<span class="tag">${esc(sc || "No section")} · ${n.length} table${n.length===1?"":"s"}</span>`; }).join("")}</div>` : '<div class="note">No sections or tables yet.</div>'}
-      <button type="button" class="btn" data-brtables="${esc(b.id)}" style="margin-top:8px">${tl.length ? "Edit sections & tables" : "Add sections & tables"}</button>`; }
+    $("#fTables").innerHTML = `<div class="brtbl"><div class="brtbl-l">${tl.length ? secs.map(sc => { const n = tl.filter(t => (t.section||"")===sc).length; return `<span class="brsec"><b>${esc(sc || "No section")}</b><small>${n} table${n===1?"":"s"}</small></span>`; }).join("") : '<span class="note">No sections or tables yet.</span>'}</div>
+      <button type="button" class="btn" data-brtables="${esc(b.id)}">${tl.length ? "Edit Sections & Tables" : "Add Sections & Tables"}</button></div>`; }
   else $("#fTables").innerHTML = '<div class="note">Save the branch first, then add its sections and tables.</div>';
   const chOn = c => !(c.branchIds||[]).length || (b && c.branchIds.includes(b.id));
-  const chs = (S.charges||[]).filter(c => !c.deleted && c.active!==false);
-  $("#fCharges").innerHTML = chs.length ? chs.map(c => `<label class="chk"><input type="checkbox" value="${esc(c.id)}" ${chOn(c)?"checked":""}> ${esc(c.name)} <span class="note">${c.type==="percent" ? (+c.value||0) + "%" : money(+c.value||0)}</span></label>`).join("") : '<span class="note">No charges yet.</span>';
   timeSel($("#fDayStart"), st.dayStart || company().dayEnd || "00:00", { maxH:12 }); $("#fAutoDay").checked = st.autoDayEnd !== false;
 
   const H = st.hours || {}, o0 = b?.open || "11:00", c0 = b?.close || "23:30";
   $("#fHours").innerHTML = DAYS.map(([k,t]) => { const d = H[k] || { open:o0, close:c0, closed:false };
-    return `<div class="hrow" data-day="${k}"><b>${t}</b><select class="sel" data-h="open" ${d.closed?"disabled":""} aria-label="${t} opens">${timeOpts(d.open||o0)}</select><span class="note">to</span><select class="sel" data-h="close" ${d.closed?"disabled":""} aria-label="${t} closes">${timeOpts(d.close||c0)}</select><label class="chk"><input type="checkbox" data-h="closed" ${d.closed?"checked":""}> Closed</label></div>`; }).join("")
-    + `<button type="button" class="btn sm" id="fHoursAll" style="margin-top:6px">Copy Monday to every day</button>`;
+    return `<div class="hrow" data-day="${k}"><b>${t}</b><select class="sel" data-h="open" ${d.closed?"disabled":""} aria-label="${t} opens">${timeOpts(d.open||o0)}</select><span class="note">to</span><select class="sel" data-h="close" ${d.closed?"disabled":""} aria-label="${t} closes">${timeOpts(d.close||c0)}</select><label class="chk"><input type="checkbox" data-h="closed" ${d.closed?"checked":""}> Closed</label></div>`; }).join("");
   $("#fCC").checked = b ? !!b.callCenter : true;
   $("#delBtn").style.display = b ? "" : "none"; $("#fErr").textContent = ""; paintBranchData(b?.id);
   $("#scrim").classList.add("show"); setTimeout(()=>$("#fName").focus(), 30);
@@ -2673,9 +2668,9 @@ $("#branchForm").addEventListener("submit", async e => {
     open: mon.closed ? $("#fOpen").value : (mon.open || $("#fOpen").value), close: mon.closed ? $("#fClose").value : (mon.close || $("#fClose").value), zones:$("#fZones").value.trim(),
     active:true, callCenter:$("#fCC").checked, production:false, updatedAt:new Date().toISOString() };
   $("#saveBtn").disabled = true;
-  const chPick = new Set([...document.querySelectorAll("#fCharges input:checked")].map(i => i.value)), tgPickB = tagPickGet("fTags");
+  const tgPickB = tagPickGet("fTags");
   try{ const bid = await saveBranch(data, editing);
-    await saveBranchCharges(editing || bid, chPick); await tagSetFor("branch", editing || bid, tgPickB);
+    await tagSetFor("branch", editing || bid, tgPickB);
     toast(editing ? "Branch updated" : `${name} added`); closeForm(); }
   catch(err){ console.error(err); $("#fErr").textContent = "Couldn't save. You may not have edit access to this page."; }
   finally{ $("#saveBtn").disabled = false; }
@@ -7585,7 +7580,8 @@ function printDoc(){
   const d = DOC.edit, K = DOC_KINDS[DOC.open.route]; if(!d) return;
   const w = window.open("", "_blank", "width=820,height=900"); if(!w) return toast("Allow pop-ups to print");
   const rows = d.items.map(l => { const it = itemOf(l.itemId) || {}; return `<tr><td>${esc(it.name||"")}</td><td>${esc(it.sku||"")}</td><td>${esc(it.storageUnit||"")}</td>${K.kind==="sheet"?"<td></td>":K.kind==="cost"?`<td>${l.cost??""}</td>`:`<td>${l.qty??""}</td>`}</tr>`; }).join("");
-  w.document.write(`<!doctype html><title>${esc(d.ref||K.title)}</title><style>body{font:13px/1.4 Inter,Arial,sans-serif;padding:24px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ccc;padding:6px 8px;text-align:left}th{background:#f3f2f7}</style>
+  w.document.write(`<!doctype html><title>${esc(d.ref||K.title)}</title><style>body{font:13px/1.4 Inter,Arial,sans-serif;padding:24px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ccc;padding:6px 8px;text-align:left}th{background:#f3f2f7}.brtbl{display:flex;align-items:center;gap:14px;flex-wrap:wrap;border:1px solid var(--line);border-radius:14px;padding:12px 14px;background:var(--surface,#fff)}.brtbl-l{display:flex;flex-wrap:wrap;gap:8px;flex:1;min-width:0}.brsec{display:inline-flex;align-items:center;gap:8px;padding:7px 12px;border-radius:999px;background:var(--accent-soft,#f0ecff)}.brsec b{font-weight:600;font-size:13.5px}.brsec small{color:var(--muted,#6f6b85);font-size:12.5px}.brtbl .btn{margin-left:auto}
+</style>
     <h2>${esc(K.title)} ${esc(d.ref||"")}${d.name?" — "+esc(d.name):""}</h2><p>${K.loc?"Branch: "+esc(locName(d.locationId))+" · ":""}${d.reason?"Reason: "+esc(d.reason)+" · ":""}${d.businessDate?"Date: "+esc(d.businessDate):""}</p>
     <table><thead><tr><th>Name</th><th>SKU</th><th>Unit</th><th>${K.kind==="sheet"||K.kind==="spot"?"Counted":K.kind==="cost"?"New cost":"Quantity"}</th></tr></thead><tbody>${rows}</tbody></table><script>window.onload=()=>window.print()<\/script>`);
   w.document.close();
