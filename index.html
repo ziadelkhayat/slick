@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="461-1794141691">
+<meta name="slick-build" content="462-1794141970">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -4541,7 +4541,7 @@ $("#view").addEventListener("click", e => { const o = e.target.closest("[data-bm
 document.addEventListener("keydown", e => { if(e.key==="Escape" && BM.item && location.hash==="#branch-menu"){ BM.item = ""; render(); } });
 // Sales Channels: everything on one page. A brand opens to its branches, a branch to its channels; a channel opens its own page
 function scTree(list){
-  const ex = BM.exp ||= new Set(BM.branch ? [BM.branch, "b:" + (branches.find(b => b.id===BM.branch)?.brandId || "")] : []);
+  const ex = BM.exp ||= new Set();   // all closed when you come in; a brand / branch opens when pressed
   const ico = c => svgIco((SC_KINDS.find(x => x[0]===c.kind)||SC_KINDS[3])[2]), chev = on => `<span class="sctchev${on ? " on" : ""}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></span>`;
   const brRow = b => { const cs = scFor(b.id), on = ex.has(b.id);
     return `<div class="sctbr${on ? " open" : ""}"><button type="button" class="sctrow sctl2" data-sctx="${esc(b.id)}">${chev(on)}<b>${esc(b.name)}</b><span class="note">${cs.length} channel${cs.length===1 ? "" : "s"}</span></button>
@@ -4561,6 +4561,7 @@ document.addEventListener("click", e => {
   const ch = e.target.closest("[data-scch]"); if(ch){ e.preventDefault(); const [code, b] = ch.dataset.scch.split("|"); BM.branch = b; bmMenusRefresh(); BM.menu = code; BM.open1 = true; BM.brOpen = true; BM.draft = {}; BM.q = ""; BM.item = ""; render(); window.scrollTo(0,0); return; }
   const nb = e.target.closest("[data-scnewb]"); if(nb){ e.preventDefault(); BM.branch = nb.dataset.scnewb; bmMenusRefresh(); return scDialog(""); }
 });
+window.addEventListener("hashchange", () => { if(location.hash.slice(1).split("?")[0]==="branch-menu"){ BM.exp = new Set(); BM.open1 = false; BM.item = ""; setTimeout(render, 0); } });   // entering Sales Channels: everything collapsed
 // (older pages, kept for reference)
 function scBrandList(list){
   return `<div class="phead"><h1>Sales Channels</h1></div>
