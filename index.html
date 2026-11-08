@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="466-1794142990">
+<meta name="slick-build" content="467-1794143165">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1181,6 +1181,7 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}@media(max-width:820px)
 .sctadd{color:var(--accent,#5b2bc4);font-weight:600}.sctnone{padding:6px 40px}
 .secbox>table{width:100%!important;display:table!important}
 .top{position:relative!important;top:auto!important}
+.ptmore{position:relative;display:inline-flex}.ptmb{display:inline-flex;align-items:center;gap:8px;border:0;background:none;font:inherit;color:inherit;padding:8px 14px;border-radius:999px;cursor:pointer}.ptmb.on{background:var(--accent-soft,#efeafd);color:var(--accent,#5b2bc4)}.ptmm{position:absolute;top:calc(100% + 6px);left:0;z-index:40;min-width:220px;background:#fff;border:1px solid var(--line,#ecebf2);border-radius:14px;box-shadow:0 18px 44px rgba(21,19,31,.18);padding:6px;display:flex;flex-direction:column}.ptmm[hidden]{display:none}.ptmm a{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;text-decoration:none;color:inherit;white-space:nowrap}.ptmm a:hover,.ptmm a.on{background:#f6f5fa}
 html.mlock,html.mlock body{overflow:hidden!important}.scrim,.bmdrawer,.bmdbody,.modal .body,.modal>*{overscroll-behavior:contain}
 </style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
@@ -1365,8 +1366,8 @@ const NAV = [
   {id:"call-center",t:"Call Center",i:"phone"},
   {id:"customers",t:"Customers",i:"users"},
   {t:"Reports",i:"chart",tabs:1,kids:[["sales-reports","Sales Reports"],["inventory-reports","Inventory Reports"],["business-reports","Business Reports"],["analysis-reports","Analysis Reports"]]},
-  {t:"Inventory",i:"box",tabs:1,kids:[["inv-items","Items"],["suppliers","Suppliers"],["inventory-count","Inventory Count"],["po","Purchase Orders"],["purchase-orders","Purchasing"],["transfer-orders","Transfer Orders"],["transfers","Transfers"],["production","Production"],
-    ["quantity-adjustments","Quantity Adjustment"],["cost-adjustments","Cost Adjustment"],["order-transactions","Order Transactions"],["inv-categories","Inventory Categories"],["warehouses","Warehouses"],["spot-check","Inventory Spot Check"],["count-sheets","Count Sheet"]]},
+  {t:"Inventory",i:"box",tabs:1,drop:["po","purchase-orders","transfer-orders","transfers"],kids:[["inv-items","Items"],["inv-categories","Inventory Categories"],["suppliers","Suppliers"],["warehouses","Warehouses"],["inventory-count","Inventory Count"],["production","Production"],
+    ["quantity-adjustments","Quantity Adjustment"],["cost-adjustments","Cost Adjustment"],["order-transactions","Order Transactions"],["spot-check","Inventory Spot Check"],["count-sheets","Count Sheet"],["po","Purchase Orders"],["purchase-orders","Purchasing"],["transfer-orders","Transfer Orders"],["transfers","Transfers"]]},
   {t:"Menu",i:"book",tabs:1,side:[["branch-menu","Sales Channels"]],kids:[["@Menu Builder"],["categories","Categories"],["products","Products"],["variants","Variants"],["modifiers","Modifiers"],["combos","Combos"],["@Menu Settings"],["allergens","Allergens"]]},
   {t:"Web Ordering",i:"globe",tabs:1,kids:[["online-ordering","Settings"],["delivery-zones","Delivery Zones"],["delivery-charges","Delivery Charges"]]},
   {t:"Manage",i:"gear",tabs:1,kids:[["users","Users"],["roles","Roles"],["brands","Brands"],["branches","Branches"],["devices","Devices"],["taxes","Taxes & Groups"],["currency","Currency"],["payment-methods","Payment Methods"],["order-sources","Order Sources"],["charges","Charges"],["kitchen-flows","Kitchen Flows"],["reasons","Reasons"],["tags","Tags"]]},
@@ -2356,7 +2357,8 @@ function render(){ setTimeout(() => typeof bmBarSync==="function" && bmBarSync()
   else v.innerHTML = `<h1>${esc(TITLES[route]||"Not found")}</h1><p class="subt">&nbsp;</p>` + placeholder("Coming next", "This screen is part of the plan and will be built in a later step.");
   const troute = ROUTE_PARENT[route] || route, tg = NAV.find(n => n.tabs && n.kids.some(k=>k[0]===troute));   // Inventory: every screen is a tab at the top of the page
   if(tg){ const ks = tg.kids.filter(k=>!k[0].startsWith("@")), mi = tg.more ? ks.findIndex(k => k[0]===tg.more) : -1, inMore = mi >= 0 && ks.findIndex(k => k[0]===troute) >= mi;
-    v.insertAdjacentHTML("afterbegin", `<nav class="ptabs" aria-label="${esc(tg.t)}">${(mi >= 0 ? ks.slice(0, mi+1) : ks).filter(k => canOpen(k[0])).map(k=>`<a href="#${k[0]}" class="${k[0]===troute || (k[0]===tg.more && inMore)?"on":""}">${svgIco(SUBI[k[0]]||"list")}${esc(k[1])}</a>`).join("")}</nav>`);
+    const dk = (tg.drop||[]).map(r => ks.find(k => k[0]===r)).filter(k => k && canOpen(k[0])), dOn = dk.some(k => k[0]===troute);
+    v.insertAdjacentHTML("afterbegin", `<nav class="ptabs" aria-label="${esc(tg.t)}">${(mi >= 0 ? ks.slice(0, mi+1) : ks).filter(k => canOpen(k[0]) && !(tg.drop||[]).includes(k[0])).map(k=>`<a href="#${k[0]}" class="${k[0]===troute || (k[0]===tg.more && inMore)?"on":""}">${svgIco(SUBI[k[0]]||"list")}${esc(k[1])}</a>`).join("")}${dk.length ? `<span class="ptmore"><button type="button" class="ptmb${dOn ? " on" : ""}" data-ptmore>${svgIco("list")}${dOn ? esc(dk.find(k => k[0]===troute)[1]) : "More"} ▾</button><span class="ptmm" hidden>${dk.map(k => `<a href="#${k[0]}" class="${k[0]===troute ? "on" : ""}">${svgIco(SUBI[k[0]]||"list")}${esc(k[1])}</a>`).join("")}</span></span>` : ""}</nav>`);
     if(inMore && troute!==tg.more) v.querySelector(".phead, h1")?.insertAdjacentHTML("beforebegin", `<a href="#${tg.more}" class="btn morebk" style="text-decoration:none;margin:0 0 10px">${svgIco("back")}${esc(tg.t)}</a>`); }
   v.querySelectorAll(".chart").forEach(wireLine);
   if(route==="delivery-zones") setTimeout(initZonesOverview, 0);
@@ -2403,6 +2405,7 @@ document.addEventListener("click", e => {
     state.moF = { name:$("#mofName").value.trim(), mods:vals("mofMods"), sku:$("#mofSku").value.trim(), after:$("#mofAfter").value, alg:vals("mofAlg") };
     state.page = state.page || {}; state.page["modifier-options"] = 1; $("#ccScrim").classList.remove("show"); render(); }
 });
+document.addEventListener("click", e => { const b = e.target.closest("[data-ptmore]"); document.querySelectorAll(".ptmm").forEach(m => { if(!b || m.parentNode!==b.parentNode) m.hidden = true; }); if(b){ e.preventDefault(); const m = b.nextElementSibling; m.hidden = !m.hidden; } });
 function msEnhance(){
   // close buttons: a drawn × so it sits exactly in the middle of the circle
   document.querySelectorAll("button.x:not([data-xi]),button.mmdx:not([data-xi])").forEach(b => { if(b.textContent.trim()!=="×") return; b.dataset.xi = "1"; b.innerHTML = `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>`; });
