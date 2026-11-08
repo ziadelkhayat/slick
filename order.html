@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="507-1794164442">
+<meta name="slick-build" content="508-1794164662">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -596,6 +596,7 @@ button.x::before{content:"";width:16px;height:16px;background:currentColor;-webk
 .qa:not(.qa2) button svg{width:18px;height:18px;stroke-width:2.6}
 .covchip{position:absolute;left:12px;top:12px;z-index:2}.covchip .chip{background:rgba(255,255,255,.94)!important;box-shadow:0 2px 10px rgba(0,0,0,.15);backdrop-filter:blur(6px)}
 .hin .chips .chip.open,.hin .chips .chip.shut{display:none!important}.hstyle-minimal .covchip{display:none}
+#whereBox.moved{display:none!important}.lbwhere{margin-top:8px}.lbwhere .card{margin:0}.lbwhere .scanbtn{width:100%}
 </style>
 </head>
 <body class="lay-grid">
@@ -995,13 +996,15 @@ const zoneAt = (lat, lng) => zoneList().find(z => inside([lat, lng], z.polygon))
 function setAddr(a){ addr = a; pin = a ? [a.lat, a.lng] : null; lsSet(AK + "_sel", !a ? null : addrs.some(x => x.id===a.id) ? a.id : { temp:a }); locate(); renderWhere(); renderTop(); if(a && goCart && cart.length) setTimeout(() => { if(!$("#scrim").classList.contains("show")) openCart(); }, 350); }
 // the brand's logo and name sit in the top bar, between the order type and the basket
 function tbBrand(){ const lg = (cfg.theme||{}).logo; return `<span class="tbrand">${lg ? `<img src="${esc(lg)}" alt="">` : `<span class="tbl">${esc(brand.name.trim()[0]?.toUpperCase() || "·")}</span>`}<b>${esc(brand.name)}</b></span>`; }
-function renderTop(){ renderTop0(); topOpen(); }
+function renderTop(){ renderTop0(); topOpen();
+  // dine-in: "Scan table QR code" / the table card sits right under the branch card at the top
+  const wb = $("#whereBox"), lb = $("#locbar"); if(wb && lb){ const up = mode==="dinein" && !qrBranch && !!wb.innerHTML.trim(); wb.classList.toggle("moved", up); if(up){ const d = document.createElement("div"); d.className = "lbwhere"; d.innerHTML = wb.innerHTML; lb.appendChild(d); } } }
 // the open-now chip sits in the top bar; the card under the cover only shows when it still has something (tagline, contact links)
 function topOpen(){ const el = $("#locbar"), c = $("#chips .chip.open, #chips .chip.shut"); if(!el) return;
   el.querySelector(".tbopen")?.remove();
   const hc = $("#hero .hcard"); if(hc) hc.hidden = false;
   // the open-now badge sits on the cover photo
-  const cv = $("#cover"); if(cv){ cv.querySelector(".covchip")?.remove(); if(c){ const d = document.createElement("div"); d.className = "covchip"; d.innerHTML = c.outerHTML; cv.appendChild(d); } }
+  const cv = $("#cover"); if(cv){ cv.querySelector(".covchip")?.remove(); if(c && curBranch()){ const d = document.createElement("div"); d.className = "covchip"; d.innerHTML = c.outerHTML; cv.appendChild(d); } }
   // the tags under the brand name are picked in Web Ordering settings (Storefront → Tags under the brand name)
   const sub = $("#sub"), cs = String(cfg.cuisines || "").split(/\s*[,·•|]\s*/).map(x => x.trim()).filter(Boolean);
   if(sub && cs.length){ sub.hidden = false; sub.innerHTML = cs.map(esc).join('<i class="dot"></i>'); } }
