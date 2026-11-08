@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="456-1794132055">
+<meta name="slick-build" content="478-1794145269">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1553,5 +1553,17 @@ document.addEventListener("click", async e => {
 if(PREVIEW){ addEventListener("message", e => { if(e.origin !== location.origin || e.data?.type !== "slick-web-cfg") return; Object.keys(cfg).forEach(k => delete cfg[k]); Object.assign(cfg, e.data.cfg || {}); $("#main").innerHTML = shell(); render(); }); parent.postMessage({ type:"slick-web-ready" }, location.origin); }
 })().catch(e => console.error(e)).finally(() => { const s = document.getElementById("splash"); if(s){ s.classList.add("done"); setTimeout(() => s.remove(), 400); } });
 </script>
+<script>/* iPhone Safari with "Request Desktop Website" on lays the page out ~980px wide and shrinks it. On a phone, switch the
+   wide-screen rules off and zoom the page back to the phone's own width so it looks and works like the phone page. */
+(function(){ function fit(){ try{
+  const d = document.documentElement, sw = innerWidth < innerHeight ? Math.min(screen.width, screen.height) : Math.max(screen.width, screen.height);
+  const touch = matchMedia("(pointer: coarse)").matches || navigator.maxTouchPoints > 1, z = window.innerWidth / sw;
+  const on = touch && sw < 700 && z > 1.25;
+  if(on && !d.dataset.fitWide){ d.dataset.fitWide = "1";
+    for(const sh of document.styleSheets){ let rules; try{ rules = sh.cssRules; }catch(e){ continue; }
+      for(const r of [...rules]) { const m = r.media && r.media.mediaText.match(/min-width:\s*(\d+)px/); if(m && +m[1] >= 600){ try{ r.media.mediaText = "(min-width: 99999px)"; }catch(e){} } } } }
+  d.style.zoom = on ? z.toFixed(3) : ""; }catch(e){} }
+  if(document.readyState === "loading") document.addEventListener("DOMContentLoaded", fit); else fit();
+  addEventListener("orientationchange", () => setTimeout(fit, 300)); })();</script>
 </body>
 </html>
