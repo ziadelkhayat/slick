@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="494-1794162182">
+<meta name="slick-build" content="497-1794162509">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -866,7 +866,7 @@ function giveBackNo(no){ const key = "slickNo_" + device.branchId; try{ const c 
 /* ---------- company and app settings (Account settings, Manage → Settings) ---------- */
 const company = () => S.settings.find(x=>x.id==="company") || {};
 const APP_DEF = { requireCustPickup:true, requireCustDelivery:true, requireTable:false, stockAction:"ask", reasonRequired:true, discountApproval:false, rcptInvoice:true, rcptCustomer:true, rcptTax:true, rcptSource:false,
-  voidReasons:"Customer changed mind\nWrong item entered\nItem not available\nKitchen mistake", returnReasons:"Quality complaint\nWrong order delivered\nLate delivery\nCustomer cancelled" };
+  voidReasons:"", returnReasons:"Customer cancelled" };
 // Manage → Brands → Settings (one set per brand) wins over the older company-wide settings
 const BRAND_POS_DEF = { showOrderNo:true, showSubtotal:true, phoneOnPickup:true, printLang:"main", returnMode:"unlimited", returnMinutes:1440, kitchenSort:"added", presetTender:"", logoutMinutes:10 };
 const appSet = () => { const a = { ...APP_DEF, ...BRAND_POS_DEF, ...(S.settings.find(x=>x.id==="app")||{}), ...(S.settings.find(x=>x.id==="brand_" + (branch?.brandId || ""))||{}) };
@@ -1773,7 +1773,7 @@ const fullyBack = o => +o.refundTotal && +o.refundTotal >= +o.total - 0.001;
 // void (active) or return (closed): which items, why, and where the food goes; then a manager's PIN
 function openVR(kind, mode){
   const o = S.orders.find(x=>x.id===OV.open); if(!o) return;
-  const a = appSet(), reasons = String(kind==="void" ? a.voidReasons : a.returnReasons).split("\n").map(x=>x.trim()).filter(Boolean);
+  const a = appSet(), reasons = String(kind==="void" ? a.voidReasons : a.returnReasons).split("\n").map(x=>x.trim()).filter(x => x && !new Set(["Customer changed mind","Wrong item entered","Item not available","Kitchen mistake","Quality complaint","Wrong order delivered","Late delivery","Damaged","Theft","Staff meal","Sample","Found stock"]).has(x));
   if(kind==="return" && a.returnMode==="none") return toast("Returns aren't allowed for this brand");
   if(kind==="return" && a.returnMode==="limited"){ const t = o.closedAt || o.createdAt, m = +a.returnMinutes || 0; if(t && Date.now() - new Date(t) > m*60000) return toast(`The return period (${m} min) for this order is over`); }
   if(kind==="void" && a.voidNeedsCustomer && !custGiven(o.customerName, o.phone)) return toast("Add the customer to this order first: voids need customer info");

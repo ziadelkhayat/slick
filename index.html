@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="496-1794162432">
+<meta name="slick-build" content="497-1794162509">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -5824,7 +5824,7 @@ document.addEventListener("change", e => { if(e.target.id==="co_country" && $("#
 /* ---------- Manage → Settings: how the POS, call center and receipts behave ---------- */
 const APP_DEF = { requireCustPickup:true, requireCustDelivery:true, requireTable:false, stockAction:"ask", reasonRequired:true, discountApproval:false,
   rcptInvoice:true, rcptCustomer:true, rcptTax:true, rcptSource:false, ccDefaultSource:"",
-  voidReasons:"Customer changed mind\nWrong item entered\nItem not available\nKitchen mistake", returnReasons:"Quality complaint\nWrong order delivered\nLate delivery\nCustomer cancelled" };
+  voidReasons:"", returnReasons:"Customer cancelled" };
 const appSet = () => ({ ...APP_DEF, ...(S.settings.find(x=>x.id==="app")||{}) });
 document.addEventListener("click", async e => { if(!e.target.closest("#asSave")) return;
   const d = {}; Object.keys(APP_DEF).forEach(k => { const el = $("#as_"+k); if(!el) return; d[k] = el.type==="checkbox" ? el.checked : el.value; });   // reasons are saved on their own page
@@ -6026,12 +6026,12 @@ async function saveCurrency(){
 document.addEventListener("click", e => { if(e.target.closest("#curSave")) saveCurrency(); });
 /* Reasons (Manage → Reasons, Foodics style): a card per kind; tap a reason to edit it; drag to reorder; deleted ones under Deleted */
 const RS_KINDS = [["vr","Void and Return Reason"],["qtyReasons","Quantity Adjustment Reason"],["drawerReasons","Drawer Operation Reason"]];
-const RS_GONE = new Set(["Damaged","Theft","Staff meal","Sample","Found stock"]);   // removed for good, even from saved lists
+const RS_GONE = new Set(["Customer changed mind","Wrong item entered","Item not available","Kitchen mistake","Quality complaint","Wrong order delivered","Late delivery","Damaged","Theft","Staff meal","Sample","Found stock"]);   // removed for good, even from saved lists
 const RS_DEF = { qtyReasons:["Waste","Expired"], drawerReasons:["Cash Change"] };
 const RS = { tab:"general" };
 const rsSplit = v => String(v || "").split("\n").map(x => x.trim()).filter(Boolean);
 // void and return share one list (the POS offers it for both)
-function rsGet(k){ const a = appSet(); if(k==="vr") return [...new Set([...rsSplit(a.voidReasons), ...rsSplit(a.returnReasons)])]; return (a[k]==null ? (RS_DEF[k]||[]).slice() : rsSplit(a[k])).filter(x => k!=="qtyReasons" || !RS_GONE.has(x)); }
+function rsGet(k){ const a = appSet(); if(k==="vr") return [...new Set([...rsSplit(a.voidReasons), ...rsSplit(a.returnReasons)])].filter(x => !RS_GONE.has(x)); return (a[k]==null ? (RS_DEF[k]||[]).slice() : rsSplit(a[k])).filter(x => k!=="qtyReasons" || !RS_GONE.has(x)); }
 const rsDelGet = k => rsSplit(appSet()[k + "Del"]);
 async function rsPut(k, list, del){ const d = k==="vr" ? { voidReasons: list.join("\n"), returnReasons: list.join("\n") } : { [k]: list.join("\n") }; if(del) d[k + "Del"] = del.join("\n");
   try{ await put("settings", "app", d); render(); return true; }catch(err){ console.error(err); toast("Couldn't save. Only the owner or an admin can change reasons."); return false; } }
