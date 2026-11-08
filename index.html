@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="483-1794152597">
+<meta name="slick-build" content="484-1794153535">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -4526,7 +4526,7 @@ function viewBranchMenu(){
   if(!cur) return h + `<section class="mmmain"><div class="mmempty big"><b>Start the ${esc(ch[1])} menu</b><span>Add a category on the left, then add products to it.</span><button type="button" class="btn pri" data-bmnewcat>+ Add Category</button></div></section></div>${bmSaveBar(nDraft)}</div>`;
   const nOn = inCur.filter(p => bmState(p).on).length;
   h += `<section class="mmmain"><div class="mmbar"><div class="mmtitle"><b>${esc(cur.name)}</b><span class="note">${nOn} of ${inCur.length} on the ${esc(ch[1])} menu at ${esc(br.name)}</span></div><div class="sp"></div>
-      ${inCur.length > 6 ? `<input class="sel search" id="bmQ" placeholder="Search products" value="${esc(BM.q)}" aria-label="Search products">` : ""}<button type="button" class="btn pri" data-bmadd="${esc(cur.id)}">+ Add Products</button></div>`;
+      <button type="button" class="btn pri" data-bmadd="${esc(cur.id)}">+ Add Products</button></div>`;
   if(!inCur.length) return h + `<div class="mmempty big"><b>No products in ${esc(cur.name)}</b><span>Pick the products this category shows on the ${esc(ch[1])} menu.</span><button type="button" class="btn pri" data-bmadd="${esc(cur.id)}">+ Add Products</button></div></section></div>${bmSaveBar(nDraft)}</div>`;
   h += `<div class="mmtbl"><div class="mmth"><span></span><span></span><span>Product</span><span class="mmtyps">${bmTypes().map(([t, tl]) => `<span class="mmty">${esc(tl)}</span>`).join("")}</span><span></span></div>`;
   if(!rows.length) h += `<div class="mmempty">No products match.</div>`;
@@ -4722,26 +4722,27 @@ async function bmDelCat(id){
 // Sales Channels: pick products to put in a channel category
 function bmAddItems(id){
   const c = S.categories.find(x => x.id===id); if(!c) return; const br = branches.find(b => b.id===BM.branch), have = new Set((c.productIds||[]).map(bmRoot)), kidIds = varChildIds();
-  const prods = S.products.filter(p => live(p) && !kidIds.has(p.id) && !have.has(p.id));
+  const prods = S.products.filter(p => live(p) && !kidIds.has(p.id));   // every item: ticked = in this category, untick to remove
   const groups = {}; prods.forEach(p => (groups[catName(p.categoryId)] ||= []).push(p));
   const box = $("#ccBox"); box.className = "modal wide";
-  const tile = p => `<label class="batile" data-n="${esc((p.name+" "+(p.sku||"")).toLowerCase())}"><input type="checkbox" value="${esc(p.id)}"><span class="baimg">${p.imageUrl ? `<img src="${esc(p.imageUrl)}" alt="" loading="lazy">` : ""}</span><span class="banm"><b>${esc(p.name)}</b><small>${varKids(p).length ? "From " + usd(Math.min(...varKids(p).map(x=>+x.price||0))) : p.pricingMethod==="open" ? "Open price" : usd(p.price)}</small></span><span class="bachk" aria-hidden="true"></span></label>`;
-  box.innerHTML = `<header><h2>Add Items</h2></header>
+  const tile = p => `<label class="batile" data-n="${esc((p.name+" "+(p.sku||"")).toLowerCase())}"><input type="checkbox" value="${esc(p.id)}" ${have.has(p.id) ? "checked data-had=\"1\"" : ""}><span class="baimg">${p.imageUrl ? `<img src="${esc(p.imageUrl)}" alt="" loading="lazy">` : ""}</span><span class="banm"><b>${esc(p.name)}</b><small>${varKids(p).length ? "From " + usd(Math.min(...varKids(p).map(x=>+x.price||0))) : p.pricingMethod==="open" ? "Open price" : usd(p.price)}</small></span><span class="bachk" aria-hidden="true"></span></label>`;
+  box.innerHTML = `<header><h2>Items in ${esc(c.name)}</h2><button type="button" class="x" data-ccclose aria-label="Close">×</button></header>
   <div class="body" style="display:block"><input class="sel search" id="baQ" type="search" placeholder="Search products" style="width:100%;margin-bottom:12px">
     <div id="baList" class="balist">${prods.length ? Object.keys(groups).sort().map(g => `<div class="bagrp" data-g><div class="bagh"><b>${esc(g)}</b><button type="button" class="lnk" data-baall>Select all</button></div><div class="bagrid">${groups[g].sort(bySort).map(tile).join("")}</div></div>`).join("") : '<div class="empty">Every product is already in this category.</div>'}</div>
     <div class="err" id="baErr"></div></div>
-  <footer><span class="note" id="baCnt" style="flex:1">Tap products to pick them</span><button type="button" class="btn" data-ccclose>Cancel</button><button type="button" class="btn pri" data-baapply="${esc(id)}" disabled>Add</button></footer>`;
+  <footer><span class="note" id="baCnt" style="flex:1">${have.size} in this category · tick to add, untick to remove</span><button type="button" class="btn pri" data-baapply="${esc(id)}" disabled>Save</button></footer>`;
   $("#ccScrim").classList.add("show"); setTimeout(() => $("#baQ")?.focus(), 30);
 }
 document.addEventListener("input", e => { if(e.target.id!=="baQ") return; const q = e.target.value.trim().toLowerCase();
   document.querySelectorAll("#baList .batile").forEach(l => l.style.display = !q || l.dataset.n.includes(q) ? "" : "none");
   document.querySelectorAll("#baList .bagrp").forEach(g => g.style.display = [...g.querySelectorAll(".batile")].some(l => l.style.display !== "none") ? "" : "none"); });
-function baCount(){ const n = document.querySelectorAll("#baList input:checked").length, b = document.querySelector("[data-baapply]"); if(b){ b.disabled = !n; b.textContent = n ? `Add ${n} item${n===1?"":"s"}` : "Add"; } const c = $("#baCnt"); if(c) c.textContent = n ? `${n} selected` : "Tap products to pick them"; }
+function baCount(){ const all = [...document.querySelectorAll("#baList input")], on = all.filter(i => i.checked).length, add = all.filter(i => i.checked && !i.dataset.had).length, rm = all.filter(i => !i.checked && i.dataset.had).length, b = document.querySelector("[data-baapply]");
+  if(b) b.disabled = !(add || rm); const c = $("#baCnt"); if(c) c.textContent = `${on} in this category` + (add ? ` · ${add} to add` : "") + (rm ? ` · ${rm} to remove` : ""); }
 document.addEventListener("change", e => { if(e.target.closest?.("#baList")) baCount(); });
 document.addEventListener("click", e => { const a = e.target.closest("[data-baall]"); if(!a) return; const boxes = [...a.closest(".bagrp").querySelectorAll(".batile")].filter(l => l.style.display !== "none").map(l => l.querySelector("input")); const on = boxes.some(b => !b.checked); boxes.forEach(b => b.checked = on); a.textContent = on ? "Clear" : "Select all"; baCount(); });
 document.addEventListener("click", async e => { const ap = e.target.closest("[data-baapply]"); if(!ap) return; const c = S.categories.find(x => x.id===ap.dataset.baapply); if(!c) return;
-  const add = [...document.querySelectorAll("#baList input:checked")].map(i => i.value); if(!add.length){ $("#baErr").textContent = "Tick at least one product."; return; }
-  const ids = [...(c.productIds||[]), ...add.filter(x => !(c.productIds||[]).includes(x))];
+  const on = new Set([...document.querySelectorAll("#baList input:checked")].map(i => i.value)), add = [...on].filter(x => !(c.productIds||[]).map(bmRoot).includes(x));
+  const ids = [...(c.productIds||[]).filter(x => on.has(bmRoot(x))), ...add];   // unticked ones leave, ticked ones join at the end
   try{ await put("categories", c.id, { productIds:ids }); c.productIds = ids; BM.open ||= new Set(); BM.open.add(c.id); toast(`${add.length} item${add.length===1?"":"s"} added to ${c.name}`); $("#ccScrim").classList.remove("show"); render(); }
   catch(err){ console.error(err); $("#baErr").textContent = "Couldn't save."; } });
 // copy one channel's menu (items on/off, order types and prices) from another channel or branch onto this one
