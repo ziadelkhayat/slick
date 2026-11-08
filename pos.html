@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="492-1794161922">
+<meta name="slick-build" content="493-1794162074">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -2311,6 +2311,13 @@ function printReport(){
 .abtn{flex:1 1 0!important;min-width:72px!important;max-width:96px!important;height:auto!important;aspect-ratio:1/1;padding:6px 4px!important;gap:6px!important;border-radius:14px!important}
 .abtn svg{width:24px!important;height:24px!important}
 .abtn span{white-space:normal;text-align:center;line-height:1.15}
+/* selection boxes: same look as the other fields, big touch targets; short lists become tap buttons */
+#modal select:not([multiple]),.f select:not([multiple]){-webkit-appearance:none;appearance:none;width:100%;background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236a4cf5' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") no-repeat right 14px center/18px;border:1px solid var(--line);border-radius:12px;padding:0 44px 0 14px;min-height:52px;color:var(--ink);font-weight:500;cursor:pointer}
+#modal select:focus,.f select:focus{outline:none;border-color:var(--acc);box-shadow:0 0 0 3px var(--accs)}
+.segsel{display:flex;gap:4px;background:var(--sunk,#f7f6fb);border:1px solid var(--line);border-radius:14px;padding:4px;min-height:52px}
+.segsel button{flex:1 1 0;min-width:0;border:0;background:none;border-radius:10px;font-weight:600;font-size:15px;color:var(--ink2);min-height:44px;padding:0 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:background .15s,color .15s}
+.segsel button.on{background:#fff;color:var(--acc);box-shadow:0 1px 4px rgba(20,16,40,.1)}
+.segsel.dis{opacity:.5;pointer-events:none}
 </style></head><body>${reportHtml()}</body></html>`); doc.close();
   setTimeout(() => { try{ f.contentWindow.focus(); f.contentWindow.print(); }catch(e){ toast("Couldn't print on this device"); } setTimeout(() => f.remove(), 2000); }, 250);
 }
@@ -2349,5 +2356,15 @@ if("serviceWorker" in navigator && !window.Capacitor && location.protocol === "h
 </script>
 <script>/* a dialog closes with its × (or Esc), not by clicking the dimmed page around it */
 window.addEventListener("click", e => { const t = e.target; if(t && t.classList && (t.classList.contains("scrim") || t.classList.contains("smp-scrim") || t.classList.contains("bmdscrim") || /Scrim$/.test(t.id||""))){ e.stopImmediatePropagation(); e.preventDefault(); } }, true);</script>
+<script>/* short dropdowns in dialogs (up to 4 choices) become tap buttons; the real <select> stays underneath */
+(function(){ const sync = sel => { const w = sel.__seg; if(!w) return; w.classList.toggle("dis", sel.disabled); w.querySelectorAll("button").forEach(b => b.classList.toggle("on", b.dataset.v===sel.value)); };
+  const seg = sel => { if(sel.__seg || sel.multiple || sel.dataset.noseg != null || sel.options.length < 2 || sel.options.length > 4 || [...sel.options].some(o => o.text.length > 16)) return;
+    const w = document.createElement("div"); w.className = "segsel"; w.setAttribute("role","radiogroup");
+    [...sel.options].forEach(o => { const b = document.createElement("button"); b.type = "button"; b.dataset.v = o.value; b.textContent = o.text; b.setAttribute("role","radio");
+      b.onclick = () => { if(sel.value===o.value) return; sel.value = o.value; sel.dispatchEvent(new Event("change", { bubbles:true })); sel.dispatchEvent(new Event("input", { bubbles:true })); sync(sel); }; w.appendChild(b); });
+    sel.__seg = w; sel.style.display = "none"; sel.after(w); sel.addEventListener("change", () => sync(sel)); sync(sel); };
+  const run = () => document.querySelectorAll("#modal select, .f select").forEach(seg);
+  let t = 0; new MutationObserver(() => { if(!t) t = requestAnimationFrame(() => { t = 0; run(); }); }).observe(document.documentElement, { childList:true, subtree:true });
+  setInterval(() => document.querySelectorAll("select").forEach(s => s.__seg && sync(s)), 500); })();</script>
 </body>
 </html>
