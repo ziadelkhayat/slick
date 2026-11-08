@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="476-1794144910">
+<meta name="slick-build" content="477-1794145015">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -4895,14 +4895,16 @@ function bmBarSync(){
 function bmApplyDialog(){
   const br = branches.find(x => x.id===BM.branch), n = Object.keys(BM.draft||{}).length, chName = bmMenu()[1];
   const chs = scFor(BM.branch).filter(c => scCode(c)!==bmMenu()[0]).map(c => ["ch|" + scCode(c), c.name, (SC_KINDS.find(k => k[0]===c.kind)||SC_KINDS[3])[1]]);
-  const brs = branches.filter(x => x.id!==BM.branch && live(x)).map(x => { const m = bmMatchCh(x.id); return ["br|" + x.id, x.name, m ? brandName(x.brandId) : "No " + chName + " channel", !m]; });
+  const kindOf = c => (SC_KINDS.find(k => k[0]===c.kind)||SC_KINDS[3])[1];
+  const obr = branches.filter(x => x.id!==BM.branch && live(x)).map(x => [x, scFor(x.id).map(c => ["bc|" + x.id + "|" + scCode(c), c.name, kindOf(c)])]).filter(([, o]) => o.length), brs = obr.flatMap(([, o]) => o);
   const list = (key, title, opts) => opts.length ? `<div class="bmapsec" data-sec="${key}"><label class="chk bmapall"><input type="checkbox" data-apall="${key}"> <span>${title}</span></label>
     <div class="bmaplist">${opts.map(([v, t, sub, dis]) => `<label class="chk${dis ? " dis" : ""}" data-q="${esc((t + " " + sub).toLowerCase())}"><input type="checkbox" value="${esc(v)}" ${dis ? "disabled" : ""}> <span>${esc(t)}<small>${esc(sub)}</small></span></label>`).join("")}</div></div>` : "";
   const box = $("#ccBox"); box.className = "modal";
   box.innerHTML = `<header><h2>Save Changes</h2><button type="button" class="x" data-ccclose aria-label="Close">×</button></header><div class="body" style="display:block">
     <p class="note" style="margin:0 0 12px"><b id="bmApN">${n} change${n===1?"":"s"}</b> on ${esc(chName)} at ${esc(br?.name||"")}. Select where else to apply them too, or just save.</p>
     ${chs.length + brs.length > 6 ? `<input class="sel" id="bmApQ" placeholder="Search channels and branches" style="margin-bottom:10px">` : ""}
-    ${list("ch", "Other channels at " + esc(br?.name||""), chs)}${list("br", esc(chName) + " at other branches", brs)}
+    ${chs.length ? `<h4 class="bmaph">Save to channels in this branch</h4>` + list("ch", "All channels at " + esc(br?.name||""), chs) : ""}
+    ${obr.length ? `<h4 class="bmaph">Save to channels in other branches</h4>` + obr.map(([x, o]) => list("b_" + x.id, esc(x.name), o)).join("") : ""}
     ${chs.length || brs.length ? "" : `<p class="note">There are no other channels or branches to apply this on.</p>`}
     <div class="err" id="bmApErr"></div></div>
     <footer><span style="flex:1"></span><button type="button" class="btn" id="bmJustSave">Save</button><button type="button" class="btn pri" id="bmApGo">Apply and Save</button></footer>`;
@@ -4925,11 +4927,13 @@ document.addEventListener("click", async e => {
     try{
       bmSaveNow(); await bmQueue;   // this channel first
       let nc = 0, nb = 0;
-      for(const v of sel){ const [k, id] = [v.slice(0, 2), v.slice(3)];
-        if(k==="ch"){ await bmApplyWork(work, BM.branch, [id]); nc++; }
-        else { const m = bmMatchCh(id); if(m){ await bmApplyWork(work, id, [scCode(m)]); nb++; } } }
+      const nbs = new Set();
+      for(const v of sel){ const p = v.split("|");
+        if(p[0]==="ch"){ await bmApplyWork(work, BM.branch, [p[1]]); nc++; }
+        else if(p[0]==="bc"){ await bmApplyWork(work, p[1], [p[2]]); nc++; nbs.add(p[1]); } }
+      nb = nbs.size;
       $("#ccScrim").classList.remove("show"); BM.last = {}; BM.lastNew = false;
-      toast("Saved and applied on " + [nc ? nc + " channel" + (nc===1 ? "" : "s") : "", nb ? nb + " branch" + (nb===1 ? "" : "es") : ""].filter(Boolean).join(" and ")); render();
+      toast("Saved and applied on " + nc + " channel" + (nc===1 ? "" : "s") + (nb ? " (" + nb + " other branch" + (nb===1 ? "" : "es") + ")" : "")); render();
     }catch(err){ console.error(err); go.disabled = false; go.textContent = "Apply"; $("#bmApErr").textContent = "Couldn't apply everywhere. Only the owner or an admin can change the menu."; go.textContent = "Apply and Save"; }
   }
 });
