@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="458-1794132512">
+<meta name="slick-build" content="460-1794141562">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1179,6 +1179,7 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}@media(max-width:820px)
 .sctchev{display:inline-grid;place-items:center;width:20px;height:20px;transition:transform .18s;color:var(--muted)}.sctchev svg{width:14px;height:14px;transform:rotate(-90deg)}.sctchev.on svg{transform:none}
 .sctci{display:inline-grid;place-items:center;width:32px;height:32px;border-radius:9px;background:var(--accent-soft,#efeafd);color:var(--accent,#5b2bc4);flex:none;font-weight:700}.sctci svg{width:17px;height:17px}.sctgo{margin-left:auto;color:var(--muted);font-size:20px}
 .sctadd{color:var(--accent,#5b2bc4);font-weight:600}.sctnone{padding:6px 40px}
+.secbox>table{width:100%!important;display:table!important}
 html.mlock,html.mlock body{overflow:hidden!important}.scrim,.bmdrawer,.bmdbody,.modal .body,.modal>*{overscroll-behavior:contain}
 </style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
@@ -6531,10 +6532,9 @@ function productDetail(p){
     info("Price", varKids(p).length ? "Set on each variant" : p.pricingMethod==="open" ? "Open" : usd(price)), info(isFixedCost(p)?"Fixed Cost":"Ingredients Cost", fmtCost(cost)),
     info("Cost %", price ? `<span style="${pct>40?"color:var(--accent-ink);font-weight:600":""}">${pct.toFixed(1)} %</span>` : "—"),
     wide(info("Description", esc(p.description||"—"))), wide(info("Description Localized", esc(p.descriptionAr||"—")))]);
-  h += variantCard(p);
   // a product with variants isn't sold itself: each variant product has its own recipe
   const hasVar = (p.variants||[]).some(v => v.productId);
-  if(editing) return h;
+  if(editing) return h + variantCard(p);
   h += pdSections(p, hasVar);
   return h;
 }
@@ -6550,6 +6550,7 @@ function pdSections(p, hasVar){
   const inact = (B.inactive||[]).filter(id => branches.some(b => b.id===id)), oos = (B.oos||[]).filter(id => branches.some(b => b.id===id));
   const nut = NUTR.filter(([k]) => (p.nutrition||{})[k]!=null && (p.nutrition||{})[k]!==""), alg = p.allergens||[];
   let h = pdSec("Tags", `<button type="button" class="btn" data-pdtags>Add</button>`, tg.length ? `<div class="dzchips">${tg.map(t => `<span class="dzchip" style="padding-right:14px">${esc(tagName(t))}</span>`).join("")}</div>` : `<p class="dzempty">No tags added</p>`);
+  h += variantCard(p);   // Tags first, then Variants
   if(!hasVar) h += modLinks(p) + ingEditor("products", p);
   // availability per branch (custom price, inactive, out of stock) is set in Sales Channels: items here are the catalog
   h += pdNutAlg(p, "product");
