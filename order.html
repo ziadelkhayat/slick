@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="504-1794164030">
+<meta name="slick-build" content="505-1794164170">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -591,6 +591,9 @@ button.x,button.x:hover,button.x:active{transition:none!important;transform:none
 /* close buttons: a drawn ✕ (not a text glyph), always centred */
 button.x{font-size:0!important;line-height:0!important;padding:0!important;display:grid!important;place-items:center!important}
 button.x::before{content:"";width:16px;height:16px;background:currentColor;-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round'%3E%3Cpath d='M6 6l12 12M18 6 6 18'/%3E%3C/svg%3E") center/contain no-repeat;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round'%3E%3Cpath d='M6 6l12 12M18 6 6 18'/%3E%3C/svg%3E") center/contain no-repeat}
+/* quick add: a clean + ; once in the basket the button turns into a filled count */
+.qa.qan{background:var(--acc)}.qa.qan button{color:var(--on-acc,#fff)}.qa.qan b{font-size:16px;font-weight:800;min-width:0}
+.qa:not(.qa2) button svg{width:18px;height:18px;stroke-width:2.6}
 </style>
 </head>
 <body class="lay-grid">
@@ -1193,7 +1196,7 @@ function itemCard(p){ const n = cart.filter(i => i.productId===p.id || (p.varian
 function qaCtl(p, n){ const simple = !kidsOf(p).length && !hasMods(p), one = cart.filter(i => i.productId===p.id).length;
   return n && simple && one===1
     ? `<span class="qa qa2" data-qa><button type="button" data-qa-m="${esc(p.id)}" aria-label="${n > 1 ? "One less" : "Remove"} ${esc(p.name)}">${n > 1 ? ic("minus") : ic("trash")}</button><b>${n}</b><button type="button" data-qa-p="${esc(p.id)}" aria-label="One more ${esc(p.name)}">${ic("plus")}</button></span>`
-    : `<span class="qa" data-qa><button type="button" data-qa-p="${esc(p.id)}" aria-label="Add ${esc(p.name)}">${n ? `<i>${n}</i>` : ""}+</button></span>`; }
+    : `<span class="qa${n ? " qan" : ""}" data-qa><button type="button" data-qa-p="${esc(p.id)}" aria-label="${n ? n + " in the basket, add another" : "Add"} ${esc(p.name)}">${n ? `<b>${n}</b>` : ic("plus")}</button></span>`; }
 /* ---------- item page: photo, description, option groups, quantity, then add to the order ---------- */
 function catProg(){ const b = $("#catBar"), i = $("#cprog"); if(!b || !i) return; const w = b.scrollWidth || 1; i.parentElement.style.visibility = b.scrollWidth > b.clientWidth + 2 ? "" : "hidden"; i.style.width = (b.clientWidth / w * 100) + "%"; i.style.left = (b.scrollLeft / w * 100) + "%"; }
 const IT = { p:null, kids:[], kid:null, links:[], groups:{}, sel:[], qty:1, note:"", err:-1 };
@@ -1242,7 +1245,7 @@ function drawItem(first){
     <div class="iphd"><h2>${esc(p.name)}</h2><div class="ipp">${shown}${(b||p).nutrition?.calories != null ? `<span class="ipcal">${esc((b||p).nutrition.calories)} kcal</span>` : ""}</div>${p.description ? `<p>${esc(p.description)}</p>` : ""}
       ${((b||p).allergens||[]).length ? `<div class="ipalg"><b>Contains</b>${(b||p).allergens.map(a => `<span>${esc(a)}</span>`).join("")}</div>` : ""}
       ${nutRows(b||p) ? `<details class="ipnut"><summary>Nutritional values</summary><table>${nutRows(b||p)}</table></details>` : ""}</div>${vg}${gs}
-    ${CO().notes !== false ? `<div class="ipgg"><div class="ght"><div><b>Special instructions</b><small>Optional</small></div></div><textarea id="ipNote" rows="2" placeholder="e.g. no onions, extra spicy">${esc(IT.note)}</textarea></div>` : ""}
+    ${CO().notes !== false ? `<div class="ipgg"><div class="ght"><div><b>Special instructions</b><small>Optional</small></div></div><textarea id="ipNote" rows="2" placeholder="e.g. extra spicy">${esc(IT.note)}</textarea></div>` : ""}
     ${needLoc ? "" : `<div class="ipgg ipqty"><b>Quantity</b><div class="ipq"><button type="button" data-iq="-1" ${IT.qty <= 1 ? "disabled" : ""} aria-label="Less">${ic("minus")}</button><b>${IT.qty}</b><button type="button" data-iq="1" aria-label="More">${ic("plus")}</button></div></div>`}</div>
     <div class="ipft">${needLoc ? `<button type="button" class="primary" data-iloc>${mode==="delivery" ? "Select your location" : "Select a branch"}</button>`
       : `<button type="button" class="primary" data-iadd>${IT.edit!=null ? "Update item" : `Add ${IT.qty} to basket`}<small>${usd(itUnit() * IT.qty)}</small></button>`}</div>`;
@@ -1282,7 +1285,7 @@ function renderLocs(){
     return `<div class="loc"><b>${esc(b.name)}</b><div>${ic("clock")}${o ? '<span class="ok2">Open</span>' : "Closed"} · ${esc(brHoursToday(b) || "")}</div>${x.address ? `<div>${ic("pin")}${esc(x.address)}</div>` : ""}${x.phone ? `<div>${ic("phone")}<a href="tel:${esc(String(x.phone).replace(/[^\d+]/g,""))}">${esc(x.phone)}</a></div>` : ""}</div>`; }).join("")}</div></div>`;
 }
 
-const shell = () => `<div id="whereBox" class="where"></div><div class="tools">${SH().search !== false ? `<div class="srch">${ic("search")}<input id="q" type="search" placeholder="Search for menu items" autocomplete="off" value="${esc(q)}"></div>` : ""}<div class="crow"><div class="vtog" role="group" aria-label="Show items as"><button type="button" data-view="list" aria-label="List">${ic("list")}</button><button type="button" data-view="grid" aria-label="Grid">${ic("grid")}</button></div><nav class="cats" id="catBar" aria-label="Menu categories"></nav></div><div class="cprog"><i id="cprog"></i></div></div><div id="menuBox"></div>${PREVIEW ? "" : `<button type="button" class="addhome" data-addhome><span class="ahi"><svg viewBox="0 0 24 24"><rect x="6" y="2.5" width="12" height="19" rx="3"/><path d="M12 8v6M9 11h6"/></svg></span><span><b>Add ${esc(brand.name)} to your home screen</b><small>Order in one tap, like an app</small></span><i>›</i></button>`}<div id="locBox"></div><footer class="ft">${cfg.footer ? esc(cfg.footer) + " · " : ""}Powered by Slick</footer>`;
+const shell = () => `<div id="whereBox" class="where"></div><div class="tools">${SH().search !== false ? `<div class="srch">${ic("search")}<input id="q" type="search" placeholder="Search for menu items" autocomplete="off" value="${esc(q)}"></div>` : ""}<div class="crow"><div class="vtog" role="group" aria-label="Show items as"><button type="button" data-view="list" aria-label="List">${ic("list")}</button><button type="button" data-view="grid" aria-label="Grid">${ic("grid")}</button></div><nav class="cats" id="catBar" aria-label="Menu categories"></nav></div><div class="cprog"><i id="cprog"></i></div></div><div id="menuBox"></div><div id="locBox"></div><footer class="ft">${cfg.footer ? esc(cfg.footer) + " · " : ""}Powered by Slick</footer>`;
 if(!cfg.enabled && !PREVIEW){ renderHead(); $("#main").innerHTML = `<div class="closed"><b>Web ordering is closed right now.</b>Please call us or try again later.</div>`; return; }
 $("#main").innerHTML = shell();
 $("#main").addEventListener("click", e => {
@@ -1513,7 +1516,7 @@ function openCart(step){
     <div class="f"><label for="cA_street">Area / street *</label><input id="cA_street" required autocomplete="street-address"></div>
     <div class="f2"><div class="f"><label for="cA_building">Building name / no. *</label><input id="cA_building" required></div><div class="f"><label for="cA_floor">Floor *</label><input id="cA_floor" required></div></div>
     <div class="f"><label for="cA_extra">Additional info</label><input id="cA_extra" placeholder="Apartment, landmark, directions"></div>`:""}
-    ${CO().notes !== false ? `<div class="f"><label for="cNote">Notes for the kitchen</label><textarea id="cNote" rows="2" placeholder="e.g. extra spicy, no onions"></textarea></div>` : ""}
+    ${CO().notes !== false ? `<div class="f"><label for="cNote">Notes for the kitchen</label><textarea id="cNote" rows="2" placeholder="e.g. extra spicy"></textarea></div>` : ""}
     <div class="sec">Payment</div><div class="opts">${pays.map(([t,s,i],k)=>`<label class="opt"><input type="radio" name="pay" value="${t}" ${k?"":"checked"}>${ic(i)}<span>${t}${s?`<small>${s}</small>`:""}</span></label>`).join("")}</div>
     ${CO().terms ? `<p class="info">${esc(CO().terms)}</p>` : ""}
     <div class="err" id="coErr"></div><button class="primary" id="place" ${min && sub()<min?"disabled":""}>Place order · ${usd(grand())}</button></form>`;
