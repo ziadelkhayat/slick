@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="515-1794170592">
+<meta name="slick-build" content="528-1794175626">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -604,6 +604,7 @@ button.x{position:relative!important}button.x::before{content:"";position:absolu
 #sheet .lshead{grid-template-columns:auto 1fr!important}
 #sheet .grab{width:46px;height:5px;margin:8px auto 10px;cursor:grab;touch-action:none}
 #sheet.drag{transition:none!important}
+.sch{font-size:15px;font-weight:700;margin:18px 0 8px;display:flex;align-items:center;gap:6px}.sch small{font-weight:500;opacity:.55;font-size:13px}
 </style>
 </head>
 <body class="lay-grid">
@@ -718,7 +719,7 @@ const [st, scd, br, ca, pr, zo, mg, tx, tg, mo] = await Promise.all([
   sb.from("settings").select("data").eq("id","online_"+brandId).maybeSingle(),
   sb.from("settings").select("data").eq("id","sales_channels").maybeSingle(),
   sb.from("branches").select("id,name,open_time,close_time,settings,active").eq("brand_id", brandId),
-  sb.from("categories").select("id,name,sort,inactive_branch_ids,deleted,channel,product_ids,image_url").order("sort").order("name"),
+  sb.from("categories").select("id,name,sort,inactive_branch_ids,deleted,channel,product_ids,image_url,reference").order("sort").order("name"),
   sb.from("products").select("id,deleted,name,price,description,category_id,active,channels,branch_ids,pricing_method,custom_prices,inactive_branch_ids,out_of_stock_branch_ids,modifiers,sort,image_url,tax_group,variants,nutrition,allergens").order("sort").order("name"),
   sb.from("delivery_zones").select("id,name,branch_id,fee,min_order,eta,polygon,active,deleted").order("name"),
   sb.from("modifiers").select("id,name,sort,deleted"),
@@ -1170,10 +1171,15 @@ let catObs = null;
 function renderMenu(){
   const kids = kidIds(), ql = q.trim().toLowerCase();
   const vis = visible().filter(p => !kids.has(p.id) && (!(p.variants||[]).some(v => v.productId) || kidsOf(p).length) && (SH().soldOut !== false || !oos(p)) && (!ql || (p.name + " " + (p.description||"")).toLowerCase().includes(ql)));
-  const vcats = cats.filter(c => !(curBranch() && ((c.inactive_branch_ids||[]).includes(curBranch()) || (c.inactive_branch_ids||[]).includes(curBranch() + ":online"))) && vis.some(p => inCat(c, p)));
+  // sub-categories (Sales Channels: reference "sub:<category id>") show inside their category, under their own heading
+  const catPar = c => { const r = String(c?.reference||""); return r.startsWith("sub:") ? r.slice(4) : ""; };
+  const onC = cats.filter(c => !(curBranch() && ((c.inactive_branch_ids||[]).includes(curBranch()) || (c.inactive_branch_ids||[]).includes(curBranch() + ":online"))));
+  const isTop = c => !catPar(c) || !onC.some(x => x.id===catPar(c)), subsOf = id => onC.filter(c => catPar(c)===id && !isTop(c) && vis.some(p => inCat(c, p)));
+  const vcats = onC.filter(c => isTop(c) && (vis.some(p => inCat(c, p)) || subsOf(c.id).length));
   document.querySelectorAll("[data-view]").forEach(b => { const on = b.dataset.view===(curLay()==="grid" ? "grid" : "list"); b.classList.toggle("on", on); b.setAttribute("aria-pressed", on); });
   $("#catBar").innerHTML = vcats.map(c=>`<button type="button" data-cat="${esc(c.id)}">${esc(c.name)}</button>`).join("");
-  let h = vcats.map((c, i) => { const list = vis.filter(p => inCat(c, p)).sort(catOrder(c)); return `<section class="cat" id="c_${esc(c.id)}" style="animation-delay:${Math.min(i,6)*40}ms"><h2 class="ch">${c.image_url ? `<img class="cimg" src="${esc(c.image_url)}" alt="" loading="lazy">` : ""}${esc(c.name)} <small>${list.length}</small></h2><div class="items">${list.map(itemCard).join("")}</div></section>`; }).join("");
+  let h = vcats.map((c, i) => { const list = vis.filter(p => inCat(c, p)).sort(catOrder(c)), subs = subsOf(c.id).map(sc => [sc, vis.filter(p => inCat(sc, p)).sort(catOrder(sc))]), n = list.length + subs.reduce((a, [, l]) => a + l.length, 0);
+    return `<section class="cat" id="c_${esc(c.id)}" style="animation-delay:${Math.min(i,6)*40}ms"><h2 class="ch">${c.image_url ? `<img class="cimg" src="${esc(c.image_url)}" alt="" loading="lazy">` : ""}${esc(c.name)} <small>${n}</small></h2>${list.length ? `<div class="items">${list.map(itemCard).join("")}</div>` : ""}${subs.map(([sc, l]) => `<h3 class="sch">${esc(sc.name)} <small>${l.length}</small></h3><div class="items">${l.map(itemCard).join("")}</div>`).join("")}</section>`; }).join("");
   if(!vcats.length) h = `<div class="empty">${ql ? `Nothing matches “${esc(q)}”.` : "The menu isn't available here yet."}</div>`;
   $("#menuBox").innerHTML = h;
   // highlight the category in view

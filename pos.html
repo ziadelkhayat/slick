@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="522-1794173815">
+<meta name="slick-build" content="528-1794175626">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -600,18 +600,19 @@ input,textarea{-webkit-user-select:text;user-select:text}
 .qty button{min-width:48px;min-height:48px}
 .mcats button,.chip{min-height:44px}
 @media (hover:none){.prod:hover,.abtn:hover{transform:none}}
-/* menu fills the screen exactly: categories 4 across × 5 down, items 3 across × 5 down (more scroll inside the grid) */
+/* menu fills the screen exactly: categories 5 across × 4 down, items 5 across × 3 down (more scroll inside the grid) */
 .menu{overflow:hidden!important}
-#grid{flex:1 1 0!important;min-height:0!important;overflow-y:auto;grid-template-columns:repeat(4,minmax(0,1fr))!important;grid-auto-rows:calc((100% - 40px) / 5)!important;gap:10px!important;align-content:start;scrollbar-width:none}
+#grid{flex:1 1 0!important;min-height:0!important;overflow-y:auto;grid-template-columns:repeat(5,minmax(0,1fr))!important;grid-auto-rows:calc((100% - 30px) / 4)!important;gap:10px!important;align-content:start;scrollbar-width:none}
 #grid::-webkit-scrollbar{display:none}
 #grid .ctile2,#grid .prod{height:auto!important;min-height:0!important}
-#grid:has(>.cback){grid-template-rows:44px;grid-auto-rows:calc((100% - 44px - 50px) / 5)!important}
-#grid:has(>.prod){grid-template-columns:repeat(3,minmax(0,1fr))!important}
+#grid:has(>.cback){grid-template-rows:44px;grid-auto-rows:calc((100% - 44px - 30px) / 3)!important}
+#grid:has(>.prod){grid-template-columns:repeat(5,minmax(0,1fr))!important}
 #grid .prod.hasimg>img,#grid .ctile2.hasimg>img{height:55%!important}
 #grid .prod:not(.hasimg) .pic{display:none!important}
 #grid .prod,#grid .ctile2{justify-content:space-between!important;overflow:hidden}
 #grid .prod>span,#grid .ctile2>span{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.25}
 #grid .ctile2:not(.hasimg) .pic{width:30px!important;height:30px!important}
+.ctile.csub{display:flex!important;flex-direction:column;align-items:flex-start;justify-content:center;gap:6px;padding:14px 16px!important;text-align:left;background:var(--tint)!important;border:1.5px solid color-mix(in srgb,var(--hue) 35%,transparent)!important}.ctile.csub>span{font-weight:800;font-size:16px;color:var(--ink)}.ctile.csub .ccn{position:static!important}
 </style>
 <script>
 /* ---------- naming: menu "products" are called Items; inventory "items" are called Products ----------
@@ -1121,11 +1122,16 @@ function renderMenu(){
   // the POS menu's own categories (Sales Channels); older setups without them use the menu categories
   const catAt = c => { const ia = c.inactiveBranchIds||[], b = device.branchId; if(ia.includes("x:" + b)) return false; const only = ia.filter(k => String(k).startsWith("only:")); return !only.length || only.includes("only:" + b); };   // this branch's POS menu
   const chc = S.categories.filter(c => live(c) && c.channel==="pos" && catAt(c)), useCh = chc.length > 0, has = (c, p) => useCh ? chPos(c, p) >= 0 : p.categoryId===c.id;
-  const cats = (useCh ? chc : S.categories.filter(c => live(c) && !c.channel)).filter(c => !(c.inactiveBranchIds||[]).includes(device.branchId) && !(c.inactiveBranchIds||[]).includes(device.branchId + ":pos") && prods.some(p => has(c, p))).sort((a,b)=>(a.sort??999)-(b.sort??999) || a.name.localeCompare(b.name));
+  // sub-categories (Sales Channels) sit inside their category; a category shows when it or one of its sub-categories has items
+  const catPar = c => { const r = String(c?.reference||""); return r.startsWith("sub:") ? r.slice(4) : ""; };
+  const on0 = (useCh ? chc : S.categories.filter(c => live(c) && !c.channel)).filter(c => !(c.inactiveBranchIds||[]).includes(device.branchId) && !(c.inactiveBranchIds||[]).includes(device.branchId + ":pos")).sort((a,b)=>(a.sort??999)-(b.sort??999) || a.name.localeCompare(b.name));
+  const onSubs = id => on0.filter(c => catPar(c)===id), isTop = c => !catPar(c) || !on0.some(x => x.id===catPar(c));
+  const cats = on0.filter(c => isTop(c) ? prods.some(p => has(c, p)) || onSubs(c.id).some(sc => prods.some(p => has(sc, p))) : prods.some(p => has(c, p)));
+  const tops = cats.filter(c => isTop(c)), subsOf = id => cats.filter(c => catPar(c)===id && !isTop(c));
   const inOrder = c => (a, b) => useCh ? chPos(c, a) - chPos(c, b) : (a.sort??9999)-(b.sort??9999) || a.name.localeCompare(b.name);
   if(cat && !cats.some(c=>c.id===cat)) cat = "";
   const q = $("#q").value.trim().toLowerCase();
-  const cs = {}; cats.forEach((c,i) => cs[c.id] = catStyle(c, i));
+  const cs = {}; tops.forEach((c,i) => cs[c.id] = catStyle(c, i)); cats.forEach(c => { if(!cs[c.id]) cs[c.id] = cs[catPar(c)] || catStyle(c, 0); });
   const inCart = {}; cart.forEach(l => { if(l.productId) inCart[l.productId] = (inCart[l.productId]||0) + (+l.qty||0); });
   const tile = p => { const s = cs[cat] || cs[cats.find(c => has(c, p))?.id] || catStyle(null, 0), n = inCart[p.id] || kidsOf(p).reduce((a,k) => a + (inCart[k.p?.id]||0), 0);
     const oos = prodOos(p);
@@ -1137,10 +1143,12 @@ function renderMenu(){
     $("#grid").innerHTML = l.length ? l.map(tile).join("") : `<div class="empty">No items match.</div>`; return; }
   const byCat = id => { const c = cats.find(x => x.id===id); return prods.filter(p => has(c, p)).sort(inOrder(c)); };
   if(!cat){   // the categories, as tiles to open
-    $("#grid").innerHTML = cats.length ? cats.map(c => `<button class="ctile ctile2${c.imageUrl?" hasimg":""}" data-cat="${esc(c.id)}" style="--hue:${cs[c.id].hue};--tint:${cs[c.id].tint}">${c.imageUrl ? `<img class="fill" src="${esc(c.imageUrl)}" alt="" loading="lazy">` : `<span class="pic">${ico(cs[c.id].icon)}</span>`}<span>${esc(c.name)}</span><b class="ccn">${(k => k + " item" + (k===1?"":"s"))(prods.filter(p => has(c, p)).length)}</b></button>`).join("") : `<div class="empty" style="grid-column:1/-1;min-height:60vh;display:flex;align-items:center;justify-content:center;text-align:center;font-size:18px;font-weight:600;color:var(--muted)">No menu for this branch yet</div>`;
+    $("#grid").innerHTML = tops.length ? tops.map(c => `<button class="ctile ctile2${c.imageUrl?" hasimg":""}" data-cat="${esc(c.id)}" style="--hue:${cs[c.id].hue};--tint:${cs[c.id].tint}">${c.imageUrl ? `<img class="fill" src="${esc(c.imageUrl)}" alt="" loading="lazy">` : `<span class="pic">${ico(cs[c.id].icon)}</span>`}<span>${esc(c.name)}</span><b class="ccn">${(k => k + " item" + (k===1?"":"s"))(prods.filter(p => has(c, p) || subsOf(c.id).some(sc => has(sc, p))).length)}</b></button>`).join("") : `<div class="empty" style="grid-column:1/-1;min-height:60vh;display:flex;align-items:center;justify-content:center;text-align:center;font-size:18px;font-weight:600;color:var(--muted)">No menu for this branch yet</div>`;
     return; }
   const c = cats.find(x=>x.id===cat), l = byCat(cat);   // order set in Sales Channels
-  $("#grid").innerHTML = `<div class="cback"><button class="cbtn" data-cat="" style="--hue:${cs[cat].hue}">${ico("back")} BACK</button><b>${esc(c.name)}</b></div>` + l.map(tile).join("");
+  const par = isTop(c) ? null : cats.find(x => x.id===catPar(c)), subs = par ? [] : subsOf(c.id);   // a sub-category goes back to its category
+  const subTile = sc => { const k = prods.filter(p => has(sc, p)).length; return `<button class="ctile ctile2 csub" data-cat="${esc(sc.id)}" style="--hue:${cs[sc.id].hue};--tint:${cs[sc.id].tint}"><span>${esc(sc.name)}</span><b class="ccn">${k} item${k===1?"":"s"}</b></button>`; };
+  $("#grid").innerHTML = `<div class="cback"><button class="cbtn" data-cat="${par ? esc(par.id) : ""}" style="--hue:${cs[cat].hue}">${ico("back")} BACK</button><b>${par ? esc(par.name) + " › " : ""}${esc(c.name)}</b></div>` + subs.map(subTile).join("") + l.map(tile).join("");
 }
 // set discounts: branch, order type, minimum order, and the items / categories / tags they're limited to
 const dsAll = () => ((S.settings.find(x => x.id==="discounts") || {}).list || []).filter(d => !d.deleted);

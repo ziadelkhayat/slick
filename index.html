@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="527-1794175017">
+<meta name="slick-build" content="528-1794175626">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1193,6 +1193,7 @@ html.mlock{overflow:hidden!important}html.mlock body{position:fixed!important;le
 .bmdnomod{text-align:center;padding:28px 12px;margin:0}
 .mmcat .bmgrip,.mmrow .bmgrip{width:22px!important;height:22px!important;margin:0!important}.mmcat .bmgrip+label.toggle{margin-left:6px!important}.mmrow .bmgrip+label.toggle{margin-left:0!important;justify-self:start!important}
 .mmcbar{justify-content:flex-start!important;gap:10px!important}.mmcbar .mmtitle{flex:none}.mmcbar .mmtitle b{font-size:17px}.mmcbar .search{flex:1 1 auto;min-width:0;margin:0}.mmcbar .btn{white-space:nowrap;flex:none}
+.ccsub{display:flex!important;flex-direction:column;align-items:flex-start;justify-content:center;gap:4px;text-align:left;background:var(--tint)!important}.mmcat.mmsubc{margin-left:30px;min-height:46px!important;border-left:2px solid var(--line,#e5e5ea);border-radius:0 8px 8px 0}.mmcat.mmsubc .mmct b{font-weight:600}.mmct small{display:block;color:var(--ink3,#8a87a0);font-size:12px;font-weight:500}
 </style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -2925,6 +2926,16 @@ const CRUD = {
     prep: async (data, id) => { if(!id){ const ch = bmMenu()[0], mine = S.categories.filter(c => live(c) && c.channel===ch);
       data.channel = ch; data.productIds = []; if(ch!=="online") data.inactiveBranchIds = ["only:" + BM.branch]; data.sort = (Math.max(0, ...mine.map(c => +c.sort||0)) + 10); data.id = "cat_" + ch + "_" + Date.now().toString(36); } return ""; }
   },
+  // a sub-category inside a channel category: a name only (no picture); it holds items like a category
+  chsub: {
+    col:"categories", title:"Sub-categories", one:"Sub-category", hardDelete:1, addLbl:"Add",
+    tabs:[["all","All",r=>live(r)&&!!r.channel]],
+    fields:[{k:"name",l:"Name",req:1},{k:"nameAr",l:"Name Localized"}],
+    prep: async (data, id) => { if(!id){ const par = S.categories.find(c => c.id===BM.subOf); if(!par) return "Choose the category first.";
+      const mine = S.categories.filter(c => live(c) && catPar(c)===par.id);
+      data.channel = par.channel; data.reference = "sub:" + par.id; data.productIds = []; data.inactiveBranchIds = (par.inactiveBranchIds||[]).filter(k => String(k).startsWith("only:")); data.brandId = par.brandId || null;
+      data.sort = (Math.max(0, ...mine.map(c => +c.sort||0)) + 10); data.id = "cat_" + par.channel + "_" + Date.now().toString(36); } return ""; }
+  },
   products: {
     col:"products", title:"Products", one:"Product", detail: r => productDetail(r), bulk:1,
     tabs:[["all","All",live],["deleted","Deleted",r=>r.deleted]],
@@ -4027,27 +4038,31 @@ function renderOrderMenu(){
   const box = $("#oProducts"); if(!box) return;
   const kidIds = varChildIds(), q = ($("#oSearch").value||"").trim().toLowerCase(), okIds = new Set(availableProducts().map(x=>x.id)),
     prods = availableProducts().filter(p => !kidIds.has(p.id) && (!(p.variants||[]).some(v => v.productId) || p.variants.some(v => okIds.has(v.productId))));   // a product with variants shows only when one of them is available
-  const cats = ccCats($("#oBranch")?.value).filter(c => prods.some(p => ccHas(c, p))).sort(bySort);   // the order set in Sales Channels
+  const all0 = ccCats($("#oBranch")?.value).sort(bySort), isTop = c => !catPar(c) || !all0.some(x => x.id===catPar(c));   // the order set in Sales Channels
+  const cats = all0.filter(c => prods.some(p => ccHas(c, p)) || isTop(c) && all0.some(sc => catPar(sc)===c.id && prods.some(p => ccHas(sc, p))));
+  const tops = cats.filter(isTop), subsOf = id => cats.filter(c => catPar(c)===id && !isTop(c));   // sub-categories open from inside their category
   if(state.oCat && !cats.some(c=>c.id===state.oCat)) state.oCat = "";
   const n = id => prods.filter(p=>id==="_none" ? !cats.some(c=>ccHas(c, p)) : ccHas(cats.find(c=>c.id===id) || {}, p)).length;
-  const back = $("#oCatBack"); if(back) back.hidden = !state.oCat || !!q;
+  const back = $("#oCatBack"); if(back){ back.hidden = !state.oCat || !!q; const cc = cats.find(c => c.id===state.oCat); back.dataset.to = cc && !isTop(cc) ? catPar(cc) : ""; }
   if(!state.oCat && !q){   // POS style: category tiles first
-    const tiles = [...cats.map(c => [c.id, c.name, c.imageUrl]), ...(n("_none") ? [["_none","Other",""]] : [])];
+    const tiles = [...tops.map(c => [c.id, c.name, c.imageUrl]), ...(n("_none") ? [["_none","Other",""]] : [])];
     $("#oCatTitle").textContent = "Categories";
     box.className = "pgrid cats";
-    box.innerHTML = tiles.length ? tiles.map(([id, nm, img], ix) => { const st = ccCatStyle(cats.find(c=>c.id===id) || { name:nm }, ix); return `<button type="button" class="ctile ccct${img?" hasimg":""}" data-ocat="${esc(id)}" style="--hue:${st.hue};--tint:${st.tint}">${img?`<img src="${esc(img)}" alt="" loading="lazy">`:`<span class="pic">${ccIco(st.icon)}</span>`}<b>${esc(nm)}</b><small class="ccn">${n(id)} item${n(id)===1?"":"s"}</small></button>`; }).join("")
+    box.innerHTML = tiles.length ? tiles.map(([id, nm, img], ix) => { const st = ccCatStyle(cats.find(c=>c.id===id) || { name:nm }, ix); return `<button type="button" class="ctile ccct${img?" hasimg":""}" data-ocat="${esc(id)}" style="--hue:${st.hue};--tint:${st.tint}">${img?`<img src="${esc(img)}" alt="" loading="lazy">`:`<span class="pic">${ccIco(st.icon)}</span>`}<b>${esc(nm)}</b><small class="ccn">${(k => `${k} item${k===1?"":"s"}`)(n(id) + subsOf(id).reduce((a, sc) => a + prods.filter(p => ccHas(sc, p) && !ccHas(cats.find(c => c.id===id), p)).length, 0))}</small></button>`; }).join("")
       : `<div class="note" style="padding:12px">${S.products.length ? ($("#oBrand")?.value || !brandList().length ? "No products available at this branch." : "Choose a brand to see its menu.") : "No products yet. Add them under Menu → Products."}</div>`;
     return;
   }
   box.className = "pgrid";
   const list = q ? prods.filter(p => p.name.toLowerCase().includes(q) || (p.nameAr||"").includes(q))
     : prods.filter(p => state.oCat==="_none" ? !cats.some(c=>ccHas(c, p)) : ccHas(cats.find(c=>c.id===state.oCat) || {}, p));
-  $("#oCatTitle").textContent = q ? `${list.length} result${list.length===1?"":"s"} for “${q}”` : (cats.find(c=>c.id===state.oCat)?.name || (state.oCat==="_none" ? "Other" : ""));
+  const curC = cats.find(c=>c.id===state.oCat), parC = curC && !isTop(curC) ? cats.find(c => c.id===catPar(curC)) : null, subT = q || !curC || parC ? [] : subsOf(curC.id);
+  $("#oCatTitle").textContent = q ? `${list.length} result${list.length===1?"":"s"} for “${q}”` : curC ? (parC ? parC.name + " › " : "") + curC.name : (state.oCat==="_none" ? "Other" : "");
+  const subHtml = subT.map(sc => { const st = ccCatStyle(curC, Math.max(0, tops.indexOf(curC))), k = prods.filter(p => ccHas(sc, p)).length; return `<button type="button" class="ctile ccct ccsub" data-ocat="${esc(sc.id)}" style="--hue:${st.hue};--tint:${st.tint}"><b>${esc(sc.name)}</b><small class="ccn">${k} item${k===1?"":"s"}</small></button>`; }).join("");
   const inCart = id => cart.filter(i=>i.productId===id).reduce((a,i)=>a+i.qty,0);
   const stOf = p => { const cc = q ? cats.find(c => ccHas(c, p)) : cats.find(c=>c.id===state.oCat); return ccCatStyle(cc || { name:"" }, Math.max(0, cats.indexOf(cc))); };
-  box.innerHTML = list.length ? list.sort(q ? ((a,b)=>catRank(a.categoryId)-catRank(b.categoryId) || bySort(a,b)) : ccOrder(cats.find(c=>c.id===state.oCat))).map(p=>{ const c = inCart(p.id), oos = (p.outOfStockBranchIds||[]).includes($("#oBranch")?.value);
+  box.innerHTML = subHtml + (list.length || subHtml ? list.sort(q ? ((a,b)=>catRank(a.categoryId)-catRank(b.categoryId) || bySort(a,b)) : ccOrder(cats.find(c=>c.id===state.oCat))).map(p=>{ const c = inCart(p.id), oos = (p.outOfStockBranchIds||[]).includes($("#oBranch")?.value);
     const st = stOf(p); return `<button type="button" class="pbtn ccp${c?" sel":""}${p.imageUrl?" hasimg":""}" data-add="${esc(p.id)}" style="--hue:${st.hue};--tint:${st.tint}" ${oos?"disabled title=\"Out of stock at this branch\"":""}>${c?`<em>${c}</em>`:""}${p.imageUrl?`<img class="ccimg" src="${esc(p.imageUrl)}" alt="" loading="lazy">`:`<span class="pic">${ccIco(st.icon)}</span>`}<span>${esc(p.name)}</span><b>${oos?"Out of stock":usd(ccPrice(p))}</b>${(p.modifiers||[]).length?`<small>Options</small>`:""}</button>`; }).join("")
-    : `<div class="note" style="padding:12px">${S.products.length ? (q ? "No products match." : $("#oBrand")?.value ? "No products in this category." : "Choose a brand to see its menu.") : "No products yet. Add them under Menu → Products."}</div>`;
+    : `<div class="note" style="padding:12px">${S.products.length ? (q ? "No products match." : $("#oBrand")?.value ? "No products in this category." : "Choose a brand to see its menu.") : "No products yet. Add them under Menu → Products."}</div>`);
 }
 function ccNoteLines(ro){ const o = ($("#oRNotes")?.value||"").trim(), k = ($("#oNotes")?.value||"").trim();
   const line = (lbl, v, key, ic) => v ? `<div class="onote${key==="k" ? " knote" : ""}"><span ${ro ? "" : `data-ccnoteed="${key}" title="Tap to edit"`}><span class="onic">${ic}</span> <b>${lbl}:</b> ${esc(v)}</span>${ro ? "" : `<button type="button" class="onx" data-ccnotex="${key}" aria-label="Remove ${lbl.toLowerCase()}">×</button>`}</div>` : "";
@@ -4382,6 +4397,12 @@ document.addEventListener("click", e => {
 const BM = { branch:"", kind:"products", q:"", draft:{} };
 // the categories of a sales channel, in menu order
 const catAt = (c, b) => { if(!b) return true; const ia = c.inactiveBranchIds||[]; if(ia.includes("x:" + b)) return false; const only = ia.filter(k => String(k).startsWith("only:")); return !only.length || only.includes("only:" + b); };
+// a sub-category is a channel category kept inside another one: its reference is "sub:<category id>" (one level, no picture)
+const catPar = c => { const r = String(c?.reference||""); return r.startsWith("sub:") ? r.slice(4) : ""; };
+// the Sales Channels category list: each category followed by its sub-categories; a search keeps a category when it or a sub-category matches
+function bmCatRows(cats, cq){ const top = c => !catPar(c) || !cats.some(x => x.id===catPar(c)), m = c => !cq || c.name.toLowerCase().includes(cq), out = [];
+  cats.filter(top).forEach(t => { const ss = cats.filter(c => catPar(c)===t.id && !top(c)), ms = m(t) ? ss : ss.filter(m); if(m(t) || ms.length){ out.push({ c:t, sub:false }); ms.forEach(c => out.push({ c, sub:true })); } }); return out; }
+const bmSubIds = id => S.categories.filter(c => live(c) && catPar(c)===id).map(c => c.id);
 const chCats = (ch, b = (typeof BM!=="undefined" ? BM.branch : "")) => S.categories.filter(c => live(c) && c.channel===ch && catAt(c, b)).sort(bySort);
 const chProd = id => { const p = S.products.find(x => x.id===id); return p && live(p) ? p : null; };
 // a variant is listed under its main product: categories hold the main product (older ones may hold variants)
@@ -4493,25 +4514,26 @@ function viewBranchMenu(){
   const cur = cats.find(c => c.id===BM.cat), inCur = cur ? bmCatProds(cur).filter(p => all.includes(p)) : [];
   const rows = inCur.filter(p => !q || p.name.toLowerCase().includes(q) || varKids(p).some(k => k.name.toLowerCase().includes(q)));
   // left: the channel's categories
-  const nCatOn = cats.filter(c => bmCatOn(c.id)).length;
-  h += `<div class="mm"><aside class="mmside"><div class="mmhd mmcbar"><div class="mmtitle"><b>Categories</b><span class="note">${nCatOn} of ${cats.length} on the ${esc(ch[1])} menu</span></div>
+  const nCatOn = cats.filter(c => !catPar(c) && bmCatOn(c.id)).length;
+  const nCatTop = bmCatRows(cats, "").filter(x => !x.sub).map(x => x.c);
+  h += `<div class="mm"><aside class="mmside"><div class="mmhd mmcbar"><div class="mmtitle"><b>Categories</b><span class="note">${nCatOn} of ${nCatTop.length} on the ${esc(ch[1])} menu</span></div>
       ${cats.length ? `<input class="sel search" id="bmCatQ" placeholder="Search categories" value="${esc(BM.cq||"")}" aria-label="Search categories">` : ""}<button type="button" class="btn pri sm" data-bmnewcat>+ Add</button></div>
-      ${(() => { const vis = cats.filter(c => !cq || c.name.toLowerCase().includes(cq)), sel = (BM.csel ||= new Set()); [...sel].forEach(id => { if(!cats.some(c => c.id===id)) sel.delete(id); });
+      ${(() => { const vis = bmCatRows(cats, cq).map(x => x.c), sel = (BM.csel ||= new Set()); [...sel].forEach(id => { if(!cats.some(c => c.id===id)) sel.delete(id); });
         if(!vis.length) return ""; const all = vis.every(c => sel.has(c.id));
         return `<div class="mmselbar"><label class="chk"><input type="checkbox" data-bmcselall ${all?"checked":""} aria-label="Select all categories"> ${sel.size ? `<b>${sel.size} Selected</b>` : "Select All"}</label>
           ${sel.size ? `<span class="sp"></span><span class="ddwrap mmacts"><button type="button" class="btn sm" data-bmcacts>Actions ▾</button><span class="ddmenu" hidden><button type="button" data-bmcbulk="on">Activate</button><button type="button" data-bmcbulk="off">Deactivate</button><button type="button" class="danger" data-bmcbulk="del">Delete</button></span></span>` : ""}</div>`; })()}
-      <div class="mmcats">${cats.filter(c => !cq || c.name.toLowerCase().includes(cq)).map(c => { const on = bmCatOn(c.id), ps = bmCatProds(c).filter(p => all.includes(p)), nOn = ps.filter(p => bmState(p).on).length;
-        return `<div class="mmcat${c.id===BM.cat?" sel":""}${on?"":" off"}" data-bmpick="${esc(c.id)}"${cq ? "" : ` data-sk="bmc|${esc(c.id)}"`}>
+      <div class="mmcats">${bmCatRows(cats, cq).map(({ c, sub }) => { const on = bmCatOn(c.id);
+        return `<div class="mmcat${sub?" mmsubc":""}${c.id===BM.cat?" sel":""}${on?"":" off"}" data-bmpick="${esc(c.id)}"${cq ? "" : sub ? ` data-sk="bms:${esc(catPar(c))}|${esc(c.id)}" data-skn="1"` : ` data-sk="bmc|${esc(c.id)}"`}>
           <input type="checkbox" class="bmcsel" data-bmcsel="${esc(c.id)}" ${(BM.csel ||= new Set()).has(c.id)?"checked":""} aria-label="Select ${esc(c.name)}">
           <span class="bmgrip" title="Drag to move" aria-hidden="true">⋮⋮</span>
           <label class="toggle" title="${on ? "Shown" : "Hidden"} on the ${esc(ch[1])} menu"><input type="checkbox" data-bmcat="${esc(c.id)}" ${on?"checked":""} aria-label="Show ${esc(c.name)}"><span class="trk"></span></label>
-          <span class="scimg">${c.imageUrl ? `<img src="${esc(c.imageUrl)}" alt="">` : svgIco("image")}</span>
-          <span class="mmct"><b>${esc(c.name)}</b></span>
-          <div class="ddwrap"><button type="button" class="mmdots" data-bmcmenu="${esc(c.id)}" aria-label="Category actions">⋯</button><div class="ddmenu" hidden><button type="button" data-bmcedit="${esc(c.id)}">Edit</button><button type="button" class="danger" data-bmcdel="${esc(c.id)}">Delete</button></div></div></div>`; }).join("") || `<div class="mmempty">${cats.length ? "No categories match." : `<b>No categories yet</b><span>Add the first category of the ${esc(ch[1])} menu.</span>`}</div>`}</div></aside>`;
+          ${sub ? "" : `<span class="scimg">${c.imageUrl ? `<img src="${esc(c.imageUrl)}" alt="">` : svgIco("image")}</span>`}
+          <span class="mmct"><b>${esc(c.name)}</b>${sub ? "" : (n => n ? `<small>${n} sub-categor${n===1?"y":"ies"}</small>` : "")(bmCatRows(cats, "").filter(x => x.sub && catPar(x.c)===c.id).length)}</span>
+          <div class="ddwrap"><button type="button" class="mmdots" data-bmcmenu="${esc(c.id)}" aria-label="${sub ? "Sub-category" : "Category"} actions">⋯</button><div class="ddmenu" hidden><button type="button" data-bmcedit="${esc(c.id)}">Edit</button>${sub ? "" : `<button type="button" data-bmsubnew="${esc(c.id)}">Add Sub-category</button>`}<button type="button" class="danger" data-bmcdel="${esc(c.id)}">Delete</button></div></div></div>`; }).join("") || `<div class="mmempty">${cats.length ? "No categories match." : `<b>No categories yet</b><span>Add the first category of the ${esc(ch[1])} menu.</span>`}</div>`}</div></aside>`;
   // right: the chosen category's products
   if(!cur) return h + `<section class="mmmain"><div class="mmempty big"><b>Start the ${esc(ch[1])} menu</b><span>Add a category on the left, then add products to it.</span><button type="button" class="btn pri" data-bmnewcat>+ Add Category</button></div></section></div>${bmSaveBar(nDraft)}</div>`;
   const nOn = inCur.filter(p => bmState(p).on).length;
-  h += `<section class="mmmain"><div class="mmbar"><div class="mmtitle"><b>${esc(cur.name)}</b><span class="note">${nOn} of ${inCur.length} on the ${esc(ch[1])} menu at ${esc(br.name)}</span></div><div class="sp"></div>
+  h += `<section class="mmmain"><div class="mmbar"><div class="mmtitle"><b>${(p => p ? esc(p.name) + " › " : "")(cats.find(x => x.id===catPar(cur)))}${esc(cur.name)}</b><span class="note">${nOn} of ${inCur.length} on the ${esc(ch[1])} menu at ${esc(br.name)}</span></div><div class="sp"></div>
       <input class="sel search" id="bmQ" placeholder="Search items" value="${esc(BM.q)}" aria-label="Search items"><button type="button" class="btn pri" data-bmadd="${esc(cur.id)}">+ Add Products</button></div>`;
   if(!inCur.length) return h + `<div class="mmempty big"><b>No products in ${esc(cur.name)}</b><span>Pick the products this category shows on the ${esc(ch[1])} menu.</span><button type="button" class="btn pri" data-bmadd="${esc(cur.id)}">+ Add Products</button></div></section></div>${bmSaveBar(nDraft)}</div>`;
   h += `<div class="mmtbl"><div class="mmth"><span></span><span></span><span>Product</span><span class="mmtyps">${bmTypes().map(([t, tl]) => `<span class="mmty">${esc(tl)}</span>`).join("")}</span><span></span></div>`;
@@ -4679,22 +4701,24 @@ document.addEventListener("click", async e => {
 /* Sales Channels categories: select (or select all) and turn on / off / delete together */
 document.addEventListener("change", e => { const t = e.target;
   if(t.matches?.("[data-bmcsel]")){ const sel = (BM.csel ||= new Set()); t.checked ? sel.add(t.dataset.bmcsel) : sel.delete(t.dataset.bmcsel); render(); return; }
-  if(t.matches?.("[data-bmcselall]")){ const sel = (BM.csel ||= new Set()), cq = (BM.cq||"").trim().toLowerCase(), vis = chCats(bmMenu()[0]).filter(c => !cq || c.name.toLowerCase().includes(cq));
+  if(t.matches?.("[data-bmcselall]")){ const sel = (BM.csel ||= new Set()), cq = (BM.cq||"").trim().toLowerCase(), vis = bmCatRows(chCats(bmMenu()[0]), cq).map(x => x.c);
     if(t.checked) vis.forEach(c => sel.add(c.id)); else vis.forEach(c => sel.delete(c.id)); render(); }
 });
 document.addEventListener("click", async e => { const b = e.target.closest("[data-bmcsel],[data-bmcselall]"); if(b){ e.stopPropagation(); return; }
   const ab = e.target.closest("[data-bmcacts]"); if(ab){ e.preventDefault(); e.stopPropagation(); const m = ab.nextElementSibling; m.hidden = !m.hidden; return; }
   if(!e.target.closest(".mmacts")) document.querySelectorAll(".mmacts .ddmenu").forEach(m => m.hidden = true);
-  const k = e.target.closest("[data-bmcbulk]"); if(!k) return; k.closest(".ddmenu").hidden = true; e.preventDefault(); const ids = [...(BM.csel || [])]; if(!ids.length) return; const act = k.dataset.bmcbulk;
+  const k = e.target.closest("[data-bmcbulk]"); if(!k) return; k.closest(".ddmenu").hidden = true; e.preventDefault(); let ids = [...(BM.csel || [])]; if(!ids.length) return; const act = k.dataset.bmcbulk;
   if(act==="on" || act==="off"){ ids.forEach(id => bmSet("cat:"+id, "on", act==="on")); BM.csel = new Set(); render(); return bmAuto(); }
-  if(act==="del"){ if(!(await askYes(`Delete ${ids.length} categor${ids.length===1?"y":"ies"} from the ${bmMenu()[1]} menu? They are removed for good. Their products stay in Menu → Products.`))) return;
+  if(act==="del"){ const nSub = [...new Set(ids.flatMap(bmSubIds))].filter(x => !ids.includes(x)).length; ids = [...new Set([...ids, ...ids.flatMap(bmSubIds)])];
+    if(!(await askYes(`Delete ${ids.length - nSub} categor${ids.length - nSub===1?"y":"ies"}${nSub ? ` and ${nSub} sub-categor${nSub===1?"y":"ies"} inside` : ""} from the ${bmMenu()[1]} menu? They are removed for good. Their products stay in Menu → Products.`))) return;
     try{ for(const id of ids){ if(storeMode==="db") await db.collection("categories").doc(id).delete(); else S.categories = S.categories.filter(x => x.id!==id); } BM.csel = new Set(); render(); }
     catch(err){ console.error(err); toast("Couldn't delete. Only the owner or an admin can change the menu."); } }
 }, true);
 async function bmDelCat(id){
   const c = S.categories.find(x => x.id===id); if(!c) return;
-  if(!(await askYes(`Delete the category "${c.name}" from the ${bmMenu()[1]} menu? It is removed for good. Its products stay in Menu → Products.`))) return;
-  try{ if(storeMode==="db") await db.collection("categories").doc(id).delete(); else S.categories = S.categories.filter(x => x.id!==id); toast("Category deleted"); render(); }
+  const subs = bmSubIds(id), what = catPar(c) ? "sub-category" : "category";
+  if(!(await askYes(`Delete the ${what} "${c.name}"${subs.length ? ` and its ${subs.length} sub-categor${subs.length===1?"y":"ies"}` : ""} from the ${bmMenu()[1]} menu? ${subs.length ? "They are" : "It is"} removed for good. ${subs.length ? "Their" : "Its"} products stay in Menu → Products.`))) return;
+  try{ for(const x of [...subs, id]){ if(storeMode==="db") await db.collection("categories").doc(x).delete(); else S.categories = S.categories.filter(y => y.id!==x); } render(); }
   catch(err){ console.error(err); toast("Couldn't delete. Only the owner or an admin can change the menu."); }
 }
 // Sales Channels: pick products to put in a channel category
@@ -4746,7 +4770,8 @@ async function bmCopy(src){
       for(const c of chCats(ch)){ const ia = c.inactiveBranchIds||[];
         if(ia.includes("only:" + b) && ia.filter(k => String(k).startsWith("only:")).length===1) await db.collection("categories").doc(c.id).delete();
         else { const next = [...ia.filter(k => k!=="only:" + b), "x:" + b]; await put("categories", c.id, { inactiveBranchIds:next }); c.inactiveBranchIds = next; } }
-      for(const [k, c] of chCats(sch).entries()) await put("categories", "cat_" + ch + "_" + Date.now().toString(36) + k, { name:c.name, nameAr:c.nameAr||null, brandId:c.brandId||null, imageUrl:c.imageUrl||null, sort:c.sort, channel:ch, productIds:[...(c.productIds||[])],
+      const srcCats = chCats(sch), nid = {}, stamp = Date.now().toString(36); srcCats.forEach((c, k) => nid[c.id] = "cat_" + ch + "_" + stamp + k);
+      for(const c of [...srcCats.filter(x => !catPar(x)), ...srcCats.filter(x => catPar(x))]) await put("categories", nid[c.id], { name:c.name, nameAr:c.nameAr||null, brandId:c.brandId||null, imageUrl:catPar(c) ? null : c.imageUrl||null, sort:c.sort, channel:ch, productIds:[...(c.productIds||[])], reference:catPar(c) && nid[catPar(c)] ? "sub:" + nid[catPar(c)] : null,
         inactiveBranchIds:[...(c.inactiveBranchIds||[]).filter(x => !/^(only|x):/.test(x)).map(x => x.endsWith(":" + sch) ? x.slice(0, -sch.length) + ch : x), ...(ch==="online" ? [] : ["only:" + b])] }); }
     bmStat("All changes saved"); toast(n ? `Copied ${label} · ${n} item${n===1?"":"s"} changed` : "Already the same"); render();
   }catch(err){ console.error(err); bmStat("Not saved"); toast("Couldn't copy. Only the owner or an admin can change the menu."); render(); }
@@ -4909,7 +4934,8 @@ $("#view").addEventListener("click", async e => {
   const mo = e.target.closest("[data-bmmods]"); if(mo){ e.preventDefault(); BM.mopen ||= new Set(); const id = mo.dataset.bmmods; BM.mopen.has(id) ? BM.mopen.delete(id) : BM.mopen.add(id); return render(); }
   const ex = e.target.closest("[data-bmexp]"); if(ex){ e.preventDefault(); const g = ex.dataset.bmexp; BM.open ||= new Set(); BM.open.has(g) ? BM.open.delete(g) : BM.open.add(g); return render(); }
   if(e.target.closest("[data-bmnewcat]")){ e.preventDefault(); openCrud("chcat"); return; }
-  const ce = e.target.closest("[data-bmcedit]"); if(ce){ e.preventDefault(); ce.closest(".ddmenu")?.setAttribute("hidden",""); openCrud("chcat", ce.dataset.bmcedit); return; }
+  const ce = e.target.closest("[data-bmcedit]"); if(ce){ e.preventDefault(); ce.closest(".ddmenu")?.setAttribute("hidden",""); const cc = S.categories.find(x => x.id===ce.dataset.bmcedit); openCrud(catPar(cc) ? "chsub" : "chcat", ce.dataset.bmcedit); return; }
+  const sn = e.target.closest("[data-bmsubnew]"); if(sn){ e.preventDefault(); sn.closest(".ddmenu")?.setAttribute("hidden",""); BM.subOf = sn.dataset.bmsubnew; openCrud("chsub"); return; }
   const cd = e.target.closest("[data-bmcdel]"); if(cd){ e.preventDefault(); return bmDelCat(cd.dataset.bmcdel); }
   const ad = e.target.closest("[data-bmadd]"); if(ad){ e.preventDefault(); return bmAddItems(ad.dataset.bmadd); }
   const rm = e.target.closest("[data-bmrm]"); if(rm){ e.preventDefault(); const [cid, pid] = rm.dataset.bmrm.split("|"), c = S.categories.find(x => x.id===cid); if(!c) return;
@@ -7863,7 +7889,7 @@ $("#ccScrim").addEventListener("click", async e => { if(e.target.id==="repCsv") 
       catch(err){ console.error(err); $("#oErr").textContent = "Couldn't cancel the draft."; } })(); }
 });
 $("#ccScrim").addEventListener("input", e => { if(e.target.id==="oSearch") renderOrderMenu(); if(e.target.closest(".ccleft") && $("#oErr1")) $("#oErr1").textContent = ""; });
-$("#ccScrim").addEventListener("click", e => { if(e.target.closest("#oCatBack")){ state.oCat = ""; if($("#oSearch")) $("#oSearch").value = ""; renderOrderMenu(); } });
+$("#ccScrim").addEventListener("click", e => { if(e.target.closest("#oCatBack")){ state.oCat = e.target.closest("#oCatBack").dataset.to || ""; if($("#oSearch")) $("#oSearch").value = ""; renderOrderMenu(); } });
 $("#ccScrim").addEventListener("change", e => {
   if(e.target.id==="oBrand"){ fillOrderBranches(""); state.oCat=""; renderOrderMenu(); renderCart(false); setTimeout(() => $("#oBranch")?.focus(), 0); }
   if(e.target.id==="oBranch"){ const ok = new Set(availableProducts().map(p=>p.id)), miss = [];
@@ -7912,6 +7938,7 @@ const SORT_DONE_X = {
 };
 const SORT_DONE = {
   bmc: ids => bmSaveCats(ids),
+  bms: async ids => { try{ for(const [k, id] of ids.entries()){ const r = S.categories.find(x => x.id===id); if(r && r.sort !== (k+1)*10){ await put("categories", id, { sort:(k+1)*10 }); r.sort = (k+1)*10; } } toast("Sub-category order saved"); }catch(err){ console.error(err); toast("Couldn't save the new order"); } render(); },
   bmp: (ids, cid) => bmSaveItems(cid, ids),
   opt: async ids => { try{ for(const [k, id] of ids.entries()){ const r = S.modifier_options.find(x => x.id===id); if(r && r.sort !== (k+1)*10){ await put("modifier_options", id, { sort:(k+1)*10 }); r.sort = (k+1)*10; } } toast("Option order saved for every channel"); }catch(err){ console.error(err); toast("Couldn't save the new order"); } render(); },
   row: async (ids, key) => { const cfg = SORTABLE[key]; try{ for(const [n, id] of ids.entries()){ const r = S[cfg.col].find(x => x.id===id); if(r && r.sort !== n+1){ await put(cfg.col, id, { sort:n+1 }); r.sort = n+1; } } toast("Order saved · all screens updated"); }catch(err){ console.error(err); toast("Couldn't save the new order"); } render(); },
