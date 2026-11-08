@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="551-1794180263">
+<meta name="slick-build" content="552-1794180630">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1238,7 +1238,13 @@ const addrParts = v => { const a = { label:"", street:"", building:"", floor:"",
 const editOrder = () => EDIT && S.orders.find(o => o.id===EDIT.id);
 const isOpenOrd = o => ["active","pending","draft"].includes(o.status);
 const cleanItem = ({ saved, oix, ...i }) => i;
+// opening an order while the cart has items asks first: Clear Cart opens the order, Cancel goes back to the cart
 function loadOrder(id, keep){
+  const busy = !keep && (!EDIT ? cart.length > 0 : EDIT.id!==id && unsentItems().length > 0);
+  if(!busy) return loadOrder0(id, keep);
+  askYes("The cart has items. Clear the cart and open this order?", "Clear Cart", true).then(y => { if(y) loadOrder0(id); else closeModal(); });
+}
+function loadOrder0(id, keep){
   const o = S.orders.find(x=>x.id===id); if(!o) return;
   EDIT = { id, fee: +o.deliveryFee||0 }; OV.open = id;
   cart = (o.items||[]).map((i,ix) => ({ ...i, saved: +i.qty, oix: ix }));
@@ -1542,7 +1548,7 @@ $("#modal").addEventListener("click", async e => {
   if(e.target.closest("#pdGo")) return pdContinue();
   const hg = e.target.closest("[data-hget]"); if(hg) return retrieveHeld(hg.dataset.hget);
   const hd = e.target.closest("[data-hdel]"); if(hd){ if(!(await askYes("Delete this held order?", "Delete", true))) return; heldSave(heldList().filter(x => x.id!==hd.dataset.hdel)); return openHeld(); }
-  const ov = e.target.closest("[data-ov]"); if(ov){ const o = S.orders.find(x=>x.id===ov.dataset.ov); if(!o) return (OV.hist||[]).some(x => x.id===ov.dataset.ov) ? openOrderView(ov.dataset.ov) : undefined; if(o.status==="pending" || modalKind==="board" && o.status!=="active"){ OV.back = ["board","incoming"].includes(modalKind) ? modalKind : ""; return openOrderView(o.id); }   // a waiting order opens its details, with Accept / Decline
+  const ov = e.target.closest("[data-ov]"); if(ov){ let o = S.orders.find(x=>x.id===ov.dataset.ov); if(!o){ const h = (OV.hist||[]).find(x => x.id===ov.dataset.ov); if(!h) return; S.orders.push(h); o = h; }   // an older order (from history) opens in the cart like any other if(o.status==="pending" || modalKind==="board" && o.status!=="active"){ OV.back = ["board","incoming"].includes(modalKind) ? modalKind : ""; return openOrderView(o.id); }   // a waiting order opens its details, with Accept / Decline
     return loadOrder(o.id); }
   if(e.target.closest("[data-ovback]")){ const b = OV.back; OV.back = ""; if(b==="board") return openBoard(); if(b==="incoming") return openIncoming(); return closeModal(); }   // every Back returns to the cart
   const ovo = e.target.closest("[data-ovopen]"); if(ovo) return closeModal();
