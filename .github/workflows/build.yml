@@ -29,6 +29,52 @@ jobs:
           cp node_modules/@supabase/supabase-js/dist/umd/supabase.js www/supabase.js || curl -fsSL https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js -o www/supabase.js
           npx cap add android
           sed -i 's/android:name=".MainActivity"/android:name=".MainActivity" android:screenOrientation="fullSensor"/' android/app/src/main/AndroidManifest.xml   # POS turns with the tablet: landscape and portrait
+          # direct printing: a small native plugin sends raw ESC/POS bytes to network printers (Devices → Printers, port 9100)
+          mkdir -p android/app/src/main/java/com/slick/pos
+          cat > android/app/src/main/java/com/slick/pos/RawPrinterPlugin.java <<'JAVA'
+          package com.slick.pos;
+          import android.util.Base64;
+          import com.getcapacitor.Plugin;
+          import com.getcapacitor.PluginCall;
+          import com.getcapacitor.PluginMethod;
+          import com.getcapacitor.annotation.CapacitorPlugin;
+          import java.io.OutputStream;
+          import java.net.InetSocketAddress;
+          import java.net.Socket;
+          @CapacitorPlugin(name = "RawPrinter")
+          public class RawPrinterPlugin extends Plugin {
+            @PluginMethod
+            public void print(PluginCall call) {
+              final String host = call.getString("host");
+              final String data = call.getString("data");
+              final int port = call.getInt("port", 9100);
+              final int timeout = call.getInt("timeout", 5000);
+              if (host == null || host.isEmpty() || data == null) { call.reject("Missing printer address"); return; }
+              new Thread(() -> {
+                try (Socket s = new Socket()) {
+                  s.connect(new InetSocketAddress(host, port), timeout);
+                  s.setSoTimeout(timeout);
+                  OutputStream o = s.getOutputStream();
+                  o.write(Base64.decode(data, Base64.DEFAULT));
+                  o.flush();
+                  call.resolve();
+                } catch (Exception e) { call.reject("Printer unreachable: " + e.getMessage()); }
+              }).start();
+            }
+          }
+          JAVA
+          cat > android/app/src/main/java/com/slick/pos/MainActivity.java <<'JAVA'
+          package com.slick.pos;
+          import android.os.Bundle;
+          import com.getcapacitor.BridgeActivity;
+          public class MainActivity extends BridgeActivity {
+            @Override
+            public void onCreate(Bundle savedInstanceState) {
+              registerPlugin(RawPrinterPlugin.class);
+              super.onCreate(savedInstanceState);
+            }
+          }
+          JAVA
           npx cap sync android
           cd android && chmod +x gradlew && ./gradlew assembleDebug --no-daemon
       - name: Prepare website
