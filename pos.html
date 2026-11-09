@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="605-1794259114">
+<meta name="slick-build" content="606-1794259486">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -676,7 +676,8 @@ input,textarea{-webkit-user-select:text;user-select:text}
 .sqfit #grid#grid{justify-content:space-between!important;overflow-x:hidden}}
 .netst{display:inline-flex;align-items:center;gap:6px;flex:none;padding:5px 10px;border-radius:999px;font-size:12.5px;font-weight:600;line-height:1;background:#e7f6ec;color:#1e7b3c;white-space:nowrap}.netst i{width:8px;height:8px;border-radius:50%;background:#22a04b}.netst.off{background:#fde8e8;color:#b42318}.netst.off i{background:#d92d20}
 #toast.toast{top:0!important;bottom:auto!important;left:50%!important;width:min(560px,92vw);box-sizing:border-box;text-align:center;background:#e5383b!important;color:#fff!important;font-size:15px;font-weight:600;padding:14px 20px!important;border-radius:0 0 12px 12px!important;box-shadow:0 8px 24px rgba(229,56,59,.28)!important;transform:translate(-50%,-110%)!important;opacity:1!important;transition:transform .3s cubic-bezier(.2,.8,.2,1)!important}
-#toast.toast.show{transform:translate(-50%,0)!important}#toast.toast.ok{background:#1f9d55!important;box-shadow:0 8px 24px rgba(31,157,85,.28)!important}
+#toast.toast:not(.show){box-shadow:none!important;visibility:hidden;transition:transform .3s,visibility 0s .3s!important}#toast.toast.show{transform:translate(-50%,0)!important}#toast.toast.ok{background:#1f9d55!important;box-shadow:0 8px 24px rgba(31,157,85,.28)!important}
+input.nfon{color:transparent!important;-webkit-text-fill-color:transparent!important;caret-color:transparent}.nfv{position:absolute;box-sizing:border-box;display:flex;align-items:center;pointer-events:none;white-space:nowrap;overflow:hidden;background:none;border:0;justify-content:var(--nfj,flex-end)}
 </style>
 <script>
 /* ---------- naming: menu "products" are called Items; inventory "items" are called Products ----------
@@ -1605,6 +1606,18 @@ document.addEventListener("click", e => { const k = e.target.closest("[data-npk]
   const el = document.getElementById(k.closest("[data-npfor]").dataset.npfor); if(!el) return; let v = el.value, key = k.dataset.npk;
   if(key==="⌫") v = v.slice(0, -1); else if(key==="+"){ if(!v) v = "+"; } else if(key==="."){ if(!v.includes(".")) v = (v || "0") + "."; } else v = v==="0" && el.dataset.np!=="tel" ? key : v + key; if(el.maxLength > 0) v = v.slice(0, el.maxLength);
   el.value = v; el.dispatchEvent(new Event("input", { bubbles:true })); });
+// amounts typed on a keypad show 1,000 separators and a dot for decimals; the field keeps the plain number, a copy on top shows it grouped
+const nfGroup = v => { v = String(v ?? ""); if(!/^-?\d*\.?\d*$/.test(v) || v==="") return v; const [i, d] = v.split("."); return (i ? (+i).toLocaleString("en-US") : (d!==undefined ? "0" : "")) + (d!==undefined ? "." + d : ""); };
+function nfPaint(el){ if(!el || el.dataset.np==="tel" || el.type==="tel" || !document.querySelector(`[data-npfor="${CSS.escape(el.id)}"]`)) return;
+  const host = el.parentElement; if(!host) return; let o = host.querySelector(`:scope > .nfv[data-for="${CSS.escape(el.id)}"]`);
+  if(!o){ o = document.createElement("span"); o.className = "nfv"; o.dataset.for = el.id; o.setAttribute("aria-hidden", "true"); if(getComputedStyle(host).position==="static") host.style.position = "relative"; host.appendChild(o); }
+  const cs = getComputedStyle(el); if(!el.dataset.nfc){ el.classList.remove("nfon"); el.dataset.nfc = getComputedStyle(el).color; } el.classList.add("nfon");
+  Object.assign(o.style, { left: el.offsetLeft + "px", top: el.offsetTop + "px", width: el.offsetWidth + "px", height: el.offsetHeight + "px", font: cs.font, textAlign: cs.textAlign, padding: cs.padding, color: el.dataset.nfc, letterSpacing: cs.letterSpacing,
+    justifyContent: /right|end/.test(cs.textAlign) ? "flex-end" : cs.textAlign==="center" ? "center" : "flex-start", opacity: el.value ? "1" : ".45" });
+  const tx = el.value ? nfGroup(el.value) : (el.placeholder || ""); if(o.textContent!==tx) o.textContent = tx; }
+document.addEventListener("input", e => { if(e.target.matches?.("input")) nfPaint(e.target); }, true);
+new MutationObserver(() => { document.querySelectorAll("[data-npfor]").forEach(p => { const el = document.getElementById(p.dataset.npfor); if(el && !el.classList.contains("nfon")) nfPaint(el); }); }).observe(document.body, { childList:true, subtree:true });
+document.addEventListener("click", e => { if(e.target.closest("[data-tilr],[data-npfor]")) setTimeout(() => document.querySelectorAll("input.nfon").forEach(nfPaint), 0); });
 // Charges window: the charges allowed for this order type; open-amount ones ask for the amount
 function openCharges(){
   if(!can("pos_charges")) return deny("changing charges");

@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="602-1794243883">
+<meta name="slick-build" content="606-1794259486">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1210,6 +1210,7 @@ html.mlock{overflow:hidden!important}html.mlock body{position:fixed!important;le
 .mmside,.mmmain{container-type:inline-size}.mmcbar .mmtitle,.mmbar .mmtitle{flex:none;white-space:nowrap}.mmcbar .mmtitle .note,.mmbar .mmtitle .note{white-space:nowrap}@container (max-width:620px){.mmcbar,.mmbar{flex-wrap:wrap!important;row-gap:10px!important}.mmcbar .mmtitle,.mmbar .mmtitle{flex:1 0 100%}.mmcbar .sp,.mmbar .sp{display:none}.mmcbar .sel.search,.mmbar .sel.search{flex:1 1 0!important;width:auto}}
 .mmiselbar{margin:0 0 10px}.mmrow .bmcsel{width:18px;height:18px;margin:0;accent-color:var(--accent,#6a4cf5);cursor:pointer}
 .mmmselbar{margin:0 0 10px}.bmdmx .bmmsel{width:18px;height:18px;margin:0 8px 0 0!important;vertical-align:middle;accent-color:var(--accent,#6a4cf5);cursor:pointer}
+input.nfon{color:transparent!important;-webkit-text-fill-color:transparent!important}.nfv{position:absolute;box-sizing:border-box;display:flex;align-items:center;pointer-events:none;white-space:nowrap;overflow:hidden;background:none}.nfv[hidden]{display:none}
 </style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -2492,6 +2493,21 @@ document.addEventListener("keydown", e => {
   const f = e.target.closest?.(".msel-f"); if(f && (e.key==="Enter" || e.key===" " || e.key==="ArrowDown")){ e.preventDefault(); msOpen(f.parentElement); return; }
   if(e.target.classList?.contains("msel-q") && e.key==="Enter"){ e.preventDefault(); const first = [...e.target.parentElement.querySelectorAll(".msel-o")].find(o => !o.hidden); first?.click(); }
 }, true);
+// number fields show 1,000 separators (dot for decimals) while not being typed in; the field itself keeps the plain number
+const nfGroup = v => { v = String(v ?? ""); if(!/^-?\d*\.?\d*$/.test(v) || v==="") return v; const neg = v[0]==="-", [i, d] = v.replace("-", "").split("."); return (neg ? "-" : "") + (i ? (+i).toLocaleString("en-US") : "0") + (d!==undefined ? "." + d : ""); };
+function nfPaint(el){ const host = el.parentElement; if(!host || !el.id && !el.isConnected) return;
+  let o = el.nextElementSibling?.classList.contains("nfv") ? el.nextElementSibling : null; const show = el!==document.activeElement && Math.abs(+el.value) >= 1000;
+  if(!show){ el.classList.remove("nfon"); if(o) o.hidden = true; return; }
+  if(!o){ o = document.createElement("span"); o.className = "nfv"; o.setAttribute("aria-hidden", "true"); el.after(o); if(getComputedStyle(host).position==="static") host.style.position = "relative"; }
+  el.classList.remove("nfon"); const cs = getComputedStyle(el), col = cs.color; el.classList.add("nfon");
+  Object.assign(o.style, { left: el.offsetLeft + "px", top: el.offsetTop + "px", width: el.offsetWidth + "px", height: el.offsetHeight + "px", font: cs.font, padding: cs.padding, color: col, borderWidth: cs.borderWidth, borderStyle: "solid", borderColor: "transparent",
+    justifyContent: /right|end/.test(cs.textAlign) ? "flex-end" : cs.textAlign==="center" ? "center" : "flex-start" });
+  o.hidden = false; const tx = nfGroup(el.value); if(o.textContent!==tx) o.textContent = tx; }
+const nfAll = () => document.querySelectorAll('input[type="number"]').forEach(el => { if(el.offsetParent) nfPaint(el); });
+document.addEventListener("focusin", e => { if(e.target.matches?.('input[type="number"]')) nfPaint(e.target); });
+document.addEventListener("focusout", e => { if(e.target.matches?.('input[type="number"]')) setTimeout(() => nfPaint(e.target), 0); });
+document.addEventListener("change", e => { if(e.target.matches?.('input[type="number"]')) nfPaint(e.target); });
+let nfT = 0; new MutationObserver(() => { clearTimeout(nfT); nfT = setTimeout(nfAll, 120); }).observe(document.documentElement, { childList:true, subtree:true });
 let msT = 0; new MutationObserver(() => { if(msT) return; msT = requestAnimationFrame(() => { msT = 0; msEnhance(); }); }).observe(document.documentElement, { childList:true, subtree:true });
 setInterval(() => document.querySelectorAll(".mselect").forEach(m => { const sel = m.querySelector("select"); if(sel && (m.dataset.v!==sel.value || m.querySelector(".msel-f").classList.contains("dis")!==sel.disabled)) msPaint(m); }), 400);
 // "More" (Foodics): the less used screens of a section, as a list of links
@@ -4200,8 +4216,8 @@ function openDeviceEdit(id){
     <div class="f full"><label for="ds_name">Name *</label><input id="ds_name" value="${esc(d.name)}">${dhelp("For example: Main Cashier, 2nd Floor Cashier, etc…")}</div>
     <div class="f full"><label for="ds_reference">Reference *</label><div style="display:flex;gap:8px"><input id="ds_reference" value="${esc(d.reference||devRef())}" style="flex:1"><button type="button" class="btn" data-devgen>Generate</button></div>${dhelp("Reference number or ID of the device.")}</div>
     <div class="f"><label for="ds_type">Type</label>${dsel("type", d.type, DEV_TYPES)}</div>
-    <div class="f"><label for="ds_brand">Brand</label>${dsel("brand", br?.brandId || "", brandList().map(b=>[b.id,b.name]))}</div>
-    <div class="f full"><label for="ds_branch">Branch *</label><select id="ds_branch" class="sel">${devBranchOpts(br?.brandId || "", d.branchId)}</select>${dhelp("Moving a device to another branch needs a new activation code.")}</div>
+    <div class="f"><label>Brand</label><input value="${esc(brandName(br?.brandId) || "—")}" disabled></div>
+    <div class="f"><label>Branch</label><input value="${esc(br?.name || "—")}" disabled>${dhelp("A device stays in the branch it was created for. To use it in another branch, create a new device there.")}</div>
     <div class="f full"><label class="chk"><input type="checkbox" id="ds_master" ${s.master?"checked":""}> Receives Online Orders</label>${dhelp("Only one cashier is allowed to receive call center and web orders in the branch. It also ends the day.")}</div>
     ${tagPick("device", id, "deTags")}<div class="err" id="cErr"></div></div>
   <footer><button type="button" class="btn" data-cclose>Cancel</button><button type="button" class="btn pri" id="deSave">Save</button></footer>`;
@@ -4212,10 +4228,8 @@ async function saveDeviceEdit(){
   const name = v("name"), reference = v("reference").toUpperCase(); if(!name){ $("#cErr").textContent = "Name is required."; return; }
   if(!reference){ $("#cErr").textContent = "Reference is required."; return; }
   if(S.devices.some(x => live(x) && x.id!==id && String(x.reference||"").toUpperCase()===reference)){ $("#cErr").textContent = "Another device already uses this reference."; return; }
-  if(!v("branch")){ $("#cErr").textContent = "Pick the branch."; return; }
   const master = !!$("#ds_master").checked && ["cashier","sub_cashier"].includes(v("type"));
   const ch = { name, reference, type: v("type"), settings: { ...(d.settings||{}), master } }; await tagSetFor("device", id, tagPickGet("deTags"));
-  if(v("branch") !== d.branchId){ if(!(await askYes("Move this device to another branch? It will need a new activation code."))) return; ch.branchId = v("branch"); ch.code = newCode(); ch.activatedAt = null; }
   try{
     if(master) for(const o of S.devices.filter(x => live(x) && x.id!==id && x.branchId===(ch.branchId || d.branchId) && x.settings?.master)) await put("devices", o.id, { settings: { ...o.settings, master:false } });   // one per branch
     await put("devices", id, ch); toast(ch.code ? `Device moved · new activation code ${ch.code}` : "Device saved"); closeCrud(); render(); }
