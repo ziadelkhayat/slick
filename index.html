@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="586-1794240320">
+<meta name="slick-build" content="587-1794240560">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1181,6 +1181,14 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}@media(max-width:820px)
 .top{position:relative!important;top:auto!important}
 .ptmore{position:relative;display:inline-flex}.ptmb{display:inline-flex;align-items:center;gap:8px;border:0;background:none;font:inherit;color:inherit;padding:8px 14px;border-radius:999px;cursor:pointer}.ptmb.on{background:var(--accent-soft,#efeafd);color:var(--accent,#5b2bc4)}.ptmm{position:absolute;top:calc(100% + 6px);left:0;z-index:40;min-width:220px;background:#fff;border:1px solid var(--line,#ecebf2);border-radius:14px;box-shadow:0 18px 44px rgba(21,19,31,.18);padding:6px;display:flex;flex-direction:column}.ptmm[hidden]{display:none}.ptmm a{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;text-decoration:none;color:inherit;white-space:nowrap}.ptmm a:hover,.ptmm a.on{background:#f6f5fa}
 .card.otbl.obody{overflow:visible!important}.card.otbl.obody>table>thead>tr>th{position:sticky!important;top:var(--thtop,0px)!important;z-index:3;background:#fafafd;box-shadow:0 1px 0 var(--line,#ecebf2)}   /* the orders list: header row stays pinned while the page scrolls */
+/* detail (info) screens, same look everywhere: centered column, two columns of label / value with a line under each */
+#view .card.odet.odet{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:0 48px!important;padding:18px 24px 10px!important;max-width:1080px;margin-left:auto!important;margin-right:auto!important}
+#view .card.odet.odet>div{padding:12px 0 10px;border-bottom:1px solid var(--line,#ecebf2);min-width:0}#view .card.odet.odet>div span{display:block;font-size:13px;color:var(--muted,#8d8c98);margin-bottom:6px}
+#view .dzsec.dzwide,#view .card.odet~.dzsec{max-width:1080px;margin-left:auto;margin-right:auto}
+@media (max-width:760px){#view .card.odet.odet{grid-template-columns:1fr!important}}
+.fdet{max-width:1080px;margin:0 auto}.fdet .finfo{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:0 48px!important;padding:18px 24px 10px!important}
+.fdet .finfo>div{padding:12px 0 10px;border-bottom:1px solid var(--line,#ecebf2);min-width:0}.fdet .finfo>div span{display:block;font-size:13px;color:var(--muted,#8d8c98);margin-bottom:6px}
+@media (max-width:760px){.fdet .finfo{grid-template-columns:1fr!important}}
 .tscroll{max-height:max(340px,calc(100vh - 260px));overflow:auto;overscroll-behavior:contain}.tscroll thead th{position:sticky!important;top:0!important;z-index:3}
 .mmrow.off .mmpn b,.mmcat.off .mmct b,.bmdmx tr.off b,.bmdmx tr.bmdgrow.off b{text-decoration:line-through;color:var(--muted,#8a87a0)}
 .ostick{position:static!important;top:auto!important}   /* headers scroll away; tables scroll inside their own box with the header row fixed */
@@ -1203,7 +1211,7 @@ html.mlock{overflow:hidden!important}html.mlock body{position:fixed!important;le
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="wokdb.js?v=39"></script>
+<script src="wokdb.js?v=40"></script>
 <script src="modpick.js?v=25"></script>
 </head>
 <body>
@@ -2181,14 +2189,14 @@ document.addEventListener("change", e => {
 function viewBranch(b){
   const st = b.settings || {}, more = true, row = (k, v) => `<div><span>${k}</span>${v}</div>`, t12o = v => v ? esc(t12(v)) : "—";
   const mon = st.hours?.mon || {}, tg = (S.tax_groups||[]).find(g => g.id===st.taxGroup)?.name;
-  const zones = (S.zones||[]).filter(z => !z.deleted && z.branchId===b.id), users = (S.users||[]).filter(u => !u.deleted && !isAdminRow(u) && u.active!==false && (!(u.branchIds||[]).length || u.branchIds.includes(b.id)));
+  const zones = (S.zones||[]).filter(z => !z.deleted && z.branchId===b.id), users = (S.users||[]).filter(u => !u.deleted && !isAdminRow(u) && (!(u.branchIds||[]).length || u.branchIds.includes(b.id)));
   const devs = S.devices.filter(d => live(d) && d.branchId===b.id), chs = (S.charges||[]).filter(c => !c.deleted && c.active!==false && (!(c.branchIds||[]).length || c.branchIds.includes(b.id)));
   const tl = tblList(b.id), secs = tblSecs(b.id), offPay = st.inactivePayments || [], pms = (S.payment_methods||[]).filter(m => !m.deleted && m.active!==false);
   const card = (title, btn, body) => `<div class="dzsec dzwide"><div class="dzh"><h3>${title}</h3>${btn||""}</div><div class="dzcard dztbl">${body}</div></div>`;
   const tbl = (head, rows) => rows.length ? `<table><thead><tr>${head.map(h=>`<th>${h}</th>`).join("")}</tr></thead><tbody>${rows.map(r=>`<tr>${r.map(c=>`<td>${c}</td>`).join("")}</tr>`).join("")}</tbody></table>` : '<p class="note brempty">No data to display!</p>';
   const typesOf = c => (c.orderTypes||[]).length ? c.orderTypes.map(t=>esc(TYPE_LBL[t]||t)).join(", ") : "All order types";
-  return `<div class="phead"><a class="btn" href="#branches" data-brback style="text-decoration:none">← Back</a><h1>${esc(b.name)}</h1><div class="sp"></div><button class="btn pri" data-edit="${esc(b.id)}">Edit Branch</button></div>
-    <div class="card odet" style="margin-bottom:16px">${row("Name", esc(b.name))}${row("Name Localized", esc(b.nameAr || "—"))}${row("Reference", esc(b.code || "—"))}${row("Brand", esc(brandName(b.brandId) || "—"))}
+  return `<div class="phead"><a class="btn" href="#branches" data-brback style="text-decoration:none">← Back</a><h1>${esc(b.name)}</h1><div class="sp"></div><button class="btn pri" data-edit="${esc(b.id)}">Edit Branch</button></div><div class="fdet">
+    <div class="card odet finfo" style="margin-bottom:16px">${row("Name", esc(b.name))}${row("Name Localized", esc(b.nameAr || "—"))}${row("Reference", esc(b.code || "—"))}${row("Brand", esc(brandName(b.brandId) || "—"))}
       ${more ? row("Opening From", t12o(mon.open || b.open)) + row("Opening To", t12o(mon.close || b.close)) + row("Business day starts", t12o(st.dayStart || "00:00")) + row("Inventory End of Day", t12o(st.invEnd || st.dayStart || "00:00"))
         + row("Tax Group", esc(tg || "—")) + row("Tax Registration Name", esc(st.taxName || "—")) + row("Tax Number", esc(b.taxNumber || "—")) + row("Phone", esc(b.phone || "—")) + row("Address", esc(b.address || "—"))
         + row("Location", b.lat && b.lng ? `<a class="lnk" target="_blank" rel="noopener" href="https://www.google.com/maps?q=${b.lat},${b.lng}">${b.lat}, ${b.lng}</a>` : "—") + row("Receives call center and web orders", b.callCenter ? "Yes" : "No") + row("Automatic end of day", st.autoDayEnd===false ? "No" : "Yes") : ""}
@@ -2201,7 +2209,7 @@ function viewBranch(b){
     ${card("Assigned Charges", "", tbl(["Name","Value","Applies On"], chs.map(c => [esc(c.name), c.type==="percent" ? (+c.value||0)+"%" : money(+c.value||0), typesOf(c)])))}
     <div class="dzsec dzwide"><div class="dzh"><h3>Inactive Payment Methods <span class="tip" title="Payment methods that can't be used at this branch">ⓘ</span></h3><button type="button" class="btn" data-brpaypick="${esc(b.id)}">Select Payment Method</button></div>
       <div class="dzcard">${offPay.filter(id => pms.some(m => m.id===id)).length ? `<div class="dzchips">${offPay.map(id => pms.find(m => m.id===id)).filter(Boolean).map(m => `<span class="dzchip">${esc(m.name)}<button type="button" data-brpayrm="${esc(b.id)}:${esc(m.id)}" aria-label="Make ${esc(m.name)} available again">×</button></span>`).join("")}</div>` : `<p class="dzempty">All payment methods are available at this branch</p>`}</div></div>
-    <div id="bdData"></div><div class="dzsec"><h3>Delete Branch</h3><div class="dzcard"><p>If you delete this branch, all of its data will be permanently deleted. A branch can be deleted once it has no orders and no inventory transactions.</p><button class="btn danger" data-brdel="${esc(b.id)}">Delete Branch</button></div></div>`;
+    <div id="bdData"></div><div class="dzsec"><h3>Delete Branch</h3><div class="dzcard"><p>If you delete this branch, all of its data will be permanently deleted. A branch can be deleted once it has no orders and no inventory transactions.</p><button class="btn danger" data-brdel="${esc(b.id)}">Delete Branch</button></div></div></div>`;
 }
 function viewBranches(){
   const ob = state.brOpen && branches.find(x => x.id===state.brOpen); if(ob){ setTimeout(() => paintBranchData(ob.id), 0); return viewBranch(ob); }
@@ -2872,9 +2880,9 @@ const CRUD = {
   },
   users: {
     col:"users", title:"Users", one:"User", addLbl:"Add", detail: r => userDetail(r),
-    tabs:[["all","All",r=>live(r)&&!isAdminRow(r)],["active","Active",r=>live(r)&&r.active!==false&&!isAdminRow(r)],["inactive","Inactive",r=>live(r)&&r.active===false&&!isAdminRow(r)],["deleted","Deleted",r=>r.deleted&&!isAdminRow(r)]],
+    tabs:[["all","All",r=>live(r)&&!isAdminRow(r)],["deleted","Deleted",r=>r.deleted&&!isAdminRow(r)]],   // users are created, deleted and restored (no active / inactive)
     sort:(a,b)=>a.name.localeCompare(b.name), search:r=>r.name+" "+(r.email||"")+" "+(r.phone||""),
-    cols:[["Name",r=>`<b>${esc(r.name)}</b>${r.active===false?' <span class="tag off">Inactive</span>':""}`],
+    cols:[["Name",r=>`<b>${esc(r.name)}</b>`],
       ["Console Access",r=>r.email ? (r.userId ? '<span class="tag on">Active</span>' : '<span class="tag off">Invited</span>') : '<span class="tag off">Inactive</span>'],
       ["App Access",r=>r.pinHash ? '<span class="tag on">Active</span>' : '<span class="tag off">Inactive</span>'],
       ["Roles",r=>esc(userRolesTxt(r))]],
@@ -6756,8 +6764,8 @@ function userDetail(u){
   const rs = S.roles.filter(r => userRoleIds(u).includes(r.id)), picked = (u.branchIds||[]).length, brs = picked ? branches.filter(b => u.branchIds.includes(b.id)) : branches.filter(b => b.active!==false);
   const fld = (k, v) => `<div class="udf"><span>${k}</span><div>${v}</div></div>`, dt = t => t ? new Date(t).toLocaleString("en-GB",{day:"numeric",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"}) : "—";
   const sec = (title, btn, body) => `<div class="udsec"><div class="udh"><h3>${title}</h3>${btn}</div><div class="card udcard">${body}</div></div>`;
-  return `<div class="udtop"><div class="udrow"><a href="#users" class="btn" data-detback style="text-decoration:none">← Back</a><h1>${esc(u.name)}</h1>${u.active===false ? ' <span class="tag off">Inactive</span>' : ""}<div class="sp"></div>
-      ${isAdminRow(u) ? "" : `<button class="btn${u.active===false ? "" : " danger"}" data-dettoggle>${u.active===false ? "Activate" : "Deactivate"}</button>`}${u.email ? `<button class="btn" data-usrpw="${esc(u.id)}">Change Password</button>` : ""}<button class="btn pri" data-detedit>Edit User</button></div></div>
+  return `<div class="udtop"><div class="udrow"><a href="#users" class="btn" data-detback style="text-decoration:none">← Back</a><h1>${esc(u.name)}</h1><div class="sp"></div>
+      ${u.email ? `<button class="btn" data-usrpw="${esc(u.id)}">Change Password</button>` : ""}<button class="btn pri" data-detedit>Edit User</button></div></div>
     <div class="udwrap">
       <div class="card udinfo">${fld("Name", esc(u.name))}${fld("Email", esc(u.email || "—"))}${fld("Phone", esc(u.phone || "—"))}${fld("Language", u.language==="ar" ? "Arabic" : "English")}
         ${fld("Display localized names", u.displayLocalized ? "Yes" : "No")}${fld("Console Access", u.email ? (u.userId ? "Yes" : "Not created yet") : "No")}
