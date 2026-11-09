@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="564-1794226979">
+<meta name="slick-build" content="565-1794227132">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1406,7 +1406,15 @@ function askNumber(title, def){ return new Promise(res => {
   el.querySelector("[data-nok]").disabled = String(def ?? "")===""; }); }
 // an item discount follows the quantity: a % stays a %, an amount never exceeds the line
 const reDisc = i => { if(!+i.disc) return; const line = (+i.price||0) * (+i.qty||1), v = +i.discValue||0; i.disc = +(i.discType==="amt" ? Math.min(v, line) : line * Math.min(v, 100) / 100).toFixed(2); };
+// a done, void, returned or declined order can't take items: red banner at the top
+function lockedOrder(){ const eo = editOrder(); if(!eo || isOpenOrd(eo)) return false;
+  let el = document.getElementById("noEdit"); if(!el){ el = document.createElement("div"); el.id = "noEdit"; el.setAttribute("role", "alert");
+    el.style.cssText = "position:fixed;top:0;left:0;right:0;z-index:9000;background:#dc2626;color:#fff;text-align:center;font-weight:700;font-size:17px;padding:12px 16px;box-shadow:0 4px 14px rgba(0,0,0,.18);transition:opacity .25s";
+    el.textContent = "This Order is not editable"; document.body.appendChild(el); }
+  el.style.opacity = "1"; clearTimeout(lockedOrder.t); lockedOrder.t = setTimeout(() => { el.style.opacity = "0"; setTimeout(() => { if(el.style.opacity==="0") el.remove(); }, 300); }, 2200);
+  return true; }
 async function addProduct(p){
+  if(lockedOrder()) return;
   if(prodOos(p)){ toast(p.name + " is out of stock"); return; }
   let price = prodPrice(p);
   if(p.pricingMethod==="open"){ if(!can("pos_open_price")){ deny("open-price items"); return; } const v = await askNumber("Price for " + p.name, price || ""); if(v===null) return; price = v; }
@@ -1421,6 +1429,7 @@ async function addProduct(p){
 }
 // a menu item: tap the right ¾ to add one, the left ¼ to take one away (the last one added that isn't sent to the kitchen yet)
 $("#grid").addEventListener("click", e => { const b = e.target.closest("[data-add]"); if(!b) return; const p = S.products.find(x=>x.id===b.dataset.add); if(!p) return;
+  if(lockedOrder()) return;
   const r = b.getBoundingClientRect();
   if(e.clientX - r.left < r.width * 0.25){ const ids = [p.id, ...(p.variants||[]).map(v => v.productId)];
     for(let ix = cart.length - 1; ix >= 0; ix--){ const i = cart[ix]; if(ids.includes(i.productId) && i.qty > (i.saved||0)){ i.qty--; if(i.qty <= 0) cart.splice(ix, 1); else reDisc(i); renderCart(); renderMenu(); return; } }
