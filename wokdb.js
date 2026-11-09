@@ -217,8 +217,12 @@
   .wk-card input{width:100%;box-sizing:border-box;padding:11px 12px;border:1px solid #e5e3ec;border-radius:10px;font:inherit}
   .wk-card button{width:100%;margin-top:16px;padding:13px;border:0;border-radius:12px;background:linear-gradient(135deg,#6c47ff,#5130e8);box-shadow:0 6px 16px rgba(108,71,255,.3);color:#fff;font:inherit;font-weight:600;cursor:pointer}
   .wk-card button:disabled{opacity:.6}.wk-forgot{display:block;text-align:center;margin-top:12px;font-size:13px;color:#5130e8;text-decoration:none}.wk-err{color:#9e0c24;font-size:13px;min-height:18px;margin-top:10px;text-align:center}`;
-  function gate(msg){
-    if(!document.body){ document.addEventListener("DOMContentLoaded", () => gate(msg), { once:true }); return; }   // page still loading
+  const IS_POS = document.title.includes("POS"); let emailMode = false, needsAct = false;
+  function gate(msg, force){
+    if(!document.body){ document.addEventListener("DOMContentLoaded", () => gate(msg, force), { once:true }); return; }   // page still loading
+    if(force) emailMode = true;
+    if(IS_POS && !emailMode){ needsAct = true; const g = document.getElementById("wkGate"); if(g) g.style.display = "none";
+      document.dispatchEvent(new CustomEvent("wok:activate", { detail: { msg: msg || "" } })); return; }   // a new register goes straight to device activation
     let el = document.getElementById("wkGate");
     if(!el){
       const st = document.createElement("style"); st.textContent = css; document.head.appendChild(st);
@@ -227,8 +231,9 @@
         <label for="wkAcct">Account number</label><input id="wkAcct" inputmode="numeric" autocomplete="organization" required value="${ls.get("slick_acct", "") || ""}">
         <label for="wkEmail">Email</label><input id="wkEmail" type="email" autocomplete="username" required>
         <label for="wkPass">Password</label><input id="wkPass" type="password" autocomplete="current-password" required>
-        <button id="wkBtn">Sign in</button><a href="#" class="wk-forgot" id="wkForgot">Forgot password?</a><div class="wk-err" id="wkErr"></div></form>`;
+        <button id="wkBtn">Sign in</button><a href="#" class="wk-forgot" id="wkForgot">Forgot password?</a>${IS_POS ? '<a href="#" class="wk-forgot" id="wkAct">Activate with a device code</a>' : ""}<div class="wk-err" id="wkErr"></div></form>`;
       document.body.appendChild(el);
+      el.querySelector("#wkAct")?.addEventListener("click", e => { e.preventDefault(); emailMode = false; gate(); });
       el.querySelector("#wkForgot").addEventListener("click", async e => { e.preventDefault(); const em = el.querySelector("#wkEmail").value.trim(), er = el.querySelector("#wkErr");
         if(!em){ er.textContent = "Type your email first, then tap Forgot password."; el.querySelector("#wkEmail").focus(); return; }
         const { error } = await sb.auth.resetPasswordForEmail(em, { redirectTo: location.href.split("#")[0] });
@@ -247,6 +252,17 @@
     }
     el.style.display = "grid"; el.querySelector("#wkErr").textContent = msg || "";
   }
+  // activate a new register with only its 6-digit code: anonymous login + server check of the code
+  async function activateDevice(code, onId){
+    if(!navigator.onLine) return { error: "offline" };
+    let { data: { session } } = await sb.auth.getSession();
+    if(!session){ const r = await sb.auth.signInAnonymously(); if(r.error) return { error: isNet(r.error) ? "offline" : /anonymous/i.test(r.error.message) ? "setup" : r.error.message }; }
+    const { data, error } = await sb.rpc("slick_activate_device", { p_code: code });
+    if(error) return { error: isNet(error) ? "offline" : (error.code === "PGRST202" || /slick_activate_device/.test(error.message)) ? "setup" : error.message };
+    if(!data || data.error) return { error: data?.error || "invalid" };
+    needsAct = false; if(onId) onId(data.id);
+    await afterLogin(); return { id: data.id };
+  }
   function useStaff(s){
     staff = s; if(OFF) ls.set("slick_staff", s);
     const el = document.getElementById("wkGate"); if(el) el.style.display = "none";
@@ -258,6 +274,12 @@
     try{ const r = await sb.auth.getUser(); user = r.data?.user; if(r.error && isNet(r.error) && cached){ online = false; status(); return useStaff(cached); } }
     catch(e){ if(cached && isNet(e)) return useStaff(cached); }
     if(!user) return gate();
+    if(user.is_anonymous){   // a register activated with its device code
+      const r = await sb.rpc("staff_role");
+      if(r.error && isNet(r.error) && cached && cached.user_id === user.id){ online = false; status(); return useStaff(cached); }
+      if(!r.data){ await sb.auth.signOut(); return gate("This device was deactivated. Enter a new activation code."); }
+      return useStaff({ user_id: user.id, role: r.data, name: "Register", device: true });
+    }
     let { data, error } = await sb.from("staff").select("*").eq("user_id", user.id).maybeSingle();
     if(error && isNet(error) && cached && cached.user_id === user.id) return useStaff(cached);
     if(!data && !error){ const c = await sb.rpc("slick_claim_login"); if(c.data) ({ data } = await sb.from("staff").select("*").eq("user_id", user.id).maybeSingle()); }   // first sign-in of a user added under Manage → Users
@@ -278,7 +300,7 @@
   const userApi = { id: async () => staff?.user_id, email: async () => staff?.email || "", name: async () => staff?.name || staff?.email, role: async () => staff?.role, branchId: async () => staff?.branch_id,
     canEdit: async () => ["owner","admin"].includes(staff?.role), isOwner: async () => staff?.role === "owner", signOut: async () => { if(OFF && outbox.length && !(await (window.askYes ? window.askYes(outbox.length + " change(s) haven't synced yet. Sign out anyway? They stay saved on this device.") : Promise.resolve(confirm(outbox.length + " change(s) haven't synced yet. Sign out anyway? They stay saved on this device."))))) return; await sb.auth.signOut(); if(OFF) localStorage.removeItem("slick_staff"); location.reload(); } };
 
-  window.WOK = { sb, cfg:{ url:SUPABASE_URL, key:SUPABASE_KEY }, ready, user: userApi, sync: { status, flush, failed: () => failed.slice(), retryFailed: () => { outbox.push(...failed.map(o => ({ ...o, tries:0 }))); failed = []; saveBox(); flush(); },
+  window.WOK = { sb, cfg:{ url:SUPABASE_URL, key:SUPABASE_KEY }, ready, user: userApi, activate: activateDevice, emailLogin: () => gate("", true), needsActivation: () => needsAct, isDevice: () => !!staff?.device, sync: { status, flush, failed: () => failed.slice(), retryFailed: () => { outbox.push(...failed.map(o => ({ ...o, tries:0 }))); failed = []; saveBox(); flush(); },
     // sales history was cleared in the back office: drop sales saved on this register before that moment
     purgeBefore: (cols, iso) => { const old = o => cols.includes(o.col) && String(o.at||"") < iso; outbox = outbox.filter(o => !old(o)); failed = failed.filter(o => !old(o)); saveBox();
       cols.forEach(c => { ls.set(cacheKey(c), []); local[c] = withPending(c, []); emit(c, local[c], true); if(listeners[c]) refresh(c); }); status(); } } };

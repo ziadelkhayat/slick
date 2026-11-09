@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="559-1794225623">
+<meta name="slick-build" content="560-1794226088">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -693,7 +693,7 @@ function askYes(msg){ return askDlg({ msg, yes:"Yes", no:"No" }); }
 window.SLICK_OFFLINE = true;</script>
 <script src="supabase.js"></script>
 <script>if(!window.supabase) document.write('<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"><\/script>');</script>
-<script src="wokdb.js?v=36"></script>
+<script src="wokdb.js?v=37"></script>
 <script src="modpick.js?v=20"></script>
 </head>
 <body>
@@ -706,7 +706,7 @@ window.SLICK_OFFLINE = true;</script>
   <div class="pinpad npad" data-npfor="code"><button type="button" data-npk="1" aria-label="1">1</button><button type="button" data-npk="2" aria-label="2">2</button><button type="button" data-npk="3" aria-label="3">3</button><button type="button" data-npk="4" aria-label="4">4</button><button type="button" data-npk="5" aria-label="5">5</button><button type="button" data-npk="6" aria-label="6">6</button><button type="button" data-npk="7" aria-label="7">7</button><button type="button" data-npk="8" aria-label="8">8</button><button type="button" data-npk="9" aria-label="9">9</button><span></span><button type="button" data-npk="0" aria-label="0">0</button><button type="button" data-npk="⌫" aria-label="Delete">⌫</button></div>
   <button class="big" id="actBtn" disabled>Activate</button>
   <div class="err" id="actErr"></div>
-  <a href="index.html#devices" style="color:#5b2bc4;font-size:14px">← Back office</a>
+  <a href="#" id="actEmail" style="color:#5b2bc4;font-size:14px">Sign In With Email Instead</a>
 </form></div>
 
 <div id="lock" class="center hide" style="position:fixed;inset:0;z-index:50;background:var(--bg,#f4f3f8)"><div class="panel">
@@ -856,8 +856,19 @@ document.addEventListener("click", e => {
 
 /* ---------- activation ---------- */
 $("#code").addEventListener("input", e => { e.target.value = e.target.value.replace(/\D/g,""); $("#actBtn").disabled = e.target.value.length!==6; $("#actErr").textContent = ""; });
+function actGate(msg){ show("activate"); $("#actErr").textContent = msg || ""; $("#code").focus(); }
+document.addEventListener("wok:activate", e => actGate(e.detail?.msg));
+if(window.WOK?.needsActivation?.()) actGate();
+$("#actEmail").addEventListener("click", e => { e.preventDefault(); window.WOK?.emailLogin(); });
+const ACT_ERR = { invalid:"That code isn't valid. Check it in Manage → Devices.", used:"This code was already used. Generate a new code in the back office.", offline:"Connect to the internet to activate. After that the register works offline too.", setup:"Code activation isn't set up on the server yet. Sign in with email instead." };
 $("#actForm").addEventListener("submit", async e => {
   e.preventDefault();
+  if(window.WOK?.needsActivation?.()){   // new register, no login: the server checks the code
+    $("#actBtn").disabled = true; $("#actErr").textContent = "";
+    let r; try{ r = await window.WOK.activate($("#code").value, id => store.set("wokDevice", id)); }catch(err){ console.error(err); r = { error: "" }; }
+    if(r.error != null){ $("#actErr").textContent = ACT_ERR[r.error] || "Couldn't activate. " + (r.error || "Try again."); $("#actBtn").disabled = $("#code").value.length!==6; return; }
+    toast("Device activated"); return;
+  }
   const code = $("#code").value, d = S.devices.find(x => x.code===code && !x.deleted);
   if(!navigator.onLine){ $("#actErr").textContent = "Connect to the internet to activate. After that the register works offline too."; return; }
   if(!d){ $("#actErr").textContent = "That code isn't valid. Check it in Manage → Devices."; return; }
@@ -1631,7 +1642,7 @@ $("#modal").addEventListener("click", async e => {
   if(e.target.closest("#goDayEnd")){ closeModal(); return openDayEnd(); }
   if(e.target.closest("#doCloseShift")) return doCloseShift();
   const shc = e.target.closest("[data-shclose]"); if(shc) return closeShiftRemote(shc.dataset.shclose);
-  if(e.target.closest("#deact")){ store.set("wokDevice", null); location.reload(); }
+  if(e.target.closest("#deact")){ store.set("wokDevice", null); if(window.WOK?.isDevice?.()) return window.WOK.user.signOut(); location.reload(); }
 });
 $("#modal").addEventListener("change", e => { if(e.target.id==="pdCc"){ PD && (PD.cc = e.target.value); clearTimeout(pdT); pdT = setTimeout(pdLookup, 50); } });
 $("#modal").addEventListener("input", e => { if(e.target.id==="pdPhone"){ clearTimeout(pdT); pdT = setTimeout(pdLookup, 450); } if(e.target.id==="tender") updChange(); if(e.target.id==="bdQ"){ BQ = e.target.value; const pos = e.target.selectionStart; openBoard(); const q = $("#bdQ"); q.focus(); q.setSelectionRange(pos, pos); return; } if(e.target.id==="ovQ"){ OV.q = e.target.value; const pos = e.target.selectionStart; openIncoming(); const q = $("#ovQ"); q.focus(); q.setSelectionRange(pos, pos); } });
