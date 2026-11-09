@@ -71,17 +71,14 @@
               // a repeatable option: tap the right ¾ of the tile to add one, the left ¼ to take one away
               if(l.multi && !one) return `<label class="qrow qtap${on?" on":""}${(full && !on) || x.oos ? " dis" : ""}" data-qt="${gi}:${esc(x.id)}" role="button" aria-label="${esc(x.name)}: ${n}">${n > 1 ? n + " × " : ""}${esc(x.name)}${x.oos?'<span class="oos">Out of stock</span>':""}<span class="p">${+x.price ? "+" + money(x.price) : ""}</span></label>`;
               const dis = !on && ((full && !one) || x.oos);
-              return `<label class="${dis?"dis":""}"><input type="${one && +l.min >= 1 ? "radio" : "checkbox"}" name="g${gi}" data-g="${gi}" value="${esc(x.id)}" ${on?"checked":""} ${dis?"disabled":""}>${esc(x.name)}${x.oos?'<span class="oos">Out of stock</span>':""}<span class="p">${+x.price ? "+" + money(x.price) : ""}</span></label>`; }).join("") + `</div>`;
+              return `<label class="${dis?"dis":""}"><input type="checkbox" name="g${gi}" data-g="${gi}" value="${esc(x.id)}" ${on?"checked":""} ${dis?"disabled":""}>${esc(x.name)}${x.oos?'<span class="oos">Out of stock</span>':""}<span class="p">${+x.price ? "+" + money(x.price) : ""}</span></label>`; }).join("") + `</div>`;
         }).join("")}${o.edit && o.only!=="mods" && o.only!=="disc" ? `<div class="g"><b>Item note</b></div><textarea data-note rows="2">${esc(note)}</textarea>` : ""}${o.edit && o.allowDiscount && o.only!=="mods" ? `<div class="g"><b>Item discount</b>${discOf() ? `<span>−${money(discOf())}</span>` : ""}</div>
           <div class="dz"><button type="button" data-dt="pct" class="${discT==="pct"?"on":""}">%</button><button type="button" data-dt="amt" class="${discT==="amt"?"on":""}">${esc(o.cur || String(money(0)).replace(/[-\d.,\s]+/g, "").trim() || "USD")}</button><input data-dv inputmode="${touch && PAD ? "none" : "decimal"}" aria-label="${discT==="amt"?"Amount off":"Percent off"}" value="${esc(discV)}"></div>${PAD ? `<div class="smnp">${["1","2","3","4","5","6","7","8","9",".","0","⌫"].map(k => `<button type="button" data-np="${k}" aria-label="${k==="⌫"?"Delete":k}">${k}</button>`).join("")}</div>` : ""}` : ""}</div><footer>${o.qtyEdit ? `<span class="qs" style="display:flex;align-items:center"><button type="button" data-qq="-1" aria-label="Less"${qty <= Math.max(1, +o.minQty||1) ? " disabled" : ""}>−</button><b>${qty}</b><button type="button" data-qq="1" aria-label="More">+</button></span>` : ""}<span class="err" data-err></span>${o.canRemove ? `<button type="button" data-rm class="smc" style="color:#b42318">Remove</button>` : ""}<button type="button" data-x class="smc">Cancel</button><button type="button" data-ok>${o.edit ? "Save" : "Add · " + money(priceOf() * qty)}</button></footer></div>`;
       };
       const redraw = () => { const y = el.querySelector(".b")?.scrollTop; draw(); const b = el.querySelector(".b"); if(b) b.scrollTop = y; };
       const close = v => { el.remove(); document.removeEventListener("keydown", onKey); resolve(v); };
       const onKey = e => { if(e.key === "Escape") close(null); };
-      el.addEventListener("pointerdown", e => { if(e.target.closest("[data-np]")) e.preventDefault();
-        const qt = e.target.closest("[data-qt]"); clearTimeout(lpQt.t); lpQt.done = false; if(!qt) return;
-        lpQt.t = setTimeout(() => { lpQt.done = true; const [g, id] = qt.dataset.qt.split(":"), gi = +g, n = (sel[gi].get(id)||0) - 1; if(n < 0) return; if(n <= 0) sel[gi].delete(id); else sel[gi].set(id, n); redraw(); }, 500); });   // tap adds one, long press takes one away
-      ["pointerup","pointercancel","pointerleave"].forEach(t => el.addEventListener(t, () => clearTimeout(lpQt.t)));
+      el.addEventListener("pointerdown", e => { if(e.target.closest("[data-np]")) e.preventDefault(); });   // repeatable options: right ¾ of the tile adds one, left ¼ takes one away
       el.addEventListener("contextmenu", e => { if(e.target.closest("[data-qt]")) e.preventDefault(); });
       el.addEventListener("focusin", e => { if(e.target.matches("[data-dv]")) e.target.closest(".smp")?.classList.add("np"); });
       el.addEventListener("click", e => {
@@ -93,7 +90,7 @@
         const qq = e.target.closest("[data-qq]"); if(qq){ e.preventDefault(); qty = Math.max(Math.max(1, +o.minQty||1), qty + (+qq.dataset.qq)); return redraw(); }
         if(e.target.closest("[data-rm]")) return close({ remove: true });
         const qt = e.target.closest("[data-qt]");
-        if(qt){ e.preventDefault(); if(lpQt.done){ lpQt.done = false; return; } const d = 1, [g, id] = qt.dataset.qt.split(":"), gi = +g, l = links[gi], x = l.opts.find(y => y.id===id), n = (sel[gi].get(id)||0) + d;
+        if(qt){ e.preventDefault(); const r = qt.getBoundingClientRect(), d = (e.clientX - r.left) < r.width * 0.25 ? -1 : 1, [g, id] = qt.dataset.qt.split(":"), gi = +g, l = links[gi], x = l.opts.find(y => y.id===id), n = (sel[gi].get(id)||0) + d;
           if(d > 0 && (x?.oos || ((+l.max||0) > 0 && cnt(gi) >= +l.max))) return;
           if(n <= 0) sel[gi].delete(id); else sel[gi].set(id, n); return redraw(); }
         const q = e.target.closest("[data-q]");
