@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="602-1794243883">
+<meta name="slick-build" content="603-1794244631">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -669,6 +669,11 @@ input,textarea{-webkit-user-select:text;user-select:text}
 #lock .lkbtn{width:312px;height:80px;border:0;border-radius:10px;background:#eceaf2;font:inherit;font-size:24px;color:#3a3846;cursor:pointer}#lock .lkbtn:active{background:var(--accs,#efeaff)}#lock .lkbtn:disabled{opacity:.45;cursor:not-allowed}
 #lock .lkexit{margin-top:56px}
 #grid#grid,#grid#grid:has(>.prod),#grid#grid:has(>.cbtile){grid-template-columns:repeat(5,var(--tile,1fr))!important;grid-auto-rows:var(--tile,120px)!important;justify-content:start!important;align-content:start!important}
+@media (min-width:701px){.main.main.sqfit{grid-template-columns:minmax(0,1fr) var(--rw)!important}
+#abar.abar{display:flex!important;flex-wrap:nowrap!important;justify-content:space-between!important;overflow:visible!important}
+.sqfit #abar .abtn.abtn{flex:0 0 var(--ab)!important;width:var(--ab)!important;height:var(--ab)!important;max-height:none!important;aspect-ratio:1/1!important;padding:4px!important}
+.sqfit #abar .abtn.abtn span{font-size:clamp(10px,calc(var(--ab) / 7),14px)}
+.sqfit #grid#grid{justify-content:space-between!important;overflow-x:hidden}}
 </style>
 <script>
 /* ---------- naming: menu "products" are called Items; inventory "items" are called Products ----------
@@ -728,7 +733,7 @@ window.SLICK_OFFLINE = true;</script>
 
 <div id="activate" class="center hide"><form class="panel" id="actForm">
   <div class="logo">S</div><h1>Activate this device</h1>
-  <p>Enter the 6-digit activation code from the back office<br>(Manage → Devices).</p>
+  <p>Enter the 6-digit activation code</p>
   <input class="codein" id="code" inputmode="none" maxlength="6" autocomplete="off" aria-label="Activation code">
   <div class="pinpad npad" data-npfor="code"><button type="button" data-npk="1" aria-label="1">1</button><button type="button" data-npk="2" aria-label="2">2</button><button type="button" data-npk="3" aria-label="3">3</button><button type="button" data-npk="4" aria-label="4">4</button><button type="button" data-npk="5" aria-label="5">5</button><button type="button" data-npk="6" aria-label="6">6</button><button type="button" data-npk="7" aria-label="7">7</button><button type="button" data-npk="8" aria-label="8">8</button><button type="button" data-npk="9" aria-label="9">9</button><span></span><button type="button" data-npk="0" aria-label="0">0</button><button type="button" data-npk="⌫" aria-label="Delete">⌫</button></div>
   <button class="big" id="actBtn" disabled>Activate</button>
@@ -889,7 +894,7 @@ $("#code").addEventListener("input", e => { e.target.value = e.target.value.repl
 function actGate(msg){ show("activate"); $("#actErr").textContent = msg || ""; $("#code").focus(); }
 document.addEventListener("wok:activate", e => actGate(e.detail?.msg));
 if(window.WOK?.needsActivation?.()) actGate();
-const ACT_ERR = { wait:"Too many wrong codes. Wait a few minutes, then try again.", invalid:"That code isn't valid. Check it in Manage → Devices.", used:"This code was already used. Generate a new code in the back office.", offline:"Connect to the internet to activate. After that the register works offline too.", setup:"Code activation isn't switched on yet. Ask the owner to finish the setup in Supabase." };
+const ACT_ERR = { wait:"Too many wrong codes. Wait a few minutes, then try again.", invalid:"That code isn't valid.", used:"This code was already used. Generate a new code in the back office.", offline:"Connect to the internet to activate. After that the register works offline too.", setup:"Code activation isn't switched on yet. Ask the owner to finish the setup in Supabase." };
 $("#actForm").addEventListener("submit", async e => {
   e.preventDefault();
   if(window.WOK?.needsActivation?.()){   // new register, no login: the server checks the code
@@ -905,7 +910,7 @@ $("#actForm").addEventListener("submit", async e => {
     $("#actBtn").disabled = true; let r; try{ r = await window.WOK.activate(code, id => store.set("wokDevice", id)); }catch(err){ r = { error: "" }; }
     if(r.error == null) return location.reload();
     $("#actErr").textContent = ACT_ERR[r.error] || "Couldn't activate. " + (r.error || "Try again."); $("#actBtn").disabled = false; return; }
-  if(!d){ $("#actErr").textContent = "That code isn't valid. Check it in Manage → Devices."; return; }
+  if(!d){ $("#actErr").textContent = "That code isn't valid."; return; }
   if(d.activatedAt){ $("#actErr").textContent = "This code was already used. Generate a new code in the back office."; return; }
   $("#actBtn").disabled = true;
   try{ await db.collection("devices").doc(d.id).update({ activatedAt:new Date().toISOString(), lastSeen:new Date().toISOString() }); store.set("wokDevice", d.id); if(!S.devices.some(x => x.id===d.id)) return location.reload(); startApp(d.id); toast("Device activated"); }
@@ -1306,7 +1311,7 @@ function renderCart(){
   if(ro) $("#extra").querySelectorAll("input,select").forEach(x => x.disabled = true);
   const grew = cart.length > (renderCart.n || 0); renderCart.n = cart.length;
   $("#lines").innerHTML = cart.length ? cart.map((i,ix)=>`<div class="line" data-edit="${ix}" title="${ro?"":"Tap to edit"}" style="cursor:pointer"><span class="n"><b class="lq">${i.qty}×</b> ${esc(i.name)}${i.saved?`<span class="sent">${ro ? "" : `${i.saved} sent to kitchen`}</span>`:""}${modList(i)}${+i.disc?`<small class="idisc" style="display:flex;align-items:center;gap:6px;font-size:12px;color:#b45309">Discount −${usd(i.disc)}${ro?"":`<button type="button" class="dlx" data-idiscx="${ix}" aria-label="Remove item discount">×</button>`}</small>`:""}</span><span class="p">${usd(lineNet(i))}<small class="each">${usd(i.price)} each</small></span>
-    <span></span></div>`).join("") : `<div class="empty">Tap items to start an order</div>`;
+    <span></span></div>`).join("") : `<div class="empty"></div>`;
   // voided items stay on the order, struck out
   if(eo){ const vd = eo.status==="void" ? [] : (eo.voidedItems||[]);
     if(eo.status==="void") $("#lines").querySelectorAll(".line").forEach(l => l.classList.add("vd"));
@@ -1401,9 +1406,29 @@ function voidSent(ix){
 
 /* ---------- events ---------- */
 
-(function tileFit(){ const g = $("#grid"); if(!g || !window.ResizeObserver) return;
-  const fit = () => { const w = g.clientWidth, h = g.clientHeight; if(!w || !h) return; const t = Math.floor(Math.min((w - 40) / 5, (h - 30) / 4)); if(t > 30) g.style.setProperty("--tile", t + "px"); };
-  new ResizeObserver(fit).observe(g); fit(); })();
+(function tileFit(){ const g = $("#grid"), ab = $("#abar"), rs = $(".rside"), main = $(".main"); if(!g || !ab || !rs || !main || !window.ResizeObserver) return;
+  // one rule on every screen: top buttons and menu tiles are perfect squares that fill the menu side edge to edge
+  // (buttons in one row, tiles 5 across x 4 down); the menu side takes exactly the width that makes that fit the height, the cart takes the rest
+  const px = v => parseFloat(v) || 0; let busy = false;
+  const fit = () => { if(busy) return; busy = true; try{
+    if(innerWidth <= 700){ main.classList.remove("sqfit"); return; }
+    const btns = [...ab.children].filter(b => b.offsetParent !== null), n = Math.max(btns.length, 1);
+    const gs = getComputedStyle(g), as = getComputedStyle(ab), ms = getComputedStyle(main);
+    const gg = px(gs.columnGap) || 10, ag = px(as.columnGap) || 8, gpw = px(gs.paddingLeft) + px(gs.paddingRight), gph = px(gs.paddingTop) + px(gs.paddingBottom), apw = px(as.paddingLeft) + px(as.paddingRight), aph = px(as.paddingTop) + px(as.paddingBottom);
+    const rsW = rs.getBoundingClientRect().width, H = rs.clientHeight; if(!rsW || !H) return;
+    const owG = rsW - (g.clientWidth - gpw), owA = rsW - (ab.clientWidth - apw);      // side room around the grid / the button row
+    const fixedH = H - (ab.offsetHeight - aph) - (g.clientHeight - gph);                  // search bar, bottom bar, gaps: everything that isn't buttons or tiles
+    const room = main.clientWidth - px(ms.paddingLeft) - px(ms.paddingRight) - px(ms.columnGap);
+    let W = (H - fixedH - 3*gg + (owA + (n-1)*ag)/n + 4*(owG + 4*gg)/5) / (1/n + 4/5);
+    W = Math.max(room * 0.36, Math.min(room * 0.7, W));
+    const b = Math.floor((W - owA - (n-1)*ag) / n), t = Math.floor(Math.min((W - owG - 4*gg) / 5, (H - fixedH - b - 3*gg) / 4));
+    if(b < 30 || t < 30) return;
+    const key = [Math.round(W), b, t].join(); if(key === fit.k) return; fit.k = key; fit.n = (fit.n||0) + 1;
+    main.classList.add("sqfit"); main.style.setProperty("--rw", Math.round(W) + "px"); ab.style.setProperty("--ab", b + "px"); g.style.setProperty("--tile", t + "px");
+    if(fit.n < 6) requestAnimationFrame(fit);   // measure again once the new sizes are on screen (settles in a pass or two)
+  } finally { busy = false; } };
+  let raf = 0; const soon = () => { fit.n = 0; cancelAnimationFrame(raf); raf = requestAnimationFrame(fit); };
+  new ResizeObserver(soon).observe(main); new MutationObserver(soon).observe(ab, { attributes:true, subtree:true, attributeFilter:["class","style"] }); addEventListener("resize", soon); fit(); })();
 $("#grid").addEventListener("click", e => { const b = e.target.closest("[data-cat]"); if(b){ cat = b.dataset.cat; renderMenu(); $(".rside .menu").scrollTop = 0; } });
 $("#mcats").addEventListener("click", e => { const b = e.target.closest("[data-cat]"); if(b){ cat = b.dataset.cat; $("#q").value = ""; renderMenu(); $(".rside .menu").scrollTop = 0; b.scrollIntoView({ block:"nearest", inline:"nearest" }); } });
 $("#q").addEventListener("input", () => { $("#qx").style.visibility = $("#q").value ? "visible" : "hidden"; renderMenu(); });
