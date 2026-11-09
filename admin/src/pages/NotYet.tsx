@@ -1,14 +1,21 @@
 import { useLocation } from "react-router-dom";
-import { TITLES } from "../nav";
+import { PageHead } from "../components/PageHead";
+import { screenId } from "../components/Layout";
+import { SCREENS } from "../screens";
 
-// Screens not rebuilt in React yet: open the same screen in the current back office.
+// Screens not rebuilt in React yet: same tabs and title, and a way to open the screen in the current back office.
 export function NotYet() {
-  const id = useLocation().pathname.replace(/^\//, "") || "dashboard";
+  const id = screenId(useLocation().pathname);
+  const title = SCREENS[id]?.title ?? "This screen";
   return (
-    <div className="panel empty-state">
-      <h2>{TITLES[id] ?? "This screen"} isn't on the new back office yet</h2>
-      <p>It still works in the current back office while it's being rebuilt.</p>
-      <a className="btn primary" href={`../index.html#${id}`}>Open in Current Back Office</a>
-    </div>
+    <>
+      <PageHead id={id} />
+      <div className="card">
+        <div className="empty">
+          <p className="note">{title} hasn't moved to the new back office yet.</p>
+          <a className="btn pri" href={`../index.html#${id}`}>Open in Current Back Office</a>
+        </div>
+      </div>
+    </>
   );
 }

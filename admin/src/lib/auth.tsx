@@ -11,7 +11,7 @@ type AuthState = {
   staff: Staff | null;
   company: Company | null;
   error: string | null;
-  signIn: (email: string, password: string) => Promise<string | null>;
+  signIn: (acct: string, email: string, password: string) => Promise<string | null>;
   signOut: () => Promise<void>;
 };
 
@@ -54,9 +54,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => sub.subscription.unsubscribe();
   }, [loadStaff]);
 
-  const signIn = async (email: string, password: string) => {
+  // same check as the current back office: the business's account number (given by Slick) must match
+  const signIn = async (acct: string, email: string, password: string) => {
+    const wrong = "Wrong account number, email or password.";
+    const a = acct.replace(/\s+/g, "");
     const { error } = await sb.auth.signInWithPassword({ email: email.trim(), password });
-    return error ? "The email or password is wrong." : null;
+    if (error) return error.message === "Invalid login credentials" ? wrong : error.message;
+    try {
+      const [{ data: s }, { data: c }] = await Promise.all([
+        sb.from("settings").select("data").eq("id", "company").maybeSingle(),
+        sb.from("companies").select("account_no").maybeSingle(),
+      ]);
+      const want = String(c?.account_no || s?.data?.accountNo || "").replace(/\s+/g, "");
+      if (want && want !== a) { await sb.auth.signOut(); return wrong; }
+    } catch { /* keep the old behaviour: no number set means no check */ }
+    try { localStorage.setItem("slick_acct", JSON.stringify(a)); } catch { /* private mode */ }
+    return null;
   };
   const signOut = async () => { await sb.auth.signOut(); };
 

@@ -7,7 +7,7 @@ import { Layout } from "./components/Layout";
 import { SignIn } from "./pages/SignIn";
 import { Brands } from "./pages/Brands";
 import { NotYet } from "./pages/NotYet";
-import "./styles.css";
+import "./legacy.css";   // the current back office's stylesheet, so every screen looks the same
 
 const queries = new QueryClient({ defaultOptions: { queries: { staleTime: 30_000, refetchOnWindowFocus: true } } });
 

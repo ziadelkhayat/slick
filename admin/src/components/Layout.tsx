@@ -1,74 +1,97 @@
-import { useState } from "react";
-import { NavLink, Outlet, useLocation } from "react-router-dom";
-import { NAV, TITLES, groupOf, isGroup, isLeaf } from "../nav";
+import { useEffect, useRef, useState } from "react";
+import { Link, Outlet, useLocation } from "react-router-dom";
+import { SIDE, SCREENS } from "../screens";
 import { useAuth } from "../lib/auth";
-import { Icon } from "./Icon";
+import { Svg, ICON } from "./Svg";
 
-// Foodics-style shell: dark sidebar with the main sections; a section with screens opens them as tabs across the top.
+export const screenId = (pathname: string) => pathname.replace(/^\//, "") || "dashboard";
+
+// Same page frame as the current back office (index.html): .app > .side + .main > .top + .content
 export function Layout() {
-  const { staff, company, signOut } = useAuth();
+  const { staff, company, session, signOut } = useAuth();
   const { pathname } = useLocation();
-  const screen = pathname.replace(/^\//, "") || "dashboard";
-  const group = groupOf(screen);
-  const [open, setOpen] = useState<string | null>(group?.title ?? null);
+  const id = screenId(pathname);
+  const sideOn = SCREENS[id]?.side ?? id;
+
+  // "Menu" is the only sidebar entry with sub-entries (Menu Builder, Sales Channels)
+  const groupStart = SIDE.findIndex((s) => s.href === null);
+  const groupKids = SIDE.slice(groupStart + 1, groupStart + 3);
+  const groupHasCurrent = groupKids.some((k) => k.href === sideOn);
+  const [groupOpen, setGroupOpen] = useState(groupHasCurrent);
+  useEffect(() => { if (groupHasCurrent) setGroupOpen(true); }, [groupHasCurrent]);
+
+  // phone: the sidebar slides in
+  const [navOpen, setNavOpen] = useState(false);
+  useEffect(() => { document.body.classList.toggle("navopen", navOpen); }, [navOpen]);
+  useEffect(() => setNavOpen(false), [pathname]);
+
+  // account menu (top right)
+  const [acctOpen, setAcctOpen] = useState(false);
+  const acctRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const close = (e: MouseEvent) => { if (!acctRef.current?.contains(e.target as Node)) setAcctOpen(false); };
+    document.addEventListener("click", close);
+    return () => document.removeEventListener("click", close);
+  }, []);
+
+  const who = company?.name ?? staff?.name ?? "";
+  const initials = who.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join("").toUpperCase();
+  const roleLabel = staff?.role === "owner" ? "Owner · full access" : staff?.role === "admin" ? "Admin" : staff?.role === "agent" ? "Agent" : "";
+
+  const link = (s: (typeof SIDE)[number], cls = "") => (
+    <Link key={s.text} to={"/" + s.href} className={[cls, s.href === sideOn ? "on" : ""].join(" ").trim()}>
+      <Svg paths={s.svg} />{s.text}
+    </Link>
+  );
 
   return (
-    <div className="shell">
+    <div className="app">
       <aside className="side">
         <div className="brand">
-          <span className="logo" aria-hidden>S</span>
-          <div>
-            <b>Slick</b>
-            <small>{company?.name ?? ""}</small>
-          </div>
+          <div className="logo">S</div>
+          <div><b>Slick</b><small>Restaurant ERP</small></div>
         </div>
-        <nav>
-          {NAV.map((n) =>
-            isGroup(n) ? (
-              <div key={n.title} className={"grp" + (group?.title === n.title ? " cur" : "")}>
-                <button className="item" onClick={() => setOpen(open === n.title ? null : n.title)}>
-                  <Icon name={n.icon} /> <span>{n.title}</span>
-                  <span className={"chev" + (open === n.title ? " up" : "")}><Icon name="chevron" size={14} /></span>
+        <nav className="nav" id="nav">
+          {SIDE.map((s, i) => {
+            if (i > groupStart && i <= groupStart + groupKids.length) return null;
+            if (s.href !== null) return link(s);
+            return (
+              <div key={s.text} className={"grp" + (groupOpen ? " open" : "") + (groupHasCurrent ? " on" : "")}>
+                <button type="button" onClick={() => setGroupOpen(!groupOpen)}>
+                  <Svg paths={s.svg} />{s.text}<span className="chev">›</span>
                 </button>
-                {open === n.title && (
-                  <div className="kids">
-                    {n.kids.filter(isLeaf).map((k) => (
-                      <NavLink key={k.id} to={"/" + k.id} className="kid">{k.title}</NavLink>
-                    ))}
-                  </div>
-                )}
+                <div className="sub">{groupKids.map((k) => link(k))}</div>
               </div>
-            ) : (
-              <NavLink key={n.id} to={"/" + n.id} className="item">
-                <Icon name={n.icon} /> <span>{n.title}</span>
-              </NavLink>
-            ),
-          )}
+            );
+          })}
         </nav>
-        <div className="me">
-          <div>
-            <b>{staff?.name ?? "Signed In"}</b>
-            <small>{staff ? staff.role[0].toUpperCase() + staff.role.slice(1) : ""}</small>
-          </div>
-          <button className="icon-btn" title="Sign Out" onClick={signOut}><Icon name="logout" /></button>
-        </div>
       </aside>
 
-      <main className="main">
-        <header className="top">
-          <h1>{TITLES[screen] ?? "Slick"}</h1>
-          {group && (
-            <div className="tabs">
-              {group.kids.map((k, i) =>
-                isLeaf(k) ? <NavLink key={k.id} to={"/" + k.id} className="tab">{k.title}</NavLink> : <span key={i} className="tab-h">{k.heading}</span>,
-              )}
+      <div className="main">
+        <div className="top">
+          <button className="menuBtn" type="button" aria-label="Open menu" onClick={(e) => { e.stopPropagation(); setNavOpen(!navOpen); }}>
+            <Svg paths={ICON.menu} />
+          </button>
+          <div className="sp" />
+          <div className="acct" ref={acctRef}>
+            <button type="button" className="acctbtn" id="acctBtn" aria-haspopup="menu" aria-expanded={acctOpen} onClick={() => setAcctOpen(!acctOpen)}>
+              <span className="avatar" id="avatar" aria-hidden="true">{initials}</span><span id="who">{who}</span><span className="chev" aria-hidden="true">▾</span>
+            </button>
+            <div className="acctmenu" id="acctMenu" role="menu" hidden={!acctOpen}>
+              <div className="acchead">
+                <b>{staff?.name ?? ""}</b>
+                <span className="note">{session?.user.email ?? ""}</span>
+                {roleLabel && <span className="tag on" style={{ marginTop: 6, alignSelf: "flex-start" }}>{roleLabel}</span>}
+              </div>
+              <a href="../index.html#account" role="menuitem">Account settings</a>
+              <button type="button" role="menuitem" onClick={signOut}>Sign out</button>
             </div>
-          )}
-        </header>
-        <section className="page">
+          </div>
+        </div>
+        <div className="content" id="view">
           <Outlet />
-        </section>
-      </main>
+        </div>
+      </div>
     </div>
   );
 }

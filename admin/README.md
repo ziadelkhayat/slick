@@ -12,4 +12,6 @@ npm run dev      # local preview
 npm run build    # output in admin/dist (the GitHub workflow copies it to site/admin)
 ```
 
-Rebuilt so far: sign-in, sidebar and tabs (same menu as today), Manage → Brands.
+Looks exactly like the current back office: it uses the same stylesheet (`src/legacy.css`, copied from index.html), the same page structure, menu, tabs, icons, titles and sign-in (account number + email + password). `src/screens.ts` holds every screen's tabs, title, icon and header buttons, taken from the current back office.
+
+Rebuilt so far: sign-in, sidebar, top bar and account menu, section tabs, Manage → Brands. Other screens show their tabs and title and open in the current back office.
