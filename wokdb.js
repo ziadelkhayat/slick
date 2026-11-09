@@ -4,7 +4,12 @@
 (function(){
   const SUPABASE_URL = "https://akrezmxgtorkuwxxctyk.supabase.co";
   const SUPABASE_KEY = "sb_publishable_tL62keD2HdovsMpI8XAkWg_TPdjaUVh";   // public key, safe in the browser
-  const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: true, autoRefreshToken: true } });
+  // a POS tablet activated with its code carries a secret device key instead of any login
+  const lsRaw = k => { try{ return localStorage.getItem(k); }catch(e){ return null; } };
+  const DEVKEY = window.SLICK_OFFLINE ? lsRaw("slick_devkey") : null, DEVTOPIC = DEVKEY ? lsRaw("slick_devtopic") : null;
+  const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, DEVKEY
+    ? { auth: { persistSession: false, autoRefreshToken: false, storageKey: "slick-device-noauth" }, global: { headers: { "x-slick-device": DEVKEY } } }
+    : { auth: { persistSession: true, autoRefreshToken: true } });
 
   // app collection -> table, and which columns each table accepts
   const TABLE = { inv_items: "inventory_items", zones: "delivery_zones", inv_categories: "inventory_categories", inv_docs: "inventory_docs", users: "staff_users" };
@@ -109,6 +114,8 @@
     timers[col] = setTimeout(async () => {
       try{
         const rows = await fetchAll(col);
+        if(DEVKEY && !rows.length && (col === "devices" || col === "branches")){   // nothing visible: was this register deactivated?
+          const r = await sb.rpc("slick_device_ok"); if(!r.error && r.data === false){ try{ ["slick_devkey","slick_devtopic","slick_staff","wokDevice"].forEach(k => localStorage.removeItem(k)); }catch(_){} location.reload(); return; } }
         if(OFF){ ls.set(cacheKey(col), rows); if(!online){ online = true; status(); } }
         local[col] = OFF ? withPending(col, rows) : rows;
         emit(col, local[col], false);
@@ -120,7 +127,18 @@
   }
   const channels = {}, rtOk = {};
   // live updates: every change in the database reaches every open screen; a dropped connection reconnects by itself
+  // device key: one secret "bell" channel; each ring names the table that changed
+  let bell = null;
+  function liveBell(){
+    if(bell){ try{ sb.removeChannel(bell); }catch(e){} }
+    const setAll = v => Object.keys(listeners).forEach(c => rtOk[c] = v);
+    bell = sb.channel(DEVTOPIC || "slick-none", { config: { broadcast: { self: false } } })
+      .on("broadcast", { event: "chg" }, m => { const t = m?.payload?.t; Object.keys(listeners).forEach(c => { if(listeners[c].length && (!t || tableOf(c) === t)) refresh(c); }); })
+      .subscribe(st => { if(st === "SUBSCRIBED"){ if(bell._was) Object.keys(listeners).forEach(c => listeners[c].length && refresh(c)); bell._was = true; setAll(true); }
+        else if(st === "CHANNEL_ERROR" || st === "TIMED_OUT" || st === "CLOSED"){ setAll(false); clearTimeout(timers._bell); timers._bell = setTimeout(liveBell, 3000); } });
+  }
   function live(col){
+    if(DEVKEY){ if(!bell) liveBell(); else if(bell.state === "joined") rtOk[col] = true; return; }
     const t = tableOf(col);
     if(channels[col]){ try{ sb.removeChannel(channels[col]); }catch(e){} }
     rtOk[col] = false;
@@ -148,7 +166,7 @@
     if(!OFF || syncing || !outbox.length) return status();
     syncing = true; status();
     try{
-      const { data: { session }, error: se } = await sb.auth.getSession();       // refreshes an expired token when back online
+      const { data: { session }, error: se } = DEVKEY ? { data: { session: true }, error: null } : await sb.auth.getSession();       // refreshes an expired token when back online
       if(!session){ if(se && isNet(se)){ online = false; } else if(navigator.onLine){ needsLogin = true; gate("Your session ended. Sign in again to send the saved sales."); } return; }
       needsLogin = false;
       const touched = new Set();
@@ -255,14 +273,15 @@
   // activate a new register with only its 6-digit code: anonymous login + server check of the code
   async function activateDevice(code, onId){
     if(!navigator.onLine) return { error: "offline" };
-    let { data: { session } } = await sb.auth.getSession();
-    if(session && !session.user?.is_anonymous){ try{ await sb.auth.signOut(); }catch(_){} session = null; if(OFF) localStorage.removeItem("slick_staff"); }   // a register is never tied to a person's login
-    if(!session){ const r = await sb.auth.signInAnonymously(); if(r.error) return { error: isNet(r.error) ? "offline" : /anonymous/i.test(r.error.message) ? "setup" : r.error.message }; }
-    const { data, error } = await sb.rpc("slick_activate_device", { p_code: code });
-    if(error) return { error: isNet(error) ? "offline" : (error.code === "PGRST202" || /slick_activate_device/.test(error.message)) ? "setup" : error.message };
+    const { data: { session } } = await sb.auth.getSession();
+    if(session){ try{ await sb.auth.signOut({ scope: "local" }); }catch(_){} }   // a register is never tied to a login
+    const anon = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: false, autoRefreshToken: false, storageKey: "slick-activate" } });
+    const { data, error } = await anon.rpc("slick_activate_device_key", { p_code: code });
+    if(error) return { error: isNet(error) ? "offline" : (error.code === "PGRST202" || /slick_activate_device_key/.test(error.message)) ? "setup" : error.message };
     if(!data || data.error) return { error: data?.error || "invalid" };
+    try{ localStorage.setItem("slick_devkey", data.key); localStorage.setItem("slick_devtopic", data.topic || ""); localStorage.removeItem("slick_staff"); }catch(_){ return { error: "Couldn't save on this tablet." }; }
     needsAct = false; if(onId) onId(data.id);
-    await afterLogin(); return { id: data.id };
+    setTimeout(() => location.reload(), 300); return { id: data.id };
   }
   function useStaff(s){
     staff = s; if(OFF) ls.set("slick_staff", s);
@@ -290,6 +309,15 @@
     useStaff({ ...data, email: user.email });
   }
   (async () => {
+    if(DEVKEY){   // an activated register: no login, its key is checked by the database on every request
+      const dev = { user_id: "device", role: "cashier", name: "Register", device: true };
+      let ok = null; try{ const r = await sb.rpc("slick_device_ok"); if(!r.error) ok = !!r.data; else if(!isNet(r.error)) ok = null; }catch(e){}
+      if(ok === false){ try{ localStorage.removeItem("slick_devkey"); localStorage.removeItem("slick_devtopic"); localStorage.removeItem("wokDevice"); }catch(_){}
+        return gate("This device was deactivated. Enter a new activation code."); }
+      if(ok === null && navigator.onLine){ /* server check unavailable: keep working, the next ring or poll will tell */ }
+      if(!navigator.onLine){ online = false; status(); }
+      return useStaff(dev);
+    }
     const cached = OFF ? ls.get("slick_staff", null) : null;
     let res; try{ res = await sb.auth.getSession(); }catch(e){ res = { data:{ session:null }, error:e }; }
     const session = res.data?.session;
@@ -299,7 +327,8 @@
   })();
 
   const userApi = { id: async () => staff?.user_id, email: async () => staff?.email || "", name: async () => staff?.name || staff?.email, role: async () => staff?.role, branchId: async () => staff?.branch_id,
-    canEdit: async () => ["owner","admin"].includes(staff?.role), isOwner: async () => staff?.role === "owner", signOut: async () => { if(OFF && outbox.length && !(await (window.askYes ? window.askYes(outbox.length + " change(s) haven't synced yet. Sign out anyway? They stay saved on this device.") : Promise.resolve(confirm(outbox.length + " change(s) haven't synced yet. Sign out anyway? They stay saved on this device."))))) return; await sb.auth.signOut(); if(OFF) localStorage.removeItem("slick_staff"); location.reload(); } };
+    canEdit: async () => ["owner","admin"].includes(staff?.role), isOwner: async () => staff?.role === "owner", signOut: async () => { if(DEVKEY && staff?.device){ if(OFF && outbox.length && !(await (window.askYes ? window.askYes(outbox.length + " change(s) haven't synced yet. Deactivate anyway?") : Promise.resolve(confirm("Deactivate anyway?"))))) return; try{ ["slick_devkey","slick_devtopic","slick_staff"].forEach(k => localStorage.removeItem(k)); }catch(_){} location.reload(); return; }
+      if(OFF && outbox.length && !(await (window.askYes ? window.askYes(outbox.length + " change(s) haven't synced yet. Sign out anyway? They stay saved on this device.") : Promise.resolve(confirm(outbox.length + " change(s) haven't synced yet. Sign out anyway? They stay saved on this device."))))) return; await sb.auth.signOut(); if(OFF) localStorage.removeItem("slick_staff"); location.reload(); } };
 
   window.WOK = { sb, cfg:{ url:SUPABASE_URL, key:SUPABASE_KEY }, ready, user: userApi, activate: activateDevice, emailLogin: () => gate("", true), needsActivation: () => needsAct, isDevice: () => !!staff?.device, sync: { status, flush, failed: () => failed.slice(), retryFailed: () => { outbox.push(...failed.map(o => ({ ...o, tries:0 }))); failed = []; saveBox(); flush(); },
     // sales history was cleared in the back office: drop sales saved on this register before that moment
