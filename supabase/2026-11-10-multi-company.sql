@@ -1,4 +1,4 @@
--- Slick: multi-company. Every business record now belongs to a company, and each company only ever sees its own data.
+-- Slick: multi-company. APPLIED to the live database (akrezmxgtorkuwxxctyk) on 2026-11-09. Every business record now belongs to a company, and each company only ever sees its own data.
 -- Eat Out (The Wok) becomes the first company and keeps all existing data. Existing pages keep working unchanged:
 -- new rows get the signed-in user's company automatically (or, for the public ordering page, the company of the branch).
 -- Safe to run once on the live database after supabase/schema-live-2026-11-09.sql. Runs as one transaction.
