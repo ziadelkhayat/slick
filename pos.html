@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="604-1794244792">
+<meta name="slick-build" content="605-1794259114">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -668,13 +668,15 @@ input,textarea{-webkit-user-select:text;user-select:text}
 #lock .lkhi{font-size:22px;color:#3a3846;margin:0}#lock .lkst{font-size:14px;color:var(--mut,#8a8799);margin:-10px 0 8px}
 #lock .lkbtn{width:312px;height:80px;border:0;border-radius:10px;background:#eceaf2;font:inherit;font-size:24px;color:#3a3846;cursor:pointer}#lock .lkbtn:active{background:var(--accs,#efeaff)}#lock .lkbtn:disabled{opacity:.45;cursor:not-allowed}
 #lock .lkexit{margin-top:56px}
-#grid#grid,#grid#grid:has(>.prod),#grid#grid:has(>.cbtile){grid-template-columns:repeat(5,var(--tile,1fr))!important;grid-auto-rows:var(--tile,120px)!important;justify-content:start!important;align-content:start!important}
+#grid#grid,#grid#grid:has(>.prod),#grid#grid:has(>.cbtile){grid-template-columns:repeat(6,var(--tile,1fr))!important;grid-auto-rows:var(--tile,120px)!important;justify-content:start!important;align-content:start!important}
 @media (min-width:701px){.main.main.sqfit{grid-template-columns:minmax(0,1fr) var(--rw)!important}
 #abar.abar{display:flex!important;flex-wrap:nowrap!important;justify-content:space-between!important;overflow:visible!important}
 .sqfit #abar .abtn.abtn{flex:0 0 var(--ab)!important;width:var(--ab)!important;height:var(--ab)!important;max-height:none!important;aspect-ratio:1/1!important;padding:4px!important}
 .sqfit #abar .abtn.abtn span{font-size:clamp(10px,calc(var(--ab) / 7),14px)}
 .sqfit #grid#grid{justify-content:space-between!important;overflow-x:hidden}}
 .netst{display:inline-flex;align-items:center;gap:6px;flex:none;padding:5px 10px;border-radius:999px;font-size:12.5px;font-weight:600;line-height:1;background:#e7f6ec;color:#1e7b3c;white-space:nowrap}.netst i{width:8px;height:8px;border-radius:50%;background:#22a04b}.netst.off{background:#fde8e8;color:#b42318}.netst.off i{background:#d92d20}
+#toast.toast{top:0!important;bottom:auto!important;left:50%!important;width:min(560px,92vw);box-sizing:border-box;text-align:center;background:#e5383b!important;color:#fff!important;font-size:15px;font-weight:600;padding:14px 20px!important;border-radius:0 0 12px 12px!important;box-shadow:0 8px 24px rgba(229,56,59,.28)!important;transform:translate(-50%,-110%)!important;opacity:1!important;transition:transform .3s cubic-bezier(.2,.8,.2,1)!important}
+#toast.toast.show{transform:translate(-50%,0)!important}#toast.toast.ok{background:#1f9d55!important;box-shadow:0 8px 24px rgba(31,157,85,.28)!important}
 </style>
 <script>
 /* ---------- naming: menu "products" are called Items; inventory "items" are called Products ----------
@@ -804,7 +806,7 @@ const noHints = () => document.querySelectorAll("input[placeholder], textarea[pl
 let nhT = null; new MutationObserver(() => { if(!nhT) nhT = requestAnimationFrame(() => { nhT = null; noHints(); }); }).observe(document.documentElement, { childList:true, subtree:true });
 // status / confirmation messages aren't shown (only problems and instructions are)
 const QUIET = /^(Syncing|Signed in as|Logged out|Device activated|Till opened|Till closed · drawer balanced|Till closed$|Tags (set|saved)|Printer (saved|deleted)|Customer details saved|(Item )?[Dd]iscount removed|Note (added|removed)|All offline sales synced|Users synced|Retrying|Sales history was cleared|Saved on this tablet · will sync|Shift (opened|closed)$|Synced$|Saved$|.* clocked (in|out)$|Till Closed$|Sale complete|Saved · order|Order held as|Order H\d+ retrieved|Printed$|Sent to \d+ printers|Order #\S+ sent to the kitchen|Voided|Refund ticket created|Day ended|Saved on this tablet · will sync|Offline ·|Still offline|Syncing data)/;
-let tt; const toast = m => { if(QUIET.test(String(m||""))) return; const t=$("#toast"); t.textContent=m; t.classList.add("show"); clearTimeout(tt); tt=setTimeout(()=>t.classList.remove("show"),2400); };
+let tt; const toast = m => { if(QUIET.test(String(m||""))) return; const t=$("#toast"); t.textContent=m; t.classList.toggle("ok", /^(New |Order .* accepted|.*accepted aut)/.test(String(m))); t.classList.add("show"); clearTimeout(tt); tt=setTimeout(()=>t.classList.remove("show"),3000); };   // messages drop in from the top in red, like Foodics
 const store = { get(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } }, set(k,v){ try{ v==null?localStorage.removeItem(k):localStorage.setItem(k,v); }catch(e){} } };
 
 let db = null;
@@ -1414,7 +1416,7 @@ function voidSent(ix){
 
 (function tileFit(){ const g = $("#grid"), ab = $("#abar"), rs = $(".rside"), main = $(".main"); if(!g || !ab || !rs || !main || !window.ResizeObserver) return;
   // one rule on every screen: top buttons and menu tiles are perfect squares that fill the menu side edge to edge
-  // (buttons in one row, tiles 5 across x 4 down); the menu side takes exactly the width that makes that fit the height, the cart takes the rest
+  // (buttons in one row, tiles 6 across x 4 down); the menu side takes exactly the width that makes that fit the height, the cart takes the rest
   const px = v => parseFloat(v) || 0; let busy = false;
   const fit = () => { if(busy) return; busy = true; try{
     if(innerWidth <= 700){ main.classList.remove("sqfit"); return; }
@@ -1425,9 +1427,10 @@ function voidSent(ix){
     const owG = rsW - (g.clientWidth - gpw), owA = rsW - (ab.clientWidth - apw);      // side room around the grid / the button row
     const fixedH = H - (ab.offsetHeight - aph) - (g.clientHeight - gph);                  // search bar, bottom bar, gaps: everything that isn't buttons or tiles
     const room = main.clientWidth - px(ms.paddingLeft) - px(ms.paddingRight) - px(ms.columnGap);
-    let W = (H - fixedH - 3*gg + (owA + (n-1)*ag)/n + 4*(owG + 4*gg)/5) / (1/n + 4/5);
+    const C = 6;   // tiles across (4 down)
+    let W = (H - fixedH - 3*gg + (owA + (n-1)*ag)/n + 4*(owG + (C-1)*gg)/C) / (1/n + 4/C);
     W = Math.max(room * 0.36, Math.min(room * 0.7, W));
-    const b = Math.floor((W - owA - (n-1)*ag) / n), t = Math.floor(Math.min((W - owG - 4*gg) / 5, (H - fixedH - b - 3*gg) / 4));
+    const b = Math.floor((W - owA - (n-1)*ag) / n), t = Math.floor(Math.min((W - owG - (C-1)*gg) / C, (H - fixedH - b - 3*gg) / 4));
     if(b < 30 || t < 30) return;
     const key = [Math.round(W), b, t].join(); if(key === fit.k) return; fit.k = key; fit.n = (fit.n||0) + 1;
     main.classList.add("sqfit"); main.style.setProperty("--rw", Math.round(W) + "px"); ab.style.setProperty("--ab", b + "px"); g.style.setProperty("--tile", t + "px");
