@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="558-1794182440">
+<meta name="slick-build" content="559-1794225623">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -625,6 +625,23 @@ input,textarea{-webkit-user-select:text;user-select:text}
 /* payment window fits the screen without scrolling: the keypad shrinks to the space left */#modal.paym2{max-height:calc(100dvh - 24px)!important}.payx{max-height:calc(100dvh - 24px)!important;height:auto}.payr{padding:18px 20px!important;gap:10px!important;overflow:hidden!important;min-height:0}.payr #cashBox{flex:1 1 auto;min-height:0;gap:9px!important}.payr .kpad{flex:1 1 248px;min-height:150px;grid-auto-rows:1fr}.payr .kpad button{height:auto!important;min-height:34px}.payr .quick button{min-height:42px!important;padding:6px 4px!important}.payr .tender{min-height:48px!important;height:52px!important}.payr .change{align-items:center}.payr .chgv{width:auto!important;min-width:120px;white-space:nowrap}.payr .payact .btn{min-height:54px!important}
 /* New order (pickup & delivery): everything fits on the tablet screen without scrolling */.pdcols .npad{margin-top:6px!important;gap:6px!important}.pdcols .npad button{height:42px!important;min-height:0!important}#pdErr:empty{display:none}.pdcols .f{margin-bottom:8px!important}.pdcols .f>label{margin-bottom:4px!important}.pdcols .tseg button{min-height:44px!important;padding-top:8px!important;padding-bottom:8px!important}.pdcols .rchips button{min-height:40px!important;padding-top:6px!important;padding-bottom:6px!important}.pdcols input,.pdcols select{min-height:44px!important;height:44px}
 #lines .line .lq{color:var(--acc,#6a4cf5);font-weight:800;margin-right:2px}#lines .line>.p:first-of-type{grid-row:auto!important}
+/* sign-in screen: wordmark, 5 PIN boxes, keypad with a wide C, Sync Users, tablet info bottom-left */
+#lock .panel{background:transparent!important;box-shadow:none!important;width:min(360px,100%)!important;padding:0!important}
+#lock .lkmark{font-family:var(--f-num);font-weight:900;font-size:46px;letter-spacing:.08em;color:var(--ink,#1c1830);display:flex;align-items:center;justify-content:center;gap:4px;margin-bottom:10px}
+#lock .lkdot{width:52px;height:52px;border-radius:14px;background:linear-gradient(160deg,var(--acc,#6a4cf5),var(--acci,#4f2fd6));color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:30px;letter-spacing:0;margin-right:6px}
+#lock .lksub{font-size:16px;color:var(--mut,#6b6a75);margin:0 0 16px}
+#lock .lkbox{gap:10px!important;margin:0 0 4px!important}#lock .lkbox i{width:30px!important;height:30px!important;border-radius:8px!important;border:0!important;background:#e8e6ef!important}#lock .lkbox i.on{background:var(--acc,#6a4cf5)!important}
+#lock .lkpad{grid-template-columns:repeat(3,96px)!important;justify-content:center;gap:12px!important}#lock .lkpad button{height:96px!important;border-radius:10px!important;border:0!important;background:#eceaf2!important;font-size:28px!important;font-weight:400!important;color:#3a3846}
+#lock .lkpad .lkc{grid-column:span 2}
+#lock .lkpad button:active{background:var(--accs,#efeaff)!important}
+#lock .lksync{margin-top:14px;width:312px;height:72px;border:0;border-radius:10px;background:#eceaf2;font:inherit;font-size:22px;color:#3a3846;cursor:pointer}#lock .lksync:active{background:var(--accs,#efeaff)}#lock .lksync:disabled{opacity:.6}
+#lock .lkinfo{position:fixed;left:28px;bottom:22px;font-size:13px;line-height:1.6;color:var(--mut,#8a8799);text-align:left}
+@media (max-height:760px){#lock .lkpad{grid-template-columns:repeat(3,80px)!important}#lock .lkpad button{height:76px!important}#lock .lksync{width:264px;height:60px}#lock .lkmark{font-size:38px}}
+#lock .lkwelc{display:none}#lock.welc .lkwelc{display:flex;flex-direction:column;align-items:center;gap:16px;margin-top:40px}
+#lock.welc .lksub,#lock.welc .lkbox,#lock.welc #pinErr,#lock.welc .lkpad,#lock.welc .lksync{display:none!important}
+#lock .lkhi{font-size:22px;color:#3a3846;margin:0}#lock .lkst{font-size:14px;color:var(--mut,#8a8799);margin:-10px 0 8px}
+#lock .lkbtn{width:312px;height:80px;border:0;border-radius:10px;background:#eceaf2;font:inherit;font-size:24px;color:#3a3846;cursor:pointer}#lock .lkbtn:active{background:var(--accs,#efeaff)}#lock .lkbtn:disabled{opacity:.45;cursor:not-allowed}
+#lock .lkexit{margin-top:56px}
 </style>
 <script>
 /* ---------- naming: menu "products" are called Items; inventory "items" are called Products ----------
@@ -693,10 +710,12 @@ window.SLICK_OFFLINE = true;</script>
 </form></div>
 
 <div id="lock" class="center hide" style="position:fixed;inset:0;z-index:50;background:var(--bg,#f4f3f8)"><div class="panel">
-  <div class="logo">S</div><h1 id="lockTitle">Sign in</h1><p id="lockSub">Enter your employee PIN.</p>
-  <div class="pindots" id="pinDots"><i></i><i></i><i></i><i></i><i></i></div><div class="err" id="pinErr" style="min-height:20px;color:#b42318"></div>
-  <div class="pinpad"><button data-pin="1">1</button><button data-pin="2">2</button><button data-pin="3">3</button><button data-pin="4">4</button><button data-pin="5">5</button><button data-pin="6">6</button><button data-pin="7">7</button><button data-pin="8">8</button><button data-pin="9">9</button><button data-pin="c" aria-label="Clear">C</button><button data-pin="0">0</button><button data-pin="b" aria-label="Delete">⌫</button></div>
-</div></div>
+  <div class="lkmark" aria-label="Slick"><span class="lkdot">S</span>LICK</div><p id="lockSub" class="lksub">Enter Your Login PIN</p><h1 id="lockTitle" hidden>Sign in</h1>
+  <div class="pindots lkbox" id="pinDots"><i></i><i></i><i></i><i></i><i></i></div><div class="err" id="pinErr" style="min-height:20px;color:#b42318"></div>
+  <div class="pinpad lkpad"><button data-pin="1">1</button><button data-pin="2">2</button><button data-pin="3">3</button><button data-pin="4">4</button><button data-pin="5">5</button><button data-pin="6">6</button><button data-pin="7">7</button><button data-pin="8">8</button><button data-pin="9">9</button><button data-pin="0">0</button><button data-pin="c" class="lkc" aria-label="Clear">C</button></div>
+  <button type="button" class="lksync" id="lkSync">Sync Users</button>
+  <div class="lkwelc" id="lkWel"></div>
+</div><div class="lkinfo" id="lkInfo"></div></div>
 <div id="app" class="app hide">
   <div class="main">
     <aside class="cart">
@@ -715,7 +734,7 @@ window.SLICK_OFFLINE = true;</script>
     <section class="rside">
       <div class="abar" id="abar"><button class="abtn" data-a="print"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 9V3h10v6"/><rect x="3" y="9" width="18" height="8" rx="2"/><path d="M7 14h10v7H7z"/></svg><span>Print</span></button><button class="abtn" data-a="kitchen"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 14a4 4 0 0 1-1-7.9A5 5 0 0 1 12 3a5 5 0 0 1 7 3.1A4 4 0 0 1 18 14"/><path d="M6 14h12v6H6z"/><path d="M10 14v3M14 14v3"/></svg><span>Kitchen</span></button><button class="abtn" data-a="void"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M5.6 18.4 18.4 5.6"/></svg><span>Void</span></button><button class="abtn" data-a="hold" style="position:relative"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg><span>Hold</span></button><button class="abtn" data-a="retrieve" style="position:relative"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12a8 8 0 1 0 2.4-5.7L4 8.5"/><path d="M4 4v4.5h4.5"/><path d="M12 8v4l3 2"/></svg><span>Retrieve</span><span class="badge hide" id="holdBadge" style="position:absolute;top:6px;right:6px;background:#e5243b;color:#fff;border-radius:999px;font-size:14px;line-height:22px;min-width:22px;height:22px;padding:0 6px;font-weight:800;text-align:center;box-sizing:border-box">0</span></button><button class="abtn" data-a="disc"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5l2.4 1.8 3-.2.9 2.9 2.5 1.7-1 2.8 1 2.8-2.5 1.7-.9 2.9-3-.2L12 21.5l-2.4-1.8-3 .2-.9-2.9-2.5-1.7 1-2.8-1-2.8 2.5-1.7.9-2.9 3 .2z"/><path d="M9 15l6-6"/><circle cx="9.5" cy="9.5" r=".8"/><circle cx="14.5" cy="14.5" r=".8"/></svg><span>Discount</span></button><button class="abtn" data-a="chg"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg><span>Charges</span></button><button class="abtn" data-a="tags"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12V4a1 1 0 0 1 1-1h8l9 9-9 9z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg><span>Tags</span></button><button class="abtn" data-a="notes"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3h14v12l-6 6H5z"/><path d="M13 21v-6h6"/></svg><span>Notes</span></button></div>
       <section class="menu"><input type="hidden" id="q" value=""><div class="mcats" id="mcats" role="tablist" aria-label="Menu categories"></div><div class="grid" id="grid"></div></section>
-      <nav class="bnav" id="bnav"><button data-nav="functions" id="menuBtn" aria-haspopup="menu"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="6" height="6" rx="1.5"/><rect x="14" y="4" width="6" height="6" rx="1.5"/><rect x="4" y="14" width="6" height="6" rx="1.5"/><rect x="14" y="14" width="6" height="6" rx="1.5"/></svg><span>Functions</span></button><button data-nav="orders" id="incomingBtn"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span>Orders</span></button><button data-nav="tables" id="tablesBtn"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="7" width="18" height="5" rx="1.5"/><path d="M6 12v7M18 12v7M9 7V4h6v3"/></svg><span>Tables</span></button><button data-nav="board" id="boardBtn"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="17" r="2.5"/><circle cx="18" cy="17" r="2.5"/><path d="M8.5 17h7M15 6h3l2.5 8.5M15 6l-2 8.5H8.5L7 11H3.5M3 8h5"/><path d="M8 4h5v4H8z"/></svg><span>Pickup & delivery</span><span class="badge hide" id="incBadge">0</span></button><button data-nav="new"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>New</span></button></nav>
+      <nav class="bnav" id="bnav"><button data-nav="home" aria-label="Home"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11 12 4l8 7"/><path d="M6 10v10h12V10"/><path d="M10 20v-6h4v6"/></svg><span>Home</span></button><button data-nav="functions" id="menuBtn" aria-haspopup="menu"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="6" height="6" rx="1.5"/><rect x="14" y="4" width="6" height="6" rx="1.5"/><rect x="4" y="14" width="6" height="6" rx="1.5"/><rect x="14" y="14" width="6" height="6" rx="1.5"/></svg><span>Functions</span></button><button data-nav="orders" id="incomingBtn"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span>Orders</span></button><button data-nav="tables" id="tablesBtn"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="7" width="18" height="5" rx="1.5"/><path d="M6 12v7M18 12v7M9 7V4h6v3"/></svg><span>Tables</span></button><button data-nav="board" id="boardBtn"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="17" r="2.5"/><circle cx="18" cy="17" r="2.5"/><path d="M8.5 17h7M15 6h3l2.5 8.5M15 6l-2 8.5H8.5L7 11H3.5M3 8h5"/><path d="M8 4h5v4H8z"/></svg><span>Pickup & delivery</span><span class="badge hide" id="incBadge">0</span></button><button data-nav="new"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>New</span></button></nav>
     </section>
   </div>
   <div class="morepop hide" id="morePop" role="menu">
@@ -877,7 +896,13 @@ const userPerms = u => { const ids = (u?.roleIds||[]).length ? u.roleIds : [u?.r
 const can = perm => { if(!usePins()) return true; if(!cashier) return false; return isAdminUser(cashier) || userPerms(cashier).includes(perm); };
 async function pinHash(id, pin){ const b = await crypto.subtle.digest("SHA-256", new TextEncoder().encode("slick:" + id + ":" + pin)); return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,"0")).join(""); }
 function lockIfNeeded(){ if(usePins() && !cashier) lock(); paintCashier(); }
-function lock(){ cashier = null; pinBuf = ""; paintPin(); $("#pinErr").textContent = ""; $("#lock").classList.remove("hide"); paintCashier(); }
+function lock(){ cashier = null; WELC = null; $("#lock").classList.remove("welc"); pinBuf = ""; paintPin(); $("#pinErr").textContent = ""; $("#lock").classList.remove("hide"); paintCashier(); paintLockInfo(); }
+// bottom-left of the sign-in screen: this tablet's code, brand and branch
+function paintLockInfo(){ const el = $("#lkInfo"); if(!el || !device) return; const br = S.branches?.find(b => b.id===device.branchId) || branch, bd = br && (S.brands||[]).find(x => x.id===br.brandId);
+  el.innerHTML = [device.code || device.reference || "", bd?.name || "", br?.name || ""].filter(Boolean).map(esc).join("<br>"); }
+// Sync Users: fetch the latest users (and everything else) from the server right away
+document.addEventListener("click", e => { if(!e.target.closest("#lkSync")) return; const b = e.target.closest("#lkSync"); b.disabled = true; b.textContent = "Syncing…";
+  try{ window.dispatchEvent(new Event("online")); }catch(_){} setTimeout(() => { b.disabled = false; b.textContent = "Sync Users"; paintLockInfo(); toast(navigator.onLine ? "Users synced" : "Offline · users will sync when the connection is back"); }, 1500); });
 function paintPin(){ document.querySelectorAll("#pinDots i").forEach((d,i) => d.classList.toggle("on", i < pinBuf.length)); }
 function paintCashier(){ $("#lockBtn").classList.toggle("hide", !usePins()); $("#exitBtn")?.classList.toggle("hide", !usePins()); $("#cashierName").textContent = cashier ? cashier.name : ""; }
 // login PINs are 5 digits (Foodics); older 4-digit PINs still work: at 4 digits a match signs in, otherwise the 5th digit is awaited
@@ -887,9 +912,34 @@ async function tryPin(){
   if(!u && pin.length < 5) return;
   pinBuf = ""; paintPin();
   if(!u){ $("#pinErr").textContent = "Wrong PIN. Try again."; return; }
-  if(!isAdminUser(u) && !userPerms(u).includes("pos_access")){ $("#pinErr").textContent = "Your role doesn't allow using the POS."; return; }
-  cashier = u; $("#lock").classList.add("hide"); paintCashier(); toast("Signed in as " + u.name);
+  WELC = u; paintWelcome();   // the welcome screen: Clock In / Out, Access Register, Exit
 }
+// ---------- welcome screen after the PIN (time clock) ----------
+let WELC = null;
+const tcDoc = () => S.settings.find(x => x.id==="timeclock") || {};
+const tcOpen = u => (tcDoc().open || {})[u.id] || null;   // { at, branchId, deviceId } while clocked in
+function paintWelcome(){
+  const u = WELC; if(!u) return; const o = tcOpen(u), canReg = isAdminUser(u) || userPerms(u).includes("pos_access");
+  $("#lock").classList.add("welc");
+  $("#lkWel").innerHTML = `<p class="lkhi">Welcome, ${esc(u.name)}!</p><p class="lkst">${o ? "Clocked in since " + esc(new Date(o.at).toLocaleTimeString("en-GB", { hour:"2-digit", minute:"2-digit" })) : "Not clocked in"}</p>
+    <button type="button" class="lkbtn" id="lkClock">${o ? "Clock Out" : "Clock In"}</button>
+    <button type="button" class="lkbtn" id="lkGo" ${canReg ? "" : "disabled title=\"Your role doesn't allow using the register\""}>Access Register</button>
+    <button type="button" class="lkbtn lkexit" id="lkExit">Exit</button>`;
+}
+async function tcToggle(){
+  const u = WELC; if(!u) return; const d = tcDoc(), open = { ...(d.open || {}) }, log = [...(d.log || [])], now = new Date().toISOString(), o = open[u.id];
+  if(o){ log.push({ userId:u.id, name:u.name, branchId:o.branchId, deviceId:o.deviceId, in:o.at, out:now }); delete open[u.id]; }
+  else open[u.id] = { at:now, branchId:device.branchId, deviceId:device.id, name:u.name };
+  const next = { open, log: log.slice(-2000) };
+  const ex = S.settings.find(x => x.id==="timeclock"); if(ex) Object.assign(ex, next); else S.settings.push({ id:"timeclock", ...next });
+  try{ await db.collection("settings").doc("timeclock").set(next); }catch(e){ console.warn("time clock", e); toast("Saved on this tablet · will sync when online"); }
+  toast(o ? `${u.name} clocked out` : `${u.name} clocked in`); paintWelcome();
+}
+document.addEventListener("click", e => {
+  if(e.target.closest("#lkClock")) return tcToggle();
+  if(e.target.closest("#lkGo")){ const u = WELC; if(!u) return; WELC = null; cashier = u; $("#lock").classList.remove("welc"); $("#lock").classList.add("hide"); paintCashier(); toast("Signed in as " + u.name); return; }
+  if(e.target.closest("#lkExit")){ WELC = null; $("#lock").classList.remove("welc"); lock(); }
+});
 $("#lock").addEventListener("click", e => { const b = e.target.closest("[data-pin]"); if(!b) return; const k = b.dataset.pin;
   if(k==="c") pinBuf = ""; else if(k==="b") pinBuf = pinBuf.slice(0,-1); else if(pinBuf.length < 5) pinBuf += k;
   $("#pinErr").textContent = ""; paintPin(); if(pinBuf.length>=4) tryPin(); });
@@ -2129,6 +2179,7 @@ $("#diagBtn").addEventListener("click", () => { hideMore(); openDiag(); });
 $("#bnav").addEventListener("click", e => { const b = e.target.closest("[data-nav]"); if(!b) return; const k = b.dataset.nav; if(k!=="functions") hideMore();
   if(k==="functions"){ e.stopPropagation(); const pop = $("#morePop"), r = b.getBoundingClientRect();   // opens right above the button
     pop.style.left = Math.max(8, Math.min(r.left, innerWidth - 308)) + "px"; pop.style.bottom = Math.max(8, innerHeight - r.top + 8) + "px"; return pop.classList.toggle("hide"); }
+  if(k==="home"){ closeModal(); if(!usePins() || !cashier) return lock(); const u = cashier; lock(); WELC = u; return paintWelcome(); }   // back to the welcome screen (Clock In / Out, Access Register, Exit)
   if(k==="new"){ closeModal(); unloadOrder(); cat = ""; $("#q").value = ""; renderMenu(); return; }
   if(k==="orders") return openIncoming();
   if(k==="tables") return openTables();
