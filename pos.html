@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="614-1794260976">
+<meta name="slick-build" content="615-1794261269">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -681,6 +681,7 @@ input.nfon{color:transparent!important;-webkit-text-fill-color:transparent!impor
 #grid .ctile2.ctile2{align-items:center!important;text-align:center!important}#grid .ctile2.ctile2:not(.hasimg){justify-content:center!important}#grid .ctile2.ctile2{padding:8px 6px!important}#grid .ctile2.ctile2>span{width:100%;text-align:center!important;font-size:clamp(11px,calc(var(--tile,120px) / 7.5),16px)!important;overflow-wrap:anywhere;hyphens:auto}#grid .prod>span{font-size:clamp(11px,calc(var(--tile,120px) / 7.5),15px)!important}#grid .ctile2.ctile2:not(.hasimg) .pic{display:none!important}   /* category names centred */
 #modal.tillm{width:min(900px,94vw)!important;max-width:none!important;max-height:92vh;display:flex;flex-direction:column}#modal.tillm .mb{overflow:auto!important;padding:18px 22px!important}
 #modal.tillm .tillx{height:auto;align-items:start}#modal.tillm .tillx .tr .npad{grid-auto-rows:clamp(52px,9vh,76px)!important}#modal.tillm .tillx .tr .npad button{font-size:24px!important}
+#grid>button>span:not(.pic){display:block!important;-webkit-line-clamp:unset!important;-webkit-box-orient:unset!important;overflow:hidden!important;overflow-wrap:normal!important;word-break:normal!important;hyphens:none!important;text-overflow:clip!important;white-space:normal!important;line-height:1.2!important;max-width:100%}   /* names: whole words, fitted by tileText() */
 </style>
 <script>
 /* ---------- naming: menu "products" are called Items; inventory "items" are called Products ----------
@@ -1629,6 +1630,20 @@ document.addEventListener("click", e => { if(e.target.closest("[data-tilr],[data
 (function keepAwake(){ if(!("wakeLock" in navigator)) return; let lock = null;
   const get = async () => { if(lock || document.visibilityState!=="visible") return; try{ lock = await navigator.wakeLock.request("screen"); lock.addEventListener("release", () => { lock = null; }); }catch(e){} };
   document.addEventListener("visibilitychange", get); addEventListener("focus", get); addEventListener("pointerdown", get, { passive:true }); get(); })();
+// menu tile names: never cut a word or add "…"; the text shrinks until every word fits and the name fits in 3 lines (2 under a photo)
+function tileText(){ const g = $("#grid"); if(!g) return;
+  const sizes = []; g.querySelectorAll(":scope>button>span:not(.pic)").forEach(sp => { const btn = sp.parentElement, lines = btn.classList.contains("hasimg") ? 2 : 3;
+    sp.style.removeProperty("font-size"); let fs = parseFloat(getComputedStyle(sp).fontSize) || 15; const w = sp.clientWidth; if(!w) return;
+    const words = sp.textContent.split(/\s+/).filter(Boolean);
+    const txt = sp.firstChild, rg = document.createRange(); const fits = () => { if(!txt) return true; rg.selectNodeContents(txt); const n = [...new Set([...rg.getClientRects()].map(r => Math.round(r.top)))].length; return n <= lines; };
+    // a single long word must fit on its own line: measure with a probe so the browser doesn't hide it
+    const probe = document.createElement("span"); probe.style.cssText = "position:absolute;visibility:hidden;white-space:nowrap;font:inherit"; sp.appendChild(probe);
+    const longest = () => Math.max(0, ...words.map(x => { probe.textContent = x; return probe.offsetWidth; }));
+    for(let i = 0; i < 40 && fs > 9; i++){ sp.style.setProperty("font-size", fs + "px", "important"); if(longest() <= w && fits()) break; fs -= 0.5; }
+    probe.remove(); sizes.push(fs); });
+  if(sizes.length){ const m = Math.min(...sizes); g.querySelectorAll(":scope>button>span:not(.pic)").forEach(sp => sp.style.setProperty("font-size", m + "px", "important")); } }   // one size for every tile, so the grid looks even
+{ let tt = 0; const soon = () => { cancelAnimationFrame(tt); tt = requestAnimationFrame(tileText); };
+  const g = document.getElementById("grid"); if(g){ new MutationObserver(soon).observe(g, { childList:true, attributes:true, attributeFilter:["style"] }); new ResizeObserver(soon).observe(g); } }
 // orders list: the column titles stick right under the tabs (measured, so nothing shows between them)
 new MutationObserver(() => { const t = document.querySelector("#modal .mb>.otabs2"); if(t) t.parentElement.style.setProperty("--otabh", t.offsetHeight + "px"); }).observe(document.getElementById("modal") || document.body, { childList:true, subtree:true });
 // Charges window: the charges allowed for this order type; open-amount ones ask for the amount
