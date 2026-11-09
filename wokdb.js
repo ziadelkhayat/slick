@@ -256,6 +256,7 @@
   async function activateDevice(code, onId){
     if(!navigator.onLine) return { error: "offline" };
     let { data: { session } } = await sb.auth.getSession();
+    if(session && !session.user?.is_anonymous){ try{ await sb.auth.signOut(); }catch(_){} session = null; if(OFF) localStorage.removeItem("slick_staff"); }   // a register is never tied to a person's login
     if(!session){ const r = await sb.auth.signInAnonymously(); if(r.error) return { error: isNet(r.error) ? "offline" : /anonymous/i.test(r.error.message) ? "setup" : r.error.message }; }
     const { data, error } = await sb.rpc("slick_activate_device", { p_code: code });
     if(error) return { error: isNet(error) ? "offline" : (error.code === "PGRST202" || /slick_activate_device/.test(error.message)) ? "setup" : error.message };

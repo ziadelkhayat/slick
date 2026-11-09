@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="582-1794237457">
+<meta name="slick-build" content="583-1794238741">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -719,7 +719,7 @@ function askYes(msg){ return askDlg({ msg, yes:"Yes", no:"No" }); }
 window.SLICK_OFFLINE = true;</script>
 <script src="supabase.js"></script>
 <script>if(!window.supabase) document.write('<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"><\/script>');</script>
-<script src="wokdb.js?v=37"></script>
+<script src="wokdb.js?v=38"></script>
 <script src="modpick.js?v=25"></script>
 </head>
 <body>
@@ -899,6 +899,10 @@ $("#actForm").addEventListener("submit", async e => {
   const code = $("#code").value; let d = S.devices.find(x => x.code===code && !x.deleted);
   if(!d && navigator.onLine && window.WOK?.sb){ try{ const r = await window.WOK.sb.from("devices").select("id,code,activated_at,deleted").eq("code", code).maybeSingle(); if(r.data && !r.data.deleted) d = { id:r.data.id, code:r.data.code, activatedAt:r.data.activated_at }; }catch(_){} }   // a code made after this register last synced
   if(!navigator.onLine){ $("#actErr").textContent = "Connect to the internet to activate. After that the register works offline too."; return; }
+  if(!d && window.WOK?.activate){   // not visible to this tablet's old login: let the server check the code
+    $("#actBtn").disabled = true; let r; try{ r = await window.WOK.activate(code, id => store.set("wokDevice", id)); }catch(err){ r = { error: "" }; }
+    if(r.error == null) return location.reload();
+    $("#actErr").textContent = ACT_ERR[r.error] || "Couldn't activate. " + (r.error || "Try again."); $("#actBtn").disabled = false; return; }
   if(!d){ $("#actErr").textContent = "That code isn't valid. Check it in Manage → Devices."; return; }
   if(d.activatedAt){ $("#actErr").textContent = "This code was already used. Generate a new code in the back office."; return; }
   $("#actBtn").disabled = true;
