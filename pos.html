@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="608-1794259953">
+<meta name="slick-build" content="609-1794260165">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -668,7 +668,7 @@ input,textarea{-webkit-user-select:text;user-select:text}
 #lock .lkhi{font-size:22px;color:#3a3846;margin:0}#lock .lkst{font-size:14px;color:var(--mut,#8a8799);margin:-10px 0 8px}
 #lock .lkbtn{width:312px;height:80px;border:0;border-radius:10px;background:#eceaf2;font:inherit;font-size:24px;color:#3a3846;cursor:pointer}#lock .lkbtn:active{background:var(--accs,#efeaff)}#lock .lkbtn:disabled{opacity:.45;cursor:not-allowed}
 #lock .lkexit{margin-top:56px}
-#grid#grid,#grid#grid:has(>.prod),#grid#grid:has(>.cbtile){grid-template-columns:repeat(6,var(--tile,1fr))!important;grid-auto-rows:var(--tile,120px)!important;justify-content:start!important;align-content:start!important}
+#grid#grid,#grid#grid:has(>.prod),#grid#grid:has(>.cbtile){grid-template-columns:repeat(5,var(--tile,1fr))!important;grid-auto-rows:var(--tile,120px)!important;justify-content:start!important;align-content:start!important}
 @media (min-width:701px){.main.main.sqfit{grid-template-columns:minmax(0,1fr) var(--rw)!important}
 #abar.abar{display:flex!important;flex-wrap:nowrap!important;justify-content:space-between!important;overflow:visible!important}
 .sqfit #abar .abtn.abtn{flex:0 0 var(--ab)!important;width:var(--ab)!important;height:var(--ab)!important;max-height:none!important;aspect-ratio:1/1!important;padding:4px!important}
@@ -1417,7 +1417,7 @@ function voidSent(ix){
 
 (function tileFit(){ const g = $("#grid"), ab = $("#abar"), rs = $(".rside"), main = $(".main"); if(!g || !ab || !rs || !main || !window.ResizeObserver) return;
   // one rule on every screen: top buttons and menu tiles are perfect squares that fill the menu side edge to edge
-  // (buttons in one row, tiles 6 across x 4 down); the menu side takes exactly the width that makes that fit the height, the cart takes the rest
+  // (buttons in one row, tiles 5 across x 5 down); the menu side takes exactly the width that makes that fit the height, the cart takes the rest
   const px = v => parseFloat(v) || 0; let busy = false;
   const fit = () => { if(busy) return; busy = true; try{
     if(innerWidth <= 700){ main.classList.remove("sqfit"); return; }
@@ -1428,10 +1428,10 @@ function voidSent(ix){
     const owG = rsW - (g.clientWidth - gpw), owA = rsW - (ab.clientWidth - apw);      // side room around the grid / the button row
     const fixedH = H - (ab.offsetHeight - aph) - (g.clientHeight - gph);                  // search bar, bottom bar, gaps: everything that isn't buttons or tiles
     const room = main.clientWidth - px(ms.paddingLeft) - px(ms.paddingRight) - px(ms.columnGap);
-    const C = 6;   // tiles across (4 down)
-    let W = (H - fixedH - 3*gg + (owA + (n-1)*ag)/n + 4*(owG + (C-1)*gg)/C) / (1/n + 4/C);
+    const C = 5, R = 5;   // tiles across, tiles down
+    let W = (H - fixedH - (R-1)*gg + (owA + (n-1)*ag)/n + R*(owG + (C-1)*gg)/C) / (1/n + R/C);
     W = Math.max(room * 0.36, Math.min(room * 0.7, W));
-    const b = Math.floor((W - owA - (n-1)*ag) / n), t = Math.floor(Math.min((W - owG - (C-1)*gg) / C, (H - fixedH - b - 3*gg) / 4));
+    const b = Math.floor((W - owA - (n-1)*ag) / n), t = Math.floor(Math.min((W - owG - (C-1)*gg) / C, (H - fixedH - b - (R-1)*gg) / R));
     if(b < 30 || t < 30) return;
     const key = [Math.round(W), b, t].join(); if(key === fit.k) return; fit.k = key; fit.n = (fit.n||0) + 1;
     main.classList.add("sqfit"); main.style.setProperty("--rw", Math.round(W) + "px"); ab.style.setProperty("--ab", b + "px"); g.style.setProperty("--tile", t + "px");
