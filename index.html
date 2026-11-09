@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="592-1794241785">
+<meta name="slick-build" content="593-1794241940">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1184,7 +1184,7 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}@media(max-width:820px)
 /* detail (info) screens, same look everywhere: centered column, two columns of label / value with a line under each */
 #view .card.odet.odet{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:0 48px!important;padding:18px 24px 10px!important;max-width:1080px;margin-left:auto!important;margin-right:auto!important}
 #view .card.odet.odet>div{padding:12px 0 10px;border-bottom:1px solid var(--line,#ecebf2);min-width:0}#view .card.odet.odet>div span{display:block;font-size:13px;color:var(--muted,#8d8c98);margin-bottom:6px}
-#view .dzsec.dzwide,#view .card.odet~.dzsec{max-width:1080px;margin-left:auto;margin-right:auto}
+#view .dzsec.dzwide,#view .card.odet~.dzsec,#view .card.odet~#bdData>.dzsec{max-width:1080px;margin-left:auto;margin-right:auto}
 @media (max-width:760px){#view .card.odet.odet{grid-template-columns:1fr!important}}
 .mmmain>.mmbar{flex-wrap:nowrap!important;align-items:center!important}.mmmain>.mmbar .mmtitle{flex:1 1 auto!important;width:auto!important;min-width:0}.mmmain>.mmbar>.sp{display:none!important}.mmmain>.mmbar [data-bmadd]{flex:0 0 auto!important;width:auto!important;margin-left:auto}
 .mmcbar.mmcbar{flex-wrap:wrap!important;align-items:center!important}.mmcbar [data-bmnewcat]{order:2;margin-left:auto}.mmcbar #bmCatQ{order:3;flex:1 1 100%!important;max-width:none!important;width:100%!important}.mmcbar .mmtitle{order:1;flex:1 1 auto!important;width:auto!important;max-width:none!important;min-width:0}.mmcbar>.sp{display:none!important}.mmcbar [data-bmnewcat]{flex:0 0 auto!important;width:auto!important}   /* + Add Category beside the title, search under it */
@@ -2916,13 +2916,12 @@ const CRUD = {
   },
   brands: {
     col:"brands", title:"Brands", one:"Brand", detail: r => brandDetail(r),
-    tabs:[["all","All",live],["active","Active",r=>live(r)&&r.active!==false],["inactive","Inactive",r=>live(r)&&r.active===false],["deleted","Deleted",r=>r.deleted]],
+    tabs:[["all","All",live],["deleted","Deleted",r=>r.deleted]],
     sort:(a,b)=>a.name.localeCompare(b.name),
     search:r=>r.name,
     cols:[["Brand",r=>`<b>${esc(r.name)}</b>${r.nameAr?` <span class="note">${esc(r.nameAr)}</span>`:""}`],
-      ["Branches",r=>branches.filter(b=>b.brandId===r.id).length,"num"],
-      ["Status",r=>r.active===false?'<span class="tag off">Inactive</span>':'<span class="tag on">Active</span>']],
-    fields:[{k:"name",l:"Brand name",req:1},{k:"nameAr",l:"Name Localized"},{k:"active",l:"Active",t:"chk",def:true}],
+      ["Branches",r=>branches.filter(b=>b.brandId===r.id).length,"num"]],
+    fields:[{k:"name",l:"Brand name",req:1},{k:"nameAr",l:"Name Localized"}],
     canDelete: r => { const n = branches.filter(b => b.brandId===r.id).length; return n ? `Delete this brand's ${n} branch${n===1?"":"es"} first (Manage → Branches).` : ""; }
   },
   categories: {
@@ -3755,7 +3754,7 @@ function openOrder(id){
       <div class="f"><label>Order source *</label><div class="rchips" id="oSrcChips">${sourceList(o?.source).map(x=>`<button type="button" data-ccsrc="${esc(x)}" class="${o?.source===x?"on":""}" ${dis}>${esc(x)}</button>`).join("")}</div><select id="oSource" ${dis} hidden aria-hidden="true" tabindex="-1"><option value="">Choose…</option>${sourceList(o?.source).map(s=>`<option ${o?.source===s?"selected":""}>${esc(s)}</option>`).join("")}</select></div>
       <div class="f"><label for="oPhone">Phone *</label>${(() => { const sp = ccSplit(o?.phone); return `<div class="phrow"><select id="oCc" class="sel big" ${ldis} aria-label="Country code">${CC_CODES.map(([d,n])=>`<option value="${d}" ${d===sp.cc?"selected":""}>${d} ${esc(n)}</option>`).join("")}</select><input id="oPhone" class="big" value="${esc(sp.num)}" ${ldis} autocomplete="off" inputmode="tel"></div>`; })()}</div>
       <div class="f"><label for="oName">Name *</label><input id="oName" value="${esc(o?.customerName||"")}" ${ldis} placeholder="Customer name"></div>
-      <div class="f2"><div class="f"><label for="oBrand">Brand *</label><select id="oBrand" ${ldis}><option value="">Choose…</option>${brandList().filter(b=>b.active!==false || b.id===o?.brandId).map(b=>`<option value="${esc(b.id)}" ${o?.brandId===b.id?"selected":""}>${esc(b.name)}</option>`).join("")}</select></div>
+      <div class="f2"><div class="f"><label for="oBrand">Brand *</label><select id="oBrand" ${ldis}><option value="">Choose…</option>${brandList().map(b=>`<option value="${esc(b.id)}" ${o?.brandId===b.id?"selected":""}>${esc(b.name)}</option>`).join("")}</select></div>
       <div class="f"><label for="oBranch">Branch *</label><select id="oBranch" ${ldis}></select></div></div>
       <div id="oAddrF">${(() => { const a = addrSplit(o?.address), ad = ro || (ccLocked && o?.address) ? "disabled" : ""; return `<h4>Delivery address</h4>
         <div class="acards" id="oAddrCards"></div>
@@ -4272,14 +4271,14 @@ function openDevice(){
   <div class="body"><div class="f full"><label for="dType">Type *</label><select id="dType">${DEV_TYPES.map(([k,t])=>`<option value="${k}">${t}</option>`).join("")}</select><div class="note">Choose the type of device.</div></div>
   <div class="f full"><label for="dName">Name *</label><input id="dName" placeholder="e.g. Main Cashier, 2nd Floor Cashier"></div>
   <div class="f full"><label for="dRef">Reference *</label><div style="display:flex;gap:8px"><input id="dRef" value="${esc(devRef())}" style="flex:1"><button type="button" class="btn" data-devgen2>Generate</button></div></div>
-  <div class="f"><label for="dBrand">Brand *</label><select id="dBrand"><option value="">Choose…</option>${brandList().filter(b=>b.active!==false).map(b=>`<option value="${esc(b.id)}" ${brandList().length===1?"selected":""}>${esc(b.name)}</option>`).join("")}</select></div>
+  <div class="f"><label for="dBrand">Brand *</label><select id="dBrand"><option value="">Choose…</option>${brandList().map(b=>`<option value="${esc(b.id)}" ${brandList().length===1?"selected":""}>${esc(b.name)}</option>`).join("")}</select></div>
   <div class="f"><label for="dBranch">Branch *</label><select id="dBranch">${devBranchOpts(brandList().length===1 ? brandList()[0].id : "", "")}</select></div>
   ${tagPick("device", null, "dTags")}<div class="err" id="cErr"></div></div><footer><button type="button" class="btn" data-cclose>Cancel</button><button type="button" class="btn pri" id="dSave">Save</button></footer>`;
   crudEdit = { key:"device" }; $("#crudScrim").classList.add("show"); setTimeout(()=>$("#dName").focus(),30);
 }
 
 /* ---------- Web Ordering (link for delivery, pickup, dine-in) ---------- */
-function olBrand(){ const l = brandList().filter(b=>b.active!==false); if(state.olBrand && l.some(b=>b.id===state.olBrand)) return state.olBrand; return defaultBrand() || l[0]?.id || ""; }
+function olBrand(){ const l = brandList(); if(state.olBrand && l.some(b=>b.id===state.olBrand)) return state.olBrand; return defaultBrand() || l[0]?.id || ""; }
 function onlineCfg(){ const id = "online_" + olBrand(); return S.settings.find(s=>s.id===id) || { id }; }
 function viewOnline(){
   if(!olBrand()) return `<div class="phead"><h1>Web Ordering</h1></div><div class="card empty">Each brand has its own ordering page.<br>Choose a brand in the selector at the top${brandList().length?"":", or create one in Manage → Brands"}.</div>`;
@@ -4296,7 +4295,7 @@ function viewOnline(){
   const L = (k, t) => `<button type="button" class="${tab===k?"on":""}" data-oltab="${k}">${t}</button>`;
   let h = `<div class="phead"><h1>Web Ordering</h1><div class="sp"></div><a class="btn" href="${esc(link)}" target="_blank" rel="noopener">${svgIco("globe")} Open page</a><button class="btn pri" id="olSave">Save</button></div>
     <p class="subt" style="margin-top:-6px">Each brand has its own ordering page named after the brand, with its own look, checkout and branch settings.</p>
-    ${brandList().filter(b=>b.active!==false).length > 1 ? `<div class="tabs" style="margin-bottom:16px">${brandList().filter(b=>b.active!==false).map(b=>`<a href="#online-ordering" data-olbrand="${esc(b.id)}" class="${b.id===olBrand()?"on":""}">${esc(b.name)}${(S.settings.find(x=>x.id==="online_"+b.id)||{}).enabled?' <span class="tag on" style="margin-left:4px">Live</span>':""}</a>`).join("")}</div>` : ""}`;
+    ${brandList().length > 1 ? `<div class="tabs" style="margin-bottom:16px">${brandList().map(b=>`<a href="#online-ordering" data-olbrand="${esc(b.id)}" class="${b.id===olBrand()?"on":""}">${esc(b.name)}${(S.settings.find(x=>x.id==="online_"+b.id)||{}).enabled?' <span class="tag on" style="margin-left:4px">Live</span>':""}</a>`).join("")}</div>` : ""}`;
   if(storeMode==="local") h += `<div class="banner">Preview mode: settings won't be saved.</div>`;
   h += `<div class="olwrap"><div class="olmain"><div class="olseg" role="tablist">${L("store","Storefront")}${L("look","Appearance")}${L("checkout","Checkout")}${L("branches","Branches")}</div>
 
@@ -6077,8 +6076,8 @@ function bsField(f, v, b, dis){
 function brandDetail(b){
   const admin = !state.role || state.role==="owner" || state.role==="admin", dis = admin ? "" : "disabled", tab = BS_TABS.find(t => t[0]===state.bsTab) || BS_TABS[0];
   const v = { ...brandSet(b.id), ...(state.bsDraft?.[b.id] || {}) }, row = (k, x) => `<div><span>${k}</span>${x}</div>`, brs = branches.filter(x => x.brandId===b.id);
-  return `<div class="phead"><a href="#brands" class="btn" data-detback style="text-decoration:none">← Back</a><h1 style="margin-left:10px">${esc(b.name)}</h1>${b.active===false ? ' <span class="tag off">Inactive</span>' : ""}<div class="sp"></div><button class="btn${b.active===false ? "" : " danger"}" data-dettoggle>${b.active===false ? "Activate" : "Deactivate"}</button><button class="btn pri" data-detedit>Edit Brand</button></div>
-    <div class="card odet" style="margin-bottom:16px;padding:16px 18px">${row("Name", esc(b.name))}${row("Name Localized", esc(b.nameAr || "—"))}${row("Branches", brs.length)}${row("Status", b.active===false ? "Inactive" : "Active")}</div>
+  return `<div class="phead"><a href="#brands" class="btn" data-detback style="text-decoration:none">← Back</a><h1 style="margin-left:10px">${esc(b.name)}</h1><div class="sp"></div><button class="btn pri" data-detedit>Edit Brand</button></div>
+    <div class="card odet" style="margin-bottom:16px;padding:16px 18px">${row("Name", esc(b.name))}${row("Name Localized", esc(b.nameAr || "—"))}${row("Branches", brs.length)}${row("Created", b.createdAt ? new Date(b.createdAt).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"}) : "—")}</div>
     <div class="bswrap"><nav class="bsnav"><b>Settings</b>${BS_TABS.map(([k,t])=>`<a href="#brands" data-bstab="${k}" class="${tab[0]===k?"on":""}">${t}</a>`).join("")}</nav>
     <div class="card bsbody" data-bsbrand="${esc(b.id)}"><h3>${tab[2]}</h3>${admin?"":`<div class="banner">Only the owner or an admin can change settings.</div>`}
       ${tab[3].map(f => bsField(f, v, b, dis)).join("")}
