@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="616-1794262511">
+<meta name="slick-build" content="617-1794262625">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1393,7 +1393,7 @@ function orderInfoOk(){
 }
 // Send: save the order as open (to the kitchen) without payment; on an open order, send what was added
 async function sendOrder(after){   // after: "bill" or "kitchen" = print that ticket of the new order once it is created
-  if(!cart.length) return; if(!openShift()) return toast("Open the till before saving orders"); if(otype==="fast") return toast("Complete fast sale"); const blk = saleBlock(); if(blk) return toast(blk);
+  if(!cart.length) return; if(!openShift()) return toast("Open till"); if(otype==="fast") return toast("Complete fast sale"); const blk = saleBlock(); if(blk) return toast(blk);
   if(!orderInfoOk()) return;
   const t = totals(), now = new Date().toISOString(), eo = editOrder();
   try{
@@ -2256,7 +2256,7 @@ function paintAbar(){ const hb = document.getElementById("holdBadge"); if(hb && 
 $("#abar").addEventListener("click", e => { const b = e.target.closest("[data-a]"); if(!b) return; const a = b.dataset.a, eo = editOrder();
   if(a==="more"){ e.stopPropagation(); return $("#morePop").classList.toggle("hide"); }
   hideMore();
-  if(a==="print"){ if((!eo || isOpenOrd(eo)) && !openShift()) return toast("Open a shift before printing"); if(!eo){ if(!cart.length) return toast("Add items first"); if(otype==="fast") return toast("Complete fast sale"); if(!can("pos_print_check")) return deny("printing the invoice of an active order"); return sendOrder("bill"); }   // a new cart becomes an active order, then its invoice prints if(!isOpenOrd(eo) && !can("pos_reprint")) return deny("reprinting receipts"); if(isOpenOrd(eo) && !can("pos_print_check")) return deny("printing the invoice of an active order");
+  if(a==="print"){ if((!eo || isOpenOrd(eo)) && !openShift()) return toast("Open till"); if(!eo){ if(!cart.length) return toast("Add items first"); if(otype==="fast") return toast("Complete fast sale"); if(!can("pos_print_check")) return deny("printing the invoice of an active order"); return sendOrder("bill"); }   // a new cart becomes an active order, then its invoice prints if(!isOpenOrd(eo) && !can("pos_reprint")) return deny("reprinting receipts"); if(isOpenOrd(eo) && !can("pos_print_check")) return deny("printing the invoice of an active order");
     return printReceipt(isOpenOrd(eo) ? { ...eo, ...orderFields(totals()), payment:null } : eo, (isOpenOrd(eo) ? "Bill " : "Receipt ") + ordRef(eo)); }
   if(a==="kitchen"){ if(!eo) return !cart.length ? toast("Add items first") : otype==="fast" ? toast("Complete fast sale") : sendOrder("kitchen");
     if(isOpenOrd(eo) && cart.some(i => i.qty > (i.saved||0))) return sendOrder("kitchen");
