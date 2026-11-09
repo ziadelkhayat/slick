@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="606-1794259486">
+<meta name="slick-build" content="608-1794259953">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1618,6 +1618,10 @@ function nfPaint(el){ if(!el || el.dataset.np==="tel" || el.type==="tel" || !doc
 document.addEventListener("input", e => { if(e.target.matches?.("input")) nfPaint(e.target); }, true);
 new MutationObserver(() => { document.querySelectorAll("[data-npfor]").forEach(p => { const el = document.getElementById(p.dataset.npfor); if(el && !el.classList.contains("nfon")) nfPaint(el); }); }).observe(document.body, { childList:true, subtree:true });
 document.addEventListener("click", e => { if(e.target.closest("[data-tilr],[data-npfor]")) setTimeout(() => document.querySelectorAll("input.nfon").forEach(nfPaint), 0); });
+// keep the screen on while the POS is open (Screen Wake Lock); asked again whenever the app comes back to the front or is touched
+(function keepAwake(){ if(!("wakeLock" in navigator)) return; let lock = null;
+  const get = async () => { if(lock || document.visibilityState!=="visible") return; try{ lock = await navigator.wakeLock.request("screen"); lock.addEventListener("release", () => { lock = null; }); }catch(e){} };
+  document.addEventListener("visibilitychange", get); addEventListener("focus", get); addEventListener("pointerdown", get, { passive:true }); get(); })();
 // Charges window: the charges allowed for this order type; open-amount ones ask for the amount
 function openCharges(){
   if(!can("pos_charges")) return deny("changing charges");
