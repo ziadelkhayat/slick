@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="600-1794243479">
+<meta name="slick-build" content="601-1794243712">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1607,9 +1607,12 @@ async function saveBranch(data, id){
 const BD = { id:null, orders:null, inv:null, busy:false };
 async function countBranchData(id){
   if(storeMode!=="db" || !window.WOK?.sb) return { orders:0, inv:0 };
-  const [o, ...inv] = await Promise.all([WOK.sb.from("orders").select("id", { count:"exact", head:true }).eq("branch_id", id), ...invQueries(id)]);
-  const err = [o, ...inv].find(r => r.error && !/does not exist|schema cache/i.test(r.error.message||"")); if(err) throw err.error;
-  return { orders: o.count || 0, inv: inv.reduce((a,r) => a + (r.error ? 0 : r.count || 0), 0) };
+  // each count on its own: one table that can't be counted doesn't leave the others (and the buttons) stuck on "…"
+  const safe = q => Promise.resolve(q).then(r => r, e => ({ error:e }));
+  const [o, ...inv] = await Promise.all([safe(WOK.sb.from("orders").select("id", { count:"exact", head:true }).eq("branch_id", id)), ...invQueries(id).map(safe)]);
+  inv.filter(r => r.error).forEach(r => console.warn("count", r.error));
+  const orders = o.error || o.count==null ? (S.orders||[]).filter(x => x.branchId===id).length : o.count;
+  return { orders, inv: inv.reduce((a,r) => a + (r.error ? 0 : r.count || 0), 0) };
 }
 async function paintBranchData(id){
   const box = $("#bdData") || $("#fData"); if(!box) return;
@@ -1617,8 +1620,8 @@ async function paintBranchData(id){
   BD.id = id; BD.orders = BD.inv = null; box.style.display = "";
   const draw = () => { const n = v => v==null ? "…" : v.toLocaleString();
     const sec = (t, d, btn) => `<div class="dzsec"><h3>${t}</h3><div class="dzcard"><p>${d}</p>${btn}</div></div>`;
-    box.innerHTML = sec("Delete Branch Orders", `If you delete this branch's orders (${n(BD.orders)} order${BD.orders===1?"":"s"}, with their shifts and end-of-day records), all the data will be permanently deleted.`, `<button type="button" class="btn danger" id="bdDelOrders" ${!BD.orders || BD.busy ? "disabled" : ""}>Delete Orders</button>`)
-      + sec("Delete Branch Inventory Transactions", `If you delete this branch's inventory transactions (${n(BD.inv)} record${BD.inv===1?"":"s"}: purchases, transfers, adjustments, production, counts and consumption), all the data will be permanently deleted.`, `<button type="button" class="btn danger" id="bdDelInv" ${!BD.inv || BD.busy ? "disabled" : ""}>Delete Transactions</button>`); };
+    box.innerHTML = sec("Delete Branch Orders", `${BD.orders===0 ? "This branch has no orders to delete." : `If you delete this branch's orders (${n(BD.orders)} order${BD.orders===1?"":"s"}, with their shifts and end-of-day records), all the data will be permanently deleted.`}`, `<button type="button" class="btn danger" id="bdDelOrders" ${!BD.orders || BD.busy ? "disabled" : ""}>Delete Orders</button>`)
+      + sec("Delete Branch Inventory Transactions", `${BD.inv===0 ? "This branch has no inventory transactions to delete." : `If you delete this branch's inventory transactions (${n(BD.inv)} record${BD.inv===1?"":"s"}: purchases, transfers, adjustments, production, counts and consumption), all the data will be permanently deleted.`}`, `<button type="button" class="btn danger" id="bdDelInv" ${!BD.inv || BD.busy ? "disabled" : ""}>Delete Transactions</button>`); };
   draw();
   try{ Object.assign(BD, await countBranchData(id)); }catch(e){ console.error(e); }
   if(BD.id===id) draw();
@@ -2902,7 +2905,7 @@ const CRUD = {
       if(pw){ if(!data.email) return "Add the user's email: they sign in to the back office with their email and password.";
         if(pw.length < 8) return "The password needs at least 8 characters."; }
       // roles are picked on the user's page (Edit Roles), not in this form
-      if(id) delete data.roleIds; else { data.roleIds = []; data.roleId = null; data.active = true; }
+      if(id) delete data.roleIds; else { data.roleIds = []; data.roleId = null; data.active = true; data.branchIds = ["-"]; }   // a new user has no branches until they are picked (Branches on the user's page)
       if(data.email) data.email = data.email.toLowerCase();
       if(data.email && S.users.some(u=>u.id!==id && live(u) && (u.email||"").toLowerCase()===data.email)) return "Another user already has this email.";
       if(!id) data.id = newUserId();
@@ -6826,7 +6829,7 @@ async function removeVariant(kid){
 }
 
 function userDetail(u){
-  const rs = S.roles.filter(r => userRoleIds(u).includes(r.id)), picked = (u.branchIds||[]).length, brs = picked ? branches.filter(b => u.branchIds.includes(b.id)) : branches.filter(b => b.active!==false);
+  const rs = S.roles.filter(r => userRoleIds(u).includes(r.id)), picked = (u.branchIds||[]).length, brs = picked ? branches.filter(b => u.branchIds.includes(b.id)) : branches.filter(b => b.active!==false);   // "-" alone = no branches yet
   const fld = (k, v) => `<div class="udf"><span>${k}</span><div>${v}</div></div>`, dt = t => t ? new Date(t).toLocaleString("en-GB",{day:"numeric",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"}) : "—";
   const sec = (title, btn, body) => `<div class="udsec"><div class="udh"><h3>${title}</h3>${btn}</div><div class="card udcard">${body}</div></div>`;
   return `<div class="udtop"><div class="udrow"><a href="#users" class="btn" data-detback style="text-decoration:none">← Back</a><h1>${esc(u.name)}</h1><div class="sp"></div>
@@ -6836,7 +6839,7 @@ function userDetail(u){
         ${fld("Display localized names", u.displayLocalized ? "Yes" : "No")}${fld("Console Access", u.email ? (u.userId ? "Yes" : "Not created yet") : "No")}
         ${fld("App Access (PIN)", u.pinHash ? "Yes" : "No")}${fld("Created", dt(u.createdAt))}</div>
       ${sec("Roles", `<button class="btn sm" data-usrroles="${esc(u.id)}">Roles</button>`, rs.length ? rs.map(r => `<div class="udli">${esc(r.name)}</div>`).join("") : '<div class="udli note">No roles</div>')}
-      ${sec("Branches", `<button class="btn sm" data-usrbr="${esc(u.id)}">Branches</button>`, picked ? `<table><thead><tr><th>Name</th><th>Reference</th></tr></thead><tbody>${brs.map(b => `<tr><td>${esc(b.name)}</td><td>${esc(b.code||"—")}</td></tr>`).join("")}</tbody></table>`
+      ${sec("Branches", `<button class="btn sm" data-usrbr="${esc(u.id)}">Branches</button>`, picked ? (brs.length ? `<table><thead><tr><th>Name</th><th>Reference</th></tr></thead><tbody>${brs.map(b => `<tr><td>${esc(b.name)}</td><td>${esc(b.code||"—")}</td></tr>`).join("")}</tbody></table>` : '<div class="udli note">No branches yet</div>')
         : '<div class="udli">Automatically applied on all existing and new branches</div>')}
     </div>`;
 }
@@ -6896,7 +6899,7 @@ document.addEventListener("click", e => {
 
 // Users → Edit Branches: every branch automatically, or only the picked ones
 function openUserBranches(id){
-  const u = S.users.find(x => x.id===id); if(!u) return; const sel = new Set(u.branchIds||[]), auto = !sel.size;
+  const u = S.users.find(x => x.id===id); if(!u) return; const sel = new Set((u.branchIds||[]).filter(x => x!=="-")), auto = !(u.branchIds||[]).length;
   const list = branches.filter(b => b.active!==false || sel.has(b.id)), lbl = b => `${(brandList().length>1 ? brandName(b.brandId) + " · " : "")}${b.name}${b.code ? " (" + b.code + ")" : ""}`;
   const box = $("#ccBox"); box.className = "modal";
   box.innerHTML = `<header><h2>Edit Branches</h2><button type="button" class="x" data-ccclose aria-label="Close">×</button></header>
