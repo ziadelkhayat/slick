@@ -2061,21 +2061,30 @@ grant select (active, branch_ids, brand_id, calories, category_id, channels, cre
 grant select (deleted, id, name, name_ar, options) on public.variant_sets to anon;
 
 revoke execute on function public.slick_close_inv_doc(p_id text, p_by text) from public, anon;
+grant execute on function public.slick_close_inv_doc(p_id text, p_by text) to authenticated;
 
 revoke execute on function public.slick_customers(p_q text, p_filter text, p_sort text, p_limit integer, p_offset integer) from public, anon;
+grant execute on function public.slick_customers(p_q text, p_filter text, p_sort text, p_limit integer, p_offset integer) to authenticated;
 
 revoke execute on function public.slick_dashboard(p_day date, p_days integer, p_branches text[], p_brand text, p_tz text, p_cut integer) from public, anon;
+grant execute on function public.slick_dashboard(p_day date, p_days integer, p_branches text[], p_brand text, p_tz text, p_cut integer) to authenticated;
 
 revoke execute on function public.slick_doc_action(p_id text, p_action text, p_by text, p_lines jsonb) from public, anon;
+grant execute on function public.slick_doc_action(p_id text, p_action text, p_by text, p_lines jsonb) to authenticated;
 
 revoke execute on function public.slick_inventory(p_branches text[]) from public, anon;
+grant execute on function public.slick_inventory(p_branches text[]) to authenticated;
 
 revoke execute on function public.slick_kitchen(p_day date, p_days integer, p_branches text[], p_brand text, p_tz text, p_cut integer) from public, anon;
+grant execute on function public.slick_kitchen(p_day date, p_days integer, p_branches text[], p_brand text, p_tz text, p_cut integer) to authenticated;
 
 revoke execute on function public.slick_set_user_password(p_user uuid, p_password text) from public, anon;
+grant execute on function public.slick_set_user_password(p_user uuid, p_password text) to authenticated;
 
 revoke execute on function public.slick_stock_all() from public, anon;
+grant execute on function public.slick_stock_all() to authenticated;
 
 revoke execute on function public.slick_stock_levels(p_branch text) from public, anon;
+grant execute on function public.slick_stock_levels(p_branch text) to authenticated;
 
 alter publication supabase_realtime add table public.branches, public.brands, public.categories, public.charges, public.day_closes, public.devices, public.inventory_categories, public.inventory_docs, public.modifier_options, public.modifiers, public.order_sources, public.orders, public.payment_methods, public.products, public.roles, public.shifts, public.staff_users, public.tax_groups, public.taxes, public.variant_sets, public.warehouses;
