@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="591-1794241372">
+<meta name="slick-build" content="592-1794241785">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -2863,7 +2863,7 @@ const CRUD = {
     sort:bySort, search:r=>r.name+" "+(r.code||""),
     cols:[["Name",r=>`<b>${esc(r.name)}</b>${r.nameAr?` <span class="note">${esc(r.nameAr)}</span>`:""}`],["Type",r=>esc(PM_TYPES.find(t=>t[0]===r.type)?.[1]||"Other")],["Code",r=>esc(r.code||"—")],
       ["Opens cash drawer",r=>r.openDrawer?"Yes":"No"],["Active",r=>r.active===false?'<span class="tag off">Inactive</span>':'<span class="tag on">Active</span>']],
-    fields:[{k:"name",l:"Name",req:1,ph:"e.g. Cash, Visa, OMT"},{k:"nameAr",l:"Name Localized"},{k:"type",l:"Type",t:"select",req:1,opts:()=>PM_TYPES,def:"cash"},{k:"code",l:"Code / reference"},
+    fields:[{k:"name",l:"Name",req:1,ph:"e.g. Cash, Visa, OMT"},{k:"nameAr",l:"Name Localized"},{k:"type",l:"Type",t:"select",req:1,opts:()=>PM_TYPES,def:"cash"},{k:"code",l:"Reference"},
       {k:"openDrawer",l:"Open the cash drawer when used",t:"chk",def:false},{k:"active",l:"Active",t:"chk",def:true}],
     unique:"name", note:"These are the buttons the cashier sees on the POS payment screen, in the order you sort them. Cash lets the cashier enter the amount received and gives change. Renaming a method renames it on past orders too."
   },
@@ -2892,11 +2892,9 @@ const CRUD = {
       {k:"language",l:"Language",t:"select",opts:()=>[["en","English"],["ar","Arabic"]],def:"en"},
       {k:"phone",l:"Phone Number",t:"phone",ph:"70 123 456",full:1},
       {k:"email",l:"Email",ph:"Needed only to log in to the back office"},
-      {k:"password",l:"Password",t:"password",hideIf:r=>!!r.userId,note:"Only for users who work in the back office. They sign in with their email and this password. At least 8 characters. Once set, they change it themselves with Forgot password."},
+      {k:"password",l:"Password",t:"password",hideIf:r=>!!r.userId,hideNew:1,note:"Only for users who work in the back office. They sign in with their email and this password. At least 8 characters. Once set, they change it themselves with Forgot password."},
       {k:"pin",l:"Login PIN",t:"pin",note:"A unique 5-digit PIN the user types to sign in on the cashier app. Generate a random PIN for better security."},
-      {k:"displayLocalized",l:"Display localized names (show the apps in the localized language)",t:"chk",def:false},
-      
-      {k:"active",l:"Active",t:"chk",def:true,editOnly:1}],
+      {k:"displayLocalized",l:"Display localized names",t:"chk",def:false}],
     note:"POS users sign in on the tablet with their PIN. For back-office access, add their email and a password: they sign in with them.",
     prep: async (data, id) => {
       const pin = data.pin, pw = data.password || ""; delete data.pin; delete data.password;
@@ -3313,7 +3311,7 @@ function openCrud(key, id, inline, draft){
   if(!inline) crudEdit = { key, id: r?.id || null };
   const val = f => draft && f.k in draft ? draft[f.k] : r ? (f.get ? f.get(r) : r[f.k]) : (f.auto ? f.auto() : f.def);
   const field = f => {
-    if(f.hideIf && r && f.hideIf(r)) return "";
+    if(f.hideIf && (r ? f.hideIf(r) : f.hideNew)) return "";
     if(f.editOnly && !r) return "";
     if(f.inline && !inline) return "";   // shown on the item page only
     const v = val(f), idA = "cf_"+f.k, full = f.full||f.t==="textarea"||f.t==="multi" ? " full" : "";
@@ -6799,7 +6797,7 @@ function userDetail(u){
   const fld = (k, v) => `<div class="udf"><span>${k}</span><div>${v}</div></div>`, dt = t => t ? new Date(t).toLocaleString("en-GB",{day:"numeric",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"}) : "—";
   const sec = (title, btn, body) => `<div class="udsec"><div class="udh"><h3>${title}</h3>${btn}</div><div class="card udcard">${body}</div></div>`;
   return `<div class="udtop"><div class="udrow"><a href="#users" class="btn" data-detback style="text-decoration:none">← Back</a><h1>${esc(u.name)}</h1><div class="sp"></div>
-      ${u.email ? `<button class="btn" data-usrpw="${esc(u.id)}">Change Password</button>` : ""}<button class="btn pri" data-detedit>Edit User</button></div></div>
+      <button class="btn" data-usrpw="${esc(u.id)}">${u.userId ? "Change Password" : "Create Password"}</button><button class="btn pri" data-detedit>Edit User</button></div></div>
     <div class="udwrap">
       <div class="card udinfo">${fld("Name", esc(u.name))}${fld("Email", esc(u.email || "—"))}${fld("Phone", esc(u.phone || "—"))}${fld("Language", u.language==="ar" ? "Arabic" : "English")}
         ${fld("Display localized names", u.displayLocalized ? "Yes" : "No")}${fld("Console Access", u.email ? (u.userId ? "Yes" : "Not created yet") : "No")}
@@ -6809,24 +6807,52 @@ function userDetail(u){
         : '<div class="udli">Automatically applied on all existing and new branches</div>')}
     </div>`;
 }
+// Users → Create / Change Password
+function openUserPw(id){
+  const u = S.users.find(x => x.id===id); if(!u) return; const has = !!u.userId;
+  const box = $("#ccBox"); box.className = "modal";
+  box.innerHTML = `<header><h2>${has ? "Change Password" : "Create Password"}</h2><button type="button" class="x" data-ccclose aria-label="Close">×</button></header>
+  <div class="body" style="display:block">${has ? "" : `<p class="note" style="margin:0 0 12px">${u.email ? `${esc(u.email)} signs in to the back office with this password.` : "Add the user's email first (Edit User): they sign in to the back office with their email and this password."}</p>`}
+    <div class="f"><label for="upw1">${has ? "New Password" : "Password"} *</label><input type="password" id="upw1" autocomplete="new-password" placeholder="At least 8 characters"></div>
+    <div class="f"><label for="upw2">${has ? "Confirm New Password" : "Confirm Password"} *</label><input type="password" id="upw2" autocomplete="new-password"></div><div class="err" id="upwErr"></div></div>
+  <footer><span style="flex:1"></span><button type="button" class="btn" data-ccclose>Close</button><button type="button" class="btn pri" data-upwsave="${esc(id)}">Save</button></footer>`;
+  $("#ccScrim").classList.add("show"); setTimeout(() => $("#upw1")?.focus(), 60);
+  box.querySelectorAll("#upw1,#upw2").forEach(i => i.addEventListener("keydown", e => { if(e.key==="Enter"){ e.preventDefault(); saveUserPw(id); } }));
+}
+async function saveUserPw(id){
+  const u = S.users.find(x => x.id===id), err = $("#upwErr"); if(!u || !err) return; const p1 = $("#upw1").value, p2 = $("#upw2").value; err.textContent = "";
+  if(!u.userId && !u.email) return err.textContent = "Add the user's email first (Edit User).";
+  if(p1.length < 8) return err.textContent = "The password needs at least 8 characters.";
+  if(p1 !== p2) return err.textContent = "The passwords don't match.";
+  const done = m => { toast(m); $("#ccScrim").classList.remove("show"); render(); };
+  if(storeMode!=="db") return done("Password saved");
+  try{
+    if(!u.userId){ const r = await createStaffLogin(u.email.toLowerCase(), p1); if(r.error) return err.textContent = r.error;
+      if(r.userId) await put("users", id, { userId: r.userId }); return done(r.confirm ? "Password created · they confirm their email once, then sign in" : "Password created"); }
+    const me = (await WOK.sb.auth.getUser())?.data?.user?.id;
+    if(me && me===u.userId){ const { error } = await WOK.sb.auth.updateUser({ password: p1 }); if(error) return err.textContent = "Couldn't change it: " + error.message; return done("Password changed"); }
+    const { data, error } = await WOK.sb.rpc("slick_set_user_password", { p_user: u.userId, p_password: p1 });
+    if(error) return err.textContent = /function|schema cache|not find/i.test(error.message) ? "Password changes need a one-time database update (supabase-user-password.sql)." : "Couldn't change it: " + error.message;
+    if(data?.error) return err.textContent = ({ forbidden:"Only the owner or an admin can change other users' passwords.", short:"The password needs at least 8 characters.", nouser:"This user's login wasn't found." })[data.error] || "Couldn't change it.";
+    done("Password changed");
+  }catch(e){ console.error(e); err.textContent = "Couldn't save. Check the connection and try again."; }
+}
 // Users → Edit Roles
 function openUserRoles(id){
   const u = S.users.find(x => x.id===id); if(!u) return; const cur = new Set(userRoleIds(u)), list = S.roles.filter(r => live(r) || cur.has(r.id));
   const box = $("#ccBox"); box.className = "modal";
   box.innerHTML = `<header><h2>Edit Roles</h2><button type="button" class="x" data-ccclose aria-label="Close">×</button></header>
-  <div class="body" style="display:block"><div class="mlist">${list.length ? list.map(r => `<label class="chk mitem"><input type="checkbox" value="${esc(r.id)}" ${cur.has(r.id)?"checked":""}> ${esc(r.name)}</label>`).join("") : ""}</div>${list.length ? "" : msEmptyBox("Roles", "urEmpty", "No roles", "Roles are created in Manage → Roles.")}<div class="err" id="urErr"></div></div>
+  <div class="body" style="display:block"><div class="f"><label>Roles</label><div class="multi" id="urList" data-empty="No roles">${list.map(r => `<label class="chk"><input type="checkbox" value="${esc(r.id)}" ${cur.has(r.id)?"checked":""}> ${esc(r.name)}</label>`).join("")}</div>${list.length ? "" : `<p class="note">Roles are created in Manage → Roles.</p>`}</div><div class="err" id="urErr"></div></div>
   <footer><span style="flex:1"></span><button type="button" class="btn" data-ccclose>Cancel</button><button type="button" class="btn pri" data-urapply="${esc(id)}">Apply</button></footer>`;
   $("#ccScrim").classList.add("show");
 }
 document.addEventListener("click", async e => {
   const o = e.target.closest("[data-usrroles]"); if(o){ e.preventDefault(); openUserRoles(o.dataset.usrroles); return; }
-  const ap = e.target.closest("[data-urapply]"); if(ap){ const ids = [...document.querySelectorAll("#ccBox .mlist input:checked")].map(i => i.value);
+  const ap = e.target.closest("[data-urapply]"); if(ap){ const ids = [...document.querySelectorAll("#urList input:checked")].map(i => i.value);
     if(!ids.length){ $("#urErr").textContent = "Pick at least one role."; return; }
     try{ await put("users", ap.dataset.urapply, { roleIds: ids, roleId: ids[0] }); toast("Roles saved"); $("#ccScrim").classList.remove("show"); render(); }catch(err){ console.error(err); $("#urErr").textContent = "Couldn't save."; } return; }
-  const pw = e.target.closest("[data-usrpw]"); if(pw){ e.preventDefault(); const u = S.users.find(x => x.id===pw.dataset.usrpw); if(!u?.email) return;
-    if(!(await askYes(`Send a password reset link to ${u.email}? They set their new password from the email.`))) return;
-    if(storeMode!=="db") return toast("Reset link sent");
-    const { error } = await WOK.sb.auth.resetPasswordForEmail(u.email, { redirectTo: location.href.split("#")[0] }); toast(error ? "Couldn't send: " + error.message : "Password reset link sent to " + u.email); return; }
+  const pw = e.target.closest("[data-usrpw]"); if(pw){ e.preventDefault(); openUserPw(pw.dataset.usrpw); return; }
+  const pa = e.target.closest("[data-upwsave]"); if(pa){ e.preventDefault(); saveUserPw(pa.dataset.upwsave); return; }
 });
 document.addEventListener("click", e => { const g = e.target.closest("[data-pingen]"); if(!g) return; e.preventDefault(); document.getElementById(g.dataset.pingen).value = String(Math.floor(10000 + Math.random()*90000)); });
 document.addEventListener("click", e => {
