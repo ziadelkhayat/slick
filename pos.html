@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="578-1794236295">
+<meta name="slick-build" content="579-1794236873">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -620,6 +620,9 @@ input,textarea{-webkit-user-select:text;user-select:text}
 .msrch input{flex:1;min-width:0;border:0;background:none;font:inherit;font-size:15px;outline:none;color:var(--ink);height:100%}.msrch input::-webkit-search-cancel-button{display:none}
 .msrch button{visibility:hidden;border:0;background:#f1f0f5;color:#555;width:30px;height:30px;border-radius:50%;font-size:18px;line-height:1;cursor:pointer;flex:none}
 .cart>.chead{display:none!important}
+.pdright{display:flex;flex-direction:column;gap:12px;min-width:0;align-self:stretch}.pdright>.pdside0{flex:1}
+.pdcols .npad.npad{max-width:340px!important;grid-template-columns:repeat(3,1fr)!important;gap:8px!important}.pdcols .npad.npad button{height:52px!important;font-size:22px!important;border-radius:14px!important}   /* phone keypad: compact and easy to tap */
+.otabs2.otabs2{background:#ecebf2!important;padding:4px!important;gap:4px;border-radius:14px!important;box-shadow:none!important}.otabs2.otabs2 button{border-bottom:0!important;border-radius:10px!important;min-height:44px!important;padding:10px 12px!important;color:#6f6b85!important;font-size:14px!important;letter-spacing:0!important}.otabs2.otabs2 button.on{background:var(--s)!important;color:var(--acc)!important;box-shadow:0 2px 8px rgba(21,19,31,.08)!important}   /* order tabs: same segmented style as Pickup / Delivery */
 #abar .abtn.abtn,#abar .abtn.abtn.off{background:var(--acc,#6a4cf5)!important;color:#fff!important;box-shadow:0 4px 12px rgba(106,76,245,.25)!important;opacity:1!important}#abar .abtn.abtn svg,#abar .abtn.abtn.off svg{color:#fff!important;stroke:#fff!important}#abar .abtn.abtn:active{background:var(--acci,#4b2fd6)!important}   /* top buttons: one purple, white text */   /* no brand / device / till / sign-in bar above the cart */
 #abar .abtn.abtn{width:100%!important;max-width:none!important;aspect-ratio:auto!important;height:clamp(62px,9.5vh,100px)!important;max-height:none!important}   /* top buttons fill their slot */   /* the same split on every screen: cart 37%, menu the rest */
 .tillx{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:24px;height:100%;min-height:0}.tillx .tl{display:flex;flex-direction:column;min-height:0;overflow:hidden}.tillx .tr{display:flex;min-height:0}.tillx .tr .npad{flex:1;display:grid!important;grid-template-columns:repeat(3,1fr)!important;grid-auto-rows:1fr!important;gap:10px!important;margin:0!important;max-width:none!important}.tillx .tr .npad button{height:auto!important;min-height:0!important;font-size:26px!important}
@@ -663,7 +666,7 @@ input,textarea{-webkit-user-select:text;user-select:text}
 #lock .lkhi{font-size:22px;color:#3a3846;margin:0}#lock .lkst{font-size:14px;color:var(--mut,#8a8799);margin:-10px 0 8px}
 #lock .lkbtn{width:312px;height:80px;border:0;border-radius:10px;background:#eceaf2;font:inherit;font-size:24px;color:#3a3846;cursor:pointer}#lock .lkbtn:active{background:var(--accs,#efeaff)}#lock .lkbtn:disabled{opacity:.45;cursor:not-allowed}
 #lock .lkexit{margin-top:56px}
-#grid#grid,#grid#grid:has(>.prod),#grid#grid:has(>.cbtile){grid-template-columns:repeat(5,minmax(0,1fr))!important;grid-auto-rows:calc((100% - 30px) / 4)!important;justify-content:stretch!important}
+#grid#grid,#grid#grid:has(>.prod),#grid#grid:has(>.cbtile){grid-template-columns:repeat(5,var(--tile,1fr))!important;grid-auto-rows:var(--tile,120px)!important;justify-content:start!important;align-content:start!important}
 </style>
 <script>
 /* ---------- naming: menu "products" are called Items; inventory "items" are called Products ----------
@@ -1281,10 +1284,10 @@ function renderCart(){
   const pdb = $("#otype [data-t=pd]"); pdb.classList.toggle("hide", otype!=="takeaway" && otype!=="delivery"); pdb.textContent = otype==="delivery" ? "Delivery" : "Pickup";
   const eo0 = editOrder(), canSwitch = !eo0;
   const rf = eo0 && eo0.status==="refund" ? eo0 : null, rfInv = rf && invNo(rf.invoiceRef || S.orders.find(x => x.id===rf.refundOf)?.invoiceNo);
-  const ctx = rf ? `<div class="ctx"><span class="ci ci-svg">${ico("undo")}</span><div><b>RETURN</b><small>${rfInv ? "Original invoice " + esc(rfInv) : esc(typLbl(rf.type))}</small></div><span class="sp"></span></div>`
+  const ctx = rf ? `<div class="ctx"><span class="ci ci-svg">${ico("undo")}</span><div><b>Return</b><small>${rfInv ? "Original invoice " + esc(rfInv) : esc(typLbl(rf.type))}</small></div><span class="sp"></span></div>`
     : otype==="dinein" ? `<div class="ctx"><span class="ci ci-svg">${ico("dine")}</span><div><b>${esc(tblLbl(tableNo || "—"))}</b><small>Dine-in${GUESTS ? ` · ${GUESTS} guest${GUESTS===1?"":"s"}` : ""}</small></div><span class="sp"></span>${canSwitch ? `<button data-ctx="table">Change table</button><button data-ctx="fast">Remove table</button>` : ""}</div>`
     : otype==="takeaway" || otype==="delivery" ? `<div class="ctx"><span class="ci ci-svg">${ico(otype==="delivery" ? "scooter" : "bag")}</span><div><b>${esc(cust.name || (otype==="delivery" ? "Delivery" : "Pickup"))}</b><small>${esc([branch?.name, otype==="delivery" ? "Delivery" : "Pickup", cust.source].filter(Boolean).join(" · "))}</small></div><span class="sp"></span>${cust.phone || cust.name ? `<button data-ctx="custpage">Customer details</button>` : ""}${canSwitch ? `<button data-ctx="pddetails">Details</button>` : ""}</div>`
-    : `<div class="ctx"><span class="ci ci-svg"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12v18l-2-1.5L14 21l-2-1.5L10 21l-2-1.5L6 21z"/><path d="M9 8h6M9 12h6M9 16h3"/></svg></span><div><b>FAST SALE</b></div><span class="sp"></span></div>`;
+    : `<div class="ctx"><span class="ci ci-svg"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12v18l-2-1.5L14 21l-2-1.5L10 21l-2-1.5L6 21z"/><path d="M9 8h6M9 12h6M9 16h3"/></svg></span><div><b>Fast Sale</b></div><span class="sp"></span></div>`;
   // the order's tags, under the order type: "Tag: …"
   const tgIds = posTags ?? (eo0 ? (tgDoc().on?.order?.[eo0.id] || []) : []), tgNames = tgIds.map(id => tgList("order").find(t => t.id===id)?.name).filter(Boolean);
   const ctxT = tgNames.length ? ctx.replace('</div><span class="sp"></span>', `<small class="ctag">Tag: ${esc(tgNames.join(", "))}</small></div><span class="sp"></span>`) : ctx;
@@ -1311,8 +1314,8 @@ function renderCart(){
   // actions: new order / open order / closed order
   const acts = $("#acts"), unsent = cart.some(i => i.qty > (i.saved||0));
   let b;
-  if(!eo) b = [...(otype==="fast" ? [] : [`<button data-act="send" ${cart.length?"":"disabled"}>Save</button>`]), `<button class="pay" data-act="pay" ${cart.length?"":"disabled"}>${cart.length ? "TOTAL" : "TOTAL"}</button>`];
-  else if(isOpenOrd(eo)) b = [...(otype==="fast" ? [] : [`<button data-act="send" ${unsent?"":"disabled"}>Save</button>`]), `<button class="pay" data-act="pay" ${cart.length?"":"disabled"}>TOTAL</button>`];
+  if(!eo) b = [...(otype==="fast" ? [] : [`<button data-act="send" ${cart.length?"":"disabled"}>Save</button>`]), `<button class="pay" data-act="pay" ${cart.length?"":"disabled"}>${cart.length ? "Total" : "Total"}</button>`];
+  else if(isOpenOrd(eo)) b = [...(otype==="fast" ? [] : [`<button data-act="send" ${unsent?"":"disabled"}>Save</button>`]), `<button class="pay" data-act="pay" ${cart.length?"":"disabled"}>Total</button>`];
   else b = [];
   acts.style.setProperty("--n", b.length + 1); acts.innerHTML = b.join(""); acts.classList.toggle("hide", !b.length);
   // order note (invoice receipt) and kitchen note (kitchen tickets)
@@ -1392,6 +1395,9 @@ function voidSent(ix){
 
 /* ---------- events ---------- */
 
+(function tileFit(){ const g = $("#grid"); if(!g || !window.ResizeObserver) return;
+  const fit = () => { const w = g.clientWidth, h = g.clientHeight; if(!w || !h) return; const t = Math.floor(Math.min((w - 40) / 5, (h - 30) / 4)); if(t > 30) g.style.setProperty("--tile", t + "px"); };
+  new ResizeObserver(fit).observe(g); fit(); })();
 $("#grid").addEventListener("click", e => { const b = e.target.closest("[data-cat]"); if(b){ cat = b.dataset.cat; renderMenu(); $(".rside .menu").scrollTop = 0; } });
 $("#mcats").addEventListener("click", e => { const b = e.target.closest("[data-cat]"); if(b){ cat = b.dataset.cat; $("#q").value = ""; renderMenu(); $(".rside .menu").scrollTop = 0; b.scrollIntoView({ block:"nearest", inline:"nearest" }); } });
 $("#q").addEventListener("input", () => { $("#qx").style.visibility = $("#q").value ? "visible" : "hidden"; renderMenu(); });
@@ -2270,7 +2276,7 @@ function openBoard(){
   const q = OV.q; OV.q = BQ;
   const PD_COLS = [...OV_COLS.slice(0,3), ["declined","Declined","Declined today"]];   // pickup & delivery: no void / returns column
   const cols = PD_COLS.map(([k,title,tip]) => [k, title, tip, boardOrders(k, true)]); OV.q = q;
-  modal("board", `<div class="ohdr"><button class="hbtn" data-close>Back</button><b style="font-size:18px;letter-spacing:.03em">PICKUP & DELIVERY</b><span class="sp"></span>${allowedTypes().some(t => t==="takeaway"||t==="delivery") ? `<button class="hbtn" data-pdnewt>PLACE ORDER</button>` : ""}</div>
+  modal("board", `<div class="ohdr"><button class="hbtn" data-close>Back</button><b style="font-size:18px;letter-spacing:.03em">Pickup & Delivery</b><span class="sp"></span>${allowedTypes().some(t => t==="takeaway"||t==="delivery") ? `<button class="hbtn" data-pdnewt>Place Order</button>` : ""}</div>
     <div class="mb"><div class="oboard">${cols.map(([k,title,tip,l]) => `<div class="ocol"><div class="ochead" title="${esc(tip)}"><b>${title}</b><span class="cnt">${l.length}</span></div>${l.length ? l.map(card).join("") : `<div class="oempty">You don't have ${title.toLowerCase()} orders</div>`}</div>`).join("")}</div></div>`, true);
   $("#modal").classList.add("full"); $("#scrim").classList.add("fullscr"); withNav();
 }
@@ -2303,9 +2309,8 @@ function openPDNew(opt = {}){
     <div class="f"><label>Order source *</label><div class="rchips">${posSources().map(s => `<button type="button" data-pdsrc="${esc(s)}" class="${PD.source===s?"on":""}">${esc(s)}</button>`).join("")}</div></div>
     <div class="f"><label for="pdPhone">Customer phone *</label><div class="npw"><div class="pdph"><select id="pdCc" aria-label="Country code">${Object.entries(CC_OF).map(([n,c]) => `<option value="${c}" ${(PD.cc||CC_OF[coS().country||"Lebanon"]||"+961")===c?"selected":""}>${c} ${esc(n)}</option>`).join("")}</select><input id="pdPhone" inputmode="none" data-np="tel" value="${esc(PD.phone)}" autocomplete="off"></div>${numpad("pdPhone", "tel")}</div><div class="mut" id="pdHint" style="min-height:18px">${PD.cust && !side ? pdHint(PD.cust) : ""}</div></div>
     <div class="f"><label for="pdName">Customer name *</label><input id="pdName" value="${esc(PD.name)}"></div>
-    ${PD.type==="delivery" ? `
-      <div class="f"><label>Delivery address</label><div class="addrg">${A.map(([k,ph]) => `<label class="adf${k==="extra"||k==="label"?" wide":""}"><span>${ph}</span><input id="pdA_${k}" value="${esc(PD.addr[k]||"")}"></label>`).join("")}</div></div>` : ""}
-    <div class="err" id="pdErr"></div></div>${side}</div>
+    <div class="err" id="pdErr"></div></div><div class="pdright">${PD.type==="delivery" ? `
+      <div class="f"><label>Delivery address</label><div class="addrg">${A.map(([k,ph]) => `<label class="adf${k==="extra"||k==="label"?" wide":""}"><span>${ph}</span><input id="pdA_${k}" value="${esc(PD.addr[k]||"")}"></label>`).join("")}</div></div>` : ""}${side}</div></div>
     <div class="mf"><button class="btn" data-pdcancel>Cancel</button><button class="btn pri" id="pdGo">${PD.edit ? "Save" : "Continue"}</button></div>`, true);
   $("#modal").classList.add("full"); $("#scrim").classList.add("fullscr");   // a full page, with the customer's details beside the form
   pdRefresh();
@@ -2384,7 +2389,7 @@ async function openCustPage(det){
 }
 function drawCust(){
   const c = CV.c || { name: cust.name }, saved = (CV.c?.addresses || []).filter(a => a.address);
-  modal("custpage", `<div class="ohdr"><button class="hbtn" data-close>Back</button><b style="font-size:18px">CUSTOMER DETAILS</b><span class="sp"></span></div>
+  modal("custpage", `<div class="ohdr"><button class="hbtn" data-close>Back</button><b style="font-size:18px">Customer Details</b><span class="sp"></span></div>
     <div class="mb"><div class="custpg">
       <div class="custcol"><div class="cins"><div class="cins-h"><b style="font-size:18px">${esc(c.name || cust.name || "Customer")}</b>${CV.c ? "" : `<span class="mut">${CV.loading ? "Loading…" : "Not saved as a customer yet"}</span>`}</div>
         <div class="kv"><span>Phone</span><b>${esc(cust.phone || "—")}</b></div>
