@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="611-1794260412">
+<meta name="slick-build" content="620-1794263284">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1211,6 +1211,7 @@ html.mlock{overflow:hidden!important}html.mlock body{position:fixed!important;le
 .mmiselbar{margin:0 0 10px}.mmrow .bmcsel{width:18px;height:18px;margin:0;accent-color:var(--accent,#6a4cf5);cursor:pointer}
 .mmmselbar{margin:0 0 10px}.bmdmx .bmmsel{width:18px;height:18px;margin:0 8px 0 0!important;vertical-align:middle;accent-color:var(--accent,#6a4cf5);cursor:pointer}
 input.nfon{color:transparent!important;-webkit-text-fill-color:transparent!important}.nfv{position:absolute;box-sizing:border-box;display:flex;align-items:center;pointer-events:none;white-space:nowrap;overflow:hidden;background:none}.nfv[hidden]{display:none}
+.empty,p.empty,div.empty{text-align:center!important;margin-left:auto!important;margin-right:auto!important}
 </style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -1960,7 +1961,7 @@ function viewInventoryDash(I, bname){
   const fmtD = d => d ? new Date(d).toLocaleDateString("en-GB",{day:"numeric",month:"short"}) : "Never";
   const hints = [];
   if(I.items && I.withCost < I.items) hints.push(`${I.items - I.withCost} of ${I.items} items have no cost, so their stock value shows as zero.`);
-  if(I.items && !I.withMin) hints.push("No item has a minimum level yet. Set one to get low-stock alerts.");
+  if(I.items && !I.withMin) hints.push("No item has a minimum level yet");
   let h = false ? `<div class="card" style="margin-bottom:16px;border-color:#f3d9a4;background:#fffaf0"><b>Finish setting up inventory</b><ul style="margin:6px 0 0 18px;padding:0">${hints.map(x=>`<li>${esc(x)}</li>`).join("")}</ul><a href="#inv-items" class="vr" style="display:inline-block;margin-top:8px">Open Inventory → Items</a></div>` : "";
   h += `<div class="grid kpis">
     ${kpiX("Stock value", money(+I.value), "Latest counts × item cost")}
@@ -2437,12 +2438,10 @@ document.addEventListener("click", e => {
 });
 document.addEventListener("click", e => { const b = e.target.closest("[data-ptmore]"); document.querySelectorAll(".ptmm").forEach(m => { if(!b || m.parentNode!==b.parentNode) m.hidden = true; }); if(b){ e.preventDefault(); const m = b.nextElementSibling; m.hidden = !m.hidden; } });
 /* Marketplace: third-party apps. Delivery apps connect as Marketplace sales channels; the rest are coming */
-const MKT = [["Delivery Apps", "Orders from these apps come in through a Marketplace sales channel at each branch.", ["Toters","Talabat","Deliveroo","Careem Food","Uber Eats","Wolt"], true],
-  ["Payments", "Card and online payment providers.", ["Areeba","Network International","Stripe"], false],
-  ["Accounting", "Send sales, purchases and inventory to your accounting software.", ["Xero","QuickBooks","Zoho Books"], false],
-  ["Messaging", "Order updates and marketing to your customers.", ["WhatsApp Business","SMS"], false]];
+const MKT = [];   // integrations are added here one by one as they become available: [section, description, [apps], live]
 function viewMarketplace(){
   const ints = (scDoc().list||[]).filter(c => c.kind==="integration" && !c.deleted), used = n => ints.filter(c => String(c.name).trim().toLowerCase()===n.toLowerCase());
+  if(!MKT.length) return `<div class="phead"><h1>Marketplace</h1></div><div class="card" style="padding:40px 20px"><p class="empty" style="margin:0">No integrations yet</p></div>`;
   return `<div class="phead"><h1>Marketplace</h1></div>` + MKT.map(([t, d, apps, live]) => `<div class="rssec"><div class="rsh"><h3>${esc(t)}</h3></div><p class="note" style="margin:-4px 0 12px">${esc(d)}</p>
     <div class="mktg">${apps.map(a => { const u = live ? used(a) : [];
       return `<div class="card mktc"><span class="mkti">${esc(a.split(" ").map(w => w[0]).join("").slice(0,2).toUpperCase())}</span><div class="mktn"><b>${esc(a)}</b><small>${u.length ? `Connected · ${u.length} branch${u.length===1 ? "" : "es"}` : live ? "Not connected" : "Coming soon"}</small></div>
@@ -4086,7 +4085,7 @@ function renderOrderMenu(){
     $("#oCatTitle").textContent = "Categories";
     box.className = "pgrid cats";
     box.innerHTML = tiles.length ? tiles.map(([id, nm, img], ix) => { const st = ccCatStyle(cats.find(c=>c.id===id) || { name:nm }, ix); return `<button type="button" class="ctile ccct${img?" hasimg":""}" data-ocat="${esc(id)}" style="--hue:${st.hue};--tint:${st.tint}">${img?`<img src="${esc(img)}" alt="" loading="lazy">`:`<span class="pic">${ccIco(st.icon)}</span>`}<b>${esc(nm)}</b><small class="ccn">${(k => `${k} item${k===1?"":"s"}`)(n(id) + subsOf(id).reduce((a, sc) => a + prods.filter(p => ccHas(sc, p) && !ccHas(cats.find(c => c.id===id), p)).length, 0))}</small></button>`; }).join("")
-      : `<div class="note" style="padding:12px">${S.products.length ? ($("#oBrand")?.value || !brandList().length ? "No products available at this branch." : "Choose a brand to see its menu.") : "No products yet. Add them under Menu → Products."}</div>`;
+      : `<div class="note" style="padding:12px">${S.products.length ? ($("#oBrand")?.value || !brandList().length ? "No products available at this branch." : "Choose a brand to see its menu.") : "No products yet"}</div>`;
     return;
   }
   box.className = "pgrid";
@@ -4099,7 +4098,7 @@ function renderOrderMenu(){
   const stOf = p => { const cc = q ? cats.find(c => ccHas(c, p)) : cats.find(c=>c.id===state.oCat); return ccCatStyle(cc || { name:"" }, Math.max(0, cats.indexOf(cc))); };
   box.innerHTML = subHtml + (list.length || subHtml ? list.sort(q ? ((a,b)=>catRank(a.categoryId)-catRank(b.categoryId) || bySort(a,b)) : ccOrder(cats.find(c=>c.id===state.oCat))).map(p=>{ const c = inCart(p.id), oos = (p.outOfStockBranchIds||[]).includes($("#oBranch")?.value);
     const st = stOf(p); return `<button type="button" class="pbtn ccp${c?" sel":""}${p.imageUrl?" hasimg":""}" data-add="${esc(p.id)}" style="--hue:${st.hue};--tint:${st.tint}" ${oos?"disabled title=\"Out of stock at this branch\"":""}>${c?`<em>${c}</em>`:""}${p.imageUrl?`<img class="ccimg" src="${esc(p.imageUrl)}" alt="" loading="lazy">`:`<span class="pic">${ccIco(st.icon)}</span>`}<span>${esc(p.name)}</span><b>${oos?"Out of stock":usd(ccPrice(p))}</b>${(p.modifiers||[]).length?`<small>Options</small>`:""}</button>`; }).join("")
-    : `<div class="note" style="padding:12px">${S.products.length ? (q ? "No products match." : $("#oBrand")?.value ? "No products in this category." : "Choose a brand to see its menu.") : "No products yet. Add them under Menu → Products."}</div>`);
+    : `<div class="note" style="padding:12px">${S.products.length ? (q ? "No products match." : $("#oBrand")?.value ? "No products in this category." : "Choose a brand to see its menu.") : "No products yet"}</div>`);
 }
 function ccNoteLines(ro){ const o = ($("#oRNotes")?.value||"").trim(), k = ($("#oNotes")?.value||"").trim();
   const line = (lbl, v, key, ic) => v ? `<div class="onote${key==="k" ? " knote" : ""}"><span ${ro ? "" : `data-ccnoteed="${key}" title="Tap to edit"`}><span class="onic">${ic}</span> <b>${lbl}:</b> ${esc(v)}</span>${ro ? "" : `<button type="button" class="onx" data-ccnotex="${key}" aria-label="Remove ${lbl.toLowerCase()}">×</button>`}</div>` : "";
@@ -4187,7 +4186,7 @@ function viewDevices(){
       ? `<th colspan="4" class="bkbar"><b>${dsel.size} Selected</b><span class="ddwrap"><button type="button" class="btn sm" data-devacts>Actions ▾</button><span class="ddmenu" id="devActM" hidden><button type="button" data-devbulk="add">Add Tags</button><button type="button" data-devbulk="del">Remove Tags</button><button type="button" data-devbulk="sync">Force Sync Data</button></span></span></th>`
       : `<th>Name</th><th>Reference</th><th>Type</th><th>Status</th><th>Branch</th>`}</tr></thead><tbody>${list.map(d=>`<tr class="clk" data-devopen="${esc(d.id)}"><td class="noedit bkc"><input type="checkbox" data-devsel="${esc(d.id)}" ${dsel.has(d.id)?"checked":""} aria-label="Select ${esc(d.name)}"></td>
     <td><b>${esc(d.name)}</b>${tagChips("device", d.id)}</td><td>${esc(d.reference || "—")}</td><td>${esc(devType(d.type))}</td><td>${devStatus(d)}</td><td>${esc(branchName(d.branchId))}</td></tr>`).join("")}</tbody></table>`
-    : `<div class="empty">${all.length ? "No devices of this type." : "No devices yet. Create one for each tablet, kitchen screen or printer station."}</div>`}</div>`;
+    : `<div class="empty">${all.length ? "No devices of this type." : "No devices yet"}</div>`}</div>`;
   return h;
 }
 document.addEventListener("click", async e => {
@@ -5585,7 +5584,7 @@ function viewCustomers(){
       : `<th>Name</th><th>Phone</th><th>Email</th><th class="num">Total Orders</th><th>Last Order</th>`}</tr></thead><tbody>${
     rows.length ? rows.map(c => `<tr class="clk" data-cid="${esc(c.id)}"><td class="bkc"><input type="checkbox" data-cusel="${esc(c.id)}" ${CUS.sel.has(c.id)?"checked":""} aria-label="Select ${esc(c.name||c.phone||"")}"></td><td><b>${esc(c.name || "Unnamed")}</b>${c.blacklisted?' <span class="spill s-declined">Blacklisted</span>':""}${(c.tags||[]).length?`<div>${c.tags.map(t=>`<span class="tag cc">${esc(t)}</span>`).join(" ")}</div>`:""}</td><td>${esc(c.phone)}</td><td>${esc(c.email || "—")}</td>
       <td class="num">${c.n}</td><td>${ago2(c.last_at)}</td></tr>`).join("")
-    : `<tr><td colspan="6" class="note" style="padding:24px;text-align:center">${CUS.loading ? "Loading customers…" : CUS.q || CUS.filter!=="all" || adv ? "No customers match." : "No customers yet. They're added automatically when an order has a phone number."}</td></tr>`
+    : `<tr><td colspan="6" class="note" style="padding:24px;text-align:center">${CUS.loading ? "Loading customers…" : CUS.q || CUS.filter!=="all" || adv ? "No customers match." : "No customers yet"}</td></tr>`
   }</tbody></table>`}
   <div class="pager"><span class="note">${a}–${b} of ${CUS.count.toLocaleString()}</span><span class="sp"></span><button class="btn" id="cusPrev" ${CUS.page<=1?"disabled":""}>‹ Previous</button><span class="note">Page ${CUS.page} of ${pages}</span><button class="btn" id="cusNext" ${CUS.page>=pages?"disabled":""}>Next ›</button></div></div>`;
 }
@@ -6352,7 +6351,7 @@ function viewDiscounts(){
   ${list.length ? `<table><thead><tr><th>Name</th><th>Reference</th><th>Qualification</th><th class="num">Discount</th>${del ? "<th></th>" : ""}</tr></thead><tbody>${list.map(d => `<tr class="click" ${del ? "" : `data-dsopen="${esc(d.id)}"`}>
     <td><b>${esc(d.name)}</b>${d.nameAr ? ` <span class="note">${esc(d.nameAr)}</span>` : ""}</td><td>${esc(d.reference || "—")}</td><td>${esc((DS_QUAL.find(x => x[0]===d.qualification)||DS_QUAL[0])[1])}</td><td class="num">${dsAmtLbl(d)}</td>
     ${del ? `<td class="num"><button class="btn sm" data-dsrestore="${esc(d.id)}">Restore</button></td>` : ""}</tr>`).join("")}</tbody></table>`
-    : `<div class="empty">${del ? "No deleted discounts." : "No discounts yet. Create the discounts your cashiers can apply, like Staff Meal or Management."}</div>`}</div>`;
+    : `<div class="empty" style="text-align:center;padding:48px 16px">${del ? "No deleted discounts" : "No discounts yet"}</div>`}</div>`;
 }
 function dsForm(d){
   const ed = !!d, x = d || { type:"pct", qualification:"order", orderTypes:["dinein","pickup","delivery","fast"] }, box = $("#ccBox"); box.className = "modal";
@@ -7525,7 +7524,7 @@ function viewOrderTx(){
     <p class="subt" style="margin-top:-6px">Every completed sale takes its recipe ingredients (product and options, for its order type) out of the branch stock. Voided sales put them back.</p>
     <div class="card tbl"><div class="ttop"><div class="ttabs">${tabs.map(t=>`<a href="#order-transactions" data-ottab="${t[0]}" class="${OT.kind===t[0]?"on":""}">${t[1]}</a>`).join("")}</div><div class="sp"></div><span class="note">${OT.loading?"Loading…":""}</span></div>`;
   if(OT.err) h += `<div class="empty">${esc(OT.err)}</div>`;
-  else if(!OT.rows.length) h += `<div class="empty">${OT.loading ? "Loading…" : "No transactions yet. They appear as sales are completed for products that have ingredients."}</div>`;
+  else if(!OT.rows.length) h += `<div class="empty">${OT.loading ? "Loading…" : "No transactions yet"}</div>`;
   else h += `<table><thead><tr><th>Reference</th><th>Branch</th><th>Order</th><th>Type</th><th class="num">Items</th><th class="num">Cost</th><th>Created</th></tr></thead><tbody>${OT.rows.map(r=>`<tr class="click" data-otopen="${esc(r.id)}">
       <td><span class="code">${esc(r.ref)}</span></td><td>${esc(branchName(r.branch_id))}</td><td>#${esc(r.order_no||"")}</td>
       <td>${r.kind==="return"?'<span class="tag off">Return from order</span>':'<span class="tag on">Consumption from order</span>'}</td><td class="num">${(r.items||[]).length}</td><td class="num">${fmtCost(r.total_cost)}</td><td>${fmtDate(r.created_at)}</td></tr>`).join("")}</tbody></table>`;
