@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="606-1794259486">
+<meta name="slick-build" content="607-1794259619">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1329,7 +1329,7 @@ document.addEventListener("DOMContentLoaded", () => nmApply(document.body));
 function askDlg(o){
   return new Promise(res => {
     const w = document.createElement("div"); w.className = "slk-ask"; w.setAttribute("role", "dialog"); w.setAttribute("aria-modal", "true");
-    const danger = o.input === undefined && /\b(delete|remove|void|decline|reject|deactivate|discard|clear|leave without|cancel this)\b/i.test(o.msg || "");
+    const danger = o.input === undefined && /\b(delete|remove|void|decline|reject|deactivate|discard|clear|leave without|cancel this|force sync)\b/i.test(o.msg || "");
     const esc2 = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;" }[c]));
     w.innerHTML = `<div class="slk-ask-b"><h3 class="slk-ask-h">${esc2(o.title || "Confirm")}</h3><p>${esc2(o.msg)}</p>${o.input !== undefined ? `<input class="slk-ask-i" value="${esc2(o.input)}" autocomplete="off">` : ""}
       <div class="slk-ask-f"><button type="button" class="slk-ask-no">${esc2(o.no)}</button><button type="button" class="slk-ask-yes${danger ? " red" : ""}">${esc2(o.yes)}</button></div></div>`;
@@ -4286,7 +4286,7 @@ document.addEventListener("click", e => {
 // Device page: Force Sync Data (the tablet reloads all its data) and Copy Settings (to other devices)
 document.addEventListener("click", async e => {
   const sy = e.target.closest("[data-devsync]"); if(sy){ e.preventDefault(); const d = S.devices.find(x => x.id===sy.dataset.devsync); if(!d) return;
-    if(!(await askYes(`Force ${d.name} to sync? The device reloads all its data now (or as soon as its current order is done).`))) return;
+    if(!(await askYes("You are about to force sync this device. It will reload all its data as soon as its current order is done. Are you sure you want to proceed?"))) return;
     try{ await put("devices", d.id, { settings: { ...(d.settings||{}), syncAt: new Date().toISOString() } }); toast("Sync sent · the device reloads its data"); }catch(err){ console.error(err); toast("Couldn't send the sync. Check the connection and try again."); } return; }
   const cp = e.target.closest("[data-devcopy]"); if(cp){ e.preventDefault(); openDevCopy(cp.dataset.devcopy); return; }
   const go = e.target.closest("[data-devcopygo]"); if(go){ e.preventDefault(); const src = S.devices.find(x => x.id===go.dataset.devcopygo), ids = [...document.querySelectorAll("#dcList input:checked")].map(i => i.value);
