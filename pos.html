@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="574-1794234843">
+<meta name="slick-build" content="575-1794235513">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -599,7 +599,7 @@ input,textarea{-webkit-user-select:text;user-select:text}
 @media (orientation:portrait),(max-width:1100px){.abtn{aspect-ratio:auto;height:72px!important;font-size:12px!important}.abtn span{overflow:hidden;text-overflow:ellipsis;max-width:100%}}
 /* bottom buttons: always one row */
 .bnav{grid-template-columns:none!important;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr)}
-@media (max-width:1366px){.bnav button{flex-direction:column;gap:3px!important;padding:8px 4px!important;font-size:11.5px!important;letter-spacing:.03em!important;text-align:center;line-height:1.15}.bnav .badge{position:absolute!important;top:2px;right:calc(50% - 30px);margin:0!important}}
+@media all{.bnav.bnav button{flex-direction:column!important;gap:3px!important;padding:8px 4px!important;font-size:11.5px!important;letter-spacing:.03em!important;text-align:center;line-height:1.15}.bnav .badge{position:absolute!important;top:2px;right:calc(50% - 30px);margin:0!important}}
 /* bigger touch targets */
 .qty button{min-width:48px;min-height:48px}
 .mcats button,.chip{min-height:44px}
@@ -785,7 +785,9 @@ const show = id => ["boot","activate","app"].forEach(x => $("#"+x).classList.tog
 // no example text inside fields that need filling (search boxes keep theirs)
 const noHints = () => document.querySelectorAll("input[placeholder], textarea[placeholder]").forEach(el => { if(!el.matches("#ovQ, .search, [type=search]")) el.removeAttribute("placeholder"); });
 let nhT = null; new MutationObserver(() => { if(!nhT) nhT = requestAnimationFrame(() => { nhT = null; noHints(); }); }).observe(document.documentElement, { childList:true, subtree:true });
-let tt; const toast = m => { const t=$("#toast"); t.textContent=m; t.classList.add("show"); clearTimeout(tt); tt=setTimeout(()=>t.classList.remove("show"),2400); };
+// status / confirmation messages aren't shown (only problems and instructions are)
+const QUIET = /^(Syncing|Signed in as|Logged out|Device activated|Till opened|Till closed · drawer balanced|Till closed$|Tags (set|saved)|Printer (saved|deleted)|Customer details saved|(Item )?[Dd]iscount removed|Note (added|removed)|All offline sales synced|Users synced|Retrying|Sales history was cleared|Saved on this tablet · will sync|Shift (opened|closed)$|Synced$|Saved$)/;
+let tt; const toast = m => { if(QUIET.test(String(m||""))) return; const t=$("#toast"); t.textContent=m; t.classList.add("show"); clearTimeout(tt); tt=setTimeout(()=>t.classList.remove("show"),2400); };
 const store = { get(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } }, set(k,v){ try{ v==null?localStorage.removeItem(k):localStorage.setItem(k,v); }catch(e){} } };
 
 let db = null;
