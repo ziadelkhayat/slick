@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="598-1794243015">
+<meta name="slick-build" content="599-1794243285">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -4150,11 +4150,11 @@ function viewDevice(d){
   const s = d.settings || {}, row = (k, v) => `<div><span>${k}</span>${v}</div>`, dt = t => t ? new Date(t).toLocaleString("en-GB",{day:"numeric",month:"long",hour:"2-digit",minute:"2-digit"}) : "—";
   const last = S.orders.filter(o => o.deviceId===d.id).reduce((m,o) => o.createdAt > m ? o.createdAt : m, "");
   return `<div class="phead"><a class="btn" href="#devices" data-devback style="text-decoration:none">← Back</a><h1>${esc(d.name)}</h1><span class="acode ${d.activatedAt ? "used" : "free"}" title="${d.activatedAt ? "Activation code (already used: deactivate the device to get a new one)" : "Activation code (enter it on the tablet to activate)"}">${esc(String(d.code||"").split("").join(" "))}</span><div class="sp"></div>
-      <button class="btn" data-devset="${esc(d.id)}">Device Settings</button><button class="btn pri" data-devedit="${esc(d.id)}">Edit Device</button></div>
+      <button class="btn" data-devsync="${esc(d.id)}">${svgIco("refresh")}Force Sync Data</button><button class="btn" data-devcopy="${esc(d.id)}">${svgIco("copy")}Copy Settings</button><button class="btn" data-devset="${esc(d.id)}">${svgIco("gear")}Device Settings</button><button class="btn pri" data-devedit="${esc(d.id)}">Edit Device</button></div>
     <div class="card odet" style="margin-bottom:16px">${row("Reference", esc(d.reference || "—"))}${row("Type", esc(devType(d.type)))}${row("Branch", esc(branchName(d.branchId)))}${row("Brand", esc(brandName(branches.find(b=>b.id===d.branchId)?.brandId) || "—"))}
       ${row("Status", devStatus(d))}${row("Receives Online Orders", s.master ? "Yes" : "No")}${row("Activated", dt(d.activatedAt))}${row("Last Online", dt(d.lastSeen))}${row("Last Order", dt(last))}</div>
     ${d.activatedAt ? `<div class="card bdrow" style="padding:16px 18px"><div><b>Deactivate Device</b><span class="note">Make sure all its orders are uploaded. The tablet signs out and a new activation code is generated.</span></div><button class="btn danger" data-devcode="${esc(d.id)}">Deactivate Device</button></div>` : ""}
-    <div class="card bdrow" style="padding:16px 18px;margin-top:12px"><div><b>Delete Device</b><span class="note">Removes this device from Slick. Its past orders are kept.</span></div><button class="btn danger" data-devdel="${esc(d.id)}">Delete Device</button></div>`;
+    ${d.activatedAt ? "" : `<div class="card bdrow" style="padding:16px 18px;margin-top:0"><div><b>Delete Device</b><span class="note">Removes this device from Slick. Its past orders are kept.</span></div><button class="btn danger" data-devdel="${esc(d.id)}">Delete Device</button></div>`}`;
 }
 function viewDevices(){
   const od = state.devOpen && S.devices.find(x => x.id===state.devOpen && live(x)); if(od) return viewDevice(od);
@@ -4266,6 +4266,29 @@ document.addEventListener("click", e => {
   if(e.target.closest("[data-devgen]")){ $("#ds_reference").value = devRef(); return; }
   if(e.target.closest("[data-devgen2]")){ $("#dRef").value = devRef(); return; }
 });
+// Device page: Force Sync Data (the tablet reloads all its data) and Copy Settings (to other devices)
+document.addEventListener("click", async e => {
+  const sy = e.target.closest("[data-devsync]"); if(sy){ e.preventDefault(); const d = S.devices.find(x => x.id===sy.dataset.devsync); if(!d) return;
+    if(!(await askYes(`Force ${d.name} to sync? The device reloads all its data now (or as soon as its current order is done).`))) return;
+    try{ await put("devices", d.id, { settings: { ...(d.settings||{}), syncAt: new Date().toISOString() } }); toast("Sync sent · the device reloads its data"); }catch(err){ console.error(err); toast("Couldn't send the sync. Check the connection and try again."); } return; }
+  const cp = e.target.closest("[data-devcopy]"); if(cp){ e.preventDefault(); openDevCopy(cp.dataset.devcopy); return; }
+  const go = e.target.closest("[data-devcopygo]"); if(go){ e.preventDefault(); const src = S.devices.find(x => x.id===go.dataset.devcopygo), ids = [...document.querySelectorAll("#dcList input:checked")].map(i => i.value);
+    if(!ids.length){ $("#dcErr").textContent = "Pick at least one device."; return; }
+    const { master, syncAt, ...copy } = src.settings || {};
+    try{ for(const id of ids){ const t = S.devices.find(x => x.id===id); await put("devices", id, { settings: { ...JSON.parse(JSON.stringify(copy)), ...(t?.settings?.master ? { master:true } : {}), ...(t?.settings?.syncAt ? { syncAt:t.settings.syncAt } : {}) } }); }
+      $("#ccScrim").classList.remove("show"); toast(`Settings copied to ${ids.length} device${ids.length>1?"s":""}`); render(); }
+    catch(err){ console.error(err); $("#dcErr").textContent = "Couldn't copy the settings. Check the connection and try again."; } return; }
+});
+function openDevCopy(id){
+  const d = S.devices.find(x => x.id===id); if(!d) return;
+  const list = S.devices.filter(x => !x.deleted && x.id!==id && (x.type||"cashier")===(d.type||"cashier")).sort((a,b) => String(a.name).localeCompare(String(b.name)));
+  const box = $("#ccBox"); box.className = "modal";
+  box.innerHTML = `<header><h2>Copy Settings</h2><button type="button" class="x" data-ccclose aria-label="Close">×</button></header>
+  <div class="body" style="display:block"><p class="note" style="margin:0 0 12px">Copy the device settings of ${esc(d.name)} to these ${esc(devType(d.type))} devices. Their current settings are replaced.</p>
+    <div class="f"><label>Devices *</label><div class="multi" id="dcList" data-empty="No other ${esc(devType(d.type))} devices">${list.map(x => `<label class="chk"><input type="checkbox" value="${esc(x.id)}"> ${esc(x.name)}${x.branchId ? ` · ${esc(branchName(x.branchId)||"")}` : ""}</label>`).join("")}</div></div><div class="err" id="dcErr"></div></div>
+  <footer><span style="flex:1"></span><button type="button" class="btn pri" data-devcopygo="${esc(id)}">Copy</button></footer>`;
+  $("#ccScrim").classList.add("show");
+}
 document.addEventListener("click", e => { const b = e.target.closest("[data-devset]"); if(b) return openDeviceSettings(b.dataset.devset); if(e.target.closest("#dsSave")) saveDeviceSettings(); });
 function openDevice(){
   $("#crudBox").innerHTML = `<header><h2>Create Device</h2><button type="button" class="x" data-cclose aria-label="Close">×</button></header>
@@ -8018,7 +8041,7 @@ $("#view").addEventListener("click", async e => {
   const oc = t.closest("[data-order]"); if(oc) return openOrder(oc.dataset.order);
   if(t.closest("#devNew")) return openDevice();
   const dc = t.closest("[data-devcode]"); if(dc){ if(!(await askYes("Deactivate this device? The tablet signs out and gets a new activation code."))) return; const code = newCode(); await put("devices", dc.dataset.devcode, { code, activatedAt:null }); toast("Device deactivated · new activation code " + code); render(); return; }
-  const dd = t.closest("[data-devdel]"); if(dd){ if(!(await askYes("Delete this device?"))) return; await put("devices", dd.dataset.devdel, { deleted:true }); state.devOpen = null; toast("Device deleted"); render(); return; }
+  const dd = t.closest("[data-devdel]"); if(dd){ if(S.devices.find(x => x.id===dd.dataset.devdel)?.activatedAt){ toast("Deactivate the device first, then delete it."); return; } if(!(await askYes("Delete this device?"))) return; await put("devices", dd.dataset.devdel, { deleted:true }); state.devOpen = null; toast("Device deleted"); render(); return; }
   if(t.closest("#olSave")) return saveOnline();
 });
 $("#view").addEventListener("input", e => {
