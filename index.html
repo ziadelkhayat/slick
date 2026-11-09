@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="585-1794240022">
+<meta name="slick-build" content="586-1794240320">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1226,7 +1226,7 @@ html.mlock{overflow:hidden!important}html.mlock body{position:fixed!important;le
           <button type="button" role="menuitem" id="amSignOut">Sign out</button>
         </div></div><button class="btn sm" id="signOut" type="button" style="display:none"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4h4v16h-4M10 17l5-5-5-5M15 12H3"/></svg>Sign out</button>
     </div>
-    <div class="content" id="view"></div>
+    <div class="content" id="view"><div id="bootLoad" style="display:grid;place-items:center;min-height:60vh;color:#8d8c98;font-size:15px;gap:12px"><div><span style="display:inline-block;width:22px;height:22px;border:3px solid #e5e3ec;border-top-color:#6a4cf5;border-radius:50%;animation:bootspin .8s linear infinite;vertical-align:middle;margin-right:10px"></span>Loading…</div></div><style>@keyframes bootspin{to{transform:rotate(360deg)}}</style></div>
   </div>
 </div>
 
@@ -1533,6 +1533,7 @@ function nextCode(){
 }
 function setSync(text){ $("#syncPill").textContent = text; }
 
+setTimeout(() => { const b = document.getElementById("bootLoad"); if(b && b.isConnected) b.innerHTML = `<div style="text-align:center">Still loading… Check the internet connection.<br><br><button class="btn" onclick="location.reload()">Reload</button></div>`; }, 15000);
 async function initStore(){
   const timer = null;
   try{
@@ -1864,7 +1865,7 @@ function viewDashboard(){
   if(state.dashTab==="general"){
     const hN = hours24(D.hours,"n"), hNet = hours24(D.hours,"net"), hPay = hours24(D.hours,"pay"), hDisc = hours24(D.hours,"disc");
     h += `<div class="grid kpis">
-      ${kpiCard("Orders", D.orders.toLocaleString(), hN, "n", D.orders, P?.orders)}
+      ${kpiCard("Orders", (+D.orders||0).toLocaleString(), hN, "n", D.orders, P?.orders)}
       ${kpiCard("Net Sales", money(+D.net), hNet, "m", +D.net, P&&+P.net)}
       ${kpiCard("Net Payments", money(+D.payments), hPay, "m", +D.payments, P&&+P.payments)}
       ${kpiCard("Discount Amount", money(+D.discount), hDisc, "m", +D.discount, P&&+P.discount)}
@@ -2339,6 +2340,10 @@ function render(){ const route = location.hash.slice(1) || "dashboard", same = r
   const r = render0.apply(this, arguments);
   if(same){ if(window.scrollY !== wy) window.scrollTo(0, wy); if(keep.length){ const els = [...document.querySelectorAll(KEEP_SCROLL)]; keep.forEach(([i, t, l]) => { const el = els[i]; if(el){ el.scrollTop = t; el.scrollLeft = l; } }); } }
   return r; }
+// a page that fails to draw never leaves the screen blank: the menu stays and a short message offers a reload
+setTimeout(() => { const _r = render; render = function(){ try{ return _r.apply(this, arguments); }catch(e){ console.error("render", e);
+  try{ renderNav((location.hash.slice(1) || "dashboard")); }catch(_){}
+  const v = document.getElementById("view"); if(v) v.innerHTML = `<div class="card empty" style="margin-top:20px">This page couldn't be shown. <button class="btn" onclick="location.reload()">Reload</button></div>`; } }; }, 0);
 function render0(){ setTimeout(() => typeof bmBarSync==="function" && bmBarSync(), 0);
   const route = (location.hash.slice(1) || "dashboard");
   renderNav(route); document.body.dataset.route = route; document.body.classList.toggle("noloc", company().localization===false);
