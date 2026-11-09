@@ -283,8 +283,20 @@
     needsAct = false; if(onId) onId(data.id);
     setTimeout(() => location.reload(), 300); return { id: data.id };
   }
+  // a register deactivated in the back office leaves the sale screen within seconds (it may not get the change pushed, so it also asks)
+  let watchT = null;
+  function deactivated(){ try{ ["slick_devkey","slick_devtopic","slick_staff","wokDevice"].forEach(k => localStorage.removeItem(k)); }catch(_){} location.reload(); }
+  async function deviceCheck(){
+    if(!OFF || !staff?.device || !navigator.onLine) return;
+    try{
+      if(DEVKEY){ const r = await sb.rpc("slick_device_ok"); if(!r.error && r.data === false) deactivated(); return; }
+      const r = await sb.rpc("staff_role"); if(!r.error && !r.data){ try{ await sb.auth.signOut({ scope:"local" }); }catch(_){} deactivated(); }
+    }catch(e){}
+  }
+  function deviceWatch(){ if(watchT || !OFF) return; watchT = setInterval(deviceCheck, 20000);
+    addEventListener("focus", deviceCheck); document.addEventListener("visibilitychange", () => { if(!document.hidden) deviceCheck(); }); addEventListener("online", deviceCheck); }
   function useStaff(s){
-    staff = s; if(OFF) ls.set("slick_staff", s);
+    staff = s; if(OFF) ls.set("slick_staff", s); if(s?.device) deviceWatch();
     const el = document.getElementById("wkGate"); if(el) el.style.display = "none";
     readyResolve(dbApi); if(OFF) setTimeout(flush, 500);
   }
@@ -330,7 +342,7 @@
     canEdit: async () => ["owner","admin"].includes(staff?.role), isOwner: async () => staff?.role === "owner", signOut: async () => { if(DEVKEY && staff?.device){ if(OFF && outbox.length && !(await (window.askYes ? window.askYes(outbox.length + " change(s) haven't synced yet. Deactivate anyway?") : Promise.resolve(confirm("Deactivate anyway?"))))) return; try{ ["slick_devkey","slick_devtopic","slick_staff"].forEach(k => localStorage.removeItem(k)); }catch(_){} location.reload(); return; }
       if(OFF && outbox.length && !(await (window.askYes ? window.askYes(outbox.length + " change(s) haven't synced yet. Sign out anyway? They stay saved on this device.") : Promise.resolve(confirm(outbox.length + " change(s) haven't synced yet. Sign out anyway? They stay saved on this device."))))) return; await sb.auth.signOut(); if(OFF) localStorage.removeItem("slick_staff"); location.reload(); } };
 
-  window.WOK = { sb, cfg:{ url:SUPABASE_URL, key:SUPABASE_KEY }, ready, user: userApi, activate: activateDevice, emailLogin: () => gate("", true), needsActivation: () => needsAct, isDevice: () => !!staff?.device, sync: { status, flush, failed: () => failed.slice(), retryFailed: () => { outbox.push(...failed.map(o => ({ ...o, tries:0 }))); failed = []; saveBox(); flush(); },
+  window.WOK = { sb, cfg:{ url:SUPABASE_URL, key:SUPABASE_KEY }, ready, deviceCheck, user: userApi, activate: activateDevice, emailLogin: () => gate("", true), needsActivation: () => needsAct, isDevice: () => !!staff?.device, sync: { status, flush, failed: () => failed.slice(), retryFailed: () => { outbox.push(...failed.map(o => ({ ...o, tries:0 }))); failed = []; saveBox(); flush(); },
     // sales history was cleared in the back office: drop sales saved on this register before that moment
     purgeBefore: (cols, iso) => { const old = o => cols.includes(o.col) && String(o.at||"") < iso; outbox = outbox.filter(o => !old(o)); failed = failed.filter(o => !old(o)); saveBox();
       cols.forEach(c => { ls.set(cacheKey(c), []); local[c] = withPending(c, []); emit(c, local[c], true); if(listeners[c]) refresh(c); }); status(); } } };
