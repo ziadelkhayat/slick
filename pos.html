@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="556-1794181628">
+<meta name="slick-build" content="558-1794182440">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -622,6 +622,9 @@ input,textarea{-webkit-user-select:text;user-select:text}
 /* a long press on a picture never opens the browser image menu */img{-webkit-touch-callout:none!important;-webkit-user-drag:none;user-drag:none}#grid img,#lines img{pointer-events:none}
 /* cart: the price column spans both rows so the − / + sit right under the item */#lines .line>.p:first-of-type{grid-row:1 / span 2;grid-column:2}#lines .line .n{grid-column:1;grid-row:1}#lines .line .qty{grid-column:1;grid-row:2;margin-top:3px!important}#lines .line{row-gap:0!important}#lines .line .mlist{margin-top:1px!important}#lines .line>span:empty{display:none}
 .ctx .ctag{display:block;font-size:12px;color:var(--acc,#6a4cf5);font-weight:600;margin-top:2px}
+/* payment window fits the screen without scrolling: the keypad shrinks to the space left */#modal.paym2{max-height:calc(100dvh - 24px)!important}.payx{max-height:calc(100dvh - 24px)!important;height:auto}.payr{padding:18px 20px!important;gap:10px!important;overflow:hidden!important;min-height:0}.payr #cashBox{flex:1 1 auto;min-height:0;gap:9px!important}.payr .kpad{flex:1 1 248px;min-height:150px;grid-auto-rows:1fr}.payr .kpad button{height:auto!important;min-height:34px}.payr .quick button{min-height:42px!important;padding:6px 4px!important}.payr .tender{min-height:48px!important;height:52px!important}.payr .change{align-items:center}.payr .chgv{width:auto!important;min-width:120px;white-space:nowrap}.payr .payact .btn{min-height:54px!important}
+/* New order (pickup & delivery): everything fits on the tablet screen without scrolling */.pdcols .npad{margin-top:6px!important;gap:6px!important}.pdcols .npad button{height:42px!important;min-height:0!important}#pdErr:empty{display:none}.pdcols .f{margin-bottom:8px!important}.pdcols .f>label{margin-bottom:4px!important}.pdcols .tseg button{min-height:44px!important;padding-top:8px!important;padding-bottom:8px!important}.pdcols .rchips button{min-height:40px!important;padding-top:6px!important;padding-bottom:6px!important}.pdcols input,.pdcols select{min-height:44px!important;height:44px}
+#lines .line .lq{color:var(--acc,#6a4cf5);font-weight:800;margin-right:2px}#lines .line>.p:first-of-type{grid-row:auto!important}
 </style>
 <script>
 /* ---------- naming: menu "products" are called Items; inventory "items" are called Products ----------
@@ -1206,8 +1209,8 @@ function renderCart(){
   if(eo) $("#extra").insertAdjacentHTML("afterbegin", `<div class="obar">${eo.status!=="refund" && eo.invoiceNo ? `<b>${esc(invNo(eo.invoiceNo))}</b><span class="spill s-${eo.status}">${stLbl(eo)}</span><span class="sp"></span>${eo.no ? `<b>Order #${esc(eo.no)}</b>` : ""}` : `<b>${eo.status==="refund" ? "Returned order" : "Order"} ${esc(ordRef(eo))}</b><span class="spill s-${eo.status}">${stLbl(eo)}</span><span class="sp"></span>`}</div>`);
   if(ro) $("#extra").querySelectorAll("input,select").forEach(x => x.disabled = true);
   const grew = cart.length > (renderCart.n || 0); renderCart.n = cart.length;
-  $("#lines").innerHTML = cart.length ? cart.map((i,ix)=>`<div class="line" data-edit="${ix}" title="${ro?"":"Tap to edit"}" style="cursor:pointer"><span class="n">${esc(i.name)}${i.saved?`<span class="sent">${ro ? "" : `${i.saved} sent to kitchen`}</span>`:""}${modList(i)}${+i.disc?`<small class="idisc" style="display:flex;align-items:center;gap:6px;font-size:12px;color:#b45309">Discount −${usd(i.disc)}${ro?"":`<button type="button" class="dlx" data-idiscx="${ix}" aria-label="Remove item discount">×</button>`}</small>`:""}</span><span class="p">${usd(lineNet(i))}<small class="each">${usd(i.price)} each</small></span>
-    <span class="qty">${ro ? `× ${i.qty}` : `<button data-q="${ix}:-1" aria-label="${i.qty > (i.saved||0) ? (i.qty > 1 ? "Less" : "Remove") : "Sent to kitchen: use Void"}"${i.qty > 1 ? "" : ' class="qdel"'}${i.qty <= (i.saved||0) ? " disabled" : ""}>${i.qty > 1 ? "−" : `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>`}</button>${i.qty}<button data-q="${ix}:1" aria-label="More">+</button>`}</span><span></span></div>`).join("") : `<div class="empty">Tap items to start an order</div>`;
+  $("#lines").innerHTML = cart.length ? cart.map((i,ix)=>`<div class="line" data-edit="${ix}" title="${ro?"":"Tap to edit"}" style="cursor:pointer"><span class="n"><b class="lq">${i.qty}×</b> ${esc(i.name)}${i.saved?`<span class="sent">${ro ? "" : `${i.saved} sent to kitchen`}</span>`:""}${modList(i)}${+i.disc?`<small class="idisc" style="display:flex;align-items:center;gap:6px;font-size:12px;color:#b45309">Discount −${usd(i.disc)}${ro?"":`<button type="button" class="dlx" data-idiscx="${ix}" aria-label="Remove item discount">×</button>`}</small>`:""}</span><span class="p">${usd(lineNet(i))}<small class="each">${usd(i.price)} each</small></span>
+    <span></span></div>`).join("") : `<div class="empty">Tap items to start an order</div>`;
   // voided items stay on the order, struck out
   if(eo){ const vd = eo.status==="void" ? [] : (eo.voidedItems||[]);
     if(eo.status==="void") $("#lines").querySelectorAll(".line").forEach(l => l.classList.add("vd"));
@@ -1344,7 +1347,13 @@ async function addProduct(p){
   if(ex){ ex.qty++; reDisc(ex); } else cart.push({ productId:p.id, name:p.name, price, qty:1, ...(options.length ? { options, mods } : {}) });
   renderCart();
 }
-$("#grid").addEventListener("click", e => { const b = e.target.closest("[data-add]"); if(!b) return; const p = S.products.find(x=>x.id===b.dataset.add); if(p) addProduct(p); });
+// a menu item: tap the right ¾ to add one, the left ¼ to take one away (the last one added that isn't sent to the kitchen yet)
+$("#grid").addEventListener("click", e => { const b = e.target.closest("[data-add]"); if(!b) return; const p = S.products.find(x=>x.id===b.dataset.add); if(!p) return;
+  const r = b.getBoundingClientRect();
+  if(e.clientX - r.left < r.width * 0.25){ const ids = [p.id, ...(p.variants||[]).map(v => v.productId)];
+    for(let ix = cart.length - 1; ix >= 0; ix--){ const i = cart[ix]; if(ids.includes(i.productId) && i.qty > (i.saved||0)){ i.qty--; if(i.qty <= 0) cart.splice(ix, 1); else reDisc(i); renderCart(); renderMenu(); return; } }
+    return; }
+  addProduct(p); });
 document.addEventListener("contextmenu", e => { if(!e.target.closest("input, textarea, [contenteditable]")) e.preventDefault(); });   // no browser menu on long press (pictures, tiles)
 // long press a cart item: its note and discount
 const LP = { t:0, done:false, x:0, y:0 };
