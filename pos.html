@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="610-1794260298">
+<meta name="slick-build" content="612-1794260746">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -668,12 +668,12 @@ input,textarea{-webkit-user-select:text;user-select:text}
 #lock .lkhi{font-size:22px;color:#3a3846;margin:0}#lock .lkst{font-size:14px;color:var(--mut,#8a8799);margin:-10px 0 8px}
 #lock .lkbtn{width:312px;height:80px;border:0;border-radius:10px;background:#eceaf2;font:inherit;font-size:24px;color:#3a3846;cursor:pointer}#lock .lkbtn:active{background:var(--accs,#efeaff)}#lock .lkbtn:disabled{opacity:.45;cursor:not-allowed}
 #lock .lkexit{margin-top:56px}
-#grid#grid,#grid#grid:has(>.prod),#grid#grid:has(>.cbtile){grid-template-columns:repeat(5,var(--tile,1fr))!important;grid-auto-rows:var(--tile,120px)!important;justify-content:start!important;align-content:start!important}
+#grid#grid,#grid#grid:has(>.prod),#grid#grid:has(>.cbtile){grid-template-columns:repeat(var(--cols,5),var(--tile,1fr))!important;grid-auto-rows:var(--tile,120px)!important;justify-content:start!important;align-content:start!important}
 @media (min-width:701px){.main.main.sqfit{grid-template-columns:minmax(0,1fr) var(--rw)!important}
 #abar.abar{display:flex!important;flex-wrap:nowrap!important;justify-content:space-between!important;overflow:visible!important}
 .sqfit #abar .abtn.abtn{flex:0 0 var(--ab)!important;width:var(--ab)!important;height:var(--ab)!important;max-height:none!important;aspect-ratio:1/1!important;padding:4px!important}
 .sqfit #abar .abtn.abtn span{font-size:clamp(10px,calc(var(--ab) / 7),14px)}
-.sqfit #grid#grid{justify-content:space-between!important;overflow-x:hidden}}
+.sqfit #grid#grid{justify-content:space-between!important;align-content:space-between!important;grid-template-rows:repeat(var(--rows,4),var(--tile))!important;overflow-x:hidden}}
 .netst{display:inline-flex;align-items:center;gap:6px;flex:none;padding:5px 10px;border-radius:999px;font-size:12.5px;font-weight:600;line-height:1;background:#e7f6ec;color:#1e7b3c;white-space:nowrap}.netst i{width:8px;height:8px;border-radius:50%;background:#22a04b}.netst.off{background:#fde8e8;color:#b42318}.netst.off i{background:#d92d20}
 #toast.toast{top:0!important;bottom:auto!important;left:50%!important;width:min(560px,92vw);box-sizing:border-box;text-align:center;background:#e5383b!important;color:#fff!important;font-size:15px;font-weight:600;padding:14px 20px!important;border-radius:0 0 12px 12px!important;box-shadow:0 8px 24px rgba(229,56,59,.28)!important;transform:translate(-50%,-110%)!important;opacity:1!important;transition:transform .3s cubic-bezier(.2,.8,.2,1)!important}
 #toast.toast:not(.show){box-shadow:none!important;visibility:hidden;transition:transform .3s,visibility 0s .3s!important}#toast.toast.show{transform:translate(-50%,0)!important}#toast.toast.ok{background:#1f9d55!important;box-shadow:0 8px 24px rgba(31,157,85,.28)!important}
@@ -1418,7 +1418,7 @@ function voidSent(ix){
 
 (function tileFit(){ const g = $("#grid"), ab = $("#abar"), rs = $(".rside"), main = $(".main"); if(!g || !ab || !rs || !main || !window.ResizeObserver) return;
   // one rule on every screen: top buttons and menu tiles are perfect squares that fill the menu side edge to edge
-  // (buttons in one row, tiles 5 across x 5 down); the menu side takes exactly the width that makes that fit the height, the cart takes the rest
+  // (buttons in one row, as many tiles across and down as fit best)
   const px = v => parseFloat(v) || 0; let busy = false;
   const fit = () => { if(busy) return; busy = true; try{
     if(innerWidth <= 700){ main.classList.remove("sqfit"); return; }
@@ -1429,13 +1429,17 @@ function voidSent(ix){
     const owG = rsW - (g.clientWidth - gpw), owA = rsW - (ab.clientWidth - apw);      // side room around the grid / the button row
     const fixedH = H - (ab.offsetHeight - aph) - (g.clientHeight - gph);                  // search bar, bottom bar, gaps: everything that isn't buttons or tiles
     const room = main.clientWidth - px(ms.paddingLeft) - px(ms.paddingRight) - px(ms.columnGap);
-    const C = 5, R = 5;   // tiles across, tiles down
-    let W = (H - fixedH - (R-1)*gg + (owA + (n-1)*ag)/n + R*(owG + (C-1)*gg)/C) / (1/n + R/C);
-    W = Math.max(room * 0.36, Math.min(room * 0.7, W));
-    const b = Math.floor((W - owA - (n-1)*ag) / n), t = Math.floor(Math.min((W - owG - (C-1)*gg) / C, (H - fixedH - b - (R-1)*gg) / R));
-    if(b < 30 || t < 30) return;
-    const key = [Math.round(W), b, t].join(); if(key === fit.k) return; fit.k = key; fit.n = (fit.n||0) + 1;
-    main.classList.add("sqfit"); main.style.setProperty("--rw", Math.round(W) + "px"); ab.style.setProperty("--ab", b + "px"); g.style.setProperty("--tile", t + "px");
+    // the menu side is always the bigger part (62%), the cart the rest; then pick how many tiles across / down
+    // so the squares fill the menu area with the least empty space (the few spare pixels go into the gaps)
+    const W = Math.round(room * 0.62), Wg = W - owG, b = Math.floor((W - owA - (n-1)*ag) / n), Hg = H - fixedH - b;
+    let best = null;
+    for(let C = 4; C <= 8; C++){ const tw = (Wg - (C-1)*gg) / C; if(tw < 70) break;
+      for(const R of [Math.floor((Hg + gg) / (tw + gg)), Math.ceil((Hg + gg) / (tw + gg))]){ if(R < 3) continue;
+        const t = Math.min(tw, (Hg - (R-1)*gg) / R), waste = Wg*Hg - C*R*t*t; if(!best || waste < best.waste) best = { C, R, t: Math.floor(t), waste }; } }
+    if(!best || b < 30) return;
+    const key = [W, b, best.C, best.R, best.t].join(); if(key === fit.k) return; fit.k = key; fit.n = (fit.n||0) + 1;
+    main.classList.add("sqfit"); main.style.setProperty("--rw", W + "px"); ab.style.setProperty("--ab", b + "px");
+    g.style.setProperty("--tile", best.t + "px"); g.style.setProperty("--cols", best.C); g.style.setProperty("--rows", best.R);
     if(fit.n < 6) requestAnimationFrame(fit);   // measure again once the new sizes are on screen (settles in a pass or two)
   } finally { busy = false; } };
   let raf = 0; const soon = () => { fit.n = 0; cancelAnimationFrame(raf); raf = requestAnimationFrame(fit); };
