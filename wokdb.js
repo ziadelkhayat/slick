@@ -309,7 +309,7 @@
     if(user.is_anonymous){   // a register activated with its device code
       const r = await sb.rpc("staff_role");
       if(r.error && isNet(r.error) && cached && cached.user_id === user.id){ online = false; status(); return useStaff(cached); }
-      if(!r.data){ await sb.auth.signOut(); return gate("This device was deactivated. Enter a new activation code."); }
+      if(!r.data){ await sb.auth.signOut(); return gate(); }
       return useStaff({ user_id: user.id, role: r.data, name: "Register", device: true });
     }
     let { data, error } = await sb.from("staff").select("*").eq("user_id", user.id).maybeSingle();
@@ -325,7 +325,7 @@
       const dev = { user_id: "device", role: "cashier", name: "Register", device: true };
       let ok = null; try{ const r = await sb.rpc("slick_device_ok"); if(!r.error) ok = !!r.data; else if(!isNet(r.error)) ok = null; }catch(e){}
       if(ok === false){ try{ localStorage.removeItem("slick_devkey"); localStorage.removeItem("slick_devtopic"); localStorage.removeItem("wokDevice"); }catch(_){}
-        return gate("This device was deactivated. Enter a new activation code."); }
+        return gate(); }
       if(ok === null && navigator.onLine){ /* server check unavailable: keep working, the next ring or poll will tell */ }
       if(!navigator.onLine){ online = false; status(); }
       return useStaff(dev);
