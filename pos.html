@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="566-1794227368">
+<meta name="slick-build" content="567-1794228147">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -705,7 +705,7 @@ window.SLICK_OFFLINE = true;</script>
 <script src="supabase.js"></script>
 <script>if(!window.supabase) document.write('<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"><\/script>');</script>
 <script src="wokdb.js?v=37"></script>
-<script src="modpick.js?v=20"></script>
+<script src="modpick.js?v=22"></script>
 </head>
 <body>
 <div id="boot" class="center"><div class="panel"><div class="logo">S</div><h1>Slick POS</h1><p>Connecting…</p></div></div>
@@ -734,7 +734,7 @@ window.SLICK_OFFLINE = true;</script>
         <div class="logo">S</div><div class="cinfo"><b id="tBranch">—</b><div class="mut" id="tDevice">—</div></div>
         <div class="cpills"><span class="pill" id="shiftPill">Shift closed</span>
         <span class="sync" id="syncPill" role="status" title="Connection status">Online</span>
-        <span class="lockb who hide" id="lockBtn" title="Signed in"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg><span id="cashierName"></span></span></div>
+        <span class="lockb who hide" id="lockBtn" title="Tap to log out" role="button" style="cursor:pointer"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg><span id="cashierName"></span></span></div>
       </div>
       <div class="otype hide" id="otype"><button data-t="dinein" class="on">Dine-in</button><button data-t="fast">Fast sale</button><button data-t="pd" class="hide" title="From the Pickup &amp; delivery screen">Pickup</button></div>
       <div class="extra" id="extra"></div>
@@ -826,6 +826,7 @@ let device = null, branch = null, cat = "", otype = "dinein", cart = [], discoun
 })();
 let started = false;
 function onData(c){
+  if(c==="settings" && device) try{ paintLockInfo(); }catch(e){}
   if(c==="orders" && !window.__ordSnap){ window.__ordSnap = true; }
   if(c==="devices" && !started){ started = true; const id = store.get("wokDevice"); if(id && S.devices.some(d=>d.id===id && !d.deleted && d.activatedAt)) startApp(id); else { store.set("wokDevice", null); show("activate"); $("#code").focus(); } return; }
   if(!device) return;
@@ -921,7 +922,8 @@ function lockIfNeeded(){ if(usePins() && !cashier) lock(); paintCashier(); }
 function lock(){ cashier = null; WELC = null; $("#lock").classList.remove("welc"); pinBuf = ""; paintPin(); $("#pinErr").textContent = ""; $("#lock").classList.remove("hide"); paintCashier(); paintLockInfo(); }
 // bottom-left of the sign-in screen: this tablet's code, brand and branch
 function paintLockInfo(){ const el = $("#lkInfo"); if(!el || !device) return; const br = S.branches?.find(b => b.id===device.branchId) || branch, bd = br && (S.brands||[]).find(x => x.id===br.brandId);
-  el.innerHTML = [device.code || device.reference || "", bd?.name || "", br?.name || ""].filter(Boolean).map(esc).join("<br>"); }
+  const acct = (S.settings||[]).find(x => x.id==="company")?.accountNo || (() => { try{ return JSON.parse(localStorage.getItem("slick_acct") || "null"); }catch(e){ return localStorage.getItem("slick_acct"); } })() || "";   // the business account number
+  el.innerHTML = [acct ? String(acct) : "", bd?.name || "", br?.name || ""].filter(Boolean).map(esc).join("<br>"); }
 // Sync Users: fetch the latest users (and everything else) from the server right away
 document.addEventListener("click", e => { if(!e.target.closest("#lkSync")) return; const b = e.target.closest("#lkSync"); b.disabled = true; b.textContent = "Syncing…";
   try{ window.dispatchEvent(new Event("online")); }catch(_){} setTimeout(() => { b.disabled = false; b.textContent = "Sync Users"; paintLockInfo(); toast(navigator.onLine ? "Users synced" : "Offline · users will sync when the connection is back"); }, 1500); });
@@ -1219,7 +1221,7 @@ function renderMenu(){
   const inCart = {}; cart.forEach(l => { if(l.productId) inCart[l.productId] = (inCart[l.productId]||0) + (+l.qty||0); });
   const tile = p => { const s = cs[cat] || cs[cats.find(c => has(c, p))?.id] || catStyle(null, 0), n = inCart[p.id] || kidsOf(p).reduce((a,k) => a + (inCart[k.p?.id]||0), 0);
     const oos = prodOos(p);
-    return `<button class="prod${p.imageUrl?" hasimg":""}${oos?" oos":""}${n?" sel":""}" data-add="${esc(p.id)}" ${oos?'disabled title="Out of stock"':""} style="--hue:${s.hue};--tint:${s.tint}">${n?`<em class="pcnt">${n}</em>`:""}${p.imageUrl?`<img src="${esc(p.imageUrl)}" alt="" loading="lazy">`:`<span class="pic">${ico(s.icon)}</span>`}<span>${esc(p.name)}</span><b>${oos?"Out of stock":p.pricingMethod==="open"?"Open price":(kidsOf(p).length?"From ":"")+usd(tilePrice(p))}</b></button>`; };
+    return `<button class="prod${p.imageUrl?" hasimg":""}${oos?" oos":""}" data-add="${esc(p.id)}" ${oos?'disabled title="Out of stock"':""} style="--hue:${s.hue};--tint:${s.tint}">${p.imageUrl?`<img src="${esc(p.imageUrl)}" alt="" loading="lazy">`:`<span class="pic">${ico(s.icon)}</span>`}<span>${esc(p.name)}</span><b>${oos?"Out of stock":p.pricingMethod==="open"?"Open price":(kidsOf(p).length?"From ":"")+usd(tilePrice(p))}</b></button>`; };
   $("#mcats").innerHTML = "" && cats.length ? `<button class="mcat${cat?"":" on"}" role="tab" aria-selected="${!cat}" data-cat="" style="--hue:#6a4cf5;--tint:#efebff"><span class="cdot">${ico("star")}</span>Quick picks</button>` + cats.map(c => `<button class="mcat${c.id===cat?" on":""}" role="tab" aria-selected="${c.id===cat}" data-cat="${esc(c.id)}" style="--hue:${cs[c.id].hue};--tint:${cs[c.id].tint}"><span class="cdot">${ico(cs[c.id].icon)}</span>${esc(c.name)}</button>`).join("") : "";
   const inCats = p => cats.some(c => has(c, p));
   if(q){   // searching looks through every category
@@ -1429,12 +1431,7 @@ async function addProduct(p){
 }
 // a menu item: tap the right ¾ to add one, the left ¼ to take one away (the last one added that isn't sent to the kitchen yet)
 $("#grid").addEventListener("click", e => { const b = e.target.closest("[data-add]"); if(!b) return; const p = S.products.find(x=>x.id===b.dataset.add); if(!p) return;
-  if(lockedOrder()) return;
-  const r = b.getBoundingClientRect();
-  if(e.clientX - r.left < r.width * 0.25){ const ids = [p.id, ...(p.variants||[]).map(v => v.productId)];
-    for(let ix = cart.length - 1; ix >= 0; ix--){ const i = cart[ix]; if(ids.includes(i.productId) && i.qty > (i.saved||0)){ i.qty--; if(i.qty <= 0) cart.splice(ix, 1); else reDisc(i); renderCart(); renderMenu(); return; } }
-    return; }
-  addProduct(p); });
+  addProduct(p); });   // a tap adds one; quantities are changed by tapping the line in the cart
 document.addEventListener("contextmenu", e => { if(!e.target.closest("input, textarea, [contenteditable]")) e.preventDefault(); });   // no browser menu on long press (pictures, tiles)
 // long press a cart item: its note and discount
 const LP = { t:0, done:false, x:0, y:0 };
@@ -1448,7 +1445,10 @@ $("#lines").addEventListener("contextmenu", e => { if(e.target.closest("[data-ed
 async function editLine(ix, only){   // only: "mods" (tap) or "extras" (long press: note and discount)
   const i = cart[ix], p = i && S.products.find(x=>x.id===i.productId); if(!i || !window.SlickMods) return;
   const base = (+i.price||0) - (i.options||[]).reduce((t,x)=>t+(+x.price||0),0);   // the item's own price, before its options
-  const r = await SlickMods.pick({ name:i.name, basePrice:base, ...(p ? modData(p) : { links:[], groups:{}, options:[] }), money:usd, edit:true, only, initial:i.options||[], qty:i.qty, note:i.note||"", allowDiscount: can("pos_item_discount"), discType:i.discType, discValue:i.discValue }); if(!r) return;
+  const r = await SlickMods.pick({ name:i.name, basePrice:base, ...(p && !i.saved ? modData(p) : { links:[], groups:{}, options:[] }), money:usd, edit:true, only, initial:i.options||[], qty:i.qty,
+    ...(only==="mods" ? { qtyEdit:true, minQty: Math.max(1, i.saved||0), canRemove: !i.saved } : {}), note:i.note||"", allowDiscount: can("pos_item_discount"), discType:i.discType, discValue:i.discValue }); if(!r) return;
+  if(r.remove){ cart.splice(ix, 1); renderCart(); renderMenu(); return; }
+  if(i.saved){ i.qty = Math.max(i.saved, r.qty||i.qty); reDisc(i); renderCart(); return; }   // sent to the kitchen: only more of it can be added
   if(+r.disc > (+i.disc||0) + 0.001 && appSet().discNeedsCustomer && !custGiven(cust.name, cust.phone)){ toast("Add the customer first: discounts need customer info"); return; }
   if(+r.disc > (+i.disc||0) + 0.001 && appSet().discountApproval && !(await approve("pos_item_discount", "Approve item discount"))) return;
   Object.assign(i, { price:r.unitPrice, qty:r.qty, options:r.options, note:r.note, mods:SlickMods.label(r.mods, r.note) });
@@ -1461,8 +1461,7 @@ $("#lines").addEventListener("click", e => { const dx = e.target.closest("[data-
   const on = e.target.closest("[data-onote]"); if(on) return openNotes(on.dataset.onote);
   const eo = editOrder(), ro = eo && !isOpenOrd(eo);
   const ed = !e.target.closest("button, input, a") && e.target.closest("[data-edit]"); if(ed){ if(LP.done){ LP.done = false; return; } if(ro) return; const i = cart[+ed.dataset.edit], p = i && S.products.find(x => x.id===i.productId);
-    if(!p || !modData(p).links?.length) return;   // tap edits the modifiers; an item without modifiers has nothing to change here
-    if(i?.saved) return toast("This item was sent to the kitchen: void it from the Void button"); return editLine(+ed.dataset.edit, "mods"); }
+    if(!i) return; return editLine(+ed.dataset.edit, "mods"); }   // tap: quantity (− / +), modifiers, remove
   const b = e.target.closest("[data-q]"); if(!b || ro) return; const [ix,d] = b.dataset.q.split(":").map(Number), i = cart[ix];
   if(d < 0 && i.qty <= (i.saved||0)) return;           // already sent: the cart buttons never void; voids are done from the Void button only
   i.qty += d; if(i.qty<=0) cart.splice(ix,1); else reDisc(i); renderCart(); });
@@ -2163,6 +2162,7 @@ $("#abar").addEventListener("click", e => { const b = e.target.closest("[data-a]
 document.addEventListener("click", e => { if(e.target.closest("#morePop button, #morePop .mitem")){ setTimeout(hideMore, 0); return; } if(!e.target.closest("#morePop") && !e.target.closest("#menuBtn")) hideMore(); });
 $("#syncDataBtn").addEventListener("click", () => { hideMore(); window.WOK?.sync?.flush?.(); toast(navigator.onLine ? "Syncing data…" : "Offline · will sync when the connection is back"); });
 $("#deviceBtn").addEventListener("click", () => { hideMore(); can("pos_settings") ? openMore() : deny("device settings"); });
+$("#lockBtn").addEventListener("click", () => { if(usePins() && cashier){ lock(); toast("Logged out"); } });   // tap the signed-in name to log out
 $("#exitBtn").addEventListener("click", () => { hideMore(); if(!usePins()) return toast("Add staff PINs in the back office (Users) to use sign-in"); lock(); toast("Logged out"); });
 $("#reportsBtn").addEventListener("click", () => { hideMore(); can("pos_reports") || can("pos_endday") ? openReports() : deny("POS reports"); });
 $("#devicesBtn").addEventListener("click", () => { hideMore(); openPrinters(); });

@@ -25,7 +25,7 @@
   .smp label.qrow{cursor:default}.smp .qs{margin-left:10px;display:inline-flex;align-items:center;gap:8px}
   .smp .qs button{width:30px;height:30px;border-radius:50%;border:1px solid #d9d4ee;background:#fff;color:#5b2bc4;font-size:17px;font-weight:700;cursor:pointer;line-height:1}
   .smp .qs button:disabled{opacity:.35;cursor:not-allowed}
-  .smp footer .qs{gap:12px;font-weight:700}.smp footer .qs b{min-width:20px;font-size:17px}.smp footer .qs button{width:44px;height:44px;border-radius:12px;border:0;background:#f7f6fb;color:#1b1830;font-size:22px;font-weight:500}.smp footer .qs button:active{background:#efebff;color:#6a4cf5}.smp .qs b{min-width:16px;text-align:center}
+  .smp footer .qs{gap:12px;font-weight:700}.smp footer .qs b{min-width:20px;font-size:17px}.smp footer .qs button:disabled{opacity:.35}.smp .og label:has(input:checked),.smp .og label.qrow.on{border-color:#e5e3ec!important;background:#fff!important;box-shadow:none!important;color:var(--acc,#5b2bc4)!important;font-weight:700!important}.smp .og label.qtap{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}.smp footer .qs button{width:44px;height:44px;border-radius:12px;border:0;background:#f7f6fb;color:#1b1830;font-size:22px;font-weight:500}.smp footer .qs button:active{background:#efebff;color:#6a4cf5}.smp .qs b{min-width:16px;text-align:center}
   .smp label.qrow.on{background:#f6f2ff}.smp .smnp{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px}.smp.np .smnp{display:grid}.smp .smnp button{height:54px;border:1px solid #e4e1ef;border-radius:12px;background:#fff;font:inherit;font-size:20px;font-weight:600;cursor:pointer}.smp .smnp button:active{background:#efeaff}
   .smp .dz{display:flex;gap:6px;align-items:center}.smp .dz button{border:1px solid #d9d4ee;background:#fff;border-radius:8px;padding:8px 0;width:56px;text-align:center;font:inherit;font-weight:600;cursor:pointer}.smp .dz button.on{background:#efe9fb;border-color:#5b2bc4;color:#5b2bc4}.smp .dz input{flex:1;border:1px solid #ddd8ea;border-radius:10px;padding:9px 10px;font:inherit}
   .smp{width:min(680px,100%)}.smp .og{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;margin:8px 0 6px}
@@ -60,25 +60,29 @@
       const discOf = () => { const line = priceOf() * qty, v = +String(discV).replace(",", ".") || 0; return +(discT === "amt" ? Math.min(v, line) : line * Math.min(v, 100) / 100).toFixed(2); };
       const cnt = gi => [...sel[gi].values()].reduce((a, n) => a + n, 0);
       const units = (l, gi) => { const out = []; l.opts.forEach(x => { for(let k = 0; k < (sel[gi].get(x.id)||0); k++) out.push(x); }); return out; };
-      const el = document.createElement("div"); el.className = "smp-scrim";
+      const el = document.createElement("div"); el.className = "smp-scrim"; const lpQt = { t:0, done:false };
       const priceOf = () => { let t = +o.basePrice||0; links.forEach((l, gi) => { let free = +l.free||0; units(l, gi).forEach(x => { if(free > 0) free--; else t += +x.price||0; }); }); return t; };
       const rule = l => { const mn = +l.min||0, mx = +l.max||0; if(mn && mx && mn===mx) return `Choose ${mn}`; if(mn && mx) return `Choose ${mn} to ${mx}`; if(mn) return `Choose at least ${mn}`; if(mx) return `Up to ${mx}`; return "Optional"; };
       const draw = () => {
-        el.innerHTML = `<div class="smp${o.only==="extras" || o.only==="disc" ? " narrow" : ""}" role="dialog" aria-modal="true" aria-label="${esc(o.name)}"><header><h3>${esc(o.name)}</h3></header><div class="b">${(o.only==="extras" || o.only==="disc" ? [] : links).map((l, gi) => {
+        el.innerHTML = `<div class="smp${o.only==="extras" || o.only==="disc" || (o.qtyEdit && !links.length) ? " narrow" : ""}" role="dialog" aria-modal="true" aria-label="${esc(o.name)}"><header><h3>${esc(o.name)}</h3></header><div class="b">${(o.only==="extras" || o.only==="disc" ? [] : links).map((l, gi) => {
           const one = (+l.max||0) === 1, full = (+l.max||0) > 0 && cnt(gi) >= +l.max;
           return `<div class="g"><b>${esc(o.groups?.[l.modifierId]?.name || "Options")}</b><span class="${+l.min?"req":""}">${rule(l)}</span>${+l.free?`<span>${l.free} free</span>`:""}${l.multi && !one?`<span>· repeat allowed</span>`:""}</div><div class="og">` +
             l.opts.map(x => { const n = sel[gi].get(x.id)||0, on = n > 0;
               // a repeatable option: tap the right ¾ of the tile to add one, the left ¼ to take one away
-              if(l.multi && !one) return `<label class="qrow qtap${on?" on":""}${(full && !on) || x.oos ? " dis" : ""}" data-qt="${gi}:${esc(x.id)}" role="button" aria-label="${esc(x.name)}: ${n}">${esc(x.name)}${x.oos?'<span class="oos">Out of stock</span>':""}<span class="p">${+x.price ? "+" + money(x.price) : ""}</span>${on ? `<span class="qn">${n}</span>` : ""}</label>`;
+              if(l.multi && !one) return `<label class="qrow qtap${on?" on":""}${(full && !on) || x.oos ? " dis" : ""}" data-qt="${gi}:${esc(x.id)}" role="button" aria-label="${esc(x.name)}: ${n}">${n > 1 ? n + " × " : ""}${esc(x.name)}${x.oos?'<span class="oos">Out of stock</span>':""}<span class="p">${+x.price ? "+" + money(x.price) : ""}</span></label>`;
               const dis = !on && ((full && !one) || x.oos);
               return `<label class="${dis?"dis":""}"><input type="${one && +l.min >= 1 ? "radio" : "checkbox"}" name="g${gi}" data-g="${gi}" value="${esc(x.id)}" ${on?"checked":""} ${dis?"disabled":""}>${esc(x.name)}${x.oos?'<span class="oos">Out of stock</span>':""}<span class="p">${+x.price ? "+" + money(x.price) : ""}</span></label>`; }).join("") + `</div>`;
         }).join("")}${o.edit && o.only!=="mods" && o.only!=="disc" ? `<div class="g"><b>Item note</b></div><textarea data-note rows="2">${esc(note)}</textarea>` : ""}${o.edit && o.allowDiscount && o.only!=="mods" ? `<div class="g"><b>Item discount</b>${discOf() ? `<span>−${money(discOf())}</span>` : ""}</div>
-          <div class="dz"><button type="button" data-dt="pct" class="${discT==="pct"?"on":""}">%</button><button type="button" data-dt="amt" class="${discT==="amt"?"on":""}">${esc(o.cur || String(money(0)).replace(/[-\d.,\s]+/g, "").trim() || "USD")}</button><input data-dv inputmode="${touch && PAD ? "none" : "decimal"}" aria-label="${discT==="amt"?"Amount off":"Percent off"}" value="${esc(discV)}"></div>${PAD ? `<div class="smnp">${["1","2","3","4","5","6","7","8","9",".","0","⌫"].map(k => `<button type="button" data-np="${k}" aria-label="${k==="⌫"?"Delete":k}">${k}</button>`).join("")}</div>` : ""}` : ""}</div><footer><span class="err" data-err></span><button type="button" data-x class="smc">Cancel</button><button type="button" data-ok>${o.edit ? "Save" : "Add · " + money(priceOf() * qty)}</button></footer></div>`;
+          <div class="dz"><button type="button" data-dt="pct" class="${discT==="pct"?"on":""}">%</button><button type="button" data-dt="amt" class="${discT==="amt"?"on":""}">${esc(o.cur || String(money(0)).replace(/[-\d.,\s]+/g, "").trim() || "USD")}</button><input data-dv inputmode="${touch && PAD ? "none" : "decimal"}" aria-label="${discT==="amt"?"Amount off":"Percent off"}" value="${esc(discV)}"></div>${PAD ? `<div class="smnp">${["1","2","3","4","5","6","7","8","9",".","0","⌫"].map(k => `<button type="button" data-np="${k}" aria-label="${k==="⌫"?"Delete":k}">${k}</button>`).join("")}</div>` : ""}` : ""}</div><footer>${o.qtyEdit ? `<span class="qs" style="display:flex;align-items:center"><button type="button" data-qq="-1" aria-label="Less"${qty <= Math.max(1, +o.minQty||1) ? " disabled" : ""}>−</button><b>${qty}</b><button type="button" data-qq="1" aria-label="More">+</button></span>` : ""}<span class="err" data-err></span>${o.canRemove ? `<button type="button" data-rm class="smc" style="color:#b42318">Remove</button>` : ""}<button type="button" data-x class="smc">Cancel</button><button type="button" data-ok>${o.edit ? "Save" : "Add · " + money(priceOf() * qty)}</button></footer></div>`;
       };
       const redraw = () => { const y = el.querySelector(".b")?.scrollTop; draw(); const b = el.querySelector(".b"); if(b) b.scrollTop = y; };
       const close = v => { el.remove(); document.removeEventListener("keydown", onKey); resolve(v); };
       const onKey = e => { if(e.key === "Escape") close(null); };
-      el.addEventListener("pointerdown", e => { if(e.target.closest("[data-np]")) e.preventDefault(); });
+      el.addEventListener("pointerdown", e => { if(e.target.closest("[data-np]")) e.preventDefault();
+        const qt = e.target.closest("[data-qt]"); clearTimeout(lpQt.t); lpQt.done = false; if(!qt) return;
+        lpQt.t = setTimeout(() => { lpQt.done = true; const [g, id] = qt.dataset.qt.split(":"), gi = +g, n = (sel[gi].get(id)||0) - 1; if(n < 0) return; if(n <= 0) sel[gi].delete(id); else sel[gi].set(id, n); redraw(); }, 500); });   // tap adds one, long press takes one away
+      ["pointerup","pointercancel","pointerleave"].forEach(t => el.addEventListener(t, () => clearTimeout(lpQt.t)));
+      el.addEventListener("contextmenu", e => { if(e.target.closest("[data-qt]")) e.preventDefault(); });
       el.addEventListener("focusin", e => { if(e.target.matches("[data-dv]")) e.target.closest(".smp")?.classList.add("np"); });
       el.addEventListener("click", e => {
         const np = e.target.closest("[data-np]"); if(np){ e.preventDefault(); const i = el.querySelector("[data-dv]"); if(!i) return; let v = i.value, k = np.dataset.np;
@@ -86,9 +90,10 @@
           i.value = v; i.dispatchEvent(new Event("input", { bubbles:true })); return; }
         if(e.target === el || e.target.closest("[data-x]")) return close(null);
         const dt = e.target.closest("[data-dt]"); if(dt){ e.preventDefault(); discT = dt.dataset.dt; return redraw(); }
-        const qq = e.target.closest("[data-qq]"); if(qq){ e.preventDefault(); qty = Math.max(1, qty + (+qq.dataset.qq)); return redraw(); }
+        const qq = e.target.closest("[data-qq]"); if(qq){ e.preventDefault(); qty = Math.max(Math.max(1, +o.minQty||1), qty + (+qq.dataset.qq)); return redraw(); }
+        if(e.target.closest("[data-rm]")) return close({ remove: true });
         const qt = e.target.closest("[data-qt]");
-        if(qt){ e.preventDefault(); const r = qt.getBoundingClientRect(), d = (e.clientX - r.left) < r.width * 0.25 ? -1 : 1, [g, id] = qt.dataset.qt.split(":"), gi = +g, l = links[gi], x = l.opts.find(y => y.id===id), n = (sel[gi].get(id)||0) + d;
+        if(qt){ e.preventDefault(); if(lpQt.done){ lpQt.done = false; return; } const d = 1, [g, id] = qt.dataset.qt.split(":"), gi = +g, l = links[gi], x = l.opts.find(y => y.id===id), n = (sel[gi].get(id)||0) + d;
           if(d > 0 && (x?.oos || ((+l.max||0) > 0 && cnt(gi) >= +l.max))) return;
           if(n <= 0) sel[gi].delete(id); else sel[gi].set(id, n); return redraw(); }
         const q = e.target.closest("[data-q]");
@@ -126,7 +131,7 @@
     if(!document.getElementById("smpCss")){ const st = document.createElement("style"); st.id = "smpCss"; st.textContent = css; document.head.appendChild(st); }
     if(!document.getElementById("smpVarCss")){ const st = document.createElement("style"); st.id = "smpVarCss"; st.textContent = `.smp .vgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px;padding:4px 0 8px}.smp .vbtn{display:flex;flex-direction:column;gap:6px;align-items:flex-start;border:1px solid #ddd8ea;background:#fff;border-radius:12px;padding:14px;font:inherit;cursor:pointer;text-align:left}.smp .vbtn:hover{border-color:#5b2bc4;background:#f6f2ff}.smp .vbtn b{font-size:15px}.smp .vbtn span{color:#5b2bc4;font-weight:600}`; document.head.appendChild(st); }
     return new Promise(resolve => {
-      const el = document.createElement("div"); el.className = "smp-scrim";
+      const el = document.createElement("div"); el.className = "smp-scrim"; const lpQt = { t:0, done:false };
       const close = v => { document.removeEventListener("keydown", onKey); el.remove(); resolve(v); };
       const onKey = e => { if(e.key === "Escape") close(null); };
       el.innerHTML = `<div class="smp" role="dialog" aria-modal="true" aria-label="${esc(o.name)}"><header><h3>${esc(o.name)}</h3><button type="button" data-x class="smx">Cancel</button></header><div class="b"><div class="g"><b>${esc(o.setName || "Choose a variant")}</b><span>Choose 1</span></div><div class="vgrid">${list.map((v, i) => `<button type="button" class="vbtn" data-v="${i}"><b>${esc(v.name)}</b><span>${money(v.price)}</span></button>`).join("")}</div></div></div>`;
