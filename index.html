@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="597-1794242872">
+<meta name="slick-build" content="598-1794243015">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -4879,26 +4879,36 @@ function bmAuto(){ clearTimeout(bmAutoT); bmAutoT = setTimeout(bmAutoGo, 40); }
 async function bmAutoGo(){
   if(bmAsking) return; const work = BM.draft; if(!Object.keys(work).length) return;
   const isSwitch = Object.values(work).some(d => Object.keys(d).some(k => k==="on" || /^(t_|to_)/.test(k)));
-  let scope = { chs:[bmMenu()[0]], brs:[BM.branch] };
+  let scope = { map:{ [BM.branch]:[bmMenu()[0]] } };
   if(isSwitch){ bmAsking = true; scope = await bmScopeAsk(); bmAsking = false; if(!scope){ BM.draft = {}; render(); return; } }
   BM.draft = {}; BM.saving = work; bmStat("Saving…");
-  try{ for(const b of scope.brs){ const codes = scFor(b).map(scCode).filter(c => scope.chs.includes(c)); if(codes.length) await bmApplyWork(work, b, [...new Set(codes)]); }
+  try{ for(const [b, chs] of Object.entries(scope.map)){ const codes = scFor(b).map(scCode).filter(c => chs.includes(c)); if(codes.length) await bmApplyWork(work, b, [...new Set(codes)]); }
     BM.saving = null; BM.stat = ""; render(); }
   catch(err){ console.error(err); BM.saving = null; bmStat("Not saved"); toast("Couldn't save. Only the owner or an admin can change the menu."); render(); }
 }
 function bmScopeAsk(){
   return new Promise(res => {
-    const cur = bmMenu()[0], chs = [...new Map(scFor(BM.branch).map(c => [scCode(c), c.name])).entries()], brs = activeBranches();
-    const row = (kind, v, label, on) => `<label style="display:flex;align-items:center;gap:10px;padding:9px 2px;border-bottom:1px solid #f0eef6;cursor:pointer"><input type="checkbox" data-sk="${kind}" value="${esc(v)}" ${on ? "checked" : ""} style="width:18px;height:18px;accent-color:#5b2bc4">${esc(label)}</label>`;
+    const brs = activeBranches();
+    const chk = 'style="width:18px;height:18px;accent-color:#5b2bc4;flex:none;margin:0"';
+    const grp = b => { const chs = [...new Map(scFor(b.id).map(c => [scCode(c), c.name])).entries()];
+      return `<div class="skgrp" style="border-bottom:1px solid #f0eef6;padding:6px 0">
+        <label style="display:flex;align-items:center;gap:10px;padding:8px 2px;cursor:pointer;font-weight:600"><input type="checkbox" data-skb="${esc(b.id)}" ${chk}>${esc(b.name)}</label>
+        ${chs.length ? `<div style="display:flex;flex-wrap:wrap;gap:4px 22px;padding:0 0 6px 30px">${chs.map(([c, n]) => `<label style="display:flex;align-items:center;gap:8px;padding:6px 0;cursor:pointer"><input type="checkbox" data-skc="${esc(c)}" data-skcb="${esc(b.id)}" ${chk}>${esc(n)}</label>`).join("")}</div>` : `<div class="note" style="padding:0 0 6px 30px">No sales channels in this branch</div>`}</div>`; };
     const w = document.createElement("div"); w.className = "slk-ask"; w.setAttribute("role", "dialog"); w.setAttribute("aria-modal", "true");
-    w.innerHTML = `<div class="slk-ask-b" style="max-width:520px;width:min(520px,94vw);text-align:left"><h3 class="slk-ask-h">Where should this change apply?</h3>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin:6px 0 14px;padding:0 24px;max-height:56vh;overflow:auto">
-        <div><b style="font-size:13px;color:#8d8c98">Update in sales channels</b>${chs.map(([c, n]) => row("ch", c, n, false)).join("")}</div>
-        <div><b style="font-size:13px;color:#8d8c98">Update in branches</b>${brs.map(b => row("br", b.id, b.name, false)).join("")}</div></div>
-      <div data-skerr style="color:#c62828;font-size:13px;padding:0 24px 10px;min-height:0"></div><div class="slk-ask-f"><button type="button" class="slk-ask-no">Cancel</button><button type="button" class="slk-ask-yes">Update</button></div></div>`;
-    const done = v => { w.remove(); document.removeEventListener("keydown", key, true); res(v); };
-    const pick = k => [...w.querySelectorAll(`[data-sk="${k}"]:checked`)].map(i => i.value);
-    const go = () => { const c = pick("ch"), b = pick("br"); if(!c.length || !b.length){ w.querySelector("[data-skerr]").textContent = "Pick at least one sales channel and one branch."; return; } done({ chs:c, brs:b }); };
+    w.innerHTML = `<div class="slk-ask-b" style="max-width:560px;width:min(560px,94vw);text-align:left"><h3 class="slk-ask-h">Where should this change apply?</h3>
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:0 24px;margin:2px 0 4px"><b style="font-size:13px;color:#8d8c98">Pick the branches, then the sales channels in each branch</b><label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;white-space:nowrap"><input type="checkbox" data-skall ${chk}>Select all</label></div>
+      <div style="margin:0 0 10px;padding:0 24px;max-height:56vh;overflow:auto">${brs.map(grp).join("")}</div>
+      <div data-skerr style="color:#c62828;font-size:13px;padding:0 24px 10px"></div><div class="slk-ask-f"><button type="button" class="slk-ask-no">Cancel</button><button type="button" class="slk-ask-yes">Update</button></div></div>`;
+    const sync = () => { w.querySelectorAll("[data-skb]").forEach(bx => { const cs = [...w.querySelectorAll(`[data-skcb="${CSS.escape(bx.dataset.skb)}"]`)], n = cs.filter(c => c.checked).length;
+        bx.checked = cs.length ? n===cs.length : false; bx.indeterminate = n>0 && n<cs.length; });
+      const all = [...w.querySelectorAll("[data-skc]")], n = all.filter(c => c.checked).length, a = w.querySelector("[data-skall]"); a.checked = all.length>0 && n===all.length; a.indeterminate = n>0 && n<all.length; };
+    w.addEventListener("change", e => { const t = e.target;
+      if(t.dataset.skb!==undefined) w.querySelectorAll(`[data-skcb="${CSS.escape(t.dataset.skb)}"]`).forEach(c => c.checked = t.checked);
+      if(t.dataset.skall!==undefined) w.querySelectorAll("[data-skc]").forEach(c => c.checked = t.checked);
+      w.querySelector("[data-skerr]").textContent = ""; sync(); });
+const done = v => { w.remove(); document.removeEventListener("keydown", key, true); res(v); };
+    const go = () => { const map = {}; w.querySelectorAll("[data-skc]:checked").forEach(c => (map[c.dataset.skcb] = map[c.dataset.skcb] || []).push(c.dataset.skc));
+      if(!Object.keys(map).length){ w.querySelector("[data-skerr]").textContent = "Pick at least one sales channel in a branch."; return; } done({ map }); };
     const key = e => { if(e.key==="Escape"){ e.preventDefault(); done(null); } else if(e.key==="Enter"){ e.preventDefault(); go(); } };
     w.querySelector(".slk-ask-no").onclick = () => done(null); w.querySelector(".slk-ask-yes").onclick = go;
     document.addEventListener("keydown", key, true); document.body.appendChild(w); w.querySelector(".slk-ask-yes").focus();
