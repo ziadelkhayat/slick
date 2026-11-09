@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="575-1794235513">
+<meta name="slick-build" content="576-1794235718">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -617,6 +617,8 @@ input,textarea{-webkit-user-select:text;user-select:text}
 /* PC, tablet and iPad share one layout: the cart takes the same share of the screen, 5 tiles across */
 @media (min-width:701px){.main.main{grid-template-columns:37% 1fr!important}}
 #abar .abtn.abtn{width:100%!important;max-width:none!important;aspect-ratio:auto!important;height:clamp(62px,9.5vh,100px)!important;max-height:none!important}   /* top buttons fill their slot */   /* the same split on every screen: cart 37%, menu the rest */
+.tillx{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:24px;height:100%;min-height:0}.tillx .tl{display:flex;flex-direction:column;min-height:0;overflow:hidden}.tillx .tr{display:flex;min-height:0}.tillx .tr .npad{flex:1;display:grid!important;grid-template-columns:repeat(3,1fr)!important;grid-auto-rows:1fr!important;gap:10px!important;margin:0!important;max-width:none!important}.tillx .tr .npad button{height:auto!important;min-height:0!important;font-size:26px!important}
+#modal.full .mb:has(>.tillx){overflow:hidden!important;display:block;padding:20px 28px!important}@media (orientation:portrait){.tillx{grid-template-columns:1fr;grid-template-rows:auto 1fr}}
 .tilrows{display:grid;gap:8px;margin-bottom:12px}.tilr{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px;border:1px solid var(--line);border-radius:12px;background:var(--s);font:inherit;font-weight:600;cursor:pointer;color:var(--ink)}.tilr.on{border-color:var(--acc);box-shadow:inset 0 0 0 1px var(--acc)}.tilr input{border:0;background:none;text-align:right;font:inherit;font-size:18px;font-weight:700;width:60%;pointer-events:none;color:var(--ink)}
 .cbtile{border:0;border-radius:16px;background:var(--s);box-shadow:var(--sh);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;font:inherit;font-weight:700;font-size:16px;color:var(--ink);cursor:pointer;-webkit-tap-highlight-color:transparent}
 .cbtile svg{width:28px;height:28px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}.cbtile:active{background:var(--accs)}
@@ -1922,7 +1924,7 @@ function openIncoming(){
     body = `<div class="otabs2">${TABS.map(([k,l2]) => `<button data-ovtab="${k}" class="${OV.tab===k?"on":""}">${l2}</button>`).join("")}</div>
       <div class="olist2">${l.length ? `<div class="lrow ol5 lhead"><span>Reference #</span><span>Invoice #</span><span>Order #</span><span>Customer</span><span>Status</span><span class="lc2">Sales channel</span><span class="lc2">Order type</span><span class="lc2">Order source</span><span class="lc2">Business date</span><span class="lc2">Payment Type</span><span style="text-align:right">Total</span></div>` + l.map(row).join("") : `<div class="oempty" style="border-radius:0">No orders here</div>`}</div>`; }
   const ovSt = modalKind==="incoming" ? ($("#modal .mb")?.scrollTop || 0) : 0;
-  modal("incoming", `${head}<div class="mb" style="display:flex;flex-direction:column;gap:12px">${filt}${body}<p class="mut" style="margin:0">${OV.loading ? "Loading older orders… " : ""}${OV.from||OV.to ? `Orders by business date · ${esc(ovRangeLbl())}.` : "All orders of this branch, newest first."} Tap an order to open it in the billing section.</p></div>`, true);
+  modal("incoming", `${head}<div class="mb" style="display:flex;flex-direction:column;gap:12px">${filt}${body}${OV.loading ? `<p class="mut" style="margin:0">Loading older orders…</p>` : ""}</div>`, true);
   $("#modal").classList.add("full"); $("#scrim").classList.add("fullscr"); withNav();
   if(ovSt){ const mb = $("#modal .mb"); if(mb) mb.scrollTop = ovSt; }
   const q = $("#ovQ"); if(q && document.activeElement?.id!=="ovQ" && OV.q){ /* keep the list where it was */ }
@@ -2038,8 +2040,8 @@ $("#shiftBtn").addEventListener("click", () => { hideMore();
   if(!can("pos_shift")) return deny("opening or closing the till");
   const sh = openShift();
   if(!sh) return modal("shift", `<div class="mh"><h2>Open Till</h2><button class="x" data-close aria-label="Close">×</button></div><div class="mb">
-    <div class="f"><label for="sCash">Enter Till Amount (${esc(coS().currency || "USD")})</label><input id="sCash" inputmode="none" value="0">${numpad("sCash")}</div></div>
-    <div class="mf"><button class="btn" data-close>Cancel</button><button class="btn pri" id="doOpenShift">Open Till</button></div>`);
+    ${tillForm("sCash", `<p class="mut" style="margin:0 0 12px">Enter Till Amount</p>`)}</div>
+    <div class="mf"><button class="btn" data-close>Cancel</button><button class="btn pri" id="doOpenShift">Open Till</button></div>`), tillFull();
   askYes("Are you sure you want to Close Till?").then(yes => { if(yes && openShift()) closeTillForm(openShift()); });
 });
 function closeTillForm(sh){
@@ -2047,16 +2049,17 @@ function closeTillForm(sh){
   const by = m => sales.filter(o=>(o.payment?.type || o.payment?.method)===m).reduce((a,o)=>a+o.total,0);
   const expected = (+sh.openingCash||0) + by("cash");
   modal("shift", `<div class="mh"><h2>Close Till</h2><button class="x" data-close aria-label="Close">×</button></div><div class="mb">
-    <p class="mut">Opened by ${esc(sh.cashier||"—")} at ${new Date(sh.openedAt).toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"})}</p>
+    ${tillForm("sCount", `<p class="mut" style="margin:0 0 8px">Opened by ${esc(sh.cashier||"—")} at ${new Date(sh.openedAt).toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"})}</p>
     <div class="stats"><div>Orders<b>${sales.length}</b></div><div>Net sales<b>${usd(sales.reduce((a,o)=>a+(+o.total||0)-(+o.tax||0),0))}</b></div><div>Cash<b>${usd(by("cash"))}</b></div><div>Card / other<b>${usd(by("card")+by("other"))}</b></div></div>
     <div class="f"><label>Expected cash in drawer</label><b style="font-size:18px">${usd(expected)}</b></div>
-    <p class="mut" style="margin:6px 0 10px">Count the cash in the drawer</p>${tillForm("sCount")}</div>
-    <div class="mf"><button class="btn" data-close>Cancel</button><button class="btn pri" id="doCloseShift">Close Till</button></div>`);
+    <p class="mut" style="margin:6px 0 10px">Count the cash in the drawer</p>`)}</div>
+    <div class="mf"><button class="btn" data-close>Cancel</button><button class="btn pri" id="doCloseShift">Close Till</button></div>`); tillFull();
 }
 /* till amounts: one row per currency (main + second), one keypad for the row that's selected */
-function tillForm(id){ const c1 = coS().currency || "USD", c2 = CUR2();
+function tillForm(id, left){ const c1 = coS().currency || "USD", c2 = CUR2();
   const row = (k, label, on) => `<button type="button" class="tilr${on?" on":""}" data-tilr="${id}${k}"><span>${esc(label)}</span><input id="${id}${k}" inputmode="none" readonly placeholder="0" tabindex="-1"></button>`;
-  return `<div class="tilrows">${row("1", c1, true)}${c2 ? row("2", c2.code, false) : ""}</div>${numpad(id + "1")}`; }
+  return `<div class="tillx"><div class="tl">${left || ""}<div class="tilrows">${row("1", c1, true)}${c2 ? row("2", c2.code, false) : ""}</div></div><div class="tr">${numpad(id + "1")}</div></div>`; }
+const tillFull = () => { $("#modal").classList.add("full"); $("#scrim").classList.add("fullscr"); };
 const tillVal = id => { const v1 = +($("#" + id + "1")?.value || 0), c2 = CUR2(), v2 = c2 ? +($("#" + id + "2")?.value || 0) : 0;
   return { v1, v2, cur2: c2?.code || null, rate2: c2?.rate || null, total: +(v1 + (c2 && v2 ? v2 / c2.rate : 0)).toFixed(DEC()), blank: ($("#" + id + "1")?.value || "")==="" && (!c2 || ($("#" + id + "2")?.value || "")==="") }; };
 document.addEventListener("click", e => { const r = e.target.closest("[data-tilr]"); if(!r) return; e.preventDefault();
@@ -2065,7 +2068,7 @@ async function doOpenShift(){
   if(openShift()) return closeModal();
   const b = $("#doOpenShift"); if(b?.disabled) return; if(b) b.disabled = true;   // a double tap opens one shift
   const id = "sh_" + Date.now().toString(36);
-  try{ await db.collection("shifts").doc(id).set({ deviceId:device.id, branchId:device.branchId, cashier:cashier?.name || device.name, openingCash:+$("#sCash").value||0, openedAt:new Date().toISOString() }); closeModal(); toast("Till opened"); }
+  try{ await db.collection("shifts").doc(id).set({ deviceId:device.id, branchId:device.branchId, cashier:cashier?.name || device.name, openingCash:tillVal("sCash").total, openingCash1:tillVal("sCash").v1, ...(CUR2() ? { openingCash2:tillVal("sCash").v2, currency2:CUR2().code, rate2:CUR2().rate } : {}), openedAt:new Date().toISOString() }); closeModal(); toast("Till opened"); }
   catch(err){ console.error(err); toast("Couldn't open the till"); if(b) b.disabled = false; }
 }
 // a shift left open on any register of the branch (even another tablet) is closed from End of day; the drawer is taken as counted at the expected amount
