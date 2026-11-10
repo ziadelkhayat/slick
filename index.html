@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="643-1794323510">
+<meta name="slick-build" content="645-1794324063">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1223,6 +1223,12 @@ input.nfon{color:transparent!important;-webkit-text-fill-color:transparent!impor
 .cc1.pdstyle>.cc1b{gap:12px}#oAddrW:has(#oAddrCards:empty){display:none}#oAddrW .ccsl{font-size:13px;color:var(--ink2);margin-bottom:6px}.cc1b #ccPast:empty,.cc1b #oInsights:empty{display:none}.cc1b .pod,.cc1b .cins{margin:0!important}
 #oCustHint:empty{display:none}
 .cc1.pdstyle #oInsights .cins-g div{background:var(--bg,#f6f6fa)}
+.modal.prm{width:min(1040px,100%)}.prbody{display:grid!important;grid-template-columns:minmax(0,1fr) 300px;gap:22px;align-items:start}.prmain{min-width:0}
+.prtypes{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.prtypes button{display:flex;align-items:center;gap:8px;justify-content:center;border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:12px 8px;font:inherit;font-weight:600;font-size:13.5px;color:var(--ink2);cursor:pointer}.prtypes button svg{width:18px;height:18px}.prtypes button.on{border-color:var(--accent);background:var(--accent-soft,#f1edff);color:var(--accent-ink)}
+.prside{position:sticky;top:0;background:var(--bg,#f6f6fa);border:1px solid var(--line);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:8px}.prsl{font-size:12.5px;font-weight:600;color:var(--ink2)}#prPrev{display:flex;flex-direction:column;gap:8px}
+.prcard{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:6px;align-items:flex-start}.prcard b{font-size:16px}.prcard p{margin:0;font-size:13.5px;color:var(--ink2)}.prbadge{font-size:11.5px;font-weight:700;background:var(--accent-soft,#f1edff);color:var(--accent-ink);border-radius:999px;padding:3px 9px}
+.prkv{display:flex;justify-content:space-between;gap:10px;font-size:12.5px}.prkv span{color:var(--ink2)}.prkv b{text-align:right;font-weight:600}
+@media(max-width:860px){.prbody{grid-template-columns:1fr}}
 </style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -5143,6 +5149,7 @@ function moduleRoute(route){
   if(route==="reasons") return viewReasons();
   if(route==="delivery-charges") return viewDeliveryCharges();
   if(route==="discounts") return viewDiscounts();
+  if(route==="promotions") return viewPromotions();
   if(route==="currency") return viewCurrency();
   if(route==="settings"){ const bl = S.brands.filter(live); setTimeout(() => { location.replace("#brands"); if(bl.length===1) setTimeout(() => openDetail("brands", bl[0].id), 50); }, 0); return ""; }
   if(DOC_KINDS[route]) return viewDocs(route);
@@ -6366,6 +6373,118 @@ document.addEventListener("click", async e => {
 document.addEventListener("change", e => { if(e.target.id==="dcBranch"){ DC.branch = e.target.value; DC.sel.clear(); render(); } });
 document.addEventListener("input", e => { if(e.target.id==="dcQ"){ DC.q = e.target.value; const p = e.target.selectionStart; render(); const i = $("#dcQ"); if(i){ i.focus(); try{ i.setSelectionRange(p, p); }catch(_){} } } });
 
+/* ---------- Promotions (Marketing → Promotions): automatic offers, kept in settings "promotions": { list:[…] } ---------- */
+const PR = { tab:"all", q:"" };
+const PR_TYPES = [["freedel","Free Delivery","truck"],["disc","Discount","percent"],["bxgy","Buy X Get Y","gift"],["freeitem","Free Item","gift"],["itemdisc","Items Discount","tag"],["bundle","Meal Bundle","box"]];
+const PR_OT = [["dinein","Dine In"],["pickup","Pick Up"],["delivery","Delivery"],["fast","Fast Sale"]];
+const PR_DAYS = [["1","Mon"],["2","Tue"],["3","Wed"],["4","Thu"],["5","Fri"],["6","Sat"],["0","Sun"]];
+const prDoc = () => (typeof S!=="undefined" ? S.settings : []).find(x => x.id==="promotions") || {};
+const prList = () => (prDoc().list || []);
+async function prSave(list){ try{ await put("settings", "promotions", { list }); return true; }catch(e){ console.error(e); toast("Couldn't save. Only the owner or an admin can change promotions."); return false; } }
+const prPatch = (id, patch) => prSave(prList().map(p => p.id===id ? { ...p, ...patch } : p));
+const prTypeLbl = k => (PR_TYPES.find(x => x[0]===k) || PR_TYPES[1])[1];
+const prNames = ids => (ids||[]).map(id => S.products.find(x => x.id===id)?.name).filter(Boolean);
+const prJoin = (a, n = 3) => a.length > n ? a.slice(0, n).join(", ") + " +" + (a.length - n) : a.join(", ");
+const prOff = p => p.valueType==="fixed" ? money(+p.value||0) + " off" : (+p.value||0) + "% off";
+function prSummary(p){
+  const min = +p.minOrder ? " on orders over " + money(+p.minOrder) : "";
+  if(p.type==="freedel") return "Free delivery" + min;
+  if(p.type==="disc") return prOff(p) + " the order" + min;
+  if(p.type==="bxgy"){ const g = +p.getPct >= 100 || p.getPct==null ? "free" : "at " + (+p.getPct||0) + "% off"; return `Buy ${+p.buyQty||1} ${prJoin(prNames(p.buyIds), 2) || "item"}, get ${+p.getQty||1} ${prJoin(prNames(p.getIds), 2) || "item"} ${g}`; }
+  if(p.type==="freeitem") return `Free ${(+p.freeQty||1) > 1 ? (+p.freeQty) + " × " : ""}${prJoin(prNames(p.freeIds), 2) || "item"}` + min;
+  if(p.type==="itemdisc"){ const n = (p.itemIds||[]).length, c = (p.categoryIds||[]).length; return prOff(p) + " " + (n ? prJoin(prNames(p.itemIds), 2) : c ? c + (c===1 ? " category" : " categories") : "selected items"); }
+  if(p.type==="bundle") return (prJoin(prNames(p.bundleIds), 3).replace(/, /g, " + ") || "Bundle") + " for " + money(+p.bundlePrice||0);
+  return "";
+}
+function prStatus(p){ const t = new Date().toISOString().slice(0,10);
+  if(p.deleted) return ["Deleted","s-void"]; if(p.active===false) return ["Inactive","s-draft"];
+  if(p.start && p.start > t) return ["Scheduled","s-pending"]; if(p.end && p.end < t) return ["Expired","s-void"]; return ["Active","s-closed"]; }
+const prPeriod = p => { const d = x => new Date(x + "T00:00").toLocaleDateString("en-GB", { day:"numeric", month:"short", year:"numeric" }); return p.start || p.end ? (p.start ? d(p.start) : "Now") + " – " + (p.end ? d(p.end) : "No end") : "Always"; };
+function viewPromotions(){
+  const q = PR.q.trim().toLowerCase(), tab = PR.tab;
+  const list = prList().filter(p => (tab==="deleted" ? !!p.deleted : !p.deleted && (tab==="all" || (tab==="active") === (p.active!==false))) && (!q || (p.name + " " + (p.nameAr||"")).toLowerCase().includes(q))).sort((a,b) => String(a.name).localeCompare(String(b.name)));
+  const tabs = [["all","All"],["active","Active"],["inactive","Inactive"],["deleted","Deleted"]];
+  return `<div class="phead"><h1>Promotions</h1><div class="sp"></div><button class="btn pri" data-prnew>Create Promotion</button></div>
+  <div class="card tbl"><div class="ttop"><div class="ttabs">${tabs.map(([k,t]) => `<a href="#promotions" data-prtab="${k}" class="${tab===k?"on":""}">${t}</a>`).join("")}</div><div class="sp"></div><input class="sel search" id="prQ" placeholder="Search" value="${esc(PR.q)}" aria-label="Search promotions"></div>
+  ${list.length ? `<table><thead><tr><th>Name</th><th>Type</th><th>Offer</th><th>Period</th><th>Status</th>${tab==="deleted" ? "<th></th>" : ""}</tr></thead><tbody>${list.map(p => { const st = prStatus(p); return `<tr class="click" ${p.deleted ? "" : `data-propen="${esc(p.id)}"`}>
+    <td><b>${esc(p.name)}</b>${p.nameAr ? ` <span class="note">${esc(p.nameAr)}</span>` : ""}</td><td>${esc(prTypeLbl(p.type))}</td><td>${esc(prSummary(p))}</td><td>${esc(prPeriod(p))}</td><td><span class="spill ${st[1]}">${st[0]}</span></td>
+    ${tab==="deleted" ? `<td class="num"><button class="btn sm" data-prrestore="${esc(p.id)}">Restore</button></td>` : ""}</tr>`; }).join("")}</tbody></table>`
+    : `<div class="empty" style="text-align:center;padding:48px 16px">${tab==="deleted" ? "No deleted promotions" : "No promotions yet"}</div>`}</div>`;
+}
+// two steps (the offer, then when and where it runs) with a live preview beside them
+function prForm(p0){
+  const ed = !!p0, F = JSON.parse(JSON.stringify(p0 || { type:"disc", valueType:"pct", orderTypes:PR_OT.map(x => x[0]), days:[], branchIds:[], active:true, buyQty:1, getQty:1, getPct:100, freeQty:1 }));
+  let step = 1; const box = $("#ccBox"); box.className = "modal prm";
+  const prods = () => S.products.filter(p => live(p)).sort((a,b) => a.name.localeCompare(b.name));
+  const multi = (id, opts, cur, empty) => `<div class="multi" id="${id}" data-empty="${empty || "Nothing to choose yet"}">${opts.map(([v,t]) => `<label class="chk"><input type="checkbox" value="${esc(v)}" ${(cur||[]).includes(v)?"checked":""}> ${esc(t)}</label>`).join("")}</div>`;
+  const pm = (id, cur) => multi(id, prods().map(p => [p.id, p.name]), cur, "No items yet");
+  const num = (id, l, v, attr = "") => `<div class="f"><label for="${id}">${l}</label><input id="${id}" type="number" min="0" step="any" value="${esc(v ?? "")}" ${attr}></div>`;
+  const vt = () => `<div class="f"><label for="prVT">Discount Type *</label><select id="prVT" class="sel" data-prre><option value="pct" ${F.valueType!=="fixed"?"selected":""}>Percentage</option><option value="fixed" ${F.valueType==="fixed"?"selected":""}>Amount</option></select></div>${num("prVal", `Discount (${F.valueType==="fixed" ? esc(CUR()) : "%"}) *`, F.value)}`;
+  const minO = () => num("prMin", `Minimum Order (${esc(CUR())})`, F.minOrder);
+  const fields = () => F.type==="freedel" ? minO()
+    : F.type==="disc" ? vt() + (F.valueType==="fixed" ? "" : num("prMax", `Maximum Discount (${esc(CUR())})`, F.maxDiscount)) + minO()
+    : F.type==="bxgy" ? `<div class="f full"><label>Buy Items *</label>${pm("prBuy", F.buyIds)}</div>${num("prBuyQ", "Buy Quantity *", F.buyQty, 'step="1"')}${num("prGetQ", "Get Quantity *", F.getQty, 'step="1"')}<div class="f full"><label>Get Items *</label>${pm("prGet", F.getIds)}</div>${num("prGetP", "Discount On Get Items (%) *", F.getPct ?? 100, 'max="100"')}`
+    : F.type==="freeitem" ? `<div class="f full"><label>Free Items *</label>${pm("prFree", F.freeIds)}</div>${num("prFreeQ", "Quantity *", F.freeQty, 'step="1"')}${minO()}`
+    : F.type==="itemdisc" ? `<div class="f full"><label>Items</label>${pm("prItems", F.itemIds)}</div><div class="f full"><label>Categories</label>${multi("prCats", S.categories.filter(c => live(c) && !c.channel).sort(bySort).map(c => [c.id, c.name]), F.categoryIds, "No categories yet")}</div>${vt()}`
+    : `<div class="f full"><label>Bundle Items *</label>${pm("prBun", F.bundleIds)}</div>${num("prBunP", `Bundle Price (${esc(CUR())}) *`, F.bundlePrice)}`;
+  const s1 = () => `<div class="dsgrid">
+    <div class="f"><label for="prName">Name *</label><input id="prName" value="${esc(F.name||"")}"></div>
+    <div class="f"><label for="prNameAr">Name Localized</label><input id="prNameAr" value="${esc(F.nameAr||"")}"></div>
+    <div class="f full"><label>Type *</label><div class="prtypes">${PR_TYPES.map(([k,t,i]) => `<button type="button" data-prtype="${k}" class="${F.type===k?"on":""}">${svgIco(i) || ""}<span>${t}</span></button>`).join("")}</div></div>
+    ${fields()}</div>`;
+  const s2 = () => `<div class="dsgrid">
+    <div class="f"><label for="prStart">Start Date</label><input id="prStart" type="date" value="${esc(F.start||"")}"></div>
+    <div class="f"><label for="prEnd">End Date</label><input id="prEnd" type="date" value="${esc(F.end||"")}"></div>
+    <div class="f"><label for="prFrom">From Time</label><input id="prFrom" type="time" value="${esc(F.from||"")}"></div>
+    <div class="f"><label for="prTo">To Time</label><input id="prTo" type="time" value="${esc(F.to||"")}"></div>
+    <div class="f full"><label>Days</label>${multi("prDays", PR_DAYS, F.days)}</div>
+    <div class="f full"><label>Applies On Order Types *</label>${multi("prOT", PR_OT, F.orderTypes)}</div>
+    <div class="f full"><label>Applies On Branches</label>${multi("prBr", branches.filter(b => b.active!==false).map(b => [b.id, b.name]), F.branchIds, "No branches yet")}</div>
+    <label class="chk full"><input type="checkbox" id="prActive" ${F.active!==false?"checked":""}> Active</label></div>`;
+  const ids = id => [...box.querySelectorAll("#" + id + " input:checked")].map(i => i.value), has = id => !!box.querySelector("#" + id);
+  const val = id => { const el = box.querySelector("#" + id); return el ? el.value : undefined; }, n = id => { const v = val(id); return v===undefined ? undefined : v==="" ? null : +v; };
+  const take = (k, v) => { if(v !== undefined) F[k] = v; };
+  const collect = () => { if(step===1){ take("name", val("prName")?.trim()); take("nameAr", val("prNameAr")?.trim()); take("valueType", val("prVT")); take("value", n("prVal")); take("maxDiscount", n("prMax")); take("minOrder", n("prMin"));
+      if(has("prBuy")) F.buyIds = ids("prBuy"); if(has("prGet")) F.getIds = ids("prGet"); take("buyQty", n("prBuyQ")); take("getQty", n("prGetQ")); take("getPct", n("prGetP"));
+      if(has("prFree")) F.freeIds = ids("prFree"); take("freeQty", n("prFreeQ")); if(has("prItems")) F.itemIds = ids("prItems"); if(has("prCats")) F.categoryIds = ids("prCats"); if(has("prBun")) F.bundleIds = ids("prBun"); take("bundlePrice", n("prBunP")); }
+    else { take("start", val("prStart")); take("end", val("prEnd")); take("from", val("prFrom")); take("to", val("prTo")); F.days = ids("prDays"); F.orderTypes = ids("prOT"); F.branchIds = ids("prBr"); F.active = !!box.querySelector("#prActive")?.checked; } };
+  const check1 = () => { if(!F.name) return "Enter a name.";
+    if(prList().some(o => !o.deleted && o.id!==F.id && String(o.name).toLowerCase()===F.name.toLowerCase())) return "A promotion with this name already exists.";
+    if(["disc","itemdisc"].includes(F.type)){ if(!(+F.value > 0)) return "Enter the discount."; if(F.valueType!=="fixed" && +F.value > 100) return "A percentage can't be more than 100."; }
+    if(F.type==="bxgy"){ if(!(F.buyIds||[]).length) return "Choose the items to buy."; if(!(F.getIds||[]).length) return "Choose the items to get."; if(!(+F.buyQty >= 1) || !(+F.getQty >= 1)) return "Quantities must be at least 1."; if(!(+F.getPct > 0) || +F.getPct > 100) return "The discount must be between 1 and 100."; }
+    if(F.type==="freeitem"){ if(!(F.freeIds||[]).length) return "Choose the free items."; if(!(+F.freeQty >= 1)) return "The quantity must be at least 1."; }
+    if(F.type==="itemdisc" && !(F.itemIds||[]).length && !(F.categoryIds||[]).length) return "Choose items or categories.";
+    if(F.type==="bundle"){ if((F.bundleIds||[]).length < 2) return "Choose at least two items."; if(!(+F.bundlePrice > 0)) return "Enter the bundle price."; }
+    return ""; };
+  const check2 = () => !(F.orderTypes||[]).length ? "Choose at least one order type." : F.start && F.end && F.end < F.start ? "The end date is before the start date." : F.type==="freedel" && !F.orderTypes.includes("delivery") ? "Free delivery needs the Delivery order type." : "";
+  const preview = () => { const st = prStatus({ ...F, deleted:false }), ot = (F.orderTypes||[]).map(k => PR_OT.find(x => x[0]===k)?.[1]).filter(Boolean), dy = (F.days||[]).map(k => PR_DAYS.find(x => x[0]===k)?.[1]).filter(Boolean), br = (F.branchIds||[]).map(id => branches.find(b => b.id===id)?.name).filter(Boolean);
+    $("#prPrev").innerHTML = `<div class="prcard"><span class="prbadge">${esc(prTypeLbl(F.type))}</span><b>${esc(F.name || "Promotion name")}</b><p>${esc(prSummary(F))}</p></div>
+      <div class="prkv"><span>Status</span><b>${st[0]}</b></div><div class="prkv"><span>Period</span><b>${esc(prPeriod(F))}</b></div>${F.from || F.to ? `<div class="prkv"><span>Hours</span><b>${esc((F.from||"00:00") + " – " + (F.to||"23:59"))}</b></div>` : ""}
+      <div class="prkv"><span>Days</span><b>${esc(dy.length && dy.length < 7 ? dy.join(", ") : "Every day")}</b></div><div class="prkv"><span>Order Types</span><b>${esc(ot.join(", ") || "—")}</b></div><div class="prkv"><span>Branches</span><b>${esc(br.length ? prJoin(br, 3) : "All branches")}</b></div>`; };
+  const draw = () => { box.innerHTML = `<header><h2>${ed ? "Edit" : "Create"} Promotion</h2><nav class="ccsteps" aria-label="Steps"><button type="button" data-prstep="1" class="${step===1?"on":""}"><i>1</i>Offer</button><span aria-hidden="true">›</span><button type="button" data-prstep="2" class="${step===2?"on":""}"><i>2</i>Schedule</button></nav><button type="button" class="x" data-ccclose aria-label="Close">×</button></header>
+    <div class="body prbody"><div class="prmain">${step===1 ? s1() : s2()}<div class="err" id="prErr"></div></div><aside class="prside"><div class="prsl">Preview</div><div id="prPrev"></div></aside></div>
+    <footer>${ed ? `<button type="button" class="btn danger" id="prDel" style="margin-right:auto">Delete Promotion</button>` : ""}<span style="flex:1"></span>${step===2 ? `<button type="button" class="btn" data-prstep="1">Back</button>` : ""}<button type="button" class="btn pri" id="prGo">${step===1 ? "Continue" : "Save"}</button></footer>`;
+    preview(); };
+  const go = to => { collect(); if(to===2){ const er = check1(); if(er){ $("#prErr").textContent = er; return; } } step = to; draw(); };
+  box.onclick = async e => { if(!box.classList.contains("prm")) return;
+    const ty = e.target.closest("[data-prtype]"); if(ty){ collect(); F.type = ty.dataset.prtype; return draw(); }
+    const sp = e.target.closest("[data-prstep]"); if(sp) return go(+sp.dataset.prstep);
+    if(e.target.closest("#prDel")){ if(!(await askYes("Delete this promotion?"))) return; if(await prPatch(F.id, { deleted:true })){ $("#ccScrim").classList.remove("show"); toast("Promotion deleted"); render(); } return; }
+    if(e.target.closest("#prGo")){ if(step===1) return go(2); collect(); const er = check1() || check2(); if(er){ $("#prErr").textContent = er; return; }
+      const data = { ...F }; const list = ed ? prList().map(o => o.id===F.id ? { ...o, ...data } : o) : [...prList(), { ...data, id: uid("prm"), createdAt: new Date().toISOString() }];
+      $("#prGo").disabled = true; if(await prSave(list)){ $("#ccScrim").classList.remove("show"); toast(ed ? "Promotion saved" : "Promotion created"); render(); } else $("#prGo").disabled = false; } };
+  const live2 = e => { if(!box.classList.contains("prm")) return; if(e.target.matches?.("[data-prre]")){ collect(); return draw(); } collect(); preview(); };
+  box.oninput = live2; box.onchange = live2;
+  draw(); $("#ccScrim").classList.add("show"); setTimeout(() => $("#prName")?.focus(), 50);
+}
+document.addEventListener("click", async e => {
+  const t = e.target; if(!t.closest || !t.closest("#view") || document.body.dataset.route!=="promotions") return;
+  const tb = t.closest("[data-prtab]"); if(tb){ e.preventDefault(); PR.tab = tb.dataset.prtab; return render(); }
+  if(t.closest("[data-prnew]")) return prForm(null);
+  const rs = t.closest("[data-prrestore]"); if(rs){ if(!(await askYes("Restore this promotion?"))) return; if(await prPatch(rs.dataset.prrestore, { deleted:false })){ toast("Promotion restored"); render(); } return; }
+  const o = t.closest("[data-propen]"); if(o) return prForm(prList().find(p => p.id===o.dataset.propen));
+});
+document.addEventListener("input", e => { if(e.target.id!=="prQ") return; PR.q = e.target.value; clearTimeout(PR.t); PR.t = setTimeout(() => { render(); const q = $("#prQ"); if(q){ q.focus(); q.setSelectionRange(q.value.length, q.value.length); } }, 200); });
 /* ---------- Discounts (Marketing → Discounts, Foodics style): set discounts the cashier and the call center pick ---------- */
 // kept in one settings document (settings "discounts": { list:[…] }) so every POS gets them with its settings
 const DS = { tab:"all", q:"", open:"" };
