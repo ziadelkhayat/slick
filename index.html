@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="625-1794315815">
+<meta name="slick-build" content="628-1794316851">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1212,6 +1212,7 @@ html.mlock{overflow:hidden!important}html.mlock body{position:fixed!important;le
 .mmmselbar{margin:0 0 10px}.bmdmx .bmmsel{width:18px;height:18px;margin:0 8px 0 0!important;vertical-align:middle;accent-color:var(--accent,#6a4cf5);cursor:pointer}
 input.nfon{color:transparent!important;-webkit-text-fill-color:transparent!important}.nfv{position:absolute;box-sizing:border-box;display:flex;align-items:center;pointer-events:none;white-space:nowrap;overflow:hidden;background:none}.nfv[hidden]{display:none}
 .empty,p.empty,div.empty{text-align:center!important;margin-left:auto!important;margin-right:auto!important}
+.mmchev{flex:none;display:grid;place-items:center;color:var(--muted,#8d8c98);transition:transform .15s}.mmchev.open{transform:rotate(90deg)}
 </style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -2969,8 +2970,15 @@ const CRUD = {
   chcat: {
     col:"categories", title:"Channel categories", one:"Category", hardDelete:1, addLbl:"Add",
     tabs:[["all","All",r=>live(r)&&!!r.channel]],
-    fields:[{k:"name",l:"Name",req:1},{k:"nameAr",l:"Name Localized"},{k:"imageUrl",l:"Image",t:"image",full:1}],
-    prep: async (data, id) => { if(!id){ const ch = bmMenu()[0], mine = S.categories.filter(c => live(c) && c.channel===ch);
+    fields:[{k:"name",l:"Name",req:1},{k:"nameAr",l:"Name Localized"},
+      {k:"subOf",l:"Parent Category",t:"select",ph:"None (main category)",full:1,hideIf:()=>true,opts:()=>S.categories.filter(c => live(c) && c.channel===bmMenu()[0] && !catPar(c)).sort((a,b)=>(+a.sort||0)-(+b.sort||0)).map(c=>[c.id,c.name])},
+      {k:"imageUrl",l:"Image",t:"image",full:1}],
+    prep: async (data, id) => { const subOf = data.subOf; delete data.subOf;
+      if(!id && subOf){ const par = S.categories.find(c => c.id===subOf); if(!par) return "Choose the category.";   // a sub-category: sits under its category, opens when the category is pressed
+        const mine = S.categories.filter(c => live(c) && catPar(c)===par.id);
+        data.channel = par.channel; data.reference = "sub:" + par.id; data.productIds = []; delete data.imageUrl; data.inactiveBranchIds = (par.inactiveBranchIds||[]).filter(k => String(k).startsWith("only:")); data.brandId = par.brandId || null;
+        data.sort = (Math.max(0, ...mine.map(c => +c.sort||0)) + 10); data.id = "cat_" + par.channel + "_" + Date.now().toString(36); BM.cat = par.id; return ""; }
+      if(!id){ const ch = bmMenu()[0], mine = S.categories.filter(c => live(c) && c.channel===ch);
       data.channel = ch; data.productIds = []; if(ch!=="online") data.inactiveBranchIds = ["only:" + BM.branch]; data.sort = (Math.max(0, ...mine.map(c => +c.sort||0)) + 10); data.id = "cat_" + ch + "_" + Date.now().toString(36); } return ""; }
   },
   // a sub-category inside a channel category: a name only (no picture); it holds items like a category
@@ -4585,13 +4593,14 @@ function viewBranchMenu(){
         if(!vis.length) return ""; const all = vis.every(c => sel.has(c.id));
         return `<div class="mmselbar"><label class="chk"><input type="checkbox" data-bmcselall ${all?"checked":""} aria-label="Select all categories"> ${sel.size ? `<b>${sel.size} Selected</b>` : "Select All"}</label>
           <span class="ddwrap mmacts"><button type="button" class="btn sm" data-bmcacts>Actions ▾</button><span class="ddmenu" hidden><button type="button" data-bmcbulk="on">Activate</button><button type="button" data-bmcbulk="off">Deactivate</button><button type="button" class="danger" data-bmcbulk="del">Delete</button></span></span></div>`; })()}
-      <div class="mmcats">${bmCatRows(cats, cq).map(({ c, sub }) => { const on = bmCatOn(c.id);
+      <div class="mmcats">${bmCatRows(cats, cq).filter(({ c, sub }) => !sub || cq || catPar(c)===BM.cat || (cur && catPar(c)===catPar(cur))).map(({ c, sub }) => { const on = bmCatOn(c.id);   // sub-categories show only under the category that is pressed
         return `<div class="mmcat${sub?" mmsubc":""}${c.id===BM.cat?" sel":""}${on?"":" off"}" data-bmpick="${esc(c.id)}"${cq ? "" : sub ? ` data-sk="bms:${esc(catPar(c))}|${esc(c.id)}" data-skn="1"` : ` data-sk="bmc|${esc(c.id)}"`}>
           <input type="checkbox" class="bmcsel" data-bmcsel="${esc(c.id)}" ${(BM.csel ||= new Set()).has(c.id)?"checked":""} aria-label="Select ${esc(c.name)}">
           <span class="bmgrip" title="Drag to move" aria-hidden="true">⋮⋮</span>
           <label class="toggle" title="${on ? "Shown" : "Hidden"} on the ${esc(ch[1])} menu"><input type="checkbox" data-bmcat="${esc(c.id)}" ${on?"checked":""} aria-label="Show ${esc(c.name)}"><span class="trk"></span></label>
           ${sub ? "" : `<span class="scimg">${c.imageUrl ? `<img src="${esc(c.imageUrl)}" alt="">` : svgIco("image")}</span>`}
           <span class="mmct"><b>${esc(c.name)}</b>${sub ? "" : (n => n ? `<small>${n} sub-categor${n===1?"y":"ies"}</small>` : "")(bmCatRows(cats, "").filter(x => x.sub && catPar(x.c)===c.id).length)}</span>
+          ${!sub && cats.some(x => catPar(x)===c.id) ? `<span class="mmchev${c.id===BM.cat || (cur && catPar(cur)===c.id) ? " open" : ""}" aria-hidden="true"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg></span>` : ""}
           <div class="ddwrap"><button type="button" class="mmdots" data-bmcmenu="${esc(c.id)}" aria-label="${sub ? "Sub-category" : "Category"} actions">⋯</button><div class="ddmenu" hidden><button type="button" data-bmcedit="${esc(c.id)}">Edit</button>${sub ? "" : `<button type="button" data-bmsubnew="${esc(c.id)}">Add Sub-category</button>`}<button type="button" class="danger" data-bmcdel="${esc(c.id)}">Delete</button></div></div></div>`; }).join("") || `<div class="mmempty">${cats.length ? "No categories match." : `<b>No categories yet</b><span>Add the first category of the ${esc(ch[1])} menu.</span>`}</div>`}</div></aside>`;
   // right: the chosen category's products
   if(!cur) return h + `<section class="mmmain"><div class="mmempty big"><b>Start the ${esc(ch[1])} menu</b><span>Add a category on the left, then add products to it.</span><button type="button" class="btn pri" data-bmnewcat>+ Add Category</button></div></section></div>${bmSaveBar(nDraft)}</div>`;
