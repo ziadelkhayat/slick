@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="682-1794349242">
+<meta name="slick-build" content="683-1794349543">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -737,6 +737,7 @@ input,textarea,[contenteditable],code,pre,td,.receipt,.receipt *,.rpaper,.rpaper
 ::placeholder{text-transform:capitalize}
 .ohfil{flex:none;display:flex;gap:8px;flex-wrap:wrap;padding:12px 18px;border-bottom:1px solid var(--line);background:#fff}.ohfil button{border:1.5px solid var(--line);background:#fff;border-radius:999px;min-height:40px;padding:0 16px;font:inherit;font-size:14px;font-weight:600;color:var(--mut);cursor:pointer}.ohfil button.on{background:var(--accs,#efeaff);border-color:var(--acc);color:var(--acci,var(--acc))}.ohnone{grid-column:1/-1;text-align:center;color:var(--mut);padding:36px 0}
 .ohgh{grid-column:1/-1;display:flex;align-items:center;gap:8px;font-size:14px;font-weight:700;color:var(--ink);margin:6px 0 -2px}.ohgh:first-child{margin-top:0}.ohgh span{font-size:12px;font-weight:600;color:var(--mut);background:#f1f0f5;border-radius:999px;padding:2px 9px}
+.acts button.decl{color:#d92d20;border-color:#f3c4c0;background:#fff}
 </style>
 <script>
 /* ---------- naming: menu "products" are called Items; inventory "items" are called Products ----------
@@ -1426,6 +1427,7 @@ function renderCart(){
   const acts = $("#acts"), unsent = cart.some(i => i.qty > (i.saved||0));
   let b;
   if(!eo) b = [...(otype==="fast" ? [] : [`<button data-act="send" ${cart.length?"":"disabled"}>Save</button>`]), `<button class="pay" data-act="pay" ${cart.length?"":"disabled"}>${cart.length ? "Total" : "Total"}</button>`];
+  else if(eo.status==="pending") b = canAccept() ? [`<button class="decl" data-incc="${esc(eo.id)}:declined">Decline</button>`, `<button class="pay" data-incc="${esc(eo.id)}:active">Accept</button>`] : [];   // an order waiting to be accepted can't be saved or paid yet: accept or decline it first
   else if(isOpenOrd(eo)) b = [...(otype==="fast" ? [] : [`<button data-act="send" ${unsent?"":"disabled"}>Save</button>`]), `<button class="pay" data-act="pay" ${cart.length?"":"disabled"}>Total</button>`];
   else b = [];
   acts.style.setProperty("--n", b.length + 1); acts.innerHTML = b.join(""); acts.classList.toggle("hide", !b.length);
@@ -1641,6 +1643,12 @@ $("#extra").addEventListener("click", e => { const ht = e.target.closest("[data-
   if(cx && cx.dataset.ctx==="fast"){ const go = () => { otype = "fast"; tableNo = ""; cust = { name:"", phone:"", addr:{} }; posChg = null; repriceCart(); renderCart(); renderMenu(); };
     if((otype==="takeaway" || otype==="delivery") && (cust.name || cust.phone)) askYes("Make this a fast sale? The customer details are removed.", "Fast sale").then(y => y && go()); else go(); return; }
   if(e.target.closest("[data-unload]")) return unloadOrder(); });
+$("#acts").addEventListener("click", async e => { const b = e.target.closest("[data-incc]"); if(!b || b.disabled) return; if(!can("pos_incoming")) return deny("handling incoming orders");
+  const [id, st] = b.dataset.incc.split(":"), o = S.orders.find(x => x.id===id); if(!o) return; b.disabled = true;
+  const now = new Date().toISOString(), bill = st==="active" && !o.no ? { no: nextOrderNo(), deviceId: device.id } : {};
+  try{ await db.collection("orders").doc(id).update({ status:st, updatedAt:now, ...(st==="active" && !o.acceptedAt ? { acceptedAt:now } : {}), ...(st==="declined" ? { doneAt:now } : {}), handledBy:cashier?.name || device.name, ...bill });
+    toast(st==="active" ? (bill.no ? "Order #" + bill.no + " accepted · sent to kitchen" : "Order accepted · sent to kitchen") : "Order declined"); setTimeout(renderCart, 60);
+  }catch(err){ console.error(err); b.disabled = false; toast("Couldn't update the order"); } });
 $("#acts").addEventListener("click", e => { const b = e.target.closest("[data-act]"); if(!b || b.disabled) return; const a = b.dataset.act, eo = editOrder();
   if(a==="clear") return resetOrder();
   if(a==="disc") return openDiscount();
