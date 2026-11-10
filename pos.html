@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="637-1794322365">
+<meta name="slick-build" content="638-1794322579">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -835,7 +835,7 @@ const show = id => ["boot","activate","app"].forEach(x => $("#"+x).classList.tog
 const noHints = () => document.querySelectorAll("input[placeholder], textarea[placeholder]").forEach(el => { if(!el.matches("#ovQ, .search, [type=search], [data-ph]")) el.removeAttribute("placeholder"); });
 let nhT = null; new MutationObserver(() => { if(!nhT) nhT = requestAnimationFrame(() => { nhT = null; noHints(); }); }).observe(document.documentElement, { childList:true, subtree:true });
 // status / confirmation messages aren't shown (only problems and instructions are)
-const QUIET = /^(Syncing|Signed in as|Logged out|Device activated|Till opened|Till closed · drawer balanced|Till closed$|Tags (set|saved)|Printer (saved|deleted)|Customer details saved|(Item )?[Dd]iscount removed|Note (added|removed)|All offline sales synced|Users synced|Retrying|Sales history was cleared|Saved on this tablet · will sync|Shift (opened|closed)$|Synced$|Saved$|.* clocked (in|out)$|Till Closed$|Sale complete|Saved · order|Order held as|Order H\d+ retrieved|Printed$|Sent to \d+ printers|Order #\S+ sent to the kitchen|Voided|Refund ticket created|Day ended|Saved on this tablet · will sync|Offline ·|Still offline|Syncing data|Cart empty$)/;
+const QUIET = /^(Syncing|Signed in as|Logged out|Device activated|Till opened|Till closed · drawer balanced|Till closed$|Tags (set|saved)|Printer (saved|deleted)|Customer details saved|(Item )?[Dd]iscount removed|Note (added|removed)|All offline sales synced|Users synced|Retrying|Sales history was cleared|Saved on this tablet · will sync|Shift (opened|closed)$|Synced$|Saved$|.* clocked (in|out)$|Till Closed$|Sale complete|Saved · order|Order held as|Order H\d+ retrieved|Printed$|Sent to \d+ printers|Order #\S+ sent to the kitchen|Voided|Refund ticket created|Day ended|Saved on this tablet · will sync|Offline ·|Still offline|Syncing data)/;
 let tt; const toast = m => { if(QUIET.test(String(m||""))) return; const t=$("#toast"); t.textContent=m; t.classList.toggle("ok", /^(New |Order .* accepted|.*accepted aut)/.test(String(m))); t.classList.add("show"); clearTimeout(tt); tt=setTimeout(()=>t.classList.remove("show"),3000); };   // messages drop in from the top in red, like Foodics
 const store = { get(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } }, set(k,v){ try{ v==null?localStorage.removeItem(k):localStorage.setItem(k,v); }catch(e){} } };
 
@@ -2289,9 +2289,9 @@ function paintAbar(){ const hb = document.getElementById("holdBadge"); if(hb && 
 $("#abar").addEventListener("click", e => { const b = e.target.closest("[data-a]"); if(!b) return; const a = b.dataset.a, eo = editOrder();
   if(a==="more"){ e.stopPropagation(); return $("#morePop").classList.toggle("hide"); }
   hideMore();
-  if(a==="print"){ if((!eo || isOpenOrd(eo)) && !openShift()) return toast("Open till"); if(!eo){ if(!cart.length) return toast("Cart empty"); if(otype==="fast") return toast("Complete fast sale"); if(!can("pos_print_check")) return deny("printing the invoice of an active order"); return sendOrder("bill"); }   // a new cart becomes an active order, then its invoice prints if(!isOpenOrd(eo) && !can("pos_reprint")) return deny("reprinting receipts"); if(isOpenOrd(eo) && !can("pos_print_check")) return deny("printing the invoice of an active order");
+  if(a==="print"){ if((!eo || isOpenOrd(eo)) && !openShift()) return toast("Open till"); if(!eo){ if(!cart.length) return; if(otype==="fast") return toast("Complete fast sale"); if(!can("pos_print_check")) return deny("printing the invoice of an active order"); return sendOrder("bill"); }   // a new cart becomes an active order, then its invoice prints if(!isOpenOrd(eo) && !can("pos_reprint")) return deny("reprinting receipts"); if(isOpenOrd(eo) && !can("pos_print_check")) return deny("printing the invoice of an active order");
     return printReceipt(isOpenOrd(eo) ? { ...eo, ...orderFields(totals()), payment:null } : eo, (isOpenOrd(eo) ? "Bill " : "Receipt ") + ordRef(eo)); }
-  if(a==="kitchen"){ if(!eo) return !cart.length ? toast("Cart empty") : otype==="fast" ? toast("Complete fast sale") : sendOrder("kitchen");
+  if(a==="kitchen"){ if(!eo) return !cart.length ? undefined : otype==="fast" ? toast("Complete fast sale") : sendOrder("kitchen");
     if(isOpenOrd(eo) && cart.some(i => i.qty > (i.saved||0))) return sendOrder("kitchen");
     if(isOpenOrd(eo) && !can("pos_reprint_kitchen")) return deny("reprinting the kitchen receipt");
     return printKitchen(eo, "Kitchen ticket " + ordRef(eo)); }
@@ -2302,8 +2302,8 @@ $("#abar").addEventListener("click", e => { const b = e.target.closest("[data-a]
   if(a==="disc"){ if(eo && !isOpenOrd(eo)) return toast("This order is closed"); return openDiscount(); }
   if(a==="tags"){ if(eo && !isOpenOrd(eo)){ posTags = (tgDoc().on?.order?.[eo.id] || []).slice(); return openTags(eo.id); } if(eo && posTags==null) posTags = (tgDoc().on?.order?.[eo.id] || []).slice(); return openTags(); }
   if(a==="chg"){ if(eo && !isOpenOrd(eo)) return toast("This order is closed"); return openCharges(); }
-  if(a==="hold") return eo ? toast("This order was already sent: find it under Orders") : cart.length ? holdOrder() : toast("Cart empty");
-  if(a==="retrieve") return heldList().length ? openHeld() : toast("No held orders");
+  if(a==="hold") return eo || !cart.length ? undefined : holdOrder();
+  if(a==="retrieve") return heldList().length ? openHeld() : undefined;
   if(a==="notes"){ if(eo && !isOpenOrd(eo)) return toast("This order is closed"); return openNotes(); }
 });
 document.addEventListener("click", e => { if(e.target.closest("#morePop button, #morePop .mitem")){ setTimeout(hideMore, 0); return; } if(!e.target.closest("#morePop") && !e.target.closest("#menuBtn")) hideMore(); });
@@ -2552,7 +2552,6 @@ async function pdContinue(){
   resetOrder(); otype = PD.type==="delivery" ? "delivery" : "takeaway"; if(PD.reorder?.length) cart = PD.reorder;
   cust = { name: PD.name.trim(), phone: normPhone(PD.phone, PD.cc) || PD.phone.trim(), addr: PD.type==="delivery" ? { ...PD.addr } : {}, source: PD.source || "" };
   PD = null; closeModal(); cat = ""; renderCart(); renderMenu();
-  toast("Cart empty");
 }
 
 /* ---------- tables ---------- */
