@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="666-1794346275">
+<meta name="slick-build" content="667-1794346356">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -856,7 +856,8 @@ const noHints = () => document.querySelectorAll("input[placeholder], textarea[pl
 let nhT = null; new MutationObserver(() => { if(!nhT) nhT = requestAnimationFrame(() => { nhT = null; noHints(); }); }).observe(document.documentElement, { childList:true, subtree:true });
 // status / confirmation messages aren't shown (only problems and instructions are)
 const QUIET = /^(Syncing|Signed in as|Logged out|Device activated|Till opened|Till closed · drawer balanced|Till closed$|Tags (set|saved)|Printer (saved|deleted)|Customer details saved|(Item )?[Dd]iscount removed|Note (added|removed)|All offline sales synced|Users synced|Retrying|Sales history was cleared|Saved on this tablet · will sync|Shift (opened|closed)$|Synced$|Saved$|.* clocked (in|out)$|Till Closed$|Sale complete|Saved · order|Order held as|Order H\d+ retrieved|Printed$|Sent to \d+ printers|Order #\S+ sent to the kitchen|Voided|Refund ticket created|Day ended|Saved on this tablet · will sync|Offline ·|Still offline|Syncing data)/;
-let tt; const toast = m => { if(QUIET.test(String(m||""))) return; const t=$("#toast"); t.textContent=m; t.classList.toggle("ok", /^(New |Order .* accepted|.*accepted aut)/.test(String(m))); t.classList.add("show"); clearTimeout(tt); tt=setTimeout(()=>t.classList.remove("show"),3000); };   // messages drop in from the top in red, like Foodics
+let tt; const TOAST_ERR = /^(Couldn't|Enter |Add the customer|Add staff|Open till|Open the till|Complete fast sale|Nothing left|This order is|Offline|Still offline|Saved on this tablet only)|out of stock|doesn't allow|isn't |aren't |can't |cannot |failed|couldn't|is over$|not available|Minimum order/i;
+const toast = (m, err) => { if(QUIET.test(String(m||""))) return; const t=$("#toast"); t.textContent=m; t.classList.toggle("ok", !(err || TOAST_ERR.test(String(m))));   /* red is for errors only; everything else is a green notification */ t.classList.add("show"); clearTimeout(tt); tt=setTimeout(()=>t.classList.remove("show"),3000); };   // messages drop in from the top
 const store = { get(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } }, set(k,v){ try{ v==null?localStorage.removeItem(k):localStorage.setItem(k,v); }catch(e){} } };
 
 let db = null;
@@ -1468,7 +1469,7 @@ function orderInfoOk(){
 }
 // Send: save the order as open (to the kitchen) without payment; on an open order, send what was added
 async function sendOrder(after){   // after: "bill" or "kitchen" = print that ticket of the new order once it is created
-  if(!cart.length) return; if(!openShift()) return toast("Open till"); if(otype==="fast") return toast("Complete fast sale"); const blk = saleBlock(); if(blk) return toast(blk);
+  if(!cart.length) return; if(!openShift()) return toast("Open till"); if(otype==="fast") return toast("Complete fast sale"); const blk = saleBlock(); if(blk) return toast(blk, true);
   if(!orderInfoOk()) return;
   const t = totals(), now = new Date().toISOString(), eo = editOrder();
   try{
