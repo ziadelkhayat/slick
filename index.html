@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="621-1794263681">
+<meta name="slick-build" content="625-1794315815">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1220,6 +1220,17 @@ input.nfon{color:transparent!important;-webkit-text-fill-color:transparent!impor
 <script src="modpick.js?v=25"></script>
 </head>
 <body>
+<div id="splash" style="position:fixed;inset:0;z-index:2147483600;background:#f4f3f8;display:grid;place-items:center;transition:opacity .25s"><div style="display:flex;flex-direction:column;align-items:center;gap:18px"><div style="width:72px;height:72px;border-radius:20px;background:linear-gradient(135deg,#7a55e0,#5b2bc4);color:#fff;display:grid;place-items:center;font:700 34px/1 Inter,system-ui,sans-serif;animation:splashPulse 1.2s ease-in-out infinite">S</div><div id="splashMsg" style="font:500 14px Inter,system-ui,sans-serif;color:#8d8c98;min-height:18px"></div></div></div>
+<style>@keyframes splashPulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(.92);opacity:.75}}</style>
+<script>
+// full-page loading screen on every refresh: the logo in the middle until the first screen (or the sign-in) is ready
+(function(){ const sp = document.getElementById("splash"); let done = false;
+  const hide = () => { if(done) return; done = true; sp.style.opacity = "0"; setTimeout(() => sp.remove(), 260); };
+  const ready = () => { const b = document.getElementById("bootLoad"), g = document.getElementById("wkGate"); return (document.getElementById("view") && !b) || (g && g.style.display !== "none"); };
+  const mo = new MutationObserver(() => { if(ready()){ mo.disconnect(); hide(); } }); mo.observe(document.documentElement, { childList:true, subtree:true, attributes:true, attributeFilter:["style"] });
+  setTimeout(() => { if(done) return; const m = document.getElementById("splashMsg"); if(m) m.innerHTML = 'Still loading… Check the internet connection.<br><br><button onclick="location.reload()" style="font:inherit;padding:8px 16px;border-radius:10px;border:1px solid #dcdae5;background:#fff;cursor:pointer">Reload</button>'; }, 15000);
+})();
+</script>
 <div class="app">
   <aside class="side">
     <div class="brand"><div class="logo" id="coLogo">S</div><div><b id="coName">Slick</b><small id="coSub">Restaurant ERP</small></div></div>
@@ -1890,7 +1901,7 @@ function viewDashboard(){
       <div class="card kpi"><div class="kh"><h3>Return Amount</h3></div><div class="v">${money(D.returns?.v||0)}</div><div class="d">${D.returns?.n||0} refund ticket${D.returns?.n===1?"":"s"}${D.returns?.tax ? ` · incl. tax ${money(D.returns.tax)}` : ""}</div>
         ${state.compare && P ? `<div class="d">${cap(cmpLbl())}: ${money(P.returns?.v||0)}</div>` : ""}</div>
       <div class="card kpi"><div class="kh"><h3>Active orders</h3></div><div class="v">${D.active ? D.active.n : D.open}</div><div class="d">${D.active ? money(D.active.v) + " not closed yet" : "Not closed yet"}${D.active?.pending ? ` · ${D.active.pending} waiting for the branch` : ""}</div><div class="d">Counted in sales once the branch closes them on its POS.</div></div>
-      <div class="card kpi"><div class="kh"><h3>Declined orders</h3></div><div class="v">${D.declined.n}</div><div class="d">${money(+D.declined.v)} not sold</div>
+      <div class="card kpi"><div class="kh"><h3>Declined orders</h3></div><div class="v">${D.declined?.n ?? 0}</div><div class="d">${money(+(D.declined?.v || 0))} not sold</div>
         ${state.compare && P ? `<div class="d">${cap(cmpLbl())}: ${P.declined.n}</div>` : ""}</div>
     </div>`;
     if(rangeDays()>1){
@@ -2377,7 +2388,7 @@ function render0(){ setTimeout(() => typeof bmBarSync==="function" && bmBarSync(
   // a re-render (data arriving, a list finishing loading) keeps the field being typed in focused, with its text and caret
   const ae = document.activeElement, fid = ae && v.contains(ae) && /^(INPUT|TEXTAREA)$/.test(ae.tagName) ? (ae.id ? "#" + CSS.escape(ae.id) : ae.matches("[data-ofsearch]") ? "[data-ofsearch]" : "") : "", fval = fid ? ae.value : null, fs = fid ? ae.selectionStart : 0, fe = fid ? ae.selectionEnd : 0;
   queueMicrotask(() => { if(!fid) return; const n = v.querySelector(fid); if(!n || n===document.activeElement) return; if(n.value!==fval) n.value = fval; n.focus(); try{ n.setSelectionRange(fs, fe); }catch(e){} });
-  if(storeMode==="loading"){ v.innerHTML = `<div class="ph"><div>Loading…</div></div>`; return; }
+  if(storeMode==="loading"){ v.innerHTML = `<div class="ph" id="bootLoad"><div>Loading…</div></div>`; return; }   // still under the full-page loading screen
   if(!canOpen(route)){ v.innerHTML = `<h1>${esc(TITLES[route]||"")}</h1>` + placeholder("No access", "Your role doesn't include this area. Ask the owner to change your role under Manage → Roles."); return; }
   if(RPT_HUB[route]) v.innerHTML = viewReports(route);
   else if(route==="marketplace") v.innerHTML = viewMarketplace();
