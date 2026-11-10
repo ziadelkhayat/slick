@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="646-1794327583">
+<meta name="slick-build" content="647-1794327906">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1639,6 +1639,9 @@ async function saveBranch(data, id){
 }
 // a branch's data (Manage → Branches → edit): orders and inventory transactions can be deleted, then the branch itself
 const BD = { id:null, orders:null, inv:null, busy:false };
+const invQueries = id => [WOK.sb.from("inventory_docs").select("id", { count:"exact", head:true }).or(`location_id.eq.${id},dest_id.eq.${id}`),
+  WOK.sb.from("order_transactions").select("id", { count:"exact", head:true }).eq("branch_id", id),
+  WOK.sb.from("stock_counts").select("id", { count:"exact", head:true }).eq("branch_id", id)];
 async function countBranchData(id){
   if(storeMode!=="db" || !window.WOK?.sb) return { orders:0, inv:0 };
   // each count on its own: one table that can't be counted doesn't leave the others (and the buttons) stuck on "…"
@@ -3212,7 +3215,7 @@ function crudView(key){
   if(storeMode==="local") h += `<div class="banner">Preview mode: changes won't be saved.</div>`;
   if(cfg.note) h += `<p class="subt" style="margin-top:-6px">${esc(cfg.note)}</p>`;
   if(cfg.top) h += cfg.top();
-  const scopeHere = cfg.filter===brandFilter || ["products","delivery-zones"].includes(key);
+  const scopeHere = cfg.filter===brandFilter || key==="delivery-zones";   // menu items are never tied to a brand or branch
   if(key==="delivery-zones") h += `<div class="card" style="padding:0;overflow:hidden;margin-bottom:16px"><div id="zonesMap" style="height:380px"></div><div id="zonesLegend" class="legend"></div></div>`;
   h += `<div class="card tbl"><div class="ttop"><div class="ttabs">${cfg.tabs.map(t=>`<a href="#${key}" data-tab="${key}:${t[0]}" class="${tab===t[0]?"on":""}">${t[1]}</a>`).join("")}</div>
     ${key==="products"&&state.prodMod?`<span class="chip">Modifier: ${esc(modName(state.prodMod))} <button data-clearpm aria-label="Clear">×</button></span>`:""}
@@ -6174,6 +6177,12 @@ function brandDetail(b){
     <div class="card bsbody" data-bsbrand="${esc(b.id)}"><h3>${tab[2]}</h3>${admin?"":`<div class="banner">Only the owner or an admin can change settings.</div>`}
       ${tab[3].map(f => bsField(f, v, b, dis)).join("")}
       <div class="err" id="bsErr"></div>${admin ? `<div style="display:flex;justify-content:flex-end;margin-top:8px"><button class="btn pri" data-bssave>Save</button></div>` : ""}</div></div>`;
+}
+function bsRead(){
+  const d = {}; document.querySelectorAll("[data-bs]").forEach(el => { const k = el.dataset.bs, t = el.dataset.bst;
+    if(t==="chk") d[k] = el.checked; else if(t==="radio"){ if(el.checked) d[k] = el.value; } else if(t==="multi"){ d[k] = d[k] || []; if(el.checked) d[k].push(el.value); }
+    else if(t==="num") d[k] = el.value==="" ? null : +el.value; else d[k] = el.value.trim(); });
+  return d;
 }
 function bsImage(file, cb){ const r = new FileReader(); r.onload = () => { const im = new Image(); im.onload = () => { const s = Math.min(1, 480 / Math.max(im.width, im.height)), c = document.createElement("canvas");
   c.width = Math.round(im.width*s); c.height = Math.round(im.height*s); c.getContext("2d").drawImage(im, 0, 0, c.width, c.height); cb(c.toDataURL("image/png")); }; im.src = r.result; }; r.readAsDataURL(file); }

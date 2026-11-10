@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="642-1794323199">
+<meta name="slick-build" content="647-1794327906">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -2684,6 +2684,19 @@ function errBox(msg){
   el.innerHTML = `<div class="apvbox" style="text-align:left;max-width:440px"><p style="font-size:17px;font-weight:700;margin:2px 0 8px;color:#b42318">Printing failed</p><p style="font-size:15px;margin:0 0 18px;line-height:1.45;white-space:pre-line">${esc(msg)}</p><div style="display:flex;justify-content:flex-end"><button class="btn pri" data-ok>OK</button></div></div>`;
   el.addEventListener("click", e => { if(e.target.closest("[data-ok]") || e.target===el) el.remove(); }); document.body.appendChild(el);
 }
+function orderFields(t){
+  return { type: otype==="dinein"?"dinein":otype==="fast"?"fast":otype==="takeaway"?"pickup":"delivery", table: otype==="dinein"?tableNo:"", customerName:cust.name.trim(), phone:cust.phone.trim(), address: otype==="delivery"?addrJoin(cust.addr):"", ...((otype==="takeaway" || otype==="delivery") && cust.source ? { source: cust.source } : {}),
+    items: cart.map(cleanItem), subtotal:+t.sub.toFixed(2), charges:t.charges, chargesTotal:t.chT, discountPct: discType==="pct" ? discount : (t.sub ? +(t.disc/t.sub*100).toFixed(2) : 0), discountType: discType, discount:t.disc, total:t.total, tax:t.tax, receiptNotes: orderNote.trim(), notes: kitchenNote.trim(), ...(otype==="dinein" && GUESTS ? { guests: GUESTS } : {}) };
+}
+function rcptHead(w){
+  const c = l => l.slice(0,w).padStart((w + Math.min(w,l.length))/2), out = [];
+  if(branch?.nameAr) out.push(c(branch.nameAr));
+  (appSet().receiptHeader || brSet().receiptHeader || "").split("\n").map(l=>l.trim()).filter(Boolean).forEach(l => out.push(c(l)));
+  const tax = branch?.taxNumber || (S.settings.find(x=>x.id==="company")||{}).taxNumber; if(tax) out.push(c("VAT No. " + tax));
+  if(branch?.phone) out.push(c("Tel " + branch.phone));
+  return out;
+}
+function rcptNames(i, a){ const ar = S.products.find(p => p.id===i.productId)?.nameAr; return a.printLang==="localized" ? [ar || i.name] : a.printLang==="both" && ar && ar!==i.name ? [i.name, ar] : [i.name]; }
 const printReceipt = (o, title) => printJob("receipt", () => receiptText(o), title);
 const printKitchen = (o, title) => printJob("kitchen", pr => { const items = (o.items||[]).filter(i => prHasItem(pr, i)); return items.length ? kitchenText({ ...o, items }) : null; }, title);
 function printText(text, title){
