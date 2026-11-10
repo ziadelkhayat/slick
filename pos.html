@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="675-1794347445">
+<meta name="slick-build" content="678-1794348167">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1182,7 +1182,7 @@ function openDayEnd(){
   const sales = S.orders.filter(o => liveOrder(o) && (o.status==="closed" || o.status==="refund") && bizDate(o.createdAt)===day);
   const blockers = [];
   if(act.length) blockers.push(`<p><b>${act.length} order${act.length===1?" is":"s are"} still active.</b> Finish, decline or void ${act.length===1?"it":"them"} first:</p><p class="mut">${act.slice(0,12).map(o => (o.no ? "#"+esc(o.no) : esc(invNo(o.invoiceNo))) + " · " + (o.status==="pending" ? "waiting" : "in kitchen")).join("<br>")}</p>`);
-  if(shifts.length) blockers.push(`<p><b>${shifts.length} shift${shifts.length===1?" is":"s are"} still open.</b> Close ${shifts.length===1?"it":"them"} first:</p><div class="vlines">${shifts.map(x => `<div><span>${esc(S.devices.find(d=>d.id===x.deviceId)?.name || "Device")} · ${esc(x.cashier||"")}<small class="mut" style="display:block">Opened ${new Date(x.openedAt).toLocaleString("en-GB",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})}</small></span><button class="btn" data-shclose="${esc(x.id)}">Close Till</button></div>`).join("")}</div>`);
+  if(shifts.length) blockers.push(`<p><b>${shifts.length} shift${shifts.length===1?" is":"s are"} still open.</b> Close ${shifts.length===1?"it":"them"} first:</p><div class="vlines">${shifts.map(x => `<div><span>${esc(S.devices.find(d=>d.id===x.deviceId)?.name || "Device")} · ${esc(x.cashier||"")}<small class="mut" style="display:block">Opened ${new Date(x.openedAt).toLocaleString("en-GB",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})}</small></span>${x.deviceId===device.id ? `<button class="btn" data-shclose="${esc(x.id)}">Close Till</button>` : ""}</div>`).join("")}</div>`);
   modal("dayend", `<div class="mh"><h2>End day · ${esc(fmtDay(day))}</h2><button class="x" data-close aria-label="Close">×</button></div><div class="mb">
     ${blockers.length ? blockers.join("") : `<div class="stats"><div>Orders<b>${sales.length}</b></div><div>Net sales<b>${usd(sales.reduce((a,o)=>a+(+o.total||0)-(+o.tax||0),0))}</b></div><div>Payments<b>${usd(sales.reduce((a,o)=>a+(+o.total||0),0))}</b></div></div>
       <p class="mut">Ending the day closes ${esc(fmtDay(day))} for ${esc(branch?.name||"this branch")}. Every device at the branch then starts the next business day.</p>`}</div>
@@ -1855,7 +1855,7 @@ $("#modal").addEventListener("click", async e => {
   const de = e.target.closest("#doDayEnd"); if(de) return doDayEnd(de.dataset.day);
   if(e.target.closest("#goDayEnd")){ closeModal(); return openDayEnd(); }
   if(e.target.closest("#doCloseShift")) return doCloseShift();
-  const shc = e.target.closest("[data-shclose]"); if(shc) return closeShiftRemote(shc.dataset.shclose);
+  const shc = e.target.closest("[data-shclose]"); if(shc){ const sh = openShift(); if(sh && sh.id===shc.dataset.shclose) closeTillForm(sh); return; }   // a till is closed only on the device it was opened on, with its amounts counted
   if(e.target.closest("#deact")){ store.set("wokDevice", null); if(window.WOK?.isDevice?.()) return window.WOK.user.signOut(); location.reload(); }
 });
 $("#modal").addEventListener("change", e => { if(e.target.id==="pdSrc" && PD){ PD.source = e.target.value; if($("#pdErr")) $("#pdErr").textContent = ""; return pdRefresh(); } if(e.target.id==="pdA_label") return pdRefresh(); if(e.target.id==="pdCc"){ PD && (PD.cc = e.target.value); clearTimeout(pdT); pdT = setTimeout(pdLookup, 50); } });
