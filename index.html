@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="681-1794349033">
+<meta name="slick-build" content="682-1794349242">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1305,6 +1305,10 @@ html body{font-family:"Plus Jakarta Sans",Inter,"IBM Plex Sans Arabic",system-ui
 body{text-transform:capitalize}button,select,option,optgroup,summary,legend{text-transform:inherit}
 input,textarea,[contenteditable],code,pre,td,.receipt,.receipt *,.rpaper,.rpaper *,a[href^="mailto:"],a[href^="http"]{text-transform:none}
 ::placeholder{text-transform:capitalize}
+.ohfil{flex:none;display:flex;gap:8px;flex-wrap:wrap;padding:12px 20px;border-bottom:1px solid var(--line);background:var(--surface,#fff)}.ohfil button{border:1.5px solid var(--line);background:#fff;border-radius:999px;min-height:38px;padding:0 16px;font:inherit;font-size:14px;font-weight:600;color:var(--ink2);cursor:pointer}.ohfil button.on{background:#ece9fd;border-color:var(--accent);color:var(--accent-ink,var(--accent))}.ohnone{grid-column:1/-1;text-align:center;color:var(--ink2);padding:36px 0}
+/* every X is the same round button, the cross fixed in the middle of the circle */
+button.x[aria-label="Close"]{width:38px!important;height:38px!important;min-width:38px;flex:none;box-sizing:border-box;border-radius:50%!important;border:1.5px solid #cfccd9!important;padding:0!important;font-size:0!important;line-height:1!important;cursor:pointer;background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%231c1a2b' stroke-width='2.4' stroke-linecap='round'%3E%3Cpath d='M6 6l12 12M18 6 6 18'/%3E%3C/svg%3E") center/16px 16px no-repeat!important;transition:transform .18s cubic-bezier(.2,.8,.2,1),border-color .15s}button.x[aria-label="Close"]:hover{border-color:#a9a5b8!important}button.x[aria-label="Close"]:active{transform:scale(.86) rotate(90deg);background-color:#ece9fd!important;border-color:var(--accent)!important}
+.ohgh{grid-column:1/-1;display:flex;align-items:center;gap:8px;font-size:14px;font-weight:700;color:var(--ink);margin:6px 0 -2px}.ohgh:first-child{margin-top:0}.ohgh span{font-size:12px;font-weight:600;color:var(--ink2);background:#f1f0f5;border-radius:999px;padding:2px 9px}
 </style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -6025,13 +6029,15 @@ function ccPastRender(){
   const box = $("#ccPast"); if(!box) return; const n = ccPastList().length;
   box.innerHTML = `<button type="button" class="acard adbar" data-ccoh ${n ? "" : "disabled"}><span class="aci"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span><span class="act"><b>Orders history</b><span>${n ? n + (n===1 ? " order" : " orders") : "No orders yet"}</span></span><i class="adgo">›</i></button>`;
 }
+const CC_OHFS = [["","All"],["closed","Done"],["void","Void"],["refund","Refund"],["declined","Declined"]];
 function ccOhPop(id){
   let p = $("#ccOhPop"); if(!p){ p = document.createElement("div"); p.id = "ccOhPop"; p.className = "ccadpop ccoh"; ($("#ccBox") || document.body).appendChild(p); } p.hidden = false;
   const ok = ccPastList(), det = id && ok.find(o => o.id===id);
   const d = (t, time) => t ? new Date(t).toLocaleString("en-GB", { day:"numeric", month:"short", year:"numeric", ...(time ? { hour:"2-digit", minute:"2-digit" } : {}) }) : "—";
   const num = o => o.status==="refund" ? ordRef(o) : o.invoice_no ? invNo(o.invoice_no) : (o.ref || ordRef(o));
   if(!det){ p.innerHTML = `<div class="ccadbox"><div class="ccadh"><h3>Orders history</h3><button type="button" class="x" data-ccohx aria-label="Close">×</button></div>
-    <div class="ccadlist"><div class="ohgrid">${ok.map(o => `<button type="button" class="ohtile" data-ccohopen="${esc(o.id)}"><b>${esc(num(o))}</b><span class="spill s-${o.status}">${ORD_ST[o.status]||o.status}</span><small>${d(o.created_at)}</small><small>${esc(ordTypeLbl(o.type) || "")}</small><em>${usd(+o.total||0)}</em></button>`).join("")}</div></div></div>`; return; }
+    <div class="ohfil">${CC_OHFS.map(([k, l]) => `<button type="button" class="${(window.__ccOhF||"")===k ? "on" : ""}" data-ccohf="${k}">${l}</button>`).join("")}</div>
+    <div class="ccadlist"><div class="ohgrid">${((t, m, f) => f ? ok.filter(o => m(o, f)).map(t).join("") : [["pending","Pending"],["active","Active"],["closed","Done"],["void","Void"],["refund","Refund"],["declined","Declined"]].map(([k, l]) => { const g = ok.filter(o => m(o, k)); return g.length ? `<div class="ohgh">${l}<span>${g.length}</span></div>` + g.map(t).join("") : ""; }).join(""))(o => `<button type="button" class="ohtile" data-ccohopen="${esc(o.id)}"><b>${esc(num(o))}</b><span class="spill s-${o.status}">${ORD_ST[o.status]||o.status}</span><small>${d(o.created_at)}</small><small>${esc(ordTypeLbl(o.type) || "")}</small><em>${usd(+o.total||0)}</em></button>`, (o, f) => f==="refund" ? ["refund","returned"].includes(o.status) : o.status===f, window.__ccOhF || "") || `<div class="ohnone">No orders</div>`}</div></div></div>`; return; }
   const it = (det.items||[]).filter(i => !i.voided), kv = (l, v) => v ? `<div class="ohrow"><span>${l}</span><b>${esc(v)}</b></div>` : "", a = det.address ? addrSplit(det.address) : null;
   p.innerHTML = `<div class="ccadbox"><div class="ccadh"><button type="button" class="adback" data-ccohopen="" aria-label="Back">‹</button><h3>${esc(det.ref || (det.no ? "#" + det.no : num(det)))}</h3><span class="spill s-${det.status}">${ORD_ST[det.status]||det.status}</span><button type="button" class="x" data-ccohx aria-label="Close">×</button></div>
     <div class="ccadlist"><div class="ohkv">${kv("Invoice number", det.invoice_no ? invNo(det.invoice_no) : "")}${kv("Brand", brandName(det.brand_id))}${kv("Branch", branchName(det.branch_id))}${kv("Order type", ordTypeLbl(det.type))}${kv("Order source", srcOf(det))}${kv("Date", d(det.created_at, true))}</div>
@@ -6039,12 +6045,13 @@ function ccOhPop(id){
       <div class="podi">${it.map(i => `<div><span class="q">${+i.qty||1}×</span><span class="n">${esc(i.name)}${modLines(i).length ? `<small>${modLines(i).map(esc).join(", ")}</small>` : ""}</span><b>${usd((+i.price||0)*(+i.qty||1))}</b></div>`).join("") || '<p class="note">No items</p>'}</div>
       <div class="ohkv">${+det.discount ? kv("Discount", "−" + usd(+det.discount)) : ""}${(det.charges||[]).filter(c => +c.amount).map(c => kv(c.name, usd(+c.amount))).join("")}${+det.delivery_fee ? kv("Delivery fee", usd(+det.delivery_fee)) : ""}</div>
       <div class="podt"><span>Total</span><b>${usd(+det.total||0)}</b></div>
-      ${window.__ccView ? "" : `<div class="ccadf"><button type="button" class="btn pri podre" data-reorder="${esc(det.id)}">${svgIco("refresh")} Reorder</button></div>`}</div></div>`;
+      ${window.__ccView || det.status!=="closed" ? "" : `<div class="ccadf"><button type="button" class="btn pri podre" data-reorder="${esc(det.id)}">${svgIco("refresh")} Reorder</button></div>`}</div></div>`;
 }
 document.addEventListener("click", e => { const t = e.target; if(!t.closest) return;
   if(t.closest("[data-ccoh]")) return ccOhPop();
   const p = $("#ccOhPop"); if(!p || !t.closest("#ccOhPop")) return;
   if(t.closest("[data-ccohx]")){ p.hidden = true; return; }
+  const of = t.closest("[data-ccohf]"); if(of){ window.__ccOhF = of.dataset.ccohf; return ccOhPop(); }
   const o = t.closest("[data-ccohopen]"); if(o) return ccOhPop(o.dataset.ccohopen);
   if(t.closest("[data-reorder]")) setTimeout(() => { p.hidden = true; }, 0); });
 // the customer page's orders: open the order details

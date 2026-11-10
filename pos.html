@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="681-1794349033">
+<meta name="slick-build" content="682-1794349242">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -735,6 +735,8 @@ button.x[aria-label="Close"]:not(.xc){font-size:0!important;background:#fff url(
 body{text-transform:capitalize}button,select,option,optgroup,summary,legend{text-transform:inherit}
 input,textarea,[contenteditable],code,pre,td,.receipt,.receipt *,.rpaper,.rpaper *,a[href^="mailto:"],a[href^="http"]{text-transform:none}
 ::placeholder{text-transform:capitalize}
+.ohfil{flex:none;display:flex;gap:8px;flex-wrap:wrap;padding:12px 18px;border-bottom:1px solid var(--line);background:#fff}.ohfil button{border:1.5px solid var(--line);background:#fff;border-radius:999px;min-height:40px;padding:0 16px;font:inherit;font-size:14px;font-weight:600;color:var(--mut);cursor:pointer}.ohfil button.on{background:var(--accs,#efeaff);border-color:var(--acc);color:var(--acci,var(--acc))}.ohnone{grid-column:1/-1;text-align:center;color:var(--mut);padding:36px 0}
+.ohgh{grid-column:1/-1;display:flex;align-items:center;gap:8px;font-size:14px;font-weight:700;color:var(--ink);margin:6px 0 -2px}.ohgh:first-child{margin-top:0}.ohgh span{font-size:12px;font-weight:600;color:var(--mut);background:#f1f0f5;border-radius:999px;padding:2px 9px}
 </style>
 <script>
 /* ---------- naming: menu "products" are called Items; inventory "items" are called Products ----------
@@ -2586,10 +2588,14 @@ const ohDate = (x, time) => x ? new Date(x).toLocaleString("en-GB", { day:"numer
 const RO_ITEMS = new WeakSet();   // cart lines that came from a Reorder
 function pastHtml(ok, det, key){ ok = ok || [];
   return `<div class="cpastw"><button type="button" class="acard adbar" data-ohpop="${key}" ${ok.length ? "" : "disabled"}><span class="aci"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span><span class="act"><b>Orders history</b><span>${ok.length ? ok.length + (ok.length===1 ? " order" : " orders") : "No orders yet"}</span></span><i class="adgo">›</i></button></div>`; }
+// orders history filters: they stay in place above the tiles while the tiles scroll
+let OH_F = ""; const OH_FS = [["","All"],["closed","Done"],["void","Void"],["refund","Refund"],["declined","Declined"]];
+const OH_GR = [["pending","Pending"],["active","Active"],["closed","Done"],["void","Void"],["refund","Refund"],["declined","Declined"]];   // All: the orders grouped by status
+const ohMatch = (o, f) => !f || (f==="refund" ? ["refund","returned"].includes(o.status) : o.status===f);
 function ohPop(key, id){ const list = (key==="pddet" ? PD?.past : CV?.past) || [];
   let el = $("#ohPop"); if(!el){ el = document.createElement("div"); el.id = "ohPop"; el.className = "scrim show npsc adpop ohpop"; document.body.appendChild(el); } el.dataset.k = key;
   const o = id && list.find(x => x.id===id);
-  if(!o){ el.innerHTML = `<div class="modal"><div class="mh"><h2>Orders history</h2><button class="x" data-ohx aria-label="Close">×</button></div><div class="mb"><div class="ohgrid">${list.map(x => `<button type="button" class="ohtile" data-ohopen="${esc(x.id)}"><b>${esc(ohNum(x))}</b><span class="spill s-${x.status}">${esc(stLbl(x))}</span><small>${ohDate(x.at)}</small><small>${esc(OH_T[x.type] || x.type || "")}</small><em>${usd(x.total)}</em></button>`).join("")}</div></div></div>`; return; }
+  if(!o){ el.innerHTML = `<div class="modal"><div class="mh"><h2>Orders history</h2><button class="x" data-ohx aria-label="Close">×</button></div><div class="ohfil">${OH_FS.map(([k, l]) => `<button type="button" class="${OH_F===k ? "on" : ""}" data-ohf="${k}">${l}</button>`).join("")}</div><div class="mb"><div class="ohgrid">${(t => OH_F ? list.filter(x => ohMatch(x, OH_F)).map(t).join("") : OH_GR.map(([k, l]) => { const g = list.filter(x => ohMatch(x, k)); return g.length ? `<div class="ohgh">${l}<span>${g.length}</span></div>` + g.map(t).join("") : ""; }).join(""))(x => `<button type="button" class="ohtile" data-ohopen="${esc(x.id)}"><b>${esc(ohNum(x))}</b><span class="spill s-${x.status}">${esc(stLbl(x))}</span><small>${ohDate(x.at)}</small><small>${esc(OH_T[x.type] || x.type || "")}</small><em>${usd(x.total)}</em></button>`) || `<div class="ohnone">No orders</div>`}</div></div></div>`; return; }
   const br = S.branches?.find(b => b.id===o.branchId), bd = S.brands?.find(b => b.id===(o.brandId || br?.brandId)), it = (o.items||[]).filter(i => !i.voided), kv = (l, v) => v ? `<div class="kv"><span>${l}</span><b>${esc(v)}</b></div>` : "";
   el.innerHTML = `<div class="modal"><div class="mh"><button class="adback" data-ohopen="" aria-label="Back">‹</button><h2>${esc(o.ref || (o.no ? "#" + o.no : ohNum(o)))}</h2><span class="spill s-${o.status}">${esc(stLbl(o))}</span><button class="x" data-ohx aria-label="Close">×</button></div>
     <div class="mb"><div class="ohkv">${kv("Invoice number", o.inv ? invNo(o.inv) : "")}${kv("Brand", bd?.name)}${kv("Branch", br?.name)}${kv("Order type", OH_T[o.type] || o.type)}${kv("Order source", o.source)}${kv("Date", ohDate(o.at, true))}</div>
@@ -2597,12 +2603,13 @@ function ohPop(key, id){ const list = (key==="pddet" ? PD?.past : CV?.past) || [
       <div class="podi">${it.map(i => `<div><span class="q">${+i.qty||1}×</span><span class="n">${esc(i.name)}${modLines(i).length ? `<small>${modLines(i).map(esc).join(", ")}</small>` : ""}</span><b>${usd(lineNet(i))}</b></div>`).join("") || '<div class="mut">No items</div>'}</div>
       <div class="ohkv">${o.discount ? kv("Discount", "−" + usd(o.discount)) : ""}${(o.charges||[]).filter(c => +c.amount).map(c => kv(c.name, usd(+c.amount))).join("")}${o.fee ? kv("Delivery fee", usd(o.fee)) : ""}</div>
       <div class="podt"><span>Total</span><b>${usd(o.total)}</b></div></div>
-    ${key==="pddet" ? `<div class="mf"><button type="button" class="btn pri" data-ohre="${esc(o.id)}">↻ Reorder</button></div>` : ""}</div>`; }
+    ${key==="pddet" && o.status==="closed" ? `<div class="mf"><button type="button" class="btn pri" data-ohre="${esc(o.id)}">↻ Reorder</button></div>` : ""}</div>`; }
 const addrFull = a => { const p = addrParts(a); return [p.label, p.street, p.building && "Bldg " + p.building, p.floor && "Floor " + p.floor, p.door, p.extra].filter(Boolean).join(" · ") || a; };
 document.addEventListener("click", e => { const t = e.target; if(!t.closest) return;
   const op = t.closest("[data-ohpop]"); if(op) return ohPop(op.dataset.ohpop);
   if(!t.closest("#ohPop")) return; const el = $("#ohPop");
   if(t.closest("[data-ohx]")) return el.remove();
+  const of = t.closest("[data-ohf]"); if(of){ OH_F = of.dataset.ohf; return ohPop(el.dataset.k); }
   const o = t.closest("[data-ohopen]"); if(o) return ohPop(el.dataset.k, o.dataset.ohopen);
   const re = t.closest("[data-ohre]"); if(re){ el.remove(); const b = document.createElement("button"); b.dataset.pdreorder = re.dataset.ohre; b.hidden = true; $("#modal").appendChild(b); b.click(); b.remove(); } });
 document.addEventListener("keydown", e => { if($("#ohPop") && e.key==="Escape"){ e.stopPropagation(); $("#ohPop").remove(); } }, true);
