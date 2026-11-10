@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="593-1794241941">
+<meta name="slick-build" content="644-1794323869">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1083,8 +1083,9 @@ function drawLoc(){
       <div class="sec">Label</div><div class="lkinds">${kinds.map(([k,i]) => `<button type="button" data-lkind="${k}" class="${kind===k?"on":""}">${ic(i)}${k}</button>`).join("")}</div>
       <div class="f" id="lOtherW" ${kind==="Other"?"":"hidden"}><label for="lName">Name</label><input id="lName" value="${esc(kind==="Other" ? d.label||"" : "")}" placeholder="e.g. Mom's house"></div>
       <div class="f"><label for="lStreet">Area / street *</label><input id="lStreet" value="${esc(d.street||"")}"></div>
-      <div class="f2"><div class="f"><label for="lBldg">Building name / no. *</label><input id="lBldg" value="${esc(d.building||"")}"></div><div class="f"><label for="lFloor">Floor *</label><input id="lFloor" value="${esc(d.floor||"")}"></div></div>
-      <div class="f"><label for="lExtra">Additional info</label><input id="lExtra" value="${esc(d.extra||"")}" placeholder="Apartment, landmark, directions"></div>
+      <div class="f2"><div class="f"><label for="lBldg">Building name / no. *</label><input id="lBldg" value="${esc(d.building||"")}"></div><div class="f"><label for="lFloor">Floor / Apartment no. *</label><input id="lFloor" value="${esc(d.floor||"")}"></div></div>
+      <div class="f"><label for="lDoor">Door details / Name on intercom</label><input id="lDoor" value="${esc(d.door||"")}"></div>
+      <div class="f"><label for="lExtra">Instructions</label><input id="lExtra" value="${esc(d.extra||"")}" placeholder="Apartment, landmark, directions"></div>
       <div class="err" id="lErr"></div><button type="button" class="primary" data-lsave>${USER ? "Save address" : "Sign in to save address"}</button>`; LS.kind = kind; return; }
   // main
   let h = `<div class="grab"></div><div class="lshead"><span></span><h3>${mode==="delivery" ? "Where should we deliver to?" : mode==="takeaway" ? "Where will you pick up?" : "Where are you eating?"}</h3><button type="button" class="x" data-close aria-label="Close">×</button></div>`;
@@ -1146,7 +1147,7 @@ $("#sheet").addEventListener("click", e => {
   if(t = g("[data-lkind]")){ LS.kind = t.dataset.lkind; document.querySelectorAll("[data-lkind]").forEach(b => b.classList.toggle("on", b===t)); $("#lOtherW").hidden = LS.kind!=="Other"; return; }
   if(g("[data-lsave]") && !USER){ const keep = LS.draft; return openAuth("in", () => { LS.draft = keep; openLoc("form"); }, "Sign in to save an address."); }
   if(g("[data-lsave]")){ const d = LS.draft || {}, v = id => $("#" + id).value.trim();
-    const a = { id: d.edit ? d.id : "a" + Date.now().toString(36), label: LS.kind==="Other" ? (v("lName") || "Other") : LS.kind, street:v("lStreet"), building:v("lBldg"), floor:v("lFloor"), extra:v("lExtra"), lat:d.lat, lng:d.lng };
+    const a = { id: d.edit ? d.id : "a" + Date.now().toString(36), label: LS.kind==="Other" ? (v("lName") || "Other") : LS.kind, street:v("lStreet"), building:v("lBldg"), floor:v("lFloor"), door:v("lDoor"), extra:v("lExtra"), lat:d.lat, lng:d.lng };
     if(!a.lat) return $("#lErr").textContent = "Pin the address on the map first.";
     if(!a.street || !a.building || !a.floor) return $("#lErr").textContent = "Fill in the street, building and floor.";
     addrs = d.edit ? addrs.map(x => x.id===a.id ? a : x) : [a, ...addrs]; saveAddrs();
@@ -1553,23 +1554,24 @@ function openCart(step){
     <div class="f"><label for="cName">Name *</label><input id="cName" required autocomplete="name"></div>
     ${phField("cPhone","Phone *",PROF?.phone||"")}
     ${em !== "off" ? `<div class="f"><label for="cEmail">Email${em==="required" ? " *" : " (optional)"}</label><input id="cEmail" type="email" autocomplete="email"></div>` : ""}
-    ${mode==="delivery"?`<div class="sec">Delivery address</div><div class="f"><label for="cA_label">Address name</label><input id="cA_label" placeholder="Home, Work…"></div>
+    ${mode==="delivery"?`<div class="sec">Address details</div><div class="f"><label for="cA_label">Address name</label><input id="cA_label" placeholder="Home, Work…"></div>
     <div class="f"><label for="cA_street">Area / street *</label><input id="cA_street" required autocomplete="street-address"></div>
-    <div class="f2"><div class="f"><label for="cA_building">Building name / no. *</label><input id="cA_building" required></div><div class="f"><label for="cA_floor">Floor *</label><input id="cA_floor" required></div></div>
-    <div class="f"><label for="cA_extra">Additional info</label><input id="cA_extra" placeholder="Apartment, landmark, directions"></div>`:""}
+    <div class="f2"><div class="f"><label for="cA_building">Building name / no. *</label><input id="cA_building" required></div><div class="f"><label for="cA_floor">Floor / Apartment no. *</label><input id="cA_floor" required></div></div>
+    <div class="f"><label for="cA_door">Door details / Name on intercom</label><input id="cA_door"></div>
+    <div class="f"><label for="cA_extra">Instructions</label><input id="cA_extra" placeholder="Apartment, landmark, directions"></div>`:""}
     ${CO().notes !== false ? `<div class="f"><label for="cNote">Notes for the kitchen</label><textarea id="cNote" rows="2" placeholder="e.g. extra spicy"></textarea></div>` : ""}
     <div class="sec">Payment</div><div class="opts">${pays.map(([t,s,i],k)=>`<label class="opt"><input type="radio" name="pay" value="${t}" ${k?"":"checked"}>${ic(i)}<span>${t}${s?`<small>${s}</small>`:""}</span></label>`).join("")}</div>
     ${CO().terms ? `<p class="info">${esc(CO().terms)}</p>` : ""}
     <div class="err" id="coErr"></div><button class="primary" id="place" ${min && sub()<min?"disabled":""}>Place order · ${usd(grand())}</button></form>`;
   $("#scrim").classList.add("show"); $("#scrim").scrollTop = 0;
   if(mode==="delivery" && addr){ const set = (id, v) => { const el = $("#" + id); if(el && v) el.value = v; };
-    if(!["gps","pin"].includes(addr.id)) set("cA_label", addr.label); set("cA_street", addr.street); set("cA_building", addr.building); set("cA_floor", addr.floor); set("cA_extra", addr.extra); }
+    if(!["gps","pin"].includes(addr.id)) set("cA_label", addr.label); set("cA_street", addr.street); set("cA_building", addr.building); set("cA_floor", addr.floor); set("cA_door", addr.door); set("cA_extra", addr.extra); }
   if(PROF){ const put = (id, v) => { const el = $("#" + id); if(el && v) el.value = v; }; put("cName", fullName()); put("cEmail", USER.email); }
   $("#co").addEventListener("submit", placeOrder);
   $("#co").addEventListener("change", e => { if(e.target.name==="when") $("#whenBox").hidden = e.target.value!=="later"; if(e.target.id==="sDay") $("#sTime").innerHTML = sl[+e.target.value].ts.map(t=>`<option value="${t.getTime()}">${timeLbl(t)}</option>`).join(""); });
 }
 // one line the branch and call center can read and split again: "[Home] Hamra · Bldg: … · Floor: … · Info: …"
-const addrJoin = a => { const c = v => String(v||"").replace(/\s*·\s*/g, ", ").trim(); return [c(a.label) ? "[" + c(a.label).replace(/[\[\]]/g,"") + "]" : "", [c(a.street), c(a.building) && "Bldg: " + c(a.building), c(a.floor) && "Floor: " + c(a.floor), c(a.extra) && "Info: " + c(a.extra)].filter(Boolean).join(" · ")].filter(Boolean).join(" "); };
+const addrJoin = a => { const c = v => String(v||"").replace(/\s*·\s*/g, ", ").trim(); return [c(a.label) ? "[" + c(a.label).replace(/[\[\]]/g,"") + "]" : "", [c(a.street), c(a.building) && "Bldg: " + c(a.building), c(a.floor) && "Floor: " + c(a.floor), c(a.door) && "Door: " + c(a.door), c(a.extra) && "Info: " + c(a.extra)].filter(Boolean).join(" · ")].filter(Boolean).join(" "); };
 async function placeOrder(e){
   e.preventDefault();
   const err = t => { $("#coErr").textContent = t; };
@@ -1591,14 +1593,14 @@ async function placeOrder(e){
   const row = { brand_id: brandId, channel:"online", status:"pending", source: qrBranch ? "Table QR" : null, type: mode==="takeaway" ? "pickup" : mode,
     branch_id:b, zone_id: mode==="delivery" ? zoneId : null, table_no: mode==="dinein" ? (tableNo||null) : null,
     lat: mode==="delivery" ? pin[0] : null, lng: mode==="delivery" ? pin[1] : null,
-    customer_name:$("#cName").value.trim(), phone, address: mode==="delivery" ? addrJoin(Object.fromEntries(["label","street","building","floor","extra"].map(k => [k, $("#cA_"+k).value]))) : null, notes: note || null,
+    customer_name:$("#cName").value.trim(), phone, address: mode==="delivery" ? addrJoin(Object.fromEntries(["label","street","building","floor","door","extra"].map(k => [k, $("#cA_"+k).value]))) : null, notes: note || null,
     items: cart, subtotal:+sub().toFixed(2), delivery_fee:fee(), discount:0, tax:taxIn(), total:grand(), scheduled_at: later ? at.toISOString() : null, customer_user_id: USER.id };
   const { error } = await sb.from("orders").insert(row);
   if(!error){ const h = lsGet(OHK(), []); h.unshift({ created_at:new Date().toISOString(), status:"pending", branch_id:b, type:row.type, items:JSON.parse(JSON.stringify(cart)), total:row.total, uid:USER.id }); lsSet(OHK(), h.slice(0, 30)); }
   if(error){ console.error(error); err("We couldn't place your order. Please try again or call us."); $("#place").disabled = false; $("#place").textContent = `Place order · ${usd(grand())}`; return; }
   if(mode==="delivery" && pin){   // keep the delivery address on this device for next time
     const v = k => $("#cA_" + k)?.value.trim() || "", own = addr && !["gps","pin"].includes(addr.id);
-    const sa = { id: own ? addr.id : "a" + Date.now().toString(36), label: v("label") || (own ? addr.label : "Address"), street:v("street"), building:v("building"), floor:v("floor"), extra:v("extra"), lat:pin[0], lng:pin[1] };
+    const sa = { id: own ? addr.id : "a" + Date.now().toString(36), label: v("label") || (own ? addr.label : "Address"), street:v("street"), building:v("building"), floor:v("floor"), door:v("door"), extra:v("extra"), lat:pin[0], lng:pin[1] };
     addrs = own ? addrs.map(x => x.id===sa.id ? sa : x) : [sa, ...addrs]; saveAddrs(); addr = sa; lsSet(AK + "_sel", sa.id); renderTop(); }
   const bn = bb?.name || "", wa = String(bcfg(b).whatsapp || (cfg.social||{}).whatsapp || "").replace(/[^\d]/g, "");
   const waText = encodeURIComponent(`Hi ${brand.name}! I just placed an order on your website.\n${cart.map(i => `${i.qty} × ${i.name}`).join("\n")}\nTotal: ${usd(grand())}\nName: ${row.customer_name}`);
