@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="632-1794321356">
+<meta name="slick-build" content="634-1794321848">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -687,6 +687,23 @@ input.nfon{color:transparent!important;-webkit-text-fill-color:transparent!impor
 html:has(#activate:not(.hide)),html:has(#activate:not(.hide)) body,html:has(#lock:not(.hide)),html:has(#lock:not(.hide)) body{overscroll-behavior:auto!important}   /* pull down to refresh works on the activation and PIN screens (kept off on the sale screen so an order is not lost by accident) */
 #modal .mb>.otabs2.otabs2{margin-bottom:0!important;border-radius:14px 14px 0 0!important}#modal .mb>.otabs2+.olist2,#modal .mb>.otabs2~.olist2{margin-top:0!important;border-top-left-radius:0!important;border-top-right-radius:0!important}#modal .olist2 .lhead{box-shadow:0 1px 0 var(--line)!important}   /* orders: tabs and column titles are one joined block */
 .nocart>#totals,.nocart>#acts{display:none!important}
+/* keypad dialogs (guests, open amount): compact card, large centred value, square keys */
+#modal.kpm,.modal.modal.kpm{width:min(92vw,348px)!important;max-width:348px!important;border-radius:26px!important;overflow:hidden}
+.kpm .mh{border-bottom:0!important;padding:20px 22px 0!important;justify-content:center;position:relative}.kpm .mh h2{font-size:17px!important;font-weight:600;text-align:center;flex:1}.kpm .mh .x{position:absolute;right:14px;top:14px}
+.kpm .mb{padding:10px 22px 6px!important;overflow:visible}
+.kpm .dinput{flex-direction:column;justify-content:center;height:auto!important;border:0!important;background:none!important;box-shadow:none!important;padding:6px 0 14px!important;margin:0!important;gap:2px}
+.kpm .dinput input{flex:none;width:100%;text-align:center!important;font-size:46px!important;font-weight:700!important;height:56px!important;min-height:0!important;line-height:56px;letter-spacing:.5px;caret-color:var(--acc)}
+.kpm .dinput span{font-size:13px!important;font-weight:500!important;color:var(--mut)}
+.kpm .npad.npad{display:grid!important;grid-template-columns:repeat(3,1fr)!important;gap:10px!important;margin:0!important;max-width:none!important}
+.kpm .npad.npad button{aspect-ratio:1/1;height:auto!important;min-height:0!important;width:100%;border:0!important;background:#f4f3f8!important;border-radius:18px!important;font-size:26px!important;font-weight:600!important;color:var(--ink,#1c1a2b);transition:transform .08s,background .08s}
+.kpm .npad.npad button:active{background:var(--accs,#efeaff)!important;transform:scale(.94)}
+.kpm .npad.npad button[data-npk="⌫"]{background:none!important;font-size:24px!important;color:var(--mut)}
+.kpm .mf{border-top:0!important;background:none!important;padding:14px 22px 22px!important;gap:10px!important}.kpm .mf .btn{flex:1;min-height:52px!important;border-radius:16px!important;font-weight:600;font-size:16px}
+.kpm .dinput .nfv{justify-content:center!important;color:inherit;font-size:46px!important;font-weight:700!important}
+/* New order: address under the customer on the left, customer details on the right; the page itself never scrolls */
+#modal.full>.mb.pdcols{overflow:hidden!important;min-height:0;align-items:stretch!important;grid-template-rows:minmax(0,1fr)}#modal.full .pdcols>.pdform,#modal.full .pdcols>.pdright{min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:none;padding:2px}#modal.full .pdcols>*::-webkit-scrollbar{display:none}
+.pdcols .addrg{gap:6px 8px!important}.pdcols .addrg .adf{gap:2px!important}.pdcols .addrg .wide{grid-column:auto!important}.pdcols .addrg .adf:last-child{grid-column:1/-1!important}
+@media (max-width:760px){#modal.full>.mb.pdcols{overflow-y:auto!important;grid-template-rows:none}#modal.full .pdcols>.pdform,#modal.full .pdcols>.pdright{overflow:visible}}
 </style>
 <script>
 /* ---------- naming: menu "products" are called Items; inventory "items" are called Products ----------
@@ -1480,7 +1497,7 @@ const prodOos = p => { const k = kidsOf(p); return k.length ? k.every(x => prodO
 // a number typed on an on-screen pad (open price…); resolves to the number, or null when cancelled
 function askNumber(title, def){ return new Promise(res => {
   const el = document.createElement("div"); el.className = "scrim show npsc";
-  el.innerHTML = `<div class="modal"><div class="mh"><h2>${esc(title)}</h2></div><div class="mb"><div class="dinput"><input id="askNum" inputmode="none" value="${esc(String(def ?? ""))}" aria-label="${esc(title)}"><span>${esc(coS().currency || "USD")}</span></div>${numpad("askNum")}</div>
+  el.innerHTML = `<div class="modal kpm"><div class="mh"><h2>${esc(title)}</h2></div><div class="mb"><div class="dinput"><input id="askNum" inputmode="none" value="${esc(String(def ?? ""))}" aria-label="${esc(title)}"><span>${esc(coS().currency || "USD")}</span></div>${numpad("askNum")}</div>
     <div class="mf"><button class="btn" data-ncx>Cancel</button><button class="btn pri" data-nok>OK</button></div></div>`;
   document.body.appendChild(el);
   const done = v => { el.remove(); res(v); }, ok = () => { const v = +String(el.querySelector("#askNum").value).replace(",", "."); if(!(v >= 0) || el.querySelector("#askNum").value==="") return; done(v); };
@@ -1619,6 +1636,7 @@ document.addEventListener("click", e => { const b = e.target.closest("[data-osk]
   else { if(t.maxLength > 0 && t.value.length >= t.maxLength) return; t.value = t.value.slice(0, a) + ins + t.value.slice(z); t.setSelectionRange?.(a + ins.length, a + ins.length); if(OSK.shift && k.length===1){ OSK.shift = false; oskDraw(); } }
   t.dispatchEvent(new Event("input", { bubbles:true })); });
 // on-screen number pad for touch screens: types into the field it belongs to
+const ADDR_TYPES = ["Apartment","House/Villa","Compound","Office","Hotel"];
 const numpad = (id, kind) => `<div class="pinpad npad" data-npfor="${id}">${["1","2","3","4","5","6","7","8","9", kind==="tel" ? "+" : kind==="int" ? "" : ".","0","⌫"].map(k => !k ? `<span></span>` : `<button type="button" data-npk="${k}" aria-label="${k==="⌫" ? "Delete" : k}">${k}</button>`).join("")}</div>`;
 document.addEventListener("pointerdown", e => { if(e.target.closest("[data-npk]")) e.preventDefault(); });
 document.addEventListener("click", e => { const k = e.target.closest("[data-npk]"); if(!k) return; e.preventDefault();
@@ -1776,7 +1794,7 @@ $("#modal").addEventListener("click", async e => {
   const shc = e.target.closest("[data-shclose]"); if(shc) return closeShiftRemote(shc.dataset.shclose);
   if(e.target.closest("#deact")){ store.set("wokDevice", null); if(window.WOK?.isDevice?.()) return window.WOK.user.signOut(); location.reload(); }
 });
-$("#modal").addEventListener("change", e => { if(e.target.id==="pdCc"){ PD && (PD.cc = e.target.value); clearTimeout(pdT); pdT = setTimeout(pdLookup, 50); } });
+$("#modal").addEventListener("change", e => { if(e.target.id==="pdSrc" && PD){ PD.source = e.target.value; if($("#pdErr")) $("#pdErr").textContent = ""; return pdRefresh(); } if(e.target.id==="pdA_label") return pdRefresh(); if(e.target.id==="pdCc"){ PD && (PD.cc = e.target.value); clearTimeout(pdT); pdT = setTimeout(pdLookup, 50); } });
 $("#modal").addEventListener("input", e => { if(e.target.id==="pdPhone"){ clearTimeout(pdT); pdT = setTimeout(pdLookup, 450); } if(e.target.id==="tender") updChange(); if(e.target.id==="bdQ"){ BQ = e.target.value; const pos = e.target.selectionStart; openBoard(); const q = $("#bdQ"); q.focus(); q.setSelectionRange(pos, pos); return; } if(e.target.id==="ovQ"){ OV.q = e.target.value; const pos = e.target.selectionStart; openIncoming(); const q = $("#ovQ"); q.focus(); q.setSelectionRange(pos, pos); } });
 $("#modal").addEventListener("change", e => { if(e.target.id==="ovDate"){ const v = e.target.value; OV.date = !v || v >= bizDate() ? "" : v; return openIncoming(); } if(e.target.id==="vrReason") $("#vrOther").style.display = e.target.value==="_other" ? "" : "none"; });
 
@@ -2389,21 +2407,21 @@ function openPDNew(opt = {}){
   if(PD?.edit && !PD.editShown){ PD.editShown = true; setTimeout(pdLookup, 50); }
   PD = PD || { type: types.includes("takeaway") ? "takeaway" : types[0], phone:"", name:"", addr:{}, cust:null };
   if(!types.includes(PD.type)) PD.type = types[0];
-  const A = [["label","Address name (Home, Work…)"],["street","Area / street *"],["building","Building name / no. *"],["floor","Floor *"],["extra","Additional info"]];
+  const A = [["label","Address type"],["street","Area / street *"],["building","Building name / no. *"],["floor","Floor *"],["extra","Instructions"]];
   if(PD.type==="delivery" && !PD.addr) PD.addr = {};
   const saved = (PD.cust?.addresses || []).filter(a => a.address);
   const isDel = PD.type==="delivery";
-  const acards = isDel ? `<div class="f" style="margin:0"><label>Saved addresses · ${saved.length}</label><div class="acards">${saved.map((a,i) => { const p = addrParts(a.address);
+  const acards = (isDel || saved.length) ? `<div class="f" style="margin:0"><label>Saved addresses · ${saved.length}</label><div class="acards">${saved.map((a,i) => { const p = addrParts(a.address);
         return `<button type="button" class="acard${isDel && addrJoin(PD.addr)===addrJoin(p)?" on":""}" data-pdaddr="${i}"><span class="aci"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg></span><span class="act"><b>${esc(p.label || "Address " + (i+1))}</b><span>${esc(p.street || a.address)}</span>${p.building || p.floor ? `<small>${esc([p.building && "Bldg " + p.building, p.floor && "Floor " + p.floor].filter(Boolean).join(" · "))}</small>` : ""}${p.extra ? `<small>${esc(p.extra)}</small>` : ""}</span><span class="acok">✓</span></button>`; }).join("")}
         ${isDel ? `<button type="button" class="acard new${saved.some(a => addrJoin(PD.addr)===addrJoin(addrParts(a.address))) ? "" : " on"}" data-pdnewaddr><span class="aci"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></span><span class="act"><b>New address</b><small>Type it below · it's saved to the customer</small></span></button>` : ""}</div></div>` : "";
   const side = PD.cust ? pdSide(acards) : `<div class="pdside0"><b>Customer details</b></div>`;
   modal("pdnew", `<div class="mh"><h2>${PD.edit ? "Edit order" : "New order"}</h2></div><div class="mb pdcols"><div class="pdform">
-    <div class="f"><label>Order type *</label><div class="tseg">${types.map(t => `<button type="button" data-pdt="${t}" class="${PD.type===t?"on":""}">${t==="delivery" ? `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h11v10H3zM14 9h4l3 3v4h-7"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/></svg>Delivery` : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9l1.5-5h15L21 9"/><path d="M3 9a3 3 0 0 0 6 0 3 3 0 0 0 6 0 3 3 0 0 0 6 0"/><path d="M5 12v9h14v-9"/></svg>Pickup`}</button>`).join("")}</div></div>
-    <div class="f"><label>Order source *</label><div class="rchips">${posSources().map(s => `<button type="button" data-pdsrc="${esc(s)}" class="${PD.source===s?"on":""}">${esc(s)}</button>`).join("")}</div></div>
+    <div class="f"><div class="tseg">${types.map(t => `<button type="button" data-pdt="${t}" class="${PD.type===t?"on":""}">${t==="delivery" ? `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h11v10H3zM14 9h4l3 3v4h-7"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/></svg>Delivery` : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9l1.5-5h15L21 9"/><path d="M3 9a3 3 0 0 0 6 0 3 3 0 0 0 6 0 3 3 0 0 0 6 0"/><path d="M5 12v9h14v-9"/></svg>Pickup`}</button>`).join("")}</div></div>
+    <div class="f"><label for="pdSrc">Order source *</label><select id="pdSrc" data-noseg><option value="">Choose…</option>${posSources().map(s => `<option ${PD.source===s?"selected":""}>${esc(s)}</option>`).join("")}</select></div>
     <div class="f"><label for="pdPhone">Customer phone *</label><div class="npw"><div class="pdph"><select id="pdCc" aria-label="Country code">${Object.entries(CC_OF).map(([n,c]) => `<option value="${c}" ${(PD.cc||CC_OF[coS().country||"Lebanon"]||"+961")===c?"selected":""}>${c} ${esc(n)}</option>`).join("")}</select><input id="pdPhone" inputmode="none" data-np="tel" value="${esc(PD.phone)}" autocomplete="off"></div>${numpad("pdPhone", "tel")}</div><div class="mut" id="pdHint" style="min-height:18px">${PD.cust && !side ? pdHint(PD.cust) : ""}</div></div>
     <div class="f"><label for="pdName">Customer name *</label><input id="pdName" value="${esc(PD.name)}"></div>
-    <div class="err" id="pdErr"></div></div><div class="pdright">${PD.type==="delivery" ? `
-      <div class="f"><label>Delivery address</label><div class="addrg">${A.map(([k,ph]) => `<label class="adf${k==="extra"||k==="label"?" wide":""}"><span>${ph}</span><input id="pdA_${k}" value="${esc(PD.addr[k]||"")}"></label>`).join("")}</div></div>` : ""}${side}</div></div>
+    ${PD.type==="delivery" ? `<div class="f"><label>Delivery address</label><div class="addrg">${A.map(([k,ph]) => `<label class="adf${k==="extra"||k==="label"?" wide":""}"><span>${ph}</span>${k==="label" ? `<select id="pdA_label" data-noseg><option value="">Choose…</option>${[...new Set([...ADDR_TYPES, String(PD.addr.label||"").trim()].filter(Boolean))].map(t => `<option ${t===String(PD.addr.label||"").trim()?"selected":""}>${esc(t)}</option>`).join("")}</select>` : `<input id="pdA_${k}" value="${esc(PD.addr[k]||"")}">`}</label>`).join("")}</div></div>` : ""}
+    <div class="err" id="pdErr"></div></div><div class="pdright">${side}</div></div>
     <div class="mf"><button class="btn" data-pdcancel>Cancel</button><button class="btn pri" id="pdGo">${PD.edit ? "Save" : "Continue"}</button></div>`, true);
   $("#modal").classList.add("full"); $("#scrim").classList.add("fullscr");   // a full page, with the customer's details beside the form
   pdRefresh();
@@ -2561,7 +2579,7 @@ function askGuests(k){
   window.__gTable = k; const t = branchTables().find(x => String(x.name).trim()===String(k));
   modal("guests", `<div class="mh"><h2>${esc(tblLbl(k))}</h2><button class="x" data-close aria-label="Close">×</button></div><div class="mb">
     <div class="dinput"><input id="gNum" inputmode="none" maxlength="2" aria-label="Number of guests"><span>guests</span></div>${numpad("gNum", "int")}</div>
-    <div class="mf"><button class="btn" data-close>Cancel</button><button class="btn pri" data-guests="custom" disabled>Continue</button></div>`);
+    <div class="mf"><button class="btn" data-close>Cancel</button><button class="btn pri" data-guests="custom" disabled>Continue</button></div>`); $("#modal").classList.add("kpm");
   $("#gNum").addEventListener("input", e => { $("[data-guests=custom]").disabled = !(+e.target.value >= 1); });
 }
 function pickTable(k, guests){
@@ -2661,7 +2679,8 @@ function printText(text, title){
 function printReport(){
   const f = document.createElement("iframe"); f.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0"; document.body.appendChild(f);
   const doc = f.contentWindow.document;
-  doc.open(); doc.write(`<!doctype html><html><head><meta charset="utf-8"><title>Report</title><style>@page{size:80mm auto;margin:2mm 3mm}html,body{margin:0}body{width:72mm;font:12px/1.35 Arial,Helvetica,sans-serif;color:#000}${RP_CSS}</style></head><body>${reportHtml()}</body></html>`); doc.close();
+  doc.open(); doc.write(`<!doctype html><html><head><meta charset="utf-8"><title>Report</title><style>@page{size:80mm auto;margin:2mm 3mm}html,body{margin:0}body{width:72mm;font:12px/1.35 Arial,Helvetica,sans-serif;color:#000}${RP_CSS}
+</style></head><body>${reportHtml()}</body></html>`); doc.close();
   setTimeout(() => { try{ f.contentWindow.focus(); f.contentWindow.print(); }catch(e){ toast("Couldn't print on this device"); } setTimeout(() => f.remove(), 2000); }, 250);
 }
 function reportText(){
