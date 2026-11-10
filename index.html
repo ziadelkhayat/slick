@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="642-1794323199">
+<meta name="slick-build" content="643-1794323510">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1215,6 +1215,14 @@ input.nfon{color:transparent!important;-webkit-text-fill-color:transparent!impor
 .mmchev{flex:none;display:grid;place-items:center;color:var(--muted,#8d8c98);transition:transform .15s}.mmchev.open{transform:rotate(90deg)}
 .ostick.pin{position:sticky!important;top:var(--ostop,0px)!important;z-index:5}
 .ostick.pin .otabsc .ttop{padding:10px 20px 0!important;border-bottom:0!important;min-height:0!important}.ostick.pin .otabsc .ttabs a{margin-bottom:0!important}.ostick.pin .otabsc .ttabs{margin-bottom:0!important}.ostick.pin .otabsc{border-bottom:0!important}
+.cc1.pdstyle>.cc1a{background:none;border:0;padding:0;gap:8px}.cc1.pdstyle .cc1a .f{margin:0}.cc1.pdstyle .cc1a .f2{gap:8px;margin:0}
+.cc1.pdstyle .phrow{flex-direction:column;gap:8px}.cc1.pdstyle .phrow select{flex:none;max-width:none;width:100%}.cc1.pdstyle .phrow input{flex:none;width:100%}
+.cc1.pdstyle #oAddrF{display:flex;flex-direction:column;gap:8px}.cc1.pdstyle #oAddrF h4{margin:4px 0 0;font-size:13px;font-weight:500;color:var(--ink2)}
+.cc1 .addrg{display:grid;grid-template-columns:1fr 1fr;gap:8px}.cc1 .addrg .wide{grid-column:1/-1}
+.cc1.pdstyle .cc1a input,.cc1.pdstyle .cc1a select{min-height:46px;font-size:15px}.cc1.pdstyle .cc1a input::placeholder{color:var(--muted);opacity:1}
+.cc1.pdstyle>.cc1b{gap:12px}#oAddrW:has(#oAddrCards:empty){display:none}#oAddrW .ccsl{font-size:13px;color:var(--ink2);margin-bottom:6px}.cc1b #ccPast:empty,.cc1b #oInsights:empty{display:none}.cc1b .pod,.cc1b .cins{margin:0!important}
+#oCustHint:empty{display:none}
+.cc1.pdstyle #oInsights .cins-g div{background:var(--bg,#f6f6fa)}
 </style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -2347,7 +2355,7 @@ function infoize(root){
 }
 // no hint text inside empty form boxes (search boxes keep theirs: it is their only label)
 function noHints(root){ (root||document).querySelectorAll(".f input[placeholder], .f textarea[placeholder], .bsf input[placeholder], .bsf textarea[placeholder], .modal input[placeholder], .modal textarea[placeholder], .ccnotes input[placeholder]").forEach(el => {
-  if(el.matches(".search, [type=search], [id*=Search], [id*=search], #cusQ, #oSearch, #oPhone")) return; el.removeAttribute("placeholder"); }); }
+  if(el.matches(".search, [type=search], [id*=Search], [id*=search], #cusQ, #oSearch, #oPhone, [data-ph]")) return; el.removeAttribute("placeholder"); }); }
 let ibT = null; const ibRun = () => { ibT = null; noHints(document); infoize($("#view")); document.querySelectorAll(".modal, .scrim .body, .drawer").forEach(m => infoize(m)); };
 new MutationObserver(() => { if(!ibT) ibT = requestAnimationFrame(ibRun); }).observe(document.body, { childList:true, subtree:true });
 let ibBub = null, ibPin = null;
@@ -3790,26 +3798,27 @@ function openOrder(id){
    <section class="ccleft">
     <div class="cc1 pdstyle">
      <div class="cc1a">
-      <div class="f"><label>Order type *</label><div class="seg tiles" id="oType">${[["pickup","Pickup"],["delivery","Delivery"]].map(([k,t])=>`<button type="button" data-ot="${k}" class="${(o ? o.type===k : k==="pickup")?"on":""}" ${dis}>${svgIco(k==="delivery"?"truck":"store")}${t}</button>`).join("")}</div></div>
-      <div class="f"><label>Order source *</label><div class="rchips" id="oSrcChips">${sourceList(o?.source).map(x=>`<button type="button" data-ccsrc="${esc(x)}" class="${o?.source===x?"on":""}" ${dis}>${esc(x)}</button>`).join("")}</div><select id="oSource" ${dis} hidden aria-hidden="true" tabindex="-1"><option value="">Choose…</option>${sourceList(o?.source).map(s=>`<option ${o?.source===s?"selected":""}>${esc(s)}</option>`).join("")}</select></div>
-      <div class="f"><label for="oPhone">Phone *</label>${(() => { const sp = ccSplit(o?.phone); return `<div class="phrow"><select id="oCc" class="sel big" ${ldis} aria-label="Country code">${CC_CODES.map(([d,n])=>`<option value="${d}" ${d===sp.cc?"selected":""}>${d} ${esc(n)}</option>`).join("")}</select><input id="oPhone" class="big" value="${esc(sp.num)}" ${ldis} autocomplete="off" inputmode="tel"></div>`; })()}</div>
-      <div class="f"><label for="oName">Name *</label><input id="oName" value="${esc(o?.customerName||"")}" ${ldis} placeholder="Customer name"></div>
-      <div class="f2"><div class="f"><label for="oBrand">Brand *</label><select id="oBrand" ${ldis}><option value="">Choose…</option>${brandList().map(b=>`<option value="${esc(b.id)}" ${o?.brandId===b.id?"selected":""}>${esc(b.name)}</option>`).join("")}</select></div>
-      <div class="f"><label for="oBranch">Branch *</label><select id="oBranch" ${ldis}></select></div></div>
+      <div class="f"><div class="seg tiles" id="oType">${[["pickup","Pickup"],["delivery","Delivery"]].map(([k,t])=>`<button type="button" data-ot="${k}" class="${(o ? o.type===k : k==="pickup")?"on":""}" ${dis}>${svgIco(k==="delivery"?"truck":"store")}${t}</button>`).join("")}</div></div>
+      <div class="f"><select id="oSource" class="sel" data-noseg ${dis} aria-label="Order source"><option value="">Order source *</option>${sourceList(o?.source).map(s=>`<option ${o?.source===s?"selected":""}>${esc(s)}</option>`).join("")}</select></div>
+      <div class="f">${(() => { const sp = ccSplit(o?.phone); return `<div class="phrow"><select id="oCc" class="sel" ${ldis} aria-label="Country code">${CC_CODES.map(([d,n])=>`<option value="${d}" ${d===sp.cc?"selected":""}>${d} ${esc(n)}</option>`).join("")}</select><input id="oPhone" value="${esc(sp.num)}" ${ldis} autocomplete="off" inputmode="tel" placeholder="Customer phone *" aria-label="Customer phone"></div>`; })()}</div>
+      <div class="f"><input id="oName" data-ph value="${esc(o?.customerName||"")}" ${ldis} placeholder="Customer name *" aria-label="Customer name"></div>
+      <div class="f2"><div class="f"><select id="oBrand" ${ldis} aria-label="Brand"><option value="">Brand *</option>${brandList().map(b=>`<option value="${esc(b.id)}" ${o?.brandId===b.id?"selected":""}>${esc(b.name)}</option>`).join("")}</select></div>
+      <div class="f"><select id="oBranch" ${ldis} aria-label="Branch"></select></div></div>
       <div id="oAddrF">${(() => { const a = addrSplit(o?.address), ad = ro || (ccLocked && o?.address) ? "disabled" : ""; return `<h4>Address details</h4>
-        <div class="acards" id="oAddrCards"></div>
-        <div class="f2"><div class="f"><label for="oA_type">Address type</label>${addrTypeField("oA", a.label, ad)}</div>
-        <div class="f"><label for="oA_street">Area / street *</label><input id="oA_street" value="${esc(a.street)}" ${ad} placeholder="Hamra, Bliss St"></div></div>
-        <div class="f2"><div class="f"><label for="oA_building">Building name / no. *</label><input id="oA_building" value="${esc(a.building)}" ${ad}></div>
-        <div class="f"><label for="oA_floor">Floor / Apartment no. *</label><input id="oA_floor" value="${esc(a.floor)}" ${ad}></div></div>
-        <div class="f"><label for="oA_door">Door details / Name on intercom</label><input id="oA_door" value="${esc(a.door)}" ${ad}></div>
-        <div class="f"><label for="oA_extra">Instructions</label><input id="oA_extra" value="${esc(a.extra)}" ${ad} placeholder="Apartment, landmark, directions"></div>
+        <div class="addrg"><div class="f">${addrTypeField("oA", a.label, ad, "Address type")}</div>
+        <div class="f"><input id="oA_street" data-ph value="${esc(a.street)}" ${ad} placeholder="Area / street *" aria-label="Area / street"></div>
+        <div class="f"><input id="oA_building" data-ph value="${esc(a.building)}" ${ad} placeholder="Building name / no. *" aria-label="Building name / no."></div>
+        <div class="f"><input id="oA_floor" data-ph value="${esc(a.floor)}" ${ad} placeholder="Floor / Apartment no. *" aria-label="Floor / Apartment no."></div>
+        <div class="f"><input id="oA_door" data-ph value="${esc(a.door)}" ${ad} placeholder="Door details / Name on intercom" aria-label="Door details / Name on intercom"></div>
+        <div class="f wide"><input id="oA_extra" data-ph value="${esc(a.extra)}" ${ad} placeholder="Instructions" aria-label="Instructions"></div></div>
         ${ad ? "" : `<div><input type="hidden" id="oA_lat" value="${o?.lat ?? ""}"><input type="hidden" id="oA_lng" value="${o?.lng ?? ""}"></div>`}`; })()}</div>
       ${o?.lat && (ro || (ccLocked && o?.address)) ? `<div class="f"><label>Pinned location</label>${mapLink(o)}</div>` : ""}
      </div>
      <div class="cc1b">
       <div class="ccside0"><b>Customer details</b></div>
       <div id="oInsights"></div>
+      <div id="oAddrW"><div class="ccsl">Saved addresses</div><div class="acards" id="oAddrCards"></div></div>
+      <div id="ccPast"></div>
      </div>
     </div>
     <div class="ccnext"><span class="err" id="oErr1"></span><button type="button" class="btn pri" data-ccstep="2">Continue</button></div>
@@ -3865,9 +3874,9 @@ function ccAddrCards(){
   setTimeout(ccGoState, 0);
   const box = $("#oAddrCards"); if(!box) return;
   const list = window.__ccCust?.addresses || [], cur = addrJoin(ccAddrGet()), dis = $("#oA_street")?.disabled;
-  box.innerHTML = list.length ? list.slice(0,12).map((ad,i) => { const p = addrSplit(ad.address);
+  box.innerHTML = window.__ccCust ? list.slice(0,12).map((ad,i) => { const p = addrSplit(ad.address);
     return `<button type="button" class="acard${addrJoin(p)===cur?" on":""}" data-useaddr="${i}" ${dis?"disabled":""}><span class="aci"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg></span><span class="act"><b>${esc(p.label || "Address " + (i+1))}</b><span>${esc(p.street || ad.address)}</span>${p.building || p.floor ? `<small>${esc([p.building && "Bldg " + p.building, p.floor && "Floor " + p.floor].filter(Boolean).join(" · "))}</small>` : ""}${p.extra ? `<small>${esc(p.extra)}</small>` : ""}</span><span class="acok">✓</span></button>`; }).join("")
-    + `<button type="button" class="acard new" data-newaddr ${dis?"disabled":""}><span class="aci"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></span><span class="act"><b>New address</b><small>Type it below</small></span></button>` : "";
+    + `<button type="button" class="acard new" data-newaddr ${dis?"disabled":""}><span class="aci"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></span><span class="act"><b>New address</b></span></button>` : "";
 }
 let ccOrig = [], ccChg = null, ccLocked = false, ccDisc = 0, ccDiscType = "pct", ccDiscOpen = false;
 // order discount, same as the POS: a percentage of the items, or an amount in USD
@@ -3905,6 +3914,7 @@ function ccCharges(){
   if(zc && !list.some(c => c.id===zc.id)) list.push(zc);
   return { list, picked: list.filter(c => ccChg ? ccChg.has(c.id) : c.id===zc?.id) };
 }
+function ccToDelivery(){ const b = document.querySelector('#oType [data-ot="delivery"]'); if(b && !b.disabled && !b.classList.contains("on")) b.click(); }
 function ccAddrVis(){ const f = $("#oAddrF"); if(f) f.style.display = $("#oType .on")?.dataset.ot==="delivery" ? "" : "none"; if(f && !f.style.display) ccPinMount(); }
 // call center pin: mounted once the delivery address is showing (the map needs a visible box); it re-picks the zone charge
 function ccPinMount(force){ const b = $("#oA_loc"); if(!b || (b.classList.contains("lp") && !force)) return;
@@ -3917,9 +3927,9 @@ const ccAddrLock = () => { const o = ccEdit && S.orders.find(x=>x.id===ccEdit); 
 const ADDR_K = ["label","street","building","floor","door","extra"];
 /* address type: pick Apartment / House-Villa / Compound / Office / Hotel, or Other with a typed name */
 const ADDR_TYPES = ["Apartment","House/Villa","Compound","Office","Hotel"];
-function addrTypeField(p, cur, dis){ cur = String(cur||"").trim(); const known = ADDR_TYPES.includes(cur), other = !!cur && !known;
-  return `<select id="${p}_type" class="sel" data-atype="${p}" ${dis||""} aria-label="Address type"><option value="">Choose…</option>${ADDR_TYPES.map(t => `<option ${t===cur?"selected":""}>${t}</option>`).join("")}<option value="__other" ${other?"selected":""}>Other</option></select>
-    <input id="${p}_label" class="sel" value="${esc(cur)}" ${dis||""} placeholder="Name this address (e.g. Mall, School)" style="margin-top:8px${other ? "" : ";display:none"}">`; }
+function addrTypeField(p, cur, dis, ph){ cur = String(cur||"").trim(); const known = ADDR_TYPES.includes(cur), other = !!cur && !known;
+  return `<select id="${p}_type" class="sel" data-atype="${p}" ${dis||""} aria-label="Address type"><option value="">${ph || "Choose…"}</option>${ADDR_TYPES.map(t => `<option ${t===cur?"selected":""}>${t}</option>`).join("")}<option value="__other" ${other?"selected":""}>Other</option></select>
+    <input id="${p}_label" class="sel" data-ph value="${esc(cur)}" ${dis||""} placeholder="Name this address" style="margin-top:8px${other ? "" : ";display:none"}">`; }
 function addrTypeSync(p){ const sel = $("#"+p+"_type"), inp = $("#"+p+"_label"); if(!sel || !inp) return; const v = inp.value.trim(), known = ADDR_TYPES.includes(v);
   sel.value = known ? v : v ? "__other" : ""; inp.style.display = v && !known ? "" : "none"; }
 document.addEventListener("change", e => { const sel = e.target.closest("[data-atype]"); if(!sel) return; const inp = $("#"+sel.dataset.atype+"_label"); if(!inp) return;
@@ -3952,9 +3962,9 @@ function brHoursToday(b, t){ t = t || new Date(); const H = (b?.settings||{}).ho
 function fillOrderBranches(sel){
   const bd = $("#oBrand").value;
   const list = branches.filter(b => (b.active!==false && b.callCenter!==false && !(brandSet(b.brandId).ccInactiveBranches||[]).includes(b.id) || b.id===sel) && (bd ? b.brandId===bd : !brandList().length));
-  const ds = brandSet(bd || list[0]?.brandId || "").ccDefaultSource, os = $("#oSource"); if(ds && os && !os.value && [...os.options].some(x => x.value===ds)){ os.value = ds; document.querySelectorAll("[data-ccsrc]").forEach(b => b.classList.toggle("on", b.dataset.ccsrc===ds)); }
+  const ds = brandSet(bd || list[0]?.brandId || "").ccDefaultSource, os = $("#oSource"); if(ds && os && !os.value && [...os.options].some(x => x.value===ds)){ os.value = ds; }
   if(!sel && list.length===1) sel = list[0].id;   // only one branch takes call-center orders for this brand: pick it
-  $("#oBranch").innerHTML = `<option value="">${bd||!brandList().length?"Choose…":"Pick brand"}</option>` + list.map(b=>`<option value="${esc(b.id)}" ${sel===b.id?"selected":""}>${esc(b.name)}${brOpenNow(b) ? "" : " · closed now"}</option>`).join("");
+  $("#oBranch").innerHTML = `<option value="">Branch *</option>` + list.map(b=>`<option value="${esc(b.id)}" ${sel===b.id?"selected":""}>${esc(b.name)}${brOpenNow(b) ? "" : " · closed now"}</option>`).join("");
 }
 function availableProducts(){
   const br = $("#oBranch")?.value, bd = $("#oBrand")?.value;
@@ -5806,11 +5816,11 @@ async function ccLookup(view){
   const inp = $("#oPhone"); if(!inp || (inp.disabled && !view)) return;
   const ph = normPhone(ccPhone()); let hint = $("#oCustHint");
   if(!hint){ (inp.closest(".phrow") || inp).insertAdjacentHTML("afterend", `<div class="note" id="oCustHint" style="margin-top:4px"></div>`); hint = $("#oCustHint"); }
-  if(ph.length < 6){ hint.innerHTML = ""; $("#oInsights").innerHTML = ""; window.__ccCust = null; ccAddrCards(); return; }
+  if(ph.length < 6){ hint.innerHTML = ""; $("#oInsights").innerHTML = ""; if($("#ccPast")) $("#ccPast").innerHTML = ""; window.__ccCust = null; ccAddrCards(); return; }
   if(storeMode!=="db"){ hint.innerHTML = ""; return; }
   const { data: list } = await WOK.sb.from("customers").select("id,name,phone,addresses,blacklisted,notes,tags,created_at").in("phone", phoneVariants(ph)).limit(1); const data = list?.[0] || null;
   if(normPhone(ccPhone()) !== ph) return;
-  if(!data){ hint.innerHTML = view ? "" : "New customer · enter their name below"; $("#oInsights").innerHTML = ""; window.__ccCust = null; ccAddrCards(); return; }
+  if(!data){ hint.innerHTML = ""; $("#oInsights").innerHTML = ""; if($("#ccPast")) $("#ccPast").innerHTML = ""; window.__ccCust = null; ccAddrCards(); return; }
   const { data: past } = await WOK.sb.from("orders").select("id,ref,no,invoice_no,status,total,items,branch_id,brand_id,type,source,channel,created_at").eq("customer_id", data.id).order("created_at", { ascending:false }).limit(100);
   if(normPhone(ccPhone()) !== ph) return;
   if(!view){ if($("#oName") && !$("#oName").value && data.name) $("#oName").value = data.name;
@@ -5824,8 +5834,7 @@ async function ccLookup(view){
   $("#oInsights").innerHTML = `<div class="cins"><div class="cins-h"><b>Customer insights</b><span class="note">Since ${d(data.created_at || first?.created_at)}</span></div>
     <div class="cins-g"><div><span>Orders</span><b>${ok.length}</b></div><div><span>Total spent</span><b>${usd(spent)}</b></div><div><span>Avg. order</span><b>${usd(ok.length ? spent/ok.length : 0)}</b></div><div><span>Last order</span><b>${last ? d(last.created_at) : "—"}</b></div></div>
     ${ok.length ? (() => { const n = k => ok.filter(o => o.type===k || (k==="takeaway" && o.type==="pickup")).length, st = n("dinein") + n("fast"); return `<div class="cmix">${n("delivery")} delivery · ${n("takeaway")} pickup${st ? ` · ${st} in store` : ""}</div>`; })() : ""}
-    </div>
-    <div id="ccPast"></div>`;
+    </div>`;
   window.__ccView = !!view; window.__ccDet = null; ccPastRender();
   if($("#ccX")?.classList.contains("s2")) ccSide();   // blacklisted flag
 }
@@ -5838,8 +5847,8 @@ document.addEventListener("click", e => {
     const okIds = new Set(availableProducts().map(p=>p.id)), miss = [];
     (lo.items||[]).filter(i => !i.voided).forEach(i => { const p = S.products.find(x=>x.id===i.productId); if(!p || !okIds.has(p.id)){ miss.push(i.name); return; } const opt = (i.options||[]).reduce((a,x)=>a+(+x.price||0),0); cart.push({ productId:p.id, name:i.name, price:+(ccPrice(p)+(i.options?.length?opt:0)).toFixed(2), qty:+i.qty||1, ...(i.options?.length?{options:i.options,mods:i.mods}:{}), ...(i.note?{note:i.note}:{}) }); });
     renderCart(false); toast(miss.length ? `Added to the cart · not available now: ${miss.join(", ")}` : "Order added to the cart"); return; }
-  const ua = e.target.closest("[data-useaddr]"); if(ua){ e.preventDefault(); const a = window.__ccCust?.addresses?.[+ua.dataset.useaddr]; if(a){ ccAddrSet(a.address); ccPinSet(a); ccAddrCards(); try{ renderCart(false); }catch(_){} } return; }
-  if(e.target.closest("[data-newaddr]")){ e.preventDefault(); ADDR_K.forEach(k => { const el = $("#oA_"+k); if(el) el.value = ""; }); addrTypeSync("oA"); ccPinSet(null); ccAddrCards(); $("#oA_type")?.focus(); return; }
+  const ua = e.target.closest("[data-useaddr]"); if(ua){ e.preventDefault(); const a = window.__ccCust?.addresses?.[+ua.dataset.useaddr]; if(a){ ccToDelivery(); ccAddrSet(a.address); ccPinSet(a); ccAddrCards(); try{ renderCart(false); }catch(_){} } return; }
+  if(e.target.closest("[data-newaddr]")){ e.preventDefault(); ccToDelivery(); ADDR_K.forEach(k => { const el = $("#oA_"+k); if(el) el.value = ""; }); addrTypeSync("oA"); ccPinSet(null); ccAddrCards(); $("#oA_type")?.focus(); return; }
   const st = e.target.closest("[data-ccstep]"); if(st){ e.preventDefault(); ccStep(+st.dataset.ccstep); return; }
   if(e.target.id==="cuTagSave"){ const pick = [...document.querySelectorAll("#cuTagPick input:checked")].map(i => i.value), names = tagList("customer").map(t => t.name.toLowerCase());
     $("#ccScrim").classList.remove("show"); const keep = (CUS.det?.tags||[]).filter(x => !names.includes(String(x).toLowerCase())); cusPatch({ tags:[...keep, ...pick] }, "Tags saved"); return; }
