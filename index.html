@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="654-1794332609">
+<meta name="slick-build" content="655-1794332792">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1249,6 +1249,7 @@ html body{font-family:"Plus Jakarta Sans",Inter,"IBM Plex Sans Arabic",system-ui
 .ccadf{display:flex;justify-content:flex-end;gap:10px;margin-top:14px}.ccadpop .acards{grid-template-columns:repeat(auto-fill,minmax(220px,1fr))}
 .ccoh .ccadbox{width:min(780px,100%)}.ohgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px}.ohtile{aspect-ratio:1/1;display:flex;flex-direction:column;align-items:flex-start;gap:4px;text-align:left;border:1.5px solid var(--line);background:var(--surface);border-radius:14px;padding:12px;font:inherit;color:inherit;cursor:pointer;min-width:0}.ohtile:hover{border-color:var(--accent);background:var(--accent-soft)}.ohtile b{font-size:14px;word-break:break-word}.ohtile small{font-size:12px;color:var(--muted)}.ohtile em{margin-top:auto;font-style:normal;font-weight:700;font-size:15px}
 .ohkv{display:flex;flex-direction:column;margin-bottom:10px}.ohkv:empty{display:none}.ohrow{display:flex;justify-content:space-between;gap:12px;font-size:14px;padding:7px 0;border-top:1px solid var(--line)}.ohrow:first-child{border-top:0}.ohrow span{color:var(--ink2)}.ohrow b{text-align:right;font-weight:600}.ccoh .podt{margin-top:10px}.ccoh .podi{margin-bottom:10px}.ccoh .ccadh .spill{flex:none}.acard.adbar:disabled{opacity:.6;cursor:default}
+.acard.adbar[hidden]{display:none!important}
 </style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -3833,13 +3834,13 @@ function openOrder(id){
       <div class="f"><input id="oName" data-ph value="${esc(o?.customerName||"")}" ${ldis} placeholder="Customer name *" aria-label="Customer name"></div>
       <div class="f2"><div class="f"><select id="oBrand" ${ldis} aria-label="Brand"><option value="">Brand *</option>${brandList().map(b=>`<option value="${esc(b.id)}" ${o?.brandId===b.id?"selected":""}>${esc(b.name)}</option>`).join("")}</select></div>
       <div class="f"><select id="oBranch" ${ldis} aria-label="Branch"></select></div></div>
-      <button type="button" class="acard adbar" id="oAddrBar" data-ccadpop></button>
       ${o?.lat && (ro || (ccLocked && o?.address)) ? `<div class="f"><label>Pinned location</label>${mapLink(o)}</div>` : ""}
      </div>
      <div class="cc1b">
       <div class="ccside0"><b>Customer details</b></div>
       <div id="oInsights"></div>
       <div id="ccPast"></div>
+      <button type="button" class="acard adbar" id="oAddrBar" data-ccadpop></button>
      </div>
     </div>
     <div class="ccnext"><span class="err" id="oErr1"></span><button type="button" class="btn pri" data-ccstep="2">Continue</button></div>
@@ -3950,7 +3951,7 @@ function ccCharges(){
   return { list, picked: list.filter(c => ccChg ? ccChg.has(c.id) : c.id===zc?.id) };
 }
 function ccToDelivery(){ const b = document.querySelector('#oType [data-ot="delivery"]'); if(b && !b.disabled && !b.classList.contains("on")) b.click(); }
-function ccAddrVis(){ const f = $("#oAddrBar"); if(f) f.style.display = $("#oType .on")?.dataset.ot==="delivery" ? "" : "none"; ccAddrBar(); }
+function ccAddrVis(){ const f = $("#oAddrBar"), del = $("#oType .on")?.dataset.ot==="delivery"; if(f){ f.hidden = !del; f.style.display = del ? "" : "none"; } if(!del && $("#oAddrPop")) $("#oAddrPop").hidden = true; ccAddrBar(); }
 // the delivery address lives in its own window: this bar shows the chosen one and opens it
 function ccAddrBar(){ const b = $("#oAddrBar"); if(!b) return; const a = ccAddrGet(), has = !!addrJoin(a);
   b.classList.toggle("set", has); b.innerHTML = `<span class="aci"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg></span><span class="act">${has ? `<b>${esc(a.label || "Address")}</b><span>${esc(a.street || "")}</span><small>${esc([a.building && "Bldg " + a.building, a.floor && "Floor " + a.floor, a.door].filter(Boolean).join(" · "))}</small>` : `<b class="adph">Address details *</b>`}</span><i class="adgo">›</i>`; }
@@ -5933,19 +5934,19 @@ const CC_RO = new WeakSet();   // cart lines that came from a Reorder
 function ccPastList(){ return (window.__ccPast||[]).filter(o => !["draft"].includes(o.status)); }
 function ccPastRender(){
   const box = $("#ccPast"); if(!box) return; const n = ccPastList().length;
-  box.innerHTML = `<button type="button" class="acard adbar" data-ccoh ${n ? "" : "disabled"}><span class="aci"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span><span class="act"><b>Order history</b><span>${n ? n + (n===1 ? " order" : " orders") : "No orders yet"}</span></span><i class="adgo">›</i></button>`;
+  box.innerHTML = `<button type="button" class="acard adbar" data-ccoh ${n ? "" : "disabled"}><span class="aci"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span><span class="act"><b>Orders history</b><span>${n ? n + (n===1 ? " order" : " orders") : "No orders yet"}</span></span><i class="adgo">›</i></button>`;
 }
 function ccOhPop(id){
   let p = $("#ccOhPop"); if(!p){ p = document.createElement("div"); p.id = "ccOhPop"; p.className = "ccadpop ccoh"; ($("#ccBox") || document.body).appendChild(p); } p.hidden = false;
   const ok = ccPastList(), det = id && ok.find(o => o.id===id);
   const d = (t, time) => t ? new Date(t).toLocaleString("en-GB", { day:"numeric", month:"short", year:"numeric", ...(time ? { hour:"2-digit", minute:"2-digit" } : {}) }) : "—";
   const num = o => o.status==="refund" ? ordRef(o) : o.invoice_no ? invNo(o.invoice_no) : (o.ref || ordRef(o));
-  if(!det){ p.innerHTML = `<div class="ccadbox"><div class="ccadh"><h3>Order history</h3><button type="button" class="x" data-ccohx aria-label="Close">×</button></div>
+  if(!det){ p.innerHTML = `<div class="ccadbox"><div class="ccadh"><h3>Orders history</h3><button type="button" class="x" data-ccohx aria-label="Close">×</button></div>
     <div class="ccadlist"><div class="ohgrid">${ok.map(o => `<button type="button" class="ohtile" data-ccohopen="${esc(o.id)}"><b>${esc(num(o))}</b><span class="spill s-${o.status}">${ORD_ST[o.status]||o.status}</span><small>${d(o.created_at)}</small><small>${esc(ordTypeLbl(o.type) || "")}</small><em>${usd(+o.total||0)}</em></button>`).join("")}</div></div></div>`; return; }
   const it = (det.items||[]).filter(i => !i.voided), kv = (l, v) => v ? `<div class="ohrow"><span>${l}</span><b>${esc(v)}</b></div>` : "", a = det.address ? addrSplit(det.address) : null;
   p.innerHTML = `<div class="ccadbox"><div class="ccadh"><button type="button" class="adback" data-ccohopen="" aria-label="Back">‹</button><h3>${esc(num(det))}</h3><span class="spill s-${det.status}">${ORD_ST[det.status]||det.status}</span><button type="button" class="x" data-ccohx aria-label="Close">×</button></div>
     <div class="ccadlist"><div class="ohkv">${kv("Order type", ordTypeLbl(det.type))}${kv("Order source", srcOf(det))}${kv("Brand", brandName(det.brand_id))}${kv("Branch", branchName(det.branch_id))}${kv("Reference number", det.ref || (det.no ? "#" + det.no : ""))}${kv("Invoice number", det.invoice_no ? invNo(det.invoice_no) : "")}${kv("Date", d(det.created_at, true))}</div>
-      ${a ? `<div class="ohkv">${kv("Address", [a.label, a.street, a.building && "Bldg " + a.building, a.floor && "Floor " + a.floor, a.door, a.extra].filter(Boolean).join(" · ") || det.address)}</div>` : ""}
+      ${a && det.type==="delivery" ? `<div class="ohkv">${kv("Address", [a.label, a.street, a.building && "Bldg " + a.building, a.floor && "Floor " + a.floor, a.door, a.extra].filter(Boolean).join(" · ") || det.address)}</div>` : ""}
       <div class="podi">${it.map(i => `<div><span class="q">${+i.qty||1}×</span><span class="n">${esc(i.name)}${modLines(i).length ? `<small>${modLines(i).map(esc).join(", ")}</small>` : ""}</span><b>${usd((+i.price||0)*(+i.qty||1))}</b></div>`).join("") || '<p class="note">No items</p>'}</div>
       <div class="ohkv">${+det.discount ? kv("Discount", "−" + usd(+det.discount)) : ""}${(det.charges||[]).filter(c => +c.amount).map(c => kv(c.name, usd(+c.amount))).join("")}${+det.delivery_fee ? kv("Delivery fee", usd(+det.delivery_fee)) : ""}</div>
       <div class="podt"><span>Total</span><b>${usd(+det.total||0)}</b></div>

@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="654-1794332609">
+<meta name="slick-build" content="655-1794332792">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -2507,8 +2507,7 @@ function openPDNew(opt = {}){
     <div class="f"><select id="pdSrc" data-noseg aria-label="Order source"><option value="">Order source *</option>${posSources().map(s => `<option ${PD.source===s?"selected":""}>${esc(s)}</option>`).join("")}</select></div>
     <div class="f"><div class="npw"><div class="pdph"><select id="pdCc" aria-label="Country code">${Object.entries(CC_OF).map(([n,c]) => `<option value="${c}" ${(PD.cc||CC_OF[coS().country||"Lebanon"]||"+961")===c?"selected":""}>${c} ${esc(n)}</option>`).join("")}</select><input id="pdPhone" inputmode="none" data-np="tel" data-ph placeholder="Customer phone *" aria-label="Customer phone" value="${esc(PD.phone)}" autocomplete="off"></div>${numpad("pdPhone", "tel")}</div><div class="mut" id="pdHint" style="min-height:18px">${PD.cust && !side ? pdHint(PD.cust) : ""}</div></div>
     <div class="f"><input id="pdName" data-ph placeholder="Customer name *" aria-label="Customer name" value="${esc(PD.name)}"></div>
-    ${PD.type==="delivery" ? `<div class="f"><button type="button" class="acard adbar${addrJoin(PD.addr||{}) ? " set" : ""}" data-adpop><span class="aci">${PIN_SVG}</span><span class="act">${addrJoin(PD.addr||{}) ? `<b>${esc(PD.addr.label || "Address")}</b><span>${esc(PD.addr.street || "")}</span><small>${esc([PD.addr.building && "Bldg " + PD.addr.building, PD.addr.floor && "Floor " + PD.addr.floor, PD.addr.door].filter(Boolean).join(" · "))}</small>` : `<b class="adph">Address details *</b>`}</span><i class="adgo">›</i></button></div>` : ""}
-    <div class="err" id="pdErr"></div></div><div class="pdright">${side}</div></div>
+    <div class="err" id="pdErr"></div></div><div class="pdright">${side}${PD.type==="delivery" ? `<div class="pdadr"><button type="button" class="acard adbar${addrJoin(PD.addr||{}) ? " set" : ""}" data-adpop><span class="aci">${PIN_SVG}</span><span class="act">${addrJoin(PD.addr||{}) ? `<b>${esc(PD.addr.label || "Address")}</b><span>${esc(PD.addr.street || "")}</span><small>${esc([PD.addr.building && "Bldg " + PD.addr.building, PD.addr.floor && "Floor " + PD.addr.floor, PD.addr.door].filter(Boolean).join(" · "))}</small>` : `<b class="adph">Address details *</b>`}</span><i class="adgo">›</i></button></div>` : ""}</div></div>
     <div class="mf"><button class="btn" data-pdcancel>Cancel</button><button class="btn pri" id="pdGo">${PD.edit ? "Save" : "Continue"}</button></div>`, true);
   $("#modal").classList.add("full"); $("#scrim").classList.add("fullscr");   // a full page, with the customer's details beside the form
   pdRefresh();
@@ -2557,15 +2556,15 @@ const ohNum = o => o.inv ? invNo(o.inv) : o.ref || (o.no ? "#" + o.no : "—");
 const ohDate = (x, time) => x ? new Date(x).toLocaleString("en-GB", { day:"numeric", month:"short", year:"numeric", ...(time ? { hour:"2-digit", minute:"2-digit" } : {}) }) : "—";
 const RO_ITEMS = new WeakSet();   // cart lines that came from a Reorder
 function pastHtml(ok, det, key){ ok = ok || [];
-  return `<div class="cpastw"><button type="button" class="acard adbar" data-ohpop="${key}" ${ok.length ? "" : "disabled"}><span class="aci"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span><span class="act"><b>Order history</b><span>${ok.length ? ok.length + (ok.length===1 ? " order" : " orders") : "No orders yet"}</span></span><i class="adgo">›</i></button></div>`; }
+  return `<div class="cpastw"><button type="button" class="acard adbar" data-ohpop="${key}" ${ok.length ? "" : "disabled"}><span class="aci"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span><span class="act"><b>Orders history</b><span>${ok.length ? ok.length + (ok.length===1 ? " order" : " orders") : "No orders yet"}</span></span><i class="adgo">›</i></button></div>`; }
 function ohPop(key, id){ const list = (key==="pddet" ? PD?.past : CV?.past) || [];
   let el = $("#ohPop"); if(!el){ el = document.createElement("div"); el.id = "ohPop"; el.className = "scrim show npsc adpop ohpop"; document.body.appendChild(el); } el.dataset.k = key;
   const o = id && list.find(x => x.id===id);
-  if(!o){ el.innerHTML = `<div class="modal"><div class="mh"><h2>Order history</h2><button class="x" data-ohx aria-label="Close">×</button></div><div class="mb"><div class="ohgrid">${list.map(x => `<button type="button" class="ohtile" data-ohopen="${esc(x.id)}"><b>${esc(ohNum(x))}</b><span class="spill s-${x.status}">${esc(stLbl(x))}</span><small>${ohDate(x.at)}</small><small>${esc(OH_T[x.type] || x.type || "")}</small><em>${usd(x.total)}</em></button>`).join("")}</div></div></div>`; return; }
+  if(!o){ el.innerHTML = `<div class="modal"><div class="mh"><h2>Orders history</h2><button class="x" data-ohx aria-label="Close">×</button></div><div class="mb"><div class="ohgrid">${list.map(x => `<button type="button" class="ohtile" data-ohopen="${esc(x.id)}"><b>${esc(ohNum(x))}</b><span class="spill s-${x.status}">${esc(stLbl(x))}</span><small>${ohDate(x.at)}</small><small>${esc(OH_T[x.type] || x.type || "")}</small><em>${usd(x.total)}</em></button>`).join("")}</div></div></div>`; return; }
   const br = S.branches?.find(b => b.id===o.branchId), bd = S.brands?.find(b => b.id===(o.brandId || br?.brandId)), it = (o.items||[]).filter(i => !i.voided), kv = (l, v) => v ? `<div class="kv"><span>${l}</span><b>${esc(v)}</b></div>` : "";
   el.innerHTML = `<div class="modal"><div class="mh"><button class="adback" data-ohopen="" aria-label="Back">‹</button><h2>${esc(ohNum(o))}</h2><span class="spill s-${o.status}">${esc(stLbl(o))}</span><button class="x" data-ohx aria-label="Close">×</button></div>
     <div class="mb"><div class="ohkv">${kv("Order type", OH_T[o.type] || o.type)}${kv("Order source", o.source)}${kv("Brand", bd?.name)}${kv("Branch", br?.name)}${kv("Reference number", o.ref || (o.no ? "#" + o.no : ""))}${kv("Invoice number", o.inv ? invNo(o.inv) : "")}${kv("Date", ohDate(o.at, true))}</div>
-      ${o.address ? `<div class="ohkv">${kv("Address", addrFull(o.address))}</div>` : ""}
+      ${o.address && o.type==="delivery" ? `<div class="ohkv">${kv("Address", addrFull(o.address))}</div>` : ""}
       <div class="podi">${it.map(i => `<div><span class="q">${+i.qty||1}×</span><span class="n">${esc(i.name)}${modLines(i).length ? `<small>${modLines(i).map(esc).join(", ")}</small>` : ""}</span><b>${usd(lineNet(i))}</b></div>`).join("") || '<div class="mut">No items</div>'}</div>
       <div class="ohkv">${o.discount ? kv("Discount", "−" + usd(o.discount)) : ""}${(o.charges||[]).filter(c => +c.amount).map(c => kv(c.name, usd(+c.amount))).join("")}${o.fee ? kv("Delivery fee", usd(o.fee)) : ""}</div>
       <div class="podt"><span>Total</span><b>${usd(o.total)}</b></div></div>
