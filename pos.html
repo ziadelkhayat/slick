@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="669-1794346524">
+<meta name="slick-build" content="672-1794347176">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1170,8 +1170,8 @@ function saleBlock(){
   let eo = null; try{ eo = editOrder(); }catch(e){}
   if(eo && ["active","pending","draft"].includes(eo.status) && !dayClosed(bizDate(eo.createdAt))) return "";
   const today = bizDate(), od = openDay();
-  if(od < today) return `The business day of ${fmtDay(od)} hasn't been ended. End that day first (End day button), then you can sell.`;
-  if(dayClosed(today)) return `Today's business day (${fmtDay(today)}) is already ended at this branch. New sales start after the day end time.`;
+  if(od < today) return "End of day to start selling";
+  if(dayClosed(today)) return "Day already ended";
   return "";
 }
 const fmtDay = d => new Date(d + "T12:00:00").toLocaleDateString("en-GB", { weekday:"short", day:"numeric", month:"short" });
@@ -1866,7 +1866,7 @@ $("#modal").addEventListener("change", e => { if(e.target.id==="ovDate"){ const 
 let payMethod = null;
 let KP = true;
 function openPay(){
-  const blk = saleBlock(); if(blk){ modal("blocked", `<div class="mh"><h2>Can't take sales yet</h2><button class="x" data-close aria-label="Close">×</button></div><div class="mb"><p>${esc(blk)}</p></div><div class="mf"><button class="btn" data-close>OK</button><button class="btn pri" id="goDayEnd">End day</button></div>`); return; }
+  const blk = saleBlock(); if(blk){ toast(blk, true); return; }
   if(!openShift()){ toast("Open the till before taking payments"); return; }
   if(!orderInfoOk()) return;
   const t = totals(), pms = payMethods(), c2 = CUR2(); payMethod = pms[0]; TCUR = 1;
