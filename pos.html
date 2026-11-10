@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="655-1794332792">
+<meta name="slick-build" content="657-1794333171">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -717,6 +717,7 @@ html:has(#activate:not(.hide)),html:has(#activate:not(.hide)) body,html:has(#loc
 .adpop .addrg input,.adpop .addrg select{border:1px solid var(--line);border-radius:12px;padding:0 12px;font:inherit;font-size:15px;background:#fff;color:var(--ink);box-sizing:border-box}.adpop .addrg input:focus,.adpop .addrg select:focus{outline:0;border-color:var(--acc);box-shadow:0 0 0 3px var(--accs)}.adpop .adf{display:block}
 .ohpop .modal{width:min(760px,100%)!important}.ohgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px}.ohtile{aspect-ratio:1/1;display:flex;flex-direction:column;align-items:flex-start;gap:4px;text-align:left;border:1.5px solid var(--line);background:#fff;border-radius:14px;padding:12px;font:inherit;color:inherit;cursor:pointer;min-width:0}.ohtile:active{border-color:var(--acc);background:#f6f2ff}.ohtile b{font-size:14px;word-break:break-word}.ohtile small{font-size:12px;color:var(--mut)}.ohtile em{margin-top:auto;font-style:normal;font-weight:700;font-size:15px}
 .ohkv{display:flex;flex-direction:column;margin-bottom:10px}.ohkv:empty{display:none}.ohkv .kv:first-child{border-top:0}.ohpop .mh .spill{flex:none}.ohpop .podt{margin-top:10px}.ohpop .podi{margin-bottom:10px}.acard.adbar:disabled{opacity:.6;cursor:default}
+.kpm.tel .dinput input{font-size:32px!important;height:48px!important;line-height:48px}.kpm.tel .dinput{padding-bottom:12px!important}
 </style>
 <script>
 /* ---------- naming: menu "products" are called Items; inventory "items" are called Products ----------
@@ -1533,6 +1534,18 @@ function modData(p){
 // out of stock at this branch (set in Sales Channels); a product with variants is out when every variant is
 const prodOos = p => { const k = kidsOf(p); return k.length ? k.every(x => prodOos(x.p)) : (p.outOfStockBranchIds||[]).includes(device?.branchId); };
 // a number typed on an on-screen pad (open price…); resolves to the number, or null when cancelled
+// the phone number is typed on a keypad that pops up when the field is pressed
+function askPhone(def){ return new Promise(res => {
+  const el = document.createElement("div"); el.className = "scrim show npsc";
+  el.innerHTML = `<div class="modal kpm tel"><div class="mh"><h2>Customer phone</h2></div><div class="mb"><div class="dinput"><input id="askTel" inputmode="none" data-np="tel" value="${esc(String(def ?? ""))}" aria-label="Customer phone"></div>${numpad("askTel", "tel")}</div>
+    <div class="mf"><button class="btn" data-ncx>Cancel</button><button class="btn pri" data-nok>OK</button></div></div>`;
+  document.body.appendChild(el);
+  const done = v => { document.removeEventListener("keydown", key, true); el.remove(); res(v); }, key = e => { if(e.key==="Escape"){ e.stopPropagation(); done(null); } else if(e.key==="Enter"){ e.preventDefault(); e.stopPropagation(); done(el.querySelector("#askTel").value.trim()); } };
+  document.addEventListener("keydown", key, true);
+  el.addEventListener("click", e => { if(e.target===el || e.target.closest("[data-ncx]")) done(null); else if(e.target.closest("[data-nok]")) done(el.querySelector("#askTel").value.trim()); });
+  setTimeout(() => el.querySelector("#askTel")?.focus(), 30); }); }
+document.addEventListener("click", async e => { const inp = e.target.closest?.("#pdPhone"); if(!inp || inp.disabled || document.querySelector(".kpm.tel")) return;
+  const v = await askPhone(inp.value); const now = $("#pdPhone"); if(v===null || !now) return; now.value = v; now.dispatchEvent(new Event("input", { bubbles:true })); now.blur(); });
 function askNumber(title, def){ return new Promise(res => {
   const el = document.createElement("div"); el.className = "scrim show npsc";
   el.innerHTML = `<div class="modal kpm"><div class="mh"><h2>${esc(title)}</h2></div><div class="mb"><div class="dinput"><input id="askNum" inputmode="none" value="${esc(String(def ?? ""))}" aria-label="${esc(title)}"><span>${esc(coS().currency || "USD")}</span></div>${numpad("askNum")}</div>
@@ -2505,7 +2518,7 @@ function openPDNew(opt = {}){
   modal("pdnew", `<div class="mh"><h2>${PD.edit ? "Edit order" : "New order"}</h2></div><div class="mb pdcols"><div class="pdform">
     <div class="f"><div class="tseg">${types.map(t => `<button type="button" data-pdt="${t}" class="${PD.type===t?"on":""}">${t==="delivery" ? `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h11v10H3zM14 9h4l3 3v4h-7"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/></svg>Delivery` : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9l1.5-5h15L21 9"/><path d="M3 9a3 3 0 0 0 6 0 3 3 0 0 0 6 0 3 3 0 0 0 6 0"/><path d="M5 12v9h14v-9"/></svg>Pickup`}</button>`).join("")}</div></div>
     <div class="f"><select id="pdSrc" data-noseg aria-label="Order source"><option value="">Order source *</option>${posSources().map(s => `<option ${PD.source===s?"selected":""}>${esc(s)}</option>`).join("")}</select></div>
-    <div class="f"><div class="npw"><div class="pdph"><select id="pdCc" aria-label="Country code">${Object.entries(CC_OF).map(([n,c]) => `<option value="${c}" ${(PD.cc||CC_OF[coS().country||"Lebanon"]||"+961")===c?"selected":""}>${c} ${esc(n)}</option>`).join("")}</select><input id="pdPhone" inputmode="none" data-np="tel" data-ph placeholder="Customer phone *" aria-label="Customer phone" value="${esc(PD.phone)}" autocomplete="off"></div>${numpad("pdPhone", "tel")}</div><div class="mut" id="pdHint" style="min-height:18px">${PD.cust && !side ? pdHint(PD.cust) : ""}</div></div>
+    <div class="f"><div class="npw"><div class="pdph"><select id="pdCc" aria-label="Country code">${Object.entries(CC_OF).map(([n,c]) => `<option value="${c}" ${(PD.cc||CC_OF[coS().country||"Lebanon"]||"+961")===c?"selected":""}>${c} ${esc(n)}</option>`).join("")}</select><input id="pdPhone" inputmode="none" data-np="tel" data-ph placeholder="Customer phone *" aria-label="Customer phone" value="${esc(PD.phone)}" autocomplete="off"></div></div><div class="mut" id="pdHint" style="min-height:18px">${PD.cust && !side ? pdHint(PD.cust) : ""}</div></div>
     <div class="f"><input id="pdName" data-ph placeholder="Customer name *" aria-label="Customer name" value="${esc(PD.name)}"></div>
     <div class="err" id="pdErr"></div></div><div class="pdright">${side}${PD.type==="delivery" ? `<div class="pdadr"><button type="button" class="acard adbar${addrJoin(PD.addr||{}) ? " set" : ""}" data-adpop><span class="aci">${PIN_SVG}</span><span class="act">${addrJoin(PD.addr||{}) ? `<b>${esc(PD.addr.label || "Address")}</b><span>${esc(PD.addr.street || "")}</span><small>${esc([PD.addr.building && "Bldg " + PD.addr.building, PD.addr.floor && "Floor " + PD.addr.floor, PD.addr.door].filter(Boolean).join(" · "))}</small>` : `<b class="adph">Address details *</b>`}</span><i class="adgo">›</i></button></div>` : ""}</div></div>
     <div class="mf"><button class="btn" data-pdcancel>Cancel</button><button class="btn pri" id="pdGo">${PD.edit ? "Save" : "Continue"}</button></div>`, true);
