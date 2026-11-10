@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="634-1794321848">
+<meta name="slick-build" content="636-1794322238">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -704,6 +704,7 @@ html:has(#activate:not(.hide)),html:has(#activate:not(.hide)) body,html:has(#loc
 #modal.full>.mb.pdcols{overflow:hidden!important;min-height:0;align-items:stretch!important;grid-template-rows:minmax(0,1fr)}#modal.full .pdcols>.pdform,#modal.full .pdcols>.pdright{min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:none;padding:2px}#modal.full .pdcols>*::-webkit-scrollbar{display:none}
 .pdcols .addrg{gap:6px 8px!important}.pdcols .addrg .adf{gap:2px!important}.pdcols .addrg .wide{grid-column:auto!important}.pdcols .addrg .adf:last-child{grid-column:1/-1!important}
 @media (max-width:760px){#modal.full>.mb.pdcols{overflow-y:auto!important;grid-template-rows:none}#modal.full .pdcols>.pdform,#modal.full .pdcols>.pdright{overflow:visible}}
+.pdcols select:has(option[value=""]:checked){color:var(--mut)}.pdcols input::placeholder{color:var(--mut);opacity:1}.pdcols #pdHint:empty{min-height:0!important}
 </style>
 <script>
 /* ---------- naming: menu "products" are called Items; inventory "items" are called Products ----------
@@ -825,11 +826,11 @@ const usd2 = n => { const c = coS(); if(!c.currency2 || !(+c.rate2)) return ""; 
   P.toLocaleString = function(l, o){ return ls.call(this, l || "en-GB", { hour12:true, ...(o||{}) }); };
   P.toLocaleTimeString = function(l, o){ return lt.call(this, l || "en-GB", { hour12:true, ...(o||{}) }); }; })();
 // delivery address parts, stored as one line: "[Home] Hamra, Bliss St · Bldg: … · Floor: … · Info: …"
-const ADDR_K = ["label","street","building","floor","extra"];
-const addrJoin = a => { const c = v => String(v||"").replace(/\s*·\s*/g, ", ").trim(); return [c(a.label) ? "[" + c(a.label).replace(/[\[\]]/g,"") + "]" : "", [c(a.street), c(a.building) && "Bldg: " + c(a.building), c(a.floor) && "Floor: " + c(a.floor), c(a.extra) && "Info: " + c(a.extra)].filter(Boolean).join(" · ")].filter(Boolean).join(" "); };
+const ADDR_K = ["label","street","building","floor","door","extra"];
+const addrJoin = a => { const c = v => String(v||"").replace(/\s*·\s*/g, ", ").trim(); return [c(a.label) ? "[" + c(a.label).replace(/[\[\]]/g,"") + "]" : "", [c(a.street), c(a.building) && "Bldg: " + c(a.building), c(a.floor) && "Floor: " + c(a.floor), c(a.door) && "Door: " + c(a.door), c(a.extra) && "Info: " + c(a.extra)].filter(Boolean).join(" · ")].filter(Boolean).join(" "); };
 const show = id => ["boot","activate","app"].forEach(x => $("#"+x).classList.toggle("hide", x!==id));
 // no example text inside fields that need filling (search boxes keep theirs)
-const noHints = () => document.querySelectorAll("input[placeholder], textarea[placeholder]").forEach(el => { if(!el.matches("#ovQ, .search, [type=search]")) el.removeAttribute("placeholder"); });
+const noHints = () => document.querySelectorAll("input[placeholder], textarea[placeholder]").forEach(el => { if(!el.matches("#ovQ, .search, [type=search], [data-ph]")) el.removeAttribute("placeholder"); });
 let nhT = null; new MutationObserver(() => { if(!nhT) nhT = requestAnimationFrame(() => { nhT = null; noHints(); }); }).observe(document.documentElement, { childList:true, subtree:true });
 // status / confirmation messages aren't shown (only problems and instructions are)
 const QUIET = /^(Syncing|Signed in as|Logged out|Device activated|Till opened|Till closed · drawer balanced|Till closed$|Tags (set|saved)|Printer (saved|deleted)|Customer details saved|(Item )?[Dd]iscount removed|Note (added|removed)|All offline sales synced|Users synced|Retrying|Sales history was cleared|Saved on this tablet · will sync|Shift (opened|closed)$|Synced$|Saved$|.* clocked (in|out)$|Till Closed$|Sale complete|Saved · order|Order held as|Order H\d+ retrieved|Printed$|Sent to \d+ printers|Order #\S+ sent to the kitchen|Voided|Refund ticket created|Day ended|Saved on this tablet · will sync|Offline ·|Still offline|Syncing data|Cart empty$)/;
@@ -1381,8 +1382,8 @@ function renderCart(){
 
 /* ---------- an order opened into the billing section ---------- */
 // "[Home] Hamra · Bldg: 4 · Floor: 2 · Info: …" back into its fields
-const addrParts = v => { const a = { label:"", street:"", building:"", floor:"", extra:"" }; let s = String(v||"").trim(); const m = /^\[(.*?)\]\s*/.exec(s); if(m){ a.label = m[1]; s = s.slice(m[0].length); }
-  s.split(" · ").filter(Boolean).forEach(p => { const k = /^(Bldg|Floor|Info):\s*(.*)$/.exec(p); if(k) a[{ Bldg:"building", Floor:"floor", Info:"extra" }[k[1]]] = k[2]; else a.street = a.street ? a.street + ", " + p : p; }); return a; };
+const addrParts = v => { const a = { label:"", street:"", building:"", floor:"", door:"", extra:"" }; let s = String(v||"").trim(); const m = /^\[(.*?)\]\s*/.exec(s); if(m){ a.label = m[1]; s = s.slice(m[0].length); }
+  s.split(" · ").filter(Boolean).forEach(p => { const k = /^(Bldg|Floor|Door|Info):\s*(.*)$/.exec(p); if(k) a[{ Bldg:"building", Floor:"floor", Door:"door", Info:"extra" }[k[1]]] = k[2]; else a.street = a.street ? a.street + ", " + p : p; }); return a; };
 const editOrder = () => EDIT && S.orders.find(o => o.id===EDIT.id);
 const isOpenOrd = o => ["active","pending","draft"].includes(o.status);
 const cleanItem = ({ saved, oix, ...i }) => i;
@@ -1636,7 +1637,7 @@ document.addEventListener("click", e => { const b = e.target.closest("[data-osk]
   else { if(t.maxLength > 0 && t.value.length >= t.maxLength) return; t.value = t.value.slice(0, a) + ins + t.value.slice(z); t.setSelectionRange?.(a + ins.length, a + ins.length); if(OSK.shift && k.length===1){ OSK.shift = false; oskDraw(); } }
   t.dispatchEvent(new Event("input", { bubbles:true })); });
 // on-screen number pad for touch screens: types into the field it belongs to
-const ADDR_TYPES = ["Apartment","House/Villa","Compound","Office","Hotel"];
+const ADDR_TYPES = ["Apartment","House/Villa","Compound","Office","Hotel","Other"];
 const numpad = (id, kind) => `<div class="pinpad npad" data-npfor="${id}">${["1","2","3","4","5","6","7","8","9", kind==="tel" ? "+" : kind==="int" ? "" : ".","0","⌫"].map(k => !k ? `<span></span>` : `<button type="button" data-npk="${k}" aria-label="${k==="⌫" ? "Delete" : k}">${k}</button>`).join("")}</div>`;
 document.addEventListener("pointerdown", e => { if(e.target.closest("[data-npk]")) e.preventDefault(); });
 document.addEventListener("click", e => { const k = e.target.closest("[data-npk]"); if(!k) return; e.preventDefault();
@@ -2407,7 +2408,7 @@ function openPDNew(opt = {}){
   if(PD?.edit && !PD.editShown){ PD.editShown = true; setTimeout(pdLookup, 50); }
   PD = PD || { type: types.includes("takeaway") ? "takeaway" : types[0], phone:"", name:"", addr:{}, cust:null };
   if(!types.includes(PD.type)) PD.type = types[0];
-  const A = [["label","Address type"],["street","Area / street *"],["building","Building name / no. *"],["floor","Floor *"],["extra","Instructions"]];
+  const A = [["label","Address type"],["street","Area / street *"],["building","Building name / no. *"],["floor","Floor / Apartment no. *"],["door","Door details / Name on intercom"],["extra","Instructions"]];
   if(PD.type==="delivery" && !PD.addr) PD.addr = {};
   const saved = (PD.cust?.addresses || []).filter(a => a.address);
   const isDel = PD.type==="delivery";
@@ -2417,10 +2418,10 @@ function openPDNew(opt = {}){
   const side = PD.cust ? pdSide(acards) : `<div class="pdside0"><b>Customer details</b></div>`;
   modal("pdnew", `<div class="mh"><h2>${PD.edit ? "Edit order" : "New order"}</h2></div><div class="mb pdcols"><div class="pdform">
     <div class="f"><div class="tseg">${types.map(t => `<button type="button" data-pdt="${t}" class="${PD.type===t?"on":""}">${t==="delivery" ? `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h11v10H3zM14 9h4l3 3v4h-7"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/></svg>Delivery` : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9l1.5-5h15L21 9"/><path d="M3 9a3 3 0 0 0 6 0 3 3 0 0 0 6 0 3 3 0 0 0 6 0"/><path d="M5 12v9h14v-9"/></svg>Pickup`}</button>`).join("")}</div></div>
-    <div class="f"><label for="pdSrc">Order source *</label><select id="pdSrc" data-noseg><option value="">Choose…</option>${posSources().map(s => `<option ${PD.source===s?"selected":""}>${esc(s)}</option>`).join("")}</select></div>
-    <div class="f"><label for="pdPhone">Customer phone *</label><div class="npw"><div class="pdph"><select id="pdCc" aria-label="Country code">${Object.entries(CC_OF).map(([n,c]) => `<option value="${c}" ${(PD.cc||CC_OF[coS().country||"Lebanon"]||"+961")===c?"selected":""}>${c} ${esc(n)}</option>`).join("")}</select><input id="pdPhone" inputmode="none" data-np="tel" value="${esc(PD.phone)}" autocomplete="off"></div>${numpad("pdPhone", "tel")}</div><div class="mut" id="pdHint" style="min-height:18px">${PD.cust && !side ? pdHint(PD.cust) : ""}</div></div>
-    <div class="f"><label for="pdName">Customer name *</label><input id="pdName" value="${esc(PD.name)}"></div>
-    ${PD.type==="delivery" ? `<div class="f"><label>Delivery address</label><div class="addrg">${A.map(([k,ph]) => `<label class="adf${k==="extra"||k==="label"?" wide":""}"><span>${ph}</span>${k==="label" ? `<select id="pdA_label" data-noseg><option value="">Choose…</option>${[...new Set([...ADDR_TYPES, String(PD.addr.label||"").trim()].filter(Boolean))].map(t => `<option ${t===String(PD.addr.label||"").trim()?"selected":""}>${esc(t)}</option>`).join("")}</select>` : `<input id="pdA_${k}" value="${esc(PD.addr[k]||"")}">`}</label>`).join("")}</div></div>` : ""}
+    <div class="f"><select id="pdSrc" data-noseg aria-label="Order source"><option value="">Order source *</option>${posSources().map(s => `<option ${PD.source===s?"selected":""}>${esc(s)}</option>`).join("")}</select></div>
+    <div class="f"><div class="npw"><div class="pdph"><select id="pdCc" aria-label="Country code">${Object.entries(CC_OF).map(([n,c]) => `<option value="${c}" ${(PD.cc||CC_OF[coS().country||"Lebanon"]||"+961")===c?"selected":""}>${c} ${esc(n)}</option>`).join("")}</select><input id="pdPhone" inputmode="none" data-np="tel" data-ph placeholder="Customer phone *" aria-label="Customer phone" value="${esc(PD.phone)}" autocomplete="off"></div>${numpad("pdPhone", "tel")}</div><div class="mut" id="pdHint" style="min-height:18px">${PD.cust && !side ? pdHint(PD.cust) : ""}</div></div>
+    <div class="f"><input id="pdName" data-ph placeholder="Customer name *" aria-label="Customer name" value="${esc(PD.name)}"></div>
+    ${PD.type==="delivery" ? `<div class="f"><label>Address details</label><div class="addrg">${A.map(([k,ph]) => `<label class="adf${k==="extra"||k==="label"?" wide":""}">${k==="label" ? `<select id="pdA_label" data-noseg aria-label="${ph}"><option value="">${ph}</option>${[...new Set([...ADDR_TYPES, String(PD.addr.label||"").trim()].filter(Boolean))].map(t => `<option ${t===String(PD.addr.label||"").trim()?"selected":""}>${esc(t)}</option>`).join("")}</select>` : `<input id="pdA_${k}" data-ph placeholder="${ph}" aria-label="${ph}" value="${esc(PD.addr[k]||"")}">`}</label>`).join("")}</div></div>` : ""}
     <div class="err" id="pdErr"></div></div><div class="pdright">${side}</div></div>
     <div class="mf"><button class="btn" data-pdcancel>Cancel</button><button class="btn pri" id="pdGo">${PD.edit ? "Save" : "Continue"}</button></div>`, true);
   $("#modal").classList.add("full"); $("#scrim").classList.add("fullscr");   // a full page, with the customer's details beside the form

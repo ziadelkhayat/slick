@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="634-1794321848">
+<meta name="slick-build" content="636-1794322237">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -3796,12 +3796,13 @@ function openOrder(id){
       <div class="f"><label for="oName">Name *</label><input id="oName" value="${esc(o?.customerName||"")}" ${ldis} placeholder="Customer name"></div>
       <div class="f2"><div class="f"><label for="oBrand">Brand *</label><select id="oBrand" ${ldis}><option value="">Choose…</option>${brandList().map(b=>`<option value="${esc(b.id)}" ${o?.brandId===b.id?"selected":""}>${esc(b.name)}</option>`).join("")}</select></div>
       <div class="f"><label for="oBranch">Branch *</label><select id="oBranch" ${ldis}></select></div></div>
-      <div id="oAddrF">${(() => { const a = addrSplit(o?.address), ad = ro || (ccLocked && o?.address) ? "disabled" : ""; return `<h4>Delivery address</h4>
+      <div id="oAddrF">${(() => { const a = addrSplit(o?.address), ad = ro || (ccLocked && o?.address) ? "disabled" : ""; return `<h4>Address details</h4>
         <div class="acards" id="oAddrCards"></div>
         <div class="f2"><div class="f"><label for="oA_type">Address type</label>${addrTypeField("oA", a.label, ad)}</div>
         <div class="f"><label for="oA_street">Area / street *</label><input id="oA_street" value="${esc(a.street)}" ${ad} placeholder="Hamra, Bliss St"></div></div>
         <div class="f2"><div class="f"><label for="oA_building">Building name / no. *</label><input id="oA_building" value="${esc(a.building)}" ${ad}></div>
-        <div class="f"><label for="oA_floor">Floor *</label><input id="oA_floor" value="${esc(a.floor)}" ${ad}></div></div>
+        <div class="f"><label for="oA_floor">Floor / Apartment no. *</label><input id="oA_floor" value="${esc(a.floor)}" ${ad}></div></div>
+        <div class="f"><label for="oA_door">Door details / Name on intercom</label><input id="oA_door" value="${esc(a.door)}" ${ad}></div>
         <div class="f"><label for="oA_extra">Instructions</label><input id="oA_extra" value="${esc(a.extra)}" ${ad} placeholder="Apartment, landmark, directions"></div>
         ${ad ? "" : `<div class="f"><label>Pin location <span class="note">optional · finds the delivery zone</span></label><div id="oA_loc"></div><input type="hidden" id="oA_lat" value="${o?.lat ?? ""}"><input type="hidden" id="oA_lng" value="${o?.lng ?? ""}"></div>`}`; })()}</div>
       ${o?.lat && (ro || (ccLocked && o?.address)) ? `<div class="f"><label>Pinned location</label>${mapLink(o)}</div>` : ""}
@@ -3913,7 +3914,7 @@ const ccPinSet = (a) => { if(!$("#oA_lat")) return; $("#oA_lat").value = a?.lat 
 // a placed order's customer can't change; if it becomes delivery and has no address yet, the address can be filled in
 const ccAddrLock = () => { const o = ccEdit && S.orders.find(x=>x.id===ccEdit); if(!ccLocked || !o) return; ADDR_K.forEach(k => { const el = $("#oA_"+k); if(el) el.disabled = !!o.address; }); const t = $("#oA_type"); if(t) t.disabled = !!o.address; };
 // delivery address: name, area/street, building, floor, extra — kept in one line on the order ("[Home] Hamra · Bldg: … · Floor: … · Info: …")
-const ADDR_K = ["label","street","building","floor","extra"];
+const ADDR_K = ["label","street","building","floor","door","extra"];
 /* address type: pick Apartment / House-Villa / Compound / Office / Hotel, or Other with a typed name */
 const ADDR_TYPES = ["Apartment","House/Villa","Compound","Office","Hotel"];
 function addrTypeField(p, cur, dis){ cur = String(cur||"").trim(); const known = ADDR_TYPES.includes(cur), other = !!cur && !known;
@@ -3924,9 +3925,9 @@ function addrTypeSync(p){ const sel = $("#"+p+"_type"), inp = $("#"+p+"_label");
 document.addEventListener("change", e => { const sel = e.target.closest("[data-atype]"); if(!sel) return; const inp = $("#"+sel.dataset.atype+"_label"); if(!inp) return;
   if(sel.value==="__other"){ inp.value = ADDR_TYPES.includes(inp.value) ? "" : inp.value; inp.style.display = ""; inp.focus(); } else { inp.value = sel.value; inp.style.display = "none"; } });
 
-const addrJoin = a => { const c = v => String(v||"").replace(/\s*·\s*/g, ", ").trim(); return [c(a.label) ? "[" + c(a.label).replace(/[\[\]]/g,"") + "]" : "", [c(a.street), c(a.building) && "Bldg: " + c(a.building), c(a.floor) && "Floor: " + c(a.floor), c(a.extra) && "Info: " + c(a.extra)].filter(Boolean).join(" · ")].filter(Boolean).join(" "); };
-const addrSplit = v => { const a = { label:"", street:"", building:"", floor:"", extra:"" }; let s = String(v||"").trim(); const m = /^\[(.*?)\]\s*/.exec(s); if(m){ a.label = m[1]; s = s.slice(m[0].length); }
-  s.split(" · ").filter(Boolean).forEach(p => { const k = /^(Bldg|Floor|Info):\s*(.*)$/.exec(p); if(k) a[{ Bldg:"building", Floor:"floor", Info:"extra" }[k[1]]] = k[2]; else a.street = a.street ? a.street + ", " + p : p; }); return a; };
+const addrJoin = a => { const c = v => String(v||"").replace(/\s*·\s*/g, ", ").trim(); return [c(a.label) ? "[" + c(a.label).replace(/[\[\]]/g,"") + "]" : "", [c(a.street), c(a.building) && "Bldg: " + c(a.building), c(a.floor) && "Floor: " + c(a.floor), c(a.door) && "Door: " + c(a.door), c(a.extra) && "Info: " + c(a.extra)].filter(Boolean).join(" · ")].filter(Boolean).join(" "); };
+const addrSplit = v => { const a = { label:"", street:"", building:"", floor:"", door:"", extra:"" }; let s = String(v||"").trim(); const m = /^\[(.*?)\]\s*/.exec(s); if(m){ a.label = m[1]; s = s.slice(m[0].length); }
+  s.split(" · ").filter(Boolean).forEach(p => { const k = /^(Bldg|Floor|Door|Info):\s*(.*)$/.exec(p); if(k) a[{ Bldg:"building", Floor:"floor", Door:"door", Info:"extra" }[k[1]]] = k[2]; else a.street = a.street ? a.street + ", " + p : p; }); return a; };
 const ccAddrGet = () => { const a = {}; ADDR_K.forEach(k => a[k] = ($("#oA_"+k)?.value || "").trim()); return a; };
 const ccAddrSet = v => { const a = addrSplit(v); ADDR_K.forEach(k => { const el = $("#oA_"+k); if(el) el.value = a[k]; }); addrTypeSync("oA"); };
 function ccActions(o){
@@ -5636,7 +5637,7 @@ function viewCustomer(){
   const tbl = (head, rows) => rows.length ? `<table><thead><tr>${head.map(h=>`<th>${h}</th>`).join("")}</tr></thead><tbody>${rows.join("")}</tbody></table>` : '<p class="note brempty">No data to display!</p>';
   const zn = id => (S.zones||[]).find(z => z.id===id)?.name;
   const used = []; { const seen = new Set(c.addresses.map(a => String(a.address||"").trim())); orders.forEach(o => { const v = String(o.address||"").trim(); if(v && !seen.has(v)){ seen.add(v); used.push(v); } }); } c.__used = used;
-  const desc = v => { const a = addrSplit(v); return esc([a.street, a.building && "Bldg " + a.building, a.floor && "Floor " + a.floor, a.extra].filter(Boolean).join(" · ") || v); };
+  const desc = v => { const a = addrSplit(v); return esc([a.street, a.building && "Bldg " + a.building, a.floor && "Floor " + a.floor, a.door, a.extra].filter(Boolean).join(" · ") || v); };
   const admin = ["owner","admin"].includes(state.role);
   return `<div class="phead"><a href="#customers" class="btn" data-cusback style="text-decoration:none">← Back</a><h1 style="margin-left:10px">${esc(c.name || c.phone)}</h1>${c.blacklisted?' <span class="spill s-declined" style="margin-left:8px">Blacklisted</span>':""}<div class="sp"></div>
       ${c.deleted_at ? `<span class="spill s-declined" style="margin-right:8px">Deleted</span>${admin ? `<button class="btn pri" id="cuRestore">Restore</button>` : ""}` : `${admin ? `<button class="btn" id="cuHa">${c.house_account ? "Disable House Account" : "Enable House Account"}</button><button class="btn" id="cuDel">Delete Customer</button>` : ""}<button class="btn pri" id="cuEdit">Edit Customer</button>`}</div>
@@ -5753,7 +5754,7 @@ function openCusAddr(ix){
   box.className = "modal sm"; box.innerHTML = `<header><h2>${ed ? "Address Details" : "Create Address"}</h2><button type="button" class="x" data-ccclose aria-label="Close">×</button></header>
   <div class="body" style="display:block"><div class="f"><label for="cuA_type">Address type *</label>${addrTypeField("cuA", ea.label || "")}</div>
     <div class="f"><label for="cuA_zone">Delivery Zone</label><select id="cuA_zone"><option value="">Choose…</option>${zs.map(z=>`<option value="${esc(z.id)}" ${ed?.zoneId===z.id?"selected":""}>${esc(z.name)}${z.branchId ? " · " + esc(branchName(z.branchId)||"") : ""}</option>`).join("")}</select></div>
-    ${[["street","Street *",""],["building","Building",""],["floor","Floor",""]].map(([k,l,ph])=>`<div class="f"><label for="cuA_${k}">${l}</label><input id="cuA_${k}" placeholder="${ph}" value="${esc(ea[k]||"")}"></div>`).join("")}
+    ${[["street","Street *",""],["building","Building",""],["floor","Floor / Apartment no.",""],["door","Door details / Name on intercom",""]].map(([k,l,ph])=>`<div class="f"><label for="cuA_${k}">${l}</label><input id="cuA_${k}" placeholder="${ph}" value="${esc(ea[k]||"")}"></div>`).join("")}
     <div class="f"><label for="cuA_extra">Instructions</label><textarea id="cuA_extra" rows="3" placeholder="Apartment, landmark, directions">${esc(ea.extra||"")}</textarea></div>
     <div class="f"><label>Location</label><div id="cuA_loc"></div><input type="hidden" id="cuA_lat" value="${ed?.lat ?? ""}"><input type="hidden" id="cuA_lng" value="${ed?.lng ?? ""}"></div></div>
   <footer><span style="flex:1"></span><button type="button" class="btn" data-ccclose>Close</button><button type="button" class="btn pri" id="cuAddrSave" data-ix="${ix ?? ""}">${ed ? "Save changes" : "Save"}</button></footer>`;
@@ -5841,7 +5842,7 @@ document.addEventListener("click", e => {
   const st = e.target.closest("[data-ccstep]"); if(st){ e.preventDefault(); ccStep(+st.dataset.ccstep); return; }
   if(e.target.id==="cuTagSave"){ const pick = [...document.querySelectorAll("#cuTagPick input:checked")].map(i => i.value), names = tagList("customer").map(t => t.name.toLowerCase());
     $("#ccScrim").classList.remove("show"); const keep = (CUS.det?.tags||[]).filter(x => !names.includes(String(x).toLowerCase())); cusPatch({ tags:[...keep, ...pick] }, "Tags saved"); return; }
-  if(e.target.id==="cuAddrSave"){ const a = {}; ["label","street","building","floor","extra"].forEach(k => a[k] = $("#cuA_"+k).value.trim());
+  if(e.target.id==="cuAddrSave"){ const a = {}; ["label","street","building","floor","door","extra"].forEach(k => a[k] = $("#cuA_"+k).value.trim());
     if(!a.label){ $("#cuA_type").focus(); return toast("Choose the address type"); }
     if(!a.street){ $("#cuA_street").focus(); return toast("Enter the area / street"); }
     $("#ccScrim").classList.remove("show"); const z = $("#cuA_zone").value || null;
