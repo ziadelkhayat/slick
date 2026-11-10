@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="653-1794332303">
+<meta name="slick-build" content="654-1794332609">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1803,8 +1803,10 @@ $("#modal").addEventListener("click", async e => {
   const cvd = e.target.closest("[data-cvdet]"); if(cvd){ CV.det = cvd.dataset.cvdet || null; return drawCust(); }
   const psrc = e.target.closest("[data-pdsrc]"); if(psrc){ PD.source = psrc.dataset.pdsrc; document.querySelectorAll("[data-pdsrc]").forEach(x => x.classList.toggle("on", x===psrc)); if($("#pdErr")) $("#pdErr").textContent = ""; pdRefresh(); return; }
   const pdr = e.target.closest("[data-pdreorder]"); if(pdr){ const o = (PD?.past||[]).find(x => x.id===pdr.dataset.pdreorder); if(!o) return; const miss = []; let n = 0;
+    // a second Reorder replaces what the first one added, instead of piling on top of it
+    if(PD.edit){ const keep = cart.filter(i => !RO_ITEMS.has(i)); cart.length = 0; cart.push(...keep); } else PD.reorder = [];
     (o.items||[]).filter(i => !i.voided).forEach(i => { const p = S.products.find(x => x.id===i.productId); if(!p || p.active===false || prodOos(p)){ miss.push(i.name); return; }
-      const opt = (i.options||[]).reduce((a,x) => a + (+x.price||0), 0); (PD.edit ? cart : (PD.reorder ||= [])).push({ productId:p.id, name:i.name, price: +(prodPrice(p) + (Array.isArray(i.options) && i.options.length ? opt : 0)).toFixed(2), qty:+i.qty||1, ...(i.options?.length ? { options:i.options, mods:i.mods } : {}), ...(i.note ? { note:i.note } : {}) }); n++; });
+      const opt = (i.options||[]).reduce((a,x) => a + (+x.price||0), 0); const it = { productId:p.id, name:i.name, price: +(prodPrice(p) + (Array.isArray(i.options) && i.options.length ? opt : 0)).toFixed(2), qty:+i.qty||1, ...(i.options?.length ? { options:i.options, mods:i.mods } : {}), ...(i.note ? { note:i.note } : {}) }; RO_ITEMS.add(it); (PD.edit ? cart : (PD.reorder ||= [])).push(it); n++; });
     if(PD.edit) renderCart(); toast(n ? (miss.length ? `Added to the order · not available now: ${miss.join(", ")}` : "Items added · press Continue") : "None of these items are available now"); return; }
   const pdd = e.target.closest("[data-pddet]"); if(pdd){ PD.det = pdd.dataset.pddet || null; const w = pdd.closest(".cpastw"); if(!w) return openPDNew({ keepFocus: true }); w.outerHTML = pastHtml(PD.past, PD.det, "pddet"); $("#modal .cpastw")?.scrollIntoView({ block: PD.det ? "start" : "nearest", behavior: "smooth" }); return; }
   const pdn = e.target.closest("[data-pdnewaddr]"); if(pdn){ pdKeep(); PD.addr = {}; return pdAddrShow(pdn); }
@@ -2553,6 +2555,7 @@ function insCard(c, ok){
 const OH_T = { delivery:"Delivery", takeaway:"Pickup", pickup:"Pickup", dinein:"Dine-in", fast:"Fast sale" };
 const ohNum = o => o.inv ? invNo(o.inv) : o.ref || (o.no ? "#" + o.no : "—");
 const ohDate = (x, time) => x ? new Date(x).toLocaleString("en-GB", { day:"numeric", month:"short", year:"numeric", ...(time ? { hour:"2-digit", minute:"2-digit" } : {}) }) : "—";
+const RO_ITEMS = new WeakSet();   // cart lines that came from a Reorder
 function pastHtml(ok, det, key){ ok = ok || [];
   return `<div class="cpastw"><button type="button" class="acard adbar" data-ohpop="${key}" ${ok.length ? "" : "disabled"}><span class="aci"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span><span class="act"><b>Order history</b><span>${ok.length ? ok.length + (ok.length===1 ? " order" : " orders") : "No orders yet"}</span></span><i class="adgo">›</i></button></div>`; }
 function ohPop(key, id){ const list = (key==="pddet" ? PD?.past : CV?.past) || [];

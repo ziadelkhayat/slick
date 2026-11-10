@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="653-1794332303">
+<meta name="slick-build" content="654-1794332609">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -5907,7 +5907,8 @@ document.addEventListener("click", e => {
   const ro2 = e.target.closest("[data-reorder]"); if(ro2){ e.preventDefault(); const lo = (window.__ccPast||[]).find(x=>x.id===ro2.dataset.reorder); if(!lo) return;
     if(!$("#oBrand").value && lo.brand_id){ $("#oBrand").value = lo.brand_id; fillOrderBranches(lo.branch_id); }
     const okIds = new Set(availableProducts().map(p=>p.id)), miss = [];
-    (lo.items||[]).filter(i => !i.voided).forEach(i => { const p = S.products.find(x=>x.id===i.productId); if(!p || !okIds.has(p.id)){ miss.push(i.name); return; } const opt = (i.options||[]).reduce((a,x)=>a+(+x.price||0),0); cart.push({ productId:p.id, name:i.name, price:+(ccPrice(p)+(i.options?.length?opt:0)).toFixed(2), qty:+i.qty||1, ...(i.options?.length?{options:i.options,mods:i.mods}:{}), ...(i.note?{note:i.note}:{}) }); });
+    { const keep = cart.filter(i => !CC_RO.has(i)); cart.length = 0; cart.push(...keep); }   // a second Reorder replaces what the first one added
+    (lo.items||[]).filter(i => !i.voided).forEach(i => { const p = S.products.find(x=>x.id===i.productId); if(!p || !okIds.has(p.id)){ miss.push(i.name); return; } const opt = (i.options||[]).reduce((a,x)=>a+(+x.price||0),0); const it = { productId:p.id, name:i.name, price:+(ccPrice(p)+(i.options?.length?opt:0)).toFixed(2), qty:+i.qty||1, ...(i.options?.length?{options:i.options,mods:i.mods}:{}), ...(i.note?{note:i.note}:{}) }; CC_RO.add(it); cart.push(it); });
     renderCart(false); toast(miss.length ? `Added to the cart · not available now: ${miss.join(", ")}` : "Order added to the cart"); return; }
   const ua = e.target.closest("[data-useaddr]"); if(ua){ e.preventDefault(); const a = window.__ccCust?.addresses?.[+ua.dataset.useaddr]; if(a){ window.__ccAddrIx = +ua.dataset.useaddr; ccAddrSet(a.address); ccPinSet(a); ccAddrPop("det"); try{ renderCart(false); }catch(_){} } return; }
   if(e.target.closest("[data-newaddr]")){ e.preventDefault(); window.__ccAddrIx = null; ADDR_K.forEach(k => { const el = $("#oA_"+k); if(el) el.value = ""; }); addrTypeSync("oA"); ccPinSet(null); ccAddrPop("det"); $("#oA_type")?.focus(); return; }
@@ -5928,6 +5929,7 @@ document.addEventListener("click", e => {
 
 // previous orders: a clear list; tap one to see what was in it, then reorder it
 // order history: one button; it opens every previous order as square tiles, and a tile opens that order's details
+const CC_RO = new WeakSet();   // cart lines that came from a Reorder
 function ccPastList(){ return (window.__ccPast||[]).filter(o => !["draft"].includes(o.status)); }
 function ccPastRender(){
   const box = $("#ccPast"); if(!box) return; const n = ccPastList().length;
