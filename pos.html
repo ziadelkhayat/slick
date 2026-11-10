@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="651-1794332072">
+<meta name="slick-build" content="652-1794332183">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -2463,8 +2463,15 @@ function pdAddrPop(view){
   el.innerHTML = `<div class="modal"><div class="mh">${saved.length ? `<button class="adback" data-adopen="list" aria-label="Back">‹</button>` : ""}<h2>${view==="new" ? "New address" : esc(lbl || "Address details")}</h2><button class="x" data-adx aria-label="Close">×</button></div>
     <div class="mb"><div class="addrg"><label class="adf"><select id="adA_label" data-noseg aria-label="Address type"><option value="">Address type</option>${[...new Set([...ADDR_TYPES, lbl].filter(Boolean))].map(t => `<option ${t===lbl?"selected":""}>${esc(t)}</option>`).join("")}</select></label>
       ${F.map(([k,ph]) => `<label class="adf${k==="extra" ? " wide" : ""}"><input id="adA_${k}" data-ph placeholder="${ph}" aria-label="${ph}" value="${esc(a[k]||"")}"></label>`).join("")}</div><div class="err" id="adErr"></div></div>
-    <div class="mf"><button class="btn" data-adx>Cancel</button><button class="btn pri" id="adGo">Save</button></div></div>`;
+    <div class="mf">${el.dataset.ix!=="" && +el.dataset.ix >= 0 && PD.cust?.id ? `<button class="btn bad" id="adDel" style="margin-right:auto">Delete</button>` : ""}<button class="btn" data-adx>Cancel</button><button class="btn pri" id="adGo">Save</button></div></div>`;
 }
+async function pdAddrDel(){ const el = $("#adPop"), ix = +el?.dataset.ix, list = PD.cust?.addresses || []; if(!el || !list[ix] || !PD.cust?.id) return;
+  if(!(await askYes("Delete this saved address?", "Delete", true))) return;
+  if(!window.WOK?.sb || !navigator.onLine){ $("#adErr").textContent = "You're offline. Try again when the connection is back."; return; }
+  const next = list.filter((_, i) => i!==ix), r = await window.WOK.sb.from("customers").update({ addresses: next, updated_at: new Date().toISOString() }).eq("id", PD.cust.id).then(x => x, e => ({ error:e }));
+  if(r.error){ $("#adErr").textContent = "Couldn't delete the address."; return; }
+  if(addrJoin(PD.addr || {})===addrJoin(addrParts(list[ix].address))) PD.addr = {};
+  PD.cust.addresses = next; PD.addrIx = null; el.remove(); openPDNew({ keepFocus: true }); pdAddrPop(next.some(a => a.address) ? "list" : undefined); }
 function pdAddrUse(){ const a = {}; ADDR_K.forEach(k => a[k] = ($("#adA_" + k)?.value || "").trim());
   const miss = [["street","area / street"],["building","building"],["floor","floor"]].filter(([k]) => !a[k]).map(x => x[1]);
   if(miss.length){ $("#adErr").textContent = "Enter the " + miss.join(", ").replace(/, ([^,]*)$/, " and $1") + "."; return; }
@@ -2475,6 +2482,7 @@ document.addEventListener("click", e => { const t = e.target; if(!t.closest) ret
   if(!t.closest("#adPop")) return;
   if(t.closest("[data-adx]")) return $("#adPop").remove();
   const o = t.closest("[data-adopen]"); if(o) return pdAddrPop(o.dataset.adopen);
+  if(t.closest("#adDel")) return pdAddrDel();
   if(t.closest("#adGo")) return pdAddrUse(); });
 // the phone keypad folds away when its field loses focus, which moves the bar from under the finger: open on press, not on release
 document.addEventListener("pointerdown", e => { const b = e.target.closest?.("[data-adpop]"); if(b && PD && !$("#adPop") && document.activeElement?.id==="pdPhone"){ e.preventDefault(); b.click(); } });
