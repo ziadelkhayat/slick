@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="647-1794327906">
+<meta name="slick-build" content="648-1794328388">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1319,9 +1319,34 @@ function dsCalc(d, val){
   return { amt: +Math.min(amt, sub).toFixed(2), why:"" };
 }
 const dsHere = () => dsAll().filter(d => (!(d.branchIds||[]).length || d.branchIds.includes(device?.branchId)) && (!(d.orderTypes||[]).length || d.orderTypes.includes(dsOT())));
+/* promotions (Marketing → Promotions): the best one that fits the cart applies by itself; a discount the cashier picked takes its place */
+const promoList = () => ((S.settings.find(x => x.id==="promotions")||{}).list || []).filter(p => !p.deleted && p.active!==false);
+function promoOn(p){ const n = new Date(), z = v => String(v).padStart(2,"0"), d = n.getFullYear() + "-" + z(n.getMonth()+1) + "-" + z(n.getDate()), hm = z(n.getHours()) + ":" + z(n.getMinutes()), ot = otype==="takeaway" ? "pickup" : otype;
+  if(p.start && d < p.start) return false; if(p.end && d > p.end) return false;
+  if((p.days||[]).length && !p.days.includes(String(n.getDay()))) return false;
+  if(p.from || p.to){ const f = p.from || "00:00", t = p.to || "23:59"; if(f <= t ? (hm < f || hm > t) : (hm < f && hm > t)) return false; }
+  if(!(p.orderTypes||[]).includes(ot)) return false;
+  return !(p.branchIds||[]).length || p.branchIds.includes(device.branchId); }
+const promoUnits = ids => cart.filter(i => (ids||[]).includes(i.productId)).flatMap(i => { const q = Math.max(1, Math.round(+i.qty||1)); return Array(q).fill(lineNet(i)/q); }).sort((a,b) => a-b);
+function promoAmt(p, sub){
+  if(+p.minOrder && sub < +p.minOrder) return 0;
+  const sum = a => a.reduce((x,v) => x+v, 0), off = base => p.valueType==="fixed" ? Math.min(+p.value||0, base) : Math.min(base*(+p.value||0)/100, +p.maxDiscount > 0 ? +p.maxDiscount : Infinity);
+  if(p.type==="disc") return off(sub);
+  if(p.type==="itemdisc"){ const base = sum(cart.filter(i => (p.itemIds||[]).includes(i.productId) || (p.categoryIds||[]).includes(S.products.find(x => x.id===i.productId)?.categoryId)).map(lineNet)); return base ? (p.valueType==="fixed" ? Math.min(+p.value||0, base) : base*(+p.value||0)/100) : 0; }
+  if(p.type==="bxgy"){ const bq = Math.max(1, +p.buyQty||1), gq = Math.max(1, +p.getQty||1), pct = (p.getPct==null ? 100 : +p.getPct)/100, buy = p.buyIds||[], get = p.getIds||[], buyOnly = buy.filter(id => !get.includes(id));
+    if(!buyOnly.length){ const u = promoUnits([...new Set([...buy, ...get])]), sets = Math.floor(u.length/(bq+gq)); return sum(u.slice(0, sets*gq))*pct; }
+    const sets = Math.floor(promoUnits(buyOnly).length/bq); return sum(promoUnits(get).slice(0, sets*gq))*pct; }
+  if(p.type==="freeitem") return sum(promoUnits(p.freeIds).slice(0, Math.max(1, +p.freeQty||1)));
+  if(p.type==="bundle"){ const ids = p.bundleIds||[]; if(ids.length < 2) return 0; const per = ids.map(id => promoUnits([id])); if(per.some(u => !u.length)) return 0;
+    const sets = Math.min(...per.map(u => u.length)); return Math.max(0, sum(per.map(u => sum(u.slice(0, sets)))) - sets*(+p.bundlePrice||0)); }
+  return 0; }
+function promoBest(sub){ let best = null; if(!cart.length || otype==="") return null;
+  for(const p of promoList()){ if(!promoOn(p)) continue; const a = +Math.min(promoAmt(p, sub), sub).toFixed(2); if(a > 0 && (!best || a > best.amount)) best = { id:p.id, name:p.name, amount:a }; }
+  return best; }
 function totals(){
   if(DSET){ const d = dsAll().find(x => x.id===DSET.id); if(d){ discType = "amt"; discount = dsCalc(d, DSET.val).amt; } else DSET = null; }
-  const sub = cart.reduce((a,i)=>a+lineNet(i),0), disc = +(discType==="amt" ? Math.min(discount, sub) : sub*discount/100).toFixed(2);
+  const sub = cart.reduce((a,i)=>a+lineNet(i),0), manual = +(discType==="amt" ? Math.min(discount, sub) : sub*discount/100).toFixed(2);
+  const promo = manual || DSET ? null : promoBest(sub), disc = promo ? promo.amount : manual;
   const charges = pickedCharges().map(c => { const amount = +(c.type==="percent" ? (coS().chargesBeforeDisc!==false ? sub : sub-disc)*(+c.value||0)/100 : c.type==="open" ? +(posOpen[c.id]||0) : +c.value||0).toFixed(2);
     return { id:c.id, name:c.name, type:c.type, value: c.type==="open" ? amount : +c.value||0, amount, ...(c.taxGroup ? { taxGroup:c.taxGroup } : {}) }; });
   const chT = +charges.reduce((a,c)=>a+c.amount,0).toFixed(2), tp = orderTaxParts(cart, disc);
@@ -1329,7 +1354,7 @@ function totals(){
   const tax = tp.tax;
   const fee = EDIT?.fee && otype==="delivery" ? +EDIT.fee : 0;   // a web/call-center delivery order keeps its delivery fee
   const total = +(sub - disc + chT + fee + tp.added).toFixed(2);
-  return { sub, disc, charges, chT, fee, tax, total, net: +(total - tax).toFixed(2) };
+  return { sub, disc, promo, charges, chT, fee, tax, total, net: +(total - tax).toFixed(2) };
 }
 const discLbl = () => DSET ? DSET.name : discType==="amt" ? "Discount" : `Discount ${discount}%`;
 function renderCart(){
@@ -1367,7 +1392,7 @@ function renderCart(){
   const t = totals();
   const cl = chargeList(otype);
   $("#totals").innerHTML = `
-    ${discount || DSET?`<div class="dline"><span>${discLbl()}</span><span>−${usd(t.disc)}<button type="button" class="dlx" data-discx aria-label="Remove discount">×</button></span></div>`:""}${t.charges.map(c=>`<div class="dline"><span>${esc(c.name)}</span><span>${usd(c.amount)}<button type="button" class="dlx" data-chgx="${esc(c.id)}" aria-label="Remove charge">×</button></span></div>`).join("")}${t.fee ? `<div><span>Delivery fee</span><span>${usd(t.fee)}</span></div>` : ""}
+    ${t.promo ? `<div class="dline"><span>${esc(t.promo.name)}</span><span>−${usd(t.promo.amount)}</span></div>` : ""}${discount || DSET?`<div class="dline"><span>${discLbl()}</span><span>−${usd(t.disc)}<button type="button" class="dlx" data-discx aria-label="Remove discount">×</button></span></div>`:""}${t.charges.map(c=>`<div class="dline"><span>${esc(c.name)}</span><span>${usd(c.amount)}<button type="button" class="dlx" data-chgx="${esc(c.id)}" aria-label="Remove charge">×</button></span></div>`).join("")}${t.fee ? `<div><span>Delivery fee</span><span>${usd(t.fee)}</span></div>` : ""}
     <div><span>Subtotal</span><span>${usd(t.net)}</span></div><div class="mut" style="font-size:13px"><span>Tax</span><span>${usd(t.tax)}</span></div><div class="g"><span>Total</span><span>${usd(t.total)}</span></div>${usd2(t.total) ? `<div class="mut" style="font-size:13px"><span></span><span>≈ ${usd2(t.total)}</span></div>` : ""}`;
   // actions: new order / open order / closed order
   const acts = $("#acts"), unsent = cart.some(i => i.qty > (i.saved||0));
@@ -1817,7 +1842,7 @@ function openPay(){
   HA = null; const pmIco = m => ico(m.type==="cash" ? "cash" : m.type==="card" ? "card" : "wallet");
   modal("pay", `<div class="payx"><div class="payl"><div class="ptop"><div><div class="dlbl">Amount due</div><div class="damt">${usd(t.total)}</div>${usd2(t.total) ? `<div class="d2">≈ ${usd2(t.total)}</div>` : ""}</div></div>
       <div class="paym">${pms.map((m,i)=>`<button data-pm="${esc(m.id)}" class="${i?"":"on"}">${pmIco(m)}${esc(m.name)}</button>`).join("")}</div>
-      <div class="psum">${cart.map(i => `<div><span>${+i.qty||1}× ${esc(i.name)}</span><span>${usd(lineNet(i))}</span></div>`).join("")}${t.disc ? `<div class="m"><span>${esc(discLbl())}</span><span>−${usd(t.disc)}</span></div>` : ""}${t.charges.filter(c=>c.amount).map(c => `<div class="m"><span>${esc(c.name)}</span><span>${usd(c.amount)}</span></div>`).join("")}${t.fee ? `<div class="m"><span>Delivery fee</span><span>${usd(t.fee)}</span></div>` : ""}<div class="m" style="border-top:1px dashed var(--line);padding-top:6px"><span>Tax</span><span>${usd(t.tax)}</span></div></div></div>
+      <div class="psum">${cart.map(i => `<div><span>${+i.qty||1}× ${esc(i.name)}</span><span>${usd(lineNet(i))}</span></div>`).join("")}${t.disc ? `<div class="m"><span>${esc(t.promo ? t.promo.name : discLbl())}</span><span>−${usd(t.disc)}</span></div>` : ""}${t.charges.filter(c=>c.amount).map(c => `<div class="m"><span>${esc(c.name)}</span><span>${usd(c.amount)}</span></div>`).join("")}${t.fee ? `<div class="m"><span>Delivery fee</span><span>${usd(t.fee)}</span></div>` : ""}<div class="m" style="border-top:1px dashed var(--line);padding-top:6px"><span>Tax</span><span>${usd(t.tax)}</span></div></div></div>
     <div class="payr"><div id="cashBox" style="display:${pms[0].type==="cash"?"flex":"none"};flex-direction:column;gap:12px">${c2 ? `<div class="paycur"><span>Pay in</span><div class="dseg"><button type="button" data-tcur="1" class="on">${esc(coS().currency || "USD")}</button><button type="button" data-tcur="2">${esc(c2.code)}</button></div></div>
         <div class="paydue" id="payDue"></div><div class="tnd1">
         <label class="tbox on"><span id="tcurLbl">${esc(coS().currency || "USD")}</span><input class="tender" id="tender" inputmode="none" readonly value="${t.total.toFixed(DEC())}" aria-label="Cash received in ${esc(coS().currency || "USD")}"><input class="tender" id="tender2" inputmode="none" readonly value="" placeholder="0" aria-label="Cash received in ${esc(c2.code)}" hidden></label></div>`
@@ -1858,7 +1883,7 @@ async function completeSale(){
   const eo0 = editOrder(), no = eo0?.no || nextOrderNo();   // an open order being paid keeps its number: don't use up a new one
   const order = { no, channel:"pos", source: (otype==="takeaway" || otype==="delivery") ? (cust.source || "") : "", type: otype==="dinein"?"dinein":otype==="fast"?"fast":otype==="takeaway"?"pickup":"delivery", table: otype==="dinein"?tableNo:"",
     customerName:cust.name.trim(), phone:cust.phone.trim(), address: otype==="delivery"?addrJoin(cust.addr):"",
-    brandId:branch?.brandId || null, branchId:device.branchId, deviceId:device.id, shiftId:openShift().id, agent:cashier?.name || device.name, items:cart, subtotal:+t.sub.toFixed(2), charges:t.charges, chargesTotal:t.chT, discountPct: discType==="pct" ? discount : (t.sub ? +(t.disc/t.sub*100).toFixed(2) : 0), discountType: discType, discount:t.disc, total:t.total, receiptNotes: orderNote.trim(), notes: kitchenNote.trim(), ...(otype==="dinein" && GUESTS ? { guests: GUESTS } : {}),
+    brandId:branch?.brandId || null, branchId:device.branchId, deviceId:device.id, shiftId:openShift().id, agent:cashier?.name || device.name, items:cart, subtotal:+t.sub.toFixed(2), charges:t.charges, chargesTotal:t.chT, discountPct: discType==="pct" ? discount : (t.sub ? +(t.disc/t.sub*100).toFixed(2) : 0), discountType: discType, discount:t.disc, promo: t.promo || null, total:t.total, receiptNotes: orderNote.trim(), notes: kitchenNote.trim(), ...(otype==="dinein" && GUESTS ? { guests: GUESTS } : {}),
     tax:t.tax, payment:{ method:payMethod.name, type:payMethod.type, methodId:payMethod.id, tendered:+tender.toFixed(DEC()), ...t2, change:+Math.max(0,tender-t.total).toFixed(DEC()) }, status:"closed", createdAt:now, updatedAt:now, closedAt:now };
   $("#confirmPay").disabled = true;
   try{
@@ -1892,7 +1917,7 @@ function receiptText(o){
     ...(a.showCreator && (o.agent || o.handledBy) ? ["Created by " + (o.agent || o.handledBy)] : []), ...(a.showCloser && (o.handledBy || o.agent) ? ["Closed by " + (o.handledBy || o.agent)] : []),
     new Date(o.createdAt).toLocaleString("en-GB"), "-".repeat(w),
     ...o.items.flatMap(i => [...rcptNames(i, a).map((nm, k) => k ? ("     " + nm).slice(0, w) : row(i.qty+" x "+nm, lineNet(i).toFixed(DEC()))), ...modLines(i, a.hideFreeMods).map(m => ("   - " + m).slice(0, w)), ...(+i.disc ? ["  discount -" + (+i.disc).toFixed(DEC())] : [])]), "-".repeat(w) ];
-  if(o.discount) lines.push(row(o.discountType==="amt" ? "Discount" : "Discount "+o.discountPct+"%", "-"+(+o.discount).toFixed(DEC())));
+  if(o.discount) lines.push(row(o.promo?.name ? String(o.promo.name).slice(0, 22) : o.discountType==="amt" ? "Discount" : "Discount "+o.discountPct+"%", "-"+(+o.discount).toFixed(DEC())));
   (o.charges||[]).filter(c=>+c.amount).forEach(c => lines.push(row(c.name, (+c.amount).toFixed(DEC()))));
   if(a.showSubtotal!==false) lines.push(row("Subtotal", net.toFixed(DEC())));
   if(a.rcptTax) lines.push(row(taxIncl() ? "Tax (incl.)" : "Tax", (+o.tax||0).toFixed(DEC())));
@@ -2686,7 +2711,7 @@ function errBox(msg){
 }
 function orderFields(t){
   return { type: otype==="dinein"?"dinein":otype==="fast"?"fast":otype==="takeaway"?"pickup":"delivery", table: otype==="dinein"?tableNo:"", customerName:cust.name.trim(), phone:cust.phone.trim(), address: otype==="delivery"?addrJoin(cust.addr):"", ...((otype==="takeaway" || otype==="delivery") && cust.source ? { source: cust.source } : {}),
-    items: cart.map(cleanItem), subtotal:+t.sub.toFixed(2), charges:t.charges, chargesTotal:t.chT, discountPct: discType==="pct" ? discount : (t.sub ? +(t.disc/t.sub*100).toFixed(2) : 0), discountType: discType, discount:t.disc, total:t.total, tax:t.tax, receiptNotes: orderNote.trim(), notes: kitchenNote.trim(), ...(otype==="dinein" && GUESTS ? { guests: GUESTS } : {}) };
+    items: cart.map(cleanItem), subtotal:+t.sub.toFixed(2), charges:t.charges, chargesTotal:t.chT, discountPct: discType==="pct" ? discount : (t.sub ? +(t.disc/t.sub*100).toFixed(2) : 0), discountType: discType, discount:t.disc, promo: t.promo || null, total:t.total, tax:t.tax, receiptNotes: orderNote.trim(), notes: kitchenNote.trim(), ...(otype==="dinein" && GUESTS ? { guests: GUESTS } : {}) };
 }
 function rcptHead(w){
   const c = l => l.slice(0,w).padStart((w + Math.min(w,l.length))/2), out = [];

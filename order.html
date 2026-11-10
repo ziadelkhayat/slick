@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="644-1794323869">
+<meta name="slick-build" content="648-1794328388">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1611,7 +1611,7 @@ async function placeOrder(e){
 }
 
 /* ---------- order tracking: live status page + notifications on every change ---------- */
-const TK = { id:null, list:[], timer:0, seen: lsGet("slick_trk_" + brandId, {}) };
+var TK = { id:null, list:[], timer:0, seen: lsGet("slick_trk_" + brandId, {}) };
 const TFIN = ["closed","done"], TBAD = ["void","voided","declined","returned","refund"];
 const tkLive = o => o && !TFIN.includes(o.status) && !TBAD.includes(o.status);
 function tkSteps(o){ const t = o.type || "delivery", last = t==="delivery" ? ["Delivered","Enjoy your meal!"] : t==="pickup" ? ["Picked up","Thanks for ordering with us"] : ["Served","Enjoy your meal!"];
@@ -1627,7 +1627,8 @@ function tkNotify(o){ const t = tkTitle(o), body = (o.no ? "Order #" + o.no + " 
   if(!("Notification" in window) || Notification.permission !== "granted") return;
   const opt = { body, tag:"slick-order-" + o.id, renotify:true, icon:(cfg.theme||{}).logo || undefined, data:{ url: location.href.split("#")[0] + "#track=" + o.id } };
   (navigator.serviceWorker?.getRegistration?.() || Promise.resolve(null)).then(r => r ? r.showNotification(brand.name + " · " + t, opt) : new Notification(brand.name + " · " + t, opt)).catch(() => { try{ new Notification(brand.name + " · " + t, opt); }catch(e){} }); }
-async function trkPoll(){ clearTimeout(TK.timer); if(!USER || PREVIEW) return trkPill();
+async function trkPoll(){ if(!TK){ setTimeout(trkPoll, 0); return; }   // called during start-up, before the tracker is set up
+  clearTimeout(TK.timer); if(!USER || PREVIEW) return trkPill();
   const list = await tkFetch(), day = Date.now() - 864e5;
   list.forEach(o => { if(!o.id) return; const was = TK.seen[o.id]; if(was && was !== o.status && new Date(o.created_at) > day) tkNotify(o); TK.seen[o.id] = o.status; });
   lsSet("slick_trk_" + brandId, Object.fromEntries(Object.entries(TK.seen).slice(-60)));
@@ -1635,7 +1636,7 @@ async function trkPoll(){ clearTimeout(TK.timer); if(!USER || PREVIEW) return tr
   const live = list.some(o => tkLive(o) && new Date(o.created_at) > day);
   if(live || TK.id) TK.timer = setTimeout(trkPoll, document.hidden ? 30000 : 10000); }
 document.addEventListener("visibilitychange", () => { if(!document.hidden && USER) trkPoll(); });
-function trkPill(){ const el = $("#trkPill"); if(!el) return; const day = Date.now() - 864e5, o = TK.list.find(x => tkLive(x) && new Date(x.created_at) > day);
+function trkPill(){ const el = $("#trkPill"); if(!el || !TK) return; const day = Date.now() - 864e5, o = TK.list.find(x => tkLive(x) && new Date(x.created_at) > day);
   el.hidden = !o; if(!o) return; el.innerHTML = `<button type="button" data-track="${esc(o.id)}"><span class="tpd"></span><span><b>${esc(tkTitle(o))}</b><small>${o.no ? "Order #" + esc(o.no) + " · " : ""}Tap to track your order</small></span><i>›</i></button>`; }
 function trkOpen(id){ TK.id = id; let el = $("#trk"); if(!el){ el = document.createElement("div"); el.id = "trk"; el.className = "trk"; el.setAttribute("role","dialog"); document.body.appendChild(el); }
   if(location.hash !== "#track=" + id) history.replaceState(null, "", "#track=" + id);
