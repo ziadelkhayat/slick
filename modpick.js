@@ -63,6 +63,8 @@
       const el = document.createElement("div"); el.className = "smp-scrim"; const lpQt = { t:0, done:false };
       const priceOf = () => { let t = +o.basePrice||0; links.forEach((l, gi) => { let free = +l.free||0; units(l, gi).forEach(x => { if(free > 0) free--; else t += +x.price||0; }); }); return t; };
       const rule = l => { const mn = +l.min||0, mx = +l.max||0; if(mn && mx && mn===mx) return `Choose ${mn}`; if(mn && mx) return `Choose ${mn} to ${mx}`; if(mn) return `Choose at least ${mn}`; if(mx) return `Up to ${mx}`; return "Optional"; };
+      // the keypad shrinks to whatever room is left, so the window never needs scrolling for it
+      const fitPad = () => { const b = el.querySelector(".b"), np = el.querySelector(".smnp"); if(!b || !np) return; np.style.width = ""; const over = b.scrollHeight - b.clientHeight; if(over > 0) np.style.width = Math.max(150, Math.floor(np.getBoundingClientRect().width - over * .75 - 2)) + "px"; };
       const draw = () => {
         el.innerHTML = `<div class="smp${o.only==="extras" || o.only==="disc" || (o.qtyEdit && !links.length) ? " narrow" : ""}" role="dialog" aria-modal="true" aria-label="${esc(o.name)}"><header><h3>${esc(o.name)}</h3></header><div class="b">${o.qtyEdit ? `<div class="qbig">${qty <= 1 && o.canRemove ? `<button type="button" data-rm aria-label="Remove" class="qbin"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg></button>` : `<button type="button" data-qq="-1" aria-label="Less"${qty <= Math.max(1, +o.minQty||1) ? " disabled" : ""}>−</button>`}<b>${qty}</b><button type="button" data-qq="1" aria-label="More">+</button></div>` : ""}${(o.only==="extras" || o.only==="disc" ? [] : links).map((l, gi) => {
           const one = (+l.max||0) === 1, full = (+l.max||0) > 0 && cnt(gi) >= +l.max;
@@ -74,6 +76,7 @@
               return `<label class="${dis?"dis":""}"><input type="checkbox" name="g${gi}" data-g="${gi}" value="${esc(x.id)}" ${on?"checked":""} ${dis?"disabled":""}>${esc(x.name)}${x.oos?'<span class="oos">Out of stock</span>':""}<span class="p">${+x.price ? "+" + money(x.price) : ""}</span></label>`; }).join("") + `</div>`;
         }).join("")}${o.edit && o.only!=="mods" && o.only!=="disc" ? `<div class="g"><b>Item note</b></div><textarea data-note rows="2">${esc(note)}</textarea>` : ""}${o.edit && o.allowDiscount && o.only!=="mods" ? `<div class="g"><b>Item discount</b>${discOf() ? `<span>−${money(discOf())}</span>` : ""}</div>
           <div class="dz"><button type="button" data-dt="pct" class="${discT==="pct"?"on":""}">%</button><button type="button" data-dt="amt" class="${discT==="amt"?"on":""}">${esc(o.cur || String(money(0)).replace(/[-\d.,\s]+/g, "").trim() || "USD")}</button><input data-dv inputmode="${touch && PAD ? "none" : "decimal"}" aria-label="${discT==="amt"?"Amount off":"Percent off"}" value="${esc(discV)}"></div>${PAD ? `<div class="smnp">${["1","2","3","4","5","6","7","8","9",".","0","⌫"].map(k => `<button type="button" data-np="${k}" aria-label="${k==="⌫"?"Delete":k}">${k}</button>`).join("")}</div>` : ""}` : ""}</div><footer><span class="err" data-err></span><button type="button" data-x class="smc">Cancel</button><button type="button" data-ok>${o.edit ? "Save" : "Add · " + money(priceOf() * qty)}</button></footer></div>`;
+        fitPad();
       };
       const redraw = () => { const y = el.querySelector(".b")?.scrollTop; draw(); const b = el.querySelector(".b"); if(b) b.scrollTop = y; };
       const close = v => { el.remove(); document.removeEventListener("keydown", onKey); resolve(v); };
@@ -114,7 +117,7 @@
         redraw();
       });
       document.addEventListener("keydown", onKey);
-      draw(); document.body.appendChild(el);
+      draw(); document.body.appendChild(el); fitPad();
     });
   }
   // the same options on a line mean the same item (so the cart can merge them)
