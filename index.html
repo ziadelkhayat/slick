@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="677-1794348003">
+<meta name="slick-build" content="681-1794349033">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1299,6 +1299,12 @@ html body{font-family:"Plus Jakarta Sans",Inter,"IBM Plex Sans Arabic",system-ui
 @media(max-width:700px){.ccx.s2{display:block!important;overflow-y:auto!important}.ccx.s2{position:relative}.ccx .ccxbtn{position:absolute;top:24px;right:24px;width:40px;height:40px;z-index:3}.ccx.s2 .ccctxh{padding-right:48px}.ccx.s2>.ccside{border-radius:22px!important;border-bottom:0!important;padding-bottom:12px!important;margin-bottom:12px}.ccx.s2>.cccart{display:block;min-height:auto;margin-top:12px;border-radius:22px!important;padding-top:12px!important}.ccx.s2 .cccart .cart{display:block}.ccx.s2 .cccart .clist{max-height:38vh}.ccx.s2 .ccprods{height:auto}.ccx.s2 #oProducts{overflow:visible!important;flex:none}.ccx.s2 .cctools{display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important}.ccx.s2 .cctool{width:auto;height:auto;aspect-ratio:1/1}}
 .ptr{position:fixed;top:-46px;left:50%;z-index:9999;width:42px;height:42px;border-radius:50%;background:#fff;box-shadow:0 4px 14px rgba(27,24,48,.22);display:grid;place-items:center;color:var(--ink2);pointer-events:none;transform:translate(-50%,0)}.ptr svg{width:20px;height:20px}.ptr.go{color:var(--accent)}.ptr.spin{animation:ptrspin .7s linear infinite}@keyframes ptrspin{to{rotate:360deg}}
 @media(max-width:700px){.cc1.pdstyle{grid-template-columns:minmax(0,1fr)!important;padding:14px!important}.cc1.pdstyle .ccside0{min-height:120px}.ccnext .btn{flex:1}}
+/* desktop and tablets: the side menu stays put; only the page on the right scrolls */
+@media screen and (min-width:1001px){html,body{height:100%;overflow:hidden}.app{height:100vh;height:100dvh;min-height:0!important;overflow:hidden}.app>.side{position:relative!important;top:auto!important;height:100%!important;overflow-y:auto;overscroll-behavior:contain}.app>.main{height:100%;overflow-y:auto;overflow-x:auto;overscroll-behavior:contain;min-width:0}}
+/* every word starts with a capital, across the whole system; what people type, table data, codes and printed receipts stay as they are */
+body{text-transform:capitalize}button,select,option,optgroup,summary,legend{text-transform:inherit}
+input,textarea,[contenteditable],code,pre,td,.receipt,.receipt *,.rpaper,.rpaper *,a[href^="mailto:"],a[href^="http"]{text-transform:none}
+::placeholder{text-transform:capitalize}
 </style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -2447,15 +2453,19 @@ document.addEventListener("click", e => { const ic = e.target.closest(".ib"); if
 document.addEventListener("mouseover", e => { const ic = e.target.closest?.(".ib"); if(ic && !ibPin && matchMedia("(hover:hover)").matches) ibShow(ic); });
 document.addEventListener("mouseout", e => { const ic = e.target.closest?.(".ib"); if(ic && !ibPin) ibHide(); });
 document.addEventListener("keydown", e => { if(e.key==="Escape" && ibBub){ ibPin = null; ibHide(); } });
+// on wide screens the side menu stays put and the page on the right scrolls on its own: page scrolling goes to that pane
+const SCRM = () => { const m = document.querySelector(".app>.main"); return m && getComputedStyle(m).overflowY !== "visible" ? m : null; };
+const SCRY = () => { const m = SCRM(); return m ? m.scrollTop : window.scrollY; };
+{ const st = window.scrollTo.bind(window); window.scrollTo = (...a) => { const m = SCRM(); if(!m) return st(...a); if(a[0] && typeof a[0]==="object") m.scrollTo(a[0]); else m.scrollTo(+a[0]||0, +a[1]||0); }; }
 addEventListener("scroll", () => { if(ibBub){ ibPin = null; ibHide(); } }, true);
 /* re-drawing a page keeps every scroll where it was (the page, lists, drawers, table boxes) */
 const KEEP_SCROLL = "#view .bmdbody, #view .tscroll, #view .bmdtw, #view .mmcats, #view .mmtbl, #view .mm, #view .mmside, #view .mmmain, #view .rswrap, #view .bswrap, #view [data-keepscroll]";
 let RENDER_ROUTE = "";
 function render(){ const route = location.hash.slice(1) || "dashboard", same = route===RENDER_ROUTE; RENDER_ROUTE = route;
-  const wy = window.scrollY, keep = same ? [...document.querySelectorAll(KEEP_SCROLL)].map((el, i) => [i, el.scrollTop, el.scrollLeft]).filter(x => x[1] || x[2]) : [];
+  const wy = SCRY(), keep = same ? [...document.querySelectorAll(KEEP_SCROLL)].map((el, i) => [i, el.scrollTop, el.scrollLeft]).filter(x => x[1] || x[2]) : [];
   const H = document.documentElement; if(same){ H.classList.add("rr"); clearTimeout(render.t); render.t = setTimeout(() => H.classList.remove("rr"), 450); }   // redraws of the same page don't replay entrance animations (no blinking)
   const r = render0.apply(this, arguments);
-  if(same){ if(window.scrollY !== wy) window.scrollTo(0, wy); if(keep.length){ const els = [...document.querySelectorAll(KEEP_SCROLL)]; keep.forEach(([i, t, l]) => { const el = els[i]; if(el){ el.scrollTop = t; el.scrollLeft = l; } }); } }
+  if(same){ if(SCRY() !== wy) window.scrollTo(0, wy); if(keep.length){ const els = [...document.querySelectorAll(KEEP_SCROLL)]; keep.forEach(([i, t, l]) => { const el = els[i]; if(el){ el.scrollTop = t; el.scrollLeft = l; } }); } }
   return r; }
 // a page that fails to draw never leaves the screen blank: the menu stays and a short message offers a reload
 setTimeout(() => { const _r = render; render = function(){ try{ return _r.apply(this, arguments); }catch(e){ console.error("render", e);

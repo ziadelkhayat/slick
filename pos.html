@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="679-1794348296">
+<meta name="slick-build" content="681-1794349033">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -195,7 +195,7 @@ body{-webkit-font-smoothing:antialiased}
 
 
 .vlines>div{display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px solid var(--line)}.vlines .qty{display:flex;align-items:center;gap:8px}.vlines .qty button{width:32px;height:32px;border-radius:50%;border:1px solid var(--line);background:var(--s);font-weight:700}
-.spill.s-void,.spill.s-returned,.spill.s-refund{background:#fde8e8;color:#9e0c24}.spill.s-closed{background:#e7f6ec;color:#1f7a3f}
+.spill.s-void,.spill.s-returned,.spill.s-refund,.spill.s-declined{background:#fde8e8;color:#9e0c24}.spill.s-closed{background:#e7f6ec;color:#1f7a3f}
 .apv{position:fixed;inset:0;background:rgba(20,16,40,.55);display:flex;align-items:center;justify-content:center;z-index:9999}.apvbox{background:#fff;border-radius:18px;padding:22px;width:min(340px,92vw);text-align:center}
 .apvbox .pindots{display:flex;justify-content:center;gap:12px;margin:14px 0 6px}.apvbox .pindots i{width:14px;height:14px;border-radius:50%;border:2px solid #5b2bc4}.apvbox .pindots i.on{background:#5b2bc4}
 .apvbox .pinpad{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.apvbox .pinpad button{padding:14px 0;font-size:20px;font-weight:600;border:1px solid var(--line);background:var(--s);border-radius:12px}
@@ -727,6 +727,14 @@ html:has(#activate:not(.hide)),html:has(#activate:not(.hide)) body,html:has(#loc
 #modal .pinpad button:active,.modal .pinpad button:active,.apvbox .pinpad button:active{background:var(--accs,#efeaff)!important;transform:scale(.94)}
 #modal .pinpad button[data-npk="⌫"],.modal .pinpad button[data-npk="⌫"],.modal .pinpad button[data-ap="b"],#modal .pinpad button[data-ap="b"]{background:none!important;color:var(--mut)}
 #modal.tillm .tillx .tr{align-items:center;justify-content:center}#modal.tillm .tillx .tr .npad.npad{grid-auto-rows:auto!important;width:min(100%,320px,44vh)!important}
+/* every X: the same round button as the back office, the cross fixed in the middle of the circle, no movement */
+button.x:not(.xc){width:38px!important;height:38px!important;min-width:38px;flex:none;box-sizing:border-box;border-radius:50%!important;border:1.5px solid #cfccd9!important;background:#fff!important;color:var(--ink,#1c1a2b)!important;font-size:20px!important;line-height:1!important;padding:0!important;display:grid!important;place-items:center!important;transition:none!important;transform:none!important;cursor:pointer}
+button.x:not(.xc):hover,button.x:not(.xc):active{transform:none!important}button.x:not(.xc):active{background:#f1f0f5!important}
+button.x[aria-label="Close"]:not(.xc){font-size:0!important;background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%231c1a2b' stroke-width='2.4' stroke-linecap='round'%3E%3Cpath d='M6 6l12 12M18 6 6 18'/%3E%3C/svg%3E") center/16px 16px no-repeat!important}button.x[aria-label="Close"]:not(.xc):active{background-color:#f1f0f5!important}
+/* every word starts with a capital, across the whole system; what people type, table data, codes and printed receipts stay as they are */
+body{text-transform:capitalize}button,select,option,optgroup,summary,legend{text-transform:inherit}
+input,textarea,[contenteditable],code,pre,td,.receipt,.receipt *,.rpaper,.rpaper *,a[href^="mailto:"],a[href^="http"]{text-transform:none}
+::placeholder{text-transform:capitalize}
 </style>
 <script>
 /* ---------- naming: menu "products" are called Items; inventory "items" are called Products ----------
@@ -2557,11 +2565,11 @@ async function pdPast(id, ph){
   const seen = new Set(rows.map(o => o.id));
   S.orders.filter(o => !seen.has(o.id) && normPhone(o.phone)===ph).forEach(o => rows.push({ id:o.id, no:o.no, inv:o.invoiceNo, status:o.status, type:o.type, total:+o.total||0, items:o.items||[], branchId:o.branchId, at:o.createdAt,
     discount:+o.discount||0, fee:+o.deliveryFee||0, charges:o.charges||[], address:o.address||"", payment:o.payment||null, source:o.source||"" }));
-  return rows.filter(o => ["pending","active","closed"].includes(o.status)).sort((a,b) => String(b.at).localeCompare(String(a.at)));
+  return rows.filter(o => o.status && o.status!=="draft").sort((a,b) => String(b.at).localeCompare(String(a.at)));
 }
 // customer card: insights + previous orders (tap one for its details); used by the new-order form and the customer page
 function insCard(c, ok){
-  ok = ok || []; const spent = ok.reduce((s,o) => s + o.total, 0);
+  ok = (ok || []).filter(o => ["pending","active","closed"].includes(o.status)); const spent = ok.reduce((s,o) => s + o.total, 0);
   const nType = k => ok.filter(o => o.type===k || (k==="takeaway" && o.type==="pickup")).length;
   const d = x => x ? new Date(x).toLocaleDateString("en-GB", { day:"numeric", month:"short", year:"numeric" }) : "—";
   const since = d(c.created_at || ok[ok.length-1]?.at);
@@ -2610,7 +2618,7 @@ async function openCustPage(det){
   const ph = normPhone(cust.phone), eo = editOrder(), addr = otype==="delivery" ? (eo?.address || addrJoin(cust.addr||{})) : "";
   if(!CV || CV.ph!==ph){ CV = { ph, c:null, past:[], loading:true }; drawCust(); 
     if(ph.length >= 6 && window.WOK?.sb && navigator.onLine){ try{ const { data: list } = await window.WOK.sb.from("customers").select("id,name,phone,addresses,blacklisted,notes,tags,created_at").in("phone", phoneVariants(ph)).limit(1); const data = list?.[0] || null; CV.c = data || null; CV.past = await pdPast(data?.id || "00000000-0000-0000-0000-000000000000", ph); }catch(e){ console.warn(e); } }
-    else CV.past = S.orders.filter(o => ph && normPhone(o.phone)===ph && ["pending","active","closed"].includes(o.status)).map(o => ({ id:o.id, no:o.no, inv:o.invoiceNo, status:o.status, type:o.type, total:+o.total||0, items:o.items||[], branchId:o.branchId, at:o.createdAt, discount:+o.discount||0, fee:+o.deliveryFee||0, charges:o.charges||[], address:o.address||"", payment:o.payment||null, source:o.source||"" }));
+    else CV.past = S.orders.filter(o => ph && normPhone(o.phone)===ph && o.status && o.status!=="draft").map(o => ({ id:o.id, no:o.no, inv:o.invoiceNo, status:o.status, type:o.type, total:+o.total||0, items:o.items||[], branchId:o.branchId, at:o.createdAt, discount:+o.discount||0, fee:+o.deliveryFee||0, charges:o.charges||[], address:o.address||"", payment:o.payment||null, source:o.source||"" }));
     CV.loading = false; if(modalKind!=="custpage") return; }
   CV.det = det || null; CV.addr = addr; drawCust();
 }
