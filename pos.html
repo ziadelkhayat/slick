@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="663-1794344987">
+<meta name="slick-build" content="665-1794346104">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -671,7 +671,7 @@ input,textarea{-webkit-user-select:text;user-select:text}
 #grid#grid,#grid#grid:has(>.prod),#grid#grid:has(>.cbtile){grid-template-columns:repeat(var(--cols,5),var(--tile,1fr))!important;grid-auto-rows:var(--tile,120px)!important;justify-content:start!important;align-content:start!important}
 @media (min-width:701px){.main.main.sqfit{grid-template-columns:minmax(0,1fr) var(--rw)!important}
 #abar.abar{display:flex!important;flex-wrap:nowrap!important;justify-content:space-between!important;overflow:visible!important}
-.sqfit #abar .abtn.abtn{flex:0 0 var(--ab)!important;width:var(--ab)!important;height:var(--ab)!important;max-height:none!important;aspect-ratio:1/1!important;padding:4px!important}
+.sqfit #abar .abtn.abtn{flex:1 1 0!important;min-width:0!important;width:auto!important;height:var(--ab)!important;max-height:none!important;aspect-ratio:auto!important;padding:4px!important}
 .sqfit #abar .abtn.abtn span{font-size:clamp(10px,calc(var(--ab) / 7),14px)}
 .sqfit #grid#grid{justify-content:space-between!important;align-content:space-between!important;grid-template-rows:repeat(var(--rows,4),var(--tile))!important;overflow-x:hidden}}
 .netst{display:inline-flex;align-items:center;gap:6px;flex:none;padding:5px 10px;border-radius:999px;font-size:12.5px;font-weight:600;line-height:1;background:#e7f6ec;color:#1e7b3c;white-space:nowrap}.netst i{width:8px;height:8px;border-radius:50%;background:#22a04b}.netst.off{background:#fde8e8;color:#b42318}.netst.off i{background:#d92d20}
@@ -721,6 +721,12 @@ html:has(#activate:not(.hide)),html:has(#activate:not(.hide)) body,html:has(#loc
 .pdright>.pdside0{flex:none!important;align-self:auto!important;min-height:240px;background:#fff;border:1px dashed #d7d4e2;border-radius:16px}
 .pdcols .pdph{flex-direction:row!important;gap:8px}.pdcols .pdph>*{flex:1 1 0!important;width:auto!important;max-width:none!important;min-width:0}
 .pdcols .pdph{display:grid!important;grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important;gap:8px}.pdcols .pdph>*{width:100%!important;min-width:0!important;max-width:none!important;box-sizing:border-box}
+/* one keypad everywhere: square soft-grey keys, the same as the guest-count pad */
+#modal .pinpad,.modal .pinpad,.apvbox .pinpad{grid-template-columns:repeat(3,1fr)!important;grid-auto-rows:auto!important;gap:10px!important;width:min(100%,280px,36vh)!important;max-width:none!important;margin:12px auto 0!important;flex:none!important;align-self:center}
+#modal .pinpad button,.modal .pinpad button,.apvbox .pinpad button{aspect-ratio:1/1!important;height:auto!important;min-height:0!important;width:100%!important;padding:0!important;border:0!important;background:#f4f3f8!important;border-radius:18px!important;font-size:24px!important;font-weight:600!important;color:var(--ink,#1c1a2b);transition:transform .08s,background .08s}
+#modal .pinpad button:active,.modal .pinpad button:active,.apvbox .pinpad button:active{background:var(--accs,#efeaff)!important;transform:scale(.94)}
+#modal .pinpad button[data-npk="⌫"],.modal .pinpad button[data-npk="⌫"],.modal .pinpad button[data-ap="b"],#modal .pinpad button[data-ap="b"]{background:none!important;color:var(--mut)}
+#modal.tillm .tillx .tr{align-items:center;justify-content:center}#modal.tillm .tillx .tr .npad.npad{grid-auto-rows:auto!important;width:min(100%,320px,44vh)!important}
 </style>
 <script>
 /* ---------- naming: menu "products" are called Items; inventory "items" are called Products ----------
@@ -1374,7 +1380,7 @@ function renderCart(){
   const rf = eo0 && eo0.status==="refund" ? eo0 : null, rfInv = rf && invNo(rf.invoiceRef || S.orders.find(x => x.id===rf.refundOf)?.invoiceNo);
   const ctx = rf ? `<div class="ctx"><span class="ci ci-svg">${ico("undo")}</span><div><b>Return</b><small>${rfInv ? "Original invoice " + esc(rfInv) : esc(typLbl(rf.type))}</small></div><span class="sp"></span></div>`
     : otype==="dinein" ? `<div class="ctx"><span class="ci ci-svg">${ico("dine")}</span><div><b>${esc(tblLbl(tableNo || "—"))}</b><small>Dine-in${GUESTS ? ` · ${GUESTS} guest${GUESTS===1?"":"s"}` : ""}</small></div><span class="sp"></span>${canSwitch ? `<button data-ctx="table">Change table</button><button data-ctx="fast">Remove table</button>` : ""}</div>`
-    : otype==="takeaway" || otype==="delivery" ? `<div class="ctx"><span class="ci ci-svg">${ico(otype==="delivery" ? "scooter" : "bag")}</span><div><b>${esc(cust.name || (otype==="delivery" ? "Delivery" : "Pickup"))}</b><small>${esc([branch?.name, otype==="delivery" ? "Delivery" : "Pickup", cust.source].filter(Boolean).join(" · "))}</small></div><span class="sp"></span>${cust.phone || cust.name ? `<button data-ctx="custpage">Customer details</button>` : ""}${canSwitch ? `<button data-ctx="pddetails">Details</button>` : ""}</div>`
+    : otype==="takeaway" || otype==="delivery" ? `<div class="ctx"><span class="ci ci-svg">${ico(otype==="delivery" ? "scooter" : "bag")}</span><div><b>${esc(cust.name || (otype==="delivery" ? "Delivery" : "Pickup"))}</b><small>${esc([branch?.name, otype==="delivery" ? "Delivery" : "Pickup", cust.source].filter(Boolean).join(" · "))}</small></div><span class="sp"></span>${cust.phone || cust.name ? `<button data-ctx="custpage">Customer details</button>` : ""}${canSwitch ? `<button data-ctx="pddetails">Edit</button>` : ""}</div>`
     : `<div class="ctx"><span class="ci ci-svg"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12v18l-2-1.5L14 21l-2-1.5L10 21l-2-1.5L6 21z"/><path d="M9 8h6M9 12h6M9 16h3"/></svg></span><div><b>Fast Sale</b></div><span class="sp"></span></div>`;
   // the order's tags, under the order type: "Tag: …"
   const tgIds = posTags ?? (eo0 ? (tgDoc().on?.order?.[eo0.id] || []) : []), tgNames = tgIds.map(id => tgList("order").find(t => t.id===id)?.name).filter(Boolean);
@@ -1496,7 +1502,7 @@ function voidSent(ix){
     if(innerWidth <= 700){ main.classList.remove("sqfit"); return; }
     const btns = [...ab.children].filter(b => b.offsetParent !== null), n = Math.max(btns.length, 8);   // sized as if the row is full (8), so a row with fewer buttons keeps the same button size
     const gs = getComputedStyle(g), as = getComputedStyle(ab), ms = getComputedStyle(main);
-    const gg = px(gs.columnGap) || 10, ag = px(as.columnGap) || 8, gpw = px(gs.paddingLeft) + px(gs.paddingRight), gph = px(gs.paddingTop) + px(gs.paddingBottom), apw = px(as.paddingLeft) + px(as.paddingRight), aph = px(as.paddingTop) + px(as.paddingBottom);
+    const gg = px(gs.columnGap) || 10, ag = 10, gpw = px(gs.paddingLeft) + px(gs.paddingRight), gph = px(gs.paddingTop) + px(gs.paddingBottom), apw = px(as.paddingLeft) + px(as.paddingRight), aph = px(as.paddingTop) + px(as.paddingBottom);
     const rsW = rs.getBoundingClientRect().width, H = rs.clientHeight; if(!rsW || !H) return;
     const owG = rsW - (g.clientWidth - gpw), owA = rsW - (ab.clientWidth - apw);      // side room around the grid / the button row
     const fixedH = H - (ab.offsetHeight - aph) - (g.clientHeight - gph);                  // search bar, bottom bar, gaps: everything that isn't buttons or tiles
@@ -1504,14 +1510,14 @@ function voidSent(ix){
     // the menu side is always the bigger part (62%), the cart the rest; then pick how many tiles across / down
     // so the squares fill the menu area with the least empty space (the few spare pixels go into the gaps)
     const W = Math.round(room * 0.62), Wg = W - owG, b = Math.floor((W - owA - (n-1)*ag) / n), Hg = H - fixedH - b;
-    let best = null;
-    for(let C = 4; C <= 8; C++){ const tw = (Wg - (C-1)*gg) / C; if(tw < 70) break;
+    let best = null; const ideal = Math.min(160, Math.max(112, Wg / 6));
+    for(let C = 4; C <= 12; C++){ const tw = (Wg - (C-1)*gg) / C; if(tw < 70) break;
       for(const R of [Math.floor((Hg + gg) / (tw + gg)), Math.ceil((Hg + gg) / (tw + gg))]){ if(R < 3) continue;
-        const t = Math.min(tw, (Hg - (R-1)*gg) / R), waste = Wg*Hg - C*R*t*t; if(!best || waste < best.waste) best = { C, R, t: Math.floor(t), waste }; } }
+        const t = Math.min(tw, (Hg - (R-1)*gg) / R), waste = 1 - C*R*t*t / (Wg*Hg) + .6 * Math.abs(t - ideal) / ideal;   /* least empty space, with tiles near a comfortable size on every screen shape (16:10, 4:3, 16:9) */ if(!best || waste < best.waste) best = { C, R, t: Math.floor(t), waste }; } }
     if(!best || b < 30) return;
     const key = [W, b, best.C, best.R, best.t].join(); if(key === fit.k) return; fit.k = key; fit.n = (fit.n||0) + 1;
     main.classList.add("sqfit"); main.style.setProperty("--rw", W + "px"); ab.style.setProperty("--ab", b + "px");
-    ab.style.setProperty("justify-content", "flex-start", "important"); ab.style.setProperty("gap", Math.max(4, (W - owA - n*b) / (n-1)) + "px", "important");   // same spacing whether the row is full or not, buttons from the left
+    ab.style.setProperty("justify-content", "flex-start", "important"); ab.style.setProperty("gap", ag + "px", "important");   // the buttons keep their height and share the whole row, however many are showing
     g.style.setProperty("--tile", best.t + "px"); g.style.setProperty("--cols", best.C); g.style.setProperty("--rows", best.R);
     if(fit.n < 6) requestAnimationFrame(fit);   // measure again once the new sizes are on screen (settles in a pass or two)
   } finally { busy = false; } };
@@ -2618,11 +2624,20 @@ function drawCust(){
         <div class="kv"><span>This order</span><b>${otype==="delivery" ? "Delivery" : "Pickup"}</b></div>
         ${CV.addr ? `<div class="kv"><span>Delivering to</span><b>📍 ${esc(CV.addr)}</b></div>` : ""}</div>
         ${CV.loading ? "" : insCard(c, CV.past)}
-        ${saved.length ? `<div class="cpast"><b>Saved addresses</b>${saved.map((a,i) => { const p = addrParts(a.address); return `<div class="acard ro"><span class="act"><b>${esc(p.label || "Address " + (i+1))}</b><span>${esc([p.street, p.building && "Bldg " + p.building, p.floor && "Floor " + p.floor, p.extra].filter(Boolean).join(" · ") || a.address)}</span></span></div>`; }).join("")}</div>` : ""}</div>
-      <div class="custcol">${CV.loading ? '<div class="mut">Loading orders…</div>' : custPanel(c, CV.past, CV.det, "cvdet", "", true)}</div>
+        </div>
+      <div class="custcol">${saved.length ? `<button type="button" class="acard adbar" data-cvadpop><span class="aci">${PIN_SVG}</span><span class="act"><b>Saved addresses</b></span><i class="adgo">›</i></button>` : ""}${CV.loading ? '<div class="mut">Loading orders…</div>' : custPanel(c, CV.past, CV.det, "cvdet", "", true)}</div>
     </div></div>`);
   $("#modal").classList.add("full"); $("#scrim").classList.add("fullscr"); withNav();
 }
+// Customer details: the saved addresses in their own window; press one for its full details
+function cvAddrPop(view){ const saved = (CV?.c?.addresses || []).filter(a => a.address); if(!saved.length) return;
+  let el = $("#adPop"); if(!el){ el = document.createElement("div"); el.id = "adPop"; el.className = "scrim show npsc adpop"; document.body.appendChild(el); }
+  if(view===undefined || view==="list"){ el.innerHTML = `<div class="modal"><div class="mh"><h2>Saved addresses</h2><button class="x" data-adx aria-label="Close">×</button></div><div class="mb"><div class="acards">${saved.map((a,i) => { const p = addrParts(a.address);
+      return `<button type="button" class="acard" data-cvad="${i}"><span class="aci">${PIN_SVG}</span><span class="act"><b>${esc(p.label || "Address " + (i+1))}</b><span>${esc(p.street || a.address)}</span>${p.building || p.floor ? `<small>${esc([p.building && "Bldg " + p.building, p.floor && "Floor " + p.floor].filter(Boolean).join(" · "))}</small>` : ""}</span></button>`; }).join("")}</div></div></div>`; return; }
+  const p = addrParts(saved[+view]?.address || ""), rows = [["Area / street", p.street],["Building name / no.", p.building],["Floor / Apartment no.", p.floor],["Door details / Name on intercom", p.door],["Instructions", p.extra]].filter(r => r[1]);
+  el.innerHTML = `<div class="modal"><div class="mh"><button class="adback" data-cvad="list" aria-label="Back">‹</button><h2>${esc(p.label || "Address details")}</h2><button class="x" data-adx aria-label="Close">×</button></div>
+    <div class="mb"><div class="ohkv">${rows.length ? rows.map(r => `<div class="kv"><span>${r[0]}</span><b>${esc(r[1])}</b></div>`).join("") : `<div class="kv"><span>Address</span><b>${esc(saved[+view]?.address || "")}</b></div>`}</div></div></div>`; }
+document.addEventListener("click", e => { const t = e.target; if(!t.closest) return; if(t.closest("[data-cvadpop]")) return cvAddrPop(); const o = t.closest("#adPop [data-cvad]"); if(o) cvAddrPop(o.dataset.cvad); });
 function pdCancel(){ const ed = PD?.edit; PD = null; if(ed) return closeModal(); openBoard(); }
 // order sources from Manage → Order Sources (POS is a channel, not a source)
 const posSources = () => { const l = S.order_sources.filter(r => !r.deleted && r.active!==false && String(r.name||"").trim() && String(r.name).toUpperCase()!=="POS").sort((a,b) => (a.sort??999)-(b.sort??999) || String(a.name).localeCompare(b.name)).map(r => r.name);
