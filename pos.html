@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="683-1794349543">
+<meta name="slick-build" content="684-1794350854">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -738,6 +738,7 @@ input,textarea,[contenteditable],code,pre,td,.receipt,.receipt *,.rpaper,.rpaper
 .ohfil{flex:none;display:flex;gap:8px;flex-wrap:wrap;padding:12px 18px;border-bottom:1px solid var(--line);background:#fff}.ohfil button{border:1.5px solid var(--line);background:#fff;border-radius:999px;min-height:40px;padding:0 16px;font:inherit;font-size:14px;font-weight:600;color:var(--mut);cursor:pointer}.ohfil button.on{background:var(--accs,#efeaff);border-color:var(--acc);color:var(--acci,var(--acc))}.ohnone{grid-column:1/-1;text-align:center;color:var(--mut);padding:36px 0}
 .ohgh{grid-column:1/-1;display:flex;align-items:center;gap:8px;font-size:14px;font-weight:700;color:var(--ink);margin:6px 0 -2px}.ohgh:first-child{margin-top:0}.ohgh span{font-size:12px;font-weight:600;color:var(--mut);background:#f1f0f5;border-radius:999px;padding:2px 9px}
 .acts button.decl{color:#d92d20;border-color:#f3c4c0;background:#fff}
+.ocard .ocr{display:flex;align-items:baseline;gap:10px;font-size:14px;min-width:0}.ocard .ocr>span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.ocard .ocr.wrap>span{white-space:normal}.ocard .ocr small{flex:none;margin-left:auto;color:#8d8c98;font-size:12.5px;white-space:nowrap}.ocard .ocr.mut>span{color:var(--mut)}.ocard .oc-t{padding:2px 0!important;border-top:0!important}
 </style>
 <script>
 /* ---------- naming: menu "products" are called Items; inventory "items" are called Products ----------
@@ -2456,13 +2457,16 @@ function openBoard(){
   if(!can("pos_orders") && !can("pos_incoming")) return deny("seeing orders");
   const t = v => v ? new Date(v).toLocaleTimeString("en-GB",{hour:"numeric",minute:"2-digit"}) : "";
   const chn = o => o.channel==="pos" ? "POS" : o.channel==="callcenter" ? "Call center" : "Web";
-  const card = o => `<div class="ocard" role="button" tabindex="0" data-ov="${esc(o.id)}"><span class="oc1"><b>${esc(o.invoiceNo ? invNo(o.invoiceNo) : o.no ? "#" + o.no : (o.ref || ordRef(o)))}</b><span class="spill s-${o.status}">${stLbl(o)}</span></span>
-    ${o.invoiceNo && o.no ? `<span class="mut oc-s">Order #${esc(o.no)}</span>` : ""}
-    ${o.customerName || o.phone ? `<span class="oc2">${ico("user")}<span>${esc(o.customerName||"")}<small>${esc(o.phone||"")}</small></span></span>` : ""}
-    ${o.type==="delivery" && o.address ? `<span class="oc2 mut">${ico("pin")}<span>${esc(o.address)}</span></span>` : ""}
-    <span class="oc2 mut">${ico("clock")}<span>Created ${t(o.createdAt)}${o.updatedAt && o.updatedAt!==o.createdAt ? `<small>Modified ${t(o.updatedAt)}</small>` : ""}</span></span>
-    <span class="oc2">${ico(o.channel==="pos" ? "receipt" : o.channel==="callcenter" ? "headset" : "globe")}<span>${esc((o.source!=="Website" && o.source) || chn(o))} · ${esc(typLbl(o.type))}<small>${esc(o.agent || "")}</small></span></span>
-    <b class="oc-t">${usd(o.total)}</b>${o.status==="pending" ? (canAccept() ? `<span class="ocacts"><button class="btn bad" data-inc="${esc(o.id)}:declined">Decline</button><button class="btn pri" data-inc="${esc(o.id)}:active">Accept</button></span>` : `<span class="mut oc-s">${esc(masterNote())}</span>`) : ""}</div>`;
+  const row = (a, b, cls) => a || b ? `<span class="ocr${cls ? " " + cls : ""}"><span>${esc(a||"")}</span>${b ? `<small>${esc(b)}</small>` : ""}</span>` : "";
+  // one card layout: reference, invoice / order, customer / phone, address (delivery), created / modified, total, type / source, channel / user
+  const card = o => `<div class="ocard" role="button" tabindex="0" data-ov="${esc(o.id)}"><span class="oc1"><b>${esc(o.ref || ordRef(o))}</b><span class="spill s-${o.status}">${stLbl(o)}</span></span>
+    ${row(o.invoiceNo ? invNo(o.invoiceNo) : "", o.no ? "Order #" + o.no : "")}
+    ${row(o.customerName, o.phone)}
+    ${o.type==="delivery" && o.address ? row(o.address, "", "wrap mut") : ""}
+    ${row("Created " + t(o.createdAt), o.updatedAt && o.updatedAt!==o.createdAt ? "Modified " + t(o.updatedAt) : "", "mut")}
+    <b class="oc-t">${usd(o.total)}</b>
+    ${row(typLbl(o.type), o.source && o.source!=="Website" && String(o.source).toUpperCase()!=="POS" ? o.source : "")}
+    ${row(chn(o), o.agent || "")}${o.status==="pending" ? (canAccept() ? `<span class="ocacts"><button class="btn bad" data-inc="${esc(o.id)}:declined">Decline</button><button class="btn pri" data-inc="${esc(o.id)}:active">Accept</button></span>` : `<span class="mut oc-s">${esc(masterNote())}</span>`) : ""}</div>`;
   const q = OV.q; OV.q = BQ;
   const PD_COLS = [...OV_COLS.slice(0,3), ["declined","Declined","Declined today"]];   // pickup & delivery: no void / returns column
   const cols = PD_COLS.map(([k,title,tip]) => [k, title, tip, boardOrders(k, true)]); OV.q = q;
