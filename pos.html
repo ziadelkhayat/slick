@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="650-1794330568">
+<meta name="slick-build" content="651-1794332072">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -2458,6 +2458,7 @@ function pdAddrPop(view){
       return `<button type="button" class="acard${cur && cur===addrJoin(p) ? " on" : ""}" data-adopen="${i}"><span class="aci">${PIN_SVG}</span><span class="act"><b>${esc(p.label || "Address " + (i+1))}</b><span>${esc(p.street || a.address)}</span>${p.building || p.floor ? `<small>${esc([p.building && "Bldg " + p.building, p.floor && "Floor " + p.floor].filter(Boolean).join(" · "))}</small>` : ""}</span><span class="acok">✓</span></button>`; }).join("")}
       <button type="button" class="acard new" data-adopen="new"><span class="aci"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></span><span class="act"><b>New address</b></span></button></div></div></div>`; return; }
   const a = view==="new" ? {} : view==="cur" ? { ...(PD.addr||{}) } : addrParts(saved[+view]?.address), lbl = String(a.label||"").trim();
+  el.dataset.ix = view==="new" ? "" : view==="cur" ? (PD.addrIx ?? "") : (PD.cust?.addresses || []).indexOf(saved[+view]);   // which saved address is being edited, so saving overwrites it
   const F = [["street","Area / street *"],["building","Building name / no. *"],["floor","Floor / Apartment no. *"],["door","Door details / Name on intercom"],["extra","Instructions"]];
   el.innerHTML = `<div class="modal"><div class="mh">${saved.length ? `<button class="adback" data-adopen="list" aria-label="Back">‹</button>` : ""}<h2>${view==="new" ? "New address" : esc(lbl || "Address details")}</h2><button class="x" data-adx aria-label="Close">×</button></div>
     <div class="mb"><div class="addrg"><label class="adf"><select id="adA_label" data-noseg aria-label="Address type"><option value="">Address type</option>${[...new Set([...ADDR_TYPES, lbl].filter(Boolean))].map(t => `<option ${t===lbl?"selected":""}>${esc(t)}</option>`).join("")}</select></label>
@@ -2467,6 +2468,7 @@ function pdAddrPop(view){
 function pdAddrUse(){ const a = {}; ADDR_K.forEach(k => a[k] = ($("#adA_" + k)?.value || "").trim());
   const miss = [["street","area / street"],["building","building"],["floor","floor"]].filter(([k]) => !a[k]).map(x => x[1]);
   if(miss.length){ $("#adErr").textContent = "Enter the " + miss.join(", ").replace(/, ([^,]*)$/, " and $1") + "."; return; }
+  const ix = $("#adPop")?.dataset.ix; PD.addrIx = ix==="" || ix==null || +ix < 0 ? null : +ix;
   PD.addr = a; $("#adPop")?.remove(); const y = $(".pdform")?.scrollTop || 0; openPDNew({ keepFocus: true }); const f = $(".pdform"); if(f) f.scrollTop = y; }
 document.addEventListener("click", e => { const t = e.target; if(!t.closest) return;
   if(t.closest("[data-adpop]") && PD){ if($("#adPop")) return; return pdAddrPop(addrJoin(PD.addr || {}) && !(PD.cust?.addresses||[]).some(x => x.address && addrJoin(addrParts(x.address))===addrJoin(PD.addr)) ? "cur" : undefined); }
@@ -2510,7 +2512,7 @@ async function pdLookup(){
     if(normPhone($("#pdPhone")?.value, $("#pdCc")?.value) !== ph || modalKind!=="pdnew") return;
     PD.past = data ? await pdPast(data.id, ph) : [];
     if(normPhone($("#pdPhone")?.value, $("#pdCc")?.value) !== ph || modalKind!=="pdnew") return;
-    pdKeep(); PD.cust = data || null; PD.det = null;
+    pdKeep(); PD.cust = data || null; PD.det = null; PD.addrIx = null;
     if(data){ pdClearAuto(); if(!PD.name && data.name){ PD.name = data.name; PD.autoName = PD.name; } if(PD.type==="delivery" && !ADDR_K.some(k => PD.addr[k]) && data.addresses?.[0]?.address){ PD.addr = addrParts(data.addresses[0].address); PD.autoAddr = addrJoin(PD.addr); } openPDNew({ keepFocus:true }); const i = $("#pdPhone"); i.focus(); i.setSelectionRange(i.value.length, i.value.length); }
     else { pdClearAuto(); if($(".pdside")){ openPDNew({ keepFocus:true }); const i = $("#pdPhone"); i.focus(); i.setSelectionRange(i.value.length, i.value.length); } $("#pdHint").innerHTML = "New customer · enter their name"; }
   }catch(e){ console.warn(e); }
@@ -2605,7 +2607,7 @@ async function pdSaveCust(){
   const ph = normPhone(PD.phone, PD.cc), name = PD.name.trim(), a = PD.type==="delivery" ? addrJoin(PD.addr) : "";
   try{
     if(PD.cust?.id){ const list = PD.cust.addresses || [], row = {};
-      if(a && !list.some(x => addrJoin(addrParts(x.address))===a)) row.addresses = [...list, { address:a }];
+      if(a && !list.some(x => addrJoin(addrParts(x.address))===a)) row.addresses = PD.addrIx!=null && list[PD.addrIx] ? list.map((x,i) => i===PD.addrIx ? { ...x, address:a } : x) : [...list, { address:a }];   // an edited saved address replaces the original
       if(name && !PD.cust.name) row.name = name;
       if(Object.keys(row).length) await window.WOK.sb.from("customers").update({ ...row, updated_at:new Date().toISOString() }).eq("id", PD.cust.id);
     } else if(ph.length >= 6 && name) await window.WOK.sb.from("customers").insert({ phone:ph, name, addresses: a ? [{ address:a }] : [] });

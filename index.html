@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="650-1794330568">
+<meta name="slick-build" content="651-1794332072">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -3964,6 +3964,10 @@ document.addEventListener("click", e => { const t = e.target; if(!t.closest || !
   const v = t.closest("[data-ccadv]"); if(v) return ccAddrPop(v.dataset.ccadv);
   if(t.closest("[data-ccadok]")){ const a = ccAddrGet(), miss = [["street","area / street"],["building","building"],["floor","floor"]].filter(([k]) => !a[k]).map(x => x[1]);
     if(miss.length && !$("#oA_street")?.disabled){ $("#oAddrErr").textContent = "Enter the " + miss.join(", ").replace(/, ([^,]*)$/, " and $1") + "."; return; }
+    // an edited saved address replaces the original on the customer
+    const c = window.__ccCust, ix = window.__ccAddrIx, nv = addrJoin(a);
+    if(c?.id && ix!=null && c.addresses?.[ix] && addrJoin(addrSplit(c.addresses[ix].address))!==nv && storeMode==="db"){ const list = c.addresses.map((x,i) => i===ix ? { ...x, address:nv } : x);
+      WOK.sb.from("customers").update({ addresses:list, updated_at:new Date().toISOString() }).eq("id", c.id).then(r => { if(r.error) toast("Couldn't update the saved address: " + r.error.message); else c.addresses = list; }); }
     ccAddrPopClose(); try{ renderCart(false); }catch(_){} } });
 // call center pin: mounted once the delivery address is showing (the map needs a visible box); it re-picks the zone charge
 function ccPinMount(force){ const b = $("#oA_loc"); if(!b || (b.classList.contains("lp") && !force)) return;
@@ -5876,7 +5880,7 @@ async function ccLookup(view){
   if(!view){ if($("#oName") && !$("#oName").value && data.name) $("#oName").value = data.name;
     if($("#oA_street") && !ADDR_K.some(k => $("#oA_"+k)?.value) && data.addresses?.[0]?.address) ccAddrSet(data.addresses[0].address); }
   hint.innerHTML = `${data.blacklisted ? '<b style="color:#9e0c24">⚠ Blacklisted customer.</b> ' : ""}${(data.tags||[]).map(t=>`<span class="tag">${esc(t)}</span>`).join(" ")}${data.notes ? ` <i>${esc(data.notes)}</i>` : ""}`;
-  window.__ccCust = data; window.__ccPast = past || []; window.__ccOk = null; ccAddrCards();
+  window.__ccCust = data; window.__ccPast = past || []; window.__ccOk = null; window.__ccAddrIx = null; ccAddrCards();
   const ok = (past||[]).filter(o => ["pending","active","closed"].includes(o.status)), spent = ok.reduce((a,o)=>a+(+o.total||0),0);
   const fav = {}; ok.forEach(o => (o.items||[]).forEach(i => fav[i.name] = (fav[i.name]||0) + (+i.qty||1)));
   const top = Object.entries(fav).sort((a,b)=>b[1]-a[1]).slice(0,3), last = ok[0], first = ok[ok.length-1];
@@ -5897,8 +5901,8 @@ document.addEventListener("click", e => {
     const okIds = new Set(availableProducts().map(p=>p.id)), miss = [];
     (lo.items||[]).filter(i => !i.voided).forEach(i => { const p = S.products.find(x=>x.id===i.productId); if(!p || !okIds.has(p.id)){ miss.push(i.name); return; } const opt = (i.options||[]).reduce((a,x)=>a+(+x.price||0),0); cart.push({ productId:p.id, name:i.name, price:+(ccPrice(p)+(i.options?.length?opt:0)).toFixed(2), qty:+i.qty||1, ...(i.options?.length?{options:i.options,mods:i.mods}:{}), ...(i.note?{note:i.note}:{}) }); });
     renderCart(false); toast(miss.length ? `Added to the cart · not available now: ${miss.join(", ")}` : "Order added to the cart"); return; }
-  const ua = e.target.closest("[data-useaddr]"); if(ua){ e.preventDefault(); const a = window.__ccCust?.addresses?.[+ua.dataset.useaddr]; if(a){ ccAddrSet(a.address); ccPinSet(a); ccAddrPop("det"); try{ renderCart(false); }catch(_){} } return; }
-  if(e.target.closest("[data-newaddr]")){ e.preventDefault(); ADDR_K.forEach(k => { const el = $("#oA_"+k); if(el) el.value = ""; }); addrTypeSync("oA"); ccPinSet(null); ccAddrPop("det"); $("#oA_type")?.focus(); return; }
+  const ua = e.target.closest("[data-useaddr]"); if(ua){ e.preventDefault(); const a = window.__ccCust?.addresses?.[+ua.dataset.useaddr]; if(a){ window.__ccAddrIx = +ua.dataset.useaddr; ccAddrSet(a.address); ccPinSet(a); ccAddrPop("det"); try{ renderCart(false); }catch(_){} } return; }
+  if(e.target.closest("[data-newaddr]")){ e.preventDefault(); window.__ccAddrIx = null; ADDR_K.forEach(k => { const el = $("#oA_"+k); if(el) el.value = ""; }); addrTypeSync("oA"); ccPinSet(null); ccAddrPop("det"); $("#oA_type")?.focus(); return; }
   const st = e.target.closest("[data-ccstep]"); if(st){ e.preventDefault(); ccStep(+st.dataset.ccstep); return; }
   if(e.target.id==="cuTagSave"){ const pick = [...document.querySelectorAll("#cuTagPick input:checked")].map(i => i.value), names = tagList("customer").map(t => t.name.toLowerCase());
     $("#ccScrim").classList.remove("show"); const keep = (CUS.det?.tags||[]).filter(x => !names.includes(String(x).toLowerCase())); cusPatch({ tags:[...keep, ...pick] }, "Tags saved"); return; }
