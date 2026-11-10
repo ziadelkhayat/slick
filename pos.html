@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="640-1794322930">
+<meta name="slick-build" content="641-1794323076">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -707,6 +707,10 @@ html:has(#activate:not(.hide)),html:has(#activate:not(.hide)) body,html:has(#loc
 .pdcols select:has(option[value=""]:checked){color:var(--mut)}.pdcols input::placeholder{color:var(--mut);opacity:1}.pdcols #pdHint:empty{min-height:0!important}
 .pdcols .pdph{flex-direction:column!important;gap:8px}.pdcols .pdph select{max-width:none!important;width:100%}.pdcols .pdph input{flex:none!important;width:100%}
 .pdcols .npad.npad{grid-template-columns:repeat(3,64px)!important;max-width:none!important;gap:8px!important;justify-content:start}.pdcols .npad.npad button{width:64px!important;height:64px!important;min-height:0!important;border-radius:16px!important;font-size:22px!important;padding:0!important}
+.pod{display:flex;flex-direction:column;gap:12px;background:var(--s,#fff);border:1px solid var(--line);border-radius:14px;padding:14px 16px}.podh{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}.podh b{display:block;font-size:17px}.podh .mut{font-size:12.5px}
+.podm{display:flex;flex-wrap:wrap;gap:6px}.podm span{font-size:12px;font-weight:600;background:#f3f1f8;color:var(--ink2);border-radius:999px;padding:4px 10px}
+.podi{display:flex;flex-direction:column;border-top:1px solid var(--line)}.podi>div:not(.mut){display:grid;grid-template-columns:34px 1fr auto;gap:8px;padding:9px 0;border-bottom:1px dashed var(--line);font-size:14px}.podi .q{font-weight:700;color:var(--acc)}.podi small{display:block;color:var(--mut);font-size:12px;margin-top:2px}
+.podt{display:flex;justify-content:space-between;font-size:16px}.podt b{font-size:17px}.pdside .cpastw{display:flex;flex-direction:column;gap:10px;scroll-margin-top:6px}
 </style>
 <script>
 /* ---------- naming: menu "products" are called Items; inventory "items" are called Products ----------
@@ -1764,15 +1768,15 @@ $("#modal").addEventListener("click", async e => {
   if(e.target.closest("[data-pdnew]")){ PD = null; return openPDNew(); }
   const pnt = e.target.closest("[data-pdnewt]"); if(pnt){ PD = null; return openPDNew(); }
   const pdt = e.target.closest("[data-pdt]"); if(pdt){ pdKeep(); PD.type = pdt.dataset.pdt; return openPDNew(); }
-  const pda = e.target.closest("[data-pdaddr]"); if(pda){ pdKeep(); const a = (PD.cust?.addresses||[]).filter(x => x.address)[+pda.dataset.pdaddr]; if(a){ PD.addr = addrParts(a.address); if(PD.type!=="delivery" && allowedTypes().includes("delivery")) PD.type = "delivery"; } return openPDNew(); }
+  const pda = e.target.closest("[data-pdaddr]"); if(pda){ pdKeep(); const a = (PD.cust?.addresses||[]).filter(x => x.address)[+pda.dataset.pdaddr]; if(!a) return; PD.addr = addrParts(a.address); return pdAddrShow(pda); }
   const cvd = e.target.closest("[data-cvdet]"); if(cvd){ CV.det = cvd.dataset.cvdet || null; return drawCust(); }
   const psrc = e.target.closest("[data-pdsrc]"); if(psrc){ PD.source = psrc.dataset.pdsrc; document.querySelectorAll("[data-pdsrc]").forEach(x => x.classList.toggle("on", x===psrc)); if($("#pdErr")) $("#pdErr").textContent = ""; pdRefresh(); return; }
   const pdr = e.target.closest("[data-pdreorder]"); if(pdr){ const o = (PD?.past||[]).find(x => x.id===pdr.dataset.pdreorder); if(!o) return; const miss = []; let n = 0;
     (o.items||[]).filter(i => !i.voided).forEach(i => { const p = S.products.find(x => x.id===i.productId); if(!p || p.active===false || prodOos(p)){ miss.push(i.name); return; }
       const opt = (i.options||[]).reduce((a,x) => a + (+x.price||0), 0); (PD.edit ? cart : (PD.reorder ||= [])).push({ productId:p.id, name:i.name, price: +(prodPrice(p) + (Array.isArray(i.options) && i.options.length ? opt : 0)).toFixed(2), qty:+i.qty||1, ...(i.options?.length ? { options:i.options, mods:i.mods } : {}), ...(i.note ? { note:i.note } : {}) }); n++; });
     if(PD.edit) renderCart(); toast(n ? (miss.length ? `Added to the order · not available now: ${miss.join(", ")}` : "Items added · press Continue") : "None of these items are available now"); return; }
-  const pdd = e.target.closest("[data-pddet]"); if(pdd){ pdKeep(); PD.det = pdd.dataset.pddet || null; return openPDNew(); }
-  if(e.target.closest("[data-pdnewaddr]")){ pdKeep(); PD.addr = {}; openPDNew(); return $("#pdA_label")?.focus(); }
+  const pdd = e.target.closest("[data-pddet]"); if(pdd){ PD.det = pdd.dataset.pddet || null; const w = pdd.closest(".cpastw"); if(!w) return openPDNew({ keepFocus: true }); w.outerHTML = pastHtml(PD.past, PD.det, "pddet"); $("#modal .cpastw")?.scrollIntoView({ block: PD.det ? "start" : "nearest", behavior: "smooth" }); return; }
+  const pdn = e.target.closest("[data-pdnewaddr]"); if(pdn){ pdKeep(); PD.addr = {}; return pdAddrShow(pdn); }
   if(e.target.closest("[data-pdcancel]")) return pdCancel();
   if(e.target.closest("#pdGo")) return pdContinue();
   const hg = e.target.closest("[data-hget]"); if(hg) return retrieveHeld(hg.dataset.hget);
@@ -2405,6 +2409,14 @@ const normPhone = (p, cc) => { let d = String(p||"").replace(/[^\d+]/g, ""); if(
 let PD = null, pdT;
 // details filled in from a matched customer go away when the phone number changes (anything typed by hand stays)
 function pdClearAuto(){ if(!PD) return; pdKeep(); if(PD.autoName && PD.name===PD.autoName) PD.name = ""; if(PD.autoAddr && addrJoin(PD.addr)===PD.autoAddr) PD.addr = {}; PD.autoName = PD.autoAddr = ""; }
+// a saved address (or "New address") was tapped: fill the address fields in place, like the call center does
+function pdAddrShow(card){
+  if(PD.type!=="delivery"){ if(!allowedTypes().includes("delivery")) return; PD.type = "delivery"; const y = $(".pdright")?.scrollTop || 0; openPDNew({ keepFocus: true }); const r = $(".pdright"); if(r) r.scrollTop = y; return; }
+  ADDR_K.forEach(k => { const el = $("#pdA_" + k); if(!el) return; const v = String(PD.addr[k] || "");
+    if(el.tagName==="SELECT" && v && ![...el.options].some(o => o.value===v)) el.add(new Option(v, v)); el.value = v; });
+  document.querySelectorAll("#modal .acards .acard").forEach(x => x.classList.toggle("on", x===card));
+  if($("#pdErr")) $("#pdErr").textContent = ""; pdRefresh();
+}
 function openPDNew(opt = {}){
   const types = allowedTypes().filter(t => t!=="dinein"); if(!types.length) return toast("Pickup and delivery aren't enabled on this register");
   if(PD?.edit && !PD.editShown){ PD.editShown = true; setTimeout(pdLookup, 50); }
@@ -2414,9 +2426,9 @@ function openPDNew(opt = {}){
   if(PD.type==="delivery" && !PD.addr) PD.addr = {};
   const saved = (PD.cust?.addresses || []).filter(a => a.address);
   const isDel = PD.type==="delivery";
-  const acards = (isDel || saved.length) ? `<div class="f" style="margin:0"><label>Saved addresses · ${saved.length}</label><div class="acards">${saved.map((a,i) => { const p = addrParts(a.address);
+  const acards = (isDel || saved.length || allowedTypes().includes("delivery")) ? `<div class="f" style="margin:0"><label>Saved addresses · ${saved.length}</label><div class="acards">${saved.map((a,i) => { const p = addrParts(a.address);
         return `<button type="button" class="acard${isDel && addrJoin(PD.addr)===addrJoin(p)?" on":""}" data-pdaddr="${i}"><span class="aci"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg></span><span class="act"><b>${esc(p.label || "Address " + (i+1))}</b><span>${esc(p.street || a.address)}</span>${p.building || p.floor ? `<small>${esc([p.building && "Bldg " + p.building, p.floor && "Floor " + p.floor].filter(Boolean).join(" · "))}</small>` : ""}${p.extra ? `<small>${esc(p.extra)}</small>` : ""}</span><span class="acok">✓</span></button>`; }).join("")}
-        ${isDel ? `<button type="button" class="acard new${saved.some(a => addrJoin(PD.addr)===addrJoin(addrParts(a.address))) ? "" : " on"}" data-pdnewaddr><span class="aci"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></span><span class="act"><b>New address</b></span></button>` : ""}</div></div>` : "";
+        ${allowedTypes().includes("delivery") ? `<button type="button" class="acard new${!isDel || saved.some(a => addrJoin(PD.addr)===addrJoin(addrParts(a.address))) ? "" : " on"}" data-pdnewaddr><span class="aci"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></span><span class="act"><b>New address</b></span></button>` : ""}</div></div>` : "";
   const side = PD.cust ? pdSide(acards) : `<div class="pdside0"><b>Customer details</b></div>`;
   modal("pdnew", `<div class="mh"><h2>${PD.edit ? "Edit order" : "New order"}</h2></div><div class="mb pdcols"><div class="pdform">
     <div class="f"><div class="tseg">${types.map(t => `<button type="button" data-pdt="${t}" class="${PD.type===t?"on":""}">${t==="delivery" ? `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h11v10H3zM14 9h4l3 3v4h-7"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/></svg>Delivery` : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9l1.5-5h15L21 9"/><path d="M3 9a3 3 0 0 0 6 0 3 3 0 0 0 6 0 3 3 0 0 0 6 0"/><path d="M5 12v9h14v-9"/></svg>Pickup`}</button>`).join("")}</div></div>
@@ -2467,26 +2479,28 @@ function insCard(c, ok){
     ${ok.length ? `<div class="cmix">${nType("delivery")} delivery · ${nType("takeaway")} pickup${nType("dinein")+nType("fast") ? ` · ${nType("dinein")+nType("fast")} in store` : ""}</div>` : ""}
 </div>`;
 }
-function custPanel(c, ok, det, key, extra = "", noIns = false){
+// order history, or one past order opened from it: the same card the call center shows
+function pastHtml(ok, det, key){
   ok = ok || [];
   const d = x => x ? new Date(x).toLocaleDateString("en-GB", { day:"numeric", month:"short", year:"numeric" }) : "—";
   const tl = { delivery:"Delivery", takeaway:"Pickup", pickup:"Pickup", dinein:"Dine-in", fast:"Fast sale" };
   const sel = det && ok.find(o => o.id===det);
-  const ins = noIns ? "" : insCard(c, ok);
-  if(sel){ const brn = S.branches?.find(b => b.id===sel.branchId)?.name || "";
-    return `<div class="pdside">${ins}${extra}<button type="button" class="podback" data-${key}="">‹ Order history</button>
-    <div class="cins"><div class="cins-h"><b>${sel.inv ? esc(invNo(sel.inv)) : "#" + esc(sel.no || "—")}</b><span class="mut">${esc(stLbl(sel))}</span></div>
-      <div class="mut">Order #${esc(sel.no || "—")} · ${tl[sel.type] || esc(sel.type||"")} · ${new Date(sel.at).toLocaleString("en-GB", { day:"numeric", month:"short", year:"numeric", hour:"2-digit", minute:"2-digit" })}${brn ? " · " + esc(brn) : ""}${sel.source && sel.source.toUpperCase()!=="POS" ? " · " + esc(sel.source) : ""}</div>
-      ${sel.address ? `<div class="mut">📍 ${esc(adShort(sel.address))}</div>` : ""}</div>
-    <div class="cdet">${(sel.items||[]).map(i => `<div class="cdl${i.voided ? " vd" : ""}"><span>${+i.qty||1}× ${esc(i.name)}${modLines(i).length ? `<small>${modLines(i).map(esc).join(", ")}</small>` : ""}</span><b>${usd(lineNet(i))}</b></div>`).join("")}
-      ${sel.discount ? `<div class="cdl"><span>Discount</span><b>-${usd(sel.discount)}</b></div>` : ""}${(sel.charges||[]).filter(c => +c.amount).map(c => `<div class="cdl"><span>${esc(c.name)}</span><b>${usd(+c.amount)}</b></div>`).join("")}${sel.fee ? `<div class="cdl"><span>Delivery fee</span><b>${usd(sel.fee)}</b></div>` : ""}
-      <div class="cdl tot"><span>Total</span><b>${usd(sel.total)}</b></div>${sel.payment?.method ? `<div class="mut">Paid by ${esc(sel.payment.method)}</div>` : ""}</div>
-    ${key==="pddet" ? `<button type="button" class="btn pri podre" data-pdreorder="${esc(sel.id)}">↻ Reorder these items</button>` : ""}</div>`; }
-  return `<div class="pdside">${ins}${extra}
-    <div class="cpast"><b>Order history · ${ok.length}</b>${ok.length ? ok.slice(0,20).map(o => { const it = (o.items||[]).filter(i => !i.voided), brn = S.branches?.find(b => b.id===o.branchId)?.name || "";
+  if(sel){ const brn = S.branches?.find(b => b.id===sel.branchId)?.name || "", it = (sel.items||[]).filter(i => !i.voided);
+    return `<div class="cpastw" data-pk="${key}"><div class="pod"><button type="button" class="podback" data-${key}="">‹ Order history</button>
+      <div class="podh"><div><b>${sel.inv ? esc(invNo(sel.inv)) : "#" + esc(sel.no || "—")}</b><span class="mut">Order #${esc(sel.no || "—")} · ${new Date(sel.at).toLocaleString("en-GB", { day:"numeric", month:"short", year:"numeric", hour:"2-digit", minute:"2-digit" })}</span></div><span class="spill s-${sel.status}">${esc(stLbl(sel))}</span></div>
+      <div class="podm">${[brn, tl[sel.type] || sel.type || "", sel.source && sel.source.toUpperCase()!=="POS" ? sel.source : ""].filter(Boolean).map(x => `<span>${esc(x)}</span>`).join("")}</div>
+      ${sel.address ? `<div class="mut">${esc(adShort(sel.address))}</div>` : ""}
+      <div class="podi">${it.map(i => `<div><span class="q">${+i.qty||1}×</span><span class="n">${esc(i.name)}${modLines(i).length ? `<small>${modLines(i).map(esc).join(", ")}</small>` : ""}</span><b>${usd(lineNet(i))}</b></div>`).join("") || '<div class="mut">No items</div>'}
+        ${sel.discount ? `<div><span></span><span class="n">Discount</span><b>-${usd(sel.discount)}</b></div>` : ""}${(sel.charges||[]).filter(c => +c.amount).map(c => `<div><span></span><span class="n">${esc(c.name)}</span><b>${usd(+c.amount)}</b></div>`).join("")}${sel.fee ? `<div><span></span><span class="n">Delivery fee</span><b>${usd(sel.fee)}</b></div>` : ""}</div>
+      <div class="podt"><span>Total</span><b>${usd(sel.total)}</b></div>
+      ${key==="pddet" ? `<button type="button" class="btn pri podre" data-pdreorder="${esc(sel.id)}">↻ Reorder</button>` : ""}</div></div>`; }
+  return `<div class="cpastw" data-pk="${key}"><div class="cpast"><b>Order history · ${ok.length}</b>${ok.length ? ok.slice(0,20).map(o => { const it = (o.items||[]).filter(i => !i.voided), brn = S.branches?.find(b => b.id===o.branchId)?.name || "";
       return `<button type="button" class="poc" data-${key}="${esc(o.id)}"><span class="poc1"><b>${o.inv ? esc(invNo(o.inv)) : "#" + esc(o.no || "—")}</b><span class="spill s-${o.status}">${esc(stLbl(o))}</span><span class="sp"></span><b>${usd(o.total)}</b></span>
         <span class="poc2">${d(o.at)}${brn ? " · " + esc(brn) : ""} · ${tl[o.type] || esc(o.type||"")}${o.source && o.source.toUpperCase()!=="POS" ? " · " + esc(o.source) : ""}</span>
         <span class="poc3">${it.slice(0,3).map(i => `${+i.qty||1}× ${esc(i.name)}`).join(", ")}${it.length > 3 ? ` +${it.length-3} more` : ""}</span><i class="poca">›</i></button>`; }).join("") : '<div class="mut">No orders yet</div>'}</div></div>`;
+}
+function custPanel(c, ok, det, key, extra = "", noIns = false){
+  return `<div class="pdside">${noIns ? "" : insCard(c, ok || [])}${extra}${pastHtml(ok, det, key)}</div>`;
 }
 const adShort = a => { const p = addrParts(a); return [p.label, p.street, p.building && "Bldg " + p.building, p.floor && "Floor " + p.floor].filter(Boolean).join(" · ") || a; };
 const pdSide = (extra) => custPanel(PD.cust, PD.past, PD.det, "pddet", extra);
