@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="702-1794398947">
+<meta name="slick-build" content="703-1794399373">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this copy, reload once (never for an older one) */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -19,15 +19,20 @@
   function fit(force){ var T = pick(), iw = innerWidth, ih = innerHeight; if(!iw || !ih) return;
     var ae = d.activeElement; if(!force && iw === lw && ih < lh && ae && /INPUT|TEXTAREA/.test(ae.tagName)) return;   /* the on-screen keyboard doesn't shrink the app */
     lw = iw; lh = ih;
-    var a = iw / ih, c = "width=" + Math.round(Math.max(T.w, T.h * a)) + ", user-scalable=no, viewport-fit=cover";   /* tablets and phones: the page is always laid out at the design size and scaled to the screen */
+    var rot = ih > iw;   /* held upright: the app stays landscape (turned a quarter), as in a store app locked to landscape */
+    var a = iw / ih, c = "width=" + Math.round(rot ? Math.max(T.h, T.w * a) : Math.max(T.w, T.h * a)) + ", user-scalable=no, viewport-fit=cover";   /* tablets and phones: the page is always laid out at the design size and scaled to the screen */
     if(m && m.getAttribute("content") !== c) m.setAttribute("content", c);
-    var bw = Math.floor(Math.min(iw, ih * T.w / T.h)), bh = Math.floor(bw * T.h / T.w); if(Math.abs(bw - T.w) <= 4 && iw >= T.w){ bw = T.w; bh = Math.min(T.h, ih); }   /* rounding on scaled screens: snap to the exact design size */
+    var LW = rot ? ih : iw, LH = rot ? iw : ih;   /* the long and short side the layout has to fit */
+    var bw = Math.floor(Math.min(LW, LH * T.w / T.h)), bh = Math.floor(bw * T.h / T.w); if(Math.abs(bw - T.w) <= 4 && LW >= T.w){ bw = T.w; bh = Math.min(T.h, LH); }   /* rounding on scaled screens: snap to the exact design size */
     H.style.setProperty("--sw", bw + "px"); H.style.setProperty("--sh", bh + "px"); H.style.setProperty("--sl", Math.round((iw - bw) / 2) + "px"); H.style.setProperty("--st", Math.round((ih - bh) / 2) + "px");
-    H.setAttribute("data-stage", T === T16 ? "16x10" : "4x3"); }
+    H.setAttribute("data-stage", T === T16 ? "16x10" : "4x3"); if(rot) H.setAttribute("data-rot", "1"); else H.removeAttribute("data-rot"); }
+  try{ var so = screen.orientation; if(so && so.lock) so.lock("landscape").catch(function(){}); }catch(e){}
   fit(true); addEventListener("resize", function(){ fit(); }); addEventListener("orientationchange", function(){ setTimeout(function(){ fit(true); }, 300); });
-  window.__stage = function(){ var b = d.body.getBoundingClientRect(); return { l:b.left, t:b.top, w:b.width, h:b.height }; }; })();</script>
+  /* positions are always worked out in the app's own (landscape) frame, also when it is shown turned */
+  window.__rect = function(el){ var q = el.getBoundingClientRect(); if(!H.hasAttribute("data-rot")) return q; var b = d.body.getBoundingClientRect(); return { left: q.top - b.top, top: b.right - q.right, width: q.height, height: q.width, right: q.top - b.top + q.height, bottom: b.right - q.right + q.width }; };
+  window.__stage = function(){ var b = d.body.getBoundingClientRect(); return H.hasAttribute("data-rot") ? { l:0, t:0, w:b.height, h:b.width } : { l:b.left, t:b.top, w:b.width, h:b.height }; }; })();</script>
 <style>html{overflow:hidden!important;height:100%}
-html[data-stage] body{position:fixed!important;left:var(--sl,0)!important;top:var(--st,0)!important;width:var(--sw,100vw)!important;height:var(--sh,100vh)!important;min-height:0!important;margin:0!important;overflow:hidden!important;transform:translate(0,0);contain:layout}/* one tile format for the orders history and the pickup & delivery board */
+html[data-stage] body{position:fixed!important;left:var(--sl,0)!important;top:var(--st,0)!important;width:var(--sw,100vw)!important;height:var(--sh,100vh)!important;min-height:0!important;margin:0!important;overflow:hidden!important;transform:translate(0,0);contain:layout}html[data-stage][data-rot] body{transform:rotate(90deg)!important;transform-origin:50% 50%}/* one tile format for the orders history and the pickup & delivery board */
 .ohtile,.ocard.tl{display:flex!important;flex-direction:column!important;align-items:flex-start!important;gap:5px!important;text-align:left;text-transform:none}
 .ohtile>b,.ocard.tl>b{font-size:15px!important;font-weight:700;word-break:break-word;font-family:inherit}
 .ohtile>small,.ocard.tl>small{font-size:12.5px!important;color:var(--mut)!important;line-height:1.35;text-align:left;text-transform:none;padding:0!important}
@@ -668,9 +673,9 @@ input,textarea{-webkit-user-select:text;user-select:text}
 /* tiles with a picture: the whole picture shows (no cropping), edge to edge, with the name and price tucked right under it */#grid .prod.hasimg>img,#grid .ctile2.hasimg>img{flex:1 1 0!important;height:auto!important;min-height:0!important;object-fit:contain!important;background:#fff!important;margin:-12px -12px 2px!important;width:calc(100% + 24px)!important}#grid .prod.hasimg,#grid .ctile2.hasimg{justify-content:flex-start!important;padding:12px 10px 8px!important;gap:0!important;background:#fff!important}#grid .prod.hasimg>span,#grid .ctile2.hasimg>span{margin-top:2px!important}
 .qty button[data-q]:disabled{opacity:.35;cursor:default;pointer-events:none}
 /* lists inside a scrolling screen: clip their corners without trapping the scroll (the orders list could not be scrolled) */.olist2{overflow:clip!important;overscroll-behavior:auto!important}
-/* compact cart: plain modifier lines, smaller − / +, the unit price fixed under the line price */#lines .mlist{list-style:none!important;padding-left:0!important;margin-top:2px}#lines .mlist li.mn{margin-left:0!important}#lines .line{padding:8px 0!important;gap:2px 10px!important;align-items:start}#lines .line .n{font-size:14.5px!important}#lines .line .p .each{display:block;font-family:var(--f-ui);font-size:11.5px;color:var(--faint);font-weight:400;margin-top:1px}#lines .qty{gap:8px!important;margin-top:4px}#lines .qty button{width:34px!important;height:34px!important;min-width:34px!important;min-height:34px!important;font-size:17px!important;border-radius:10px!important}#lines .qty button.qdel svg{width:16px;height:16px}
+/* compact cart: plain modifier lines, smaller − / +, the unit price fixed under the line price */#lines .mlist{list-style:none!important;padding-left:0!important;margin-top:2px}#lines .mlist li.mn{margin-left:0!important}#lines .line{padding:8px 0!important;gap:2px 10px!important;align-items:start}#lines .line .n{font-size:14.5px!important}#lines .line .p .each{display:block;font-family:var(--f-ui);font-size:12.5px;color:var(--mut);font-weight:400;margin-top:2px;white-space:nowrap}#lines .qty{gap:8px!important;margin-top:4px}#lines .qty button{width:34px!important;height:34px!important;min-width:34px!important;min-height:34px!important;font-size:17px!important;border-radius:10px!important}#lines .qty button.qdel svg{width:16px;height:16px}
 /* a long press on a picture never opens the browser image menu */img{-webkit-touch-callout:none!important;-webkit-user-drag:none;user-drag:none}#grid img,#lines img{pointer-events:none}
-/* cart: the price column spans both rows so the − / + sit right under the item */#lines .line>.p:first-of-type{grid-row:1 / span 2;grid-column:2}#lines .line .n{grid-column:1;grid-row:1}#lines .line .qty{grid-column:1;grid-row:2;margin-top:3px!important}#lines .line{row-gap:0!important}#lines .line .mlist{margin-top:1px!important}#lines .line>span:empty{display:none}
+/* cart: the price column spans both rows so the − / + sit right under the item */#lines .line>.p{grid-row:1 / span 2;grid-column:2;align-self:start}#lines .line .n{grid-column:1;grid-row:1}#lines .line .qty{grid-column:1;grid-row:2;margin-top:3px!important}#lines .line{row-gap:0!important}#lines .line .mlist{margin-top:1px!important}#lines .line>span:empty{display:none}
 .ctx .ctag{display:block;font-size:12px;color:var(--acc,#6a4cf5);font-weight:600;margin-top:2px}
 /* payment window fits the screen without scrolling: the keypad shrinks to the space left */#modal.paym2{max-height:calc(var(--sh,100vh) - 24px)!important}.payx{max-height:calc(var(--sh,100vh) - 24px)!important;height:auto}.payr{padding:18px 20px!important;gap:10px!important;overflow:hidden!important;min-height:0}.payr #cashBox{flex:1 1 auto;min-height:0;gap:9px!important}.payr .kpad{flex:1 1 248px;min-height:150px;grid-auto-rows:1fr}.payr .kpad button{height:auto!important;min-height:34px}.payr .quick button{min-height:42px!important;padding:6px 4px!important}.payr .tender{min-height:48px!important;height:52px!important}.payr .change{align-items:center}.payr .chgv{width:auto!important;min-width:120px;white-space:nowrap}.payr .payact .btn{min-height:54px!important}
 /* New order (pickup & delivery): everything fits on the tablet screen without scrolling */.pdcols .npad{margin-top:6px!important;gap:6px!important}.pdcols .npad button{height:42px!important;min-height:0!important}#pdErr:empty{display:none}.pdcols .f{margin-bottom:8px!important}.pdcols .f>label{margin-bottom:4px!important}.pdcols .tseg button{min-height:44px!important;padding-top:8px!important;padding-bottom:8px!important}.pdcols .rchips button{min-height:40px!important;padding-top:6px!important;padding-bottom:6px!important}.pdcols input,.pdcols select{min-height:44px!important;height:44px}
@@ -817,7 +822,7 @@ window.SLICK_OFFLINE = true;</script>
 <script src="supabase.js"></script>
 <script>if(!window.supabase) document.write('<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"><\/script>');</script>
 <script src="wokdb.js?v=42"></script>
-<script src="modpick.js?v=28"></script>
+<script src="modpick.js?v=29"></script>
 </head>
 <body>
 <div id="boot" class="center"><div class="panel"><div class="logo">S</div><h1>Slick POS</h1><p>Connecting…</p></div></div>
@@ -1439,8 +1444,8 @@ function renderCart(){
   if(ro) $("#extra").querySelectorAll("input,select").forEach(x => x.disabled = true);
   const grew = cart.length > (renderCart.n || 0); renderCart.n = cart.length;
   $("#lines").parentElement.classList.toggle("nocart", !cart.length && !eo);   // an empty cart shows no totals and no Total button
-  $("#lines").innerHTML = cart.length ? cart.map((i,ix)=>`<div class="line" data-edit="${ix}" title="${ro?"":"Tap to edit"}" style="cursor:pointer"><span class="n">${ro ? `<b class="lq">${i.qty}×</b> ` : ""}${esc(i.name)}${i.saved?`<span class="sent">${ro ? "" : `${i.saved} sent to kitchen`}</span>`:""}${modList(i)}${+i.disc?`<small class="idisc" style="display:flex;align-items:center;gap:6px;font-size:12px;color:#b45309">Discount −${usd(i.disc)}${ro?"":`<button type="button" class="dlx" data-idiscx="${ix}" aria-label="Remove item discount">×</button>`}</small>`:""}</span><span class="p">${usd(lineNet(i))}${ro ? `<small class="each">${usd(i.price)} each</small>` : ""}</span>
-    ${ro ? "<span></span>" : `<span class="qty lqty"><button type="button" data-q="${ix}:-1" ${i.qty <= (i.saved||0) ? "disabled" : ""} aria-label="${i.qty > 1 ? "Less" : "Remove"}"${i.qty > 1 ? "" : ' class="qdel"'}>${i.qty > 1 ? "−" : `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>`}</button><b>${i.qty}</b><button type="button" data-q="${ix}:1" aria-label="More">+</button></span><small class="each leach">${usd(i.price)} each</small>`}</div>`).join("") : `<div class="empty"></div>`;
+  $("#lines").innerHTML = cart.length ? cart.map((i,ix)=>`<div class="line" data-edit="${ix}" title="${ro?"":"Tap to edit"}" style="cursor:pointer"><span class="n">${ro ? `<b class="lq">${i.qty}×</b> ` : ""}${esc(i.name)}${i.saved?`<span class="sent">${ro ? "" : `${i.saved} sent to kitchen`}</span>`:""}${modList(i)}${+i.disc?`<small class="idisc" style="display:flex;align-items:center;gap:6px;font-size:12px;color:#b45309">Discount −${usd(i.disc)}${ro?"":`<button type="button" class="dlx" data-idiscx="${ix}" aria-label="Remove item discount">×</button>`}</small>`:""}</span><span class="p">${usd(lineNet(i))}<small class="each">${usd(i.price)} each</small></span>
+    ${ro ? "<span></span>" : `<span class="qty lqty"><button type="button" data-q="${ix}:-1" ${i.qty <= (i.saved||0) ? "disabled" : ""} aria-label="${i.qty > 1 ? "Less" : "Remove"}"${i.qty > 1 ? "" : ' class="qdel"'}>${i.qty > 1 ? "−" : `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>`}</button><b>${i.qty}</b><button type="button" data-q="${ix}:1" aria-label="More">+</button></span>`}</div>`).join("") : `<div class="empty"></div>`;
   // voided items stay on the order, struck out
   if(eo){ const vd = eo.status==="void" ? [] : (eo.voidedItems||[]);
     if(eo.status==="void") $("#lines").querySelectorAll(".line").forEach(l => l.classList.add("vd"));
@@ -1545,7 +1550,7 @@ function voidSent(ix){
     const btns = [...ab.children].filter(b => b.offsetParent !== null), n = Math.max(btns.length, 8);   // sized as if the row is full (8), so a row with fewer buttons keeps the same button size
     const gs = getComputedStyle(g), as = getComputedStyle(ab), ms = getComputedStyle(main);
     const gg = px(gs.columnGap) || 10, ag = 10, gpw = px(gs.paddingLeft) + px(gs.paddingRight), gph = px(gs.paddingTop) + px(gs.paddingBottom), apw = px(as.paddingLeft) + px(as.paddingRight), aph = px(as.paddingTop) + px(as.paddingBottom);
-    const rsW = rs.getBoundingClientRect().width, H = rs.clientHeight; if(!rsW || !H) return;
+    const rsW = __rect(rs).width, H = rs.clientHeight; if(!rsW || !H) return;
     const owG = rsW - (g.clientWidth - gpw), owA = rsW - (ab.clientWidth - apw);      // side room around the grid / the button row
     const fixedH = H - (ab.offsetHeight - aph) - (g.clientHeight - gph);                  // search bar, bottom bar, gaps: everything that isn't buttons or tiles
     const room = main.clientWidth - px(ms.paddingLeft) - px(ms.paddingRight) - px(ms.columnGap);
@@ -1626,7 +1631,7 @@ async function addProduct(p){
   if(ex){ ex.qty += addN; reDisc(ex); } else cart.push({ productId:p.id, name:p.name, price, qty:addN, ...(options.length ? { options } : {}), ...(note ? { note } : {}), ...(options.length || note ? { mods: SlickMods.label(mods, note) } : {}) });   // the same item again goes on its line (as in the call center), not on a new one
   renderCart();
 }
-// a menu item: tap the right ¾ to add one, the left ¼ to take one away (the last one added that isn't sent to the kitchen yet)
+// a menu item: a tap anywhere on the tile adds one
 $("#grid").addEventListener("click", e => { const b = e.target.closest("[data-add]"); if(!b) return; const p = S.products.find(x=>x.id===b.dataset.add); if(!p) return;
   addProduct(p); });   // a tap adds one; quantities are changed by tapping the line in the cart
 document.addEventListener("contextmenu", e => { if(!e.target.closest("input, textarea, [contenteditable]")) e.preventDefault(); });   // no browser menu on long press (pictures, tiles)
@@ -2328,7 +2333,7 @@ const openMore = () => modal("more", `<div class="mh"><h2>Device</h2><button cla
 function withNav(){ paintNav(); return;   // full screens have no bottom bar: Back returns to the cart
   const m = $("#modal"); if(!m.querySelector(".bnav-m")) m.insertAdjacentHTML("beforeend", `<nav class="bnav bnav-m">${$("#bnav").innerHTML.replace(/ id="[^"]*"/g, "")}</nav>`); navFit(); paintNav(); }
 // the bar on full screens sits exactly where the main one is, same size: the tabs never change shape
-function navFit(){ const n = $("#modal .bnav-m"), r = $("#bnav").getBoundingClientRect(); if(!n || !r.width) return; n.style.width = r.width + "px"; n.style.marginLeft = (r.left - __stage().l) + "px"; n.style.marginRight = "0"; }
+function navFit(){ const n = $("#modal .bnav-m"), r = __rect($("#bnav")); if(!n || !r.width) return; n.style.width = r.width + "px"; n.style.marginLeft = (r.left - __stage().l) + "px"; n.style.marginRight = "0"; }
 addEventListener("resize", () => navFit());
 $("#modal").addEventListener("click", e => { const b = e.target.closest(".bnav-m [data-nav]"); if(!b) return; e.stopPropagation(); $(`#bnav [data-nav="${b.dataset.nav}"]`).click(); }, true);
 /* ---------- in-app yes / no question (the Android app's web view doesn't show window.confirm) ---------- */
@@ -2460,7 +2465,7 @@ function prForm(p){
 }
 $("#diagBtn").addEventListener("click", () => { hideMore(); openDiag(); });
 $("#bnav").addEventListener("click", e => { const b = e.target.closest("[data-nav]"); if(!b) return; const k = b.dataset.nav; if(k!=="functions") hideMore();
-  if(k==="functions"){ e.stopPropagation(); const pop = $("#morePop"), r = b.getBoundingClientRect();   // opens right above the button
+  if(k==="functions"){ e.stopPropagation(); const pop = $("#morePop"), r = __rect(b);   // opens right above the button
     const sg = __stage(); pop.style.left = Math.max(8, Math.min(r.left - sg.l, sg.w - 308)) + "px"; pop.style.bottom = Math.max(8, sg.h - (r.top - sg.t) + 8) + "px"; return pop.classList.toggle("hide"); }
   if(k==="new"){ closeModal(); unloadOrder(); cat = ""; $("#q").value = ""; renderMenu(); return; }
   if(k==="orders") return openIncoming();
