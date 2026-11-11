@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="757-1794433062">
+<meta name="slick-build" content="759-1794433428">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this copy, reload once (never for an older one) */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -5264,22 +5264,17 @@ function bmScopeAsk(){
     const brs = activeBranches();
     const chk = 'style="width:18px;height:18px;accent-color:#6a4cf5;flex:none;margin:0"';
     const grp = b => { const chs = [...new Map(scFor(b.id).map(c => [scCode(c), c.name])).entries()];
-      // each branch: its tick box, then a dropdown field listing its sales channels to pick from
+      // each branch: its name, then a dropdown field listing its sales channels to pick from
       return `<div class="skgrp" style="display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid #f0eef6">
-        <label style="flex:1;display:flex;align-items:center;gap:10px;cursor:pointer;font-weight:600;min-width:0"><input type="checkbox" data-skb="${esc(b.id)}" ${chk}>${esc(b.name)}</label>
+        <b style="flex:1;min-width:0">${esc(b.name)}</b>
         <div style="width:260px;flex:none"><div class="multi" data-skm="${esc(b.id)}" data-empty="No sales channels in this branch">${chs.map(([c, n]) => `<label><input type="checkbox" value="${esc(c)}" data-skc="${esc(c)}" data-skcb="${esc(b.id)}"> ${esc(n)}</label>`).join("")}</div></div></div>`; };
     const w = document.createElement("div"); w.className = "slk-ask"; w.setAttribute("role", "dialog"); w.setAttribute("aria-modal", "true");
     w.innerHTML = `<div class="slk-ask-b" style="max-width:560px;width:min(560px,94vw);text-align:left;overflow:visible"><h3 class="slk-ask-h">Where should this change apply?</h3>
-      <div style="display:flex;align-items:center;justify-content:space-between;padding:0 24px;margin:2px 0 4px"><b style="font-size:13px;color:#8d8c98">Pick the branches, then the sales channels in each branch</b><label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;white-space:nowrap"><input type="checkbox" data-skall ${chk}>Select all</label></div>
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:0 24px;margin:2px 0 4px"><b style="font-size:13px;color:#8d8c98">Pick the sales channels in each branch</b></div>
       <div style="margin:0 0 10px;padding:0 24px 4px">${brs.map(grp).join("")}</div>
-      <div data-skerr style="color:#c62828;font-size:13px;padding:0 24px 10px"></div><div class="slk-ask-f" style="border-radius:0 0 var(--skr,20px) var(--skr,20px)"><button type="button" class="slk-ask-no">Cancel</button><button type="button" class="slk-ask-yes">Update</button></div></div>`;
-    const sync = () => { w.querySelectorAll("[data-skb]").forEach(bx => { const cs = [...w.querySelectorAll(`[data-skcb="${CSS.escape(bx.dataset.skb)}"]`)], n = cs.filter(c => c.checked).length;
-        bx.checked = cs.length ? n===cs.length : false; bx.indeterminate = n>0 && n<cs.length; }); w.querySelectorAll(".msel[data-skm]").forEach(m => { if(typeof msPaint==="function") msPaint(m); });
-      const all = [...w.querySelectorAll("[data-skc]")], n = all.filter(c => c.checked).length, a = w.querySelector("[data-skall]"); a.checked = all.length>0 && n===all.length; a.indeterminate = n>0 && n<all.length; };
-    // each branch opens like a dropdown to show its sales channels
+      <div data-skerr style="color:#c62828;font-size:13px;padding:0 24px 10px"></div><div class="slk-ask-f" style="border-radius:0 0 var(--skr,20px) var(--skr,20px)"><button type="button" class="slk-ask-no">Cancel</button><button type="button" class="slk-ask-yes">Save</button></div></div>`;
+    const sync = () => w.querySelectorAll(".msel[data-skm]").forEach(m => { if(typeof msPaint==="function") msPaint(m); });
     w.addEventListener("change", e => { const t = e.target;
-      if(t.dataset.skb!==undefined) w.querySelectorAll(`[data-skcb="${CSS.escape(t.dataset.skb)}"]`).forEach(c => c.checked = t.checked);
-      if(t.dataset.skall!==undefined) w.querySelectorAll("[data-skc]").forEach(c => c.checked = t.checked);
       w.querySelector("[data-skerr]").textContent = ""; sync(); });
 const done = v => { w.remove(); document.removeEventListener("keydown", key, true); res(v); };
     const go = () => { const map = {}; w.querySelectorAll("[data-skc]:checked").forEach(c => (map[c.dataset.skcb] = map[c.dataset.skcb] || []).push(c.dataset.skc));
