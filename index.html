@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="749-1794432083">
+<meta name="slick-build" content="750-1794432265">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this copy, reload once (never for an older one) */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -3042,9 +3042,9 @@ const CRUD = {
     col:"taxes", title:"Taxes & Groups", one:"Tax", top: () => taxTabs("taxes"),
     tabs:[["all","All",live],["deleted","Deleted",r=>r.deleted]],
     sort:(a,b)=>a.name.localeCompare(b.name), search:r=>r.name,
-    cols:[["Name",r=>`<b>${esc(r.name)}</b>${r.nameAr?` <span class="note">${esc(r.nameAr)}</span>`:""}`],["Rate",r=>(+r.rate||0)+" %","num"],["Pricing",r=>r.inclusive===false ? "Added on top" : "Inclusive"],
+    cols:[["Name",r=>`<b>${esc(r.name)}</b>${r.nameAr?` <span class="note">${esc(r.nameAr)}</span>`:""}`],["Rate",r=>(+r.rate||0)+" %","num"],["Pricing",r=>r.inclusive===false ? "Added on top" : "Inclusive"],["Order types",r=>(r.orderTypes||[]).length ? r.orderTypes.map(t=>esc(TYPE_LBL[t]||t)).join(", ") : "All"],
       ["Used in groups",r=>S.tax_groups.filter(g=>live(g)&&(g.taxIds||[]).includes(r.id)).map(g=>esc(g.name)).join(", ")||'<span class="note">—</span>'],["Created",r=>fmtDate(r.createdAt)]],
-    fields:[{k:"name",l:"Name",req:1,ph:"e.g. VAT"},{k:"nameAr",l:"Name Localized"},{k:"rate",l:"Rate (%)",t:"number",req:1},{k:"inclusive",l:"Tax inclusive",t:"chk",def:true}],
+    fields:[{k:"name",l:"Name",req:1,ph:"e.g. VAT"},{k:"nameAr",l:"Name Localized"},{k:"rate",l:"Rate (%)",t:"number",req:1},{k:"orderTypes",l:"Applies On",t:"multi",opts:()=>[["dinein","Dine-in"],["fast","Fast sale"],["pickup","Pickup"],["delivery","Delivery"]],def:["dinein","fast","pickup","delivery"]},{k:"inclusive",l:"Tax inclusive",t:"chk",def:true}],
     unique:"name"
   },
   "tax-groups": {
@@ -3520,7 +3520,7 @@ function openCrud(key, id, inline, draft){
     if(f.hideIf && (r ? f.hideIf(r) : f.hideNew)) return "";
     if(f.editOnly && !r) return "";
     if(f.inline && !inline) return "";   // shown on the item page only
-    const v = val(f), idA = "cf_"+f.k, full = f.full||f.t==="textarea"||f.t==="multi" ? " full" : "";
+    const v = val(f), idA = "cf_"+f.k, full = f.full||f.t==="textarea"||(f.t==="multi" && !f.half) ? " full" : "";
     if(f.t==="nutr"){ const o = v || {}; return `<div class="f full"><div class="nutr" id="cf_${f.k}">${NUTR.map(([k,l,u]) => `<label class="nrow"><span>${l}</span><input type="number" step="any" min="0" data-nk="${k}" value="${esc(o[k] ?? "")}" placeholder="–" aria-label="${l} (${u})"><i>${u}</i></label>`).join("")}</div></div>`; }   // e.g. price and tax of a product with variants: each variant has its own
     if(f.t==="polygon") return `<div class="f full"><label>${curL(f.l)}</label><div class="note">Click the map to add corners around the area this branch delivers to. Drag a corner to adjust it.</div><div id="zoneMap" class="zmap"></div><div class="row" style="margin:8px 0 0"><button type="button" class="btn sm" id="zUndo">Undo last point</button><button type="button" class="btn sm" id="zClear">Clear</button><span class="note" id="zInfo"></span></div></div>`;
     if(f.t==="chk") return `<div class="f full"><label class="chk"><input type="checkbox" id="${idA}" ${v!==false&&v!==undefined?"checked":""}> ${curL(f.l)}</label></div>`;
@@ -3533,7 +3533,7 @@ function openCrud(key, id, inline, draft){
           h += `<label class="chk mitem" data-grp="${esc(grp)}"><input type="checkbox" value="${esc(k)}" ${set.has(k)?"checked":""}><span class="rlt"><b>${esc(t)}</b>${d ? `<small>${esc(d)}</small>` : ""}</span></label>`; });
         if(open) h += "</div></section>";
         return `<div class="f full"><label>${curL(f.l)}</label><div class="mlist rl" id="${idA}"><div class="rlbar"><label class="chk mall"><input type="checkbox" data-mall="${idA}"><b>Select all</b></label><span class="rlcnt" data-rlcnt></span><div class="rls">${svgIco("search")}<input type="search" data-rlsearch placeholder="Search permissions"></div></div>${h}</div></div>`; }
-      return `<div class="f full"><label>${curL(f.l)}${f.toggle ? ` <button type="button" class="lnk mtog" data-mtog="${idA}">Toggle All</button>` : ""}</label><div class="multi${hasD ? " mdesc" : ""}" id="${idA}">${!o.length && f.empty ? `<span class="note">${esc(f.empty)}</span>` : ""}${o.map(([k,t,d])=>k.startsWith("@") ? `<div class="mhead">${esc(k.slice(1))}${f.toggle ? ` <button type="button" class="lnk mtog" data-mtog="${idA}" data-mgrp="${esc(k)}">Toggle</button>` : ""}</div>` : `<label class="chk" data-grp="${esc(o.filter(x=>x[0].startsWith("@")).reverse().find(x => o.indexOf(x) < o.findIndex(y=>y[0]===k))?.[0] || "")}"><input type="checkbox" value="${esc(k)}" ${set.has(k)?"checked":""}> <span><b>${esc(t)}</b>${d ? `<small>${esc(d)}</small>` : ""}</span></label>`).join("")}</div>${f.note?`<div class="note">${esc(f.note)}</div>`:""}</div>`; }
+      return `<div class="f${f.half ? "" : " full"}"><label>${curL(f.l)}${f.toggle ? ` <button type="button" class="lnk mtog" data-mtog="${idA}">Toggle All</button>` : ""}</label><div class="multi${hasD ? " mdesc" : ""}" id="${idA}">${!o.length && f.empty ? `<span class="note">${esc(f.empty)}</span>` : ""}${o.map(([k,t,d])=>k.startsWith("@") ? `<div class="mhead">${esc(k.slice(1))}${f.toggle ? ` <button type="button" class="lnk mtog" data-mtog="${idA}" data-mgrp="${esc(k)}">Toggle</button>` : ""}</div>` : `<label class="chk" data-grp="${esc(o.filter(x=>x[0].startsWith("@")).reverse().find(x => o.indexOf(x) < o.findIndex(y=>y[0]===k))?.[0] || "")}"><input type="checkbox" value="${esc(k)}" ${set.has(k)?"checked":""}> <span><b>${esc(t)}</b>${d ? `<small>${esc(d)}</small>` : ""}</span></label>`).join("")}</div>${f.note?`<div class="note">${esc(f.note)}</div>`:""}</div>`; }
     if(f.t==="image") return `<div class="f full"><label>${curL(f.l)}</label><div class="imgf"><label class="imgprev imgpick" for="${idA}_file" id="${idA}_prev" title="Choose photo">${v ? `<img src="${esc(v)}" alt="">` : imgPh()}</label>
       <div class="imgside"><label class="btn imgbtn" for="${idA}_file"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg> <span>${v ? "Change photo" : "Choose photo"}</span></label><input type="file" accept="image/*" id="${idA}_file" hidden><input type="hidden" id="${idA}" value="${esc(v||"")}">${v ? `<button type="button" class="btn imgrm" data-imgclear="${idA}">Remove photo</button>` : ""}<div class="note" id="${idA}_st">JPG or PNG · drag a photo onto the box or tap it. It's resized automatically for the POS, call center and web menu.</div></div></div></div>`;
     if(f.t==="phone"){ const m = /^(\+\d{1,4})\s*(.*)$/.exec(String(v||"").trim()), cc = m ? m[1] : "+961", num = m ? m[2] : String(v||"").replace(/^\+?961\s*/, "");
@@ -4074,7 +4074,7 @@ const chargeList = (type, brandId, branchId) => S.charges.filter(c => live(c) &&
 const ccOpen = {};   // open-amount charges: what the agent entered for this order
 const chargeAmt = (c, base) => +(c.type==="percent" ? base * (+c.value||0) / 100 : c.type==="open" ? +(ccOpen[c.id] ?? c.value ?? 0)||0 : +c.value||0).toFixed(2);
 // a charge's tax group: inclusive taxes are inside the charge, exclusive ones are added on top
-const chgRates = c => { const g = c?.taxGroup && (S.tax_groups||[]).find(x => x.id===c.taxGroup && live(x)), r = { inc:0, exc:0 }; (g?.taxIds||[]).forEach(t => { const x = S.taxes.find(y => y.id===t && live(y)); if(x) r[x.inclusive===false ? "exc" : "inc"] += (+x.rate||0)/100; }); return r; };
+const chgRates = c => { const g = c?.taxGroup && (S.tax_groups||[]).find(x => x.id===c.taxGroup && live(x)), r = { inc:0, exc:0 }; (g?.taxIds||[]).forEach(t => { const x = S.taxes.find(y => y.id===t && live(y)); if(x && (typeof taxOn!=="function" || taxOn(x))) r[x.inclusive===false ? "exc" : "inc"] += (+x.rate||0)/100; }); return r; };
 const lineNet = i => Math.max(0, (+i.price||0) * (+i.qty||1) - (+i.disc||0));
 function orderCalc(items, discount, charges, branchId){
   let gross = 0, tax = 0, add = 0; branchId = branchId || $("#oBranch")?.value || "";
@@ -4192,8 +4192,10 @@ const chPos = (c, p) => { const ids = c.productIds||[], k = [p.id, ...(p.variant
 function ccHas(c, p){ return c.channel ? chPos(c, p) >= 0 : p.categoryId===c.id; }
 function ccOrder(c){ return (a, b) => c && c.channel ? chPos(c, a) - chPos(c, b) : bySort(a, b);
 }
+// a tax counts only on the order types it applies to (none picked = every type)
+const taxOn = x => { const l = x.orderTypes || []; if(!l.length) return true; const t = (typeof $==="function" && $("#oType .on")?.dataset.ot) || "pickup"; return l.includes(t); };
 const prodRates = (id, branchId) => { const p = S.products.find(x=>x.id===id), bg = branches.find(b=>b.id===branchId)?.settings?.taxGroup, g = p && S.tax_groups.find(x=>x.id===(p.taxGroup || bg) && live(x)), r = { inc:0, exc:0 };
-  (g?.taxIds||[]).forEach(t => { const x = S.taxes.find(y=>y.id===t && live(y)); if(x) r[x.inclusive===false ? "exc" : "inc"] += (+x.rate||0)/100; }); return r; };
+  (g?.taxIds||[]).forEach(t => { const x = S.taxes.find(y=>y.id===t && live(y)); if(x && taxOn(x)) r[x.inclusive===false ? "exc" : "inc"] += (+x.rate||0)/100; }); return r; };
 function ccPrice(p){ const b = $("#oBranch")?.value, t = $("#oType .on")?.dataset.ot || "pickup", cps = p.customPrices||{}, c = b && (cps[b + ":callcenter:" + t] ?? cps[b + ":callcenter"] ?? cps[b]); return c!=null && c!=="" ? +c : +p.price||0; }
 const CC_ICO = {
   tag:'<path d="M3 12V4a1 1 0 0 1 1-1h8l9 9-9 9z"/><circle cx="7.5" cy="7.5" r="1.5"/>',

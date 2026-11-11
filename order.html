@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="705-1794401721">
+<meta name="slick-build" content="750-1794432265">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this copy, reload once (never for an older one) */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -736,8 +736,9 @@ const [st, scd, br, ca, pr, zo, mg, tx, tg, mo] = await Promise.all([
 ]);
 const mgroups = {}; (mg.data||[]).forEach(m => { if(!m.deleted) mgroups[m.id] = { name:m.name, sort:m.sort }; });
 // each tax is inclusive (inside the price) or added on top
-const taxDef = {}; (tx?.data||[]).filter(t=>!t.deleted).forEach(t => taxDef[t.id] = { rate:(+t.rate||0)/100, inc: t.inclusive !== false });
-const groupRate = {}; (tg?.data||[]).filter(g=>!g.deleted).forEach(g => { const r = { inc:0, exc:0 }; (g.tax_ids||[]).forEach(id => { const t = taxDef[id]; if(t) r[t.inc ? "inc" : "exc"] += t.rate; }); groupRate[g.id] = r; });
+const taxDef = {}; (tx?.data||[]).filter(t=>!t.deleted).forEach(t => taxDef[t.id] = { rate:(+t.rate||0)/100, inc: t.inclusive !== false, ot: t.order_types || [] });
+// a tax counts only on the order types it applies to (none picked = every type)
+const taxGroups = (tg?.data||[]).filter(g=>!g.deleted), groupRate = new Proxy({}, { get: (_, id) => { const g = taxGroups.find(x => x.id===id); if(!g) return undefined; const ty = typeof mode==="undefined" ? "" : mode==="takeaway" ? "pickup" : mode, r = { inc:0, exc:0 }; (g.tax_ids||[]).forEach(tid => { const t = taxDef[tid]; if(t && (!t.ot.length || t.ot.includes(ty))) r[t.inc ? "inc" : "exc"] += t.rate; }); return r; } });
 const taxParts = () => cart.reduce((a,i) => { const p = products.find(x=>x.id===i.productId), r = (p && groupRate[p.tax_group]) || { inc:0, exc:0 }, l = (+i.price||0)*(+i.qty||1), base = l/(1+r.inc); a.tax += (l - base) + base*r.exc; a.add += base*r.exc; return a; }, { tax:0, add:0 });
 incl = !Object.values(taxDef).some(t => !t.inc);
 const taxIn = () => +taxParts().tax.toFixed(2);

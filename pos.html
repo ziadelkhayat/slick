@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="744-1794429939">
+<meta name="slick-build" content="750-1794432265">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this copy, reload once (never for an older one) */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1179,12 +1179,14 @@ const menuType = () => otype==="takeaway" ? "pickup" : otype==="fast" ? "dinein"
 const chargeList = type => S.charges.filter(c => !c.deleted && c.active!==false && (!(c.orderTypes||[]).length || c.orderTypes.includes(typeKey(type)))
   && (!(c.brandIds||[]).length || c.brandIds.includes(branch?.brandId)) && (!(c.branchIds||[]).length || c.branchIds.includes(device.branchId))).sort((a,b)=>(a.sort??999)-(b.sort??999)||a.name.localeCompare(b.name));
 const pickedCharges = () => chargeList(otype).filter(c => posChg ? posChg.has(c.id) : false);   // charges are only added by the cashier
-const chgRates = c => { const g = c?.taxGroup && S.tax_groups.find(x => x.id===c.taxGroup && live(x)), r = { inc:0, exc:0 }; (g?.taxIds||[]).forEach(t => { const x = S.taxes.find(y => y.id===t && live(y)); if(x) r[x.inclusive===false ? "exc" : "inc"] += (+x.rate||0)/100; }); return r; };
+// a tax counts only on the order types it applies to (none picked = every type)
+const taxOn = x => { const l = x.orderTypes || []; if(!l.length) return true; const t = otype==="takeaway" ? "pickup" : otype; return l.includes(t); };
+const chgRates = c => { const g = c?.taxGroup && S.tax_groups.find(x => x.id===c.taxGroup && live(x)), r = { inc:0, exc:0 }; (g?.taxIds||[]).forEach(t => { const x = S.taxes.find(y => y.id===t && live(y)); if(x && taxOn(x)) r[x.inclusive===false ? "exc" : "inc"] += (+x.rate||0)/100; }); return r; };
 const lineNet = i => Math.max(0, (+i.price||0) * (+i.qty||1) - (+i.disc||0));
 /* ---------- tax (prices include it, unless the company turned tax-inclusive pricing off) ---------- */
 // each tax is either inclusive (already inside the menu price) or added on top (Manage → Taxes & Groups)
 const prodRates = id => { const p = S.products.find(x=>x.id===id), g = p && S.tax_groups.find(x=>x.id===(p.taxGroup || brSet().taxGroup) && live(x)), r = { inc:0, exc:0 };
-  (g?.taxIds||[]).forEach(t => { const x = S.taxes.find(y=>y.id===t && live(y)); if(x) r[x.inclusive===false ? "exc" : "inc"] += (+x.rate||0)/100; }); return r; };
+  (g?.taxIds||[]).forEach(t => { const x = S.taxes.find(y=>y.id===t && live(y)); if(x && taxOn(x)) r[x.inclusive===false ? "exc" : "inc"] += (+x.rate||0)/100; }); return r; };
 // tax = inclusive part taken out of the price + exclusive part added on the price before tax; "added" is what goes on top of the total
 function orderTaxParts(items, disc){ let g = 0, t = 0, add = 0; (items||[]).forEach(i => { const l = lineNet(i), r = prodRates(i.productId), base = l/(1+r.inc); g += l; t += (l - base) + base*r.exc; add += base*r.exc; });
   if(g>0 && disc>0){ const k = 1 - Math.min(disc,g)/g; t *= k; add *= k; } return { tax:+t.toFixed(2), added:+add.toFixed(2) }; }
