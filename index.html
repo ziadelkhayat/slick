@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="723-1794406699">
+<meta name="slick-build" content="725-1794414545">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this copy, reload once (never for an older one) */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1312,6 +1312,14 @@ html body{font-family:"Plus Jakarta Sans",Inter,"IBM Plex Sans Arabic",system-ui
 .ccx.s2 #oProducts>.pbtn>em,.ccx.s2 #oProducts>.pbtn>small{display:none!important}.ccx.s2 #oProducts>.ccp.sel::after{display:none!important}.ccx.s2 #oProducts>.pbtn.sel:not(.hasimg)>span:not(.pic){padding-right:0!important}
 .ccx.s2 #oProducts>.ctile{align-items:center!important;justify-content:center!important;text-align:center!important;padding:8px 6px!important}.ccx.s2 #oProducts>.ctile>b{font-size:clamp(13px,calc(var(--tile,118px) / 7.5),16px)!important;font-weight:700!important;text-align:center}.ccx.s2 #oProducts>.ctile>small{display:none!important}
 .ccx.s2 #oProducts>.ctile.hasimg{justify-content:flex-start!important;padding:12px 10px 8px!important}
+.ccobar{display:flex;align-items:center;gap:8px;padding:10px 12px;margin-bottom:8px;background:#f6f2ff;border-bottom:1px solid #e8e6f1}.ccobar b{font-size:15px;font-weight:700;color:var(--ink)}
+.ccpill{padding:2px 9px;border-radius:999px;font-size:12px;font-weight:700;background:#f0eef5;color:#5d5973}.ccpill.s-pending{background:#e8f0fd;color:#2c5fb8}.ccpill.s-active{background:#fdf0dc;color:#c9740f}.ccpill.s-closed{background:#e7f6ec;color:#1f7a3f}.ccpill.s-void,.ccpill.s-declined,.ccpill.s-returned,.ccpill.s-refund{background:#fde8e8;color:#9e0c24}
+.ccx.s2 .ccacts .btn.btn,.ccx.s2 .ccacts .btn.pri.pri{height:64px!important;min-height:64px!important;border-radius:14px!important;font-size:18px!important;font-weight:800!important;letter-spacing:.04em;text-transform:uppercase!important}   /* bottom buttons as thick as the POS Save / Total, in capitals */
+/* call center order screen: the same type as the POS cart (sizes, weights, colours, no letter-spacing) */
+.ccx.s2,.ccx.s2 *{letter-spacing:normal}
+.ccx.s2 .ccctxn b{font-size:15px!important;font-weight:700}.ccx.s2 .ccctxn small{font-size:12.5px;color:#6f6b85}.ccx.s2 .ccctxb .btn{font-size:13px!important;font-weight:700!important;color:#6a4cf5!important}
+.ccx.s2 .citem .cname small{font-size:11.5px!important;font-weight:600!important;color:#5b5a66!important}.ccx.s2 .citem.vi .vds{font-size:11.5px!important;font-weight:600!important;color:#b42318!important}
+.ccx.s2 .citem .lq{font-weight:800!important}.ccx.s2 .citem .ceach,.ccx.s2 .cccart .ctot.tax{color:#6f6b85!important}
 #ccBox [data-osave="pending"]:disabled,#ccSendEdit:disabled{background:#e4e2ec!important;color:#9a97a8!important;box-shadow:none!important;cursor:default;opacity:1}
 /* void items (call center): the POS row, − n + beside the item, and the POS reason chips */
 .ccvq{display:flex!important;flex-direction:row!important;margin-left:auto;flex-wrap:nowrap;align-items:center;gap:8px;flex:none}.ccvq button{width:34px;height:34px;border:0;border-radius:10px;background:#f7f6fb;color:#1b1830;font:inherit;font-size:17px;font-weight:700;line-height:1;display:grid;place-items:center;padding:0;cursor:pointer}.ccvq b{min-width:20px;text-align:center;font-weight:900;font-size:15px}.ccvq small{color:var(--ink2);font-size:12.5px;white-space:nowrap}
@@ -4030,7 +4038,8 @@ function ccSide(){
   const el = $("#oSide"); if(!el) return;
   const type = $("#oType .on")?.dataset.ot || "", c = window.__ccCust, a = addrSplit(addrJoin(ccAddrGet()));
   const bits = [branchName($("#oBranch").value), type ? ordTypeLbl(type) : "", $("#oSource")?.value || "", type==="delivery" ? (a.label ? a.label + ": " : "") + [a.street, a.building && "Bldg " + a.building, a.floor && "Floor " + a.floor].filter(Boolean).join(", ") : ""].filter(Boolean);
-  el.innerHTML = `<div class="ccctx"><div class="ccctxh"><span class="ccci">${svgIco(type==="delivery" ? "truck" : "store")}</span><div class="ccctxn"><b>${esc($("#oName").value.trim() || "New customer")}</b><small>${bits.map(esc).join(" / ")}</small></div>${c?.blacklisted ? `<span class="tag" style="background:#fde8eb;color:#9e0c24">⚠ Blacklisted</span>` : ""}</div>
+  const so = ccEdit && S.orders.find(x => x.id===ccEdit);   // a placed order: its reference and status on top, as on the POS
+  el.innerHTML = `${so ? `<div class="ccobar"><b>${esc(ccRef(so))}</b><span class="ccpill s-${esc(so.status)}">${esc(CC_SUB[so.status] || so.status)}</span></div>` : ""}<div class="ccctx"><div class="ccctxh"><span class="ccci">${svgIco(type==="delivery" ? "truck" : "store")}</span><div class="ccctxn"><b>${esc($("#oName").value.trim() || "New customer")}</b><small>${bits.map(esc).join(" / ")}</small></div>${c?.blacklisted ? `<span class="tag" style="background:#fde8eb;color:#9e0c24">⚠ Blacklisted</span>` : ""}</div>
     <div class="ccctxb">${$("#oPhone")?.disabled ? `<button type="button" class="btn sm" data-ccstep="1">Customer Details</button>` : `<button type="button" class="btn sm" data-ccstep="1">Edit customer</button>`}${$(".ccx .ccmenu") ? "" : `<button type="button" class="btn sm" data-ccclose>Close</button>`}</div></div>`;
 }
 function ccAddrCards(){
