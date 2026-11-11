@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="701-1794398751">
+<meta name="slick-build" content="702-1794398947">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this copy, reload once (never for an older one) */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -33,7 +33,7 @@ html[data-stage] body{position:fixed!important;left:var(--sl,0)!important;top:va
 .ohtile>small,.ocard.tl>small{font-size:12.5px!important;color:var(--mut)!important;line-height:1.35;text-align:left;text-transform:none;padding:0!important}
 .ohtile>em,.ocard.tl>em{font-style:normal;font-weight:700;font-size:16px!important;margin-top:2px!important;color:var(--ink)}
 .ohtile>.spill,.ocard.tl>.spill{margin:0 0 2px!important;align-self:flex-start}.ocard.tl>.ocacts{align-self:stretch}.ocard.tl>small:empty{display:none}
-.line .lqty{grid-column:1;justify-self:start;gap:10px!important;margin-top:4px}.line .lqty b{min-width:20px;text-align:center;font-size:15px}.line .lqty button{display:grid;place-items:center;padding:0;width:40px!important;height:40px!important;font-size:20px}.line .lqty .qdel{color:#d92d20}.line .leach{grid-column:2;align-self:center;text-align:right;font-size:12.5px;color:var(--mut)}
+.line .lqty{grid-column:1;justify-self:start;gap:10px!important;margin-top:4px}.line .lqty b{min-width:20px;text-align:center;font-size:15px}.line .lqty button{display:grid;place-items:center;padding:0;width:40px!important;height:40px!important;font-size:20px}.line .lqty .qdel{color:#d92d20}.line .leach{grid-column:2;align-self:start;margin-top:2px;text-align:right;font-size:12.5px;color:var(--mut)}
 </style>
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
@@ -817,7 +817,7 @@ window.SLICK_OFFLINE = true;</script>
 <script src="supabase.js"></script>
 <script>if(!window.supabase) document.write('<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"><\/script>');</script>
 <script src="wokdb.js?v=42"></script>
-<script src="modpick.js?v=27"></script>
+<script src="modpick.js?v=28"></script>
 </head>
 <body>
 <div id="boot" class="center"><div class="panel"><div class="logo">S</div><h1>Slick POS</h1><p>Connecting…</p></div></div>
@@ -1619,11 +1619,11 @@ async function addProduct(p){
   if(p.pricingMethod==="open"){ if(!can("pos_open_price")){ deny("open-price items"); return; } const v = await askNumber("Price for " + p.name, price || ""); if(v===null) return; price = v; }
   const kids = kidsOf(p);
   if(kids.length && window.SlickMods?.variant){ const v = await SlickMods.variant({ name:p.name, setName:(p.variants||[]).find(v=>v.group)?.group, variants: kids.map(k => ({ name:k.name, price:prodPrice(k.p), id:k.p.id })), money:usd }); if(!v) return; return addProduct(kids.find(k => k.p.id===v.id).p); }
-  let options = [], mods = "", addN = 1;
-  if((p.modifiers||[]).length && window.SlickMods){ const r = await SlickMods.pick({ name:p.name, basePrice:price, ...modData(p), money:usd }); if(!r) return; options = r.options; mods = r.mods; price = r.unitPrice; addN = Math.max(1, +r.qty||1); }
+  let options = [], mods = "", addN = 1, note = "";
+  if((p.modifiers||[]).length && window.SlickMods){ const r = await SlickMods.pick({ name:p.name, basePrice:price, ...modData(p), money:usd, askNote:true }); if(!r) return; options = r.options; mods = r.mods; price = r.unitPrice; addN = Math.max(1, +r.qty||1); note = r.note || ""; }
   const k = SlickMods ? SlickMods.key(p.id, options) : p.id;
-  const ex = cart.find(i => !i.note && (window.SlickMods ? SlickMods.key(i.productId, i.options) : i.productId) === k && i.price === price);
-  if(ex){ ex.qty += addN; reDisc(ex); } else cart.push({ productId:p.id, name:p.name, price, qty:addN, ...(options.length ? { options, mods } : {}) });   // the same item again goes on its line (as in the call center), not on a new one
+  const ex = !note && cart.find(i => !i.note && (window.SlickMods ? SlickMods.key(i.productId, i.options) : i.productId) === k && i.price === price);
+  if(ex){ ex.qty += addN; reDisc(ex); } else cart.push({ productId:p.id, name:p.name, price, qty:addN, ...(options.length ? { options } : {}), ...(note ? { note } : {}), ...(options.length || note ? { mods: SlickMods.label(mods, note) } : {}) });   // the same item again goes on its line (as in the call center), not on a new one
   renderCart();
 }
 // a menu item: tap the right ¾ to add one, the left ¼ to take one away (the last one added that isn't sent to the kitchen yet)
