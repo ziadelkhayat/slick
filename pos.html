@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="716-1794404991">
+<meta name="slick-build" content="718-1794405210">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this copy, reload once (never for an older one) */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -2136,7 +2136,7 @@ function ovRangeLbl(){ if(!OV.from && !OV.to) return "All time"; const hit = OV_
   return OV.from===OV.to ? fmtDay(OV.from) : `${OV.from ? fmtDay(OV.from) : "…"} – ${OV.to ? fmtDay(OV.to) : "…"}`; }
 function boardOrders(col, pd){
   const today = bizDate(), day = !pd && OV.date ? OV.date : today, anyDay = day===today;   // the Orders list can look at another business day
-  const mine = S.orders.filter(o => o.branchId===device.branchId), onDay = o => anyDay || bizDate(o.createdAt)===day;
+  const mine = S.orders.filter(o => o.branchId===device.branchId), onDay = o => (anyDay && !pd) || bizDate(o.createdAt)===day;   // pickup & delivery: the current business date only
   const q = OV.q.trim().toLowerCase(), m = o => (!q || [o.no, o.ref, o.invoiceNo, invNo(o.invoiceNo), o.returnNo && "RET-" + String(o.returnNo).padStart(6,"0"), o.customerName, o.phone, o.source, o.table].some(v => String(v||"").toLowerCase().includes(q)))
     && (!pd || ["pickup","takeaway","delivery"].includes(o.type) || (o.channel!=="pos" && o.type==="dinein")) && (pd || !OV.ft || (OV.ft==="pickup" ? ["pickup","takeaway"].includes(o.type) : o.type===OV.ft)) && (pd || !OV.fc || (OV.fc==="pos" ? o.channel==="pos" : OV.fc==="callcenter" ? o.channel==="callcenter" : !["pos","callcenter"].includes(o.channel)))
     && (pd || !OV.fs || String(o.source||"").toLowerCase()===OV.fs.toLowerCase()) && (pd || !OV.fp || String(o.payment?.method||"").toLowerCase()===OV.fp.toLowerCase());
@@ -2144,7 +2144,7 @@ function boardOrders(col, pd){
     return (col==="all" ? all : col==="active" ? all.filter(o => ["active","pending"].includes(o.status)) : col==="closed" ? all.filter(o => o.status==="closed") : col==="void" ? all.filter(o => o.status==="void") : col==="returns" ? all.filter(o => ["returned","refund"].includes(o.status)) : all.filter(o => o.status===col)).sort(by); }
   if(col==="all") return (pd ? ["pending","active","closed","void"] : ["active","closed","void"]).flatMap(k => boardOrders(k, pd)).sort((a,b) => String(b.createdAt).localeCompare(String(a.createdAt)));
   const l = col==="pending" ? mine.filter(o => (o.status==="pending" || (pd && erPending(o))) && onDay(o)) : col==="active" ? mine.filter(o => o.status==="active" && !(pd && erPending(o)) && onDay(o))
-    : col==="closed" ? mine.filter(o => o.status==="closed" && bizDate(o.createdAt)===day)
+    : col==="closed" ? mine.filter(o => (pd ? ["closed","void","returned"].includes(o.status) : o.status==="closed") && bizDate(o.createdAt)===day)   // pickup & delivery: Done keeps every closed order
     : col==="declined" ? mine.filter(o => o.status==="declined" && bizDate(o.updatedAt || o.createdAt)===day)
     : mine.filter(o => ["void","returned","refund"].includes(o.status) && bizDate(anyDay ? (o.updatedAt || o.createdAt) : o.createdAt)===day);
   return l.filter(m).sort((a,b) => String(b.createdAt).localeCompare(String(a.createdAt)));

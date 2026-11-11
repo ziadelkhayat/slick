@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="717-1794405104">
+<meta name="slick-build" content="718-1794405210">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this copy, reload once (never for an older one) */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -3887,18 +3887,19 @@ const CC_COLS = [["draft","Draft","Orders that are not yet sent to the branch"],
 const CC_SUB = { draft:"Draft", pending:"Sent to branch", active:"Sent To Kitchen", declined:"Declined", closed:"Done", void:"Void", returned:"Returned", refund:"Refund" };
 const SOURCES_DEF = ["Phone","Toters","NokNok","Talabat","WhatsApp","Walk-in"];
 function sourceList(cur){ const l = S.order_sources.filter(r=>live(r)&&r.active!==false&&String(r.name||"").toUpperCase()!=="POS").sort(CRUD["order-sources"].sort).map(r=>r.name); const out = l.length ? l : SOURCES_DEF; return cur && !out.includes(cur) ? [cur, ...out] : out; }
-state.ccBranch = "all"; state.ccAgent = "all"; state.ccTab = "today";
+state.ccBranch = "all"; state.ccAgent = "all"; state.ccTab = "today"; state.ccDate = "";   // "" = the current business date
 function viewCallCenter(){
   // users who can use the call center (their role allows it, or they manage everything); the owner too
   const ccUsers = S.users.filter(u => live(u) && !isAdminRow(u) && u.active!==false && (() => { const r = { permissions: S.roles.filter(x => userRoleIds(u).includes(x.id) && live(x)).flatMap(x => x.permissions||[]) }; return r && ((r.permissions||[]).includes("bo_callcenter") || (r.permissions||[]).includes("bo_manage")); })()).map(u=>u.name);
   if(state.fullName && !ccUsers.includes(state.fullName)) ccUsers.unshift(state.fullName);
   const agents = [...new Set(ccUsers)].sort((a,b)=>a.localeCompare(b));
   const byUser = (o, n) => o.agent===n || o.agent===String(n).split(/\s+/)[0];
-  const list = S.orders.filter(o => o.channel!=="pos" && brandFilter(o) && (bizDate(o.createdAt, o.branchId)===bizDate(new Date(), o.branchId) || ["draft","pending","active"].includes(o.status)))
+  const list = S.orders.filter(o => o.channel!=="pos" && brandFilter(o) && bizDate(o.createdAt, o.branchId)===(state.ccDate || bizDate(new Date(), o.branchId)))   // one business date: once the branch ends its day, its orders leave the board
     .filter(o => state.ccBranch==="all" || o.branchId===state.ccBranch).filter(o => state.ccAgent==="all" || byUser(o, state.ccAgent))
     .sort((a,b)=> b.createdAt.localeCompare(a.createdAt));
   let h = `<div class="phead"><h1>Call Center</h1><div class="sp"></div>
     ${scopeBar(false)}<select class="sel" id="ccBranch" aria-label="Branch"><option value="all">All Branches</option>${branches.filter(brandFilter).map(b=>`<option value="${esc(b.id)}" ${state.ccBranch===b.id?"selected":""}>${esc(b.name)}</option>`).join("")}</select>
+    <input class="sel" type="date" id="ccDate" aria-label="Business date" value="${esc(state.ccDate || bizDate())}" max="${esc(bizDate())}">
     <select class="sel" id="ccAgent" aria-label="User"><option value="all">All users</option>${agents.map(a=>`<option ${state.ccAgent===a?"selected":""}>${esc(a)}</option>`).join("")}</select>
     <button class="btn pri" id="ccNew">${svgIco("phone")} New Call Center Order</button></div>
 `;
@@ -8503,6 +8504,7 @@ $("#view").addEventListener("input", e => {
 $("#view").addEventListener("change", e => {
   if(e.target.id==="ccBranch"){ state.ccBranch = e.target.value; render(); }
   if(e.target.id==="ccAgent"){ state.ccAgent = e.target.value; render(); }
+  if(e.target.id==="ccDate"){ state.ccDate = e.target.value && e.target.value!==bizDate() ? e.target.value : ""; render(); }
 });
 
 state.date = todayStr();
