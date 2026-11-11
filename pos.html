@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="726-1794414648">
+<meta name="slick-build" content="727-1794414831">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this copy, reload once (never for an older one) */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1262,9 +1262,10 @@ function openDayEnd(){
   const day = openDay(), act = S.orders.filter(o => o.branchId===device.branchId && ["pending","active"].includes(o.status));
   const shifts = S.shifts.filter(x => x.branchId===device.branchId && !x.closedAt);
   const sales = S.orders.filter(o => liveOrder(o) && (o.status==="closed" || o.status==="refund") && bizDate(o.createdAt)===day);
+  // open orders or an open till block the end of day: a red message drops in instead of a window
+  if(shifts.length){ toast(shifts.length===1 ? "Till still open. Close it before ending the day" : shifts.length + " tills still open. Close them before ending the day", true); return; }
+  if(act.length){ toast(act.length===1 ? "1 order still active. Finish, decline or void it first" : act.length + " orders still active. Finish, decline or void them first", true); return; }
   const blockers = [];
-  if(act.length) blockers.push(`<p><b>${act.length} order${act.length===1?" is":"s are"} still active.</b> Finish, decline or void ${act.length===1?"it":"them"} first:</p><p class="mut">${act.slice(0,12).map(o => (o.no ? "#"+esc(o.no) : esc(invNo(o.invoiceNo))) + " · " + (o.status==="pending" ? "waiting" : "in kitchen")).join("<br>")}</p>`);
-  if(shifts.length) blockers.push(`<p><b>${shifts.length} shift${shifts.length===1?" is":"s are"} still open.</b> Close ${shifts.length===1?"it":"them"} first:</p><div class="vlines">${shifts.map(x => `<div><span>${esc(S.devices.find(d=>d.id===x.deviceId)?.name || "Device")} · ${esc(x.cashier||"")}<small class="mut" style="display:block">Opened ${new Date(x.openedAt).toLocaleString("en-GB",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})}</small></span>${x.deviceId===device.id ? `<button class="btn" data-shclose="${esc(x.id)}">Close Till</button>` : ""}</div>`).join("")}</div>`);
   modal("dayend", `<div class="mh"><h2>End day · ${esc(fmtDay(day))}</h2><button class="x" data-close aria-label="Close">×</button></div><div class="mb">
     ${blockers.length ? blockers.join("") : `<div class="stats"><div>Orders<b>${sales.length}</b></div><div>Net sales<b>${usd(sales.reduce((a,o)=>a+(+o.total||0)-(+o.tax||0),0))}</b></div><div>Payments<b>${usd(sales.reduce((a,o)=>a+(+o.total||0),0))}</b></div></div>
       <p class="mut">Ending the day closes ${esc(fmtDay(day))} for ${esc(branch?.name||"this branch")}. Every device at the branch then starts the next business day.</p>`}</div>
