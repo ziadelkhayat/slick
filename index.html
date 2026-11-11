@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="718-1794405210">
+<meta name="slick-build" content="720-1794405578">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this copy, reload once (never for an older one) */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -6253,6 +6253,10 @@ function tzList(){
   const mins = o => { const m = /([+-])(\d{2}):(\d{2})/.exec(o); return m ? (m[1]==="-"?-1:1) * (+m[2]*60 + +m[3]) : 0; };
   return TZ_CACHE = all.map(z => [z, tzOff(z)]).sort((a,b) => mins(a[1]) - mins(b[1]) || a[0].localeCompare(b[0]));
 }
+// each currency's symbols to choose from (the code itself is always offered)
+const CUR_SYMS = { USD:["$","US$"], LBP:["ل.ل","L.L."], EUR:["€"], AED:["د.إ","Dhs"], SAR:["ر.س","SR"], QAR:["ر.ق","QR"], KWD:["د.ك","KD"], BHD:["د.ب","BD"], OMR:["ر.ع.","RO"], JOD:["د.أ","JD"], SYP:["ل.س","£S"], IQD:["ع.د","ID"], EGP:["ج.م","E£"], TRY:["₺","TL"], GBP:["£"], CAD:["$","C$","CA$"], AUD:["$","A$","AU$"], BRL:["R$"], XOF:["CFA","F CFA"], NGN:["₦"], CDF:["FC"], INR:["₹","Rs"], PHP:["₱"], LKR:["Rs","රු"], BDT:["৳","Tk"], ETB:["Br"] };
+const symOpts = (cur, v) => { const l = [...(CUR_SYMS[cur] || []), cur]; if(v && !l.includes(v)) l.push(v); return `<option value="">Choose…</option>` + l.map(s => `<option value="${esc(s)}" ${v===s ? "selected" : ""}>${esc(s)}</option>`).join(""); };   // required: the symbol shows on every amount
+document.addEventListener("change", e => { if(e.target.id==="co_currency"){ const m = $("#co_currencySymbol"); if(m) m.innerHTML = symOpts(e.target.value || "USD", ""); return; } if(e.target.id!=="co_currency2") return; const s = $("#co_currencySymbol2"); if(!s) return; const cur = e.target.value; s.innerHTML = cur ? symOpts(cur, "") : `<option value="">Choose…</option>`; s.disabled = !cur; const l = document.querySelector('label[for="co_currencySymbol2"]'); if(l) l.textContent = "Secondary currency symbol" + (cur ? " *" : ""); });
 const CURRENCIES = [["USD","US Dollar (USD)"],["LBP","Lebanese Pound (LBP)"],["EUR","Euro (EUR)"],["AED","UAE Dirham (AED)"],["SAR","Saudi Riyal (SAR)"],["QAR","Qatari Riyal (QAR)"],["KWD","Kuwaiti Dinar (KWD)"],["BHD","Bahraini Dinar (BHD)"],["OMR","Omani Rial (OMR)"],["JOD","Jordanian Dinar (JOD)"],["SYP","Syrian Pound (SYP)"],["IQD","Iraqi Dinar (IQD)"],["EGP","Egyptian Pound (EGP)"],["TRY","Turkish Lira (TRY)"],["GBP","British Pound (GBP)"],["CAD","Canadian Dollar (CAD)"],["AUD","Australian Dollar (AUD)"],["BRL","Brazilian Real (BRL)"],["XOF","West African CFA Franc (XOF)"],["NGN","Nigerian Naira (NGN)"],["CDF","Congolese Franc (CDF)"],["INR","Indian Rupee (INR)"],["PHP","Philippine Peso (PHP)"],["LKR","Sri Lankan Rupee (LKR)"],["BDT","Bangladeshi Taka (BDT)"],["ETB","Ethiopian Birr (ETB)"]];
 // the usual menu currency for each country (Lebanon: restaurants price in US dollars); it can still be changed
 const COUNTRY_CUR = {"Lebanon":"USD","United Arab Emirates":"AED","Saudi Arabia":"SAR","Qatar":"QAR","Kuwait":"KWD","Bahrain":"BHD","Oman":"OMR","Jordan":"JOD","Syria":"SYP","Iraq":"IQD","Egypt":"EGP","Turkey":"TRY","Cyprus":"EUR","France":"EUR","United Kingdom":"GBP","Germany":"EUR","Italy":"EUR","Spain":"EUR","United States / Canada":"USD","Australia":"AUD","Brazil":"BRL","Ivory Coast":"XOF","Nigeria":"NGN","Senegal":"XOF","DR Congo":"CDF","India":"INR","Philippines":"PHP","Sri Lanka":"LKR","Bangladesh":"BDT","Ethiopia":"ETB"};
@@ -6483,15 +6487,15 @@ function viewCurrency(){
     <div class="card" style="margin-bottom:16px"><h3 style="margin:0 0 12px;font-size:15px">Main Currency</h3>
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px">
         <div class="f"><label for="co_currency">Main currency</label><select id="co_currency" class="sel" ${admin && !bizLocked() ? "" : "disabled"} ${bizLocked() ? `title="${LOCK_NOTE}"` : ""}>${CURRENCIES.map(([k,t])=>`<option value="${k}" ${(c.currency||"USD")===k?"selected":""}>${t}</option>`).join("")}</select></div>
+        <div class="f"><label for="co_currencySymbol">Main currency symbol *</label><select id="co_currencySymbol" class="sel" data-noseg ${admin?"":"disabled"}>${symOpts(c.currency||"USD", c.currencySymbol)}</select></div>
         <div class="f"><label for="co_priceDecimals">Main currency decimals</label><select id="co_priceDecimals" class="sel" ${admin?"":"disabled"}>${[0,1,2].map(n=>`<option value="${n}" ${String(Math.min(2, c.priceDecimals ?? 2))===String(n)?"selected":""}>${n}</option>`).join("")}</select></div>
-        <div class="f"><label for="co_currencySymbol">Main currency symbol</label><input id="co_currencySymbol" class="sel" maxlength="6" value="${esc(c.currencySymbol||"")}" placeholder="${esc(c.currency||"USD")}" autocomplete="off" ${admin?"":"disabled"}></div>
       </div><p class="note" style="margin:10px 0 0">Menu prices, totals and reports are in the main currency.</p>${qtPanel(1)}</div>
     <div class="card" style="margin-bottom:16px"><h3 style="margin:0 0 12px;font-size:15px">Secondary Currency</h3>
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px">
         <div class="f"><label for="co_currency2">Secondary currency</label><select id="co_currency2" class="sel" ${admin?"":"disabled"}><option value="">None</option>${CURRENCIES.map(([k,t])=>`<option value="${k}" ${c.currency2===k?"selected":""}>${t}</option>`).join("")}</select></div>
+        <div class="f"><label for="co_currencySymbol2">Secondary currency symbol${c.currency2 ? " *" : ""}</label><select id="co_currencySymbol2" class="sel" data-noseg ${admin && c.currency2 ? "" : "disabled"}>${c.currency2 ? symOpts(c.currency2, c.currencySymbol2) : `<option value="">Choose…</option>`}</select></div>
         <div class="f"><label for="co_rate2">Exchange rate (1 ${esc(c.currency||"USD")} =)</label><input id="co_rate2" class="sel" type="number" min="0" step="any" value="${esc(c.rate2??"")}" placeholder="e.g. 89500" ${admin?"":"disabled"}></div>
         <div class="f"><label for="co_decimals2">Secondary currency decimals</label><select id="co_decimals2" class="sel" ${admin?"":"disabled"}>${[0,1,2].map(n=>`<option value="${n}" ${String(c.decimals2 ?? 0)===String(n)?"selected":""}>${n}</option>`).join("")}</select></div>
-        <div class="f"><label for="co_currencySymbol2">Secondary currency symbol</label><input id="co_currencySymbol2" class="sel" maxlength="6" value="${esc(c.currencySymbol2||"")}" placeholder="${esc(c.currency2||"")}" autocomplete="off" ${admin?"":"disabled"}></div>
       </div><p class="note" style="margin:10px 0 0">Shown next to totals in the POS, on receipts, in the call center and online. The cashier can take cash in either currency, or both, and the change is shown in both.</p>${c.currency2 ? qtPanel(2) : ""}</div>
     <div class="err" id="curErr"></div>`;
 }
@@ -6526,6 +6530,9 @@ document.addEventListener("input", e => { const v = e.target.closest && e.target
 async function saveCurrency(){
   const v = k => ($("#co_"+k)?.value || "").trim();
   const data = { currency: bizLocked() ? (company().currency || "USD") : (v("currency") || "USD"), priceDecimals: +v("priceDecimals"), currencySymbol: v("currencySymbol").slice(0, 6), currencySymbol2: v("currencySymbol2").slice(0, 6), currency2: v("currency2"), rate2: v("rate2")==="" ? null : +v("rate2"), decimals2: +v("decimals2") || 0 };
+  if(!data.currencySymbol){ $("#curErr").textContent = "Choose the main currency symbol."; $("#co_currencySymbol").focus(); return; }
+  if(data.currency2 && !data.currencySymbol2){ $("#curErr").textContent = "Choose the secondary currency symbol."; $("#co_currencySymbol2").focus(); return; }
+  if(!data.currency2) data.currencySymbol2 = "";
   if(data.currency2 && !(data.rate2 > 0)){ $("#curErr").textContent = "Enter the exchange rate for the second currency."; $("#co_rate2").focus(); return; }
   for(const k of ["1","2"]) if(QT.draft[k] != null){ const q = qtCheck(k); if(q == null) return; data[qtKey(k)] = q; }
   try{ await put("settings", "company", data); QT.draft = {}; toast("Currency saved"); render(); }
