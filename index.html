@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="716-1794404991">
+<meta name="slick-build" content="717-1794405104">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this copy, reload once (never for an older one) */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -3883,7 +3883,8 @@ const mapLink = o => (o.lat && o.lng) ? `<a class="lnk" href="https://www.google
 const CC_COLS = [["draft","Draft","Orders that are not yet sent to the branch"],["pending","Pending","Orders that are not yet accepted by the branch"],
   ["active","Active","Orders that are currently being prepared in the branch"],["closed","Done","Orders that are completed, voided, joined or returned"],
   ["declined","Declined","Orders that have been declined from the branch or the call center"]];
-const CC_SUB = { draft:"Draft", pending:"Sent to branch", active:"Sent To Kitchen", declined:"Declined", closed:"Done" };
+// the Done column keeps every closed order: done, voided or returned
+const CC_SUB = { draft:"Draft", pending:"Sent to branch", active:"Sent To Kitchen", declined:"Declined", closed:"Done", void:"Void", returned:"Returned", refund:"Refund" };
 const SOURCES_DEF = ["Phone","Toters","NokNok","Talabat","WhatsApp","Walk-in"];
 function sourceList(cur){ const l = S.order_sources.filter(r=>live(r)&&r.active!==false&&String(r.name||"").toUpperCase()!=="POS").sort(CRUD["order-sources"].sort).map(r=>r.name); const out = l.length ? l : SOURCES_DEF; return cur && !out.includes(cur) ? [cur, ...out] : out; }
 state.ccBranch = "all"; state.ccAgent = "all"; state.ccTab = "today";
@@ -3902,7 +3903,7 @@ function viewCallCenter(){
     <button class="btn pri" id="ccNew">${svgIco("phone")} New Call Center Order</button></div>
 `;
   if(storeMode==="local") h += `<div class="banner">Preview mode: orders won't be saved.</div>`;
-  h += `<div class="board">${CC_COLS.map(([k,t,d]) => { const col = list.filter(o=>o.status===k); return `<div class="bcol"><div class="bhead"><b>${t}</b><span class="cnt ${col.length&&k==="active"?"hot":""}">${col.length}</span><span class="sp"></span><span class="info" title="${d}">i</span></div>
+  h += `<div class="board">${CC_COLS.map(([k,t,d]) => { const col = list.filter(o => k==="closed" ? ["closed","void","returned"].includes(o.status) : o.status===k); return `<div class="bcol"><div class="bhead"><b>${t}</b><span class="cnt ${col.length&&k==="active"?"hot":""}">${col.length}</span><span class="sp"></span><span class="info" title="${d}">i</span></div>
     ${col.length ? col.map(ccCard).join("") : `<div class="bempty">You don't have ${t} orders</div>`}</div>`; }).join("")}</div>`;
   return h;
 }
