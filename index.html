@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="765-1794434645">
+<meta name="slick-build" content="766-1794434716">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this copy, reload once (never for an older one) */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -7388,8 +7388,7 @@ function openUserRoles(id){
 document.addEventListener("click", async e => {
   const o = e.target.closest("[data-usrroles]"); if(o){ e.preventDefault(); openUserRoles(o.dataset.usrroles); return; }
   const ap = e.target.closest("[data-urapply]"); if(ap){ const ids = [...document.querySelectorAll("#urList input:checked")].map(i => i.value);
-    if(!ids.length){ $("#urErr").textContent = "Pick at least one role."; return; }
-    try{ await put("users", ap.dataset.urapply, { roleIds: ids, roleId: ids[0] }); toast("Roles saved"); $("#ccScrim").classList.remove("show"); render(); }catch(err){ console.error(err); $("#urErr").textContent = "Couldn't save."; } return; }
+    try{ await put("users", ap.dataset.urapply, { roleIds: ids, roleId: ids[0] || null }); toast("Roles saved"); $("#ccScrim").classList.remove("show"); render(); }catch(err){ console.error(err); $("#urErr").textContent = "Couldn't save."; } return; }
   const pw = e.target.closest("[data-usrpw]"); if(pw){ e.preventDefault(); openUserPw(pw.dataset.usrpw); return; }
   const pa = e.target.closest("[data-upwsave]"); if(pa){ e.preventDefault(); saveUserPw(pa.dataset.upwsave); return; }
 });
@@ -7421,9 +7420,7 @@ document.addEventListener("click", async e => {
   if(e.target.closest("#ubDD .msel-f")){ const pick = document.querySelector('input[name="ubMode"][value="pick"]'); if(pick && !pick.checked){ pick.checked = true; $("#ubDD").classList.remove("off"); } }   // the system dropdown opens on its own; picking from it means "Branches"
   if(e.target.matches?.('input[name="ubMode"]')){ const auto = e.target.value==="auto"; $("#ubDD").classList.toggle("off", auto); if(auto && typeof msClose==="function") msClose(); return; }
   const ap = e.target.closest("[data-ubapply]"); if(ap){ const auto = document.querySelector('input[name="ubMode"]:checked')?.value !== "pick", ids = auto ? [] : [...document.querySelectorAll("#ubMenu input:checked")].map(i => i.value);
-    if(!auto && !ids.length){ $("#ubErr").textContent = "Pick at least one branch, or choose Automatically apply."; return; }
-    try{ await put("users", ap.dataset.ubapply, { branchIds: ids }); toast("Branches saved"); $("#ccScrim").classList.remove("show"); render(); }catch(err){ console.error(err); $("#ubErr").textContent = "Couldn't save."; } return; }
-  if($("#ubMenu") && !$("#ubMenu").hidden && !e.target.closest("#ubDD")) $("#ubMenu").hidden = true;
+    try{ await put("users", ap.dataset.ubapply, { branchIds: auto ? [] : ids.length ? ids : ["-"] }); toast("Branches saved"); $("#ccScrim").classList.remove("show"); render(); }catch(err){ console.error(err); $("#ubErr").textContent = "Couldn't save."; } return; }
 });
 document.addEventListener("change", e => { if(e.target.closest("#ubMenu") && $("#ubSel")) ubPaint(); });
 function invItemDetail(it){
