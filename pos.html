@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="687-1794395167">
+<meta name="slick-build" content="688-1794395305">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -2604,13 +2604,14 @@ const ohTile = x => { const br = S.branches?.find(b => b.id===x.branchId), bd = 
 const ohNum = o => o.inv ? invNo(o.inv) : o.ref || (o.no ? "#" + o.no : "—");
 const ohDate = (x, time) => x ? new Date(x).toLocaleString("en-GB", { day:"numeric", month:"short", year:"numeric", ...(time ? { hour:"2-digit", minute:"2-digit" } : {}) }) : "—";
 const RO_ITEMS = new WeakSet();   // cart lines that came from a Reorder
-function pastHtml(ok, det, key){ ok = ok || [];
+function pastHtml(ok, det, key){ ok = (ok || []).filter(ohHist);
   return `<div class="cpastw"><button type="button" class="acard adbar" data-ohpop="${key}" ${ok.length ? "" : "disabled"}><span class="aci"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span><span class="act"><b>Orders history</b><span>${ok.length ? ok.length + (ok.length===1 ? " order" : " orders") : "No orders yet"}</span></span><i class="adgo">›</i></button></div>`; }
 // orders history filters: they stay in place above the tiles while the tiles scroll
 let OH_F = ""; const OH_FS = [["","All"],["closed","Done"],["void","Void"],["refund","Refund"],["declined","Declined"]];
-const OH_GR = [["pending","Pending"],["active","Active"],["closed","Done"],["void","Void"],["refund","Refund"],["declined","Declined"]];   // All: the orders grouped by status
+const ohHist = o => !["pending","active","draft"].includes(o.status);   // history is finished orders only: no pending or active ones
+const OH_GR = [["closed","Done"],["void","Void"],["refund","Refund"],["declined","Declined"]];   // All: the orders grouped by status
 const ohMatch = (o, f) => !f || (f==="refund" ? ["refund","returned"].includes(o.status) : o.status===f);
-function ohPop(key, id){ const list = (key==="pddet" ? PD?.past : CV?.past) || [];
+function ohPop(key, id){ const list = ((key==="pddet" ? PD?.past : CV?.past) || []).filter(ohHist);
   let el = $("#ohPop"); if(!el){ el = document.createElement("div"); el.id = "ohPop"; el.className = "scrim show npsc adpop ohpop"; document.body.appendChild(el); } el.dataset.k = key;
   const o = id && list.find(x => x.id===id);
   if(!o){ el.innerHTML = `<div class="modal"><div class="mh"><h2>Orders history</h2><button class="x" data-ohx aria-label="Close">×</button></div><div class="ohfil">${OH_FS.map(([k, l]) => `<button type="button" class="${OH_F===k ? "on" : ""}" data-ohf="${k}">${l}</button>`).join("")}</div><div class="mb"><div class="ohgrid">${(t => OH_F ? list.filter(x => ohMatch(x, OH_F)).map(t).join("") : OH_GR.map(([k, l]) => { const g = list.filter(x => ohMatch(x, k)); return g.length ? `<div class="ohgh">${l}<span>${g.length}</span></div>` + g.map(t).join("") : ""; }).join(""))(ohTile) || `<div class="ohnone">No orders</div>`}</div></div></div>`; return; }
