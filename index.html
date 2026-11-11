@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="736-1794426809">
+<meta name="slick-build" content="737-1794426864">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this copy, reload once (never for an older one) */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -5094,14 +5094,14 @@ document.addEventListener("click", async e => { const b = e.target.closest("[dat
   const k = e.target.closest("[data-bmcbulk]"); if(!k) return; k.closest(".ddmenu").hidden = true; e.preventDefault(); let ids = [...(BM.csel || [])]; if(!ids.length) return toast("Select categories first"); const act = k.dataset.bmcbulk;
   if(act==="on" || act==="off"){ ids.forEach(id => bmSet("cat:"+id, "on", act==="on")); BM.csel = new Set(); render(); return bmAuto(); }
   if(act==="del"){ const nSub = [...new Set(ids.flatMap(bmSubIds))].filter(x => !ids.includes(x)).length; ids = [...new Set([...ids, ...ids.flatMap(bmSubIds)])];
-    if(!(await askYes(`Delete ${ids.length - nSub} categor${ids.length - nSub===1?"y":"ies"}${nSub ? ` and ${nSub} sub-categor${nSub===1?"y":"ies"} inside` : ""} from the ${bmMenu()[1]} menu? They are removed for good. Their products stay in Menu → Products.`))) return;
+    if(!(await askYes(`Delete ${ids.length - nSub} categor${ids.length - nSub===1?"y":"ies"}${nSub ? ` and ${nSub} sub-categor${nSub===1?"y":"ies"} inside` : ""} from the ${bmMenu()[1]} menu?`))) return;
     try{ for(const id of ids){ if(storeMode==="db") await db.collection("categories").doc(id).delete(); else S.categories = S.categories.filter(x => x.id!==id); } BM.csel = new Set(); render(); }
     catch(err){ console.error(err); toast("Couldn't delete. Only the owner or an admin can change the menu."); } }
 }, true);
 async function bmDelCat(id){
   const c = S.categories.find(x => x.id===id); if(!c) return;
   const subs = bmSubIds(id), what = catPar(c) ? "sub-category" : "category";
-  if(!(await askYes(`Delete the ${what} "${c.name}"${subs.length ? ` and its ${subs.length} sub-categor${subs.length===1?"y":"ies"}` : ""} from the ${bmMenu()[1]} menu? ${subs.length ? "They are" : "It is"} removed for good. ${subs.length ? "Their" : "Its"} products stay in Menu → Products.`))) return;
+  if(!(await askYes(`Delete the ${what} "${c.name}"${subs.length ? ` and its ${subs.length} sub-categor${subs.length===1?"y":"ies"}` : ""} from the ${bmMenu()[1]} menu?`))) return;
   try{ for(const x of [...subs, id]){ if(storeMode==="db") await db.collection("categories").doc(x).delete(); else S.categories = S.categories.filter(y => y.id!==x); } render(); }
   catch(err){ console.error(err); toast("Couldn't delete. Only the owner or an admin can change the menu."); }
 }
@@ -5367,7 +5367,7 @@ $("#view").addEventListener("click", async e => {
   const ad = e.target.closest("[data-bmadd]"); if(ad){ e.preventDefault(); return bmAddItems(ad.dataset.bmadd); }
   const rm = e.target.closest("[data-bmrm]"); if(rm){ e.preventDefault(); const [cid, pid] = rm.dataset.bmrm.split("|"), c = S.categories.find(x => x.id===cid); if(!c) return;
     const pn = (S.products.find(x => x.id===pid) || {}).name || "item"; rm.closest(".ddmenu")?.setAttribute("hidden", "");
-    askYes(`Remove the item "${pn}" from the category "${c.name}" in the ${bmMenu()[1]} menu? It stays in Menu → Items.`).then(yes => { if(!yes) return;
+    askYes(`Remove the item "${pn}" from the category "${c.name}" in the ${bmMenu()[1]} menu?`).then(yes => { if(!yes) return;
     const ids = (c.productIds||[]).filter(x => bmRoot(x)!==pid); put("categories", cid, { productIds:ids }).then(() => { c.productIds = ids; toast("Removed from " + c.name); render(); }, err => { console.error(err); toast("Couldn't save."); }); }); return; }
   if(e.target.closest("#bmMore")){ const m = $("#bmMoreM"); m.hidden = !m.hidden; if($("#bmCopyM")) $("#bmCopyM").hidden = true; return; }
   if(e.target.closest("#bmCopyB")){ const m = $("#bmCopyM"); m.hidden = !m.hidden; ($("#bmMoreM")||{}).hidden = true; return; }
