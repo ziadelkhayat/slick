@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="709-1794402680">
+<meta name="slick-build" content="710-1794402940">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this copy, reload once (never for an older one) */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -840,7 +840,7 @@ window.SLICK_OFFLINE = true;</script>
 <script src="supabase.js"></script>
 <script>if(!window.supabase) document.write('<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"><\/script>');</script>
 <script src="wokdb.js?v=43"></script>
-<script src="modpick.js?v=29"></script>
+<script src="modpick.js?v=30"></script>
 </head>
 <body>
 <div id="boot" class="center"><div class="panel"><div class="logo">S</div><h1>Slick POS</h1><p>Connecting…</p></div></div>
@@ -1688,9 +1688,9 @@ async function editLine(ix, only){   // only: "note" (tap: options and note) or 
   const r = await SlickMods.pick({ name:i.name, basePrice:base, ...(p && !i.saved ? modData(p) : { links:[], groups:{}, options:[] }), money:usd, edit:true, only, initial:i.options||[], qty:i.qty,
     ...(only==="mods" ? { qtyEdit:true, minQty: Math.max(1, i.saved||0), canRemove: !i.saved } : {}), note:i.note||"", allowDiscount: can("pos_item_discount"), discType:i.discType, discValue:i.discValue }); if(!r) return;
   if(r.remove){ cart.splice(ix, 1); renderCart(); renderMenu(); return; }
-  if(i.saved){ i.qty = Math.max(i.saved, r.qty||i.qty); reDisc(i); renderCart(); return; }   // sent to the kitchen: only more of it can be added
   if(+r.disc > (+i.disc||0) + 0.001 && appSet().discNeedsCustomer && !custGiven(cust.name, cust.phone)){ toast("Add the customer first: discounts need customer info"); return; }
   if(+r.disc > (+i.disc||0) + 0.001 && appSet().discountApproval && !(await approve("pos_item_discount", "Approve item discount"))) return;
+  if(i.saved){ if(r.disc != null){ i.disc = r.disc; i.discType = r.discType; i.discValue = r.discValue; if(!+i.disc){ delete i.disc; delete i.discType; delete i.discValue; } } renderCart(); return; }   // sent to the kitchen: only its discount changes
   Object.assign(i, { price:r.unitPrice, qty:r.qty, options:r.options, note:r.note, mods:SlickMods.label(r.mods, r.note) });
   if(r.disc != null){ i.disc = r.disc; i.discType = r.discType; i.discValue = r.discValue; } else reDisc(i);
   if(!i.options.length) delete i.options; if(!i.note) delete i.note; if(!i.mods) delete i.mods; if(!+i.disc){ delete i.disc; delete i.discType; delete i.discValue; }
@@ -1702,7 +1702,7 @@ $("#lines").addEventListener("click", e => { const dx = e.target.closest("[data-
   const eo = editOrder(), ro = eo && !isOpenOrd(eo);
   const ed = !e.target.closest("button, input, a, .lqty") && e.target.closest("[data-edit]"); if(ed){ if(ro) return; const i = cart[+ed.dataset.edit]; if(!i) return;
     if(lpLine.done){ lpLine.done = false; return; }   // the long press already opened the discount
-    if(eo) return lineDisc(+ed.dataset.edit);   // an order already sent: the item discount only
+    if(i.saved) return;   // already sent and printed: a tap does nothing; its discount is on the long press
     return editLine(+ed.dataset.edit, "note"); }   // tap a line: its options with the note under them; long press: its discount; quantity is on the − / + beside it
   const b = e.target.closest("[data-q]"); if(!b || ro) return; const [ix,d] = b.dataset.q.split(":").map(Number), i = cart[ix];
   if(d > 0 && i.saved) return;                          // already sent: more of it is added from the menu, on a line of its own
