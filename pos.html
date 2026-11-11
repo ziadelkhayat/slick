@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="719-1794405437">
+<meta name="slick-build" content="721-1794405720">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this copy, reload once (never for an older one) */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -2547,7 +2547,7 @@ function openBoard(){
   const cols = PD_COLS.map(([k,title,tip]) => [k, title, tip, boardOrders(k, true)]); OV.q = q;
   modal("board", `<div class="ohdr"><button class="hbtn" data-close>Back</button><b style="font-size:18px;letter-spacing:.03em">Pickup & Delivery</b><span class="sp"></span>${allowedTypes().some(t => t==="takeaway"||t==="delivery") ? `<button class="hbtn" data-pdnewt>New Order</button>` : ""}</div>
     <div class="mb"><div class="oboard">${cols.map(([k,title,tip,l]) => `<div class="ocol"><div class="ochead" title="${esc(tip)}"><b>${title}</b><span class="cnt">${l.length}</span></div>${l.length ? l.map(card).join("") : `<div class="oempty">You don't have ${title.toLowerCase()} orders</div>`}</div>`).join("")}</div></div>`, true);
-  $("#modal").classList.add("full"); $("#scrim").classList.add("fullscr"); withNav();
+  $("#modal").classList.add("full"); $("#scrim").classList.add("fullscr"); withNav(); requestAnimationFrame(() => { const bd = $("#modal .oboard"); if(bd) eqTiles(bd, ".ocard"); });   // every tile as tall as the tallest
 }
 let BQ = "";
 // new pickup / delivery order, like the call center: customer & delivery first, then the menu
@@ -2684,6 +2684,8 @@ let OH_F = ""; const OH_FS = [["","All"],["closed","Done"],["void","Void"],["ref
 const ohHist = o => !["pending","active","draft"].includes(o.status);   // history is finished orders only: no pending or active ones
 const OH_GR = [["closed","Done"],["void","Void"],["refund","Refund"],["declined","Declined"]];   // All: the orders grouped by status
 const ohMatch = (o, f) => !f || (f==="refund" ? ["refund","returned"].includes(o.status) : o.status===f);
+// every tile in a board takes the size of the biggest one
+const eqTiles = (root, sel) => { const t = [...root.querySelectorAll(sel)]; t.forEach(x => x.style.minHeight = ""); const h = Math.max(0, ...t.map(x => x.offsetHeight)); if(h) t.forEach(x => x.style.minHeight = h + "px"); };
 const ohEqual = root => { const t = [...root.querySelectorAll(".ohtile")]; t.forEach(x => x.style.height = ""); const h = Math.max(0, ...t.map(x => x.offsetHeight)); if(h) t.forEach(x => x.style.height = h + "px"); };   // every history tile takes the height of the tallest one
 function ohPop(key, id){ const list = ((key==="pddet" ? PD?.past : CV?.past) || []).filter(ohHist);
   let el = $("#ohPop"); if(!el){ el = document.createElement("div"); el.id = "ohPop"; el.className = "scrim show npsc adpop ohpop"; document.body.appendChild(el); } el.dataset.k = key;

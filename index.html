@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="720-1794405578">
+<meta name="slick-build" content="721-1794405720">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this copy, reload once (never for an older one) */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -2512,6 +2512,7 @@ function render(){ const route = location.hash.slice(1) || "dashboard", same = r
   const wy = SCRY(), keep = same ? [...document.querySelectorAll(KEEP_SCROLL)].map((el, i) => [i, el.scrollTop, el.scrollLeft]).filter(x => x[1] || x[2]) : [];
   const H = document.documentElement; if(same){ H.classList.add("rr"); clearTimeout(render.t); render.t = setTimeout(() => H.classList.remove("rr"), 450); }   // redraws of the same page don't replay entrance animations (no blinking)
   const r = render0.apply(this, arguments);
+  try{ const bd = document.querySelector("#view .board"); if(bd) eqTiles(bd, ".ocard"); }catch(_){}   // call center board: every tile as tall as the tallest
   if(same){ if(SCRY() !== wy) window.scrollTo(0, wy); if(keep.length){ const els = [...document.querySelectorAll(KEEP_SCROLL)]; keep.forEach(([i, t, l]) => { const el = els[i]; if(el){ el.scrollTop = t; el.scrollLeft = l; } }); } }
   return r; }
 // a page that fails to draw never leaves the screen blank: the menu stays and a short message offers a reload
@@ -6138,6 +6139,9 @@ function ccPastRender(){
   box.innerHTML = `<button type="button" class="acard adbar" data-ccoh ${n ? "" : "disabled"}><span class="aci"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span><span class="act"><b>Orders history</b><span>${n ? n + (n===1 ? " order" : " orders") : "No orders yet"}</span></span><i class="adgo">›</i></button>`;
 }
 const CC_OHFS = [["","All"],["closed","Done"],["void","Void"],["refund","Refund"],["declined","Declined"]];
+// every tile in a board takes the size of the biggest one
+const eqTiles = (root, sel) => { const t = [...root.querySelectorAll(sel)]; t.forEach(x => x.style.minHeight = ""); const h = Math.max(0, ...t.map(x => x.offsetHeight)); if(h) t.forEach(x => x.style.minHeight = h + "px"); };
+addEventListener("resize", () => { const bd = document.querySelector("#view .board"); if(bd) eqTiles(bd, ".ocard"); });
 const ohEqual = root => { const t = [...root.querySelectorAll(".ohtile")]; t.forEach(x => x.style.height = ""); const h = Math.max(0, ...t.map(x => x.offsetHeight)); if(h) t.forEach(x => x.style.height = h + "px"); };   // every history tile takes the height of the tallest one
 function ccOhPop(id){
   let p = $("#ccOhPop"); if(!p){ p = document.createElement("div"); p.id = "ccOhPop"; p.className = "ccadpop ccoh"; ($("#ccBox") || document.body).appendChild(p); } p.hidden = false;
