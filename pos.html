@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="718-1794405210">
+<meta name="slick-build" content="719-1794405437">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this copy, reload once (never for an older one) */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1501,7 +1501,7 @@ function renderCart(){
   let b;
   if(!eo) b = [...(otype==="fast" ? [] : [`<button data-act="send" ${cart.length?"":"disabled"}>Save</button>`]), `<button class="pay" data-act="pay" ${cart.length?"":"disabled"}>${cart.length ? "Total" : "Total"}</button>`];
   else if(eo.status==="pending") b = canAccept() ? [`<button class="decl" data-incc="${esc(eo.id)}:declined">Decline</button>`, `<button class="pay" data-incc="${esc(eo.id)}:active">Accept</button>`] : [];   // an order waiting to be accepted can't be saved or paid yet: accept or decline it first
-  else if(isOpenOrd(eo)) b = [...(otype==="fast" ? [] : [`<button data-act="send" ${unsent?"":"disabled"}>Save</button>`]), `<button class="pay" data-act="pay" ${cart.length?"":"disabled"}>Total</button>`];
+  else if(isOpenOrd(eo)) b = [...(otype==="fast" ? [] : [`<button data-act="send" ${unsent || VOID_CHG===eo.id ? "" : "disabled"}>Save</button>`]), `<button class="pay" data-act="pay" ${cart.length?"":"disabled"}>Total</button>`];
   else b = [];
   acts.style.setProperty("--n", b.length + 1); acts.innerHTML = b.join(""); acts.classList.toggle("hide", !b.length);
   // order note (invoice receipt) and kitchen note (kitchen tickets)
@@ -1539,6 +1539,7 @@ function loadOrder0(id, keep){
   closeModal(); renderCart(); renderMenu();
 }
 function unloadOrder(){ EDIT = null; resetOrder(); renderMenu(); }
+let VOID_CHG = null;   // the open order had items voided: that is a change, so Save can be pressed
 const unsentItems = () => cart.flatMap(i => { const n = i.qty - (i.saved||0); if(n <= 0) return []; return [{ ...cleanItem(i), qty:n, ...(+i.disc && i.qty ? { disc: +(i.disc * n / i.qty).toFixed(2) } : {}) }]; });
 // what this register needs before sending or billing an order (table, customer, address)
 function orderInfoOk(){
@@ -1559,7 +1560,7 @@ async function sendOrder(after){   // after: "bill" or "kitchen" = print that ti
   if(!orderInfoOk()) return;
   const t = totals(), now = new Date().toISOString(), eo = editOrder();
   try{
-    if(eo){ const nu = unsentItems(); await db.collection("orders").doc(eo.id).update({ ...orderFields(t), updatedAt: now }); await posTagsCommit(eo.id); toast(`Saved · order ${ordRef(eo)}`);
+    if(eo){ const nu = unsentItems(); await db.collection("orders").doc(eo.id).update({ ...orderFields(t), updatedAt: now }); await posTagsCommit(eo.id); toast(`Saved · order ${ordRef(eo)}`); VOID_CHG = null;
       if(after==="kitchen" && nu.length) printKitchen({ ...eo, ...orderFields(t), items: nu }, "Kitchen ticket " + ordRef(eo));   // only the newly added items go to the kitchen
       unloadOrder(); }
     else { const id = "pos_" + Date.now().toString(36) + Math.random().toString(36).slice(2,5), no = nextOrderNo();
@@ -1748,7 +1749,7 @@ $("#totals").addEventListener("click", e => { if(e.target.closest("[data-discx]"
   if(!posChg) posChg = new Set(pickedCharges().map(c=>c.id)); posChg.has(b.dataset.chg) ? posChg.delete(b.dataset.chg) : posChg.add(b.dataset.chg); renderCart(); });
 $("#extra").addEventListener("change", e => { if(e.target.id==="tbl") tableNo = e.target.value; });
 $("#extra").addEventListener("input", e => { if(e.target.id==="tbl") tableNo = e.target.value; if(e.target.id==="cPhone") cust.phone = e.target.value; if(e.target.id==="cName") cust.name = e.target.value; if(e.target.id.startsWith("cA_")) cust.addr[e.target.id.slice(3)] = e.target.value; });
-function resetOrder(){ EDIT = null; orderNote = ""; kitchenNote = ""; GUESTS = 0; otype = defaultType(); cart = []; discount = 0; discType = "pct"; DSET = null; posChg = null; posOpen = {}; posTags = null; posCustTags = null; tableNo = ""; cust = { name:"", phone:"", addr:{} }; renderCart(); }
+function resetOrder(){ EDIT = null; VOID_CHG = null; orderNote = ""; kitchenNote = ""; GUESTS = 0; otype = defaultType(); cart = []; discount = 0; discType = "pct"; DSET = null; posChg = null; posOpen = {}; posTags = null; posCustTags = null; tableNo = ""; cust = { name:"", phone:"", addr:{} }; renderCart(); }
 
 /* ---------- modals ---------- */
 let modalKind = null;
@@ -2306,7 +2307,7 @@ async function doVR(kind, mode){
     if(mv && window.WOK?.sb){ try{ const r = await window.WOK.sb.rpc("slick_stock_items", { p_order:o.id, p_items:chosen.map(({ ix, ...it }) => it), p_mode:mv }); if(r.error) throw r.error; }
       catch(err){ console.error("stock", err); toast("Saved, but the stock couldn't be updated. Adjust it under Inventory → Quantity Adjustment."); } }
     toast(`${kind==="void"?"Voided":"Refund ticket created · "+usd(-ticket.total)} · approved by ${ok.name}`);
-    if(EDIT && EDIT.id===o.id && kind==="void"){ const keep = window.__keep; window.__keep = null; setTimeout(() => { const n = S.orders.find(x=>x.id===o.id); if(n && isOpenOrd(n)) loadOrder(o.id, keep); else { closeModal(); unloadOrder(); } }, 400); }
+    if(EDIT && EDIT.id===o.id && kind==="void"){ VOID_CHG = o.id; const keep = window.__keep; window.__keep = null; setTimeout(() => { const n = S.orders.find(x=>x.id===o.id); if(n && isOpenOrd(n)) loadOrder(o.id, keep); else { closeModal(); unloadOrder(); } }, 400); }
     else if(EDIT && EDIT.id===o.id){ setTimeout(() => { closeModal(); loadOrder(o.id); }, 400); }
     else closeModal();
   }catch(err){ console.error(err); $("#vrErr") && ($("#vrErr").textContent = "Couldn't save. Check the connection and try again."); }
