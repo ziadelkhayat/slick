@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="738-1794427366">
+<meta name="slick-build" content="739-1794427918">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this copy, reload once (never for an older one) */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1496,7 +1496,7 @@ function renderCart(){
   const rf = eo0 && eo0.status==="refund" ? eo0 : null, rfInv = rf && invNo(rf.invoiceRef || S.orders.find(x => x.id===rf.refundOf)?.invoiceNo);
   const ctx = rf ? `<div class="ctx"><span class="ci ci-svg">${ico("undo")}</span><div><b>Return</b><small>${rfInv ? "Original invoice " + esc(rfInv) : esc(typLbl(rf.type))}</small></div><span class="sp"></span></div>`
     : otype==="dinein" ? `<div class="ctx"><span class="ci ci-svg">${ico("dine")}</span><div><b>${esc(tblLbl(tableNo || "—"))}</b><small>Dine-in${GUESTS ? ` · ${GUESTS} guest${GUESTS===1?"":"s"}` : ""}</small></div><span class="sp"></span>${canSwitch ? `<button data-ctx="table">Change table</button><button data-ctx="fast">Remove table</button>` : ""}</div>`
-    : otype==="takeaway" || otype==="delivery" ? `<div class="ctx"><span class="ci ci-svg">${ico(otype==="delivery" ? "scooter" : "bag")}</span><div><b>${esc(cust.name || (otype==="delivery" ? "Delivery" : "Pickup"))}</b><small>${esc([branch?.name, otype==="delivery" ? "Delivery" : "Pickup", cust.source].filter(Boolean).join(" / "))}</small></div><span class="sp"></span>${cust.phone || cust.name ? `<button data-ctx="custpage">Customer details</button>` : ""}${canSwitch ? `<button data-ctx="pddetails">Edit</button>` : ""}</div>`
+    : otype==="takeaway" || otype==="delivery" ? `<div class="ctx"><span class="ci ci-svg">${ico(otype==="delivery" ? "scooter" : "bag")}</span><div><b>${esc(cust.name || (otype==="delivery" ? "Delivery" : "Pickup"))}</b><small>${esc([branch?.name, otype==="delivery" ? "Delivery" : "Pickup", cust.source].filter(Boolean).join(" / "))}</small></div><span class="sp"></span>${canSwitch ? `<button data-ctx="pddetails">Edit</button><button data-ctx="rmcust">Remove Customer</button>` : ""}</div>`
     : `<div class="ctx"><span class="ci ci-svg"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12v18l-2-1.5L14 21l-2-1.5L10 21l-2-1.5L6 21z"/><path d="M9 8h6M9 12h6M9 16h3"/></svg></span><div><b>Fast Sale</b></div><span class="sp"></span></div>`;
   // the order's tags, under the order type: "Tag: …"
   const tgIds = posTags ?? (eo0 ? (tgDoc().on?.order?.[eo0.id] || []) : []), tgNames = tgIds.map(id => tgList("order").find(t => t.id===id)?.name).filter(Boolean);
@@ -1746,9 +1746,9 @@ $("#lines").addEventListener("click", e => { const dx = e.target.closest("[data-
 $("#extra").addEventListener("click", e => { const ht = e.target.closest("[data-hgettab]"); if(ht) return retrieveHeld(ht.dataset.hgettab);
   const cx = e.target.closest("[data-ctx]");
   if(cx && cx.dataset.ctx==="table") return openTables();
-  if(cx && cx.dataset.ctx==="custpage") return openCustPage();
   if(cx && cx.dataset.ctx==="pddetails"){ PD = { type: otype==="delivery" ? "delivery" : "takeaway", phone: cust.phone, name: cust.name, addr: { ...(cust.addr||{}) }, source: cust.source || "", cust:null, edit:true }; return openPDNew(); }
-  if(cx && cx.dataset.ctx==="fast"){ const go = () => { otype = "fast"; tableNo = ""; cust = { name:"", phone:"", addr:{} }; posChg = null; repriceCart(); renderCart(); renderMenu(); };
+  if(cx && cx.dataset.ctx==="fast" || cx && cx.dataset.ctx==="rmcust"){ const go = () => { otype = "fast"; tableNo = ""; cust = { name:"", phone:"", addr:{} }; posChg = null; repriceCart(); renderCart(); renderMenu(); };
+    if(cx.dataset.ctx==="rmcust"){ go(); return; }   // Remove Customer: the cart goes back to a fast sale
     if((otype==="takeaway" || otype==="delivery") && (cust.name || cust.phone)) askYes("Make this a fast sale? The customer details are removed.", "Fast sale").then(y => y && go()); else go(); return; }
   if(e.target.closest("[data-unload]")) return unloadOrder(); });
 // an order edit answered from the cart (approved or rejected): the cart opens on a new order
@@ -1955,7 +1955,6 @@ $("#modal").addEventListener("click", async e => {
   const pnt = e.target.closest("[data-pdnewt]"); if(pnt){ PD = null; return openPDNew(); }
   const pdt = e.target.closest("[data-pdt]"); if(pdt){ pdKeep(); PD.type = pdt.dataset.pdt; return openPDNew(); }
   const pda = e.target.closest("[data-pdaddr]"); if(pda){ pdKeep(); const a = (PD.cust?.addresses||[]).filter(x => x.address)[+pda.dataset.pdaddr]; if(!a) return; PD.addr = addrParts(a.address); return pdAddrShow(pda); }
-  const cvd = e.target.closest("[data-cvdet]"); if(cvd){ CV.det = cvd.dataset.cvdet || null; return drawCust(); }
   const psrc = e.target.closest("[data-pdsrc]"); if(psrc){ PD.source = psrc.dataset.pdsrc; document.querySelectorAll("[data-pdsrc]").forEach(x => x.classList.toggle("on", x===psrc)); if($("#pdErr")) $("#pdErr").textContent = ""; pdRefresh(); return; }
   const pdr = e.target.closest("[data-pdreorder]"); if(pdr){ const o = (PD?.past||[]).find(x => x.id===pdr.dataset.pdreorder); if(!o) return; const miss = []; let n = 0;
     // a second Reorder replaces what the first one added, instead of piling on top of it
@@ -2723,7 +2722,7 @@ const ohMatch = (o, f) => !f || (f==="refund" ? ["refund","returned"].includes(o
 // every tile in a board takes the size of the biggest one
 const eqTiles = (root, sel) => { const t = [...root.querySelectorAll(sel)]; t.forEach(x => x.style.minHeight = ""); const h = Math.max(0, ...t.map(x => x.offsetHeight)); if(h) t.forEach(x => x.style.minHeight = h + "px"); };
 const ohEqual = root => { const t = [...root.querySelectorAll(".ohtile")]; t.forEach(x => x.style.height = ""); const h = Math.max(0, ...t.map(x => x.offsetHeight)); if(h) t.forEach(x => x.style.height = h + "px"); };   // every history tile takes the height of the tallest one
-function ohPop(key, id){ const list = ((key==="pddet" ? PD?.past : CV?.past) || []).filter(ohHist);
+function ohPop(key, id){ const list = ((key==="pddet" ? PD?.past : null) || []).filter(ohHist);
   let el = $("#ohPop"); if(!el){ el = document.createElement("div"); el.id = "ohPop"; el.className = "scrim show npsc adpop ohpop"; document.body.appendChild(el); } el.dataset.k = key;
   const o = id && list.find(x => x.id===id);
   if(!o){ el.innerHTML = `<div class="modal"><div class="mh"><h2>Orders history</h2><button class="x" data-ohx aria-label="Close">×</button></div><div class="ohfil">${OH_FS.map(([k, l]) => `<button type="button" class="${OH_F===k ? "on" : ""}" data-ohf="${k}">${l}</button>`).join("")}</div><div class="mb"><div class="ohgrid">${(t => OH_F ? list.filter(x => ohMatch(x, OH_F)).map(t).join("") : OH_GR.map(([k, l]) => { const g = list.filter(x => ohMatch(x, k)); return g.length ? `<div class="ohgh">${l}<span>${g.length}</span></div>` + g.map(t).join("") : ""; }).join(""))(ohTile) || `<div class="ohnone">No orders</div>`}</div></div></div>`; ohEqual(el); return; }
@@ -2749,40 +2748,6 @@ function custPanel(c, ok, det, key, extra = "", noIns = false){
 }
 const adShort = a => { const p = addrParts(a); return [p.label, p.street, p.building && "Bldg " + p.building, p.floor && "Floor " + p.floor].filter(Boolean).join(" · ") || a; };
 const pdSide = (extra) => custPanel(PD.cust, PD.past, PD.det, "pddet", extra);
-// Customer details page for the pickup/delivery order in the cart
-let CV = null;
-async function openCustPage(det){
-  if(det===undefined) CV = null;
-  const ph = normPhone(cust.phone), eo = editOrder(), addr = otype==="delivery" ? (eo?.address || addrJoin(cust.addr||{})) : "";
-  if(!CV || CV.ph!==ph){ CV = { ph, c:null, past:[], loading:true }; drawCust(); 
-    if(ph.length >= 6 && window.WOK?.sb && navigator.onLine){ try{ const { data: list } = await window.WOK.sb.from("customers").select("id,name,phone,addresses,blacklisted,notes,tags,created_at").in("phone", phoneVariants(ph)).limit(1); const data = list?.[0] || null; CV.c = data || null; CV.past = await pdPast(data?.id || "00000000-0000-0000-0000-000000000000", ph); }catch(e){ console.warn(e); } }
-    else CV.past = S.orders.filter(o => ph && normPhone(o.phone)===ph && o.status && o.status!=="draft").map(o => ({ id:o.id, no:o.no, inv:o.invoiceNo, status:o.status, type:o.type, total:+o.total||0, items:o.items||[], branchId:o.branchId, brandId:o.brandId, ref:o.ref, at:o.createdAt, upd:o.updatedAt, agent:o.agent||"", discount:+o.discount||0, fee:+o.deliveryFee||0, charges:o.charges||[], address:o.address||"", payment:o.payment||null, source:o.source||"" }));
-    CV.loading = false; if(modalKind!=="custpage") return; }
-  CV.det = det || null; CV.addr = addr; drawCust();
-}
-function drawCust(){
-  const c = CV.c || { name: cust.name }, saved = (CV.c?.addresses || []).filter(a => a.address);
-  modal("custpage", `<div class="ohdr"><button class="hbtn" data-close>Back</button><b style="font-size:18px">Customer Details</b><span class="sp"></span></div>
-    <div class="mb"><div class="custpg">
-      <div class="custcol"><div class="cins"><div class="cins-h"><b style="font-size:18px">${esc(c.name || cust.name || "Customer")}</b>${CV.c ? "" : `<span class="mut">${CV.loading ? "Loading…" : "Not saved as a customer yet"}</span>`}</div>
-        <div class="kv"><span>Phone</span><b>${esc(cust.phone || "—")}</b></div>
-        <div class="kv"><span>This order</span><b>${otype==="delivery" ? "Delivery" : "Pickup"}</b></div>
-        ${CV.addr ? `<div class="kv"><span>Delivering to</span><b>📍 ${esc(CV.addr)}</b></div>` : ""}</div>
-        ${CV.loading ? "" : insCard(c, CV.past)}
-        </div>
-      <div class="custcol">${saved.length ? `<button type="button" class="acard adbar" data-cvadpop><span class="aci">${PIN_SVG}</span><span class="act"><b>Saved addresses</b></span><i class="adgo">›</i></button>` : ""}${CV.loading ? '<div class="mut">Loading orders…</div>' : custPanel(c, CV.past, CV.det, "cvdet", "", true)}</div>
-    </div></div>`);
-  $("#modal").classList.add("full"); $("#scrim").classList.add("fullscr"); withNav();
-}
-// Customer details: the saved addresses in their own window; press one for its full details
-function cvAddrPop(view){ const saved = (CV?.c?.addresses || []).filter(a => a.address); if(!saved.length) return;
-  let el = $("#adPop"); if(!el){ el = document.createElement("div"); el.id = "adPop"; el.className = "scrim show npsc adpop"; document.body.appendChild(el); }
-  if(view===undefined || view==="list"){ el.innerHTML = `<div class="modal"><div class="mh"><h2>Saved addresses</h2><button class="x" data-adx aria-label="Close">×</button></div><div class="mb"><div class="acards">${saved.map((a,i) => { const p = addrParts(a.address);
-      return `<button type="button" class="acard" data-cvad="${i}"><span class="aci">${PIN_SVG}</span><span class="act"><b>${esc(p.label || "Address " + (i+1))}</b><span>${esc(p.street || a.address)}</span>${p.building || p.floor ? `<small>${esc([p.building && "Bldg " + p.building, p.floor && "Floor " + p.floor].filter(Boolean).join(" · "))}</small>` : ""}</span></button>`; }).join("")}</div></div></div>`; return; }
-  const p = addrParts(saved[+view]?.address || ""), rows = [["Area / street", p.street],["Building name / no.", p.building],["Floor / Apartment no.", p.floor],["Door details / Name on intercom", p.door],["Instructions", p.extra]].filter(r => r[1]);
-  el.innerHTML = `<div class="modal"><div class="mh"><button class="adback" data-cvad="list" aria-label="Back">‹</button><h2>${esc(p.label || "Address details")}</h2><button class="x" data-adx aria-label="Close">×</button></div>
-    <div class="mb"><div class="ohkv">${rows.length ? rows.map(r => `<div class="kv"><span>${r[0]}</span><b>${esc(r[1])}</b></div>`).join("") : `<div class="kv"><span>Address</span><b>${esc(saved[+view]?.address || "")}</b></div>`}</div></div></div>`; }
-document.addEventListener("click", e => { const t = e.target; if(!t.closest) return; if(t.closest("[data-cvadpop]")) return cvAddrPop(); const o = t.closest("#adPop [data-cvad]"); if(o) cvAddrPop(o.dataset.cvad); });
 function pdCancel(){ const ed = PD?.edit; PD = null; if(ed) return closeModal(); openBoard(); }
 // order sources from Manage → Order Sources (POS is a channel, not a source)
 const posSources = () => { const l = S.order_sources.filter(r => !r.deleted && r.active!==false && String(r.name||"").trim() && String(r.name).toUpperCase()!=="POS").sort((a,b) => (a.sort??999)-(b.sort??999) || String(a.name).localeCompare(b.name)).map(r => r.name);
