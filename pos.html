@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="703-1794399373">
+<meta name="slick-build" content="704-1794400159">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this copy, reload once (never for an older one) */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -818,10 +818,28 @@ function askDlg(o){
   });
 }
 function askYes(msg){ return askDlg({ msg, yes:"Yes", no:"No" }); }
+// why an order (or a change to it) is turned down: the reasons from Manage → Reasons, or one written by hand
+function askReason(title, reasons, yes){
+  return new Promise(res => {
+    const w = document.createElement("div"); w.className = "slk-ask"; w.setAttribute("role", "dialog"); w.setAttribute("aria-modal", "true");
+    const e2 = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;" }[c])); let pick = "";
+    w.innerHTML = `<div class="slk-ask-b" style="max-width:520px;width:calc(100% - 32px)"><p style="font-weight:700">${e2(title)}</p><div class="rchips" style="margin:4px 0 10px">${reasons.map(x => `<button type="button" data-rr="${e2(x)}">${e2(x)}</button>`).join("")}<button type="button" data-rr="_other">Other…</button></div>
+      <input class="slk-ask-i" placeholder="Write the reason" autocomplete="off" style="display:${reasons.length ? "none" : ""}"><div class="rrerr" style="color:#b42318;font-size:13px;min-height:18px"></div>
+      <div class="slk-ask-f"><button type="button" class="slk-ask-no">Cancel</button><button type="button" class="slk-ask-yes red">${e2(yes || "Reject")}</button></div></div>`;
+    const inp = w.querySelector(".slk-ask-i"); if(!reasons.length) pick = "_other";
+    const done = v => { document.removeEventListener("keydown", key, true); w.remove(); res(v); };
+    const ok = () => { const v = pick==="_other" ? inp.value.trim() : pick; if(!v){ w.querySelector(".rrerr").textContent = "Choose a reason."; return; } done(v); };
+    const key = e => { if(e.key === "Escape"){ e.preventDefault(); e.stopPropagation(); done(null); } else if(e.key === "Enter"){ e.preventDefault(); e.stopPropagation(); ok(); } };
+    w.addEventListener("click", e => { const c = e.target.closest("[data-rr]");
+      if(c){ pick = c.dataset.rr; w.querySelectorAll("[data-rr]").forEach(b => b.classList.toggle("on", b===c)); inp.style.display = pick==="_other" ? "" : "none"; if(pick==="_other") inp.focus(); w.querySelector(".rrerr").textContent = ""; return; }
+      if(e.target === w || e.target.closest(".slk-ask-no")) done(null); else if(e.target.closest(".slk-ask-yes")) ok(); });
+    document.addEventListener("keydown", key, true); document.body.appendChild(w);
+  });
+}
 window.SLICK_OFFLINE = true;</script>
 <script src="supabase.js"></script>
 <script>if(!window.supabase) document.write('<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"><\/script>');</script>
-<script src="wokdb.js?v=42"></script>
+<script src="wokdb.js?v=43"></script>
 <script src="modpick.js?v=29"></script>
 </head>
 <body>
@@ -1167,6 +1185,23 @@ async function haLookup(){
 }
 const incoming = () => S.orders.filter(o => o.branchId===device.branchId && o.channel!=="pos" && (o.status==="pending" || o.status==="active"));
 
+// a change the call center asked for on an order this branch already accepted: it waits here to be approved or rejected
+const erPending = o => !!(o && o.editRequest && o.editRequest.status==="pending");
+const rejReasons = () => String(appSet().rejectReasons ?? "Item not available\nBranch too busy\nOrder already prepared").split("\n").map(x => x.trim()).filter(Boolean);
+const erLines = o => { const s = o.editRequest?.summary || {}; return [...(s.added||[]).map(i => "+ " + i.qty + " × " + i.name), ...(s.voided||[]).map(i => "Void " + i.qty + " × " + i.name)]; };
+async function declineOrder(id){ const reason = await askReason("Decline order: reason", rejReasons(), "Decline"); if(!reason) return false; const now = new Date().toISOString();
+  await db.collection("orders").doc(id).update({ status:"declined", updatedAt:now, doneAt:now, voidReason:reason, handledBy:cashier?.name || device.name }); toast("Order declined"); return true; }
+async function erDecide(id, yes){ const o = S.orders.find(x => x.id===id); if(!erPending(o)) return; const er = o.editRequest, now = new Date().toISOString(), by = cashier?.name || device.name;
+  if(yes && o.status!=="active"){ await db.collection("orders").doc(id).update({ editRequest:{ ...er, status:"rejected", reason:"Order already closed", decidedAt:now, decidedBy:by } }); toast("This order is not editable"); return; }
+  if(!yes){ const reason = await askReason("Reject order edit: reason", rejReasons()); if(!reason) return;
+    await db.collection("orders").doc(id).update({ editRequest:{ ...er, status:"rejected", reason, decidedAt:now, decidedBy:by } }); toast("Order edit rejected"); return; }   // the order and its cart stay as they were
+  const d = er.data || {}, s = er.summary || {};
+  await db.collection("orders").doc(id).update({ ...d, updatedAt:now, editRequest:{ ...er, status:"approved", decidedAt:now, decidedBy:by } });
+  const no = { ...o, ...d };   // the changes go to the kitchen: what was added, and what to stop making
+  if((s.added||[]).length) printKitchen({ ...no, items:s.added }, "Order edit " + ordRef(o));
+  if((s.voided||[]).length) printKitchen({ ...no, items:s.voided.map(i => ({ ...i, name:"VOID " + i.name })) }, "Order edit (void) " + ordRef(o));
+  toast("Order edit approved"); }
+
 /* ---------- render ---------- */
 const autoDone = new Set();
 // one master POS per branch takes the call-center and web orders and ends the day; sub-POS sell and bill. No master set = every POS can
@@ -1186,11 +1221,11 @@ function whistle(){
   }catch(e){}
 }
 // a notification card for new call-center and online orders, with how many are waiting; stays until viewed or closed
-function incNote(fresh){
-  const pend = incoming().filter(o => o.status==="pending"), o = fresh[fresh.length-1], n = pend.length || fresh.length;
+function incNote(fresh, label){
+  const pend = incoming().filter(o => o.status==="pending" || erPending(o)), o = fresh[fresh.length-1], n = pend.length || fresh.length;
   const src = x => x.channel==="callcenter" ? "call-center" : "online";
   let el = document.getElementById("incNote"); if(!el){ el = document.createElement("div"); el.id = "incNote"; el.className = "incnote"; el.setAttribute("role","alert"); document.body.appendChild(el); }
-  el.innerHTML = `<span class="ii">${ico(o.channel==="callcenter" ? "headset" : "globe")}<em>${n}</em></span><span class="it"><b>${fresh.length===1 ? `New ${src(o)} order` : `${fresh.length} new orders`}</b><span>${esc([o.customerName, typLbl(o.type) + (o.type==="dinein" && o.table ? " · " + tblLbl(o.table) : ""), usd(o.total)].filter(Boolean).join(" · "))}${n > 1 ? ` · ${n} waiting` : ""}</span></span><button type="button" class="iv" data-incview>View</button><button type="button" class="ix" data-incx aria-label="Dismiss">✕</button>`;
+  el.innerHTML = `<span class="ii">${ico(o.channel==="callcenter" ? "headset" : "globe")}<em>${n}</em></span><span class="it"><b>${label || (fresh.length===1 ? `New ${src(o)} order` : `${fresh.length} new orders`)}</b><span>${esc([o.customerName, typLbl(o.type) + (o.type==="dinein" && o.table ? " · " + tblLbl(o.table) : ""), usd(o.total)].filter(Boolean).join(" · "))}${n > 1 ? ` · ${n} waiting` : ""}</span></span><button type="button" class="iv" data-incview>View</button><button type="button" class="ix" data-incx aria-label="Dismiss">✕</button>`;
 }
 document.addEventListener("click", e => { if(e.target.closest("[data-incx]")){ document.getElementById("incNote")?.remove(); return; }
   if(e.target.closest("[data-incview]")){ document.getElementById("incNote")?.remove(); $("#boardBtn")?.click(); } });
@@ -1281,13 +1316,15 @@ function renderAll(){
   $("#shiftPill").textContent = sh ? "Till Open" : "Till Closed"; $("#shiftPill").classList.toggle("off", !sh);
   const blk = saleBlock(); $("#dayBtn span").textContent = (blk && openDay() < bizDate() ? "⚠ " : "") + "End of day (" + openDay().split("-").reverse().join("/") + ")"; $("#dayBtn").title = blk || "End the business day for this branch";
   $("#shiftBtn span").textContent = sh ? "Close Till" : "Open Till"; paintAbar();
-  const inc = incoming(), pend = inc.filter(o=>o.status==="pending").length;
+  const inc = incoming(), pend = inc.filter(o=>o.status==="pending" || erPending(o)).length;
   $("#incBadge").textContent = pend; $("#incBadge").classList.toggle("hide", !pend); if(!pend) document.getElementById("incNote")?.remove();
   { const fresh = inc.filter(o => o.status==="pending" && !SEEN.has(o.id)); inc.forEach(o => SEEN.add(o.id));
     if(fresh.length && SEEN_READY){ $("#boardBtn").classList.remove("ring"); void $("#boardBtn").offsetWidth; $("#boardBtn").classList.add("ring");
       toast(fresh.length===1 ? `New ${fresh[0].channel==="callcenter" ? "call-center" : "web"} order${fresh[0].customerName ? " · " + fresh[0].customerName : ""} · open Pickup & delivery to accept it` : `${fresh.length} new orders · open Pickup & delivery to accept them`);
       whistle(); incNote(fresh);
       try{ navigator.vibrate?.(200); }catch(e){} }
+    const freshE = inc.filter(o => erPending(o) && !SEEN.has("er:" + o.editRequest.id)); inc.forEach(o => { if(erPending(o)) SEEN.add("er:" + o.editRequest.id); });
+    if(freshE.length && SEEN_READY){ $("#boardBtn").classList.remove("ring"); void $("#boardBtn").offsetWidth; $("#boardBtn").classList.add("ring"); toast("Order Edit · " + ordRef(freshE[0])); whistle(); incNote(freshE, "Order Edit"); try{ navigator.vibrate?.(200); }catch(e){} }
     if(window.__ordLoaded) SEEN_READY = true; }
   renderMenu(); renderCart();
   if(modalKind==="incoming" && document.activeElement?.id!=="ovQ") openIncoming();
@@ -1678,7 +1715,9 @@ $("#extra").addEventListener("click", e => { const ht = e.target.closest("[data-
     if((otype==="takeaway" || otype==="delivery") && (cust.name || cust.phone)) askYes("Make this a fast sale? The customer details are removed.", "Fast sale").then(y => y && go()); else go(); return; }
   if(e.target.closest("[data-unload]")) return unloadOrder(); });
 $("#acts").addEventListener("click", async e => { const b = e.target.closest("[data-incc]"); if(!b || b.disabled) return; if(!can("pos_incoming")) return deny("handling incoming orders");
-  const [id, st] = b.dataset.incc.split(":"), o = S.orders.find(x => x.id===id); if(!o) return; b.disabled = true;
+  const [id, st] = b.dataset.incc.split(":"), o = S.orders.find(x => x.id===id); if(!o) return;
+  if(st==="declined"){ try{ if(await declineOrder(id)) setTimeout(renderCart, 60); }catch(err){ console.error(err); toast("Couldn't update the order"); } return; }
+  b.disabled = true;
   const now = new Date().toISOString(), bill = st==="active" && !o.no ? { no: nextOrderNo(), deviceId: device.id } : {};
   try{ await db.collection("orders").doc(id).update({ status:st, updatedAt:now, ...(st==="active" && !o.acceptedAt ? { acceptedAt:now } : {}), ...(st==="declined" ? { doneAt:now } : {}), handledBy:cashier?.name || device.name, ...bill });
     toast(st==="active" ? (bill.no ? "Order #" + bill.no + " accepted · sent to kitchen" : "Order accepted · sent to kitchen") : "Order declined"); setTimeout(renderCart, 60);
@@ -1842,7 +1881,9 @@ $("#modal").addEventListener("click", async e => {
   const kp = e.target.closest("[data-kp]"); if(kp){ const el = $(TCUR===2 && $("#tender2") ? "#tender2" : "#tender"), k = kp.dataset.kp; let v = KP ? "" : el.value; KP = false;
     v = k==="⌫" ? v.slice(0,-1) : k==="." ? (v.includes(".") ? v : (v || "0") + ".") : (v==="0" ? k : v + k); el.value = v.slice(0,9); updChange(); return; }
   if(e.target.closest("#confirmPay")) return completeSale();
-  const ia = e.target.closest("[data-inc]"); if(ia){ if(!can("pos_incoming")) return deny("handling incoming orders"); const [id,s] = ia.dataset.inc.split(":"); try{ const o = S.orders.find(x=>x.id===id), bill = (s==="active" || s==="closed") && o && !o.no ? { no: nextOrderNo(), deviceId: device.id } : {};   // this register bills it, so it numbers it
+  const erb = e.target.closest("[data-er]"); if(erb){ e.stopPropagation(); if(!can("pos_incoming")) return deny("handling incoming orders"); const [id, y] = erb.dataset.er.split(":"); try{ await erDecide(id, y==="1"); if(modalKind==="board") openBoard(); }catch(err){ console.error(err); toast("Couldn't update the order"); } return; }
+  const ia = e.target.closest("[data-inc]"); if(ia){ if(!can("pos_incoming")) return deny("handling incoming orders"); const [id,s] = ia.dataset.inc.split(":"); if(s==="declined"){ try{ if(await declineOrder(id) && modalKind==="orderview" && OV.back){ const b = OV.back; OV.back = ""; b==="board" ? openBoard() : openIncoming(); } }catch(err){ console.error(err); toast("Couldn't update the order"); } return; }
+    try{ const o = S.orders.find(x=>x.id===id), bill = (s==="active" || s==="closed") && o && !o.no ? { no: nextOrderNo(), deviceId: device.id } : {};   // this register bills it, so it numbers it
     await db.collection("orders").doc(id).update({ status:s, updatedAt:new Date().toISOString(), ...(s==="active" && !S.orders.find(x=>x.id===id)?.acceptedAt ? { acceptedAt:new Date().toISOString() } : {}), ...(s==="closed"||s==="declined" ? { doneAt:new Date().toISOString() } : {}), handledBy:cashier?.name || device.name, ...bill }); toast(s==="active"?(bill.no ? "Order #"+bill.no+" accepted · sent to kitchen" : "Order accepted · sent to kitchen"):s==="declined"?"Order declined":"Order completed"); if(modalKind==="orderview" && OV.back){ const b = OV.back; OV.back = ""; b==="board" ? openBoard() : openIncoming(); } }catch(err){ console.error(err); toast("Couldn't update the order"); } return; }
   const ovt = e.target.closest("[data-ovtab]"); if(ovt){ OV.tab = ovt.dataset.ovtab; return openIncoming(); }
   if(e.target.closest("[data-ofilt]")){ OV.filt = !OV.filt; return openIncoming(); }
@@ -2098,7 +2139,7 @@ function boardOrders(col, pd){
   if(!pd){ const all = ovAll().filter(o => o.status!=="draft" && ovInRange(o) && m(o)), by = (a,b) => String(b.createdAt).localeCompare(String(a.createdAt));
     return (col==="all" ? all : col==="active" ? all.filter(o => ["active","pending"].includes(o.status)) : col==="closed" ? all.filter(o => o.status==="closed") : col==="void" ? all.filter(o => o.status==="void") : col==="returns" ? all.filter(o => ["returned","refund"].includes(o.status)) : all.filter(o => o.status===col)).sort(by); }
   if(col==="all") return (pd ? ["pending","active","closed","void"] : ["active","closed","void"]).flatMap(k => boardOrders(k, pd)).sort((a,b) => String(b.createdAt).localeCompare(String(a.createdAt)));
-  const l = col==="pending" ? mine.filter(o => o.status==="pending" && onDay(o)) : col==="active" ? mine.filter(o => o.status==="active" && onDay(o))
+  const l = col==="pending" ? mine.filter(o => (o.status==="pending" || (pd && erPending(o))) && onDay(o)) : col==="active" ? mine.filter(o => o.status==="active" && !(pd && erPending(o)) && onDay(o))
     : col==="closed" ? mine.filter(o => o.status==="closed" && bizDate(o.createdAt)===day)
     : col==="declined" ? mine.filter(o => o.status==="declined" && bizDate(o.updatedAt || o.createdAt)===day)
     : mine.filter(o => ["void","returned","refund"].includes(o.status) && bizDate(anyDay ? (o.updatedAt || o.createdAt) : o.createdAt)===day);
@@ -2492,10 +2533,10 @@ function openBoard(){
   const chn = o => o.channel==="pos" ? "POS" : o.channel==="callcenter" ? "Call center" : "Web";
   const sm = x => x ? `<small>${x}</small>` : "", jn = a => a.filter(Boolean).map(esc).join(" / ");
   // the same tile as the orders history: reference, status, invoice / order, customer / phone, address (delivery), created, modified, total, type / source, channel / user
-  const card = o => `<div class="ocard tl" role="button" tabindex="0" data-ov="${esc(o.id)}"><b>${esc(o.ref || ordRef(o))}</b><span class="spill s-${o.status}">${stLbl(o)}</span>
+  const card = o => `<div class="ocard tl" role="button" tabindex="0" data-ov="${esc(o.id)}"><b>${esc(o.ref || ordRef(o))}</b><span class="spill s-${erPending(o) ? "pending" : o.status}">${erPending(o) ? "Order Edit" : stLbl(o)}</span>
     ${sm(jn([o.invoiceNo ? invNo(o.invoiceNo) : "", o.no ? "Order #" + o.no : ""]))}${sm(jn([o.customerName, o.phone]))}${o.type==="delivery" && o.address ? sm(esc(o.address)) : ""}
     ${sm("Created " + t(o.createdAt))}${o.updatedAt && o.updatedAt!==o.createdAt ? sm("Modified " + t(o.updatedAt)) : ""}<em>${usd(o.total)}</em>
-    ${sm(jn([typLbl(o.type), o.source && o.source!=="Website" && String(o.source).toUpperCase()!=="POS" ? o.source : ""]))}${sm(jn([chn(o), o.agent || ""]))}${o.status==="pending" ? (canAccept() ? `<span class="ocacts"><button class="btn bad" data-inc="${esc(o.id)}:declined">Decline</button><button class="btn pri" data-inc="${esc(o.id)}:active">Accept</button></span>` : `<span class="mut oc-s">${esc(masterNote())}</span>`) : ""}</div>`;
+    ${sm(jn([typLbl(o.type), o.source && o.source!=="Website" && String(o.source).toUpperCase()!=="POS" ? o.source : ""]))}${sm(jn([chn(o), o.agent || ""]))}${o.status==="pending" ? (canAccept() ? `<span class="ocacts"><button class="btn bad" data-inc="${esc(o.id)}:declined">Decline</button><button class="btn pri" data-inc="${esc(o.id)}:active">Accept</button></span>` : `<span class="mut oc-s">${esc(masterNote())}</span>`) : ""}${erPending(o) ? `${erLines(o).map(x => sm(esc(x))).join("")}${sm("New total " + usd(o.editRequest.data?.total ?? o.total))}<span class="ocacts"><button class="btn bad" data-er="${esc(o.id)}:0">Reject</button><button class="btn pri" data-er="${esc(o.id)}:1">Approve</button></span>` : ""}</div>`;
   const q = OV.q; OV.q = BQ;
   const PD_COLS = [...OV_COLS.slice(0,3), ["declined","Declined","Declined today"]];   // pickup & delivery: no void / returns column
   const cols = PD_COLS.map(([k,title,tip]) => [k, title, tip, boardOrders(k, true)]); OV.q = q;

@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="703-1794399373">
+<meta name="slick-build" content="704-1794400159">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this copy, reload once (never for an older one) */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1299,7 +1299,7 @@ html body{font-family:"Plus Jakarta Sans",Inter,"IBM Plex Sans Arabic",system-ui
 .ccx.s2 .citem{grid-template-columns:1fr auto!important;gap:0 10px!important;align-items:start!important;padding:8px 0!important;border-bottom:1px dashed #e8e6f1!important;font-size:14.5px!important}.ccx.s2 .cccart .clist .citem:last-child{border-bottom:1px dashed #e8e6f1!important}
 .ccx.s2 .citem .cname{font-weight:600!important;font-size:14.5px!important}.ccx.s2 .citem .cp{font-weight:400!important;font-size:14.5px!important;font-family:inherit!important}
 .ccx.s2 .citem .cqty{gap:8px!important;margin-top:3px;font-weight:700;font-size:15px}.ccx.s2 .citem .cqty button{width:34px!important;height:34px!important;border-radius:10px!important;background:#f7f6fb!important;font-size:17px!important;font-weight:700;line-height:1;display:grid;place-items:center;padding:0}.ccx.s2 .citem .cqty b{min-width:20px;text-align:center;font-weight:900;font-size:15px}
-.ccx.s2 .citem .cqty .qdel{color:#d92d20!important}.ccx.s2 .citem .cqty .qdel svg{width:16px;height:16px}.ccx.s2 .citem .ceach{font-size:12.5px!important;font-family:inherit!important}.citem .cp{grid-column:2;grid-row:1 / span 2;align-self:start;text-align:right}.citem .cp .ceach{display:block;margin-top:2px;font-weight:400;color:var(--ink2);font-size:12.5px;white-space:nowrap}.citem .cname{grid-column:1;grid-row:1}.citem .cqty{grid-column:1;grid-row:2}.citem .mlist{list-style:none!important;padding-left:0!important;margin-top:1px!important}.citem .mlist li.mn{margin-left:0!important}.ccx.s2 .cccart:has(.clist:not(:has(.citem))) .ctot{display:none!important}
+.ccx.s2 .citem .cqty .qdel{color:#d92d20!important}.ccx.s2 .citem .cqty button:disabled{opacity:.35;cursor:default}.ccx.s2 .citem .cqty .qdel svg{width:16px;height:16px}.ccx.s2 .citem .ceach{font-size:12.5px!important;font-family:inherit!important}.citem .cp{grid-column:2;grid-row:1 / span 2;align-self:start;text-align:right}.citem .cp .ceach{display:block;margin-top:2px;font-weight:400;color:var(--ink2);font-size:12.5px;white-space:nowrap}.citem .cname{grid-column:1;grid-row:1}.citem .cqty{grid-column:1;grid-row:2}.citem .mlist{list-style:none!important;padding-left:0!important;margin-top:1px!important}.citem .mlist li.mn{margin-left:0!important}.ccx.s2 .cccart:has(.clist:not(:has(.citem))) .ctot{display:none!important}
 .ccx.s2 .cccart .clist{margin-bottom:0!important;border-bottom:1px solid #e8e6f1!important;margin-left:-12px;margin-right:-12px;padding:0 12px}
 .ccx.s2 .cccart .ctot{border:0!important;margin:6px 0 0!important;padding:0 4px!important;font-size:15px!important;font-weight:400!important;color:var(--ink)!important}.ccx.s2 .cccart .clist+.ctot{margin-top:12px!important}
 .ccx.s2 .cccart .ctot.tax{font-size:13px!important;color:var(--ink2)!important}.ccx.s2 .cccart .ctot:not(.sub){font-size:20px!important;font-weight:700!important}.ccx.s2 .cccart .ctot:not(.sub) b{font-weight:700}
@@ -1345,7 +1345,7 @@ button.x[aria-label="Close"]{width:38px!important;height:38px!important;min-widt
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="wokdb.js?v=42"></script>
+<script src="wokdb.js?v=43"></script>
 <script src="modpick.js?v=29"></script>
 </head>
 <body>
@@ -2895,6 +2895,7 @@ const S = {}; COLS.forEach(c => S[c] = []);
 function subscribeAll(){
   COLS.forEach(c => db.collection(c).onSnapshot(snap => {
     S[c] = snap.docs.map(d => ({ ...d.data(), id: d.id }));
+    if(c==="orders"){ try{ ccEditWatch(); }catch(_){} }
     if(c==="orders" && DASH.key) dashSoon();
     if(c==="orders" && ORD.key) ordSoon();
     if(c==="orders" && CUS.key && location.hash.slice(1)==="customers"){ clearTimeout(CUS.t); CUS.t = setTimeout(()=>loadCustomers(true), 2000); }
@@ -3906,14 +3907,26 @@ const ccCard = o => { const sm = x => x ? `<small>${x}</small>` : "", jn = a => 
   return `<button class="ocard tl" data-order="${esc(o.id)}"><b>${esc(o.ref || ordRef(o))}</b><span class="spill s-${o.status}">${CC_SUB[o.status]}</span>
   ${sm(jn([o.customerName || "Guest", o.phone]))}${o.type==="delivery" && o.address ? sm(esc(o.address)) : ""}${o.type==="delivery" && o.lat ? `<div class="oline">${mapLink(o)}</div>` : ""}
   ${sm("Created " + ccTime(o.createdAt))}${o.updatedAt && o.updatedAt!==o.createdAt ? sm("Modified " + ccTime(o.updatedAt)) : ""}<em>${usd(o.total)}</em>
-  ${sm(jn([brandName(o.brandId), branchName(o.branchId)]))}${sm(jn([ordTypeLbl(o.type), srcOf(o) || o.source || "", o.agent || ""]))}</button>`; };
+  ${sm(jn([brandName(o.brandId), branchName(o.branchId)]))}${sm(jn([ordTypeLbl(o.type), srcOf(o) || o.source || "", o.agent || ""]))}${o.status==="declined" && o.voidReason ? sm("Reason: " + esc(o.voidReason)) : ""}${o.editRequest && o.status==="active" ? sm(o.editRequest.status==="pending" ? "Order edit: waiting for the branch" : o.editRequest.status==="approved" ? "Order edit approved" : "Order edit rejected" + (o.editRequest.reason ? ": " + esc(o.editRequest.reason) : "")) : ""}</button>`; };
 
-let ccEdit = null, cart = [];
+let ccEdit = null, cart = [], ccVoids = [], ccVoidReason = "", ccSig0 = null;
+const ccActiveO = () => { const o = ccEdit && S.orders.find(x => x.id===ccEdit); return o && o.status==="active" ? o : null; };
+const erPending = o => !!(o && o.editRequest && o.editRequest.status==="pending");
+const ccSig = () => JSON.stringify([cart.map(i => [i.productId, (i.options||[]).map(x => x.id), i.note||"", i.qty, +i.disc||0]), ccDisc, ccDiscType, ccChg ? [...ccChg] : null, $("#oSource")?.value || "", $("#oType .on")?.dataset.ot || ""]);
+// an accepted order: Send To Branch shows once something changed
+function ccSendSync(){ if(ccSig0==null && $("#oSource") && ccActiveO()) ccSig0 = ccSig(); const b = $("#ccSendEdit"); if(!b) return; b.hidden = ccSig()===ccSig0 && !ccVoids.length; }
+document.addEventListener("change", e => { if(e.target.closest && e.target.closest("#ccBox")) setTimeout(ccSendSync, 0); });
+document.addEventListener("click", e => { if(e.target.closest && e.target.closest("#ccBox #oType")) setTimeout(ccSendSync, 0); });
+// the branch answered a change this agent sent: tell them once
+function ccEditWatch(){ const me = state.fullName || state.userName || "Operator"; let seen = []; try{ seen = JSON.parse(localStorage.getItem("slick_er_seen") || "[]"); }catch(_){}
+  (S.orders||[]).forEach(o => { const er = o.editRequest; if(!er || er.by!==me || !["approved","rejected"].includes(er.status) || seen.includes(er.id)) return; if(er.decidedAt && Date.now() - new Date(er.decidedAt) > 12*3600000) return;
+    seen.push(er.id); try{ localStorage.setItem("slick_er_seen", JSON.stringify(seen.slice(-200))); }catch(_){}
+    askDlg({ msg: er.status==="approved" ? `${branchName(o.branchId)} approved the changes to order ${ordRef(o)}.` : `${branchName(o.branchId)} rejected the changes to order ${ordRef(o)}${er.reason ? ": " + er.reason : ""}. The order stays as it was.`, yes:"OK", no:"Close" }); }); }
 // call-center orders stay editable until the branch closes them (pending = sent, active = in the kitchen)
 const ccEditable = o => !o || o.status==="draft" || (o.channel==="callcenter" && ["pending","active"].includes(o.status));
 function openOrder(id){
   const o = id ? S.orders.find(x=>x.id===id) : null;
-  ccEdit = o ? o.id : null; cart = o ? o.items.map(i=>({...i})) : []; ccTags = null;
+  ccEdit = o ? o.id : null; cart = o ? o.items.map(i=>({...i, ...(o.status==="active" ? { saved:+i.qty } : {})})) : []; ccTags = null; ccVoids = []; ccVoidReason = ""; ccSig0 = null;   // an accepted order: its items are in the kitchen, so they can only be voided (and the branch approves every change)
   ccOrig = o ? JSON.parse(JSON.stringify(o.items||[])) : [];
   ccChg = o ? new Set((o.charges||[]).map(c=>c.id)) : null; Object.keys(ccOpen).forEach(k => delete ccOpen[k]); (o?.charges||[]).forEach(c => { if(c.type==="open") ccOpen[c.id] = +c.amount||0; });            // null = the charges that apply automatically
   ccDS = null; ccDiscType = o?.discountType==="amt" ? "amt" : "pct"; ccDisc = o ? (ccDiscType==="amt" ? +o.discount||0 : +o.discountPct||0) : 0; ccDiscOpen = false;
@@ -3946,7 +3959,7 @@ function openOrder(id){
     <div class="ccnext"><span class="err" id="oErr1"></span><button type="button" class="btn pri" data-ccstep="2">Continue</button></div>
    </section>
    <aside class="ccside" id="oSide"></aside>
-   ${ro ? "" : `<section class="ccmenu"><div class="ccprods"><div class="cctools"><button type="button" class="cctool" data-cctool="disc" id="ccToolDisc">${ccIco("pct")}<span>Discount</span></button><button type="button" class="cctool" data-cctool="chg">${ccIco("plus")}<span>Charges</span></button><button type="button" class="cctool" data-cctool="tags">${ccIco("tag")}<span>Tags</span></button><button type="button" class="cctool" data-cctool="notes">${ccIco("note")}<span>Notes</span></button><button type="button" class="ccxbtn" data-ccclose aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div><div class="ccbar"><div class="cchead" id="oCatTitle"></div><input class="sel search" type="search" id="oSearch" placeholder="Search items" autocomplete="off"></div><div class="pgrid" id="oProducts"></div></div></section>`}
+   ${ro ? "" : `<section class="ccmenu"><div class="ccprods"><div class="cctools"><button type="button" class="cctool" data-cctool="disc" id="ccToolDisc">${ccIco("pct")}<span>Discount</span></button><button type="button" class="cctool" data-cctool="chg">${ccIco("plus")}<span>Charges</span></button><button type="button" class="cctool" data-cctool="tags">${ccIco("tag")}<span>Tags</span></button><button type="button" class="cctool" data-cctool="notes">${ccIco("note")}<span>Notes</span></button>${o?.status==="active" && !erPending(o) ? `<button type="button" class="cctool" data-cctool="void"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M5.6 5.6l12.8 12.8"/></svg><span>Void</span></button>` : ""}<button type="button" class="ccxbtn" data-ccclose aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div><div class="ccbar"><div class="cchead" id="oCatTitle"></div><input class="sel search" type="search" id="oSearch" placeholder="Search items" autocomplete="off"></div><div class="pgrid" id="oProducts"></div></div></section>`}
    <section class="cccart${ro?" wide":""}"><div class="cart" id="oCart"></div>
    <input type="hidden" id="oNotes" value="${esc(o?.notes||"")}"><input type="hidden" id="oRNotes" value="${esc(o?.receiptNotes||"")}"><div class="err" id="oErr"></div><div class="ccacts">${ccActions(o)}</div></section>
    <div class="ccadpop" id="oAddrPop" hidden><div class="ccadbox">
@@ -4105,7 +4118,8 @@ const ccAddrSet = v => { const a = addrSplit(v); ADDR_K.forEach(k => { const el 
 function ccActions(o){
   if(!o || o.status==="draft") return `<button type="button" class="btn" data-osave="draft">Save as Draft</button><button type="button" class="btn pri" data-osave="pending">Send to Branch</button>${o ? `<button type="button" class="btn danger" data-ccdeldraft>Cancel Draft</button>` : ""}`;
   const b = [];
-  if(ccEditable(o)) b.push(`<button type="button" class="btn pri" data-osave="keep">Save</button>`);
+  if(o.status==="active" && ccEditable(o)) b.push(erPending(o) ? `<p class="note" style="text-align:center;margin:0;padding:10px 0">Waiting for the branch to answer the last change</p>` : `<button type="button" class="btn pri" data-osave="keep" id="ccSendEdit" hidden>Send to Branch</button>`);
+  else if(ccEditable(o)) b.push(`<button type="button" class="btn pri" data-osave="keep">Save</button>`);
   // the branch accepts and completes orders on its POS; the call center can only cancel one the branch hasn't accepted yet
   if(o.status==="pending") b.push(`<button type="button" class="btn danger" data-ostatus="declined">Cancel order</button>`);
   return b.join("");
@@ -4219,6 +4233,20 @@ function ccDsCalc(d, val){
 }
 const ccDsHere = () => { const b = $("#oBranch")?.value || "", ty = $("#oType .on")?.dataset.ot || "", t = ty==="takeaway" ? "pickup" : ty;
   return dsList().filter(d => !d.deleted && (!(d.branchIds||[]).length || d.branchIds.includes(b)) && (!t || !(d.orderTypes||[]).length || d.orderTypes.includes(t))); };
+// void items of an accepted order: how many of each, and why. They leave the cart here; the branch approves before the order changes
+function ccVoidDlg(){
+  const rows = cart.map((i, ix) => ({ i, ix })).filter(x => +x.i.saved > 0), reasons = rsGet("vr"), q = rows.map(() => 0); let pick = reasons.length ? "" : "_other";
+  ccOverlay(`<h3 style="margin:0 0 12px">Void Items</h3>${rows.length ? `<div class="ccchl">${rows.map((x, k) => `<div class="ccchr" style="display:flex;align-items:center;gap:10px;cursor:default"><span style="flex:1;text-align:left"><b>${esc(x.i.name)}</b>${modList(x.i)}</span><span class="qty cqty" style="display:inline-flex;align-items:center;gap:8px"><button type="button" class="ccx1" data-vq="${k}:-1">−</button><b data-vn="${k}" style="min-width:20px;text-align:center">0</b><button type="button" class="ccx1" data-vq="${k}:1">+</button><small class="note">of ${x.i.saved}</small></span></div>`).join("")}</div>
+    <div class="rchips" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px">${reasons.map(x => `<button type="button" class="btn sm" data-vrs="${esc(x)}">${esc(x)}</button>`).join("")}<button type="button" class="btn sm" data-vrs="_other">Other…</button></div>
+    <input class="sel" id="ccVrOther" placeholder="Write the reason" style="margin-top:8px;width:100%;display:${reasons.length ? "none" : ""}"><p class="note" id="ccVrErr" style="color:#c0392b;min-height:16px;margin:6px 0 0"></p>` : `<p class="note" style="text-align:center;padding:20px 0">No items to void</p>`}
+    <div class="slk-ask-f" style="margin-top:12px"><button type="button" class="slk-ask-no" data-dlgx>Cancel</button>${rows.length ? `<button type="button" class="slk-ask-yes red" id="ccVrGo">Void</button>` : ""}</div>`, (w, close) => {
+    w.addEventListener("click", e => { const b = e.target.closest("[data-vq]"); if(b){ const [k, d] = b.dataset.vq.split(":").map(Number); q[k] = Math.max(0, Math.min(+rows[k].i.saved, q[k] + d)); w.querySelector(`[data-vn="${k}"]`).textContent = q[k]; return; }
+      const c = e.target.closest("[data-vrs]"); if(c){ pick = c.dataset.vrs; w.querySelectorAll("[data-vrs]").forEach(x => x.classList.toggle("pri", x===c)); const o = w.querySelector("#ccVrOther"); o.style.display = pick==="_other" ? "" : "none"; if(pick==="_other") o.focus(); return; }
+      if(e.target.closest("#ccVrGo")){ const reason = pick==="_other" ? w.querySelector("#ccVrOther").value.trim() : pick, err = w.querySelector("#ccVrErr");
+        if(!q.some(n => n > 0)){ err.textContent = "Choose at least one item."; return; } if(!reason){ err.textContent = "Choose a reason."; return; }
+        rows.forEach((x, k) => { if(!q[k]) return; ccVoids.push({ name:x.i.name, qty:q[k] }); x.i.qty -= q[k]; x.i.saved -= q[k]; if(+x.i.disc) x.i.disc = +(x.i.disc * x.i.qty / (x.i.qty + q[k])).toFixed(2); });
+        cart = cart.filter(i => i.qty > 0); ccVoidReason = reason; close(); renderCart(false); } }); });
+}
 function ccDiscDlg(){
   if(!ccMayDisc()) return toast("Discounts aren't allowed here");
   const l = ccDsHere();
@@ -4259,7 +4287,7 @@ function ccChgDlg(){
       Object.keys(ccOpen).forEach(k => delete ccOpen[k]); Object.assign(ccOpen, vals); ccChg = pick; close(); renderCart(false); };
   });
 }
-document.addEventListener("click", e => { const t = e.target.closest("[data-cctool]"); if(t){ e.preventDefault(); return t.dataset.cctool==="disc" ? ccDiscDlg() : t.dataset.cctool==="chg" ? ccChgDlg() : t.dataset.cctool==="tags" ? ccTagsDlg() : ccNotesDlg(); }
+document.addEventListener("click", e => { const t = e.target.closest("[data-cctool]"); if(t){ e.preventDefault(); return t.dataset.cctool==="void" ? ccVoidDlg() : t.dataset.cctool==="disc" ? ccDiscDlg() : t.dataset.cctool==="chg" ? ccChgDlg() : t.dataset.cctool==="tags" ? ccTagsDlg() : ccNotesDlg(); }
   const cx = e.target.closest("[data-ochgx]"); if(cx){ e.preventDefault(); if(!ccChg) ccChg = new Set(ccCharges().picked.map(c=>c.id)); ccChg.delete(cx.dataset.ochgx); delete ccOpen[cx.dataset.ochgx]; renderCart(false); return; }
   const nx = e.target.closest("[data-ccnotex]"); if(nx){ e.preventDefault(); const el = $(nx.dataset.ccnotex==="k" ? "#oNotes" : "#oRNotes"); if(el) el.value = ""; renderCart(false); return; }
   const ne = e.target.closest("[data-ccnoteed]"); if(ne){ e.preventDefault(); ccNotesDlg(ne.dataset.ccnoteed==="k" ? "kitchen" : "order"); return; }
@@ -4317,13 +4345,14 @@ function ccNoteLines(ro){ const o = ($("#oRNotes")?.value||"").trim(), k = ($("#
 function renderCart(ro){
   const ch = ccCharges(), c = orderCalc(cart, ccDiscAmt(), ch.picked), qty = cart.reduce((a,i)=>a+i.qty,0);
   const grew = cart.length > (renderCart.n || 0); renderCart.n = cart.length;
-  $("#oCart").innerHTML = `<div class="clist"><div class="notesbox">${ccNoteLines(ro)}</div>` +
-    (cart.length ? cart.map((i,ix)=>`<div class="citem"${ro ? "" : ` data-cedit="${ix}" title="Tap to edit" style="cursor:pointer"`}><span class="cname">${esc(i.name)}${modList(i)}${+i.disc?`<small class="idisc" style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:400;color:#b45309">Discount −${usd(i.disc)}${ro?"":`<button type="button" class="ccx1" data-cdiscx="${ix}" aria-label="Remove item discount">×</button>`}</small>`:""}</span><span class="num cp">${usd(lineNet(i))}<small class="ceach">${usd(i.price)} each</small></span>${ro?`<span class="cqty">× ${i.qty}</span>`:`<span class="qty cqty"><button type="button" data-q="${ix}:-1" aria-label="${i.qty > 1 ? "Less" : "Remove"}"${i.qty > 1 ? "" : ' class="qdel"'}>${i.qty > 1 ? "−" : `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>`}</button><b>${i.qty}</b><button type="button" data-q="${ix}:1" aria-label="More">+</button></span>`}</div>`).join("") : (ro ? `<div class="note" style="padding:18px 0;text-align:center">No items</div>` : "")) +
+  $("#oCart").innerHTML = `<div class="clist"><div class="notesbox">${ccNoteLines(ro)}</div>${ccVoids.map(v => `<div class="ctot sub ccdline" style="color:#b42318"><span>Void ${v.qty} × ${esc(v.name)}</span><span></span></div>`).join("")}` +
+    (cart.length ? cart.map((i,ix)=>`<div class="citem"${ro || i.saved ? "" : ` data-cedit="${ix}" title="Tap to edit" style="cursor:pointer"`}><span class="cname">${esc(i.name)}${i.saved ? `<small style="display:block;font-size:12px;font-weight:400;color:#6b6a75">${i.saved} sent to kitchen</small>` : ""}${modList(i)}${+i.disc?`<small class="idisc" style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:400;color:#b45309">Discount −${usd(i.disc)}${ro?"":`<button type="button" class="ccx1" data-cdiscx="${ix}" aria-label="Remove item discount">×</button>`}</small>`:""}</span><span class="num cp">${usd(lineNet(i))}<small class="ceach">${usd(i.price)} each</small></span>${ro?`<span class="cqty">× ${i.qty}</span>`:`<span class="qty cqty"><button type="button" data-q="${ix}:-1"${i.qty <= (i.saved||0) ? " disabled" : ""} aria-label="${i.qty > 1 ? "Less" : "Remove"}"${i.qty > 1 || i.saved ? "" : ' class="qdel"'}>${i.qty > 1 || i.saved ? "−" : `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>`}</button><b>${i.qty}</b><button type="button" data-q="${ix}:1" aria-label="More">+</button></span>`}</div>`).join("") : (ro ? `<div class="note" style="padding:18px 0;text-align:center">No items</div>` : "")) +
     `</div>
     ${c.charges.map(x => `<div class="ctot sub ccdline"><span>${esc(x.name)}</span><span>${usd(x.amount)}${ro ? "" : `<button type="button" class="ccx1" data-ochgx="${esc(x.id)}" aria-label="Remove charge">×</button>`}</span></div>`).join("")}
     ${c.disc || ccDS ? `<div class="ctot sub ccdline"><span>${ccDS ? esc(ccDS.name) : ccDiscType==="amt" ? "Discount" : "Discount " + ccDisc + "%"}</span><span>−${usd(c.disc)}${ro ? "" : `<button type="button" class="ccx1" data-ccdx aria-label="Remove discount">×</button>`}</span></div>` : ""}
     <div class="ctot sub"><span>Subtotal</span><span>${usd(c.subtotal)}</span></div><div class="ctot sub tax"><span>Tax</span><span>${usd(c.tax)}</span></div><div class="ctot"><span>Total</span><b>${usd(c.total)}</b></div>${money2(c.total) ? `<div class="ctot sub tax"><span></span><span>≈ ${money2(c.total)}</span></div>` : ""}`;
   if(!ro && $("#oProducts")) renderOrderMenu();
+  ccSendSync();
   if($("#ccX")?.classList.contains("s2")) ccSide();   // the Clear button in the customer tile follows the cart
   const td = $("#ccToolDisc"); if(td) td.hidden = !ccMayDisc();
   if(grew){ const cl = document.querySelector("#oCart .clist"); if(cl) requestAnimationFrame(() => { cl.scrollTop = cl.scrollHeight; }); }
@@ -4351,14 +4380,26 @@ async function saveOrder(status){
     const key = i => (window.SlickMods ? SlickMods.key(i.productId, i.options) : i.productId) + "|" + (i.note||"");
     const left = cart.map(i => ({ k:key(i), q:+i.qty })), voided = [];
     ccOrig.forEach(i => { const m = left.find(x => x.k===key(i) && x.q > 0), keep = m ? Math.min(m.q, +i.qty) : 0; if(m) m.q -= keep; if(keep < +i.qty) voided.push({ ...i, qty: +i.qty - keep, voidedAt: new Date().toISOString(), voidedBy: state.userName || "Call center" }); });
-    if(voided.length && !(await askYes(`Void ${voided.map(v => v.qty + " × " + v.name).join(", ")} from this order?`))) return;
-    data = { source:$("#oSource").value, type, items:cart, ...dq, subtotal:c.gross, charges:c.charges, chargesTotal:c.chargesTotal, total:c.total,
+    const act = o.status==="active";
+    if(act && erPending(o)){ $("#oErr").textContent = "The branch hasn't answered the last change yet."; return; }
+    if(act) voided.forEach(v => { delete v.saved; if(ccVoidReason) v.reason = ccVoidReason; });
+    if(!act && voided.length && !(await askYes(`Void ${voided.map(v => v.qty + " × " + v.name).join(", ")} from this order?`))) return;
+    const clean = cart.map(({ saved, ...i }) => i);
+    data = { source:$("#oSource").value, type, items:clean, ...dq, subtotal:c.gross, charges:c.charges, chargesTotal:c.chargesTotal, total:c.total,
       ...(type==="delivery" && !o.address ? { address: addrJoin(addr), ...(ccPin() || {}) } : {}), ...(voided.length ? { voidedItems: [...(o.voidedItems||[]), ...voided] } : {}) };
   } else {
     data = { brandId, phone, customerName:name, source:$("#oSource").value, type, address: type==="delivery" ? addrJoin(addr) : "", ...(type==="delivery" && ccPin() ? ccPin() : {}),
       branchId, notes:$("#oNotes").value.trim(), receiptNotes:$("#oRNotes").value.trim(), items:cart, ...dq, subtotal:c.gross, charges:c.charges, chargesTotal:c.chargesTotal, total:c.total, status };
   }
   if(!ccEdit){ data.agent = state.fullName || state.userName || "Operator"; data.channel = "callcenter"; }
+  if(ccLocked && o && o.status==="active"){   // accepted by the branch: the change waits there to be approved; the order itself stays as it is until then
+    const key = i => (window.SlickMods ? SlickMods.key(i.productId, i.options) : i.productId) + "|" + (i.note||""), pool = ccOrig.map(i => ({ k:key(i), q:+i.qty })), added = [];
+    cart.forEach(i => { let need = +i.qty; pool.forEach(x => { if(x.k===key(i) && x.q > 0 && need > 0){ const t = Math.min(x.q, need); x.q -= t; need -= t; } }); if(need > 0){ const { saved, ...rest } = i; added.push({ ...rest, qty:need }); } });
+    const voided = (data.voidedItems || []).slice((o.voidedItems||[]).length).map(v => ({ name:v.name, qty:v.qty, ...(v.mods ? { mods:v.mods } : {}), ...(v.options ? { options:v.options } : {}), productId:v.productId }));
+    const er = { id: uid("er"), status:"pending", at:new Date().toISOString(), by: state.fullName || state.userName || "Operator", data, summary:{ added, voided, ...(ccVoidReason ? { reason: ccVoidReason } : {}) } };
+    try{ await put("orders", ccEdit, { editRequest: er }); toast(`Changes sent to ${branchName(o.branchId)} for approval`); $("#ccScrim").classList.remove("show"); }
+    catch(err){ console.error(err); $("#oErr").textContent = "Couldn't send the changes."; }
+    return; }
   const oid = ccEdit || uid("ord");
   try{ await put("orders", oid, data); if(ccTags) await tagSetFor("order", oid, ccTags); ccTags = null; toast(o && o.status!=="draft" ? `Order ${ordRef(o)} updated · ${branchName(o.branchId)} sees the changes` : status==="pending" ? `Order sent to ${branchName(branchId)}` : "Draft saved"); $("#ccScrim").classList.remove("show"); }
   catch(err){ console.error(err); $("#oErr").textContent = "Couldn't save the order."; }
@@ -6461,9 +6502,9 @@ async function saveCurrency(){
 }
 document.addEventListener("click", e => { if(e.target.closest("#curSave")) saveCurrency(); });
 /* Reasons (Manage → Reasons, Foodics style): a card per kind; tap a reason to edit it; drag to reorder; deleted ones under Deleted */
-const RS_KINDS = [["vr","Void and Return Reason"],["qtyReasons","Quantity Adjustment Reason"],["drawerReasons","Drawer Operation Reason"]];
+const RS_KINDS = [["vr","Void and Return Reason"],["rejectReasons","Order Rejection Reason"],["qtyReasons","Quantity Adjustment Reason"],["drawerReasons","Drawer Operation Reason"]];
 const RS_GONE = new Set(["Customer changed mind","Wrong item entered","Item not available","Kitchen mistake","Quality complaint","Wrong order delivered","Late delivery","Damaged","Theft","Staff meal","Sample","Found stock"]);   // removed for good, even from saved lists
-const RS_DEF = { qtyReasons:["Waste","Expired"], drawerReasons:["Cash Change"] };
+const RS_DEF = { qtyReasons:["Waste","Expired"], drawerReasons:["Cash Change"], rejectReasons:["Item not available","Branch too busy","Order already prepared"] };
 const RS = { tab:"general" };
 const rsSplit = v => String(v || "").split("\n").map(x => x.trim()).filter(Boolean);
 // void and return share one list (the POS offers it for both)
@@ -8384,7 +8425,7 @@ $("#ccScrim").addEventListener("click", async e => { if(e.target.id==="repCsv") 
   const cdx = e.target.closest("[data-cdiscx]"); if(cdx){ e.preventDefault(); const it = cart[+cdx.dataset.cdiscx]; if(it){ delete it.disc; delete it.discType; delete it.discValue; renderCart(false); } return; }
   const ce = !e.target.closest("[data-q]") && e.target.closest("[data-cedit]"); if(ce){ e.preventDefault(); ccEditItem(+ce.dataset.cedit); return; }
   const add = e.target.closest("[data-add]"); if(add){ const p = S.products.find(x=>x.id===add.dataset.add); if(p) ccAdd(p); }
-  const q = e.target.closest("[data-q]"); if(q){ const [ix,d] = q.dataset.q.split(":").map(Number); cart[ix].qty += d; if(cart[ix].qty<=0) cart.splice(ix,1); renderCart(false); }
+  const q = e.target.closest("[data-q]"); if(q){ const [ix,d] = q.dataset.q.split(":").map(Number); if(d < 0 && cart[ix].qty <= (cart[ix].saved||0)) return; cart[ix].qty += d; if(cart[ix].qty<=0) cart.splice(ix,1); renderCart(false); }
   const sv = e.target.closest("[data-osave]"); if(sv) saveOrder(sv.dataset.osave);
   const st = e.target.closest("[data-ostatus]"); if(st) setOrderStatus(st.dataset.ostatus);
   if(e.target.closest("[data-ccdeldraft]")){ const o = ccEdit && S.orders.find(x => x.id===ccEdit); if(!o || o.status!=="draft" || !(await askYes("Cancel this draft? It is deleted and never reaches a branch."))) return;
