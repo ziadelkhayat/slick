@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="690-1794395563">
+<meta name="slick-build" content="693-1794396411">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this copy, reload once (never for an older one) */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1316,6 +1316,12 @@ button.x[aria-label="Close"]{width:38px!important;height:38px!important;min-widt
 /* call center order: Send to Branch and Save as Draft side by side, 60% shorter (were ~118px tall) */
 .ccx.s2 .ccacts{flex-direction:row;flex-wrap:nowrap;align-items:stretch}
 .ccx.s2 .ccacts .btn,.ccx.s2 .ccacts .btn.pri{flex:1 1 0;min-height:0;height:47px;padding:0 12px}
+/* one tile format for the orders history and the call center board */
+.ohtile,.ocard.tl{display:flex!important;flex-direction:column!important;align-items:flex-start!important;gap:5px!important;text-align:left;text-transform:none}
+.ohtile>b,.ocard.tl>b{font-size:15px!important;font-weight:700;word-break:break-word}
+.ohtile>small,.ocard.tl>small{font-size:12.5px!important;color:var(--ink2)!important;line-height:1.35;text-align:left;text-transform:none}
+.ohtile>em,.ocard.tl>em{font-style:normal;font-weight:700;font-size:16px!important;margin-top:2px!important;color:var(--ink)}
+.ohtile>.spill,.ocard.tl>.spill{margin:0 0 2px!important;align-self:flex-start}.ocard.tl>small:empty{display:none}
 </style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -3873,15 +3879,12 @@ function viewCallCenter(){
 const ordRef = o => o.status==="draft" && !o.no ? "Draft" : o.status==="refund" ? "RET-" + String(o.returnNo || o.return_no || "…").padStart(6,"0") : o.no ? "#" + o.no : (o.ref || (o.invoiceNo || o.invoice_no ? invNo(o.invoiceNo || o.invoice_no) : "—"));
 const invNo = n => n ? "INV-" + String(n).padStart(6,"0") : "";   // invoice number as shown
 const ccTime = t => { if(!t) return "—"; const d = new Date(t), today = bizDate()===bizDate(d); return d.toLocaleString("en-GB", today ? { hour:"2-digit", minute:"2-digit" } : { day:"numeric", month:"short", hour:"2-digit", minute:"2-digit" }); };
-const ccRow = (a, b, c, cls) => a || b || c ? `<div class="ocr${cls ? " " + cls : ""}"><span>${esc(a||"")}</span>${b ? `<small>${esc(b)}</small>` : ""}${c ? `<small>${esc(c)}</small>` : ""}</div>` : "";
-// one card layout: reference, customer / phone, address (delivery), created / modified, total, brand / branch, type / source / user
-const ccCard = o => `<button class="ocard" data-order="${esc(o.id)}"><div class="orow"><b>${esc(o.ref || ordRef(o))}</b><span class="spill s-${o.status}">${CC_SUB[o.status]}</span></div>
-  ${ccRow(o.customerName || "Guest", o.phone)}
-  ${o.type==="delivery" && o.address ? ccRow(o.address, "", "", "wrap mut") : ""}${o.type==="delivery" && o.lat ? `<div class="oline">${mapLink(o)}</div>` : ""}
-  ${ccRow("Created " + ccTime(o.createdAt), o.updatedAt && o.updatedAt!==o.createdAt ? "Modified " + ccTime(o.updatedAt) : "", "", "mut")}
-  <div class="ototal">${usd(o.total)}</div>
-  ${ccRow(brandName(o.brandId), branchName(o.branchId))}
-  ${ccRow(ordTypeLbl(o.type), srcOf(o) || o.source || "", o.agent || "")}</button>`;
+// the same tile as the orders history: reference, status, customer / phone, address (delivery), created, modified, total, brand / branch, type / source / user
+const ccCard = o => { const sm = x => x ? `<small>${x}</small>` : "", jn = a => a.filter(x => x && x!=="—").map(esc).join(" / ");
+  return `<button class="ocard tl" data-order="${esc(o.id)}"><b>${esc(o.ref || ordRef(o))}</b><span class="spill s-${o.status}">${CC_SUB[o.status]}</span>
+  ${sm(jn([o.customerName || "Guest", o.phone]))}${o.type==="delivery" && o.address ? sm(esc(o.address)) : ""}${o.type==="delivery" && o.lat ? `<div class="oline">${mapLink(o)}</div>` : ""}
+  ${sm("Created " + ccTime(o.createdAt))}${o.updatedAt && o.updatedAt!==o.createdAt ? sm("Modified " + ccTime(o.updatedAt)) : ""}<em>${usd(o.total)}</em>
+  ${sm(jn([brandName(o.brandId), branchName(o.branchId)]))}${sm(jn([ordTypeLbl(o.type), srcOf(o) || o.source || "", o.agent || ""]))}</button>`; };
 
 let ccEdit = null, cart = [];
 // call-center orders stay editable until the branch closes them (pending = sent, active = in the kitchen)
@@ -3980,7 +3983,7 @@ function ccSide(){
   const type = $("#oType .on")?.dataset.ot || "", c = window.__ccCust, a = addrSplit(addrJoin(ccAddrGet()));
   const bits = [branchName($("#oBranch").value), type ? ordTypeLbl(type) : "", $("#oSource")?.value || "", type==="delivery" ? (a.label ? a.label + ": " : "") + [a.street, a.building && "Bldg " + a.building, a.floor && "Floor " + a.floor].filter(Boolean).join(", ") : ""].filter(Boolean);
   el.innerHTML = `<div class="ccctx"><div class="ccctxh"><span class="ccci">${svgIco(type==="delivery" ? "truck" : "store")}</span><div class="ccctxn"><b>${esc($("#oName").value.trim() || "New customer")}</b><small>${[ccPhone(), ...bits].filter(Boolean).map(esc).join(" · ")}</small></div>${c?.blacklisted ? `<span class="tag" style="background:#fde8eb;color:#9e0c24">⚠ Blacklisted</span>` : ""}</div>
-    <div class="ccctxb">${$("#oPhone")?.disabled ? "" : `<button type="button" class="btn sm" data-ccstep="1">Edit customer</button>`}${$(".ccx .ccmenu") ? "" : `<button type="button" class="btn sm" data-ccclose>Close</button>`}</div></div>`;
+    <div class="ccctxb">${$("#oPhone")?.disabled ? `<button type="button" class="btn sm" data-ccstep="1">Customer Details</button>` : `<button type="button" class="btn sm" data-ccstep="1">Edit customer</button>`}${$(".ccx .ccmenu") ? "" : `<button type="button" class="btn sm" data-ccclose>Close</button>`}</div></div>`;
 }
 function ccAddrCards(){
   setTimeout(ccGoState, 0);
@@ -6049,7 +6052,7 @@ function ccOhPop(id){
   const num = o => o.status==="refund" ? ordRef(o) : o.invoice_no ? invNo(o.invoice_no) : (o.ref || ordRef(o));
   if(!det){ p.innerHTML = `<div class="ccadbox"><div class="ccadh"><h3>Orders history</h3><button type="button" class="x" data-ccohx aria-label="Close">×</button></div>
     <div class="ohfil">${CC_OHFS.map(([k, l]) => `<button type="button" class="${(window.__ccOhF||"")===k ? "on" : ""}" data-ccohf="${k}">${l}</button>`).join("")}</div>
-    <div class="ccadlist"><div class="ohgrid">${((t, m, f) => f ? ok.filter(o => m(o, f)).map(t).join("") : [["closed","Done"],["void","Void"],["refund","Refund"],["declined","Declined"]].map(([k, l]) => { const g = ok.filter(o => m(o, k)); return g.length ? `<div class="ohgh">${l}<span>${g.length}</span></div>` + g.map(t).join("") : ""; }).join(""))(o => `<button type="button" class="ohtile" data-ccohopen="${esc(o.id)}"><b>${esc(o.ref || num(o))}</b><span class="spill s-${o.status}">${ORD_ST[o.status]||o.status}</span>${o.type==="delivery" && o.address ? `<small class="oha">${esc(o.address)}</small>` : ""}<small>Created ${d(o.created_at, true)}${o.updated_at && o.updated_at!==o.created_at ? " / Modified " + d(o.updated_at, true) : ""}</small><em>${usd(+o.total||0)}</em><small>${[brandName(o.brand_id), branchName(o.branch_id)].filter(x => x && x!=="—").map(esc).join(" / ")}</small><small>${[ordTypeLbl(o.type), srcOf(o), o.agent].filter(Boolean).map(esc).join(" / ")}</small></button>`, (o, f) => f==="refund" ? ["refund","returned"].includes(o.status) : o.status===f, window.__ccOhF || "") || `<div class="ohnone">No orders</div>`}</div></div></div>`; ohEqual(p); return; }
+    <div class="ccadlist"><div class="ohgrid">${((t, m, f) => f ? ok.filter(o => m(o, f)).map(t).join("") : [["closed","Done"],["void","Void"],["refund","Refund"],["declined","Declined"]].map(([k, l]) => { const g = ok.filter(o => m(o, k)); return g.length ? `<div class="ohgh">${l}<span>${g.length}</span></div>` + g.map(t).join("") : ""; }).join(""))(o => `<button type="button" class="ohtile" data-ccohopen="${esc(o.id)}"><b>${esc(o.ref || num(o))}</b><span class="spill s-${o.status}">${ORD_ST[o.status]||o.status}</span>${o.type==="delivery" && o.address ? `<small class="oha">${esc(o.address)}</small>` : ""}<small>Created ${d(o.created_at, true)}</small>${o.updated_at && o.updated_at!==o.created_at ? `<small>Modified ${d(o.updated_at, true)}</small>` : ""}<em>${usd(+o.total||0)}</em><small>${[brandName(o.brand_id), branchName(o.branch_id)].filter(x => x && x!=="—").map(esc).join(" / ")}</small><small>${[ordTypeLbl(o.type), srcOf(o), o.agent].filter(Boolean).map(esc).join(" / ")}</small></button>`, (o, f) => f==="refund" ? ["refund","returned"].includes(o.status) : o.status===f, window.__ccOhF || "") || `<div class="ohnone">No orders</div>`}</div></div></div>`; ohEqual(p); return; }
   const it = (det.items||[]).filter(i => !i.voided), kv = (l, v) => v ? `<div class="ohrow"><span>${l}</span><b>${esc(v)}</b></div>` : "", a = det.address ? addrSplit(det.address) : null;
   p.innerHTML = `<div class="ccadbox"><div class="ccadh"><button type="button" class="adback" data-ccohopen="" aria-label="Back">‹</button><h3>${esc(det.ref || (det.no ? "#" + det.no : num(det)))}</h3><span class="spill s-${det.status}">${ORD_ST[det.status]||det.status}</span><button type="button" class="x" data-ccohx aria-label="Close">×</button></div>
     <div class="ccadlist"><div class="ohkv">${kv("Invoice number", det.invoice_no ? invNo(det.invoice_no) : "")}${kv("Brand", brandName(det.brand_id))}${kv("Branch", branchName(det.branch_id))}${kv("Order type", ordTypeLbl(det.type))}${kv("Order source", srcOf(det))}${kv("Date", d(det.created_at, true))}</div>
