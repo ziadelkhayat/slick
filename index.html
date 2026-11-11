@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="737-1794426864">
+<meta name="slick-build" content="740-1794428642">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this copy, reload once (never for an older one) */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -4458,10 +4458,33 @@ async function saveOrder(status){
   try{ await put("orders", oid, data); if(ccTags) await tagSetFor("order", oid, ccTags); ccTags = null; toast(o && o.status!=="draft" ? `Order ${ccRef(o)} updated · ${branchName(o.branchId)} sees the changes` : status==="pending" ? `Order sent to ${branchName(branchId)}` : "Draft saved"); $("#ccScrim").classList.remove("show"); }
   catch(err){ console.error(err); $("#oErr").textContent = "Couldn't save the order."; }
 }
+// a reason picked from a list (or written by hand)
+function askReason(title, reasons, yes){
+  return new Promise(res => {
+    const w = document.createElement("div"); w.className = "slk-ask"; w.setAttribute("role", "dialog"); w.setAttribute("aria-modal", "true");
+    const e2 = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;" }[c])); let pick = "";
+    w.innerHTML = `<div class="slk-ask-b" style="max-width:520px;width:calc(100% - 32px)"><h3 class="slk-ask-h">${e2(title)}</h3><div class="rchips" style="margin:4px 24px 12px">${reasons.map(x => `<button type="button" data-rr="${e2(x)}">${e2(x)}</button>`).join("")}<button type="button" data-rr="_other">Other…</button></div>
+      <input class="slk-ask-i" placeholder="Write the reason" autocomplete="off" style="margin:0 24px;width:calc(100% - 48px);box-sizing:border-box;display:${reasons.length ? "none" : ""}"><div class="rrerr" style="color:#b42318;font-size:13px;min-height:18px;padding:4px 24px 8px"></div>
+      <div class="slk-ask-f"><button type="button" class="slk-ask-no">Cancel</button><button type="button" class="slk-ask-yes red">${e2(yes || "Reject")}</button></div></div>`;
+    const inp = w.querySelector(".slk-ask-i"); if(!reasons.length) pick = "_other";
+    const done = v => { document.removeEventListener("keydown", key, true); w.remove(); res(v); };
+    const ok = () => { const v = pick==="_other" ? inp.value.trim() : pick; if(!v){ w.querySelector(".rrerr").textContent = "Choose a reason."; return; } done(v); };
+    const key = e => { if(e.key === "Escape"){ e.preventDefault(); e.stopPropagation(); done(null); } else if(e.key === "Enter"){ e.preventDefault(); e.stopPropagation(); ok(); } };
+    w.addEventListener("click", e => { const c = e.target.closest("[data-rr]");
+      if(c){ pick = c.dataset.rr; w.querySelectorAll("[data-rr]").forEach(b => b.classList.toggle("on", b===c)); inp.style.display = pick==="_other" ? "" : "none"; if(pick==="_other") inp.focus(); w.querySelector(".rrerr").textContent = ""; return; }
+      if(e.target === w || e.target.closest(".slk-ask-no")) done(null); else if(e.target.closest(".slk-ask-yes")) ok(); });
+    document.addEventListener("keydown", key, true); document.body.appendChild(w);
+  });
+}
 async function setOrderStatus(s){
   if(s==="active" || s==="closed") return toast("Only the branch can accept or close an order, on its POS.");
   if(s==="declined"){ const cur = S.orders.find(x => x.id===ccEdit); if(cur && cur.status!=="pending"){ $("#oErr").textContent = "The branch already accepted this order, so it can't be cancelled here."; return; }
-    if(!(await askYes("Cancel this order? The branch won't prepare it.", "Cancel order", true))) return; }
+    // a cancelled order always carries the reason (Manage → Reasons → Order Cancellation Reason)
+    const why = await askReason("Cancel order: reason", rsGet("cancelReasons"), "Cancel Order"); if(!why) return;
+    const now = new Date().toISOString();
+    try{ await put("orders", ccEdit, { status:s, voidReason:why, doneAt:now, handledBy: state.fullName || state.userName || "Operator" }); toast("Order " + CC_SUB[s].toLowerCase()); $("#ccScrim").classList.remove("show"); }
+    catch(err){ console.error(err); $("#oErr").textContent = "Couldn't update the order."; }
+    return; }
   try{ await put("orders", ccEdit, { status: s }); toast("Order " + CC_SUB[s].toLowerCase()); $("#ccScrim").classList.remove("show"); }
   catch(err){ console.error(err); $("#oErr").textContent = "Couldn't update the order."; }
 }
@@ -6571,9 +6594,9 @@ async function saveCurrency(){
 }
 document.addEventListener("click", e => { if(e.target.closest("#curSave")) saveCurrency(); });
 /* Reasons (Manage → Reasons, Foodics style): a card per kind; tap a reason to edit it; drag to reorder; deleted ones under Deleted */
-const RS_KINDS = [["vr","Void and Return Reason"],["rejectReasons","Order Rejection Reason"],["qtyReasons","Quantity Adjustment Reason"],["drawerReasons","Drawer Operation Reason"]];
+const RS_KINDS = [["vr","Void and Return Reason"],["rejectReasons","Order Rejection Reason"],["cancelReasons","Order Cancellation Reason"],["qtyReasons","Quantity Adjustment Reason"],["drawerReasons","Drawer Operation Reason"]];
 const RS_GONE = new Set(["Customer changed mind","Wrong item entered","Item not available","Kitchen mistake","Quality complaint","Wrong order delivered","Late delivery","Damaged","Theft","Staff meal","Sample","Found stock"]);   // removed for good, even from saved lists
-const RS_DEF = { qtyReasons:["Waste","Expired"], drawerReasons:["Cash Change"], rejectReasons:["Item not available","Branch too busy","Order already prepared"] };
+const RS_DEF = { qtyReasons:["Waste","Expired"], drawerReasons:["Cash Change"], rejectReasons:["Item not available","Branch too busy","Order already prepared"], cancelReasons:["Customer cancelled","Duplicate order","Wrong order details"] };
 const RS = { tab:"general" };
 const rsSplit = v => String(v || "").split("\n").map(x => x.trim()).filter(Boolean);
 // void and return share one list (the POS offers it for both)
