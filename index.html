@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="711-1794403366">
+<meta name="slick-build" content="712-1794403712">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this copy, reload once (never for an older one) */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -3920,7 +3920,7 @@ const erPending = o => !!(o && o.editRequest && o.editRequest.status==="pending"
 const ccSig = () => JSON.stringify([cart.map(i => [i.productId, (i.options||[]).map(x => x.id), i.note||"", i.qty, +i.disc||0]), ccDiscAmt(), ccCharges().picked.map(c => c.id + ":" + (+c.amount||0)).sort(), $("#oSource")?.value || "", $("#oType .on")?.dataset.ot || ""]);
 // an accepted order: Send To Branch can be pressed once something changed
 function ccSendSync(){ document.querySelectorAll('#ccBox [data-osave="pending"]').forEach(x => { x.disabled = !cart.length; });   // a new order: Send is greyed out while the cart is empty
-  const b = $("#ccSendEdit"); if(!b) return; b.disabled = ccSig0==null || (ccSig()===ccSig0 && !ccVoids.length); }   // greyed out until something changed
+  const b = $("#ccSendEdit"); if(!b) return; b.disabled = ccSig0==null || (ccSig() + "|" + ($("#oNotes")?.value || "") + "|" + ($("#oRNotes")?.value || "")===ccSig0 && !ccVoids.length && !ccTags); }   // greyed out until something changed
 document.addEventListener("change", e => { if(e.target.closest && e.target.closest("#ccBox")) setTimeout(ccSendSync, 0); });
 document.addEventListener("click", e => { if(e.target.closest && e.target.closest("#ccBox #oType")) setTimeout(ccSendSync, 0); });
 // the branch answered a change this agent sent: tell them once
@@ -3932,7 +3932,7 @@ function ccEditWatch(){ const me = state.fullName || state.userName || "Operator
 const ccEditable = o => !o || o.status==="draft" || (o.channel==="callcenter" && ["pending","active"].includes(o.status));
 function openOrder(id){
   const o = id ? S.orders.find(x=>x.id===id) : null;
-  ccEdit = o ? o.id : null; cart = o ? o.items.map(i=>({...i, ...(o.status==="active" ? { saved:+i.qty } : {})})) : []; ccTags = null; ccVoids = []; ccVoidReason = ""; ccSig0 = null; clearTimeout(openOrder.sigT); openOrder.sigT = setTimeout(() => { if(ccActiveO()){ ccSig0 = ccSig(); ccSendSync(); } }, 600);   // the starting point is taken once the screen has settled   // an accepted order: its items are in the kitchen, so they can only be voided (and the branch approves every change)
+  ccEdit = o ? o.id : null; cart = o ? o.items.map(i=>({...i, ...(o.status==="active" ? { saved:+i.qty } : {})})) : []; ccTags = null; ccVoids = []; ccVoidReason = ""; ccSig0 = null; clearTimeout(openOrder.sigT); openOrder.sigT = setTimeout(() => { const cur = ccEdit && S.orders.find(x => x.id===ccEdit); if(cur && ["pending","active"].includes(cur.status)){ ccSig0 = ccSig() + "|" + ($("#oNotes")?.value || "") + "|" + ($("#oRNotes")?.value || ""); ccSendSync(); } }, 600);   // the starting point is taken once the screen has settled   // an accepted order: its items are in the kitchen, so they can only be voided (and the branch approves every change)
   ccOrig = o ? JSON.parse(JSON.stringify(o.items||[])) : [];
   ccChg = o ? new Set((o.charges||[]).map(c=>c.id)) : null; Object.keys(ccOpen).forEach(k => delete ccOpen[k]); (o?.charges||[]).forEach(c => { if(c.type==="open") ccOpen[c.id] = +c.amount||0; });            // null = the charges that apply automatically
   ccDS = null; ccDiscType = o?.discountType==="amt" ? "amt" : "pct"; ccDisc = o ? (ccDiscType==="amt" ? +o.discount||0 : +o.discountPct||0) : 0; ccDiscOpen = false;
@@ -4125,7 +4125,7 @@ function ccActions(o){
   if(!o || o.status==="draft") return `<button type="button" class="btn" data-osave="draft">Save as Draft</button><button type="button" class="btn pri" data-osave="pending">Send</button>${o ? `<button type="button" class="btn danger" data-ccdeldraft>Cancel Draft</button>` : ""}`;
   const b = [];
   if(o.status==="active" && ccEditable(o)) b.push(erPending(o) ? `<p class="note" style="text-align:center;margin:0;padding:10px 0">Waiting for the branch to answer the last change</p>` : `<button type="button" class="btn pri" data-osave="keep" id="ccSendEdit" disabled>Edit & Send</button>`);
-  else if(ccEditable(o)) b.push(`<button type="button" class="btn pri" data-osave="keep">Save</button>`);
+  else if(ccEditable(o)) b.push(`<button type="button" class="btn pri" data-osave="keep" id="ccSendEdit" disabled>Edit & Send</button>`);
   // the branch accepts and completes orders on its POS; the call center can only cancel one the branch hasn't accepted yet
   if(o.status==="pending") b.push(`<button type="button" class="btn danger" data-ostatus="declined">Cancel order</button>`);
   return b.join("");
@@ -4287,7 +4287,7 @@ function ccTagsDlg(){
   if(!tagList("order").length && !ct.length) return ccOverlay(`<h3 style="margin:0 0 12px">Tags</h3><p class="note" style="text-align:center;padding:20px 0">No tags available for this order.</p><div class="slk-ask-f" style="margin-top:12px"><button type="button" class="slk-ask-no" data-dlgx>Cancel</button></div>`, () => {});
   const custBox = cu?.id ? `${ct.length ? `<h3 style="margin:16px 0 8px">Customer Tags</h3>` : ""}${ct.length ? `<div class="multi" id="ccCTg">${ct.map(t => `<label class="chk"><input type="checkbox" value="${esc(t.name)}" ${cn.has(t.name.toLowerCase())?"checked":""}> ${esc(t.name)}</label>`).join("")}</div>` : ""}` : "";
   ccOverlay(`<h3 style="margin:0 0 12px">Order Tags</h3>${tagPick("order", null, "ccTg", cur)}${custBox}<div class="slk-ask-f" style="margin-top:12px"><button type="button" class="slk-ask-no" data-dlgx>Cancel</button><button type="button" class="slk-ask-yes" id="ccTgGo">Apply</button></div>`, (w, close) => {
-    w.querySelector("#ccTgGo").onclick = async () => { ccTags = tagPickGet("ccTg") || [];
+    w.querySelector("#ccTgGo").onclick = async () => { ccTags = tagPickGet("ccTg") || []; setTimeout(ccSendSync, 0);
       const ce = w.querySelector("#ccCTg"); if(ce && cu?.id){ const names = ct.map(t => t.name.toLowerCase()), next = [...(cu.tags||[]).filter(x => !names.includes(String(x).toLowerCase())), ...[...ce.querySelectorAll("input:checked")].map(i => i.value)];
         const { error } = await WOK.sb.from("customers").update({ tags: next }).eq("id", cu.id); if(error) toast("Couldn't save the customer tags: " + error.message); else cu.tags = next; }
       close(); renderCart(false); toast("Tags set"); }; });
@@ -4409,7 +4409,7 @@ async function saveOrder(status){
     if(act) voided.forEach(v => { delete v.saved; if(ccVoidReason) v.reason = ccVoidReason; if(ccVoidStock) v.stock = ccVoidStock; });
     if(!act && voided.length && !(await askYes(`Void ${voided.map(v => v.qty + " × " + v.name).join(", ")} from this order?`))) return;
     const clean = cart.map(({ saved, ...i }) => i);
-    data = { source:$("#oSource").value, type, items:clean, ...dq, subtotal:c.gross, charges:c.charges, chargesTotal:c.chargesTotal, total:c.total,
+    data = { source:$("#oSource").value, type, notes:$("#oNotes").value.trim(), receiptNotes:$("#oRNotes").value.trim(), items:clean, ...dq, subtotal:c.gross, charges:c.charges, chargesTotal:c.chargesTotal, total:c.total,
       ...(type==="delivery" && !o.address ? { address: addrJoin(addr), ...(ccPin() || {}) } : {}), ...(voided.length ? { voidedItems: [...(o.voidedItems||[]), ...voided] } : {}) };
   } else {
     data = { brandId, phone, customerName:name, source:$("#oSource").value, type, address: type==="delivery" ? addrJoin(addr) : "", ...(type==="delivery" && ccPin() ? ccPin() : {}),

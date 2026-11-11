@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="711-1794403366">
+<meta name="slick-build" content="712-1794403712">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this copy, reload once (never for an older one) */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1654,7 +1654,8 @@ function askNumber(title, def){ return new Promise(res => {
 // an item discount follows the quantity: a % stays a %, an amount never exceeds the line
 const reDisc = i => { if(!+i.disc) return; const line = (+i.price||0) * (+i.qty||1), v = +i.discValue||0; i.disc = +(i.discType==="amt" ? Math.min(v, line) : line * Math.min(v, 100) / 100).toFixed(2); };
 // a done, void, returned or declined order can't take items: the red drop-down message
-function lockedOrder(){ const eo = editOrder(); if(!eo || isOpenOrd(eo)) return false;
+function lockedOrder(){ const eo = editOrder(); if(eo && eo.status==="pending"){ toast("Accept the order first", true); return true; }   // not accepted yet: nothing can be added
+  if(!eo || isOpenOrd(eo)) return false;
   toast("This Order is not editable", true);
   return true; }
 async function addProduct(p){
@@ -1719,11 +1720,11 @@ $("#extra").addEventListener("click", e => { const ht = e.target.closest("[data-
   if(e.target.closest("[data-unload]")) return unloadOrder(); });
 $("#acts").addEventListener("click", async e => { const b = e.target.closest("[data-incc]"); if(!b || b.disabled) return; if(!can("pos_incoming")) return deny("handling incoming orders");
   const [id, st] = b.dataset.incc.split(":"), o = S.orders.find(x => x.id===id); if(!o) return;
-  if(st==="declined"){ try{ if(await declineOrder(id)) setTimeout(renderCart, 60); }catch(err){ console.error(err); toast("Couldn't update the order"); } return; }
+  if(st==="declined"){ try{ if(await declineOrder(id)) resetOrder(); }catch(err){ console.error(err); toast("Couldn't update the order"); } return; }
   b.disabled = true;
   const now = new Date().toISOString(), bill = st==="active" && !o.no ? { no: nextOrderNo(), deviceId: device.id } : {};
   try{ await db.collection("orders").doc(id).update({ status:st, updatedAt:now, ...(st==="active" && !o.acceptedAt ? { acceptedAt:now } : {}), ...(st==="declined" ? { doneAt:now } : {}), handledBy:cashier?.name || device.name, ...bill });
-    toast(st==="active" ? (bill.no ? "Order #" + bill.no + " accepted · sent to kitchen" : "Order accepted · sent to kitchen") : "Order declined"); setTimeout(renderCart, 60);
+    toast(st==="active" ? (bill.no ? "Order #" + bill.no + " accepted · sent to kitchen" : "Order accepted · sent to kitchen") : "Order declined"); resetOrder();   // accepted: the cart opens on a new order
   }catch(err){ console.error(err); b.disabled = false; toast("Couldn't update the order"); } });
 $("#acts").addEventListener("click", e => { const b = e.target.closest("[data-act]"); if(!b || b.disabled) return; const a = b.dataset.act, eo = editOrder();
   if(a==="clear") return resetOrder();
