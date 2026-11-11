@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="710-1794402940">
+<meta name="slick-build" content="711-1794403366">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this copy, reload once (never for an older one) */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1190,7 +1190,7 @@ const incoming = () => S.orders.filter(o => o.branchId===device.branchId && o.ch
 // a change the call center asked for on an order this branch already accepted: it waits here to be approved or rejected
 const erPending = o => !!(o && o.editRequest && o.editRequest.status==="pending");
 const rejReasons = () => String(appSet().rejectReasons ?? "Item not available\nBranch too busy\nOrder already prepared").split("\n").map(x => x.trim()).filter(Boolean);
-const erLines = o => { const s = o.editRequest?.summary || {}; return [...(s.added||[]).map(i => "+ " + i.qty + " × " + i.name), ...(s.voided||[]).map(i => "Void " + i.qty + " × " + i.name)]; };
+const erLines = o => { const s = o.editRequest?.summary || {}; if(s.voidAll) return ["Void whole order" + (s.reason ? ": " + s.reason : "")]; return [...(s.added||[]).map(i => "+ " + i.qty + " × " + i.name), ...(s.voided||[]).map(i => "Void " + i.qty + " × " + i.name)]; };
 async function declineOrder(id){ const reason = await askReason("Decline order: reason", rejReasons(), "Decline"); if(!reason) return false; const now = new Date().toISOString();
   await db.collection("orders").doc(id).update({ status:"declined", updatedAt:now, doneAt:now, voidReason:reason, handledBy:cashier?.name || device.name }); toast("Order declined"); return true; }
 async function erDecide(id, yes){ const o = S.orders.find(x => x.id===id); if(!erPending(o)) return; const er = o.editRequest, now = new Date().toISOString(), by = cashier?.name || device.name;
@@ -1198,7 +1198,8 @@ async function erDecide(id, yes){ const o = S.orders.find(x => x.id===id); if(!e
   if(!yes){ const reason = await askReason("Reject order edit: reason", rejReasons()); if(!reason) return;
     await db.collection("orders").doc(id).update({ editRequest:{ ...er, status:"rejected", reason, decidedAt:now, decidedBy:by } }); toast("Order edit rejected"); return; }   // the order and its cart stay as they were
   const d = er.data || {}, s = er.summary || {};
-  await db.collection("orders").doc(id).update({ ...d, updatedAt:now, editRequest:{ ...er, status:"approved", decidedAt:now, decidedBy:by } });
+  await db.collection("orders").doc(id).update({ ...d, ...(s.voidAll ? { approvedBy:by } : {}), updatedAt:now, editRequest:{ ...er, status:"approved", decidedAt:now, decidedBy:by } });
+  if(s.voidAll){ printKitchen({ ...o, items:(o.items||[]).map(i => ({ ...i, name:"VOID " + i.name })) }, "Void order " + ordRef(o)); toast("Order voided"); return; }
   const no = { ...o, ...d };   // the changes go to the kitchen: what was added, and what to stop making
   if((s.added||[]).length) printKitchen({ ...no, items:s.added }, "Order edit " + ordRef(o));
   if((s.voided||[]).length) printKitchen({ ...no, items:s.voided.map(i => ({ ...i, name:"VOID " + i.name })) }, "Order edit (void) " + ordRef(o));
@@ -2246,10 +2247,10 @@ function openVR(kind, mode){
   const pick = mode==="items";
   modal("vr", `<div class="mh"><h2>${kind==="void"?"Void":"Return"} ${pick?"items":"order"} · ${esc(ordRef(o))}</h2><button class="x" data-ovopen="${esc(o.id)}" aria-label="Back">←</button></div><div class="mb">
     <div class="dseg vrmode" style="margin-bottom:14px"><button type="button" data-vrmode="${kind}:all" class="${pick?"":"on"}">Whole order</button><button type="button" data-vrmode="${kind}:items" class="${pick?"on":""}">Choose items</button></div>
-    ${pick ? `<p class="mut">How many of each item?</p><div class="vlines">${(o.items||[]).map((i,ix)=>`<div><span>${esc(i.name)}${modList(i)}</span><span class="qty"><button data-vq="${ix}:-1">−</button><b id="vq${ix}">0</b><button data-vq="${ix}:1">+</button> <span class="mut">of ${kind==="return" ? retLeft(o, ix) : i.qty}</span></span></div>`).join("")}</div>`
+    ${pick ? `<p class="mut">How many of each item?</p><div class="vlines">${(o.items||[]).map((i,ix)=>`<div><span>${esc(i.name)}${modList(i)}</span><span class="qty"><button data-vq="${ix}:-1">−</button><b id="vq${ix}">0</b><button data-vq="${ix}:1">+</button></span></div>`).join("")}</div>`
       : `<p>${kind==="void" ? "The whole order will be voided and removed from sales." : `The whole order will be returned and ${usd(o.total)} refunded.`}</p>`}
     ${pick && kind==="return" ? `<div class="vrtot"><span>Refund</span><b id="vrAmt">${usd(0)}</b></div>` : ""}
-    <div class="f"><label>Reason${a.reasonRequired?" *":""}</label><select id="vrReason" hidden><option value="">Choose…</option>${reasons.map(r=>`<option>${esc(r)}</option>`).join("")}<option value="_other">Other…</option></select>
+    <div class="f"><label>Reason${a.reasonRequired?" *":""}</label><select id="vrReason" hidden data-noseg><option value="">Choose…</option>${reasons.map(r=>`<option>${esc(r)}</option>`).join("")}<option value="_other">Other…</option></select>
       <div class="rchips">${reasons.map(r=>`<button type="button" data-rs="${esc(r)}">${esc(r)}</button>`).join("")}<button type="button" data-rs="_other">Other…</button></div><input id="vrOther" placeholder="Write the reason" style="display:none;margin-top:8px"></div>
     ${a.stockAction==="ask" ? `<div class="f"><div class="dseg"><button type="button" data-st="stock" class="on">Return to stock</button><button type="button" data-st="waste">Waste</button></div></div>`
       : `<p class="mut">Items go ${a.stockAction==="waste"?"to waste":"back to stock"} (Manage → Settings).</p>`}
@@ -2538,7 +2539,7 @@ function openBoard(){
   const card = o => `<div class="ocard tl" role="button" tabindex="0" data-ov="${esc(o.id)}"><b>${esc(o.ref || ordRef(o))}</b><span class="spill s-${erPending(o) ? "pending" : o.status}">${erPending(o) ? "Order Edit" : stLbl(o)}</span>
     ${sm(jn([o.invoiceNo ? invNo(o.invoiceNo) : "", o.no ? "Order #" + o.no : ""]))}${sm(jn([o.customerName, o.phone]))}${o.type==="delivery" && o.address ? sm(esc(o.address)) : ""}
     ${sm("Created " + t(o.createdAt))}${o.updatedAt && o.updatedAt!==o.createdAt ? sm("Modified " + t(o.updatedAt)) : ""}<em>${usd(o.total)}</em>
-    ${sm(jn([typLbl(o.type), o.source && o.source!=="Website" && String(o.source).toUpperCase()!=="POS" ? o.source : ""]))}${sm(jn([chn(o), o.agent || ""]))}${o.status==="pending" ? (canAccept() ? `<span class="ocacts"><button class="btn bad" data-inc="${esc(o.id)}:declined">Decline</button><button class="btn pri" data-inc="${esc(o.id)}:active">Accept</button></span>` : `<span class="mut oc-s">${esc(masterNote())}</span>`) : ""}${erPending(o) ? `${erLines(o).map(x => sm(esc(x))).join("")}${sm("New total " + usd(o.editRequest.data?.total ?? o.total))}<span class="ocacts"><button class="btn bad" data-er="${esc(o.id)}:0">Reject</button><button class="btn pri" data-er="${esc(o.id)}:1">Approve</button></span>` : ""}</div>`;
+    ${sm(jn([typLbl(o.type), o.source && o.source!=="Website" && String(o.source).toUpperCase()!=="POS" ? o.source : ""]))}${sm(jn([chn(o), o.agent || ""]))}${o.status==="pending" ? (canAccept() ? `<span class="ocacts"><button class="btn bad" data-inc="${esc(o.id)}:declined">Decline</button><button class="btn pri" data-inc="${esc(o.id)}:active">Accept</button></span>` : `<span class="mut oc-s">${esc(masterNote())}</span>`) : ""}${erPending(o) ? `${erLines(o).map(x => sm(esc(x))).join("")}${o.editRequest.summary?.voidAll ? "" : sm("New total " + usd(o.editRequest.data?.total ?? o.total))}<span class="ocacts"><button class="btn bad" data-er="${esc(o.id)}:0">Reject</button><button class="btn pri" data-er="${esc(o.id)}:1">Approve</button></span>` : ""}</div>`;
   const q = OV.q; OV.q = BQ;
   const PD_COLS = [...OV_COLS.slice(0,3), ["declined","Declined","Declined today"]];   // pickup & delivery: no void / returns column
   const cols = PD_COLS.map(([k,title,tip]) => [k, title, tip, boardOrders(k, true)]); OV.q = q;
