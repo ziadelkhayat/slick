@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="707-1794402167">
+<meta name="slick-build" content="709-1794402680">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this copy, reload once (never for an older one) */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1484,7 +1484,7 @@ function renderCart(){
   const grew = cart.length > (renderCart.n || 0); renderCart.n = cart.length;
   $("#lines").parentElement.classList.toggle("nocart", !cart.length && !eo);   // an empty cart shows no totals and no Total button
   $("#lines").innerHTML = cart.length ? cart.map((i,ix)=>`<div class="line" data-edit="${ix}" title="${ro?"":"Tap to edit"}" style="cursor:pointer"><span class="n">${ro ? `<b class="lq">${i.qty}×</b> ` : ""}${esc(i.name)}${i.saved?`<span class="sent">${ro ? "" : `${i.saved} sent to kitchen`}</span>`:""}${modList(i)}${+i.disc?`<small class="idisc" style="display:flex;align-items:center;gap:6px;font-size:12px;color:#b45309">Discount −${usd(i.disc)}${ro?"":`<button type="button" class="dlx" data-idiscx="${ix}" aria-label="Remove item discount">×</button>`}</small>`:""}</span><span class="p">${usd(lineNet(i))}<small class="each">${usd(i.price)} each</small></span>
-    ${ro ? "<span></span>" : `<span class="qty lqty"><button type="button" data-q="${ix}:-1" ${i.qty <= (i.saved||0) ? "disabled" : ""} aria-label="${i.qty > 1 ? "Less" : "Remove"}"${i.qty > 1 ? "" : ' class="qdel"'}>${i.qty > 1 ? "−" : `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>`}</button><b>${i.qty}</b><button type="button" data-q="${ix}:1" aria-label="More">+</button></span>`}</div>`).join("") : `<div class="empty"></div>`;
+    ${ro ? "<span></span>" : `<span class="qty lqty"><button type="button" data-q="${ix}:-1" ${i.qty <= (i.saved||0) ? "disabled" : ""} aria-label="${i.qty > 1 ? "Less" : "Remove"}"${i.qty > 1 ? "" : ' class="qdel"'}>${i.qty > 1 ? "−" : `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>`}</button><b>${i.qty}</b><button type="button" data-q="${ix}:1" aria-label="More"${i.saved ? " disabled" : ""}>+</button></span>`}</div>`).join("") : `<div class="empty"></div>`;
   // voided items stay on the order, struck out
   if(eo){ const vd = eo.status==="void" ? [] : (eo.voidedItems||[]);
     if(eo.status==="void") $("#lines").querySelectorAll(".line").forEach(l => l.classList.add("vd"));
@@ -1666,7 +1666,7 @@ async function addProduct(p){
   let options = [], mods = "", addN = 1, note = "";
   if((p.modifiers||[]).length && window.SlickMods){ const r = await SlickMods.pick({ name:p.name, basePrice:price, ...modData(p), money:usd, askNote:true }); if(!r) return; options = r.options; mods = r.mods; price = r.unitPrice; addN = Math.max(1, +r.qty||1); note = r.note || ""; }
   const k = SlickMods ? SlickMods.key(p.id, options) : p.id;
-  const ex = !note && cart.find(i => !i.note && (window.SlickMods ? SlickMods.key(i.productId, i.options) : i.productId) === k && i.price === price);
+  const ex = !note && cart.find(i => !i.note && !i.saved && (window.SlickMods ? SlickMods.key(i.productId, i.options) : i.productId) === k && i.price === price);
   if(ex){ ex.qty += addN; reDisc(ex); } else cart.push({ productId:p.id, name:p.name, price, qty:addN, ...(options.length ? { options } : {}), ...(note ? { note } : {}), ...(options.length || note ? { mods: SlickMods.label(mods, note) } : {}) });   // the same item again goes on its line (as in the call center), not on a new one
   renderCart();
 }
@@ -1705,6 +1705,7 @@ $("#lines").addEventListener("click", e => { const dx = e.target.closest("[data-
     if(eo) return lineDisc(+ed.dataset.edit);   // an order already sent: the item discount only
     return editLine(+ed.dataset.edit, "note"); }   // tap a line: its options with the note under them; long press: its discount; quantity is on the − / + beside it
   const b = e.target.closest("[data-q]"); if(!b || ro) return; const [ix,d] = b.dataset.q.split(":").map(Number), i = cart[ix];
+  if(d > 0 && i.saved) return;                          // already sent: more of it is added from the menu, on a line of its own
   if(d < 0 && i.qty <= (i.saved||0)) return;           // already sent: the cart buttons never void; voids are done from the Void button only
   i.qty += d; if(i.qty<=0) cart.splice(ix,1); else reDisc(i); renderCart(); });
 $("#extra").addEventListener("click", e => { const ht = e.target.closest("[data-hgettab]"); if(ht) return retrieveHeld(ht.dataset.hgettab);
