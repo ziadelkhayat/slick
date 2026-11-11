@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="689-1794395409">
+<meta name="slick-build" content="690-1794395563">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this copy, reload once (never for an older one) */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -2612,10 +2612,11 @@ let OH_F = ""; const OH_FS = [["","All"],["closed","Done"],["void","Void"],["ref
 const ohHist = o => !["pending","active","draft"].includes(o.status);   // history is finished orders only: no pending or active ones
 const OH_GR = [["closed","Done"],["void","Void"],["refund","Refund"],["declined","Declined"]];   // All: the orders grouped by status
 const ohMatch = (o, f) => !f || (f==="refund" ? ["refund","returned"].includes(o.status) : o.status===f);
+const ohEqual = root => { const t = [...root.querySelectorAll(".ohtile")]; t.forEach(x => x.style.height = ""); const h = Math.max(0, ...t.map(x => x.offsetHeight)); if(h) t.forEach(x => x.style.height = h + "px"); };   // every history tile takes the height of the tallest one
 function ohPop(key, id){ const list = ((key==="pddet" ? PD?.past : CV?.past) || []).filter(ohHist);
   let el = $("#ohPop"); if(!el){ el = document.createElement("div"); el.id = "ohPop"; el.className = "scrim show npsc adpop ohpop"; document.body.appendChild(el); } el.dataset.k = key;
   const o = id && list.find(x => x.id===id);
-  if(!o){ el.innerHTML = `<div class="modal"><div class="mh"><h2>Orders history</h2><button class="x" data-ohx aria-label="Close">×</button></div><div class="ohfil">${OH_FS.map(([k, l]) => `<button type="button" class="${OH_F===k ? "on" : ""}" data-ohf="${k}">${l}</button>`).join("")}</div><div class="mb"><div class="ohgrid">${(t => OH_F ? list.filter(x => ohMatch(x, OH_F)).map(t).join("") : OH_GR.map(([k, l]) => { const g = list.filter(x => ohMatch(x, k)); return g.length ? `<div class="ohgh">${l}<span>${g.length}</span></div>` + g.map(t).join("") : ""; }).join(""))(ohTile) || `<div class="ohnone">No orders</div>`}</div></div></div>`; return; }
+  if(!o){ el.innerHTML = `<div class="modal"><div class="mh"><h2>Orders history</h2><button class="x" data-ohx aria-label="Close">×</button></div><div class="ohfil">${OH_FS.map(([k, l]) => `<button type="button" class="${OH_F===k ? "on" : ""}" data-ohf="${k}">${l}</button>`).join("")}</div><div class="mb"><div class="ohgrid">${(t => OH_F ? list.filter(x => ohMatch(x, OH_F)).map(t).join("") : OH_GR.map(([k, l]) => { const g = list.filter(x => ohMatch(x, k)); return g.length ? `<div class="ohgh">${l}<span>${g.length}</span></div>` + g.map(t).join("") : ""; }).join(""))(ohTile) || `<div class="ohnone">No orders</div>`}</div></div></div>`; ohEqual(el); return; }
   const br = S.branches?.find(b => b.id===o.branchId), bd = S.brands?.find(b => b.id===(o.brandId || br?.brandId)), it = (o.items||[]).filter(i => !i.voided), kv = (l, v) => v ? `<div class="kv"><span>${l}</span><b>${esc(v)}</b></div>` : "";
   el.innerHTML = `<div class="modal"><div class="mh"><button class="adback" data-ohopen="" aria-label="Back">‹</button><h2>${esc(o.ref || (o.no ? "#" + o.no : ohNum(o)))}</h2><span class="spill s-${o.status}">${esc(stLbl(o))}</span><button class="x" data-ohx aria-label="Close">×</button></div>
     <div class="mb"><div class="ohkv">${kv("Invoice number", o.inv ? invNo(o.inv) : "")}${kv("Brand", bd?.name)}${kv("Branch", br?.name)}${kv("Order type", OH_T[o.type] || o.type)}${kv("Order source", o.source)}${kv("Date", ohDate(o.at, true))}</div>
