@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="728-1794415166">
+<meta name="slick-build" content="729-1794415310">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this copy, reload once (never for an older one) */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1278,6 +1278,16 @@ function openDayEnd(){
 async function doDayEnd(day){
   const sales = S.orders.filter(o => liveOrder(o) && (o.status==="closed" || o.status==="refund") && bizDate(o.createdAt)===day);
   if(S.orders.some(o => o.branchId===device.branchId && ["pending","active"].includes(o.status)) || S.shifts.some(x => x.branchId===device.branchId && !x.closedAt)) return openDayEnd();
+  // everyone still clocked in at this branch is clocked out with the end of day
+  const tcd = tcDoc(), clk = Object.entries(tcd.open || {}).filter(([, v]) => v && v.branchId===device.branchId);
+  if(clk.length){
+    if(!(await askDlg({ msg:`The following users will be clocked out: ${clk.map(([id, v]) => v.name || S.users?.find?.(x => x.id===id)?.name || "User").join(", ")}`, no:"Cancel", yes:"Clock Out And End Day" }))) return;
+    const open = { ...(tcd.open || {}) }, log = [...(tcd.log || [])], now = new Date().toISOString();
+    clk.forEach(([id, v]) => { log.push({ userId:id, name:v.name || "", branchId:v.branchId, deviceId:v.deviceId, in:v.at, out:now, auto:"endday" }); delete open[id]; });
+    const next = { open, log: log.slice(-2000) };
+    const ex = S.settings.find(x => x.id==="timeclock"); if(ex) Object.assign(ex, next); else S.settings.push({ id:"timeclock", ...next });
+    try{ await db.collection("settings").doc("timeclock").set(next); }catch(e){ console.warn("time clock", e); }
+  }
   try{ await db.collection("day_closes").doc("dc_" + device.branchId + "_" + day).set({ branchId:device.branchId, businessDate:day, closedAt:new Date().toISOString(), closedBy:cashier?.name || device.name, deviceId:device.id, orders:sales.length, sales:+sales.reduce((a,o)=>a+(+o.total||0),0).toFixed(2) });
     closeModal(); toast(`Day ended · ${fmtDay(day)}`); renderAll(); }
   catch(err){ console.error(err); toast("Couldn't end the day. Check the connection and try again."); }
