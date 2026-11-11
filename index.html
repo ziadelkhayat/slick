@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="693-1794396411">
+<meta name="slick-build" content="694-1794396644">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this copy, reload once (never for an older one) */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1322,6 +1322,7 @@ button.x[aria-label="Close"]{width:38px!important;height:38px!important;min-widt
 .ohtile>small,.ocard.tl>small{font-size:12.5px!important;color:var(--ink2)!important;line-height:1.35;text-align:left;text-transform:none}
 .ohtile>em,.ocard.tl>em{font-style:normal;font-weight:700;font-size:16px!important;margin-top:2px!important;color:var(--ink)}
 .ohtile>.spill,.ocard.tl>.spill{margin:0 0 2px!important;align-self:flex-start}.ocard.tl>small:empty{display:none}
+.ccctxb .ccclr{display:inline-flex;align-items:center;gap:6px}
 </style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -3901,7 +3902,6 @@ function openOrder(id){
   const box = $("#ccBox"); box.className = "modal ccfull";
   box.innerHTML = `<header><h2>${o?`Order ${esc(ordRef(o))} <span class="spill s-${o.status}">${CC_SUB[o.status]}</span>`:"New Call Center Order"}</h2>
     <nav class="ccsteps" aria-label="Order steps"><button type="button" data-ccstep="1"><i>1</i>Customer</button><span aria-hidden="true">›</span><button type="button" data-ccstep="2"><i>2</i>Cart</button></nav><button type="button" class="x" data-ccclose aria-label="Close">×</button></header>
-  ${o && !ro && ccLocked ? `<div class="ccbanner">Placed order: you can change the order source, order type and items. Changes go straight to ${esc(branchName(o.branchId))}.</div>` : ""}
   <div class="ccx" id="ccX">
    <section class="ccleft">
     <div class="cc1top"><button type="button" class="ccxbtn" data-ccclose aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
@@ -3982,8 +3982,8 @@ function ccSide(){
   const el = $("#oSide"); if(!el) return;
   const type = $("#oType .on")?.dataset.ot || "", c = window.__ccCust, a = addrSplit(addrJoin(ccAddrGet()));
   const bits = [branchName($("#oBranch").value), type ? ordTypeLbl(type) : "", $("#oSource")?.value || "", type==="delivery" ? (a.label ? a.label + ": " : "") + [a.street, a.building && "Bldg " + a.building, a.floor && "Floor " + a.floor].filter(Boolean).join(", ") : ""].filter(Boolean);
-  el.innerHTML = `<div class="ccctx"><div class="ccctxh"><span class="ccci">${svgIco(type==="delivery" ? "truck" : "store")}</span><div class="ccctxn"><b>${esc($("#oName").value.trim() || "New customer")}</b><small>${[ccPhone(), ...bits].filter(Boolean).map(esc).join(" · ")}</small></div>${c?.blacklisted ? `<span class="tag" style="background:#fde8eb;color:#9e0c24">⚠ Blacklisted</span>` : ""}</div>
-    <div class="ccctxb">${$("#oPhone")?.disabled ? `<button type="button" class="btn sm" data-ccstep="1">Customer Details</button>` : `<button type="button" class="btn sm" data-ccstep="1">Edit customer</button>`}${$(".ccx .ccmenu") ? "" : `<button type="button" class="btn sm" data-ccclose>Close</button>`}</div></div>`;
+  el.innerHTML = `<div class="ccctx"><div class="ccctxh"><span class="ccci">${svgIco(type==="delivery" ? "truck" : "store")}</span><div class="ccctxn"><b>${esc($("#oName").value.trim() || "New customer")}</b><small>${bits.map(esc).join(" / ")}</small></div>${c?.blacklisted ? `<span class="tag" style="background:#fde8eb;color:#9e0c24">⚠ Blacklisted</span>` : ""}</div>
+    <div class="ccctxb">${$("#oPhone")?.disabled ? `<button type="button" class="btn sm" data-ccstep="1">Customer Details</button>` : `<button type="button" class="btn sm" data-ccstep="1">Edit customer</button>`}${$(".ccx .ccmenu") && cart.length ? `<button type="button" class="btn sm ccclr" data-ccclear><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>Clear</button>` : ""}${$(".ccx .ccmenu") ? "" : `<button type="button" class="btn sm" data-ccclose>Close</button>`}</div></div>`;
 }
 function ccAddrCards(){
   setTimeout(ccGoState, 0);
@@ -4296,13 +4296,14 @@ function ccNoteLines(ro){ const o = ($("#oRNotes")?.value||"").trim(), k = ($("#
 function renderCart(ro){
   const ch = ccCharges(), c = orderCalc(cart, ccDiscAmt(), ch.picked), qty = cart.reduce((a,i)=>a+i.qty,0);
   const grew = cart.length > (renderCart.n || 0); renderCart.n = cart.length;
-  $("#oCart").innerHTML = `<div class="kh" style="display:flex;align-items:center;gap:8px"><h3 style="margin:0">Cart</h3><span class="note">${qty} item${qty===1?"":"s"}</span>${!ro && cart.length ? `<button type="button" class="btn sm" data-ccclear style="margin-left:auto">Clear</button>` : ""}</div><div class="clist"><div class="notesbox">${ccNoteLines(ro)}</div>` +
+  $("#oCart").innerHTML = `<div class="kh" style="display:flex;align-items:center;gap:8px"><h3 style="margin:0">Cart</h3><span class="note">${qty} item${qty===1?"":"s"}</span></div><div class="clist"><div class="notesbox">${ccNoteLines(ro)}</div>` +
     (cart.length ? cart.map((i,ix)=>`<div class="citem"${ro ? "" : ` data-cedit="${ix}" title="Tap to edit" style="cursor:pointer"`}><span class="cname">${esc(i.name)}${modList(i)}${+i.disc?`<div class="note" style="color:var(--accent-ink)">Discount −${usd(i.disc)}</div>`:""}</span><span class="num cp">${usd(lineNet(i))}</span>${ro?`<span class="cqty">× ${i.qty}</span>`:`<span class="qty cqty"><button type="button" data-q="${ix}:-1" aria-label="${i.qty > 1 ? "Less" : "Remove"}"${i.qty > 1 ? "" : ' class="qdel"'}>${i.qty > 1 ? "−" : `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>`}</button>${i.qty}<button type="button" data-q="${ix}:1" aria-label="More">+</button></span>`}<span class="num ceach">${usd(i.price)} each</span></div>`).join("") : (ro ? `<div class="note" style="padding:18px 0;text-align:center">No items</div>` : "")) +
     `</div>
     ${c.charges.map(x => `<div class="ctot sub ccdline"><span>${esc(x.name)}</span><span>${usd(x.amount)}${ro ? "" : `<button type="button" class="ccx1" data-ochgx="${esc(x.id)}" aria-label="Remove charge">×</button>`}</span></div>`).join("")}
     ${c.disc || ccDS ? `<div class="ctot sub ccdline"><span>${ccDS ? esc(ccDS.name) : ccDiscType==="amt" ? "Discount" : "Discount " + ccDisc + "%"}</span><span>−${usd(c.disc)}${ro ? "" : `<button type="button" class="ccx1" data-ccdx aria-label="Remove discount">×</button>`}</span></div>` : ""}
     <div class="ctot sub"><span>Subtotal</span><span>${usd(c.subtotal)}</span></div><div class="ctot sub"><span>Tax${taxIncl() ? " (included)" : ""}</span><span>${usd(c.tax)}</span></div><div class="ctot"><span>Total</span><b>${usd(c.total)}</b></div>${money2(c.total) ? `<div class="ctot sub"><span></span><span>≈ ${money2(c.total)}</span></div>` : ""}`;
   if(!ro && $("#oProducts")) renderOrderMenu();
+  if($("#ccX")?.classList.contains("s2")) ccSide();   // the Clear button in the customer tile follows the cart
   const td = $("#ccToolDisc"); if(td) td.hidden = !ccMayDisc();
   if(grew){ const cl = document.querySelector("#oCart .clist"); if(cl) requestAnimationFrame(() => { cl.scrollTop = cl.scrollHeight; }); }
 }
