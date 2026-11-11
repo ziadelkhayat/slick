@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="746-1794431692">
+<meta name="slick-build" content="747-1794431853">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this copy, reload once (never for an older one) */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -7333,18 +7333,16 @@ async function removeVariant(kid){
 
 function userDetail(u){
   const rs = S.roles.filter(r => userRoleIds(u).includes(r.id)), picked = (u.branchIds||[]).length, brs = picked ? branches.filter(b => u.branchIds.includes(b.id)) : branches.filter(b => b.active!==false);   // "-" alone = no branches yet
-  const fld = (k, v) => `<div class="udf"><span>${k}</span><div>${v}</div></div>`, dt = t => t ? new Date(t).toLocaleString("en-GB",{day:"numeric",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"}) : "—";
-  const sec = (title, btn, body) => `<div class="udsec"><div class="udh"><h3>${title}</h3>${btn}</div><div class="card udcard">${body}</div></div>`;
-  return `<div class="udtop"><div class="udrow"><a href="#users" class="btn" data-detback style="text-decoration:none">← Back</a><h1>${esc(u.name)}</h1><div class="sp"></div>
-      <button class="btn" data-usrpw="${esc(u.id)}">${u.userId ? "Change Password" : "Create Password"}</button><button class="btn pri" data-detedit>Edit User</button></div></div>
-    <div class="udwrap">
-      <div class="card udinfo">${fld("Name", esc(u.name))}${fld("Email", esc(u.email || "—"))}${fld("Phone", esc(u.phone || "—"))}${fld("Language", u.language==="ar" ? "Arabic" : "English")}
-        ${fld("Display localized names", u.displayLocalized ? "Yes" : "No")}${fld("Console Access", u.email ? (u.userId ? "Yes" : "Not created yet") : "No")}
-        ${fld("App Access (PIN)", u.pinHash ? "Yes" : "No")}${fld("Created", dt(u.createdAt))}</div>
-      ${sec("Roles", `<button class="btn sm" data-usrroles="${esc(u.id)}">Roles</button>`, rs.length ? rs.map(r => `<div class="udli">${esc(r.name)}</div>`).join("") : '<div class="udli note">No roles</div>')}
-      ${sec("Branches", `<button class="btn sm" data-usrbr="${esc(u.id)}">Branches</button>`, picked ? (brs.length ? `<table><thead><tr><th>Name</th><th>Reference</th></tr></thead><tbody>${brs.map(b => `<tr><td>${esc(b.name)}</td><td>${esc(b.code||"—")}</td></tr>`).join("")}</tbody></table>` : '<div class="udli note">No branches yet</div>')
-        : '<div class="udli">Automatically applied on all existing and new branches</div>')}
-    </div>`;
+  const dt = t => t ? new Date(t).toLocaleString("en-GB",{day:"numeric",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"}) : "—";
+  // same layout as every other detail page: header, details card, then the sections
+  let h = `<div class="phead"><a href="#users" class="btn" data-detback style="text-decoration:none">← Back</a><h1 style="margin-left:10px">${esc(u.name)}</h1><div class="sp"></div>
+    <button class="btn" data-usrpw="${esc(u.id)}">${u.userId ? "Change Password" : "Create Password"}</button><button class="btn pri" data-detedit>Edit User</button></div>`;
+  h += infoGrid([info("Name", esc(u.name)), info("Email", esc(u.email || "—")), info("Phone", esc(u.phone || "—")), info("Language", u.language==="ar" ? "Arabic" : "English"), info("Display Localized Names", u.displayLocalized ? "Yes" : "No"),
+    info("Console Access", u.email ? (u.userId ? "Yes" : "Not created yet") : "No"), info("App Access (PIN)", u.pinHash ? "Yes" : "No"), info("Created", esc(dt(u.createdAt)))]);
+  h += pdSec("Roles", `<button type="button" class="btn" data-usrroles="${esc(u.id)}">Roles</button>`, rs.length ? `<div class="dzchips">${rs.map(r => `<span class="dzchip" style="padding-right:14px">${esc(r.name)}</span>`).join("")}</div>` : `<p class="dzempty">No roles</p>`);
+  h += pdSec("Branches", `<button type="button" class="btn" data-usrbr="${esc(u.id)}">Branches</button>`, picked ? (brs.length ? `<table><thead><tr><th>Name</th><th>Reference</th></tr></thead><tbody>${brs.map(b => `<tr><td>${esc(b.name)}</td><td>${esc(b.code||"—")}</td></tr>`).join("")}</tbody></table>` : `<p class="dzempty">No branches yet</p>`)
+    : `<p class="dzempty">Applied on all existing and new branches</p>`);
+  return h;
 }
 // Users → Create / Change Password
 function openUserPw(id){
