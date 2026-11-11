@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="685-1794351115">
+<meta name="slick-build" content="686-1794395019">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this cached copy, reload once */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -740,6 +740,7 @@ input,textarea,[contenteditable],code,pre,td,p,.note,.receipt,.receipt *,.rpaper
 .ohgh{grid-column:1/-1;display:flex;align-items:center;gap:8px;font-size:14px;font-weight:700;color:var(--ink);margin:6px 0 -2px}.ohgh:first-child{margin-top:0}.ohgh span{font-size:12px;font-weight:600;color:var(--mut);background:#f1f0f5;border-radius:999px;padding:2px 9px}
 .acts button.decl{color:#d92d20;border-color:#f3c4c0;background:#fff}
 .ocard .ocr{display:flex;align-items:baseline;gap:10px;font-size:14px;min-width:0}.ocard .ocr>span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.ocard .ocr.wrap>span{white-space:normal}.ocard .ocr small{flex:none;margin-left:auto;color:#8d8c98;font-size:12.5px;white-space:nowrap}.ocard .ocr.mut>span{color:var(--mut)}.ocard .oc-t{padding:2px 0!important;border-top:0!important}
+.ohpop .modal{width:min(900px,100%)!important}.ohgrid{grid-template-columns:repeat(auto-fill,minmax(210px,1fr))!important}.ohtile{aspect-ratio:auto!important;gap:5px!important}.ohtile em{margin-top:2px!important}.ohtile small{text-transform:none;text-align:left;line-height:1.35}.ohtile small:empty{display:none}.ohtile .spill{margin-bottom:2px}
 </style>
 <script>
 /* ---------- naming: menu "products" are called Items; inventory "items" are called Products ----------
@@ -2573,12 +2574,12 @@ async function pdLookup(){
 // previous orders of this customer: the call center links them by customer, the POS by phone
 async function pdPast(id, ph){
   let rows = [];
-  try{ const { data } = await window.WOK.sb.from("orders").select("id,ref,no,invoice_no,status,type,total,items,branch_id,brand_id,created_at,discount,delivery_fee,charges,address,payment,source")
+  try{ const { data } = await window.WOK.sb.from("orders").select("id,ref,no,invoice_no,status,type,total,items,branch_id,brand_id,created_at,updated_at,agent,discount,delivery_fee,charges,address,payment,source")
       .or(`customer_id.eq.${id},phone.eq.${ph}`).order("created_at", { ascending:false }).limit(100);
-    rows = (data || []).map(o => ({ id:o.id, ref:o.ref, brandId:o.brand_id, no:o.no, inv:o.invoice_no, status:o.status, type:o.type, total:+o.total||0, items:o.items||[], branchId:o.branch_id, at:o.created_at,
+    rows = (data || []).map(o => ({ id:o.id, ref:o.ref, brandId:o.brand_id, no:o.no, inv:o.invoice_no, status:o.status, type:o.type, total:+o.total||0, items:o.items||[], branchId:o.branch_id, at:o.created_at, upd:o.updated_at, agent:o.agent||"",
       discount:+o.discount||0, fee:+o.delivery_fee||0, charges:o.charges||[], address:o.address||"", payment:o.payment||null, source:o.source||"" })); }catch(e){ console.warn(e); }
   const seen = new Set(rows.map(o => o.id));
-  S.orders.filter(o => !seen.has(o.id) && normPhone(o.phone)===ph).forEach(o => rows.push({ id:o.id, no:o.no, inv:o.invoiceNo, status:o.status, type:o.type, total:+o.total||0, items:o.items||[], branchId:o.branchId, at:o.createdAt,
+  S.orders.filter(o => !seen.has(o.id) && normPhone(o.phone)===ph).forEach(o => rows.push({ id:o.id, no:o.no, inv:o.invoiceNo, status:o.status, type:o.type, total:+o.total||0, items:o.items||[], branchId:o.branchId, brandId:o.brandId, ref:o.ref, at:o.createdAt, upd:o.updatedAt, agent:o.agent||"",
     discount:+o.discount||0, fee:+o.deliveryFee||0, charges:o.charges||[], address:o.address||"", payment:o.payment||null, source:o.source||"" }));
   return rows.filter(o => o.status && o.status!=="draft").sort((a,b) => String(b.at).localeCompare(String(a.at)));
 }
@@ -2596,6 +2597,10 @@ function insCard(c, ok){
 }
 // order history: one button on the customer panel; it opens every previous order as square tiles, and a tile opens that order's details
 const OH_T = { delivery:"Delivery", takeaway:"Pickup", pickup:"Pickup", dinein:"Dine-in", fast:"Fast sale" };
+// history tile: reference on top, status, address (delivery), created / modified, total, brand / branch, type / source / user
+const ohTile = x => { const br = S.branches?.find(b => b.id===x.branchId), bd = S.brands?.find(b => b.id===(x.brandId || br?.brandId)), j = a => a.filter(Boolean).map(esc).join(" / ");
+  const src = x.source && x.source!=="Website" && String(x.source).toUpperCase()!=="POS" ? x.source : "";
+  return `<button type="button" class="ohtile" data-ohopen="${esc(x.id)}"><b>${esc(x.ref || ohNum(x))}</b><span class="spill s-${x.status}">${esc(stLbl(x))}</span>${x.type==="delivery" && x.address ? `<small class="oha">${esc(x.address)}</small>` : ""}<small>Created ${ohDate(x.at, true)}${x.upd && x.upd!==x.at ? " / Modified " + ohDate(x.upd, true) : ""}</small><em>${usd(x.total)}</em><small>${j([bd?.name, br?.name])}</small><small>${j([OH_T[x.type] || x.type, src, x.agent])}</small></button>`; };
 const ohNum = o => o.inv ? invNo(o.inv) : o.ref || (o.no ? "#" + o.no : "—");
 const ohDate = (x, time) => x ? new Date(x).toLocaleString("en-GB", { day:"numeric", month:"short", year:"numeric", ...(time ? { hour:"2-digit", minute:"2-digit" } : {}) }) : "—";
 const RO_ITEMS = new WeakSet();   // cart lines that came from a Reorder
@@ -2608,7 +2613,7 @@ const ohMatch = (o, f) => !f || (f==="refund" ? ["refund","returned"].includes(o
 function ohPop(key, id){ const list = (key==="pddet" ? PD?.past : CV?.past) || [];
   let el = $("#ohPop"); if(!el){ el = document.createElement("div"); el.id = "ohPop"; el.className = "scrim show npsc adpop ohpop"; document.body.appendChild(el); } el.dataset.k = key;
   const o = id && list.find(x => x.id===id);
-  if(!o){ el.innerHTML = `<div class="modal"><div class="mh"><h2>Orders history</h2><button class="x" data-ohx aria-label="Close">×</button></div><div class="ohfil">${OH_FS.map(([k, l]) => `<button type="button" class="${OH_F===k ? "on" : ""}" data-ohf="${k}">${l}</button>`).join("")}</div><div class="mb"><div class="ohgrid">${(t => OH_F ? list.filter(x => ohMatch(x, OH_F)).map(t).join("") : OH_GR.map(([k, l]) => { const g = list.filter(x => ohMatch(x, k)); return g.length ? `<div class="ohgh">${l}<span>${g.length}</span></div>` + g.map(t).join("") : ""; }).join(""))(x => `<button type="button" class="ohtile" data-ohopen="${esc(x.id)}"><b>${esc(ohNum(x))}</b><span class="spill s-${x.status}">${esc(stLbl(x))}</span><small>${ohDate(x.at)}</small><small>${esc(OH_T[x.type] || x.type || "")}</small><em>${usd(x.total)}</em></button>`) || `<div class="ohnone">No orders</div>`}</div></div></div>`; return; }
+  if(!o){ el.innerHTML = `<div class="modal"><div class="mh"><h2>Orders history</h2><button class="x" data-ohx aria-label="Close">×</button></div><div class="ohfil">${OH_FS.map(([k, l]) => `<button type="button" class="${OH_F===k ? "on" : ""}" data-ohf="${k}">${l}</button>`).join("")}</div><div class="mb"><div class="ohgrid">${(t => OH_F ? list.filter(x => ohMatch(x, OH_F)).map(t).join("") : OH_GR.map(([k, l]) => { const g = list.filter(x => ohMatch(x, k)); return g.length ? `<div class="ohgh">${l}<span>${g.length}</span></div>` + g.map(t).join("") : ""; }).join(""))(ohTile) || `<div class="ohnone">No orders</div>`}</div></div></div>`; return; }
   const br = S.branches?.find(b => b.id===o.branchId), bd = S.brands?.find(b => b.id===(o.brandId || br?.brandId)), it = (o.items||[]).filter(i => !i.voided), kv = (l, v) => v ? `<div class="kv"><span>${l}</span><b>${esc(v)}</b></div>` : "";
   el.innerHTML = `<div class="modal"><div class="mh"><button class="adback" data-ohopen="" aria-label="Back">‹</button><h2>${esc(o.ref || (o.no ? "#" + o.no : ohNum(o)))}</h2><span class="spill s-${o.status}">${esc(stLbl(o))}</span><button class="x" data-ohx aria-label="Close">×</button></div>
     <div class="mb"><div class="ohkv">${kv("Invoice number", o.inv ? invNo(o.inv) : "")}${kv("Brand", bd?.name)}${kv("Branch", br?.name)}${kv("Order type", OH_T[o.type] || o.type)}${kv("Order source", o.source)}${kv("Date", ohDate(o.at, true))}</div>
@@ -2638,7 +2643,7 @@ async function openCustPage(det){
   const ph = normPhone(cust.phone), eo = editOrder(), addr = otype==="delivery" ? (eo?.address || addrJoin(cust.addr||{})) : "";
   if(!CV || CV.ph!==ph){ CV = { ph, c:null, past:[], loading:true }; drawCust(); 
     if(ph.length >= 6 && window.WOK?.sb && navigator.onLine){ try{ const { data: list } = await window.WOK.sb.from("customers").select("id,name,phone,addresses,blacklisted,notes,tags,created_at").in("phone", phoneVariants(ph)).limit(1); const data = list?.[0] || null; CV.c = data || null; CV.past = await pdPast(data?.id || "00000000-0000-0000-0000-000000000000", ph); }catch(e){ console.warn(e); } }
-    else CV.past = S.orders.filter(o => ph && normPhone(o.phone)===ph && o.status && o.status!=="draft").map(o => ({ id:o.id, no:o.no, inv:o.invoiceNo, status:o.status, type:o.type, total:+o.total||0, items:o.items||[], branchId:o.branchId, at:o.createdAt, discount:+o.discount||0, fee:+o.deliveryFee||0, charges:o.charges||[], address:o.address||"", payment:o.payment||null, source:o.source||"" }));
+    else CV.past = S.orders.filter(o => ph && normPhone(o.phone)===ph && o.status && o.status!=="draft").map(o => ({ id:o.id, no:o.no, inv:o.invoiceNo, status:o.status, type:o.type, total:+o.total||0, items:o.items||[], branchId:o.branchId, brandId:o.brandId, ref:o.ref, at:o.createdAt, upd:o.updatedAt, agent:o.agent||"", discount:+o.discount||0, fee:+o.deliveryFee||0, charges:o.charges||[], address:o.address||"", payment:o.payment||null, source:o.source||"" }));
     CV.loading = false; if(modalKind!=="custpage") return; }
   CV.det = det || null; CV.addr = addr; drawCust();
 }

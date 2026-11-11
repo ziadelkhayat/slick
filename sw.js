@@ -1,6 +1,6 @@
 /* Slick POS — keeps the register's files on the device so it opens without internet.
    Network first (always the latest version when online), cached copy when offline. */
-const CACHE = "slick-pos-v79";
+const CACHE = "slick-pos-v80";
 const FILES = ["pos.html", "wokdb.js", "supabase.js", "modpick.js", "pos.webmanifest", "pos-icon-192.png", "pos-icon-512.png"];
 self.addEventListener("install", e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES)).then(() => self.skipWaiting())); });
 self.addEventListener("activate", e => { e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim())); });
