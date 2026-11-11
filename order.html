@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="701-1794398751">
+<meta name="slick-build" content="705-1794401721">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this copy, reload once (never for an older one) */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1137,8 +1137,8 @@ $("#sheet").addEventListener("click", e => {
   if(t = g("[data-lbranch]")){ branchId = t.dataset.lbranch; cart = cart.filter(i => visible().some(p=>p.id===i.productId) && !oos(products.find(p=>p.id===i.productId))); reprice(); render(); closeLoc(); if(goCart && cart.length) setTimeout(openCart, 300); return; }
   if(t = g("[data-lact]")){ const a = t.dataset.lact;
     if(a==="gps") return lsGps((lat, lng) => { setAddr({ id:"gps", label:"Current location", lat, lng }); closeLoc(); });
-    if(a==="new" && !USER) return openAuth("in", () => { LS.draft = { forNew:true }; openLoc("map"); }, "Sign in to save an address.");
-    LS.draft = a==="new" ? { forNew:true } : {}; if(pin && a==="map") Object.assign(LS.draft, { lat:pin[0], lng:pin[1] }); return openLoc("map"); }
+    if(!USER) return openAuth("in", () => { LS.draft = { forNew:true }; openLoc("map"); }, "Sign in to save an address.");
+    LS.draft = { forNew:true }; return openLoc("map"); }   // "Deliver somewhere else" and "Add new address" both start a new address: pin it, then its details
   if(t = g("[data-lres]")){ const r = LS.res[+t.dataset.lres]; if(!r) return;
     if(r.place && r.lat==null){ (async () => { try{ const pl = r.place.toPlace(); await pl.fetchFields({ fields:["location"] }); r.lat = pl.location.lat(); r.lng = pl.location.lng(); LS.draft = { lat:r.lat, lng:r.lng, street:r.name }; openLoc("map"); }catch(e){ console.warn(e); } })(); return; }
     LS.draft = { lat:r.lat, lng:r.lng, street:r.name }; openLoc("map"); return; }
@@ -1332,7 +1332,7 @@ function renderLocs(){
     return `<div class="loc"><b>${esc(b.name)}</b><div>${ic("clock")}${o ? '<span class="ok2">Open</span>' : "Closed"} · ${esc(brHoursToday(b) || "")}</div>${x.address ? `<div>${ic("pin")}${esc(x.address)}</div>` : ""}${x.phone ? `<div>${ic("phone")}<a href="tel:${esc(String(x.phone).replace(/[^\d+]/g,""))}">${esc(x.phone)}</a></div>` : ""}</div>`; }).join("")}</div></div>`;
 }
 
-const shell = () => `<div id="whereBox" class="where"></div><div class="tools">${SH().search !== false ? `<div class="srch">${ic("search")}<input id="q" type="search" placeholder="Search for menu items" autocomplete="off" value="${esc(q)}"></div>` : ""}<div class="crow"><div class="vtog" role="group" aria-label="Show items as"><button type="button" data-view="list" aria-label="List">${ic("list")}</button><button type="button" data-view="grid" aria-label="Grid">${ic("grid")}</button></div><nav class="cats" id="catBar" aria-label="Menu categories"></nav></div><div class="cprog"><i id="cprog"></i></div></div><div id="menuBox"></div><div id="locBox"></div><footer class="ft">${cfg.footer ? esc(cfg.footer) + " · " : ""}Powered by Slick</footer>`;
+const shell = () => `<div id="whereBox" class="where"></div><div class="tools">${SH().search !== false ? `<div class="srch">${ic("search")}<input id="q" type="search" placeholder="Search" autocomplete="off" value="${esc(q)}"></div>` : ""}<div class="crow"><div class="vtog" role="group" aria-label="Show items as"><button type="button" data-view="list" aria-label="List">${ic("list")}</button><button type="button" data-view="grid" aria-label="Grid">${ic("grid")}</button></div><nav class="cats" id="catBar" aria-label="Menu categories"></nav></div><div class="cprog"><i id="cprog"></i></div></div><div id="menuBox"></div><div id="locBox"></div><footer class="ft">${cfg.footer ? esc(cfg.footer) + " · " : ""}Powered by Slick</footer>`;
 if(!cfg.enabled && !PREVIEW){ renderHead(); $("#main").innerHTML = `<div class="closed"><b>Web ordering is closed right now.</b>Please call us or try again later.</div>`; return; }
 $("#main").innerHTML = shell();
 $("#main").addEventListener("click", e => {

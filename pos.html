@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="704-1794400159">
+<meta name="slick-build" content="705-1794401721">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this copy, reload once (never for an older one) */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1068,7 +1068,9 @@ const userPerms = u => { const ids = (u?.roleIds||[]).length ? u.roleIds : [u?.r
 const can = perm => { if(!usePins()) return true; if(!cashier) return false; return isAdminUser(cashier) || userPerms(cashier).includes(perm); };
 async function pinHash(id, pin){ const b = await crypto.subtle.digest("SHA-256", new TextEncoder().encode("slick:" + id + ":" + pin)); return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,"0")).join(""); }
 function lockIfNeeded(){ if(usePins() && !cashier) lock(); paintCashier(); }
-function lock(){ cashier = null; WELC = null; $("#lock").classList.remove("welc"); pinBuf = ""; paintPin(); $("#pinErr").textContent = ""; $("#lock").classList.remove("hide"); paintCashier(); paintLockInfo(); }
+function lock(){ cashier = null; WELC = null;
+  try{ document.querySelectorAll(".slk-ask, .smp-scrim").forEach(x => x.remove()); closeModal(); hideMore(); document.getElementById("incNote")?.remove(); cat = ""; const s = $("#q"); if(s) s.value = ""; resetOrder(); renderMenu(); }catch(_){}   // logging out clears the cart; the next sign-in starts on a new order
+  $("#lock").classList.remove("welc"); pinBuf = ""; paintPin(); $("#pinErr").textContent = ""; $("#lock").classList.remove("hide"); paintCashier(); paintLockInfo(); }
 // bottom-left of the sign-in screen: this tablet's code, brand and branch
 function paintLockInfo(){ const el = $("#lkInfo"); if(!el || !device) return; const br = S.branches?.find(b => b.id===device.branchId) || branch, bd = br && (S.brands||[]).find(x => x.id===br.brandId);
   const acct = (S.settings||[]).find(x => x.id==="company")?.accountNo || (() => { try{ return JSON.parse(localStorage.getItem("slick_acct") || "null"); }catch(e){ return localStorage.getItem("slick_acct"); } })() || "";   // the business account number
