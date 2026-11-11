@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="698-1794398121">
+<meta name="slick-build" content="699-1794398277">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this copy, reload once (never for an older one) */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -972,7 +972,6 @@ function paintSync(){ try{ paintNet(); }catch(_){}
   p.textContent = s.needsLogin ? "Sign in to sync" : !s.online ? (s.pending ? `Offline · ${s.pending} to sync` : "Offline") : s.pending ? `Syncing ${s.pending}…` : s.failed ? `${s.failed} not synced` : "Online";
 }
 window.addEventListener("slick-sync", e => { const was = syncSt; syncSt = e.detail; paintSync();
-  if(was.pending && !syncSt.pending && syncSt.online) toast("Data sync successful");
   if(was.online && !syncSt.online) toast("Offline · sales will be saved on this tablet and synced later"); });
 false && $("#syncPill").addEventListener("click", () => {
   const s = syncSt, f = window.WOK.sync.failed();
@@ -1051,7 +1050,7 @@ function paintLockInfo(){ const el = $("#lkInfo"); if(!el || !device) return; co
   el.innerHTML = [acct ? String(acct) : "", bd?.name || "", br?.name || ""].filter(Boolean).map(esc).join("<br>"); }
 // Sync Users: fetch the latest users (and everything else) from the server right away
 document.addEventListener("click", e => { if(!e.target.closest("#lkSync")) return; const b = e.target.closest("#lkSync"); b.disabled = true; b.textContent = "Syncing…";
-  try{ window.dispatchEvent(new Event("online")); }catch(_){} setTimeout(() => { b.disabled = false; b.textContent = "Sync Users"; paintLockInfo(); toast(navigator.onLine ? "Data sync successful" : "Offline · users will sync when the connection is back"); }, 1500); });
+  try{ window.dispatchEvent(new Event("online")); }catch(_){} setTimeout(() => { b.disabled = false; b.textContent = "Sync Users"; paintLockInfo(); if(!navigator.onLine) toast("No connection", true); }, 1500); });
 function paintPin(){ document.querySelectorAll("#pinDots i").forEach((d,i) => d.classList.toggle("on", i < pinBuf.length)); }
 function paintCashier(){ $("#lockBtn").classList.toggle("hide", !usePins()); $("#exitBtn")?.classList.toggle("hide", !usePins()); $("#cashierName").textContent = cashier ? cashier.name : ""; }
 // login PINs are 5 digits (Foodics); older 4-digit PINs still work: at 4 digits a match signs in, otherwise the 5th digit is awaited
@@ -2411,7 +2410,7 @@ $("#abar").addEventListener("click", e => { const b = e.target.closest("[data-a]
   if(a==="notes"){ if(eo && !isOpenOrd(eo)) return toast("This order is closed"); return openNotes(); }
 });
 document.addEventListener("click", e => { if(e.target.closest("#morePop button, #morePop .mitem")){ setTimeout(hideMore, 0); return; } if(!e.target.closest("#morePop") && !e.target.closest("#menuBtn")) hideMore(); });
-$("#syncDataBtn").addEventListener("click", () => { hideMore(); const on = navigator.onLine; Promise.resolve(window.WOK?.sync?.flush?.()).catch(() => {}).then(() => setTimeout(() => { if(on && navigator.onLine) toast("Data sync successful"); }, 1200)); if(!on) toast("No connection", true); });
+$("#syncDataBtn").addEventListener("click", () => { hideMore(); const on = navigator.onLine; Promise.resolve(window.WOK?.sync?.flush?.()).catch(() => {}); if(!on) toast("No connection", true); });
 $("#deviceBtn").addEventListener("click", () => { hideMore(); can("pos_settings") ? openMore() : deny("device settings"); });
 $("#lockBtn").addEventListener("click", () => { if(usePins() && cashier){ lock(); toast("Logged out"); } });   // tap the signed-in name to log out
 $("#exitBtn").addEventListener("click", () => { hideMore(); if(!usePins()) return toast("Add staff PINs in the back office (Users) to use sign-in"); lock(); toast("Logged out"); });
