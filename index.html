@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="713-1794404036">
+<meta name="slick-build" content="714-1794404243">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this copy, reload once (never for an older one) */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -3904,6 +3904,7 @@ function viewCallCenter(){
   return h;
 }
 // order number comes from the POS that bills the order; until then call-center / web orders go by invoice number
+const ccRef = o => o.ref || ordRef(o);   // the call center works with reference numbers, not order or invoice numbers
 const ordRef = o => o.status==="draft" && !o.no ? "Draft" : o.status==="refund" ? "RET-" + String(o.returnNo || o.return_no || "…").padStart(6,"0") : o.no ? "#" + o.no : (o.ref || (o.invoiceNo || o.invoice_no ? invNo(o.invoiceNo || o.invoice_no) : "—"));
 const invNo = n => n ? "INV-" + String(n).padStart(6,"0") : "";   // invoice number as shown
 const ccTime = t => { if(!t) return "—"; const d = new Date(t), today = bizDate()===bizDate(d); return d.toLocaleString("en-GB", today ? { hour:"2-digit", minute:"2-digit" } : { day:"numeric", month:"short", hour:"2-digit", minute:"2-digit" }); };
@@ -3927,7 +3928,7 @@ document.addEventListener("click", e => { if(e.target.closest && e.target.closes
 function ccEditWatch(){ const me = state.fullName || state.userName || "Operator"; let seen = []; try{ seen = JSON.parse(localStorage.getItem("slick_er_seen") || "[]"); }catch(_){}
   (S.orders||[]).forEach(o => { const er = o.editRequest; if(!er || er.by!==me || !["approved","rejected"].includes(er.status) || seen.includes(er.id)) return; if(er.decidedAt && Date.now() - new Date(er.decidedAt) > 12*3600000) return;
     seen.push(er.id); try{ localStorage.setItem("slick_er_seen", JSON.stringify(seen.slice(-200))); }catch(_){}
-    askDlg({ msg: er.status==="approved" ? `${branchName(o.branchId)} approved the changes to order ${ordRef(o)}.` : `${branchName(o.branchId)} rejected the changes to order ${ordRef(o)}${er.reason ? ": " + er.reason : ""}. The order stays as it was.`, yes:"OK", no:"Close" }); }); }
+    askDlg({ msg: er.status==="approved" ? `${branchName(o.branchId)} approved the changes to order ${ccRef(o)}.` : `${branchName(o.branchId)} rejected the changes to order ${ccRef(o)}${er.reason ? ": " + er.reason : ""}. The order stays as it was.`, yes:"OK", no:"Close" }); }); }
 // call-center orders stay editable until the branch closes them (pending = sent, active = in the kitchen)
 const ccEditable = o => !o || o.status==="draft" || (o.channel==="callcenter" && ["pending","active"].includes(o.status));
 function openOrder(id){
@@ -3940,7 +3941,7 @@ function openOrder(id){
   ccLocked = !!o && o.status!=="draft";                                   // placed orders: only source, type and items change
   const ldis = ro || ccLocked ? "disabled" : "";
   const box = $("#ccBox"); box.className = "modal ccfull";
-  box.innerHTML = `<header><h2>${o?`Order ${esc(ordRef(o))} <span class="spill s-${o.status}">${CC_SUB[o.status]}</span>`:"New Call Center Order"}</h2>
+  box.innerHTML = `<header><h2>${o?`Order ${esc(ccRef(o))} <span class="spill s-${o.status}">${CC_SUB[o.status]}</span>`:"New Call Center Order"}</h2>
     <nav class="ccsteps" aria-label="Order steps"><button type="button" data-ccstep="1"><i>1</i>Customer</button><span aria-hidden="true">›</span><button type="button" data-ccstep="2"><i>2</i>Cart</button></nav><button type="button" class="x" data-ccclose aria-label="Close">×</button></header>
   <div class="ccx" id="ccX">
    <section class="ccleft">
@@ -4243,7 +4244,7 @@ const ccDsHere = () => { const b = $("#oBranch")?.value || "", ty = $("#oType .o
 function ccVoidDlg(mode){
   const o = ccActiveO(); if(!o) return; const all = mode!=="items";
   const rows = cart.map((i, ix) => ({ i, ix })).filter(x => +x.i.saved > 0), reasons = rsGet("vr"), q = rows.map(() => 0), ask = appSet().stockAction==="ask" || appSet().stockAction==null; let pick = reasons.length ? "" : "_other", stock = "stock";
-  ccOverlay(`<h3 style="margin:0 0 12px">Void ${all ? "Order" : "Items"} · ${esc(ordRef(o))}</h3>
+  ccOverlay(`<h3 style="margin:0 0 12px">Void ${all ? "Order" : "Items"} · ${esc(ccRef(o))}</h3>
     <div class="ccvseg"><button type="button" data-vmode="all" class="${all ? "on" : ""}">Whole Order</button><button type="button" data-vmode="items" class="${all ? "" : "on"}">Choose Items</button></div>
     ${all ? `<p style="margin:12px 0 0">The whole order will be voided and removed from sales.</p>` : rows.length ? `<div class="ccchl" style="margin-top:12px">${rows.map((x, k) => `<div class="ccchr" style="display:flex;align-items:center;gap:10px;cursor:default"><span style="flex:1;text-align:left"><b>${esc(x.i.name)}</b>${modList(x.i)}</span><span class="ccvq"><button type="button" data-vq="${k}:-1" aria-label="Less">−</button><b data-vn="${k}">0</b><button type="button" data-vq="${k}:1" aria-label="More">+</button></span></div>`).join("")}</div>` : `<p class="note" style="text-align:center;padding:20px 0">No items to void</p>`}
     <label class="note" style="display:block;margin-top:12px">Reason *</label><div class="ccvrs" style="margin-top:6px">${reasons.map(x => `<button type="button" data-vrs="${esc(x)}">${esc(x)}</button>`).join("")}<button type="button" data-vrs="_other">Other…</button></div>
@@ -4425,7 +4426,7 @@ async function saveOrder(status){
     catch(err){ console.error(err); $("#oErr").textContent = "Couldn't send the changes."; }
     return; }
   const oid = ccEdit || uid("ord");
-  try{ await put("orders", oid, data); if(ccTags) await tagSetFor("order", oid, ccTags); ccTags = null; toast(o && o.status!=="draft" ? `Order ${ordRef(o)} updated · ${branchName(o.branchId)} sees the changes` : status==="pending" ? `Order sent to ${branchName(branchId)}` : "Draft saved"); $("#ccScrim").classList.remove("show"); }
+  try{ await put("orders", oid, data); if(ccTags) await tagSetFor("order", oid, ccTags); ccTags = null; toast(o && o.status!=="draft" ? `Order ${ccRef(o)} updated · ${branchName(o.branchId)} sees the changes` : status==="pending" ? `Order sent to ${branchName(branchId)}` : "Draft saved"); $("#ccScrim").classList.remove("show"); }
   catch(err){ console.error(err); $("#oErr").textContent = "Couldn't save the order."; }
 }
 async function setOrderStatus(s){
