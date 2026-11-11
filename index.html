@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="700-1794398438">
+<meta name="slick-build" content="701-1794398751">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this copy, reload once (never for an older one) */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1502,10 +1502,13 @@ const t12 = v => { const m = /^(\d{1,2}):(\d{2})/.exec(v||""); if(!m) return v||
 const coSet = () => { try{ return S.settings.find(x=>x.id==="company") || {}; }catch(e){ return {}; } };
 const DEC = () => { const d = coSet().priceDecimals; return d===0||d==="0" ? 0 : +d || 2; };
 const CUR = () => coSet().currency || "USD";
-const curL = t => String(t ?? "").replace(/\(USD\)/g, "(" + CUR() + ")");
-const money = n => CUR() + " " + (+n||0).toLocaleString("en-US",{minimumFractionDigits:DEC(),maximumFractionDigits:DEC()});
+const SYM = () => String(coSet().currencySymbol || "").trim() || CUR();
+const CURJ = (s, n) => /[\p{L}.]$/u.test(s) ? s + " " + n : s + n;   // a code or word ("USD", "L.L.") gets a space, a symbol ("$") sits against the number
+
+const curL = t => String(t ?? "").replace(/\(USD\)/g, "(" + SYM() + ")");
+const money = n => CURJ(SYM(), (+n||0).toLocaleString("en-US",{minimumFractionDigits:DEC(),maximumFractionDigits:DEC()}));
 // the same amount in the second currency (e.g. LBP at the day's rate), or "" when none is set
-const money2 = n => { const c = coSet(); if(!c.currency2 || !(+c.rate2)) return ""; const d = +c.decimals2 || 0; return c.currency2 + " " + ((+n||0) * +c.rate2).toLocaleString("en-US",{minimumFractionDigits:d,maximumFractionDigits:d}); };
+const money2 = n => { const c = coSet(); if(!c.currency2 || !(+c.rate2)) return ""; const d = +c.decimals2 || 0; return CURJ(String(c.currencySymbol2 || "").trim() || c.currency2, ((+n||0) * +c.rate2).toLocaleString("en-US",{minimumFractionDigits:d,maximumFractionDigits:d})); };
 
 /* ---------- navigation map (mirrors the Foodics structure) ---------- */
 const I = {
@@ -2993,7 +2996,7 @@ const catRank = id => S.categories.find(c => c.id===id)?.sort ?? 9999;
 const branchName = id => branches.find(b => b.id===id)?.name || "—";
 const fmtDate = s => s ? new Date(s).toLocaleString("en-GB",{year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit"}).replace(",","") : "—";
 const ago = s => { const m = Math.round((Date.now() - new Date(s))/60000); if(m<1) return "just now"; if(m<60) return m + " minute" + (m>1?"s":"") + " ago"; const h = Math.round(m/60); if(h<24) return (h===1?"an":h) + " hour" + (h>1?"s":"") + " ago"; return Math.round(h/24) + " days ago"; };
-const usd = n => CUR() + " " + (+n||0).toLocaleString("en-US",{minimumFractionDigits:DEC(),maximumFractionDigits:DEC()});
+const usd = n => CURJ(SYM(), (+n||0).toLocaleString("en-US",{minimumFractionDigits:DEC(),maximumFractionDigits:DEC()}));
 
 /* ---------- CRUD screens, Foodics-style ---------- */
 const CHANNELS = [["pos","POS"],["callcenter","Call center"],["delivery","Web delivery"],["takeaway","Web pickup"],["dinein","Dine-in QR"]];
@@ -4223,7 +4226,7 @@ function ccDiscDlg(){
     <div id="ccDsOpen" hidden style="margin-top:12px"><label class="note" id="ccDsOpenL" for="ccDsOpenV"></label><div style="display:flex;gap:8px;margin-top:4px"><input id="ccDsOpenV" class="sel" inputmode="decimal" style="flex:1"><button type="button" class="slk-ask-yes" id="ccDsOpenGo">Apply</button></div><p class="note" id="ccDsOpenN" style="color:#c0392b;min-height:16px;margin:4px 0 0"></p></div>` : `<p class="note" style="text-align:center;padding:20px 0">No discounts available for this order.</p>`}
     <div class="slk-ask-f" style="margin-top:12px"><button type="button" class="slk-ask-no" data-dlgx>Cancel</button></div>`, (w, close) => {
     w.addEventListener("click", e => { const b = e.target.closest("[data-ccds]"); if(!b || b.disabled) return; const d = dsList().find(x => x.id===b.dataset.ccds); if(!d) return;
-      if(d.open){ const f = w.querySelector("#ccDsOpen"); f.hidden = false; f.dataset.id = d.id; w.querySelector("#ccDsOpenL").textContent = `${d.name}: enter the ${d.type==="fixed" ? "amount (" + CUR() + ")" : "percentage (%)"}`; const i = w.querySelector("#ccDsOpenV"); i.value = ""; i.focus(); return; }
+      if(d.open){ const f = w.querySelector("#ccDsOpen"); f.hidden = false; f.dataset.id = d.id; w.querySelector("#ccDsOpenL").textContent = `${d.name}: enter the ${d.type==="fixed" ? "amount (" + SYM() + ")" : "percentage (%)"}`; const i = w.querySelector("#ccDsOpenV"); i.value = ""; i.focus(); return; }
       ccDS = { id:d.id, name:d.name }; ccDiscType = "amt"; ccDisc = ccDsCalc(d).amt; close(); renderCart(false); });
     w.addEventListener("click", e => { if(e.target.id!=="ccDsOpenGo") return; const f = w.querySelector("#ccDsOpen"), d = dsList().find(x => x.id===f.dataset.id); if(!d) return;
       const v = +String(w.querySelector("#ccDsOpenV").value).replace(",", "."), n = w.querySelector("#ccDsOpenN");
@@ -4604,7 +4607,7 @@ function viewOnline(){
       return `<div class="card olbr${x.paused?" paused":""}"><div class="olbrh"><div><b>${esc(b.name)}</b><span class="note">${b.open||b.close ? esc(t12(b.open)) + " – " + esc(t12(b.close)) : "Hours in Manage → Branches"}</span></div>
         <label class="oltg sm"><span><b data-olpst>${x.paused ? "Paused" : "Taking orders"}</b></span><span class="toggle"><input type="checkbox" data-olpause="${id}" ${x.paused?"":"checked"}><span class="trk"></span></span></label></div>
         <div class="olchips">${bt("delivery","Delivery")}${bt("takeaway","Pickup")}${bt("dinein","Dine-in")}</div>
-        <div class="olgrid3">${bv("prep","Pickup ready in (min)","20","number")}${bv("minPickup","Pickup minimum ("+esc(CUR())+")","0","number")}${bv("phone","Branch phone","+961 …","tel")}${bv("whatsapp","Branch WhatsApp","+961 …","tel")}${bv("address","Address","Street, area")}${bv("note","Message to customers","e.g. Parking available")}</div>
+        <div class="olgrid3">${bv("prep","Pickup ready in (min)","20","number")}${bv("minPickup","Pickup minimum ("+esc(SYM())+")","0","number")}${bv("phone","Branch phone","+961 …","tel")}${bv("whatsapp","Branch WhatsApp","+961 …","tel")}${bv("address","Address","Street, area")}${bv("note","Message to customers","e.g. Parking available")}</div>
         <div class="olbrf"><div class="f"><label>Tables for QR</label><input type="number" min="0" class="sel" style="width:90px" data-oltables="${id}" value="${x.tables??""}"></div>
           <div class="olqr">${x.tables ? Array.from({length:Math.min(+x.tables,40)},(_,i)=>`<a class="lnk" target="_blank" rel="noopener" href="order.html?brand=${encodeURIComponent(olBrand())}&branch=${encodeURIComponent(b.id)}&table=${i+1}">T${i+1}</a>`).join("") : '<span class="note">Set the number of tables to get a QR link for each.</span>'}</div></div></div>`; }).join("")}
   </div>
@@ -4817,7 +4820,7 @@ function viewBranchMenu(){
     if(false) s += `<div class="mmsub">${bmLinks(r).map(l => `<div class="mmsg">${esc(modName(l.modifierId))}</div>` + modOptions(l.modifierId).map(o => { const os = bmOptState(r, o);
       return `<div class="mmrow mmorow${os.on?"":" off"}${BM.draft["mo:"+r.id+"|"+o.id]?" chg":""}"><span></span><label class="toggle" title="On the ${esc(ch[1])} menu for ${esc(r.name)}"><input type="checkbox" data-bmoon="${esc(r.id)}|${esc(o.id)}" ${os.on?"checked":""} aria-label="${esc(o.name)} with ${esc(r.name)}"><span class="trk"></span></label>
         <span class="mmprod"><span class="mmvl">·</span><span class="mmpn">${esc(o.name)}</span></span>
-        <span class="scprice${os.price!=="" ? " cust" : ""}"><span class="cur">${esc(CUR())}</span><input inputmode="decimal" class="sel" data-bmoprice="${esc(r.id)}|${esc(o.id)}" value="${esc(os.price)}" placeholder="${esc(String(+o.price||0))}" aria-label="Price of ${esc(o.name)} with ${esc(r.name)}"></span>
+        <span class="scprice${os.price!=="" ? " cust" : ""}"><span class="cur">${esc(SYM())}</span><input inputmode="decimal" class="sel" data-bmoprice="${esc(r.id)}|${esc(o.id)}" value="${esc(os.price)}" placeholder="${esc(String(+o.price||0))}" aria-label="Price of ${esc(o.name)} with ${esc(r.name)}"></span>
         ${stockPill(`data-bmostock="${esc(r.id)}|${esc(o.id)}"`, os.stock, !os.on)}<span></span></div>`; }).join("")).join("")}</div>`;
     return s; };
   rows.forEach(r => { h += row(r); varKids(r).forEach(k => h += row(k, r)); });
@@ -5572,7 +5575,7 @@ function printOrder(){
     <h2>${esc((brandName(o.brandId)!=="—"?brandName(o.brandId):"Slick").toUpperCase())}</h2><p class="c">${esc(b?.name||"")}</p><hr>
     <p>Order ${esc(ordRef(o))} · ${esc(ordTypeLbl(o.type))}${o.table?" T"+esc(o.table):""}<br>${new Date(o.createdAt).toLocaleString("en-GB")}${o.customerName?"<br>"+esc(o.customerName):""}${o.phone?" · "+esc(o.phone):""}${o.address?"<br>"+esc(o.address):""}</p><hr>
     <table>${items.map(i=>`<tr><td>${+i.qty||1} x ${esc(i.name)}${modLines(i).map(m => `<br>&nbsp;&nbsp;&nbsp;- ${esc(m)}`).join("")}</td><td class="r">${((+i.qty||1)*(+i.price||0)).toFixed(2)}</td></tr>`).join("")}</table><hr>
-    <table>${+o.discount?`<tr><td>Discount</td><td class="r">-${(+o.discount).toFixed(2)}</td></tr>`:""}${(o.charges||[]).filter(c=>+c.amount).map(c=>`<tr><td>${esc(c.name)}</td><td class="r">${(+c.amount).toFixed(2)}</td></tr>`).join("")}${+o.deliveryFee?`<tr><td>Delivery</td><td class="r">${(+o.deliveryFee).toFixed(2)}</td></tr>`:""}<tr><td>Subtotal</td><td class="r">${((+o.total||0)-(+o.tax||0)).toFixed(2)}</td></tr><tr><td>Tax</td><td class="r">${(+o.tax||0).toFixed(2)}</td></tr><tr><td><b>TOTAL ${esc(CUR())}</b></td><td class="r"><b>${(+o.total||0).toFixed(2)}</b></td></tr>${o.payment?`<tr><td>Paid (${esc(o.payment.method)})</td><td class="r">${(+o.payment.tendered||+o.total||0).toFixed(DEC())}</td></tr>${+o.payment.tendered2 ? `${+o.payment.tendered1 ? `<tr><td>&nbsp; ${esc(CUR())}</td><td class="r">${(+o.payment.tendered1).toFixed(DEC())}</td></tr>` : ""}<tr><td>&nbsp; ${esc(o.payment.currency2)}</td><td class="r">${(+o.payment.tendered2).toLocaleString("en-US",{minimumFractionDigits:+o.payment.decimals2||0,maximumFractionDigits:+o.payment.decimals2||0})}</td></tr>` : ""}${+o.payment.change ? `<tr><td>Change</td><td class="r">${(+o.payment.change).toFixed(DEC())}</td></tr>` : ""}`:""}</table>
+    <table>${+o.discount?`<tr><td>Discount</td><td class="r">-${(+o.discount).toFixed(2)}</td></tr>`:""}${(o.charges||[]).filter(c=>+c.amount).map(c=>`<tr><td>${esc(c.name)}</td><td class="r">${(+c.amount).toFixed(2)}</td></tr>`).join("")}${+o.deliveryFee?`<tr><td>Delivery</td><td class="r">${(+o.deliveryFee).toFixed(2)}</td></tr>`:""}<tr><td>Subtotal</td><td class="r">${((+o.total||0)-(+o.tax||0)).toFixed(2)}</td></tr><tr><td>Tax</td><td class="r">${(+o.tax||0).toFixed(2)}</td></tr><tr><td><b>TOTAL ${esc(SYM())}</b></td><td class="r"><b>${(+o.total||0).toFixed(2)}</b></td></tr>${o.payment?`<tr><td>Paid (${esc(o.payment.method)})</td><td class="r">${(+o.payment.tendered||+o.total||0).toFixed(DEC())}</td></tr>${+o.payment.tendered2 ? `${+o.payment.tendered1 ? `<tr><td>&nbsp; ${esc(SYM())}</td><td class="r">${(+o.payment.tendered1).toFixed(DEC())}</td></tr>` : ""}<tr><td>&nbsp; ${esc(o.payment.currency2)}</td><td class="r">${(+o.payment.tendered2).toLocaleString("en-US",{minimumFractionDigits:+o.payment.decimals2||0,maximumFractionDigits:+o.payment.decimals2||0})}</td></tr>` : ""}${+o.payment.change ? `<tr><td>Change</td><td class="r">${(+o.payment.change).toFixed(DEC())}</td></tr>` : ""}`:""}</table>
     ${o.receiptNotes?`<p class="c">${esc(o.receiptNotes)}</p>`:""}${o.status==="void"?"<h2>*** VOID ***</h2>":o.status==="returned"?"<h2>*** RETURNED ***</h2>":""}<hr><p class="c">Thank you!</p><script>window.onload=()=>{window.print();}<\/script>`);
   w.document.close();
 }
@@ -5836,9 +5839,9 @@ function viewCustomer(){
       <div><span>Last Order</span><b>${orders.length ? dtf(orders[0].created_at) : "—"}</b></div>
       <div><span>Favourite Product</span><b>${esc(cusTop(prod) || "—")}</b></div>
       <div><span>Favourite Branch</span><b>${esc(fb ? branchName(fb) || "—" : "—")}</b></div>
-      ${more ? `<div><span>Total Spent (${esc(CUR())})</span><b>${money(spent)}</b></div><div><span>Total Discounts (${esc(CUR())})</span><b>${money(disc)}</b></div><div><span>Average Order (${esc(CUR())})</span><b>${money(done.length ? spent/done.length : 0)}</b></div><div><span>First Order</span><b>${orders.length ? dtf(orders[orders.length-1].created_at) : "—"}</b></div>` : ""}
+      ${more ? `<div><span>Total Spent (${esc(SYM())})</span><b>${money(spent)}</b></div><div><span>Total Discounts (${esc(SYM())})</span><b>${money(disc)}</b></div><div><span>Average Order (${esc(SYM())})</span><b>${money(done.length ? spent/done.length : 0)}</b></div><div><span>First Order</span><b>${orders.length ? dtf(orders[orders.length-1].created_at) : "—"}</b></div>` : ""}
       ${c.house_account ? (() => { const sum = k => (c.__ha||[]).filter(t => t.kind===k).reduce((s, t) => s + (+t.amount||0), 0);   // credit: sales charged to the account · debit: payments made
-        return `<div><span>Account Balance (${esc(CUR())})</span><b style="${haBal(c) < 0 ? "color:#b42318" : ""}">${money(haBal(c))}</b></div><div><span>Total Credit (${esc(CUR())})</span><b>${money(sum("charge"))}</b></div><div><span>Total Debit (${esc(CUR())})</span><b>${money(sum("payment"))}</b></div>`; })() : ""}</div>
+        return `<div><span>Account Balance (${esc(SYM())})</span><b style="${haBal(c) < 0 ? "color:#b42318" : ""}">${money(haBal(c))}</b></div><div><span>Total Credit (${esc(SYM())})</span><b>${money(sum("charge"))}</b></div><div><span>Total Debit (${esc(SYM())})</span><b>${money(sum("payment"))}</b></div>`; })() : ""}</div>
     <div class="card odet" style="margin-bottom:16px;padding:16px 18px">${row("Name", esc(c.name || "—"))}${row("Email", esc(c.email || "—"))}${row("Phone", esc(c.phone || "—"))}${row("Birth Date", c.birthday ? dtf(c.birthday + "T12:00:00") : "—")}
       ${row("Gender", esc({ male:"Male", female:"Female" }[c.gender] || "—"))}${row("Loyalty", c.loyalty ? "Enabled" : "Disabled")}${row("House Account", c.house_account ? `Enabled · balance <b class="${haBal(c) < 0 ? "neg" : ""}">${money(haBal(c))}</b>` : "Disabled")}${c.house_account ? row("Credit Limit", `${c.house_limit!=null ? money(+c.house_limit) : "No limit"} <a href="#customers" class="lnk" id="cuHaLim">Change</a>`) : ""}${row("Blacklist", c.blacklisted ? "Yes" : "No")}
       ${row("Created", dtf(c.created_at))}${c.notes ? `<div style="grid-column:1/-1"><span>Customer Notes</span>${esc(c.notes)}</div>` : ""}</div>
@@ -5912,7 +5915,7 @@ function openHaPay(){
   const c = CUS.det; if(!c) return; const pms = (S.payment_methods||[]).filter(m => !m.deleted && m.active!==false).map(m => m.name); if(!pms.length) pms.push("Cash", "Card");
   const box = $("#ccBox"); box.className = "modal";
   box.innerHTML = `<header><h2>Add Payment</h2><button type="button" class="x" data-ccclose aria-label="Close">×</button></header>
-  <div class="body"><div class="f"><label for="haAmt">Value (${esc(CUR())}) *</label><input id="haAmt" type="number" inputmode="decimal" min="0" step="0.01" value="${haBal(c) < 0 ? (-haBal(c)).toFixed(2) : ""}"></div>
+  <div class="body"><div class="f"><label for="haAmt">Value (${esc(SYM())}) *</label><input id="haAmt" type="number" inputmode="decimal" min="0" step="0.01" value="${haBal(c) < 0 ? (-haBal(c)).toFixed(2) : ""}"></div>
     <div class="f"><label for="haPm">Payment Method *</label><select id="haPm">${pms.map(n => `<option>${esc(n)}</option>`).join("")}</select></div>
     <div class="f" style="grid-column:1/-1"><label for="haNote">Notes</label><input id="haNote" placeholder="Optional"></div><div class="err" id="haErr" style="grid-column:1/-1"></div></div>
   <footer><span style="flex:1"></span><button type="button" class="btn" data-ccclose>Cancel</button><button type="button" class="btn pri" id="haSave">Save</button></footer>`;
@@ -5925,7 +5928,7 @@ function openHaPay(){
 function openHaLimit(){
   const c = CUS.det; if(!c) return; const box = $("#ccBox"); box.className = "modal";
   box.innerHTML = `<header><h2>Credit Limit</h2><button type="button" class="x" data-ccclose aria-label="Close">×</button></header>
-  <div class="body"><div class="f" style="grid-column:1/-1"><label for="haLim">How much this customer can owe (${esc(CUR())})</label><input id="haLim" type="number" inputmode="decimal" min="0" step="0.01" value="${c.house_limit ?? ""}" placeholder="No limit"><span class="note">Leave empty for no limit. The POS stops a house account sale that goes over it.</span></div></div>
+  <div class="body"><div class="f" style="grid-column:1/-1"><label for="haLim">How much this customer can owe (${esc(SYM())})</label><input id="haLim" type="number" inputmode="decimal" min="0" step="0.01" value="${c.house_limit ?? ""}" placeholder="No limit"><span class="note">Leave empty for no limit. The POS stops a house account sale that goes over it.</span></div></div>
   <footer><span style="flex:1"></span><button type="button" class="btn" data-ccclose>Cancel</button><button type="button" class="btn pri" id="haLimGo">Save</button></footer>`;
   $("#ccScrim").classList.add("show");
   $("#haLimGo").onclick = () => { const s = $("#haLim").value.trim(); $("#ccScrim").classList.remove("show"); cusPatch({ house_limit: s==="" ? null : Math.max(0, +s) }, "Credit limit saved"); };
@@ -6409,12 +6412,14 @@ function viewCurrency(){
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px">
         <div class="f"><label for="co_currency">Main currency</label><select id="co_currency" class="sel" ${admin && !bizLocked() ? "" : "disabled"} ${bizLocked() ? `title="${LOCK_NOTE}"` : ""}>${CURRENCIES.map(([k,t])=>`<option value="${k}" ${(c.currency||"USD")===k?"selected":""}>${t}</option>`).join("")}</select></div>
         <div class="f"><label for="co_priceDecimals">Main currency decimals</label><select id="co_priceDecimals" class="sel" ${admin?"":"disabled"}>${[0,1,2].map(n=>`<option value="${n}" ${String(Math.min(2, c.priceDecimals ?? 2))===String(n)?"selected":""}>${n}</option>`).join("")}</select></div>
+        <div class="f"><label for="co_currencySymbol">Main currency symbol</label><input id="co_currencySymbol" class="sel" maxlength="6" value="${esc(c.currencySymbol||"")}" placeholder="${esc(c.currency||"USD")}" autocomplete="off" ${admin?"":"disabled"}></div>
       </div><p class="note" style="margin:10px 0 0">Menu prices, totals and reports are in the main currency.</p>${qtPanel(1)}</div>
     <div class="card" style="margin-bottom:16px"><h3 style="margin:0 0 12px;font-size:15px">Secondary Currency</h3>
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px">
         <div class="f"><label for="co_currency2">Secondary currency</label><select id="co_currency2" class="sel" ${admin?"":"disabled"}><option value="">None</option>${CURRENCIES.map(([k,t])=>`<option value="${k}" ${c.currency2===k?"selected":""}>${t}</option>`).join("")}</select></div>
         <div class="f"><label for="co_rate2">Exchange rate (1 ${esc(c.currency||"USD")} =)</label><input id="co_rate2" class="sel" type="number" min="0" step="any" value="${esc(c.rate2??"")}" placeholder="e.g. 89500" ${admin?"":"disabled"}></div>
         <div class="f"><label for="co_decimals2">Secondary currency decimals</label><select id="co_decimals2" class="sel" ${admin?"":"disabled"}>${[0,1,2].map(n=>`<option value="${n}" ${String(c.decimals2 ?? 0)===String(n)?"selected":""}>${n}</option>`).join("")}</select></div>
+        <div class="f"><label for="co_currencySymbol2">Secondary currency symbol</label><input id="co_currencySymbol2" class="sel" maxlength="6" value="${esc(c.currencySymbol2||"")}" placeholder="${esc(c.currency2||"")}" autocomplete="off" ${admin?"":"disabled"}></div>
       </div><p class="note" style="margin:10px 0 0">Shown next to totals in the POS, on receipts, in the call center and online. The cashier can take cash in either currency, or both, and the change is shown in both.</p>${c.currency2 ? qtPanel(2) : ""}</div>
     <div class="err" id="curErr"></div>`;
 }
@@ -6448,7 +6453,7 @@ document.addEventListener("click", e => { const t = e.target; if(!t.closest || d
 document.addEventListener("input", e => { const v = e.target.closest && e.target.closest("[data-qtv]"); if(!v) return; const [k, i] = v.dataset.qtv.split(":"), l = qtCur(k).slice(); l[+i] = v.value; QT.draft[k] = l; });
 async function saveCurrency(){
   const v = k => ($("#co_"+k)?.value || "").trim();
-  const data = { currency: bizLocked() ? (company().currency || "USD") : (v("currency") || "USD"), priceDecimals: +v("priceDecimals"), currency2: v("currency2"), rate2: v("rate2")==="" ? null : +v("rate2"), decimals2: +v("decimals2") || 0 };
+  const data = { currency: bizLocked() ? (company().currency || "USD") : (v("currency") || "USD"), priceDecimals: +v("priceDecimals"), currencySymbol: v("currencySymbol").slice(0, 6), currencySymbol2: v("currencySymbol2").slice(0, 6), currency2: v("currency2"), rate2: v("rate2")==="" ? null : +v("rate2"), decimals2: +v("decimals2") || 0 };
   if(data.currency2 && !(data.rate2 > 0)){ $("#curErr").textContent = "Enter the exchange rate for the second currency."; $("#co_rate2").focus(); return; }
   for(const k of ["1","2"]) if(QT.draft[k] != null){ const q = qtCheck(k); if(q == null) return; data[qtKey(k)] = q; }
   try{ await put("settings", "company", data); QT.draft = {}; toast("Currency saved"); render(); }
@@ -6545,7 +6550,7 @@ function dcForm(ids){
       ${chs.length ? "" : `<div class="note" style="margin-top:6px">No delivery charges yet: a delivery charge is a fixed amount that applies to Delivery orders only. Create one in <a href="#charges" class="lnk" data-ccclose>Manage → Charges</a>.</div>`}</div>
     <div id="dcNew" hidden><div class="f" style="margin-bottom:14px"><label for="dcN">Name *</label><input id="dcN" placeholder="e.g. Delivery Charge Zone 1"></div>
       <div class="f" style="margin-bottom:14px"><label for="dcNAr">Name Localized</label><input id="dcNAr"></div>
-      <div class="f"><label for="dcV">Value (${esc(CUR())}) *</label><input id="dcV" type="number" min="0" step="any" inputmode="decimal"></div></div>
+      <div class="f"><label for="dcV">Value (${esc(SYM())}) *</label><input id="dcV" type="number" min="0" step="any" inputmode="decimal"></div></div>
     <div class="err" id="dcErr"></div></div>
   <footer>${cur ? `<button type="button" class="btn danger" id="dcUn" style="margin-right:auto">Unassign</button>` : ""}<span style="flex:1"></span><button type="button" class="btn pri" id="dcGo">Save</button></footer>`;
   $("#ccScrim").classList.add("show");
@@ -6621,14 +6626,14 @@ function prForm(p0){
   const multi = (id, opts, cur, empty) => `<div class="multi" id="${id}" data-empty="${empty || "Nothing to choose yet"}">${opts.map(([v,t]) => `<label class="chk"><input type="checkbox" value="${esc(v)}" ${(cur||[]).includes(v)?"checked":""}> ${esc(t)}</label>`).join("")}</div>`;
   const pm = (id, cur) => multi(id, prods().map(p => [p.id, p.name]), cur, "No items yet");
   const num = (id, l, v, attr = "") => `<div class="f"><label for="${id}">${l}</label><input id="${id}" type="number" min="0" step="any" value="${esc(v ?? "")}" ${attr}></div>`;
-  const vt = () => `<div class="f"><label for="prVT">Discount Type *</label><select id="prVT" class="sel" data-prre><option value="pct" ${F.valueType!=="fixed"?"selected":""}>Percentage</option><option value="fixed" ${F.valueType==="fixed"?"selected":""}>Amount</option></select></div>${num("prVal", `Discount (${F.valueType==="fixed" ? esc(CUR()) : "%"}) *`, F.value)}`;
-  const minO = () => num("prMin", `Minimum Order (${esc(CUR())})`, F.minOrder);
+  const vt = () => `<div class="f"><label for="prVT">Discount Type *</label><select id="prVT" class="sel" data-prre><option value="pct" ${F.valueType!=="fixed"?"selected":""}>Percentage</option><option value="fixed" ${F.valueType==="fixed"?"selected":""}>Amount</option></select></div>${num("prVal", `Discount (${F.valueType==="fixed" ? esc(SYM()) : "%"}) *`, F.value)}`;
+  const minO = () => num("prMin", `Minimum Order (${esc(SYM())})`, F.minOrder);
   const fields = () => F.type==="freedel" ? minO()
-    : F.type==="disc" ? vt() + (F.valueType==="fixed" ? "" : num("prMax", `Maximum Discount (${esc(CUR())})`, F.maxDiscount)) + minO()
+    : F.type==="disc" ? vt() + (F.valueType==="fixed" ? "" : num("prMax", `Maximum Discount (${esc(SYM())})`, F.maxDiscount)) + minO()
     : F.type==="bxgy" ? `<div class="f full"><label>Buy Items *</label>${pm("prBuy", F.buyIds)}</div>${num("prBuyQ", "Buy Quantity *", F.buyQty, 'step="1"')}${num("prGetQ", "Get Quantity *", F.getQty, 'step="1"')}<div class="f full"><label>Get Items *</label>${pm("prGet", F.getIds)}</div>${num("prGetP", "Discount On Get Items (%) *", F.getPct ?? 100, 'max="100"')}`
     : F.type==="freeitem" ? `<div class="f full"><label>Free Items *</label>${pm("prFree", F.freeIds)}</div>${num("prFreeQ", "Quantity *", F.freeQty, 'step="1"')}${minO()}`
     : F.type==="itemdisc" ? `<div class="f full"><label>Items</label>${pm("prItems", F.itemIds)}</div><div class="f full"><label>Categories</label>${multi("prCats", S.categories.filter(c => live(c) && !c.channel).sort(bySort).map(c => [c.id, c.name]), F.categoryIds, "No categories yet")}</div>${vt()}`
-    : `<div class="f full"><label>Bundle Items *</label>${pm("prBun", F.bundleIds)}</div>${num("prBunP", `Bundle Price (${esc(CUR())}) *`, F.bundlePrice)}`;
+    : `<div class="f full"><label>Bundle Items *</label>${pm("prBun", F.bundleIds)}</div>${num("prBunP", `Bundle Price (${esc(SYM())}) *`, F.bundlePrice)}`;
   const s1 = () => `<div class="dsgrid">
     <div class="f"><label for="prName">Name *</label><input id="prName" value="${esc(F.name||"")}"></div>
     <div class="f"><label for="prNameAr">Name Localized</label><input id="prNameAr" value="${esc(F.nameAr||"")}"></div>
@@ -6717,17 +6722,17 @@ function dsForm(d){
     <div class="f"><label for="dsQual">Qualification *</label><select id="dsQual" class="sel">${DS_QUAL.map(([k,t]) => `<option value="${k}" ${x.qualification===k?"selected":""}>${t}</option>`).join("")}</select></div>
     <div class="f"><label for="dsType">Discount Type *</label><select id="dsType" class="sel"><option value="fixed" ${x.type==="fixed"?"selected":""}>Amount</option><option value="pct" ${x.type!=="fixed"?"selected":""}>Percentage</option></select></div>
     <div class="f"><label for="dsMode">Discount Value *</label><select id="dsMode" class="sel"><option value="fixed" ${!x.open?"selected":""}>Fixed</option><option value="open" ${x.open?"selected":""}>Open</option></select><div class="note" id="dsModeN"></div></div>
-    <div class="f" id="dsAmtF"><label for="dsAmt" id="dsAmtL">Discount Amount (${x.type==="fixed" ? esc(CUR()) : "%"}) *</label><input id="dsAmt" type="number" min="0" step="any" value="${esc(x.amount ?? "")}"></div>
-    <div class="f" id="dsMaxF"><label for="dsMax">Maximum Discount (${esc(CUR())})</label><input id="dsMax" type="number" min="0" step="any" value="${esc(x.maxDiscount ?? "")}"></div>
-    <div class="f"><label for="dsMinO">Minimum Order Price (${esc(CUR())})</label><input id="dsMinO" type="number" min="0" step="any" value="${esc(x.minOrder ?? "")}"></div>
-    <div class="f"><label for="dsMinP">Minimum Product Price (${esc(CUR())})</label><input id="dsMinP" type="number" min="0" step="any" value="${esc(x.minProduct ?? "")}"></div>
+    <div class="f" id="dsAmtF"><label for="dsAmt" id="dsAmtL">Discount Amount (${x.type==="fixed" ? esc(SYM()) : "%"}) *</label><input id="dsAmt" type="number" min="0" step="any" value="${esc(x.amount ?? "")}"></div>
+    <div class="f" id="dsMaxF"><label for="dsMax">Maximum Discount (${esc(SYM())})</label><input id="dsMax" type="number" min="0" step="any" value="${esc(x.maxDiscount ?? "")}"></div>
+    <div class="f"><label for="dsMinO">Minimum Order Price (${esc(SYM())})</label><input id="dsMinO" type="number" min="0" step="any" value="${esc(x.minOrder ?? "")}"></div>
+    <div class="f"><label for="dsMinP">Minimum Product Price (${esc(SYM())})</label><input id="dsMinP" type="number" min="0" step="any" value="${esc(x.minProduct ?? "")}"></div>
     <div class="f full"><label>Applies On Order Types *</label><div class="multi" id="dsOT">${ot.map(([k,t]) => `<label class="chk"><input type="checkbox" value="${k}" ${(x.orderTypes||[]).includes(k)?"checked":""}> ${t}</label>`).join("")}</div></div>
     <div class="f"><label for="dsRef">Reference</label><input id="dsRef" value="${esc(x.reference||"")}"></div><div></div>
     <label class="chk full"><input type="checkbox" id="dsTax" ${x.taxable?"checked":""}> Taxable <span class="tip" title="Checked: the customer still pays the full tax of the order before the discount. Unchecked: the tax is reduced with the discount.">ⓘ</span></label>
   </div><div class="err" id="dsErr"></div></div>
   <footer>${ed ? `<button type="button" class="btn danger" id="dsDel" style="margin-right:auto">Delete Discount</button>` : ""}<span style="flex:1"></span><button type="button" class="btn pri" id="dsGo">Save</button></footer>`;
   $("#ccScrim").classList.add("show"); setTimeout(() => $("#dsName")?.focus(), 50);
-  const sync = () => { const fx = $("#dsType").value==="fixed", op = $("#dsMode").value==="open"; $("#dsAmtL").textContent = `Discount Amount (${fx ? CUR() : "%"}) *`; $("#dsMaxF").style.display = fx ? "none" : ""; $("#dsAmtF").style.display = op ? "none" : ""; $("#dsModeN").textContent = op ? "The cashier enters the " + (fx ? "amount" : "percentage") + " when applying it." : ""; }; sync(); $("#dsType").onchange = sync; $("#dsMode").onchange = sync;
+  const sync = () => { const fx = $("#dsType").value==="fixed", op = $("#dsMode").value==="open"; $("#dsAmtL").textContent = `Discount Amount (${fx ? SYM() : "%"}) *`; $("#dsMaxF").style.display = fx ? "none" : ""; $("#dsAmtF").style.display = op ? "none" : ""; $("#dsModeN").textContent = op ? "The cashier enters the " + (fx ? "amount" : "percentage") + " when applying it." : ""; }; sync(); $("#dsType").onchange = sync; $("#dsMode").onchange = sync;
   $("#dsGo").onclick = async () => {
     const err = m => $("#dsErr").textContent = m, n = $("#dsName").value.trim(), ty = $("#dsType").value, op = $("#dsMode").value==="open", a = op ? "" : $("#dsAmt").value, ref = $("#dsRef").value.trim(), ots = [...document.querySelectorAll("#dsOT input:checked")].map(i => i.value);
     if(!n) return err("Enter a name."); if(!op && (a==="" || +a < 0)) return err("Enter the discount amount."); if(!op && ty==="pct" && +a > 100) return err("A percentage can't be more than 100.");
@@ -6811,7 +6816,7 @@ const ingCost = (it, qty, depth=0) => !it ? 0 : (+qty||0) / (+it.factor || 1) * 
 const recipeCost = (list, depth=0) => (list||[]).reduce((s,l) => s + ingCost(itemOf(l.itemId), l.qty, depth), 0);
 const isFixedCost = p => /fixed/i.test(String(p?.costingMethod||""));
 const productCost = p => isFixedCost(p) ? (+p.cost||0) : recipeCost(p.ingredients);
-const fmtCost = n => CUR() + " " + (+n||0).toLocaleString("en-US",{maximumFractionDigits:5});
+const fmtCost = n => CURJ(SYM(), (+n||0).toLocaleString("en-US",{maximumFractionDigits:5}));
 
 // a stable text form of a value for "did anything change?" checks: object keys sorted, empty values dropped, lists of ids sorted
 const canonJ = v => JSON.stringify((function c(x){ if(Array.isArray(x)) return x.every(y => typeof y==="string") ? [...x].sort() : x.map(c);
@@ -8311,8 +8316,8 @@ function dashToReport(title){
 function downloadReportCsv(){
   const r = window.__rep; if(!r) return;
   const q = v => /[",\n]/.test(String(v)) ? `"${String(v).replace(/"/g,'""')}"` : v;
-  const lines = [[`Slick sales report`], [r.scope], [r.period], [], ["Hour","Orders","Net sales (" + CUR() + ")","Net payments (" + CUR() + ")","Discounts (" + CUR() + ")","Avg ticket (USD)"], ...r.hr];
-  if(r.days.length > 1) lines.push([], ["Date","Orders","Net sales (" + CUR() + ")"], ...r.days);
+  const lines = [[`Slick sales report`], [r.scope], [r.period], [], ["Hour","Orders","Net sales (" + SYM() + ")","Net payments (" + SYM() + ")","Discounts (" + SYM() + ")","Avg ticket (USD)"], ...r.hr];
+  if(r.days.length > 1) lines.push([], ["Date","Orders","Net sales (" + SYM() + ")"], ...r.days);
   const blob = new Blob([lines.map(l => l.map(q).join(",")).join("\n")], { type:"text/csv" });
   const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `slick-sales-${dashFrom()}-to-${state.date}.csv`; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href), 2000);
 }
@@ -8376,7 +8381,7 @@ $("#ccScrim").addEventListener("click", async e => { if(e.target.id==="repCsv") 
   if(e.target.closest("[data-ccclear]")){ e.preventDefault(); if(!cart.length || !(await askYes("Clear all items from the cart?"))) return; cart = []; ccDisc = 0; ccDiscOpen = false; renderCart(false); return; }
   if(e.target.closest("[data-ccdisctog]")){ e.preventDefault(); ccDiscOpen = !ccDiscOpen; renderCart(false); if(ccDiscOpen) setTimeout(() => $("#ccDiscVal")?.focus(), 20); return; }
   const cdq = e.target.closest("[data-ccdisc]"); if(cdq){ ccDiscType = "pct"; ccDisc = +cdq.dataset.ccdisc; ccDiscOpen = false; renderCart(false); return; }
-  const cdt = e.target.closest("[data-ccdt]"); if(cdt){ document.querySelectorAll("[data-ccdt]").forEach(b => b.classList.toggle("on", b===cdt)); $("#ccDiscVal").placeholder = cdt.dataset.ccdt==="amt" ? "Amount in " + CUR() : "Percent"; $("#ccDiscVal").focus(); return; }
+  const cdt = e.target.closest("[data-ccdt]"); if(cdt){ document.querySelectorAll("[data-ccdt]").forEach(b => b.classList.toggle("on", b===cdt)); $("#ccDiscVal").placeholder = cdt.dataset.ccdt==="amt" ? "Amount in " + SYM() : "Percent"; $("#ccDiscVal").focus(); return; }
   if(e.target.closest("[data-ccdapply]")){ const ty = document.querySelector("[data-ccdt].on")?.dataset.ccdt || "pct", raw = $("#ccDiscVal").value.trim(), v = +raw.replace(",", "."), g = ccGross();
     if(raw==="" || !(v >= 0)){ $("#ccDiscNote").textContent = "Enter a number."; return; }
     if(ty==="pct" && v > 100){ $("#ccDiscNote").textContent = "A percentage can't be more than 100."; return; }

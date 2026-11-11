@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="699-1794398277">
+<meta name="slick-build" content="701-1794398751">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this copy, reload once (never for an older one) */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -877,11 +877,13 @@ const modLines = (i, hideFree) => { if(Array.isArray(i.options) && i.options.len
 const modList = i => { const l = modLines(i); return l.length ? `<ul class="mlist">${l.map(x => `<li${x.startsWith("Note: ") ? ' class="mn"' : ""}>${esc(x)}</li>`).join("")}</ul>` : ""; };
 const coS = () => { try{ return S.settings.find(x=>x.id==="company") || {}; }catch(e){ return {}; } };
 const DEC = () => { const d = coS().priceDecimals; return d===0||d==="0" ? 0 : +d || 2; };
-const usd = n => (coS().currency || "USD") + " " + (+n||0).toLocaleString("en-US",{minimumFractionDigits:DEC(),maximumFractionDigits:DEC()});
+const SYM = () => String(coS().currencySymbol || "").trim() || coS().currency || "USD";
+const CURJ = (s, n) => /[\p{L}.]$/u.test(s) ? s + " " + n : s + n;   // a code or word ("USD", "L.L.") gets a space, a symbol ("$") sits against the number
+const usd = n => CURJ(SYM(), (+n||0).toLocaleString("en-US",{minimumFractionDigits:DEC(),maximumFractionDigits:DEC()}));
 const CUR2 = () => { const c = coS(); return c.currency2 && +c.rate2 ? { code: c.currency2, rate: +c.rate2, dec: +c.decimals2 || 0 } : null; };
 const num2 = (n, d) => (+n||0).toLocaleString("en-US", { minimumFractionDigits: +d||0, maximumFractionDigits: +d||0 });
 const ceilD = (n, d) => { const f = Math.pow(10, d); return Math.ceil(n * f - 1e-7) / f; };
-const usd2 = n => { const c = coS(); if(!c.currency2 || !(+c.rate2)) return ""; const d = +c.decimals2 || 0; return c.currency2 + " " + ((+n||0) * +c.rate2).toLocaleString("en-US",{minimumFractionDigits:d,maximumFractionDigits:d}); };
+const usd2 = n => { const c = coS(); if(!c.currency2 || !(+c.rate2)) return ""; const d = +c.decimals2 || 0; return CURJ(String(c.currencySymbol2 || "").trim() || c.currency2, ((+n||0) * +c.rate2).toLocaleString("en-US",{minimumFractionDigits:d,maximumFractionDigits:d})); };
 (() => { const P = Date.prototype, ls = P.toLocaleString, lt = P.toLocaleTimeString;   // 12-hour clock on screen and receipts
   P.toLocaleString = function(l, o){ return ls.call(this, l || "en-GB", { hour12:true, ...(o||{}) }); };
   P.toLocaleTimeString = function(l, o){ return lt.call(this, l || "en-GB", { hour12:true, ...(o||{}) }); }; })();
@@ -1597,7 +1599,7 @@ document.addEventListener("click", async e => { const inp = e.target.closest?.("
   const v = await askPhone(inp.value); const now = $("#pdPhone"); if(v===null || !now) return; now.value = v; now.dispatchEvent(new Event("input", { bubbles:true })); now.blur(); });
 function askNumber(title, def){ return new Promise(res => {
   const el = document.createElement("div"); el.className = "scrim show npsc";
-  el.innerHTML = `<div class="modal kpm"><div class="mh"><h2>${esc(title)}</h2></div><div class="mb"><div class="dinput"><input id="askNum" data-nf="money" inputmode="none" value="${esc(String(def ?? ""))}" aria-label="${esc(title)}"><span>${esc(coS().currency || "USD")}</span></div>${numpad("askNum")}</div>
+  el.innerHTML = `<div class="modal kpm"><div class="mh"><h2>${esc(title)}</h2></div><div class="mb"><div class="dinput"><input id="askNum" data-nf="money" inputmode="none" value="${esc(String(def ?? ""))}" aria-label="${esc(title)}"><span>${esc(SYM())}</span></div>${numpad("askNum")}</div>
     <div class="mf"><button class="btn" data-ncx>Cancel</button><button class="btn pri" data-nok>OK</button></div></div>`;
   document.body.appendChild(el);
   const done = v => { el.remove(); res(v); }, ok = () => { const v = +String(el.querySelector("#askNum").value).replace(",", "."); if(!(v >= 0) || el.querySelector("#askNum").value==="") return; done(v); };
@@ -1807,7 +1809,7 @@ $("#modal").addEventListener("click", async e => {
     if(appSet().discountApproval && !(await approve("pos_discount", "Approve discount"))) return;
     DSET = { id:d.id, name:d.name, val:v }; discType = "amt"; discount = dsCalc(d, v).amt; closeModal(); renderCart(); return; }
   const ds = e.target.closest("[data-dset]"); if(ds){ const d = dsAll().find(x => x.id===ds.dataset.dset); if(!d) return;
-    if(d.open){ const f = $("#dsOpen"); f.hidden = false; f.dataset.id = d.id; document.querySelectorAll("[data-dset]").forEach(b => b.classList.toggle("on", b===ds)); $("#dsOpenL").textContent = `${d.name}: enter the ${d.type==="fixed" ? "amount (" + (coS().currency || "USD") + ")" : "percentage (%)"}`; $("#dsOpenV").value = ""; $("#dsOpenN").textContent = ""; $("#dsOpenV").focus(); return; }
+    if(d.open){ const f = $("#dsOpen"); f.hidden = false; f.dataset.id = d.id; document.querySelectorAll("[data-dset]").forEach(b => b.classList.toggle("on", b===ds)); $("#dsOpenL").textContent = `${d.name}: enter the ${d.type==="fixed" ? "amount (" + SYM() + ")" : "percentage (%)"}`; $("#dsOpenV").value = ""; $("#dsOpenN").textContent = ""; $("#dsOpenV").focus(); return; }
     const c = dsCalc(d); if(!(c.amt > 0) && cart.length) return;
     if(((d.customerTags||[]).length || appSet().discNeedsCustomer) && !custGiven(cust.name, cust.phone)){ toast("Add the customer first: this discount needs customer info"); return; }
     if(appSet().discountApproval && !(await approve("pos_discount", "Approve discount"))) return;
@@ -1830,7 +1832,7 @@ $("#modal").addEventListener("click", async e => {
     else if($("#cardNote")) $("#cardNote").innerHTML = `<div><b style="color:var(--ink)">Take the payment on the card machine</b><br>then complete the sale</div>`;
     return; }
   const tc = e.target.closest("[data-tcur]"); if(tc){ TCUR = +tc.dataset.tcur; { const c2 = CUR2(), tt = totals().total, a = $("#tender"), b = $("#tender2");
-      if(a && b && c2){ a.hidden = TCUR!==1; b.hidden = TCUR!==2; if(TCUR===2){ a.value = ""; b.value = String(ceilD(tt * c2.rate, c2.dec)); } else { b.value = ""; a.value = tt.toFixed(DEC()); } if($("#tcurLbl")) $("#tcurLbl").textContent = TCUR===2 ? c2.code : (coS().currency || "USD"); } } document.querySelectorAll("[data-tcur]").forEach(b => b.classList.toggle("on", b.dataset.tcur===tc.dataset.tcur)); KP = true; $("#quickBox").innerHTML = quickBtns(TCUR); updChange(); return; }
+      if(a && b && c2){ a.hidden = TCUR!==1; b.hidden = TCUR!==2; if(TCUR===2){ a.value = ""; b.value = String(ceilD(tt * c2.rate, c2.dec)); } else { b.value = ""; a.value = tt.toFixed(DEC()); } if($("#tcurLbl")) $("#tcurLbl").textContent = TCUR===2 ? c2.code : SYM(); } } document.querySelectorAll("[data-tcur]").forEach(b => b.classList.toggle("on", b.dataset.tcur===tc.dataset.tcur)); KP = true; $("#quickBox").innerHTML = quickBtns(TCUR); updChange(); return; }
   const qk = e.target.closest("[data-qk]"); if(qk){ const c2 = CUR2(); if(c2){ $("#tender").value = TCUR===1 ? (+qk.dataset.qk).toFixed(DEC()) : ""; $("#tender2").value = TCUR===2 ? qk.dataset.qk : ""; } else $("#tender").value = qk.dataset.qk; KP = true; updChange(); return; }
   const kp = e.target.closest("[data-kp]"); if(kp){ const el = $(TCUR===2 && $("#tender2") ? "#tender2" : "#tender"), k = kp.dataset.kp; let v = KP ? "" : el.value; KP = false;
     v = k==="⌫" ? v.slice(0,-1) : k==="." ? (v.includes(".") ? v : (v || "0") + ".") : (v==="0" ? k : v + k); el.value = v.slice(0,9); updChange(); return; }
@@ -1917,9 +1919,9 @@ function openPay(){
   modal("pay", `<div class="payx"><div class="payl"><div class="ptop"><div><div class="dlbl">Amount due</div><div class="damt">${usd(t.total)}</div>${usd2(t.total) ? `<div class="d2">≈ ${usd2(t.total)}</div>` : ""}</div></div>
       <div class="paym">${pms.map((m,i)=>`<button data-pm="${esc(m.id)}" class="${i?"":"on"}">${pmIco(m)}${esc(m.name)}</button>`).join("")}</div>
       <div class="psum">${cart.map(i => `<div><span>${+i.qty||1}× ${esc(i.name)}</span><span>${usd(lineNet(i))}</span></div>`).join("")}${t.disc ? `<div class="m"><span>${esc(t.promo ? t.promo.name : discLbl())}</span><span>−${usd(t.disc)}</span></div>` : ""}${t.charges.filter(c=>c.amount).map(c => `<div class="m"><span>${esc(c.name)}</span><span>${usd(c.amount)}</span></div>`).join("")}${t.fee ? `<div class="m"><span>Delivery fee</span><span>${usd(t.fee)}</span></div>` : ""}<div class="m" style="border-top:1px dashed var(--line);padding-top:6px"><span>Tax</span><span>${usd(t.tax)}</span></div></div></div>
-    <div class="payr"><div id="cashBox" style="display:${pms[0].type==="cash"?"flex":"none"};flex-direction:column;gap:12px">${c2 ? `<div class="paycur"><span>Pay in</span><div class="dseg"><button type="button" data-tcur="1" class="on">${esc(coS().currency || "USD")}</button><button type="button" data-tcur="2">${esc(c2.code)}</button></div></div>
+    <div class="payr"><div id="cashBox" style="display:${pms[0].type==="cash"?"flex":"none"};flex-direction:column;gap:12px">${c2 ? `<div class="paycur"><span>Pay in</span><div class="dseg"><button type="button" data-tcur="1" class="on">${esc(SYM())}</button><button type="button" data-tcur="2">${esc(c2.code)}</button></div></div>
         <div class="paydue" id="payDue"></div><div class="tnd1">
-        <label class="tbox on"><span id="tcurLbl">${esc(coS().currency || "USD")}</span><input class="tender" id="tender" inputmode="none" readonly value="${t.total.toFixed(DEC())}" aria-label="Cash received in ${esc(coS().currency || "USD")}"><input class="tender" id="tender2" inputmode="none" readonly value="" placeholder="0" aria-label="Cash received in ${esc(c2.code)}" hidden></label></div>`
+        <label class="tbox on"><span id="tcurLbl">${esc(SYM())}</span><input class="tender" id="tender" inputmode="none" readonly value="${t.total.toFixed(DEC())}" aria-label="Cash received in ${esc(SYM())}"><input class="tender" id="tender2" inputmode="none" readonly value="" placeholder="0" aria-label="Cash received in ${esc(c2.code)}" hidden></label></div>`
       : `<input class="tender" id="tender" inputmode="none" value="${t.total.toFixed(DEC())}" aria-label="Cash received">`}
       <div class="quick" id="quickBox">${quickBtns(1)}</div>
       <div class="kpad">${["1","2","3","4","5","6","7","8","9",".","0","⌫"].map(k => `<button type="button" data-kp="${k}" aria-label="${k==="⌫"?"Delete":k}">${k}</button>`).join("")}</div>
@@ -1995,10 +1997,10 @@ function receiptText(o){
   (o.charges||[]).filter(c=>+c.amount).forEach(c => lines.push(row(c.name, (+c.amount).toFixed(DEC()))));
   if(a.showSubtotal!==false) lines.push(row("Subtotal", net.toFixed(DEC())));
   if(a.rcptTax) lines.push(row(taxIncl() ? "Tax (incl.)" : "Tax", (+o.tax||0).toFixed(DEC())));
-  lines.push(row("TOTAL " + (coS().currency || "USD"), (+o.total).toFixed(DEC())));
+  lines.push(row("TOTAL " + SYM(), (+o.total).toFixed(DEC())));
   if(usd2(o.total)) lines.push(row("", "= " + usd2(o.total)));
   if(o.payment){ const p = o.payment; lines.push(row((o.status==="refund" ? "Refunded (" : "Paid (")+p.method+")", Math.abs(+p.tendered).toFixed(DEC())));
-    if(+p.tendered2){ if(+p.tendered1) lines.push(row("  " + (coS().currency || "USD"), (+p.tendered1).toFixed(DEC()))); lines.push(row("  " + p.currency2, num2(+p.tendered2, p.decimals2))); }
+    if(+p.tendered2){ if(+p.tendered1) lines.push(row("  " + SYM(), (+p.tendered1).toFixed(DEC()))); lines.push(row("  " + p.currency2, num2(+p.tendered2, p.decimals2))); }
     if(+p.change){ lines.push(row("Change", (+p.change).toFixed(DEC()))); if(p.currency2 && +p.rate2) lines.push(row("", "= " + p.currency2 + " " + num2(+p.change * +p.rate2, p.decimals2))); } }
   if(o.status==="void") lines.push("", "*** VOID ***".padStart((w+12)/2)); if(o.status==="returned") lines.push("", "*** RETURNED ***".padStart((w+16)/2));
   if(o.receiptNotes) lines.push("", ...o.receiptNotes.split("\n").map(l => l.trim().slice(0,w)).filter(Boolean));
@@ -2284,7 +2286,7 @@ function closeTillForm(sh){
     <div class="mf"><button class="btn" data-close>Cancel</button><button class="btn pri" id="doCloseShift">Close Till</button></div>`); tillFull();
 }
 /* till amounts: one row per currency (main + second), one keypad for the row that's selected */
-function tillForm(id, left){ const c1 = coS().currency || "USD", c2 = CUR2();
+function tillForm(id, left){ const c1 = SYM(), c2 = CUR2();
   const row = (k, label, on) => `<button type="button" class="tilr${on?" on":""}" data-tilr="${id}${k}"><span>${esc(label)}</span><input id="${id}${k}" data-nf="money" inputmode="none" readonly placeholder="0" tabindex="-1"></button>`;
   return `<div class="tillx"><div class="tl">${left || ""}<div class="tilrows">${row("1", c1, true)}${c2 ? row("2", c2.code, false) : ""}</div></div><div class="tr">${numpad(id + "1")}</div></div>`; }
 const tillFull = () => { $("#modal").classList.add("tillm"); };   // a centred window, not full screen

@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="689-1794395409">
+<meta name="slick-build" content="701-1794398751">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this copy, reload once (never for an older one) */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -687,8 +687,9 @@ const modLines = i => { if(Array.isArray(i.options) && i.options.length){ const 
   const l = String(i.mods||"").split(" · ").flatMap(p => p.startsWith("Note: ") ? [p] : p.split(", ")).map(x => x.trim()).filter(Boolean); if(i.note && !l.some(x => x.startsWith("Note: "))) l.push("Note: " + i.note); return l; };
 const modList = i => { const l = modLines(i); return l.length ? `<ul class="mlist">${l.map(x => `<li${x.startsWith("Note: ") ? ' class="mn"' : ""}>${esc(x)}</li>`).join("")}</ul>` : ""; };
 let PUB = { decimals:2, currency:"USD" };   // price display settings (Account settings → Business)
-const usd = n => (PUB.currency || "USD") + " " + (+n||0).toLocaleString("en-US",{minimumFractionDigits:PUB.decimals,maximumFractionDigits:PUB.decimals});
-const usd2 = n => PUB.currency2 && +PUB.rate2 ? PUB.currency2 + " " + ((+n||0) * +PUB.rate2).toLocaleString("en-US",{minimumFractionDigits:+PUB.decimals2||0,maximumFractionDigits:+PUB.decimals2||0}) : "";
+const CURJ = (s, n) => /[\p{L}.]$/u.test(s) ? s + " " + n : s + n;   // a code or word ("USD", "L.L.") gets a space, a symbol ("$") sits against the number
+const usd = n => CURJ(PUB.symbol || PUB.currency || "USD", (+n||0).toLocaleString("en-US",{minimumFractionDigits:PUB.decimals,maximumFractionDigits:PUB.decimals}));
+const usd2 = n => PUB.currency2 && +PUB.rate2 ? CURJ(PUB.symbol2 || PUB.currency2, ((+n||0) * +PUB.rate2).toLocaleString("en-US",{minimumFractionDigits:+PUB.decimals2||0,maximumFractionDigits:+PUB.decimals2||0})) : "";
 const params = new URLSearchParams(location.search);
 const qrBranch = params.get("branch"), qrTable = params.get("table"), PREVIEW = params.has("preview");
 
@@ -720,6 +721,7 @@ const brand = bl.data.find(b => b.id === brandId);
 if(!brand){ $("#main").innerHTML = `<div class="closed"><b>This restaurant isn't taking web orders.</b></div>`; return; }
 
 PUB = await sb.rpc("slick_public_settings").then(r => (!r.error && r.data) ? { ...PUB, ...r.data, decimals: r.data.decimals ?? 2 } : PUB, () => PUB);
+await sb.rpc("slick_public_symbols").then(r => { if(!r.error && r.data){ PUB.symbol = String(r.data.symbol || "").trim(); PUB.symbol2 = String(r.data.symbol2 || "").trim(); } }, () => {});   // the currency symbols (Currency settings); the codes show until this is available
 let incl = true;   // set below: true when every tax is inclusive
 const [st, scd, br, ca, pr, zo, mg, tx, tg, mo] = await Promise.all([
   sb.from("settings").select("data").eq("id","online_"+brandId).maybeSingle(),
