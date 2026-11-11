@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="697-1794397806">
+<meta name="slick-build" content="698-1794398121">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this copy, reload once (never for an older one) */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1632,7 +1632,7 @@ document.addEventListener("contextmenu", e => { if(!e.target.closest("input, tex
 $("#lines").addEventListener("contextmenu", e => { if(e.target.closest("[data-edit]")) e.preventDefault(); });
 const lineDisc = ix => { if(!can("pos_item_discount")) return deny("item discounts"); return editLine(ix, "disc"); };
 const lpLine = { t:0, done:false, x:0, y:0 };   // long press on a cart line: its discount
-$("#lines").addEventListener("pointerdown", e => { clearTimeout(lpLine.t); lpLine.done = false; const ed = !e.target.closest("button, input, a") && e.target.closest("[data-edit]"); if(!ed) return;
+$("#lines").addEventListener("pointerdown", e => { clearTimeout(lpLine.t); lpLine.done = false; const ed = !e.target.closest("button, input, a, .lqty") && e.target.closest("[data-edit]"); if(!ed) return;
   const eo = editOrder(); if(eo && !isOpenOrd(eo)) return; lpLine.x = e.clientX; lpLine.y = e.clientY;
   lpLine.t = setTimeout(() => { if(!cart[+ed.dataset.edit]) return; lpLine.done = true; setTimeout(() => lpLine.done = false, 1500); lineDisc(+ed.dataset.edit); }, 550); });
 $("#lines").addEventListener("pointermove", e => { if(Math.abs(e.clientX - lpLine.x) + Math.abs(e.clientY - lpLine.y) > 12) clearTimeout(lpLine.t); });
@@ -1655,7 +1655,7 @@ $("#lines").addEventListener("click", e => { const dx = e.target.closest("[data-
   const nx = e.target.closest("[data-onotex]"); if(nx){ if(nx.dataset.onotex==="k") kitchenNote = ""; else orderNote = ""; renderCart(); if(EDIT && isOpenOrd(editOrder()||{})) toast("Note removed · press Save to keep the change"); return; }
   const on = e.target.closest("[data-onote]"); if(on) return openNotes(on.dataset.onote);
   const eo = editOrder(), ro = eo && !isOpenOrd(eo);
-  const ed = !e.target.closest("button, input, a") && e.target.closest("[data-edit]"); if(ed){ if(ro) return; const i = cart[+ed.dataset.edit]; if(!i) return;
+  const ed = !e.target.closest("button, input, a, .lqty") && e.target.closest("[data-edit]"); if(ed){ if(ro) return; const i = cart[+ed.dataset.edit]; if(!i) return;
     if(lpLine.done){ lpLine.done = false; return; }   // the long press already opened the discount
     if(eo) return lineDisc(+ed.dataset.edit);   // an order already sent: the item discount only
     return editLine(+ed.dataset.edit, "note"); }   // tap a line: its options with the note under them; long press: its discount; quantity is on the − / + beside it
