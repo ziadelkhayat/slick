@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="723-1794406699">
+<meta name="slick-build" content="724-1794414165">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this copy, reload once (never for an older one) */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1721,9 +1721,10 @@ $("#extra").addEventListener("click", e => { const ht = e.target.closest("[data-
   if(cx && cx.dataset.ctx==="fast"){ const go = () => { otype = "fast"; tableNo = ""; cust = { name:"", phone:"", addr:{} }; posChg = null; repriceCart(); renderCart(); renderMenu(); };
     if((otype==="takeaway" || otype==="delivery") && (cust.name || cust.phone)) askYes("Make this a fast sale? The customer details are removed.", "Fast sale").then(y => y && go()); else go(); return; }
   if(e.target.closest("[data-unload]")) return unloadOrder(); });
+// an order edit answered from the cart (approved or rejected): the cart opens on a new order
 $("#acts").addEventListener("click", async e => { const eb = e.target.closest("[data-er]");
   if(eb){ if(eb.disabled) return; if(!can("pos_incoming")) return deny("handling incoming orders"); const [id, y] = eb.dataset.er.split(":"); eb.disabled = true;
-    try{ await erDecide(id, y==="1"); setTimeout(() => { const n = S.orders.find(x => x.id===id); if(n && isOpenOrd(n)) loadOrder(id); else resetOrder(); }, 300); }catch(err){ console.error(err); toast("Couldn't update the order"); } finally{ eb.disabled = false; renderCart(); } return; }
+    try{ await erDecide(id, y==="1"); resetOrder(); }catch(err){ console.error(err); toast("Couldn't update the order"); } finally{ eb.disabled = false; renderCart(); } return; }
   const b = e.target.closest("[data-incc]"); if(!b || b.disabled) return; if(!can("pos_incoming")) return deny("handling incoming orders");
   const [id, st] = b.dataset.incc.split(":"), o = S.orders.find(x => x.id===id); if(!o) return;
   if(st==="declined"){ try{ if(await declineOrder(id)) resetOrder(); }catch(err){ console.error(err); toast("Couldn't update the order"); } return; }
