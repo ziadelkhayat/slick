@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="714-1794404243">
+<meta name="slick-build" content="715-1794404345">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this copy, reload once (never for an older one) */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1315,6 +1315,9 @@ html body{font-family:"Plus Jakarta Sans",Inter,"IBM Plex Sans Arabic",system-ui
 #ccBox [data-osave="pending"]:disabled,#ccSendEdit:disabled{background:#e4e2ec!important;color:#9a97a8!important;box-shadow:none!important;cursor:default;opacity:1}
 /* void items (call center): the POS row, − n + beside the item, and the POS reason chips */
 .ccvq{display:flex!important;flex-direction:row!important;margin-left:auto;flex-wrap:nowrap;align-items:center;gap:8px;flex:none}.ccvq button{width:34px;height:34px;border:0;border-radius:10px;background:#f7f6fb;color:#1b1830;font:inherit;font-size:17px;font-weight:700;line-height:1;display:grid;place-items:center;padding:0;cursor:pointer}.ccvq b{min-width:20px;text-align:center;font-weight:900;font-size:15px}.ccvq small{color:var(--ink2);font-size:12.5px;white-space:nowrap}
+.ccdlg:has(.ccvdh){padding:0!important;border-radius:20px!important;overflow:hidden}.ccvdh{margin:0;padding:18px 24px;border-bottom:1px solid var(--line);font-size:19px;font-weight:700}.ccvdb{padding:18px 24px 8px}
+.ccvdf{display:flex;justify-content:flex-end;gap:10px;padding:14px 24px;border-top:1px solid var(--line);background:#fff}.ccvdf button{min-height:50px;padding:0 22px;border-radius:12px;border:1px solid var(--line);background:#fff;font:inherit;font-weight:600;font-size:15px;color:var(--ink);cursor:pointer}.ccvdf .bad{color:#d92d20}
+.ccvrow{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line);font-size:15px}.ccvrow .ccvq button{width:46px;height:46px;border-radius:12px;font-size:20px}
 .ccvseg{display:grid;grid-template-columns:1fr 1fr;gap:8px}.ccvseg button{min-height:48px;border-radius:12px;border:1.5px solid var(--line);background:#fff;font:inherit;font-weight:600;font-size:14.5px;color:var(--ink);cursor:pointer}.ccvseg button.on{border-color:var(--accent);background:#efebff;color:var(--accent-ink)}
 .ccvrs{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}.ccvrs button{min-height:46px;padding:0 16px;border-radius:999px;border:1.5px solid var(--line);background:#fff;font:inherit;font-weight:600;font-size:14px;color:var(--ink);cursor:pointer}.ccvrs button.on{border-color:var(--accent);background:#efebff;color:var(--accent-ink)}
 /* wide but short (phones on their side): the cart column scrolls with the page, the menu stays in view */
@@ -4244,14 +4247,14 @@ const ccDsHere = () => { const b = $("#oBranch")?.value || "", ty = $("#oType .o
 function ccVoidDlg(mode){
   const o = ccActiveO(); if(!o) return; const all = mode!=="items";
   const rows = cart.map((i, ix) => ({ i, ix })).filter(x => +x.i.saved > 0), reasons = rsGet("vr"), q = rows.map(() => 0), ask = appSet().stockAction==="ask" || appSet().stockAction==null; let pick = reasons.length ? "" : "_other", stock = "stock";
-  ccOverlay(`<h3 style="margin:0 0 12px">Void ${all ? "Order" : "Items"} · ${esc(ccRef(o))}</h3>
+  ccOverlay(`<h3 class="ccvdh">Void ${all ? "Order" : "Items"} · ${esc(ccRef(o))}</h3><div class="ccvdb">
     <div class="ccvseg"><button type="button" data-vmode="all" class="${all ? "on" : ""}">Whole Order</button><button type="button" data-vmode="items" class="${all ? "" : "on"}">Choose Items</button></div>
-    ${all ? `<p style="margin:12px 0 0">The whole order will be voided and removed from sales.</p>` : rows.length ? `<div class="ccchl" style="margin-top:12px">${rows.map((x, k) => `<div class="ccchr" style="display:flex;align-items:center;gap:10px;cursor:default"><span style="flex:1;text-align:left"><b>${esc(x.i.name)}</b>${modList(x.i)}</span><span class="ccvq"><button type="button" data-vq="${k}:-1" aria-label="Less">−</button><b data-vn="${k}">0</b><button type="button" data-vq="${k}:1" aria-label="More">+</button></span></div>`).join("")}</div>` : `<p class="note" style="text-align:center;padding:20px 0">No items to void</p>`}
+    ${all ? `<p style="margin:12px 0 0">The whole order will be voided and removed from sales.</p>` : rows.length ? `<div style="margin-top:8px">${rows.map((x, k) => `<div class="ccvrow"><span style="flex:1;text-align:left">${esc(x.i.name)}${modList(x.i)}</span><span class="ccvq"><button type="button" data-vq="${k}:-1" aria-label="Less">−</button><b data-vn="${k}">0</b><button type="button" data-vq="${k}:1" aria-label="More">+</button></span></div>`).join("")}</div>` : `<p class="note" style="text-align:center;padding:20px 0">No items to void</p>`}
     <label class="note" style="display:block;margin-top:12px">Reason *</label><div class="ccvrs" style="margin-top:6px">${reasons.map(x => `<button type="button" data-vrs="${esc(x)}">${esc(x)}</button>`).join("")}<button type="button" data-vrs="_other">Other…</button></div>
     <input class="sel" id="ccVrOther" placeholder="Write the reason" style="margin-top:8px;width:100%;display:${reasons.length ? "none" : ""}">
     ${ask ? `<div class="ccvseg" style="margin-top:12px"><button type="button" data-vst="stock" class="on">Return To Stock</button><button type="button" data-vst="waste">Waste</button></div>` : ""}
-    <p class="note" id="ccVrErr" style="color:#c0392b;min-height:16px;margin:6px 0 0"></p>
-    <div class="slk-ask-f" style="margin-top:12px"><button type="button" class="slk-ask-no" data-dlgx>Cancel</button><button type="button" class="slk-ask-yes red" id="ccVrGo">Void</button></div>`, (w, close) => {
+    <p class="note" id="ccVrErr" style="color:#c0392b;min-height:16px;margin:6px 0 0"></p></div>
+    <div class="ccvdf"><button type="button" data-dlgx>Cancel</button><button type="button" class="bad" id="ccVrGo">Void</button></div>`, (w, close) => {
     w.addEventListener("click", async e => { const vm = e.target.closest("[data-vmode]"); if(vm){ if((vm.dataset.vmode==="all") !== all){ close(); ccVoidDlg(vm.dataset.vmode); } return; }
       const b = e.target.closest("[data-vq]"); if(b){ const [k, d] = b.dataset.vq.split(":").map(Number); q[k] = Math.max(0, Math.min(+rows[k].i.saved, q[k] + d)); w.querySelector(`[data-vn="${k}"]`).textContent = q[k]; return; }
       const st = e.target.closest("[data-vst]"); if(st){ stock = st.dataset.vst; w.querySelectorAll("[data-vst]").forEach(x => x.classList.toggle("on", x===st)); return; }
