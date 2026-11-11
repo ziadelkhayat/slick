@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="764-1794434538">
+<meta name="slick-build" content="765-1794434645">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this copy, reload once (never for an older one) */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -7409,8 +7409,7 @@ function openUserBranches(id){
   <div class="body" style="display:block">
     <label class="chk" style="margin-bottom:14px"><input type="radio" name="ubMode" value="auto" ${auto?"checked":""}> Automatically apply on all existing and new branches</label>
     <label class="chk"><input type="radio" name="ubMode" value="pick" ${auto?"":"checked"}> Branches</label>
-    <div class="ubdd${auto?" off":""}" id="ubDD"><button type="button" class="ubsel" id="ubSel">${[...sel].map(i => list.find(b=>b.id===i)).filter(Boolean).map(b=>`<span class="ubchip">${esc(lbl(b))}</span>`).join("") || '<span class="note">Choose branches…</span>'}<span class="ubcaret">▾</span></button>
-      <div class="ubmenu" id="ubMenu" hidden>${list.map(b => `<label class="chk"><input type="checkbox" value="${esc(b.id)}" ${sel.has(b.id)?"checked":""}> ${esc(lbl(b))}</label>`).join("") || '<span class="note">No branches yet.</span>'}</div></div>
+    <div class="ubdd${auto?" off":""}" id="ubDD"><div class="multi" id="ubMenu" data-empty="No branches yet">${list.map(b => `<label class="chk"><input type="checkbox" value="${esc(b.id)}" ${sel.has(b.id)?"checked":""}> ${esc(lbl(b))}</label>`).join("")}</div></div>
     <div class="err" id="ubErr"></div></div>
   <footer><span style="flex:1"></span><button type="button" class="btn" data-ccclose>Cancel</button><button type="button" class="btn pri" data-ubapply="${esc(id)}">Apply</button></footer>`;
   $("#ccScrim").classList.add("show");
@@ -7419,14 +7418,14 @@ function ubPaint(){ const picked = [...document.querySelectorAll("#ubMenu input:
   $("#ubSel").innerHTML = (picked.map(t => `<span class="ubchip">${esc(t)}</span>`).join("") || '<span class="note">Choose branches…</span>') + '<span class="ubcaret">▾</span>'; }
 document.addEventListener("click", async e => {
   const o = e.target.closest("[data-usrbr]"); if(o){ e.preventDefault(); openUserBranches(o.dataset.usrbr); return; }
-  if(e.target.closest("#ubSel")){ const pick = document.querySelector('input[name="ubMode"][value="pick"]'); pick.checked = true; $("#ubDD").classList.remove("off"); $("#ubMenu").hidden = !$("#ubMenu").hidden; return; }
-  if(e.target.matches?.('input[name="ubMode"]')){ const auto = e.target.value==="auto"; $("#ubDD").classList.toggle("off", auto); if(auto) $("#ubMenu").hidden = true; return; }
+  if(e.target.closest("#ubDD .msel-f")){ const pick = document.querySelector('input[name="ubMode"][value="pick"]'); if(pick && !pick.checked){ pick.checked = true; $("#ubDD").classList.remove("off"); } }   // the system dropdown opens on its own; picking from it means "Branches"
+  if(e.target.matches?.('input[name="ubMode"]')){ const auto = e.target.value==="auto"; $("#ubDD").classList.toggle("off", auto); if(auto && typeof msClose==="function") msClose(); return; }
   const ap = e.target.closest("[data-ubapply]"); if(ap){ const auto = document.querySelector('input[name="ubMode"]:checked')?.value !== "pick", ids = auto ? [] : [...document.querySelectorAll("#ubMenu input:checked")].map(i => i.value);
     if(!auto && !ids.length){ $("#ubErr").textContent = "Pick at least one branch, or choose Automatically apply."; return; }
     try{ await put("users", ap.dataset.ubapply, { branchIds: ids }); toast("Branches saved"); $("#ccScrim").classList.remove("show"); render(); }catch(err){ console.error(err); $("#ubErr").textContent = "Couldn't save."; } return; }
   if($("#ubMenu") && !$("#ubMenu").hidden && !e.target.closest("#ubDD")) $("#ubMenu").hidden = true;
 });
-document.addEventListener("change", e => { if(e.target.closest("#ubMenu")) ubPaint(); });
+document.addEventListener("change", e => { if(e.target.closest("#ubMenu") && $("#ubSel")) ubPaint(); });
 function invItemDetail(it){
   const prodCost = recipeCost(DET.ing), produced = hasRecipe(it);
   const inProducts = S.products.filter(p => live(p) && (p.ingredients||[]).some(l=>l.itemId===it.id));
