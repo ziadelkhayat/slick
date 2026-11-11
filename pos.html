@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="757-1794433062">
+<meta name="slick-build" content="758-1794433345">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this copy, reload once (never for an older one) */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -42,6 +42,8 @@ html[data-stage] body{position:fixed!important;left:var(--sl,0)!important;top:va
 .reqst{color:#e5484d!important;font-weight:inherit}
 /* orders screen header: back, search, date range and filters all the same height and corners */
 .ohdr{align-items:center!important}.ohdr>.hbtn,.ohdr>.ovsrch,.ohdr .ovrange,.ohdr>.ovfbtn{height:48px!important;min-height:48px!important;box-sizing:border-box!important;border-radius:12px!important;margin:0!important}.ohdr .ovrw{display:flex;align-items:center}.ohdr>.ovsrch:focus-within{box-shadow:0 0 0 3px #efeaff!important}
+
+.ofpanel2.ofgrid{display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;padding:16px!important}.ofpanel2.ofgrid>.ofdd{margin:0!important}.ofpanel2.ofgrid>.ofdd label{font-size:12px;font-weight:600;color:#8d8c98;margin-bottom:6px;display:block}.ofpanel2.ofgrid>.ofact2{grid-column:1/-1}#modal .mb>.ofsel{margin-bottom:14px}@media (max-width:800px){.ofpanel2.ofgrid{grid-template-columns:1fr 1fr}}
 </style>
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
@@ -1891,6 +1893,7 @@ function openDiscount(){
     ${sets.length ? `<div class="dsets">${sets.map(d => { const c = d.open ? { amt:1 } : dsCalc(d); return `<button type="button" class="dset${DSET?.id===d.id?" on":""}" data-dset="${esc(d.id)}" ${c.amt > 0 || !cart.length ? "" : "disabled"}><b>${esc(d.name)}</b><span>${d.open ? (d.type==="fixed" ? "Open amount" : "Open %") : (d.type==="fixed" ? usd(+d.amount||0) : (+d.amount||0) + "%") + (c.amt > 0 ? " · −" + usd(c.amt) : !cart.length ? " · applies to the items you add" : " · " + esc(c.why))}</span></button>`; }).join("")}</div>
     <div id="dsOpen" hidden style="margin-top:14px"><div class="mut" id="dsOpenL" style="font-size:13px;margin-bottom:6px"></div><div style="display:flex;gap:8px"><input id="dsOpenV" inputmode="decimal" style="flex:1"><button type="button" class="btn pri" id="dsOpenGo">Apply</button></div><div class="mut" id="dsOpenN" style="font-size:13px;color:var(--bad,#e5484d);min-height:16px;margin-top:4px"></div></div>` : `<div class="mut" style="text-align:center;padding:26px 10px;font-size:14px">No discounts available</div>`}</div>`);
 }
+document.addEventListener("change", e => { const sl = e.target.closest?.("[data-ofsel]"); if(!sl) return; OV[sl.dataset.ofsel] = sl.value; openIncoming(); });
 $("#modal").addEventListener("click", async e => {
   const d = e.target.closest("[data-disc]"); if(d){ if(+d.dataset.disc > 0 && appSet().discNeedsCustomer && !custGiven(cust.name, cust.phone)){ toast("Add the customer first: discounts need customer info"); return; } if(+d.dataset.disc > 0 && appSet().discountApproval && !(await approve("pos_discount", "Approve discount"))) return; DSET = null; discount = +d.dataset.disc; discType = "pct"; closeModal(); renderCart(); return; }
   if(e.target.closest("#dsOpenGo")){ const f = $("#dsOpen"), d = dsAll().find(x => x.id===f?.dataset.id); if(!d) return; const v = +String($("#dsOpenV").value).replace(",", ".");
@@ -2231,10 +2234,11 @@ function openIncoming(){
       ${OV.rpop ? `<div class="ovrpop"><div class="ovrpre">${OV_PRE.map(([k,l]) => `<button class="${ovPreset(k).join()===[OV.from||"",OV.to||""].join() ? "on" : ""}" data-ovpre="${k}">${l}</button>`).join("")}</div>
         <div class="ovrcus">${ovCal()}<div class="ovract"><button class="btn" data-ovrcancel>Cancel</button></div></div></div>` : ""}</div>
     <button class="ovfbtn${OV.filt || active.length ? " on" : ""}" data-ofilt aria-expanded="${!!OV.filt}">${ico("filter")}Filters${active.length ? ` <span class="ofn">${active.length}</span>` : ""}</button></div>`;
-  const grp = (k, title, opts) => `<div class="ofrow"><b>${title}</b><div class="ofchips2">${[["", "All"], ...opts].map(([v,l]) => `<button class="chip${(OV[k]||"")===v ? " on" : ""}" data-of="${k}:${esc(v)}">${esc(l)}</button>`).join("")}</div></div>`;
+  // each filter is a dropdown, like the other dropdowns of the app
+  const grp = (k, title, opts) => `<div class="f ofdd"><label>${title}</label><select data-noseg data-ofsel="${k}" aria-label="${esc(title)}">${[["", "All"], ...opts].map(([v,l]) => `<option value="${esc(v)}" ${(OV[k]||"")===v ? "selected" : ""}>${esc(l)}</option>`).join("")}</select></div>`;
   const srcs = [...new Set([...posSources(), ...S.orders.map(o => o.source).filter(x => x && x.toUpperCase()!=="POS" && x!=="Website")])];
   const pays = [...new Set([...payMethods().map(m => m.name), ...S.orders.map(o => o.payment?.method).filter(Boolean)])];
-  const filt = (OV.filt ? `<div class="ofpanel2">
+  const filt = (OV.filt ? `<div class="ofpanel2 ofgrid">
       ${grp("ft", "Order type", Object.entries(TYL))}${grp("fc", "Sales channel", Object.entries(CHL))}
       ${srcs.length ? grp("fs", "Order source", srcs.map(x => [x, x])) : ""}${pays.length ? grp("fp", "Payment Type", pays.map(x => [x, x])) : ""}
       <div class="ofact2">${active.length ? `<button class="btn" data-ofclear>Clear all</button>` : ""}<button class="btn pri" data-ofilt>Done</button></div></div>` : "")
