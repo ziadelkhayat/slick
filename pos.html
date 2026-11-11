@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="696-1794397445">
+<meta name="slick-build" content="697-1794397806">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this copy, reload once (never for an older one) */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -817,7 +817,7 @@ window.SLICK_OFFLINE = true;</script>
 <script src="supabase.js"></script>
 <script>if(!window.supabase) document.write('<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"><\/script>');</script>
 <script src="wokdb.js?v=42"></script>
-<script src="modpick.js?v=25"></script>
+<script src="modpick.js?v=27"></script>
 </head>
 <body>
 <div id="boot" class="center"><div class="panel"><div class="logo">S</div><h1>Slick POS</h1><p>Connecting…</p></div></div>
@@ -1550,7 +1550,7 @@ function voidSent(ix){
     const room = main.clientWidth - px(ms.paddingLeft) - px(ms.paddingRight) - px(ms.columnGap);
     // the menu side is always the bigger part (62%), the cart the rest; then pick how many tiles across / down
     // so the squares fill the menu area with the least empty space (the few spare pixels go into the gaps)
-    const W = Math.round(room * 0.62), Wg = W - owG, b = Math.floor((W - owA - (n-1)*ag) / n), Hg = H - fixedH - b;
+    const W = Math.round(room * 0.62), Wg = W - owG, b = Math.floor((W - owA - 6*ag) / 7), Hg = H - fixedH - b;
     let best = null; const ideal = Math.min(160, Math.max(112, Wg / 6));
     for(let C = 4; C <= 12; C++){ const tw = (Wg - (C-1)*gg) / C; if(tw < 70) break;
       for(const R of [Math.floor((Hg + gg) / (tw + gg)), Math.ceil((Hg + gg) / (tw + gg))]){ if(R < 3) continue;
@@ -1630,7 +1630,14 @@ $("#grid").addEventListener("click", e => { const b = e.target.closest("[data-ad
   addProduct(p); });   // a tap adds one; quantities are changed by tapping the line in the cart
 document.addEventListener("contextmenu", e => { if(!e.target.closest("input, textarea, [contenteditable]")) e.preventDefault(); });   // no browser menu on long press (pictures, tiles)
 $("#lines").addEventListener("contextmenu", e => { if(e.target.closest("[data-edit]")) e.preventDefault(); });
-async function editLine(ix, only){   // only: "mods" (tap) or "extras" (long press: note and discount)
+const lineDisc = ix => { if(!can("pos_item_discount")) return deny("item discounts"); return editLine(ix, "disc"); };
+const lpLine = { t:0, done:false, x:0, y:0 };   // long press on a cart line: its discount
+$("#lines").addEventListener("pointerdown", e => { clearTimeout(lpLine.t); lpLine.done = false; const ed = !e.target.closest("button, input, a") && e.target.closest("[data-edit]"); if(!ed) return;
+  const eo = editOrder(); if(eo && !isOpenOrd(eo)) return; lpLine.x = e.clientX; lpLine.y = e.clientY;
+  lpLine.t = setTimeout(() => { if(!cart[+ed.dataset.edit]) return; lpLine.done = true; setTimeout(() => lpLine.done = false, 1500); lineDisc(+ed.dataset.edit); }, 550); });
+$("#lines").addEventListener("pointermove", e => { if(Math.abs(e.clientX - lpLine.x) + Math.abs(e.clientY - lpLine.y) > 12) clearTimeout(lpLine.t); });
+["pointerup","pointercancel","pointerleave"].forEach(n => $("#lines").addEventListener(n, () => clearTimeout(lpLine.t)));
+async function editLine(ix, only){   // only: "note" (tap: options and note) or "disc" (long press: the discount)
   const i = cart[ix], p = i && S.products.find(x=>x.id===i.productId); if(!i || !window.SlickMods) return;
   const base = (+i.price||0) - (i.options||[]).reduce((t,x)=>t+(+x.price||0),0);   // the item's own price, before its options
   const r = await SlickMods.pick({ name:i.name, basePrice:base, ...(p && !i.saved ? modData(p) : { links:[], groups:{}, options:[] }), money:usd, edit:true, only, initial:i.options||[], qty:i.qty,
@@ -1640,7 +1647,7 @@ async function editLine(ix, only){   // only: "mods" (tap) or "extras" (long pre
   if(+r.disc > (+i.disc||0) + 0.001 && appSet().discNeedsCustomer && !custGiven(cust.name, cust.phone)){ toast("Add the customer first: discounts need customer info"); return; }
   if(+r.disc > (+i.disc||0) + 0.001 && appSet().discountApproval && !(await approve("pos_item_discount", "Approve item discount"))) return;
   Object.assign(i, { price:r.unitPrice, qty:r.qty, options:r.options, note:r.note, mods:SlickMods.label(r.mods, r.note) });
-  if(r.disc != null){ i.disc = r.disc; i.discType = r.discType; i.discValue = r.discValue; }
+  if(r.disc != null){ i.disc = r.disc; i.discType = r.discType; i.discValue = r.discValue; } else reDisc(i);
   if(!i.options.length) delete i.options; if(!i.note) delete i.note; if(!i.mods) delete i.mods; if(!+i.disc){ delete i.disc; delete i.discType; delete i.discValue; }
   renderCart();
 }
@@ -1649,8 +1656,9 @@ $("#lines").addEventListener("click", e => { const dx = e.target.closest("[data-
   const on = e.target.closest("[data-onote]"); if(on) return openNotes(on.dataset.onote);
   const eo = editOrder(), ro = eo && !isOpenOrd(eo);
   const ed = !e.target.closest("button, input, a") && e.target.closest("[data-edit]"); if(ed){ if(ro) return; const i = cart[+ed.dataset.edit]; if(!i) return;
-    if(eo){ if(!can("pos_item_discount")) return deny("item discounts"); return editLine(+ed.dataset.edit, "disc"); }   // an order already sent: the item discount only
-    return editLine(+ed.dataset.edit, (i.options||[]).length || (S.products.find(x => x.id===i.productId)?.modifiers||[]).length ? undefined : "extras"); }   // tap a line: its note and discount (and its options, when it has any); quantity is on the − / + beside it
+    if(lpLine.done){ lpLine.done = false; return; }   // the long press already opened the discount
+    if(eo) return lineDisc(+ed.dataset.edit);   // an order already sent: the item discount only
+    return editLine(+ed.dataset.edit, "note"); }   // tap a line: its options with the note under them; long press: its discount; quantity is on the − / + beside it
   const b = e.target.closest("[data-q]"); if(!b || ro) return; const [ix,d] = b.dataset.q.split(":").map(Number), i = cart[ix];
   if(d < 0 && i.qty <= (i.saved||0)) return;           // already sent: the cart buttons never void; voids are done from the Void button only
   i.qty += d; if(i.qty<=0) cart.splice(ix,1); else reDisc(i); renderCart(); });

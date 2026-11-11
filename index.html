@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="694-1794396644">
+<meta name="slick-build" content="697-1794397806">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this copy, reload once (never for an older one) */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1328,7 +1328,7 @@ button.x[aria-label="Close"]{width:38px!important;height:38px!important;min-widt
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="wokdb.js?v=42"></script>
-<script src="modpick.js?v=25"></script>
+<script src="modpick.js?v=27"></script>
 </head>
 <body>
 <div id="splash" style="position:fixed;inset:0;z-index:2147483600;background:#f4f3f8;display:grid;place-items:center;transition:opacity .25s"><div style="display:flex;flex-direction:column;align-items:center;gap:18px"><div style="width:72px;height:72px;border-radius:20px;background:linear-gradient(135deg,#7a55e0,#6a4cf5);color:#fff;display:grid;place-items:center;font:700 34px/1 Inter,system-ui,sans-serif;animation:splashPulse 1.2s ease-in-out infinite">S</div><div id="splashMsg" style="font:500 14px Inter,system-ui,sans-serif;color:#8d8c98;min-height:18px"></div></div></div>
@@ -7525,11 +7525,17 @@ function ccModData(p){
     .map(o => { const s = linkOpt(p, o), ot = $("#oType .on")?.dataset.ot || "pickup", pt = (s.price||{})[b + ":callcenter:" + ot], sp = pt!=null && pt!=="" ? pt : (s.price||{})[b + ":callcenter"], c = sp!=null && sp!=="" ? sp : b && ((o.customPrices||{})[b + ":callcenter"] ?? (o.customPrices||{})[b]); return { id:o.id, modifierId:o.modifierId, name:o.name, price: c!=null && c!=="" ? +c : +o.price||0, oos: !!b && ((o.outOfStockBranchIds||[]).includes(b) || (s.oos||[]).includes(b)) }; });
   return { links:(p.modifiers||[]).filter(l=>groups[l.modifierId] && options.some(o => o.modifierId===l.modifierId)), groups, options };   // a modifier with no active options is hidden
 }
-// edit a line already in the cart: its options, quantity and note
-async function ccEditItem(ix){
+// edit a line already in the cart: its options and note (tap) or its discount (long press)
+const ccLp = { t:0, done:false, x:0, y:0 };
+document.addEventListener("pointerdown", e => { clearTimeout(ccLp.t); ccLp.done = false; const ce = e.target.closest && !e.target.closest("[data-q]") && e.target.closest("#oCart [data-cedit]"); if(!ce || !mayDo("bo_cc_discount")) return;
+  ccLp.x = e.clientX; ccLp.y = e.clientY; ccLp.t = setTimeout(() => { ccLp.done = true; setTimeout(() => ccLp.done = false, 1500); ccEditItem(+ce.dataset.cedit, "disc"); }, 550); });
+document.addEventListener("pointermove", e => { if(Math.abs(e.clientX - ccLp.x) + Math.abs(e.clientY - ccLp.y) > 12) clearTimeout(ccLp.t); });
+["pointerup","pointercancel"].forEach(n => document.addEventListener(n, () => clearTimeout(ccLp.t)));
+document.addEventListener("contextmenu", e => { if(e.target.closest && e.target.closest("#oCart [data-cedit]")) e.preventDefault(); });
+async function ccEditItem(ix, only = "note"){   // tap: options with the note under them; long press: the discount
   const i = cart[ix], p = i && S.products.find(x=>x.id===i.productId); if(!i || !window.SlickMods) return;
   const base = (+i.price||0) - (i.options||[]).reduce((t,x)=>t+(+x.price||0),0);   // the item's own price, before its options
-  const r = await SlickMods.pick({ name:i.name, basePrice:base, ...(p ? ccModData(p) : { links:[], groups:{}, options:[] }), money:usd, edit:true, initial:i.options||[], qty:i.qty, note:i.note||"", allowDiscount: mayDo("bo_cc_discount"), discType:i.discType, discValue:i.discValue }); if(!r) return;
+  const r = await SlickMods.pick({ name:i.name, basePrice:base, ...(p ? ccModData(p) : { links:[], groups:{}, options:[] }), money:usd, edit:true, only, initial:i.options||[], qty:i.qty, note:i.note||"", allowDiscount: mayDo("bo_cc_discount"), discType:i.discType, discValue:i.discValue }); if(!r) return;
   Object.assign(i, { price: r.unitPrice, qty:r.qty, options:r.options, note:r.note, mods: SlickMods.label(r.mods, r.note) });
   if(r.disc != null){ i.disc = r.disc; i.discType = r.discType; i.discValue = r.discValue; }
   if(!i.options.length) delete i.options; if(!i.note) delete i.note; if(!i.mods) delete i.mods; if(!+i.disc){ delete i.disc; delete i.discType; delete i.discValue; }
@@ -8358,7 +8364,7 @@ $("#ccScrim").addEventListener("click", async e => { if(e.target.id==="repCsv") 
     if(ty==="pct" && v > 100){ $("#ccDiscNote").textContent = "A percentage can't be more than 100."; return; }
     if(ty==="amt" && v > g){ $("#ccDiscNote").textContent = `The discount can't be more than the items (${usd(g)}).`; return; }
     ccDiscType = ty; ccDisc = +v.toFixed(2); ccDiscOpen = false; renderCart(false); return; }
-  const ce = !e.target.closest("[data-q]") && e.target.closest("[data-cedit]"); if(ce){ e.preventDefault(); ccEditItem(+ce.dataset.cedit); return; }
+  const ce = !e.target.closest("[data-q]") && e.target.closest("[data-cedit]"); if(ce){ e.preventDefault(); if(ccLp.done){ ccLp.done = false; return; } ccEditItem(+ce.dataset.cedit); return; }
   const add = e.target.closest("[data-add]"); if(add){ const p = S.products.find(x=>x.id===add.dataset.add); if(p) ccAdd(p); }
   const q = e.target.closest("[data-q]"); if(q){ const [ix,d] = q.dataset.q.split(":").map(Number); cart[ix].qty += d; if(cart[ix].qty<=0) cart.splice(ix,1); renderCart(false); }
   const sv = e.target.closest("[data-osave]"); if(sv) saveOrder(sv.dataset.osave);
