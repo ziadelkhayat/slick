@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="735-1794426729">
+<meta name="slick-build" content="736-1794426809">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this copy, reload once (never for an older one) */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -5366,7 +5366,9 @@ $("#view").addEventListener("click", async e => {
   const cd = e.target.closest("[data-bmcdel]"); if(cd){ e.preventDefault(); return bmDelCat(cd.dataset.bmcdel); }
   const ad = e.target.closest("[data-bmadd]"); if(ad){ e.preventDefault(); return bmAddItems(ad.dataset.bmadd); }
   const rm = e.target.closest("[data-bmrm]"); if(rm){ e.preventDefault(); const [cid, pid] = rm.dataset.bmrm.split("|"), c = S.categories.find(x => x.id===cid); if(!c) return;
-    const ids = (c.productIds||[]).filter(x => bmRoot(x)!==pid); put("categories", cid, { productIds:ids }).then(() => { c.productIds = ids; toast("Removed from " + c.name); render(); }, err => { console.error(err); toast("Couldn't save."); }); return; }
+    const pn = (S.products.find(x => x.id===pid) || {}).name || "item"; rm.closest(".ddmenu")?.setAttribute("hidden", "");
+    askYes(`Remove the item "${pn}" from the category "${c.name}" in the ${bmMenu()[1]} menu? It stays in Menu → Items.`).then(yes => { if(!yes) return;
+    const ids = (c.productIds||[]).filter(x => bmRoot(x)!==pid); put("categories", cid, { productIds:ids }).then(() => { c.productIds = ids; toast("Removed from " + c.name); render(); }, err => { console.error(err); toast("Couldn't save."); }); }); return; }
   if(e.target.closest("#bmMore")){ const m = $("#bmMoreM"); m.hidden = !m.hidden; if($("#bmCopyM")) $("#bmCopyM").hidden = true; return; }
   if(e.target.closest("#bmCopyB")){ const m = $("#bmCopyM"); m.hidden = !m.hidden; ($("#bmMoreM")||{}).hidden = true; return; }
   const bk = e.target.closest("[data-bmbulk]"); if(bk){ ($("#bmMoreM")||{}).hidden = true; const on = bk.dataset.bmbulk==="on";
