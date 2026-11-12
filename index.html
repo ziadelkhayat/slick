@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="814-1794511155">
+<meta name="slick-build" content="824-1794517256">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this copy, reload once (never for an older one) */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -6032,7 +6032,8 @@ function viewCustomer(){
   const dtf = t => t ? new Date(t).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"}) : "—";
   const tbl = (head, rows) => rows.length ? `<table><thead><tr>${head.map(h=>`<th>${h}</th>`).join("")}</tr></thead><tbody>${rows.join("")}</tbody></table>` : '<p class="note brempty">No data to display!</p>';
   const zn = id => (S.zones||[]).find(z => z.id===id)?.name;
-  const used = []; { const seen = new Set(c.addresses.map(a => String(a.address||"").trim())); orders.forEach(o => { const v = String(o.address||"").trim(); if(v && !seen.has(v)){ seen.add(v); used.push(v); } }); } c.__used = used;
+  const used = []; { const ak = v => String(v||"").trim().replace(/^\[.*?\]\s*/, "").toLowerCase().replace(/[:·,]/g, " ").replace(/\s+/g, " ").trim();   /* the same place, whatever its label: an order address already saved isn't offered again */
+    const seen = new Set(c.addresses.map(a => ak(a.address))); orders.forEach(o => { const v = String(o.address||"").trim(), k = v && ak(v); if(v && !seen.has(k)){ seen.add(k); used.push(v); } }); } c.__used = used;
   const desc = v => { const a = addrSplit(v); return esc([a.street, a.building && "Bldg " + a.building, a.floor && "Floor " + a.floor, a.door, a.extra].filter(Boolean).join(" · ") || v); };
   const admin = ["owner","admin"].includes(state.role);
   return `<div class="phead"><a href="#customers" class="btn" data-cusback style="text-decoration:none">← Back</a><h1 style="margin-left:10px">${esc(c.name || telFmt(c.phone))}</h1>${c.blacklisted?' <span class="spill s-declined" style="margin-left:8px">Blacklisted</span>':""}<div class="sp"></div>
