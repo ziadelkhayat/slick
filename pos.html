@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="818-1794511850">
+<meta name="slick-build" content="819-1794512089">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this copy, reload once (never for an older one) */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -16,8 +16,10 @@
    any other shape (PC, wide or tall screens) shows the same layout centred, with bars beside or above it, never a different layout */
 (function(){ var d = document, H = d.documentElement, m = d.querySelector('meta[name="viewport"]'), T16 = { w:1280, h:800 }, T43 = { w:1024, h:768 }, lw = 0, lh = 0;
   function pick(){ var sw = (window.screen && screen.width) || innerWidth, sh = (window.screen && screen.height) || innerHeight, r = Math.max(sw, sh) / Math.max(1, Math.min(sw, sh)); return r >= 1.4667 ? T16 : T43; }
-  function vp(){ var e = d.createElement("div"); e.style.cssText = "position:fixed;left:0;top:0;width:100vw;height:100vh;visibility:hidden;pointer-events:none"; H.appendChild(e); var w = e.offsetWidth, h = e.offsetHeight; H.removeChild(e); return [w, h]; }   /* the full screen (on the iPad app innerHeight can leave out the status bar strip, which left a gap at the bottom) */
-  function fit(force){ var T = pick(), v = vp(), iw = Math.max(innerWidth, v[0]), ih = Math.max(innerHeight, v[1]); if(!iw || !ih) return;
+  function full(iw, ih){   /* iPad app: innerHeight can leave out the status bar strip, which left a gap at the bottom; use the screen's own short side, scaled like the page */
+    try{ var ios = (window.Capacitor || navigator.standalone) && /iPad|iPhone|Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1; if(!ios || ih > iw) return ih;
+      var S = Math.max(screen.width, screen.height), s = Math.min(screen.width, screen.height), f = Math.floor(s * iw / S); return f > ih && f - ih <= 40 ? f : ih; }catch(e){ return ih; } }
+  function fit(force){ var T = pick(), iw = innerWidth, ih = full(innerWidth, innerHeight); if(!iw || !ih) return;
     var ae = d.activeElement; if(!force && iw === lw && ih < lh && ae && /INPUT|TEXTAREA/.test(ae.tagName)) return;   /* the on-screen keyboard doesn't shrink the app */
     lw = iw; lh = ih;
     var rot = ih > iw;   /* held upright: the app stays landscape (turned a quarter), as in a store app locked to landscape */
