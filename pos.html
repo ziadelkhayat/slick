@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="791-1794500544">
+<meta name="slick-build" content="792-1794501025">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this copy, reload once (never for an older one) */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -57,6 +57,7 @@ button[data-npk="C"],button[data-kp="C"]{font-weight:700;color:#e5484d!important
 .pdts .tseg button{flex:1;min-height:44px!important;border:0!important;background:none!important;box-shadow:none!important;color:#6b6a75!important;border-radius:10px!important;display:flex;align-items:center;justify-content:center;gap:6px;font-size:14px!important;font-weight:600;padding:6px 8px!important}
 .pdts .tseg button.on{background:#fff!important;color:#5b2bc4!important;box-shadow:0 1px 3px rgba(21,19,31,.12)!important}.pdts .tseg svg{width:18px;height:18px}.pdts select{min-height:52px;height:100%}
 .ctxpd .ctxt{flex-basis:100%;display:flex;align-items:center;gap:8px;color:#5b2bc4}.ctxpd .ctxt svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}.ctxpd .ctxt b{font-size:16px}
+.ttile.tmerged{background:#f3f0fb!important;border-color:#c9bdf0!important}.ttile.tmerged .tn{color:#5b2bc4!important}
 </style>
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
@@ -2942,8 +2943,10 @@ function openTables(){
   const all = [...cfg.map(t => ({ ...t, name:String(t.name).trim() })), ...extra];
   const secs = [...new Set(all.map(t => t.section || ""))];
   const mins = t => Math.max(0, Math.round((Date.now() - new Date(t)) / 60000));
-  const tile = t => { const k = t.name, l = tableOrders(k); const sel = TM?.from===k ? " tsel" : ""; if(!l.length) return `<button class="ttile${sel}" data-tbl="${esc(k)}"><span class="tn">${esc(tblLbl(k))}</span></button>`;
-    const m = mins(l[0].createdAt), tot = l.reduce((s,o) => s + (+o.total||0), 0);
+  const tile = t => { const k = t.name; let l = tableOrders(k); const sel = TM?.from===k ? " tsel" : ""; if(!l.length) return `<button class="ttile${sel}" data-tbl="${esc(k)}"><span class="tn">${esc(tblLbl(k))}</span></button>`;
+    const own = l.filter(o => tblParts(o.table)[0]===String(k));   // merged tables: the order's amount shows on its main table only
+    if(!own.length) return `<button class="ttile busy tmerged${sel}" data-tbl="${esc(k)}"><span class="tn">${esc(tblLbl(k))}</span><small>Merged with ${esc(tblLbl(tblParts(l[0].table)[0]))}</small></button>`;
+    l = own; const m = mins(l[0].createdAt), tot = l.reduce((s,o) => s + (+o.total||0), 0);
     return `<button class="ttile busy${m >= 60 ? " long" : ""}${sel}" data-tbl="${esc(k)}"><span class="tn">${esc(tblLbl(k))}</span><b>${usd(tot)}</b><small>${+l[0].guests ? `👥 ${+l[0].guests} · ` : ""}#${esc(l[0].no || "—")}${l.length > 1 ? ` +${l.length-1}` : ""} · ${m < 60 ? m + " min" : Math.floor(m/60) + " h " + (m%60) + " min"}</small></button>`; };
   const busy = all.filter(t => tableOrders(t.name).length).length;
   const tmT = !TM ? "Tables" : TM.mode==="move" ? (TM.from ? `Move ${tblLbl(TM.from)} to a free table` : "Pick the table to move") : (TM.from ? `Merge ${tblLbl(TM.from)} into another occupied table` : "Pick the first table to merge");
@@ -2962,6 +2965,7 @@ async function tmPick(k){
   const from = TM.from, now = new Date().toISOString();
   if(TM.mode==="move"){
     if(busy) return toast("Pick a free table", true);
+    if(!(await askYes(`Move ${tblLbl(from)} to ${tblLbl(k)}?`, "Move"))) return;
     try{ for(const o of tableOrders(from)){ const ch = { table: tblParts(o.table).map(x => x===String(from) ? String(k) : x).join("+"), updatedAt: now }; Object.assign(o, ch); await db.collection("orders").doc(o.id).update(ch); }
       toast(`${tblLbl(from)} moved to ${tblLbl(k)}`); }
     catch(e){ console.error(e); toast("Couldn't change the table. Try again.", true); }
@@ -2971,9 +2975,10 @@ async function tmPick(k){
   if(EDIT || cart.length) return toast("Clear the cart first", true);
   const dst = tableOrders(k)[0], srcs = tableOrders(from).filter(o => o.id!==dst.id);
   if(!srcs.length) return toast("These tables are already on one order", true);
+  if(!(await askYes(`Merge ${tblLbl(from)} into ${tblLbl(k)}? Its items move to ${tblLbl(k)} and ${tblLbl(from)} becomes free.`, "Merge"))) return;
   loadOrder0(dst.id);
   srcs.forEach(o => (o.items||[]).forEach(i => cart.push({ ...i, saved: +i.qty })));
-  tableNo = [...new Set([dst, ...srcs].flatMap(o => tblParts(o.table)))].join("+");
+  tableNo = String(dst.table || k);   // the first table moves into the second: the order stays on the second table only
   GUESTS = [dst, ...srcs].reduce((a, o) => a + (+o.guests||0), 0);
   try{ const f = { ...orderFields(totals()), updatedAt: now }; Object.assign(dst, f); await db.collection("orders").doc(dst.id).update(f);
     for(const o of srcs){ const ch = { status:"declined", voidReason: "Merged into " + ordRef(dst), doneAt: now, updatedAt: now }; Object.assign(o, ch); await db.collection("orders").doc(o.id).update(ch); }
