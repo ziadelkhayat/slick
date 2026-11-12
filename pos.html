@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="767-1794483888">
+<meta name="slick-build" content="768-1794484345">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this copy, reload once (never for an older one) */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1283,17 +1283,14 @@ function saleBlock(){
   return "";
 }
 const fmtDay = d => new Date(d + "T12:00:00").toLocaleDateString("en-GB", { weekday:"short", day:"numeric", month:"short" });
-// end of day opens 1 hour before the branch's closing time (Manage → Branches → hours) and stays shut once the day is ended, until the next closing time
-const DAY_KEYS = ["sun","mon","tue","wed","thu","fri","sat"];
-function dayEndOpensAt(day){ const h = (brSet().hours || {})[DAY_KEYS[new Date(day + "T12:00:00").getDay()]] || {}, close = h.close || branch?.close || "", open = h.open || branch?.open || "";
-  if(!close || h.closed) return null;   // no closing time set: no time limit
-  const at = new Date(day + "T" + close + ":00"); if(open && close <= open) at.setDate(at.getDate() + 1);   // closes after midnight: the next calendar date
-  return new Date(at.getTime() - 3600000); }
+// manual end of day: the current business day can be ended once, until midnight; after midnight it ends by itself at the business day start time (Manage → Branches)
 const atLbl = t => t.toLocaleString("en-GB", { weekday:"short", day:"numeric", month:"short", hour:"numeric", minute:"2-digit" });
+const autoEndAt = day => { const t = new Date(day + "T00:00:00"); t.setDate(t.getDate() + 1); t.setMinutes(dayCut()); return t; };   // the next calendar day at the day start time
 function dayEndBlock(day){
-  if(dayClosed(day)){ const n = dayEndOpensAt(nextDay(day)); return "Day already ended" + (n ? ". End of day opens " + atLbl(n) : ""); }
-  if(day < bizDate()) return "";   // an earlier day that was never ended can always be ended
-  const at = dayEndOpensAt(day); return at && Date.now() < at.getTime() ? "End of day opens " + atLbl(at) : ""; }
+  if(dayClosed(day)) return "Day already ended";
+  if(day < bizDate() || brSet().autoDayEnd === false) return "";   // an earlier day that was never ended can always be ended; without automatic end of day there is no time limit
+  const midnight = new Date(day + "T00:00:00"); midnight.setDate(midnight.getDate() + 1);
+  return Date.now() >= midnight.getTime() ? "This day ends automatically " + atLbl(autoEndAt(day)) : ""; }
 function openDayEnd(){
   if(!can("pos_endday")) return deny("ending the day");
   { const blk = dayEndBlock(openDay()); if(blk) return toast(blk, true); }
