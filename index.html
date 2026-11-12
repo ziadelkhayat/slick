@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="790-1794500428">
+<meta name="slick-build" content="794-1794501609">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this copy, reload once (never for an older one) */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -4035,7 +4035,7 @@ function openOrder(id){
     <div class="cc1top"><button type="button" class="ccxbtn" data-ccclose aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
     <div class="cc1 pdstyle">
      <div class="cc1a">
-      <div class="f2 ccts"><div class="f" id="oTypeF"><div class="seg tiles" id="oType">${[["pickup","Pickup"],["delivery","Delivery"]].map(([k,t])=>`<button type="button" data-ot="${k}" class="${(o ? o.type===k : k==="pickup")?"on":""}" ${dis}>${svgIco(k==="delivery"?"pscoot":"pbag")}${t}</button>`).join("")}</div></div>
+      <div class="f2 ccts" id="oTSF"><div class="f" id="oTypeF"><div class="seg tiles" id="oType">${[["pickup","Pickup"],["delivery","Delivery"]].map(([k,t])=>`<button type="button" data-ot="${k}" class="${(o ? o.type===k : k==="pickup")?"on":""}" ${dis}>${svgIco(k==="delivery"?"pscoot":"pbag")}${t}</button>`).join("")}</div></div>
       <div class="f" id="oSourceF"><select id="oSource" class="sel" data-noseg ${dis} aria-label="Order source"><option value="">Order source *</option>${sourceList(o?.source).map(s=>`<option ${o?.source===s?"selected":""}>${esc(s)}</option>`).join("")}</select></div></div>
       <div class="f">${(() => { const sp = ccSplit(o?.phone); return `<div class="phrow"><select id="oCc" class="sel" ${ldis} aria-label="Country code">${CC_CODES.map(([d,n])=>`<option value="${d}" ${d===sp.cc?"selected":""}>${d} ${esc(n)}</option>`).join("")}</select><input id="oPhone" value="${esc(sp.num)}" ${ldis} autocomplete="off" inputmode="tel" placeholder="Customer phone *" aria-label="Customer phone"></div>`; })()}</div>
       <div class="f"><input id="oName" data-ph value="${esc(o?.customerName||"")}" ${ldis} placeholder="Customer name *" aria-label="Customer name"></div>
@@ -4100,7 +4100,7 @@ function ccStep1Err(){
 let CC_SNAP = null;
 function ccSnapBack(){ const sn = CC_SNAP; if(!sn) return; if(sn.ot && $("#oType .on")?.dataset.ot!==sn.ot) document.querySelector(`#oType [data-ot="${sn.ot}"]`)?.click(); Object.entries(sn.v).forEach(([id, val]) => { const el = document.getElementById(id); if(el) el.value = val; });
   window.__ccCust = sn.cust; window.__ccPast = sn.past; window.__ccAddrIx = sn.ix; try{ addrTypeSync("oA"); ccAddrBar(); }catch(_){} if($("#oAddrPop")) $("#oAddrPop").hidden = true; CC_SNAP = null; clearTimeout(ccLookT); try{ ccLookup(); }catch(_){} }
-const ccCustErr = e => !!e && (/^(oPhone|oName|oA_)/.test(e[1] || "") || /address|agents|order source|delivery or pickup/i.test(e[0]));   // errors the customer window fixes; the rest are in the cart's top card
+const ccCustErr = e => !!e && (/^(oPhone|oName|oA_)/.test(e[1] || "") || /address|agents/i.test(e[0]));   // errors the customer window fixes; the rest are in the cart's top card
 async function ccStep(n, force){
   const x = $("#ccX"); if(!x) return;
   if(n===2 && !force){ const e = ccStep1Err(); if(e && ccCustErr(e)){ $("#oErr1").textContent = e[0]; if(e[1]) $("#"+e[1])?.focus(); return; } }
@@ -4115,7 +4115,7 @@ async function ccStep(n, force){
 function ccSide(){
   const el = $("#oSide"); if(!el) return;
   const type = $("#oType .on")?.dataset.ot || "", c = window.__ccCust, a = addrSplit(addrJoin(ccAddrGet()));
-  const keep = ["oBBF"].map(id => document.getElementById(id)).filter(Boolean); keep.forEach(n => n.remove());   // order type, source, brand and branch live in this card
+  const keep = ["oTSF","oBBF"].map(id => document.getElementById(id)).filter(Boolean); keep.forEach(n => n.remove());   // order type, source, brand and branch live in this card
   const bits = [$("#oName").value.trim() && type ? ordTypeLbl(type) : "", type==="delivery" ? (a.label ? a.label + ": " : "") + [a.street, a.building && "Bldg " + a.building, a.floor && "Floor " + a.floor].filter(Boolean).join(", ") : ""].filter(Boolean);
   const so = ccEdit && S.orders.find(x => x.id===ccEdit);   // a placed order: its reference and status on top, as on the POS
   el.innerHTML = `${so ? `<div class="ccobar"><b>${esc(ccRef(so))}</b><span class="ccpill s-${esc(so.status)}">${esc(CC_SUB[so.status] || so.status)}</span></div>` : ""}<div class="ccctx"><div class="ccothd">${svgIco("pdsc")}<b>Pickup & Delivery</b></div><div class="ccctxh"><div class="ccctxn"><b>${esc($("#oName").value.trim() || "No customer yet")}</b>${bits.length ? `<small>${bits.map(esc).join(" / ")}</small>` : ""}</div>${c?.blacklisted ? `<span class="tag" style="background:#fde8eb;color:#9e0c24">⚠ Blacklisted</span>` : ""}<div class="ccctxb">${$("#oPhone")?.disabled ? `<button type="button" class="btn sm" data-ccstep="1">Customer Details</button>` : `<button type="button" class="btn sm" data-ccstep="1">${$("#oName").value.trim() ? "Edit Customer" : "Add Customer"}</button>`}${$(".ccx .ccmenu") ? "" : `<button type="button" class="btn sm" data-ccclose>Close</button>`}</div></div>

@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="793-1794501287">
+<meta name="slick-build" content="794-1794501609">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this copy, reload once (never for an older one) */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -70,6 +70,7 @@ button[data-npk="C"],button[data-kp="C"]{font-weight:700;color:#e5484d!important
 .splm .npad button{aspect-ratio:auto!important;height:50px!important;min-height:0!important}.splm .npad{max-width:420px}
 .splm .splstep button{display:inline-flex!important;align-items:center;justify-content:center;padding:0;line-height:1}.splm .mb{max-height:calc(var(--sh,100vh) - 200px);overflow:auto}
 #modal.splm .pinpad.npad button{aspect-ratio:auto!important;height:50px!important;min-height:0!important;width:100%!important}#modal.splm .pinpad.npad{grid-template-columns:repeat(3,1fr)!important;max-width:420px!important;margin:0 auto!important;gap:8px!important}
+.pdts[hidden]{display:none!important}
 </style>
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
@@ -1554,7 +1555,9 @@ function renderCart(){
   const rf = eo0 && eo0.status==="refund" ? eo0 : null, rfInv = rf && invNo(rf.invoiceRef || S.orders.find(x => x.id===rf.refundOf)?.invoiceNo);
   const ctx = rf ? `<div class="ctx"><span class="ci ci-svg">${ico("undo")}</span><div><b>Return</b><small>${rfInv ? "Original invoice " + esc(rfInv) : esc(typLbl(rf.type))}</small></div><span class="sp"></span></div>`
     : otype==="dinein" ? `<div class="ctx"><span class="ci ci-svg">${ico("dine")}</span><div><b>${esc(tblLbl(tableNo || "—"))}</b><small>${esc(["Dine-in" + (GUESTS ? ` · ${GUESTS} guest${GUESTS===1?"":"s"}` : ""), cust.name].filter(Boolean).join(" · "))}</small></div><span class="sp"></span>${canSwitch ? `<button data-ctx="custlite">${cust.name ? "Edit Customer" : "Add Customer"}</button><button data-ctx="fast">Remove table</button>` : ""}</div>`
-    : otype==="takeaway" || otype==="delivery" ? `<div class="ctx ctxpd"><div class="ctxt"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="17" r="2.5"/><circle cx="18" cy="17" r="2.5"/><path d="M8.5 17h7M15 6h3l2.5 8.5M15 6l-2 8.5H8.5L7 11H3.5M3 8h5"/><path d="M8 4h5v4H8z"/></svg><b>Pickup & Delivery</b></div><div><b>${esc(cust.name || "No customer yet")}</b><small>${esc([otype==="delivery" ? "Delivery" : "Pickup", cust.source, branch?.name].filter(Boolean).join(" / "))}</small></div><span class="sp"></span>${canSwitch ? `<button data-ctx="pddetails">${cust.name ? "Edit Customer" : "Add Customer"}</button>` : ""}</div>`
+    : otype==="takeaway" || otype==="delivery" ? `<div class="ctx ctxpd"><div class="ctxt"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="17" r="2.5"/><circle cx="18" cy="17" r="2.5"/><path d="M8.5 17h7M15 6h3l2.5 8.5M15 6l-2 8.5H8.5L7 11H3.5M3 8h5"/><path d="M8 4h5v4H8z"/></svg><b>Pickup & Delivery</b></div><div><b>${esc(cust.name || "No customer yet")}</b><small>${esc([otype==="delivery" ? "Delivery" : "Pickup", cust.source, branch?.name].filter(Boolean).join(" / "))}</small></div><span class="sp"></span>${canSwitch ? `<button data-ctx="pddetails">${cust.name ? "Edit Customer" : "Add Customer"}</button>
+      <div class="ctxf"><div class="dseg"><button type="button" data-ctxot="takeaway" class="${otype==="takeaway" ? "on" : ""}">${ico("bag")}Pickup</button><button type="button" data-ctxot="delivery" class="${otype==="delivery" ? "on" : ""}">${ico("scooter")}Delivery</button></div>
+      <select id="ctxSrc" data-noseg aria-label="Order source"><option value="">Order Source *</option>${[...new Set([...posSources(), cust.source].filter(Boolean))].map(x => `<option ${cust.source===x ? "selected" : ""}>${esc(x)}</option>`).join("")}</select></div>` : ""}</div>`
     : `<div class="ctx"><span class="ci ci-svg"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12v18l-2-1.5L14 21l-2-1.5L10 21l-2-1.5L6 21z"/><path d="M9 8h6M9 12h6M9 16h3"/></svg></span><div><b>Fast Sale</b>${cust.name ? `<small>${esc([cust.name, telFmt(cust.phone)].filter(Boolean).join(" · "))}</small>` : ""}</div><span class="sp"></span>${canSwitch ? `<button data-ctx="custlite">${cust.name ? "Edit Customer" : "Add Customer"}</button>` : ""}</div>`;
   // the order's tags, under the order type: "Tag: …"
   const tgIds = posTags ?? (eo0 ? (tgDoc().on?.order?.[eo0.id] || []) : []), tgNames = tgIds.map(id => tgList("order").find(t => t.id===id)?.name).filter(Boolean);
@@ -2802,7 +2805,7 @@ function openPDNew(opt = {}){
         ${allowedTypes().includes("delivery") ? `<button type="button" class="acard new${!isDel || saved.some(a => addrJoin(PD.addr)===addrJoin(addrParts(a.address))) ? "" : " on"}" data-pdnewaddr><span class="aci"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></span><span class="act"><b>New address</b></span></button>` : ""}</div></div>` : "";
   const side = PD.cust ? pdSide("") : `<div class="pdside0"><b>Customer details</b></div>`;
   modal("pdnew", `<div class="mh"><h2>${PD.edit ? "Customer Details" : "New order"}</h2></div><div class="mb pdcols"><div class="pdform">
-    <div class="pdts"><div class="tseg">${types.map(t => `<button type="button" data-pdt="${t}" class="${PD.type===t?"on":""}">${ico(t==="delivery" ? "scooter" : "bag")}${t==="delivery" ? "Delivery" : "Pickup"}</button>`).join("")}</div>
+    <div class="pdts"${PD.edit ? " hidden" : ""}><div class="tseg">${types.map(t => `<button type="button" data-pdt="${t}" class="${PD.type===t?"on":""}">${ico(t==="delivery" ? "scooter" : "bag")}${t==="delivery" ? "Delivery" : "Pickup"}</button>`).join("")}</div>
     <div class="f"><select id="pdSrc" data-noseg aria-label="Order source"><option value="">Order source *</option>${posSources().map(s => `<option ${PD.source===s?"selected":""}>${esc(s)}</option>`).join("")}</select></div></div>
     <div class="f"><div class="npw"><div class="pdph"><select id="pdCc" aria-label="Country code">${Object.entries(CC_OF).map(([n,c]) => `<option value="${c}" ${(PD.cc||CC_OF[coS().country||"Lebanon"]||"+961")===c?"selected":""}>${c} ${esc(n)}</option>`).join("")}</select><input id="pdPhone" inputmode="none" data-np="tel" data-ph placeholder="Customer phone *" aria-label="Customer phone" value="${esc(PD.phone)}" autocomplete="off"></div></div><div class="mut" id="pdHint" style="min-height:18px">${PD.cust && !side ? pdHint(PD.cust) : ""}</div></div>
     <div class="f"><input id="pdName" data-ph placeholder="Customer name *" aria-label="Customer name" value="${esc(PD.name)}"></div>
@@ -2952,10 +2955,10 @@ function pdNeed(){ const need = [];
   if(PD.type==="delivery") [["street","area / street"],["building","building"],["floor","floor"]].forEach(([k,l]) => { if(!String(PD.addr[k]||"").trim()) need.push(l); });
   return need; }
 document.addEventListener("input", () => { if(modalKind==="pdnew") pdRefresh(); });
-function pdRefresh(){ if(!PD || modalKind!=="pdnew") return; pdKeep(); const b = $("#pdGo"); if(b) b.disabled = !PD.source || pdNeed().length > 0; }
+function pdRefresh(){ if(!PD || modalKind!=="pdnew") return; pdKeep(); const b = $("#pdGo"); if(b) b.disabled = (!PD.source && !PD.edit) || pdNeed().length > 0; }
 async function pdContinue(){
   pdKeep(); const need = pdNeed();
-  if(!PD.source){ $("#pdErr").textContent = "Pick the order source."; return; }
+  if(!PD.source && !PD.edit){ $("#pdErr").textContent = "Pick the order source."; return; }
   if(need.length){ $("#pdErr").textContent = "Enter the customer's " + need.join(", ").replace(/, ([^,]*)$/, " and $1") + "."; return; }
   if(PD.edit){ pdSaveCust(); otype = PD.type==="delivery" ? "delivery" : "takeaway"; cust = { name: PD.name.trim(), phone: normPhone(PD.phone, PD.cc) || PD.phone.trim(), addr: PD.type==="delivery" ? { ...PD.addr } : {}, source: PD.source || "" }; PD = null; closeModal(); renderCart(); renderMenu(); return toast("Customer details saved"); }
   pdSaveCust();
