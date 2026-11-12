@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="792-1794501025">
+<meta name="slick-build" content="793-1794501287">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this copy, reload once (never for an older one) */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -58,6 +58,18 @@ button[data-npk="C"],button[data-kp="C"]{font-weight:700;color:#e5484d!important
 .pdts .tseg button.on{background:#fff!important;color:#5b2bc4!important;box-shadow:0 1px 3px rgba(21,19,31,.12)!important}.pdts .tseg svg{width:18px;height:18px}.pdts select{min-height:52px;height:100%}
 .ctxpd .ctxt{flex-basis:100%;display:flex;align-items:center;gap:8px;color:#5b2bc4}.ctxpd .ctxt svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}.ctxpd .ctxt b{font-size:16px}
 .ttile.tmerged{background:#f3f0fb!important;border-color:#c9bdf0!important}.ttile.tmerged .tn{color:#5b2bc4!important}
+#modal.splm{width:min(720px,94vw)!important;max-width:720px!important;border-radius:22px!important}
+.splm .mh{justify-content:center}.splm .mh h2{text-align:center;flex:1}
+.splm .splwin{min-width:0!important}.splm .splwin>.dseg{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.splm .splwin>.dseg button{min-height:48px}
+.splm .splstep button,.splm .splrow .dseg button,.splm .splparts2 button{display:inline-flex!important;visibility:visible!important;opacity:1!important}
+.splm .splrow{padding:8px 0;border-bottom:1px dashed var(--line)}.splm .splrow .dseg{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.splm .splrow .dseg button{align-items:center;justify-content:center;width:44px;height:44px;border:1px solid var(--line);border-radius:10px;background:var(--s);font-weight:700}.splm .splrow .dseg button.on{background:#efe9fb;border-color:#5b2bc4;color:#5b2bc4}
+.splm .dinput{justify-content:center}.splm .dinput input{text-align:center;font-size:32px;font-weight:700}
+.splm .npad{display:grid!important;grid-template-columns:repeat(3,1fr)!important;gap:8px!important;max-width:360px;margin:0 auto!important}.splm .npad button{min-height:52px;border:0;border-radius:14px;background:#f4f3f8;font-size:22px;font-weight:600}
+.splm .mf .btn{flex:1;min-height:52px}
+.splm .npad button{aspect-ratio:auto!important;height:50px!important;min-height:0!important}.splm .npad{max-width:420px}
+.splm .splstep button{display:inline-flex!important;align-items:center;justify-content:center;padding:0;line-height:1}.splm .mb{max-height:calc(var(--sh,100vh) - 200px);overflow:auto}
+#modal.splm .pinpad.npad button{aspect-ratio:auto!important;height:50px!important;min-height:0!important;width:100%!important}#modal.splm .pinpad.npad{grid-template-columns:repeat(3,1fr)!important;max-width:420px!important;margin:0 auto!important;gap:8px!important}
 </style>
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
@@ -1541,9 +1553,9 @@ function renderCart(){
   const eo0 = editOrder(), canSwitch = !eo0;
   const rf = eo0 && eo0.status==="refund" ? eo0 : null, rfInv = rf && invNo(rf.invoiceRef || S.orders.find(x => x.id===rf.refundOf)?.invoiceNo);
   const ctx = rf ? `<div class="ctx"><span class="ci ci-svg">${ico("undo")}</span><div><b>Return</b><small>${rfInv ? "Original invoice " + esc(rfInv) : esc(typLbl(rf.type))}</small></div><span class="sp"></span></div>`
-    : otype==="dinein" ? `<div class="ctx"><span class="ci ci-svg">${ico("dine")}</span><div><b>${esc(tblLbl(tableNo || "—"))}</b><small>Dine-in${GUESTS ? ` · ${GUESTS} guest${GUESTS===1?"":"s"}` : ""}</small></div><span class="sp"></span>${canSwitch ? `<button data-ctx="fast">Remove table</button>` : ""}</div>`
+    : otype==="dinein" ? `<div class="ctx"><span class="ci ci-svg">${ico("dine")}</span><div><b>${esc(tblLbl(tableNo || "—"))}</b><small>${esc(["Dine-in" + (GUESTS ? ` · ${GUESTS} guest${GUESTS===1?"":"s"}` : ""), cust.name].filter(Boolean).join(" · "))}</small></div><span class="sp"></span>${canSwitch ? `<button data-ctx="custlite">${cust.name ? "Edit Customer" : "Add Customer"}</button><button data-ctx="fast">Remove table</button>` : ""}</div>`
     : otype==="takeaway" || otype==="delivery" ? `<div class="ctx ctxpd"><div class="ctxt"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="17" r="2.5"/><circle cx="18" cy="17" r="2.5"/><path d="M8.5 17h7M15 6h3l2.5 8.5M15 6l-2 8.5H8.5L7 11H3.5M3 8h5"/><path d="M8 4h5v4H8z"/></svg><b>Pickup & Delivery</b></div><div><b>${esc(cust.name || "No customer yet")}</b><small>${esc([otype==="delivery" ? "Delivery" : "Pickup", cust.source, branch?.name].filter(Boolean).join(" / "))}</small></div><span class="sp"></span>${canSwitch ? `<button data-ctx="pddetails">${cust.name ? "Edit Customer" : "Add Customer"}</button>` : ""}</div>`
-    : `<div class="ctx"><span class="ci ci-svg"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12v18l-2-1.5L14 21l-2-1.5L10 21l-2-1.5L6 21z"/><path d="M9 8h6M9 12h6M9 16h3"/></svg></span><div><b>Fast Sale</b></div><span class="sp"></span></div>`;
+    : `<div class="ctx"><span class="ci ci-svg"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12v18l-2-1.5L14 21l-2-1.5L10 21l-2-1.5L6 21z"/><path d="M9 8h6M9 12h6M9 16h3"/></svg></span><div><b>Fast Sale</b>${cust.name ? `<small>${esc([cust.name, telFmt(cust.phone)].filter(Boolean).join(" · "))}</small>` : ""}</div><span class="sp"></span>${canSwitch ? `<button data-ctx="custlite">${cust.name ? "Edit Customer" : "Add Customer"}</button>` : ""}</div>`;
   // the order's tags, under the order type: "Tag: …"
   const tgIds = posTags ?? (eo0 ? (tgDoc().on?.order?.[eo0.id] || []) : []), tgNames = tgIds.map(id => tgList("order").find(t => t.id===id)?.name).filter(Boolean);
   const ctxT = tgNames.length ? ctx.replace('</div><span class="sp"></span>', `<small class="ctag">Tag: ${esc(tgNames.join(", "))}</small></div><span class="sp"></span>`) : ctx;
@@ -1797,6 +1809,7 @@ $("#lines").addEventListener("click", e => { const rn = e.target.closest("[data-
 $("#extra").addEventListener("click", e => { const ht = e.target.closest("[data-hgettab]"); if(ht) return retrieveHeld(ht.dataset.hgettab);
   const cx = e.target.closest("[data-ctx]");
   if(cx && cx.dataset.ctx==="table") return openTables();
+  if(cx && cx.dataset.ctx==="custlite") return openCustLite();
   const ot = e.target.closest("[data-ctxot]"); if(ot){ const v = ot.dataset.ctxot; if(v===otype) return;   // pickup ↔ delivery from the cart; delivery needs an address first
     if(v==="delivery" && !addrJoin(cust.addr || {})){ PD = { type:"delivery", phone: cust.phone, name: cust.name, addr: {}, source: cust.source || "", cust:null, edit:true }; return openPDNew(); }
     otype = v; posChg = null; repriceCart(); renderCart(); renderMenu(); return; }
@@ -2113,7 +2126,7 @@ function openSplit(){
     <div class="splstep"><span>${d.mode==="items" ? "Guests" : "Parts"}</span><button type="button" data-spln="-1" ${d.n <= 2 ? "disabled" : ""}>−</button><b>${d.n}</b><button type="button" data-spln="1" ${d.n >= 20 ? "disabled" : ""}>+</button></div>
     <div class="splparts2" id="splParts"></div>${body}</div>
     <div class="mf"><button class="btn" data-splback>Cancel</button><button class="btn pri" id="splGo">Continue</button></div>`, true);
-  $("#modal").classList.add("kpm");
+  $("#modal").classList.add("splm");
   $("#splAmt")?.addEventListener("input", e => { SPLD.amts[SPLD.sel] = +e.target.value || 0; splPaint(); });
   splPaint();
 }
@@ -2906,6 +2919,32 @@ async function pdSaveCust(){
     } else if(ph.length >= 6 && name) await window.WOK.sb.from("customers").insert({ phone:ph, name, addresses: a ? [{ address:a }] : [] });
   }catch(e){ console.warn("customer not saved", e); }
 }
+// fast sale / dine-in: a customer on the order (phone and name only, no address), e.g. for loyalty points later
+let CL = null;
+function openCustLite(){
+  const sp = telSplit(cust.phone) || { cc: CC_OF[coS().country || "Lebanon"] || "+961", num: cust.phone || "" }; CL = { cust:null };
+  modal("custlite", `<div class="mh"><h2>Customer Details</h2></div><div class="mb"><div class="pdform" style="display:flex;flex-direction:column;gap:10px">
+    <div class="f2" style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><div class="f"><select id="clCc" data-noseg aria-label="Country code">${Object.entries(CC_OF).map(([n,c]) => `<option value="${c}" ${sp.cc===c?"selected":""}>${c} ${esc(n)}</option>`).join("")}</select></div>
+    <div class="f"><input id="clPhone" inputmode="tel" placeholder="Customer Phone *" value="${esc(sp.num)}" aria-label="Customer phone"></div></div>
+    <div class="f"><input id="clName" placeholder="Customer Name *" value="${esc(cust.name || "")}" aria-label="Customer name"></div><div class="err" id="clErr"></div></div></div>
+    <div class="mf">${cust.name ? `<button class="btn bad" id="clRm" style="margin-right:auto">Remove</button>` : ""}<button class="btn" data-close>Cancel</button><button class="btn pri" id="clGo">Save</button></div>`);
+  setTimeout(() => $("#clPhone")?.focus(), 30);
+}
+let clT = null;
+document.addEventListener("input", e => { if(e.target.id!=="clPhone" || !CL) return; $("#clName").value = ""; CL.cust = null; clearTimeout(clT);   // a new number: look the customer up
+  clT = setTimeout(async () => { const ph = normPhone($("#clPhone")?.value, $("#clCc")?.value); if(ph.length < 6 || !window.WOK?.sb || !navigator.onLine) return;
+    try{ const { data } = await window.WOK.sb.from("customers").select("id,name,phone,addresses").in("phone", phoneVariants(ph)).limit(1);
+      if(normPhone($("#clPhone")?.value, $("#clCc")?.value)!==ph || !CL) return; CL.cust = data?.[0] || null; if(CL.cust?.name && !$("#clName").value.trim()) $("#clName").value = CL.cust.name; }catch(err){ console.warn(err); } }, 450); });
+$("#modal").addEventListener("click", async e => {
+  if(e.target.closest("#clRm")){ cust = { ...cust, name:"", phone:"" }; CL = null; closeModal(); renderCart(); return; }
+  if(!e.target.closest("#clGo")) return;
+  const ph = normPhone($("#clPhone")?.value, $("#clCc")?.value), name = ($("#clName")?.value || "").trim();
+  if(ph.length < 6){ $("#clErr").textContent = "Enter the customer's phone number."; return $("#clPhone").focus(); }
+  if(!name){ $("#clErr").textContent = "Enter the customer's name."; return $("#clName").focus(); }
+  const c0 = CL?.cust || null; cust = { ...cust, name, phone: ph }; CL = null; closeModal(); renderCart();
+  const keep = PD; PD = { phone: $("#clPhone")?.value || ph, cc: "", name, type: otype, addr:{}, cust: c0 }; PD.phone = ph; try{ await pdSaveCust(); }finally{ PD = keep; }   // saved to Customers for loyalty points
+});
+document.addEventListener("keydown", e => { if(modalKind!=="custlite") return; if(e.key==="Enter"){ e.preventDefault(); $("#clGo")?.click(); } });
 function pdKeep(){ if(!PD || modalKind!=="pdnew") return; PD.phone = $("#pdPhone")?.value || ""; PD.cc = $("#pdCc")?.value || PD.cc; PD.name = $("#pdName")?.value || ""; ADDR_K.forEach(k => { const el = $("#pdA_" + k); if(el) PD.addr[k] = el.value; }); }
 // what is still missing before the order can continue (Continue stays grey until nothing is)
 function pdNeed(){ const need = [];
