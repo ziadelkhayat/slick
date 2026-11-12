@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="794-1794501609">
+<meta name="slick-build" content="795-1794502180">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this copy, reload once (never for an older one) */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -2105,7 +2105,7 @@ function openPay(){
 }
 /* ---------- split check: equally, by items (each unit to a guest), or by amount; each part is paid on its own ---------- */
 let SPL = null, SPLD = null;   // SPL: the split being paid { key, total, parts, i, paid, lbl, items } · SPLD: the split window's draft
-const splUnits = () => cart.flatMap(i => { const q = Math.max(1, Math.round(+i.qty||1)), v = lineNet(i) / q; return Array.from({ length:q }, (_,u) => ({ v, lbl: q > 1 ? `${i.name} (${u+1}/${q})` : i.name })); });
+const splUnits = () => cart.flatMap((i, ix) => { const q = Math.max(1, Math.round(+i.qty||1)), v = lineNet(i) / q; return Array.from({ length:q }, (_,u) => ({ ix, v, lbl: q > 1 ? `${i.name} (${u+1}/${q})` : i.name })); });
 function splParts(){
   const d = SPLD, t = totals().total, D = DEC(), r = v => +(+v).toFixed(D);
   if(d.mode==="eq"){ const a = Math.floor(t / d.n * Math.pow(10, D)) / Math.pow(10, D); return Array.from({ length:d.n }, (_,g) => g < d.n-1 ? a : r(t - a*(d.n-1))); }
@@ -2186,12 +2186,28 @@ async function completeSale(){
   let haCh = payMethod?.type==="house" && HA ? [{ id: HA.id, amount: +t.total.toFixed(2) }] : [];
   if(SPL){ const l = [...SPL.paid.slice(0, SPL.i), payPartRec(SPL.parts[SPL.i])], ms = [...new Set(l.map(p => p.method))], ty = [...new Set(l.map(p => p.type))];
     order.payment = { method: ms.join(" + "), type: ty.length===1 ? ty[0] : "split", methodId: l[0].methodId, tendered: +l.reduce((a,p) => a + p.tendered, 0).toFixed(DEC()), change: +l.reduce((a,p) => a + p.change, 0).toFixed(DEC()), splits: l };
-    haCh = l.filter(p => p.haId).map(p => ({ id: p.haId, amount: +p.amount.toFixed(2) })); }
+    haCh = l.filter(p => p.haId).map(p => ({ id: p.haId, amount: +p.amount.toFixed(2), part: l.indexOf(p) })); }
+  // split check: every part is its own sale, with its own reference and invoice number (given by the server), linked by payment.split
+  let parts = null;
+  if(SPL){ const l = order.payment.splits, n = l.length, grp = "spl_" + Date.now().toString(36), T = +t.total || 1, items0 = cart.map(cleanItem);
+    parts = l.map((p, i) => { const f = p.amount / T, sc = v => +((+v||0) * f).toFixed(2); let items;
+      if(SPL.items && SPL.items[i]){ const cnt = {}; SPL.items[i].forEach(u => { cnt[u.ix] = (cnt[u.ix]||0) + 1; });   // by items: the guest's own items
+        items = Object.entries(cnt).map(([ix, c]) => { const it = items0[+ix], q = +it.qty||1; return { ...it, qty: c, ...(+it.disc ? { disc: +(it.disc * c / q).toFixed(2) } : {}) }; }); }
+      else items = items0.map(it => ({ ...it, qty: +((+it.qty||1) * f).toFixed(3), ...(+it.disc ? { disc: sc(it.disc) } : {}) }));   // equally / by amount: each part carries its share of every item
+      const { haId, amount, ...pay } = p;
+      return { ...order, items, subtotal: sc(order.subtotal), discount: sc(order.discount), charges: (order.charges||[]).map(c => ({ ...c, amount: sc(c.amount) })), chargesTotal: sc(order.chargesTotal), tax: sc(order.tax), total: +(+amount).toFixed(2),
+        payment: { ...pay, split: { part: i + 1, of: n, group: grp } } }; }); }
   const anyCash = SPL ? order.payment.splits.some(p => p.type==="cash") : cashPay, lastChg = SPL ? order.payment.splits[order.payment.splits.length - 1].change : order.payment.change;
   $("#confirmPay").disabled = true;
   try{
     const eo = editOrder();
-    if(eo){   // billing an open order: it keeps its number, channel and customer; this register bills it
+    if(parts){ const eox = eo ? { channel: eo.channel, source: cust.source || eo.source || "", createdAt: eo.createdAt, brandId: eo.brandId || order.brandId, handledBy: cashier?.name || device.name,
+        ...(eo.channel!=="pos" ? { agent: eo.agent, customerName: eo.customerName || order.customerName, phone: eo.phone || order.phone, address: eo.address || order.address } : {}) } : {}, ids = [];
+      for(let i = 0; i < parts.length; i++){ const po = { ...parts[i], ...eox };
+        if(i===0 && eo){ po.no = eo.no || no; await db.collection("orders").doc(eo.id).update(po); ids.push(eo.id); }   // the open order becomes the first part
+        else { const id = "pos_" + Date.now().toString(36) + Math.random().toString(36).slice(2,5) + "_" + (i + 1); await db.collection("orders").doc(id).set(po); ids.push(id); } }
+      EDIT = null; order.id = ids[0]; haCh.forEach(h => { h.oid = ids[h.part]; });
+    } else if(eo){   // billing an open order: it keeps its number, channel and customer; this register bills it
       Object.assign(order, { no: eo.no || no, channel: eo.channel, source: cust.source || eo.source || "", createdAt: eo.createdAt, brandId: eo.brandId || order.brandId, items: cart.map(cleanItem),
         ...(eo.channel!=="pos" ? { agent: eo.agent, customerName: eo.customerName || order.customerName, phone: eo.phone || order.phone, address: eo.address || order.address } : {}), handledBy: cashier?.name || device.name });
       await db.collection("orders").doc(eo.id).update(order); EDIT = null;
@@ -2200,13 +2216,13 @@ async function completeSale(){
     await db.collection("orders").doc(id).set(order); order.id = id;
     }
     posTagsCommit(order.id || eo?.id);
-    for(const hc of haCh){ const oid = order.id || editOrder()?.id || eo?.id;   // the sale (or its split part) goes on the customer's house account
+    for(const hc of haCh){ const oid = hc.oid || order.id || editOrder()?.id || eo?.id;   // the sale (or its split part) goes on the customer's house account
       const { error: he } = await window.WOK.sb.from("house_account_txns").insert({ customer_id: hc.id, kind:"charge", amount: hc.amount, method:"House Account", order_id: oid || null, order_ref: order.no ? "#" + order.no : null, branch_id: device.branchId, created_by: cashier?.name || device.name });
       if(he){ console.error(he); toast("Sale saved, but the house account charge failed: " + he.message); } } HA = null;
     closeModal(); resetOrder();
     const lk = devSet().lockAfterSale && usePins();
     if(anyCash){ CHG_LOCK = lk; showChange(lastChg, "Sale complete · " + usd(order.total)); }   // the change to hand back, in a popup
-    else { toast(`Sale complete · ${usd(order.total)}`); if(lk) lock(); } if(!syncSt.online) toast("Saved on this tablet · will sync when online");
+    else { toast(`Sale complete · ${usd(order.total)}${parts ? ` · ${parts.length} checks` : ""}`); if(lk) lock(); } if(!syncSt.online) toast("Saved on this tablet · will sync when online");
   }catch(err){ console.error(err); if(!eo0?.no) giveBackNo(no); toast("Couldn't save the sale. Try again."); $("#confirmPay").disabled = false; }
 }
 // item name in the receipt's print language (Brands → Settings → Receipt)
@@ -2276,7 +2292,7 @@ function approve(perm, title){
 
 /* ---------- orders: list, delivery & pickup management, void (active) and return (closed) ---------- */
 let OV = { tab:"all", q:"", open:null, view:"list", filt:false, ft:"", fc:"", fs:"", fp:"" };
-const stLbl = o => o.status==="declined" && /^Merged/.test(o.voidReason||"") ? "Merged" : ({ refund:"Returned", pending:"Waiting for you", active:"Active", closed:"Done", void:"Void", returned:"Returned", declined:"Declined", draft:"Draft" }[o.status] || o.status);
+const stLbl = o => ({ refund:"Returned", pending:"Waiting for you", active:"Active", closed:"Done", void:"Void", returned:"Returned", declined:"Declined", draft:"Draft" }[o.status] || o.status);
 const typLbl = t => t==="fast" ? "Fast sale" : t==="dinein" ? "Dine-in" : t==="pickup"||t==="takeaway" ? "Pickup" : t==="delivery" ? "Delivery" : (t||"—");
 const invNo = n => n ? "INV-" + String(n).padStart(6,"0") : "";   // invoice number as shown and printed
 const ordRef = o => o.status==="refund" ? "RET-" + String(o.returnNo || "…").padStart(6,"0") : o.no ? "#" + o.no : o.invoiceNo ? invNo(o.invoiceNo) : "—";
