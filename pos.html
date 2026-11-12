@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="773-1794487823">
+<meta name="slick-build" content="774-1794488078">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this copy, reload once (never for an older one) */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -2719,16 +2719,17 @@ function pdAddrShow(card){
 const PIN_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>`;
 // delivery address: its own window. The saved addresses first; press one (or New address) for its full details, which can be edited
 function pdAddrPop(view){
-  pdKeep(); const saved = (PD.cust?.addresses || []).filter(a => a.address); if(view===undefined) view = saved.length ? "list" : "new";
+  pdKeep(); const saved = (PD.cust?.addresses || []).filter(a => a.address), cur = addrJoin(PD.addr || {}), curNew = !!cur && !saved.some(x => addrJoin(addrParts(x.address))===cur), hasList = saved.length > 0 || curNew;
+  if(view===undefined) view = hasList ? "list" : "new";
   let el = $("#adPop"); if(!el){ el = document.createElement("div"); el.id = "adPop"; el.className = "scrim show npsc adpop"; document.body.appendChild(el); }
-  const cur = addrJoin(PD.addr || {});
-  if(view==="list"){ el.innerHTML = `<div class="modal"><div class="mh"><h2>Saved addresses</h2><button class="x" data-adx aria-label="Close">×</button></div><div class="mb"><div class="acards">${saved.map((a,i) => { const p = addrParts(a.address);
+  const ca = PD.addr || {}, curCard = curNew ? `<button type="button" class="acard on" data-adopen="cur"><span class="aci">${PIN_SVG}</span><span class="act"><b>${esc(ca.label || "Address")}</b><span>${esc(ca.street || "")}</span>${ca.building || ca.floor ? `<small>${esc([ca.building && "Bldg " + ca.building, ca.floor && "Floor " + ca.floor].filter(Boolean).join(" · "))}</small>` : ""}</span><span class="acok">✓</span></button>` : "";
+  if(view==="list"){ el.innerHTML = `<div class="modal"><div class="mh"><h2>Saved addresses</h2><button class="x" data-adx aria-label="Close">×</button></div><div class="mb"><div class="acards">${curCard}${saved.map((a,i) => { const p = addrParts(a.address);
       return `<button type="button" class="acard${cur && cur===addrJoin(p) ? " on" : ""}" data-adopen="${i}"><span class="aci">${PIN_SVG}</span><span class="act"><b>${esc(p.label || "Address " + (i+1))}</b><span>${esc(p.street || a.address)}</span>${p.building || p.floor ? `<small>${esc([p.building && "Bldg " + p.building, p.floor && "Floor " + p.floor].filter(Boolean).join(" · "))}</small>` : ""}</span><span class="acok">✓</span></button>`; }).join("")}
       <button type="button" class="acard new" data-adopen="new"><span class="aci"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></span><span class="act"><b>New address</b></span></button></div></div></div>`; return; }
   const a = view==="new" ? {} : view==="cur" ? { ...(PD.addr||{}) } : addrParts(saved[+view]?.address), lbl = String(a.label||"").trim();
   el.dataset.ix = view==="new" ? "" : view==="cur" ? (PD.addrIx ?? "") : (PD.cust?.addresses || []).indexOf(saved[+view]);   // which saved address is being edited, so saving overwrites it
   const F = [["street","Area / street *"],["building","Building name / no. *"],["floor","Floor / Apartment no. *"],["door","Door details / Name on intercom"],["extra","Instructions"]];
-  el.innerHTML = `<div class="modal"><div class="mh">${saved.length ? `<button class="adback" data-adopen="list" aria-label="Back">‹</button>` : ""}<h2>${view==="new" ? "New address" : esc(lbl || "Address details")}</h2><button class="x" data-adx aria-label="Close">×</button></div>
+  el.innerHTML = `<div class="modal"><div class="mh">${hasList ? `<button class="adback" data-adopen="list" aria-label="Back">‹</button>` : ""}<h2>${view==="new" ? "New address" : esc(lbl || "Address details")}</h2><button class="x" data-adx aria-label="Close">×</button></div>
     <div class="mb"><div class="addrg"><label class="adf"><select id="adA_label" data-noseg aria-label="Address type"><option value="">Address type</option>${[...new Set([...ADDR_TYPES, lbl].filter(Boolean))].map(t => `<option ${t===lbl?"selected":""}>${esc(t)}</option>`).join("")}</select></label>
       ${F.map(([k,ph]) => `<label class="adf${k==="extra" ? " wide" : ""}"><input id="adA_${k}" data-ph placeholder="${ph}" aria-label="${ph}" value="${esc(a[k]||"")}"></label>`).join("")}</div><div class="err" id="adErr"></div></div>
     <div class="mf">${el.dataset.ix!=="" && +el.dataset.ix >= 0 && PD.cust?.id ? `<button class="btn bad" id="adDel" style="margin-right:auto">Delete</button>` : ""}<button class="btn" data-adx>Cancel</button><button class="btn pri" id="adGo">Save</button></div></div>`;
@@ -2746,7 +2747,7 @@ function pdAddrUse(){ const a = {}; ADDR_K.forEach(k => a[k] = ($("#adA_" + k)?.
   const ix = $("#adPop")?.dataset.ix; PD.addrIx = ix==="" || ix==null || +ix < 0 ? null : +ix;
   PD.addr = a; $("#adPop")?.remove(); const y = $(".pdform")?.scrollTop || 0; openPDNew({ keepFocus: true }); const f = $(".pdform"); if(f) f.scrollTop = y; }
 document.addEventListener("click", e => { const t = e.target; if(!t.closest) return;
-  if(t.closest("[data-adpop]") && PD){ if($("#adPop")) return; return pdAddrPop(addrJoin(PD.addr || {}) && !(PD.cust?.addresses||[]).some(x => x.address && addrJoin(addrParts(x.address))===addrJoin(PD.addr)) ? "cur" : undefined); }
+  if(t.closest("[data-adpop]") && PD){ if($("#adPop")) return; return pdAddrPop(); }   // the address list first (the one in use, saved ones, New address)
   if(!t.closest("#adPop")) return;
   if(t.closest("[data-adx]")) return $("#adPop").remove();
   const o = t.closest("[data-adopen]"); if(o) return pdAddrPop(o.dataset.adopen);
