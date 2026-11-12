@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="821-1794512529">
+<meta name="slick-build" content="822-1794512989">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this copy, reload once (never for an older one) */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -15,11 +15,13 @@
 <script>/* one layout per tablet shape: 16:10 (1280 x 800) and 4:3 (1024 x 768). Every screen opens one of the two, by the shape of the device;
    any other shape (PC, wide or tall screens) shows the same layout centred, with bars beside or above it, never a different layout */
 (function(){ var d = document, H = d.documentElement, m = d.querySelector('meta[name="viewport"]'), T16 = { w:1280, h:800 }, T43 = { w:1024, h:768 }, lw = 0, lh = 0;
+  var PC = !window.Capacitor && !(navigator.maxTouchPoints > 0) && !!(window.matchMedia && matchMedia("(hover:hover) and (pointer:fine)").matches);   /* a computer with a mouse (not a tablet or the app) */
   function pick(){ var sw = (window.screen && screen.width) || innerWidth, sh = (window.screen && screen.height) || innerHeight, r = Math.max(sw, sh) / Math.max(1, Math.min(sw, sh)); return r >= 1.4667 ? T16 : T43; }
-  function full(iw, ih){   /* iPad app: innerHeight can leave out the status bar strip, which left a gap at the bottom; use the screen's own short side, scaled like the page */
-    try{ var ios = (window.Capacitor || navigator.standalone) && /iPad|iPhone|Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1; if(!ios || ih > iw) return ih;
-      var S = Math.max(screen.width, screen.height), s = Math.min(screen.width, screen.height), f = Math.floor(s * iw / S); return f > ih && f - ih <= 40 ? f : ih; }catch(e){ return ih; } }
   function fit(force){ var T = pick(), iw = innerWidth, ih = innerHeight; if(!iw || !ih) return;
+    if(PC){   /* on a computer the POS is shown exactly as on a 16:10 Android tablet (1280 x 800), scaled to fit the window and centred */
+      var k = Math.min(iw / 1280, ih / 800); H.style.zoom = k;
+      H.style.setProperty("--sw", "1280px"); H.style.setProperty("--sh", "800px"); H.style.setProperty("--sl", Math.max(0, Math.round((iw / k - 1280) / 2)) + "px"); H.style.setProperty("--st", Math.max(0, Math.round((ih / k - 800) / 2)) + "px");
+      H.setAttribute("data-stage", "16x10"); H.setAttribute("data-pc", "1"); H.removeAttribute("data-rot"); return; }
     var ae = d.activeElement; if(!force && iw === lw && ih < lh && ae && /INPUT|TEXTAREA/.test(ae.tagName)) return;   /* the on-screen keyboard doesn't shrink the app */
     lw = iw; lh = ih;
     var rot = ih > iw;   /* held upright: the app stays landscape (turned a quarter), as in a store app locked to landscape */
@@ -32,9 +34,11 @@
   try{ var so = screen.orientation; if(so && so.lock) so.lock("landscape").catch(function(){}); }catch(e){}
   fit(true); addEventListener("resize", function(){ fit(); }); addEventListener("orientationchange", function(){ setTimeout(function(){ fit(true); }, 300); });
   /* positions are always worked out in the app's own (landscape) frame, also when it is shown turned */
-  window.__rect = function(el){ var q = el.getBoundingClientRect(); if(!H.hasAttribute("data-rot")) return q; var b = d.body.getBoundingClientRect(); return { left: q.top - b.top, top: b.right - q.right, width: q.height, height: q.width, right: q.top - b.top + q.height, bottom: b.right - q.right + q.width }; };
-  window.__stage = function(){ var b = d.body.getBoundingClientRect(); return H.hasAttribute("data-rot") ? { l:0, t:0, w:b.height, h:b.width } : { l:b.left, t:b.top, w:b.width, h:b.height }; }; })();</script>
+  window.__rect = function(el){ var q = el.getBoundingClientRect(); var z = H.hasAttribute("data-pc") ? (+H.style.zoom || 1) : 1; if(z !== 1) return { left: q.left / z, top: q.top / z, width: q.width / z, height: q.height / z, right: q.right / z, bottom: q.bottom / z, x: q.left / z, y: q.top / z };   /* on a computer the app is zoomed: work in its own 1280 x 800 frame */
+    if(!H.hasAttribute("data-rot")) return q; var b = d.body.getBoundingClientRect(); return { left: q.top - b.top, top: b.right - q.right, width: q.height, height: q.width, right: q.top - b.top + q.height, bottom: b.right - q.right + q.width }; };
+  window.__stage = function(){ var b = d.body.getBoundingClientRect(), z = H.hasAttribute("data-pc") ? (+H.style.zoom || 1) : 1; if(z !== 1) return { l:b.left / z, t:b.top / z, w:b.width / z, h:b.height / z }; return H.hasAttribute("data-rot") ? { l:0, t:0, w:b.height, h:b.width } : { l:b.left, t:b.top, w:b.width, h:b.height }; }; })();</script>
 <style>html{overflow:hidden!important;height:100%}
+html[data-pc]{background:#dcd9e6}
 html[data-stage] body{position:fixed!important;left:var(--sl,0)!important;top:var(--st,0)!important;width:var(--sw,100vw)!important;height:var(--sh,100vh)!important;min-height:0!important;margin:0!important;overflow:hidden!important;transform:translate(0,0);contain:layout}html[data-stage][data-rot] body{transform:rotate(90deg)!important;transform-origin:50% 50%}/* one tile format for the orders history and the pickup & delivery board */
 .ohtile,.ocard.tl{display:flex!important;flex-direction:column!important;align-items:flex-start!important;gap:5px!important;text-align:left;text-transform:none}
 .ohtile>b,.ocard.tl>b{font-size:15px!important;font-weight:700;word-break:break-word;font-family:inherit}
@@ -988,8 +992,6 @@ let nhT = null; new MutationObserver(() => { if(!nhT) nhT = requestAnimationFram
 // status / confirmation messages aren't shown (only problems and instructions are)
 const QUIET = /^(Syncing|Signed in as|Logged out|Device activated|Till opened|Till closed · drawer balanced|Till closed$|Tags (set|saved)|Printer (saved|deleted)|Customer details saved|(Item )?[Dd]iscount removed|Note (added|removed)|All offline sales synced|Users synced|Retrying|Sales history was cleared|Saved on this tablet · will sync|Shift (opened|closed)$|Synced$|Saved$|.* clocked (in|out)$|Till Closed$|Sale complete|Saved · order|Order held as|Order H\d+ retrieved|Printed$|Sent to \d+ printers|Order #\S+ sent to the kitchen|Voided|Refund ticket created|Day ended|Saved on this tablet · will sync|Offline ·|Still offline|Syncing data)/;
 let tt; const TOAST_ERR = /^(Couldn't|Enter |Add the customer|Add staff|Open till|Open the till|Complete fast sale|Nothing left|This order is|Offline|Still offline|Saved on this tablet only)|out of stock|doesn't allow|isn't |aren't |can't |cannot |failed|couldn't|is over$|not available|Minimum order/i;
-document.addEventListener("click", e => { if(!e.target.closest || !e.target.closest("#netTag")) return; try{ const pr = document.createElement("div"); pr.style.cssText = "position:fixed;top:0;left:0;width:100vw;height:100vh;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom) env(safe-area-inset-left);visibility:hidden"; document.body.appendChild(pr); const cs = getComputedStyle(pr), r = document.body.getBoundingClientRect(), vv = window.visualViewport;
-  const t = ["win " + innerWidth + "x" + innerHeight, "vh " + pr.offsetWidth + "x" + pr.offsetHeight, "scr " + screen.width + "x" + screen.height, "dpr " + devicePixelRatio, "vv " + (vv ? Math.round(vv.width) + "x" + Math.round(vv.height) + " s" + vv.scale.toFixed(3) : "-"), "safe t" + cs.paddingTop + " b" + cs.paddingBottom + " l" + cs.paddingLeft, "body " + Math.round(r.left) + "," + Math.round(r.top) + " " + Math.round(r.width) + "x" + Math.round(r.height), "app " + (window.Capacitor ? "cap" : navigator.standalone ? "pwa" : "web")].join(" · "); pr.remove(); const el = $("#toast"); toast(t); if(el){ el.style.whiteSpace = "normal"; setTimeout(() => { el.style.whiteSpace = ""; }, 12000); } }catch(x){} });   /* screen readout for sizing the layout on a tablet */
 const toast = (m, err) => { if(QUIET.test(String(m||""))) return; const t=$("#toast"); t.textContent=m; t.classList.toggle("ok", !(err || TOAST_ERR.test(String(m))));   /* red is for errors only; everything else is a green notification */ t.classList.add("show"); clearTimeout(tt); tt=setTimeout(()=>t.classList.remove("show"),3000); };   // messages drop in from the top
 const store = { get(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } }, set(k,v){ try{ v==null?localStorage.removeItem(k):localStorage.setItem(k,v); }catch(e){} } };
 
