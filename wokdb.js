@@ -227,14 +227,14 @@
 
   /* ---------- staff login ---------- */
   let staff = null, readyResolve; const ready = new Promise(r => readyResolve = r);
-  const css = `.wk-gate{position:fixed;inset:0;background:radial-gradient(1200px 600px at 20% 0%,#ece6ff,transparent),radial-gradient(900px 500px at 100% 100%,#f6e8ff,transparent),#f4f5fa;display:grid;place-items:center;z-index:9999;font-family:Inter,system-ui,sans-serif;padding:20px}
+  const css = `.wk-gate{position:fixed;inset:0;background:radial-gradient(1200px 600px at 20% 0%,#eafbf6,transparent),radial-gradient(900px 500px at 100% 100%,#ebfcf7,transparent),#f4f5fa;display:grid;place-items:center;z-index:9999;font-family:Inter,system-ui,sans-serif;padding:20px}
   .wk-card{background:#fff;border-radius:22px;padding:34px;width:min(380px,100%);box-shadow:0 10px 40px rgba(30,20,60,.1)}
-  .wk-logo{width:56px;height:56px;border-radius:16px;background:linear-gradient(135deg,#6c47ff,#a855f7);box-shadow:0 8px 22px rgba(108,71,255,.4);color:#fff;display:grid;place-items:center;font-weight:700;font-size:22px;margin:0 auto 12px}
+  .wk-logo{width:56px;height:56px;border-radius:16px;background:linear-gradient(135deg,#0f9d76,#0f9d76);box-shadow:0 8px 22px rgba(15,157,118,.4);color:#fff;display:grid;place-items:center;font-weight:700;font-size:22px;margin:0 auto 12px}
   .wk-card h1{text-align:center;font-size:20px;margin:0 0 4px}.wk-card p{text-align:center;color:#5b5a66;margin:0 0 18px;font-size:14px}
   .wk-card label{display:block;font-size:13px;color:#5b5a66;margin:10px 0 5px;font-weight:500}
   .wk-card input{width:100%;box-sizing:border-box;padding:11px 12px;border:1px solid #e5e3ec;border-radius:10px;font:inherit}
-  .wk-card button{width:100%;margin-top:16px;padding:13px;border:0;border-radius:12px;background:linear-gradient(135deg,#6c47ff,#5130e8);box-shadow:0 6px 16px rgba(108,71,255,.3);color:#fff;font:inherit;font-weight:600;cursor:pointer}
-  .wk-card button:disabled{opacity:.6}.wk-forgot{display:block;text-align:center;margin-top:12px;font-size:13px;color:#5130e8;text-decoration:none}.wk-err{color:#9e0c24;font-size:13px;min-height:18px;margin-top:10px;text-align:center}`;
+  .wk-card button{width:100%;margin-top:16px;padding:13px;border:0;border-radius:12px;background:linear-gradient(135deg,#0f9d76,#0f9d76);box-shadow:0 6px 16px rgba(15,157,118,.3);color:#fff;font:inherit;font-weight:600;cursor:pointer}
+  .wk-card button:disabled{opacity:.6}.wk-forgot{display:block;text-align:center;margin-top:12px;font-size:13px;color:#0f9d76;text-decoration:none}.wk-err{color:#9e0c24;font-size:13px;min-height:18px;margin-top:10px;text-align:center}`;
   const IS_POS = document.title.includes("POS"); let emailMode = false, needsAct = false;
   function gate(msg, force){
     if(!document.body){ document.addEventListener("DOMContentLoaded", () => gate(msg, force), { once:true }); return; }   // page still loading
