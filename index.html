@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="766-1794434716">
+<meta name="slick-build" content="771-1794485770">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this copy, reload once (never for an older one) */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1369,7 +1369,11 @@ button.x[aria-label="Close"]{width:38px!important;height:38px!important;min-widt
 .ohtile>em,.ocard.tl>em{font-style:normal;font-weight:700;font-size:16px!important;margin-top:2px!important;color:var(--ink)}
 .ohtile>.spill,.ocard.tl>.spill{margin:0 0 2px!important;align-self:flex-start}.ocard.tl>small:empty{display:none}
 
-.reqst{color:#e5484d!important;font-weight:inherit}</style>
+.reqst{color:#e5484d!important;font-weight:inherit}
+/* small remove buttons: the × is drawn, so it sits in the exact centre of its box */
+.onx,.dlx,.mnx,.ccx1,.ofpx,.qtx{position:relative;padding:0!important;font-size:0!important;line-height:0!important;color:currentColor}
+.onx::before,.dlx::before,.mnx::before,.ccx1::before,.ofpx::before,.qtx::before{content:"";position:absolute;inset:0;margin:auto;width:clamp(8px,38%,12px);height:clamp(8px,38%,12px);background:currentColor;-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10'%3E%3Cpath d='M1.5 1.5l7 7M8.5 1.5l-7 7' stroke='black' stroke-width='1.7' stroke-linecap='round'/%3E%3C/svg%3E") center/contain no-repeat;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10'%3E%3Cpath d='M1.5 1.5l7 7M8.5 1.5l-7 7' stroke='black' stroke-width='1.7' stroke-linecap='round'/%3E%3C/svg%3E") center/contain no-repeat}
+</style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -3041,9 +3045,9 @@ const CRUD = {
     col:"taxes", title:"Taxes & Groups", one:"Tax", top: () => taxTabs("taxes"),
     tabs:[["all","All",live],["deleted","Deleted",r=>r.deleted]],
     sort:(a,b)=>a.name.localeCompare(b.name), search:r=>r.name,
-    cols:[["Name",r=>`<b>${esc(r.name)}</b>${r.nameAr?` <span class="note">${esc(r.nameAr)}</span>`:""}`],["Rate",r=>(+r.rate||0)+" %","num"],["Pricing",r=>r.inclusive===false ? "Added on top" : "Inclusive"],["Order types",r=>(r.orderTypes||[]).length ? r.orderTypes.map(t=>esc(TYPE_LBL[t]||t)).join(", ") : "All"],
+    cols:[["Name",r=>`<b>${esc(r.name)}</b>${r.nameAr?` <span class="note">${esc(r.nameAr)}</span>`:""}`],["Rate",r=>(+r.rate||0)+" %","num"],["Pricing",r=>r.inclusive===false ? "Added on top" : "Inclusive"],["Order types",r=>{ const l = (r.orderTypes||[]).filter(t => t!=="fast"); return l.length ? l.map(t=>esc(TYPE_LBL[t]||t)).join(", ") : "All"; }],
       ["Used in groups",r=>S.tax_groups.filter(g=>live(g)&&(g.taxIds||[]).includes(r.id)).map(g=>esc(g.name)).join(", ")||'<span class="note">—</span>'],["Created",r=>fmtDate(r.createdAt)]],
-    fields:[{k:"name",l:"Name",req:1,ph:"e.g. VAT"},{k:"nameAr",l:"Name Localized"},{k:"rate",l:"Rate (%)",t:"number",req:1},{k:"orderTypes",l:"Applies On",t:"multi",opts:()=>[["dinein","Dine-in"],["fast","Fast sale"],["pickup","Pickup"],["delivery","Delivery"]],def:["dinein","fast","pickup","delivery"]},{k:"inclusive",l:"Tax inclusive",t:"chk",def:true}],
+    fields:[{k:"name",l:"Name",req:1,ph:"e.g. VAT"},{k:"nameAr",l:"Name Localized"},{k:"rate",l:"Rate (%)",t:"number",req:1},{k:"orderTypes",l:"Applies On",t:"multi",opts:()=>[["dinein","Dine-in"],["pickup","Pickup"],["delivery","Delivery"]],def:["dinein","pickup","delivery"]},{k:"inclusive",l:"Tax inclusive",t:"chk",def:true}],
     unique:"name"
   },
   "tax-groups": {
@@ -3306,12 +3310,12 @@ const CRUD = {
     tabs:[["all","All",live],["active","Active",r=>live(r)&&r.active!==false],["inactive","Inactive",r=>live(r)&&r.active===false],["deleted","Deleted",r=>r.deleted]],
     sort:(a,b)=>bySort(a,b), search:r=>r.name+" "+(r.nameAr||""),
     cols:[["Name",r=>`<b>${esc(r.name)}</b>${r.nameAr?` <span class="note">${esc(r.nameAr)}</span>`:""}`],["Type",r=>r.type==="percent"?"Percentage":r.type==="open"?"Open amount":"Amount"],["Value",r=>r.type==="percent"?(+r.value||0)+" %":r.type==="open"?"Open":usd(r.value),"num"],
-      ["Order types",r=>(r.orderTypes||[]).length ? r.orderTypes.map(t=>esc(TYPE_LBL[t]||t)).join(", ") : "All"],["Brands / branches",r=>[(r.brandIds||[]).length ? r.brandIds.map(brandName).join(", ") : "All brands", (r.branchIds||[]).length ? (r.branchIds.includes("-") ? "no branches" : r.branchIds.length+" branch(es)") : "all branches"].map(esc).join(" · ")],
+      ["Order types",r=>{ const l = (r.orderTypes||[]).filter(t => t!=="fast"); return l.length ? l.map(t=>esc(TYPE_LBL[t]||t)).join(", ") : "All"; }],["Brands / branches",r=>[(r.brandIds||[]).length ? r.brandIds.map(brandName).join(", ") : "All brands", (r.branchIds||[]).length ? (r.branchIds.includes("-") ? "no branches" : r.branchIds.length+" branch(es)") : "all branches"].map(esc).join(" · ")],
       ["Status",r=>r.deleted?'<span class="tag off">Deleted</span>':r.active===false?'<span class="tag off">Inactive</span>':'<span class="tag on">Active</span>']],
     fields:[{k:"name",l:"Name",req:1,ph:"e.g. Delivery charge, Service charge"},{k:"nameAr",l:"Name Localized"},
       {k:"type",l:"Type",t:"select",req:1,opts:()=>[["fixed","Amount"],["percent","Percentage"],["open","Open amount"]],def:"fixed"},{k:"value",l:"Value",t:"number",ph:"e.g. 2 or 10 (empty for open amount)"},
       {k:"taxGroup",l:"Tax Group",t:"select",opts:()=>(S.tax_groups||[]).filter(live).map(g => [g.id, g.name])},
-      {k:"orderTypes",l:"Order types it applies to",t:"multi",full:1,opts:()=>[["dinein","Dine-in"],["fast","Fast sale"],["pickup","Pickup"],["delivery","Delivery"]],def:["delivery"]},
+      {k:"orderTypes",l:"Order types it applies to",t:"multi",full:1,opts:()=>[["dinein","Dine-in"],["pickup","Pickup"],["delivery","Delivery"]],def:["delivery"]},
       {k:"brandIds",l:"Brands (none ticked = every brand)",t:"multi",full:1,opts:()=>brandList().map(b=>[b.id,b.name])},
       {k:"branchIds",l:"Branches (none ticked = every branch)",t:"multi",full:1,opts:()=>branches.filter(b=>b.active!==false).map(b=>[b.id,(brandList().length>1?brandName(b.brandId)+" · ":"")+b.name])},
       {k:"active",l:"Active",t:"chk",def:true}],
@@ -6718,7 +6722,7 @@ document.addEventListener("input", e => { if(e.target.id==="dcQ"){ DC.q = e.targ
 /* ---------- Promotions (Marketing → Promotions): automatic offers, kept in settings "promotions": { list:[…] } ---------- */
 const PR = { tab:"all", q:"" };
 const PR_TYPES = [["freedel","Free Delivery","truck"],["disc","Discount","percent"],["bxgy","Buy X Get Y","gift"],["freeitem","Free Item","gift"],["itemdisc","Items Discount","tag"],["bundle","Meal Bundle","box"]];
-const PR_OT = [["dinein","Dine In"],["pickup","Pick Up"],["delivery","Delivery"],["fast","Fast Sale"]];
+const PR_OT = [["dinein","Dine In"],["pickup","Pick Up"],["delivery","Delivery"]];   // fast sale follows Dine In
 const PR_DAYS = [["1","Mon"],["2","Tue"],["3","Wed"],["4","Thu"],["5","Fri"],["6","Sat"],["0","Sun"]];
 const prDoc = () => (typeof S!=="undefined" ? S.settings : []).find(x => x.id==="promotions") || {};
 const prList = () => (prDoc().list || []);
@@ -6848,8 +6852,8 @@ function viewDiscounts(){
     : `<div class="empty" style="text-align:center;padding:48px 16px">${del ? "No deleted discounts" : "No discounts yet"}</div>`}</div>`;
 }
 function dsForm(d){
-  const ed = !!d, x = d || { type:"pct", qualification:"order", orderTypes:["dinein","pickup","delivery","fast"] }, box = $("#ccBox"); box.className = "modal";
-  const ot = [["dinein","Dine In"],["pickup","Pick Up"],["delivery","Delivery"],["fast","Fast Sale"]];
+  const ed = !!d, x = d || { type:"pct", qualification:"order", orderTypes:["dinein","pickup","delivery"] }, box = $("#ccBox"); box.className = "modal";
+  const ot = [["dinein","Dine In"],["pickup","Pick Up"],["delivery","Delivery"]];
   box.innerHTML = `<header><h2>${ed ? "Edit" : "Create"} Discount</h2><button type="button" class="x" data-ccclose aria-label="Close">×</button></header>
   <div class="body" style="display:block"><div class="dsgrid">
     <div class="f"><label for="dsName">Name *</label><input id="dsName" value="${esc(x.name||"")}"></div>
@@ -6900,7 +6904,7 @@ const DS_SECS = [
 function dsDetail(d){
   const q = (DS_QUAL.find(x => x[0]===d.qualification)||DS_QUAL[0])[1], ot = { dinein:"Dine In", pickup:"Pick Up", delivery:"Delivery", fast:"Fast Sale" };
   const more = true ? [info("Name Localized", esc(d.nameAr||"—")), info("Qualification", esc(q)), info("Discount Amount", dsAmtLbl(d)), info("Minimum Order Price", d.minOrder!=null ? money(d.minOrder) : "—"), info("Minimum Product Price", d.minProduct!=null ? money(d.minProduct) : "—"),
-    info("Maximum Discount", d.type!=="fixed" && d.maxDiscount!=null ? money(d.maxDiscount) : "—"), info("Order Types", esc((d.orderTypes||[]).map(k => ot[k]||k).join(", ") || "—")), info("Reference", esc(d.reference||"—")), info("Taxable", d.taxable ? "Yes" : "No")] : [];
+    info("Maximum Discount", d.type!=="fixed" && d.maxDiscount!=null ? money(d.maxDiscount) : "—"), info("Order Types", esc((d.orderTypes||[]).filter(k => k!=="fast").map(k => ot[k]||k).join(", ") || "—")), info("Reference", esc(d.reference||"—")), info("Taxable", d.taxable ? "Yes" : "No")] : [];
   return `<div class="phead"><a href="#discounts" class="btn" data-dsback style="text-decoration:none">← Back</a><h1 style="margin-left:10px">${esc(d.name)}</h1><div class="sp"></div><button class="btn" data-dsedit="${esc(d.id)}">Edit Discount</button></div>
   <div class="card" style="margin-bottom:16px"><div style="display:flex;align-items:center"><b>Details</b></div>
     ${infoGrid([info("Name", esc(d.name)), info("Discount", dsAmtLbl(d)), ...more]).replace('class="card igrid"', 'class="igrid dsinfo"')}</div>
