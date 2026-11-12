@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="796-1794502396">
+<meta name="slick-build" content="797-1794502718">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this copy, reload once (never for an older one) */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -3028,10 +3028,12 @@ async function tmPick(k){
     TM = null; return openTables();
   }
   if(!busy) return toast("Pick a table with an open order", true);
-  if(EDIT || cart.length) return toast("Clear the cart first", true);
   const dst = tableOrders(k)[0], srcs = tableOrders(from).filter(o => o.id!==dst.id);
   if(!srcs.length) return toast("These tables are already on one order", true);
   if(!(await askYes(`Merge ${tblLbl(from)} into ${tblLbl(k)}? Its items move to ${tblLbl(k)} and ${tblLbl(from)} becomes free.`, "Merge"))) return;
+  const unsaved = EDIT ? unsentItems().length > 0 || VOID_CHG===EDIT.id : cart.length > 0;   // an open order in the cart is fine; unsaved items ask first
+  if(unsaved && !(await askYes("The cart has unsaved items. Clear the cart and merge the tables?", "Clear & Merge", true))) return;
+  if(EDIT) unloadOrder(); else if(cart.length) resetOrder();
   loadOrder0(dst.id);
   srcs.forEach(o => (o.items||[]).forEach(i => cart.push({ ...i, saved: +i.qty })));
   tableNo = String(dst.table || k);   // the first table moves into the second: the order stays on the second table only
