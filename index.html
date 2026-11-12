@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="779-1794491753">
+<meta name="slick-build" content="780-1794491919">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this copy, reload once (never for an older one) */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1381,6 +1381,7 @@ button.x[aria-label="Close"]{width:38px!important;height:38px!important;min-widt
 #oCtxF{display:flex;flex-direction:column;gap:8px;margin-top:10px}#oCtxF:empty{display:none}#oCtxF .f{margin:0}#oCtxF .f2{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:0}
 #oCtxF .seg.tiles{padding:4px!important;min-height:0!important}#oCtxF .seg.tiles button{min-height:40px!important;padding:6px 10px!important;font-size:14px!important}#oCtxF select{min-height:42px!important;height:42px!important;font-size:14px!important}
 #oCtxF .seg.tiles{display:flex!important;gap:4px}#oCtxF .seg.tiles button{flex:1}
+.ccctx .ccctxh{padding-right:0!important}.ccctxh .ccctxb{flex:none;margin-left:auto}
 </style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -3982,7 +3983,7 @@ document.addEventListener("click", e => { const n = e.target.closest && e.target
   if(document.body.dataset.route==="call-center"){ try{ openOrder(id); }catch(_){} } else { location.hash = "#/call-center"; setTimeout(() => { try{ openOrder(id); }catch(_){} }, 600); } });
 window.addEventListener("hashchange", () => setTimeout(() => { try{ ccEditWatch(); }catch(_){} }, 400));
 // the customer window of a new order sits over its cart: × goes back to the cart instead of closing the order
-document.addEventListener("click", e => { const x = e.target.closest && e.target.closest("[data-ccclose]"), cx = $("#ccX"); if(!x || !cx || !cx.classList.contains("s1") || !x.closest(".cc1top,.cc1")) return; e.stopImmediatePropagation(); e.preventDefault(); ccStep(2, true); }, true);
+document.addEventListener("click", e => { const x = e.target.closest && e.target.closest("[data-ccclose]"), cx = $("#ccX"); if(!x || !cx || !cx.classList.contains("s1") || !x.closest(".cc1top,.cc1")) return; e.stopImmediatePropagation(); e.preventDefault(); ccSnapBack(); ccStep(2, true); }, true);   // × cancels: nothing typed here is kept
 document.addEventListener("click", e => { const ro = e.target.closest && e.target.closest("[data-ccreorder]"); if(ro){ e.preventDefault(); ccReorder(ro.dataset.ccreorder); } });
 // Reorder a done, declined or void order: a new order with the same customer, type, source, brand, branch, address and items (at today's prices)
 function ccReorder(id){
@@ -4034,7 +4035,7 @@ function openOrder(id){
       <button type="button" class="acard adbar" id="oAddrBar" data-ccadpop></button>
      </div>
     </div>
-    <div class="ccnext"><span class="err" id="oErr1"></span><button type="button" class="btn pri" data-ccstep="2">Continue</button></div>
+    <div class="ccnext"><span class="err" id="oErr1"></span><button type="button" class="btn pri" data-ccstep="2">Save</button></div>
    </section>
    <aside class="ccside" id="oSide"></aside>
    ${ro ? "" : `<section class="ccmenu"><div class="ccprods"><div class="cctools"><button type="button" class="cctool" data-cctool="disc" id="ccToolDisc">${ccIco("pct")}<span>Discount</span></button><button type="button" class="cctool" data-cctool="chg">${ccIco("plus")}<span>Charges</span></button><button type="button" class="cctool" data-cctool="tags">${ccIco("tag")}<span>Tags</span></button><button type="button" class="cctool" data-cctool="notes">${ccIco("note")}<span>Notes</span></button>${o?.status==="active" && !erPending(o) ? `<button type="button" class="cctool" data-cctool="void"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M5.6 5.6l12.8 12.8"/></svg><span>Void</span></button>` : ""}<button type="button" class="ccxbtn" data-ccclose aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div><div class="ccbar"><div class="cchead" id="oCatTitle"></div><input class="sel search" type="search" id="oSearch" placeholder="Search items" autocomplete="off"></div><div class="pgrid" id="oProducts"></div></div></section>`}
@@ -4064,7 +4065,7 @@ function openOrder(id){
 }
 // Foodics-style flow: step 1 customer, type, branch and address; step 2 the menu and cart, with the customer beside it
 // Continue stays off until every required field is filled (like the POS); only rule-based blocks explain themselves
-function ccGoState(){ const b = document.querySelector('.ccnext [data-ccstep="2"]'); if(!b) return; const er = ccStep1Err(); b.disabled = !!er;
+function ccGoState(){ const b = document.querySelector('.ccnext [data-ccstep="2"]'); if(!b) return; const er0 = ccStep1Err(), er = ccCustErr(er0) ? er0 : null; b.disabled = !!er;   // Save only needs the customer's own details
   const m = $("#oErr1"); if(m) m.textContent = er && !/^(Enter|Choose|Pick|The delivery address)/.test(er[0]) ? er[0] : ""; }
 ["input","change","click"].forEach(ev => document.addEventListener(ev, e => { if(e.target.closest?.("#ccScrim")) setTimeout(ccGoState, 0); }));
 function ccStep1Err(){
@@ -4083,11 +4084,16 @@ function ccStep1Err(){
     if(miss.length) return ["The delivery address needs the " + miss.map(x=>x[1]).join(", ").replace(/, ([^,]*)$/, " and $1") + ".", "oA_"+miss[0][0]]; }
   return null;
 }
+let CC_SNAP = null;
+function ccSnapBack(){ const sn = CC_SNAP; if(!sn) return; Object.entries(sn.v).forEach(([id, val]) => { const el = document.getElementById(id); if(el) el.value = val; });
+  window.__ccCust = sn.cust; window.__ccPast = sn.past; window.__ccAddrIx = sn.ix; try{ addrTypeSync("oA"); ccAddrBar(); }catch(_){} if($("#oAddrPop")) $("#oAddrPop").hidden = true; CC_SNAP = null; clearTimeout(ccLookT); try{ ccLookup(); }catch(_){} }
 const ccCustErr = e => !!e && (/^(oPhone|oName|oA_)/.test(e[1] || "") || /address|agents/i.test(e[0]));   // errors the customer window fixes; the rest are in the cart's top card
 async function ccStep(n, force){
   const x = $("#ccX"); if(!x) return;
   if(n===2 && !force){ const e = ccStep1Err(); if(e && ccCustErr(e)){ $("#oErr1").textContent = e[0]; if(e[1]) $("#"+e[1])?.focus(); return; } }
   $("#oErr1") && ($("#oErr1").textContent = "");
+  if(n===1 && !x.classList.contains("s1")){ const v = {}; ["oCc","oPhone","oName","oA_lat","oA_lng", ...ADDR_K.map(k => "oA_" + k)].forEach(id => { const el = document.getElementById(id); if(el) v[id] = el.value; }); CC_SNAP = { v, cust: window.__ccCust, past: window.__ccPast, ix: window.__ccAddrIx }; }   // what the customer window started with: × puts it back
+  if(n===2) CC_SNAP = null;
   x.classList.toggle("s1", n===1); x.classList.toggle("s2", n===2);
   document.querySelectorAll("[data-ccstep]").forEach(b => b.closest(".ccsteps") && b.classList.toggle("on", +b.dataset.ccstep===n));
   if(n===2){ ccSide(); renderOrderMenu(); setTimeout(() => $("#oSearch")?.focus(), 30); }
@@ -4098,8 +4104,8 @@ function ccSide(){
   const keep = ["oTypeF","oSourceF","oBBF"].map(id => document.getElementById(id)).filter(Boolean); keep.forEach(n => n.remove());   // order type, source, brand and branch live in this card
   const bits = [type==="delivery" ? (a.label ? a.label + ": " : "") + [a.street, a.building && "Bldg " + a.building, a.floor && "Floor " + a.floor].filter(Boolean).join(", ") : ""].filter(Boolean);
   const so = ccEdit && S.orders.find(x => x.id===ccEdit);   // a placed order: its reference and status on top, as on the POS
-  el.innerHTML = `${so ? `<div class="ccobar"><b>${esc(ccRef(so))}</b><span class="ccpill s-${esc(so.status)}">${esc(CC_SUB[so.status] || so.status)}</span></div>` : ""}<div class="ccctx"><div class="ccctxh"><span class="ccci">${svgIco(type==="delivery" ? "truck" : "store")}</span><div class="ccctxn"><b>${esc($("#oName").value.trim() || "No customer yet")}</b>${bits.length ? `<small>${bits.map(esc).join(" / ")}</small>` : ""}</div>${c?.blacklisted ? `<span class="tag" style="background:#fde8eb;color:#9e0c24">⚠ Blacklisted</span>` : ""}</div>
-    <div class="ccctxf" id="oCtxF"></div><div class="ccctxb">${$("#oPhone")?.disabled ? `<button type="button" class="btn sm" data-ccstep="1">Customer Details</button>` : `<button type="button" class="btn sm" data-ccstep="1">${$("#oName").value.trim() ? "Edit Customer" : "Add Customer"}</button>`}${$(".ccx .ccmenu") ? "" : `<button type="button" class="btn sm" data-ccclose>Close</button>`}</div></div>`;
+  el.innerHTML = `${so ? `<div class="ccobar"><b>${esc(ccRef(so))}</b><span class="ccpill s-${esc(so.status)}">${esc(CC_SUB[so.status] || so.status)}</span></div>` : ""}<div class="ccctx"><div class="ccctxh"><span class="ccci">${svgIco(type==="delivery" ? "truck" : "store")}</span><div class="ccctxn"><b>${esc($("#oName").value.trim() || "No customer yet")}</b>${bits.length ? `<small>${bits.map(esc).join(" / ")}</small>` : ""}</div>${c?.blacklisted ? `<span class="tag" style="background:#fde8eb;color:#9e0c24">⚠ Blacklisted</span>` : ""}<div class="ccctxb">${$("#oPhone")?.disabled ? `<button type="button" class="btn sm" data-ccstep="1">Customer Details</button>` : `<button type="button" class="btn sm" data-ccstep="1">${$("#oName").value.trim() ? "Edit Customer" : "Add Customer"}</button>`}${$(".ccx .ccmenu") ? "" : `<button type="button" class="btn sm" data-ccclose>Close</button>`}</div></div>
+    <div class="ccctxf" id="oCtxF"></div></div>`;
   const f = $("#oCtxF"); if(f) keep.forEach(n => f.appendChild(n));
 }
 function ccAddrCards(){
@@ -6197,11 +6203,10 @@ async function ccLookup(view){
   if($("#ccX")?.classList.contains("s2")) ccSide();   // blacklisted flag
 }
 document.addEventListener("change", e => { if(e.target.id==="oCc"){ clearTimeout(ccLookT); ccLookT = setTimeout(ccLookup, 50); } });
-// a new phone number starts the order over: the name, brand, branch, address and customer details are cleared (order type, source and country stay)
+// a new phone number starts the customer over: the name, address and customer details are cleared (type, source, brand and branch are in the cart's top card and stay)
 function ccResetCust(){
   const n = $("#oName"); if(n) n.value = ""; window.__ccCust = null; window.__ccPast = []; window.__ccAddrIx = null;
   ADDR_K.forEach(k => { const el = $("#oA_"+k); if(el) el.value = ""; }); try{ addrTypeSync("oA"); ccPinSet(null); }catch(_){}
-  const b = $("#oBrand"); if(b && b.value && !b.disabled){ b.value = ""; fillOrderBranches(""); } else { const br = $("#oBranch"); if(br && br.value && !br.disabled && br.options.length > 2) br.value = ""; }
   ["oInsights","ccPast","oCustHint"].forEach(id => { const el = document.getElementById(id); if(el) el.innerHTML = ""; }); try{ ccAddrCards(); }catch(_){}
 }
 document.addEventListener("input", e => { if(e.target.id==="oPhone"){ ccResetCust(); clearTimeout(ccLookT); ccLookT = setTimeout(ccLookup, 450); } });
