@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="790-1794500428">
+<meta name="slick-build" content="791-1794500544">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this copy, reload once (never for an older one) */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1575,7 +1575,8 @@ function renderCart(){
   // actions: new order / open order / closed order
   const acts = $("#acts"), unsent = cart.some(i => i.qty > (i.saved||0));
   let b;
-  if(!eo) b = [...(otype==="fast" ? [] : [`<button data-act="send" ${cart.length?"":"disabled"}>Save</button>`]), `<button class="pay" data-act="pay" ${cart.length?"":"disabled"}>${cart.length ? "Total" : "Total"}</button>`];
+  const noCust = (otype==="takeaway" || otype==="delivery") && (!cust.name.trim() || !cust.phone.trim() || !cust.source), ok0 = cart.length && !noCust;   // pickup & delivery: no saving or paying until the customer is added
+  if(!eo) b = [...(otype==="fast" ? [] : [`<button data-act="send" ${ok0?"":"disabled"}>Save</button>`]), `<button class="pay" data-act="pay" ${ok0?"":"disabled"}>Total</button>`];
   else if(eo.status==="pending") b = canAccept() ? [`<button class="decl" data-incc="${esc(eo.id)}:declined">Decline</button>`, `<button class="pay" data-incc="${esc(eo.id)}:active">Accept</button>`] : [];   // an order waiting to be accepted can't be saved or paid yet: accept or decline it first
   else if(erPending(eo)) b = [`<button class="decl" data-er="${esc(eo.id)}:0">Reject</button>`, `<button class="pay" data-er="${esc(eo.id)}:1">Approve</button>`];   // the call center asked to change this order: approve or reject it first
   else if(isOpenOrd(eo)) b = [...(otype==="fast" ? [] : [`<button data-act="send" ${unsent || VOID_CHG===eo.id ? "" : "disabled"}>Save</button>`]), `<button class="pay" data-act="pay" ${cart.length?"":"disabled"}>Total</button>`];
