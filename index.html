@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="771-1794485770">
+<meta name="slick-build" content="772-1794487601">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this copy, reload once (never for an older one) */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1371,8 +1371,13 @@ button.x[aria-label="Close"]{width:38px!important;height:38px!important;min-widt
 
 .reqst{color:#e5484d!important;font-weight:inherit}
 /* small remove buttons: the × is drawn, so it sits in the exact centre of its box */
-.onx,.dlx,.mnx,.ccx1,.ofpx,.qtx{position:relative;padding:0!important;font-size:0!important;line-height:0!important;color:currentColor}
-.onx::before,.dlx::before,.mnx::before,.ccx1::before,.ofpx::before,.qtx::before{content:"";position:absolute;inset:0;margin:auto;width:clamp(8px,38%,12px);height:clamp(8px,38%,12px);background:currentColor;-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10'%3E%3Cpath d='M1.5 1.5l7 7M8.5 1.5l-7 7' stroke='black' stroke-width='1.7' stroke-linecap='round'/%3E%3C/svg%3E") center/contain no-repeat;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10'%3E%3Cpath d='M1.5 1.5l7 7M8.5 1.5l-7 7' stroke='black' stroke-width='1.7' stroke-linecap='round'/%3E%3C/svg%3E") center/contain no-repeat}
+.onx,.dlx,.mnx,.ccx1,.ofpx,.qtx,.ccnx{position:relative;padding:0!important;font-size:0!important;line-height:0!important;color:currentColor}
+.onx::before,.dlx::before,.mnx::before,.ccx1::before,.ofpx::before,.qtx::before,.ccnx::before{content:"";position:absolute;inset:0;margin:auto;width:clamp(8px,38%,12px);height:clamp(8px,38%,12px);background:currentColor;-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10'%3E%3Cpath d='M1.5 1.5l7 7M8.5 1.5l-7 7' stroke='black' stroke-width='1.7' stroke-linecap='round'/%3E%3C/svg%3E") center/contain no-repeat;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10'%3E%3Cpath d='M1.5 1.5l7 7M8.5 1.5l-7 7' stroke='black' stroke-width='1.7' stroke-linecap='round'/%3E%3C/svg%3E") center/contain no-repeat}
+#ccNotes{position:fixed;top:16px;right:16px;z-index:9000;display:flex;flex-direction:column;gap:10px;width:min(380px,calc(100vw - 32px));pointer-events:none}
+.ccn{pointer-events:auto;display:flex;align-items:flex-start;gap:10px;padding:14px 14px 14px 16px;border-radius:14px;background:#fff;box-shadow:0 10px 30px rgba(21,19,31,.16);border-left:5px solid #16794a;cursor:pointer;animation:ccnIn .25s ease}
+.ccn.bad{border-left-color:#e5484d}.ccnb{flex:1;display:flex;flex-direction:column;gap:3px;font-size:13.5px;color:#3a3946}.ccnb b{font-size:14.5px;color:#16794a}.ccn.bad .ccnb b{color:#e5484d}.ccnb small{font-size:12px;color:#8a8799}
+.ccnx{flex:none;width:28px;height:28px;border:0;border-radius:8px;background:#f2f1f6;color:#5b5a66;cursor:pointer}
+@keyframes ccnIn{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:none}}
 </style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -3957,11 +3962,22 @@ function ccSendSync(){ document.querySelectorAll('#ccBox [data-osave="pending"]'
   const b = $("#ccSendEdit"); if(!b) return; b.disabled = ccSig0==null || (ccSig() + "|" + ($("#oNotes")?.value || "") + "|" + ($("#oRNotes")?.value || "")===ccSig0 && !ccVoids.length && !ccTags); }   // greyed out until something changed
 document.addEventListener("change", e => { if(e.target.closest && e.target.closest("#ccBox")) setTimeout(ccSendSync, 0); });
 document.addEventListener("click", e => { if(e.target.closest && e.target.closest("#ccBox #oType")) setTimeout(ccSendSync, 0); });
-// the branch answered a change this agent sent: tell them once
-function ccEditWatch(){ const me = state.fullName || state.userName || "Operator"; let seen = []; try{ seen = JSON.parse(localStorage.getItem("slick_er_seen") || "[]"); }catch(_){}
-  (S.orders||[]).forEach(o => { const er = o.editRequest; if(!er || er.by!==me || !["approved","rejected"].includes(er.status) || seen.includes(er.id)) return; if(er.decidedAt && Date.now() - new Date(er.decidedAt) > 12*3600000) return;
-    seen.push(er.id); try{ localStorage.setItem("slick_er_seen", JSON.stringify(seen.slice(-200))); }catch(_){}
-    askDlg({ msg: er.status==="approved" ? `${branchName(o.branchId)} approved the changes to order ${ccRef(o)}.` : `${branchName(o.branchId)} rejected the changes to order ${ccRef(o)}${er.reason ? ": " + er.reason : ""}. The order stays as it was.`, yes:"OK", no:"Close" }); }); }
+// the branch approved or rejected an order edit: a notification for the call center (everyone on the Call Center page, and the agent who sent it wherever they are)
+function ccEditWatch(){ const me = state.fullName || state.userName || "Operator", onCC = document.body.dataset.route==="call-center"; let seen = []; try{ seen = JSON.parse(localStorage.getItem("slick_er_seen") || "[]"); }catch(_){}
+  (S.orders||[]).forEach(o => { const er = o.editRequest; if(!er || !["approved","rejected"].includes(er.status) || seen.includes(er.id)) return;
+    const mine = er.by===me; if(!mine && !onCC) return;
+    if(er.decidedAt && Date.now() - new Date(er.decidedAt) > (mine ? 12*3600000 : 30*60000)) return;   // older answers aren't news
+    seen.push(er.id); try{ localStorage.setItem("slick_er_seen", JSON.stringify(seen.slice(-300))); }catch(_){}
+    ccNote(o, er); }); }
+function ccNote(o, er){
+  let box = $("#ccNotes"); if(!box){ box = document.createElement("div"); box.id = "ccNotes"; document.body.appendChild(box); }
+  const ok = er.status==="approved", el = document.createElement("div"); el.className = "ccn " + (ok ? "ok" : "bad"); el.dataset.ccnOrder = o.id;
+  el.innerHTML = `<div class="ccnb"><b>Order Edit ${ok ? "Approved" : "Rejected"}</b><span>${esc(branchName(o.branchId))} ${ok ? "approved" : "rejected"} the changes to order ${esc(ccRef(o))}${!ok && er.reason ? ": " + esc(er.reason) : ""}${ok ? "" : ". The order stays as it was"}</span><small>${esc([er.decidedBy ? (er.status==="approved" ? "Approved by " : "Rejected by ") + er.decidedBy : "", er.by ? "sent by " + er.by : "", er.decidedAt ? new Date(er.decidedAt).toLocaleTimeString("en-GB", { hour:"numeric", minute:"2-digit" }) : ""].filter(Boolean).join(" · "))}</small></div><button type="button" class="ccnx" aria-label="Dismiss">×</button>`;
+  box.prepend(el); while(box.children.length > 5) box.lastChild.remove();
+}
+document.addEventListener("click", e => { const n = e.target.closest && e.target.closest(".ccn"); if(!n) return; const id = n.dataset.ccnOrder; n.remove(); if(e.target.closest(".ccnx")) return;
+  if(document.body.dataset.route==="call-center"){ try{ openOrder(id); }catch(_){} } else { location.hash = "#/call-center"; setTimeout(() => { try{ openOrder(id); }catch(_){} }, 600); } });
+window.addEventListener("hashchange", () => setTimeout(() => { try{ ccEditWatch(); }catch(_){} }, 400));
 // call-center orders stay editable until the branch closes them (pending = sent, active = in the kitchen)
 const ccEditable = o => !o || o.status==="draft" || (o.channel==="callcenter" && ["pending","active"].includes(o.status));
 function openOrder(id){
