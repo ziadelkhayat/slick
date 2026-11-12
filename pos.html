@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="798-1794503049">
+<meta name="slick-build" content="800-1794503586">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this copy, reload once (never for an older one) */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -2038,7 +2038,10 @@ $("#modal").addEventListener("click", async e => {
   const pdt = e.target.closest("[data-pdt]"); if(pdt){ pdKeep(); PD.type = pdt.dataset.pdt; return openPDNew(); }
   const pda = e.target.closest("[data-pdaddr]"); if(pda){ pdKeep(); const a = (PD.cust?.addresses||[]).filter(x => x.address)[+pda.dataset.pdaddr]; if(!a) return; PD.addr = addrParts(a.address); return pdAddrShow(pda); }
   const psrc = e.target.closest("[data-pdsrc]"); if(psrc){ PD.source = psrc.dataset.pdsrc; document.querySelectorAll("[data-pdsrc]").forEach(x => x.classList.toggle("on", x===psrc)); if($("#pdErr")) $("#pdErr").textContent = ""; pdRefresh(); return; }
-  const pdr = e.target.closest("[data-pdreorder]"); if(pdr){ const o = (PD?.past||[]).find(x => x.id===pdr.dataset.pdreorder); if(!o) return; const miss = []; let n = 0;
+  const pdr = e.target.closest("[data-pdreorder]"); if(pdr){ const cl = modalKind==="custlite", o = ((cl ? CL?.past : PD?.past)||[]).find(x => x.id===pdr.dataset.pdreorder); if(!o) return; const miss = []; let n = 0;
+    if(cl){ (o.items||[]).filter(i => !i.voided).forEach(i => { const p = S.products.find(x => x.id===i.productId); if(!p || p.active===false || prodOos(p)){ miss.push(i.name); return; }   // fast sale / dine-in: straight into the cart
+        const opt = (i.options||[]).reduce((a,x) => a + (+x.price||0), 0); cart.push({ productId:p.id, name:i.name, price: +(prodPrice(p) + (Array.isArray(i.options) && i.options.length ? opt : 0)).toFixed(2), qty:+i.qty||1, ...(i.options?.length ? { options:i.options, mods:i.mods } : {}), ...(i.note ? { note:i.note } : {}) }); n++; });
+      renderCart(); toast(n ? (miss.length ? `Added to the cart · not available now: ${miss.join(", ")}` : "Items added to the cart") : "None of these items are available now"); return; }
     // a second Reorder replaces what the first one added, instead of piling on top of it
     if(PD.edit){ const keep = cart.filter(i => !RO_ITEMS.has(i)); cart.length = 0; cart.push(...keep); } else PD.reorder = [];
     (o.items||[]).filter(i => !i.voided).forEach(i => { const p = S.products.find(x => x.id===i.productId); if(!p || p.active===false || prodOos(p)){ miss.push(i.name); return; }
@@ -2887,7 +2890,7 @@ const ohMatch = (o, f) => !f || (f==="refund" ? ["refund","returned"].includes(o
 // every tile in a board takes the size of the biggest one
 const eqTiles = (root, sel) => { const t = [...root.querySelectorAll(sel)]; t.forEach(x => x.style.minHeight = ""); const h = Math.max(0, ...t.map(x => x.offsetHeight)); if(h) t.forEach(x => x.style.minHeight = h + "px"); };
 const ohEqual = root => { const t = [...root.querySelectorAll(".ohtile")]; t.forEach(x => x.style.height = ""); const h = Math.max(0, ...t.map(x => x.offsetHeight)); if(h) t.forEach(x => x.style.height = h + "px"); };   // every history tile takes the height of the tallest one
-function ohPop(key, id){ const list = ((key==="pddet" ? PD?.past : null) || []).filter(ohHist);
+function ohPop(key, id){ const list = ((key==="pddet" ? PD?.past : key==="cldet" ? CL?.past : null) || []).filter(ohHist);
   let el = $("#ohPop"); if(!el){ el = document.createElement("div"); el.id = "ohPop"; el.className = "scrim show npsc adpop ohpop"; document.body.appendChild(el); } el.dataset.k = key;
   const o = id && list.find(x => x.id===id);
   if(!o){ el.innerHTML = `<div class="modal"><div class="mh"><h2>Orders history</h2><button class="x" data-ohx aria-label="Close">×</button></div><div class="ohfil">${OH_FS.map(([k, l]) => `<button type="button" class="${OH_F===k ? "on" : ""}" data-ohf="${k}">${l}</button>`).join("")}</div><div class="mb"><div class="ohgrid">${(t => OH_F ? list.filter(x => ohMatch(x, OH_F)).map(t).join("") : OH_GR.map(([k, l]) => { const g = list.filter(x => ohMatch(x, k)); return g.length ? `<div class="ohgh">${l}<span>${g.length}</span></div>` + g.map(t).join("") : ""; }).join(""))(ohTile) || `<div class="ohnone">No orders</div>`}</div></div></div>`; ohEqual(el); return; }
@@ -2945,15 +2948,20 @@ function openCustLite(){
   modal("custlite", `<div class="mh"><h2>Customer Details</h2></div><div class="mb"><div class="pdform" style="display:flex;flex-direction:column;gap:10px">
     <div class="f2" style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><div class="f"><select id="clCc" data-noseg aria-label="Country code">${Object.entries(CC_OF).map(([n,c]) => `<option value="${c}" ${sp.cc===c?"selected":""}>${c} ${esc(n)}</option>`).join("")}</select></div>
     <div class="f"><input id="clPhone" inputmode="tel" placeholder="Customer Phone *" value="${esc(sp.num)}" aria-label="Customer phone"></div></div>
-    <div class="f"><input id="clName" placeholder="Customer Name *" value="${esc(cust.name || "")}" aria-label="Customer name"></div><div class="err" id="clErr"></div></div></div>
+    <div class="f"><input id="clName" placeholder="Customer Name *" value="${esc(cust.name || "")}" aria-label="Customer name"></div><div id="clSide"></div><div class="err" id="clErr"></div></div></div>
     <div class="mf">${cust.name ? `<button class="btn bad" id="clRm" style="margin-right:auto">Remove</button>` : ""}<button class="btn" data-close>Cancel</button><button class="btn pri" id="clGo">Save</button></div>`);
-  setTimeout(() => $("#clPhone")?.focus(), 30);
+  setTimeout(() => $("#clPhone")?.focus(), 30); if(sp.num) clLookup(true);
 }
+// the customer's insights and orders history, as in the pickup & delivery window
+async function clLookup(keepName){ const ph = normPhone($("#clPhone")?.value, $("#clCc")?.value); if(ph.length < 6 || !window.WOK?.sb || !navigator.onLine || !CL) return;
+  try{ const { data } = await window.WOK.sb.from("customers").select("id,name,phone,addresses,blacklisted,notes,tags,created_at").in("phone", phoneVariants(ph)).limit(1);
+    if(normPhone($("#clPhone")?.value, $("#clCc")?.value)!==ph || !CL || modalKind!=="custlite") return; CL.cust = data?.[0] || null;
+    if(CL.cust?.name && (!keepName || !$("#clName").value.trim())) $("#clName").value = CL.cust.name;
+    CL.past = CL.cust ? await pdPast(CL.cust.id, ph) : [];
+    if(!CL || modalKind!=="custlite") return; const sd = $("#clSide"); if(sd) sd.innerHTML = CL.cust ? custPanel(CL.cust, CL.past, null, "cldet") : ""; }catch(err){ console.warn(err); } }
 let clT = null;
-document.addEventListener("input", e => { if(e.target.id!=="clPhone" || !CL) return; $("#clName").value = ""; CL.cust = null; clearTimeout(clT);   // a new number: look the customer up
-  clT = setTimeout(async () => { const ph = normPhone($("#clPhone")?.value, $("#clCc")?.value); if(ph.length < 6 || !window.WOK?.sb || !navigator.onLine) return;
-    try{ const { data } = await window.WOK.sb.from("customers").select("id,name,phone,addresses").in("phone", phoneVariants(ph)).limit(1);
-      if(normPhone($("#clPhone")?.value, $("#clCc")?.value)!==ph || !CL) return; CL.cust = data?.[0] || null; if(CL.cust?.name && !$("#clName").value.trim()) $("#clName").value = CL.cust.name; }catch(err){ console.warn(err); } }, 450); });
+document.addEventListener("input", e => { if(e.target.id!=="clPhone" || !CL) return; $("#clName").value = ""; CL.cust = null; CL.past = []; if($("#clSide")) $("#clSide").innerHTML = ""; clearTimeout(clT);   // a new number: look the customer up
+  clT = setTimeout(() => clLookup(false), 450); });
 $("#modal").addEventListener("click", async e => {
   if(e.target.closest("#clRm")){ cust = { ...cust, name:"", phone:"" }; CL = null; closeModal(); renderCart(); return; }
   if(!e.target.closest("#clGo")) return;
