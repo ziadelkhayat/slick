@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="800-1794503586">
+<meta name="slick-build" content="802-1794504092">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this copy, reload once (never for an older one) */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1738,6 +1738,8 @@ function askPhone(def){ return new Promise(res => {
   document.addEventListener("keydown", key, true);
   el.addEventListener("click", e => { if(e.target===el || e.target.closest("[data-ncx]")) done(null); else if(e.target.closest("[data-nok]")) done(el.querySelector("#askTel").value.trim()); });
   setTimeout(() => el.querySelector("#askTel")?.focus(), 30); }); }
+document.addEventListener("click", async e => { const ci = e.target.closest?.("#clPhone"); if(!ci || document.querySelector(".kpm.tel")) return;   // the phone keypad, as in pickup & delivery
+  const v = await askPhone(ci.value); const now = $("#clPhone"); if(v===null || !now) return; now.value = v; now.dispatchEvent(new Event("input", { bubbles:true })); now.blur(); });
 document.addEventListener("click", async e => { const inp = e.target.closest?.("#pdPhone"); if(!inp || inp.disabled || document.querySelector(".kpm.tel")) return;
   const v = await askPhone(inp.value); const now = $("#pdPhone"); if(v===null || !now) return; now.value = v; now.dispatchEvent(new Event("input", { bubbles:true })); now.blur(); });
 function askNumber(title, def){ return new Promise(res => {
@@ -2945,11 +2947,13 @@ async function pdSaveCust(){
 let CL = null;
 function openCustLite(){
   const sp = telSplit(cust.phone) || { cc: CC_OF[coS().country || "Lebanon"] || "+961", num: cust.phone || "" }; CL = { cust:null };
-  modal("custlite", `<div class="mh"><h2>Customer Details</h2></div><div class="mb"><div class="pdform" style="display:flex;flex-direction:column;gap:10px">
-    <div class="f2" style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><div class="f"><select id="clCc" data-noseg aria-label="Country code">${Object.entries(CC_OF).map(([n,c]) => `<option value="${c}" ${sp.cc===c?"selected":""}>${c} ${esc(n)}</option>`).join("")}</select></div>
-    <div class="f"><input id="clPhone" inputmode="tel" placeholder="Customer Phone *" value="${esc(sp.num)}" aria-label="Customer phone"></div></div>
-    <div class="f"><input id="clName" placeholder="Customer Name *" value="${esc(cust.name || "")}" aria-label="Customer name"></div><div id="clSide"></div><div class="err" id="clErr"></div></div></div>
-    <div class="mf">${cust.name ? `<button class="btn bad" id="clRm" style="margin-right:auto">Remove</button>` : ""}<button class="btn" data-close>Cancel</button><button class="btn pri" id="clGo">Save</button></div>`);
+  modal("custlite", `<div class="mh"><h2>Customer Details</h2></div><div class="mb pdcols"><div class="pdform">
+    <div class="f"><div class="npw"><div class="pdph"><select id="clCc" aria-label="Country code">${Object.entries(CC_OF).map(([n,c]) => `<option value="${c}" ${sp.cc===c?"selected":""}>${c} ${esc(n)}</option>`).join("")}</select><input id="clPhone" inputmode="none" data-np="tel" data-ph placeholder="Customer phone *" aria-label="Customer phone" value="${esc(sp.num)}" autocomplete="off"></div></div></div>
+    <div class="f"><input id="clName" data-ph placeholder="Customer name *" aria-label="Customer name" value="${esc(cust.name || "")}"></div>
+    <div class="err" id="clErr"></div></div><div class="pdright" id="clSide"></div></div>
+    <div class="mf">${cust.name ? `<button class="btn bad" id="clRm" style="margin-right:auto">Remove</button>` : ""}<button class="btn" data-close>Cancel</button><button class="btn pri" id="clGo">Save</button></div>`, true);
+  $("#modal").classList.add("pdwin");   // same window as pickup & delivery
+
   setTimeout(() => $("#clPhone")?.focus(), 30); if(sp.num) clLookup(true);
 }
 // the customer's insights and orders history, as in the pickup & delivery window
