@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="785-1794499678">
+<meta name="slick-build" content="786-1794499787">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this copy, reload once (never for an older one) */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1385,6 +1385,7 @@ button.x[aria-label="Close"]{width:38px!important;height:38px!important;min-widt
 .ccothd{display:flex;align-items:center;gap:8px;padding:0 2px;color:#5b2bc4;font-size:16px}.ccothd .ico{width:22px;height:22px}.ccothd b{font-weight:700}
 #ccBox [data-osave="draft"]:disabled{opacity:.45;cursor:default}
 #oTypeF .seg.tiles{padding:4px!important;border-radius:12px!important;min-height:0!important}#oTypeF .seg.tiles button{min-height:44px!important;font-size:14px!important;padding:6px 10px!important;border-radius:10px!important}#oTypeF .seg.tiles .ico{width:18px;height:18px}
+#oCtxF.off{opacity:.5;pointer-events:none}
 </style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -4064,8 +4065,6 @@ function openOrder(id){
   </div>`;
   state.oCat = ""; fillOrderBranches(o?.branchId); renderOrderMenu(); renderCart(ro); ccAddrVis(); setTimeout(ccGoState, 0);
   $("#ccScrim").classList.add("show");
-  if(!o && $("#oBrand") && !$("#oBrand").value){ const bl = brandList().filter(b => b.active!==false), bd = $("#oBrand"), pick = bl.find(b => [...bd.options].some(x => x.value===b.id));   // a new order shows a menu right away (the first brand; it can be changed in the top card)
-    if(pick){ bd.value = pick.id; fillOrderBranches(""); renderOrderMenu(); } }
   ccStep(2, true);   // a new order starts on the menu and cart; the Customer button opens the customer details
   if(o && o.phone) ccLookup(o.status!=="draft");
 }
@@ -4113,7 +4112,9 @@ function ccSide(){
   const so = ccEdit && S.orders.find(x => x.id===ccEdit);   // a placed order: its reference and status on top, as on the POS
   el.innerHTML = `${so ? `<div class="ccobar"><b>${esc(ccRef(so))}</b><span class="ccpill s-${esc(so.status)}">${esc(CC_SUB[so.status] || so.status)}</span></div>` : ""}<div class="ccctx"><div class="ccothd">${svgIco("pdsc")}<b>Pickup & Delivery</b></div><div class="ccctxh"><div class="ccctxn"><b>${esc($("#oName").value.trim() || "No customer yet")}</b>${bits.length ? `<small>${bits.map(esc).join(" / ")}</small>` : ""}</div>${c?.blacklisted ? `<span class="tag" style="background:#fde8eb;color:#9e0c24">⚠ Blacklisted</span>` : ""}<div class="ccctxb">${$("#oPhone")?.disabled ? `<button type="button" class="btn sm" data-ccstep="1">Customer Details</button>` : `<button type="button" class="btn sm" data-ccstep="1">${$("#oName").value.trim() ? "Edit Customer" : "Add Customer"}</button>`}${$(".ccx .ccmenu") ? "" : `<button type="button" class="btn sm" data-ccclose>Close</button>`}</div></div>
     <div class="ccctxf" id="oCtxF"></div></div>`;
-  const f = $("#oCtxF"); if(f) keep.forEach(n => f.appendChild(n));
+  const f = $("#oCtxF"); if(f){ keep.forEach(n => f.appendChild(n));
+    const hasCust = !!(($("#oPhone")?.value || "").trim() && $("#oName").value.trim());   // source, brand and branch open once the customer is added
+    f.classList.toggle("off", !hasCust); f.querySelectorAll("select").forEach(x => { if(x.dataset.ld==null) x.dataset.ld = x.disabled ? "1" : ""; x.disabled = !!x.dataset.ld || !hasCust; }); }
 }
 function ccAddrCards(){
   setTimeout(ccGoState, 0);
@@ -4244,8 +4245,7 @@ function fillOrderBranches(sel){
 }
 function availableProducts(){
   const br = $("#oBranch")?.value, bd = $("#oBrand")?.value;
-  if(brandList().length && !bd) return [];
-  if(!ccOn(br)) return [];
+  if(!ccOn(br)) return [];   // no brand chosen yet: every brand's menu shows
   const chc = ccCats(br), useCh = chCats("callcenter", br).length > 0;
   return S.products.filter(p => live(p) && p.active!==false && (!br || (!offAt(p.inactiveBranchIds, br, "callcenter") && !(($("#oType .on")?.dataset.ot) && typeOff(p.inactiveBranchIds, br, "callcenter", $("#oType .on").dataset.ot))
     && (useCh ? chc.some(c => chPos(c, p) >= 0 || varParent(p.id) && chPos(c, varParent(p.id)) >= 0) : !offAt(S.categories.find(c=>c.id===p.categoryId)?.inactiveBranchIds, br, "callcenter")))));
