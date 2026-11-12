@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="795-1794502180">
+<meta name="slick-build" content="796-1794502396">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this copy, reload once (never for an older one) */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -3996,9 +3996,10 @@ window.addEventListener("hashchange", () => setTimeout(() => { try{ ccEditWatch(
 document.addEventListener("keydown", e => { const cx = $("#ccX"); if(!cx || !cx.classList.contains("s1") || !$("#ccScrim")?.classList.contains("show")) return;
   if(($("#oAddrPop") && !$("#oAddrPop").hidden) || document.querySelector(".askdlg, .msel.open, .wk-gate")) return;
   if(e.key==="Enter" && !e.target.closest?.("select, textarea, .msel")){ e.preventDefault(); e.stopPropagation(); const b = document.querySelector('.ccnext [data-ccstep="2"]'); if(b && !b.disabled) b.click(); else ccStep(2); }
-  else if(e.key==="Escape"){ e.preventDefault(); e.stopPropagation(); ccSnapBack(); ccStep(2, true); } }, true);
+  else if(e.key==="Escape"){ if(!ccEdit && !cart.length && !(CC_SNAP?.v?.oPhone || "").trim()) return; e.preventDefault(); e.stopPropagation(); ccSnapBack(); ccStep(2, true); } }, true);
 // the customer window of a new order sits over its cart: × goes back to the cart instead of closing the order
-document.addEventListener("click", e => { const x = e.target.closest && e.target.closest("[data-ccclose]"), cx = $("#ccX"); if(!x || !cx || !cx.classList.contains("s1") || !x.closest(".cc1top,.cc1")) return; e.stopImmediatePropagation(); e.preventDefault(); ccSnapBack(); ccStep(2, true); }, true);   // × cancels: nothing typed here is kept
+document.addEventListener("click", e => { const x = e.target.closest && e.target.closest("[data-ccclose]"), cx = $("#ccX"); if(!x || !cx || !cx.classList.contains("s1") || !x.closest(".cc1top,.cc1")) return;
+  if(!ccEdit && !cart.length && !(CC_SNAP?.v?.oPhone || "").trim()) return;   /* a brand-new order still on its first step: × closes it */ e.stopImmediatePropagation(); e.preventDefault(); ccSnapBack(); ccStep(2, true); }, true);   // × cancels: nothing typed here is kept
 document.addEventListener("click", e => { const ro = e.target.closest && e.target.closest("[data-ccreorder]"); if(ro){ e.preventDefault(); ccReorder(ro.dataset.ccreorder); } });
 // Reorder a done, declined or void order: a new order with the same customer, type, source, brand, branch, address and items (at today's prices)
 function ccReorder(id){
@@ -4073,7 +4074,8 @@ function openOrder(id){
   </div>`;
   state.oCat = ""; fillOrderBranches(o?.branchId); renderOrderMenu(); renderCart(ro); ccAddrVis(); setTimeout(ccGoState, 0);
   $("#ccScrim").classList.add("show");
-  ccStep(2, true);   // a new order starts on the menu and cart; the Customer button opens the customer details
+  ccStep(o ? 2 : 1, true);   // a new order starts with the customer details, then the menu and cart
+  if(!o) setTimeout(() => $("#oPhone")?.focus(), 30);
   if(o && o.phone) ccLookup(o.status!=="draft");
 }
 // Foodics-style flow: step 1 customer, type, branch and address; step 2 the menu and cart, with the customer beside it
@@ -4100,7 +4102,7 @@ function ccStep1Err(){
 let CC_SNAP = null;
 function ccSnapBack(){ const sn = CC_SNAP; if(!sn) return; if(sn.ot && $("#oType .on")?.dataset.ot!==sn.ot) document.querySelector(`#oType [data-ot="${sn.ot}"]`)?.click(); Object.entries(sn.v).forEach(([id, val]) => { const el = document.getElementById(id); if(el) el.value = val; });
   window.__ccCust = sn.cust; window.__ccPast = sn.past; window.__ccAddrIx = sn.ix; try{ addrTypeSync("oA"); ccAddrBar(); }catch(_){} if($("#oAddrPop")) $("#oAddrPop").hidden = true; CC_SNAP = null; clearTimeout(ccLookT); try{ ccLookup(); }catch(_){} }
-const ccCustErr = e => !!e && (/^(oPhone|oName|oA_)/.test(e[1] || "") || /address|agents/i.test(e[0]));   // errors the customer window fixes; the rest are in the cart's top card
+const ccCustErr = e => !!e;   // every order detail is in the customer window   // errors the customer window fixes; the rest are in the cart's top card
 async function ccStep(n, force){
   const x = $("#ccX"); if(!x) return;
   if(n===2 && !force){ const e = ccStep1Err(); if(e && ccCustErr(e)){ $("#oErr1").textContent = e[0]; if(e[1]) $("#"+e[1])?.focus(); return; } }
@@ -4115,8 +4117,8 @@ async function ccStep(n, force){
 function ccSide(){
   const el = $("#oSide"); if(!el) return;
   const type = $("#oType .on")?.dataset.ot || "", c = window.__ccCust, a = addrSplit(addrJoin(ccAddrGet()));
-  const keep = ["oBBF","oTSF"].map(id => document.getElementById(id)).filter(Boolean); keep.forEach(n => n.remove());   // order type, source, brand and branch live in this card
-  const bits = [$("#oName").value.trim() && type ? ordTypeLbl(type) : "", type==="delivery" ? (a.label ? a.label + ": " : "") + [a.street, a.building && "Bldg " + a.building, a.floor && "Floor " + a.floor].filter(Boolean).join(", ") : ""].filter(Boolean);
+  const keep = [].map(id => document.getElementById(id)).filter(Boolean); keep.forEach(n => n.remove());   // order type, source, brand and branch live in this card
+  const bits = [type ? ordTypeLbl(type) : "", $("#oSource")?.value || "", branchName($("#oBranch")?.value || ""), type==="delivery" ? (a.label ? a.label + ": " : "") + [a.street, a.building && "Bldg " + a.building, a.floor && "Floor " + a.floor].filter(Boolean).join(", ") : ""].filter(Boolean);
   const so = ccEdit && S.orders.find(x => x.id===ccEdit);   // a placed order: its reference and status on top, as on the POS
   el.innerHTML = `${so ? `<div class="ccobar"><b>${esc(ccRef(so))}</b><span class="ccpill s-${esc(so.status)}">${esc(CC_SUB[so.status] || so.status)}</span></div>` : ""}<div class="ccctx"><div class="ccothd">${svgIco("pdsc")}<b>Pickup & Delivery</b></div><div class="ccctxh"><div class="ccctxn"><b>${esc($("#oName").value.trim() || "No customer yet")}</b>${bits.length ? `<small>${bits.map(esc).join(" / ")}</small>` : ""}</div>${c?.blacklisted ? `<span class="tag" style="background:#fde8eb;color:#9e0c24">⚠ Blacklisted</span>` : ""}<div class="ccctxb">${$("#oPhone")?.disabled ? `<button type="button" class="btn sm" data-ccstep="1">Customer Details</button>` : `<button type="button" class="btn sm" data-ccstep="1">${$("#oName").value.trim() ? "Edit Customer" : "Add Customer"}</button>`}${$(".ccx .ccmenu") ? "" : `<button type="button" class="btn sm" data-ccclose>Close</button>`}</div></div>
     <div class="ccctxf" id="oCtxF"></div></div>`;
