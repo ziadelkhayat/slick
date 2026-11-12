@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="772-1794487601">
+<meta name="slick-build" content="773-1794487823">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this copy, reload once (never for an older one) */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -6165,7 +6165,14 @@ async function ccLookup(view){
   if($("#ccX")?.classList.contains("s2")) ccSide();   // blacklisted flag
 }
 document.addEventListener("change", e => { if(e.target.id==="oCc"){ clearTimeout(ccLookT); ccLookT = setTimeout(ccLookup, 50); } });
-document.addEventListener("input", e => { if(e.target.id==="oPhone"){ clearTimeout(ccLookT); ccLookT = setTimeout(ccLookup, 450); } });
+// a new phone number starts the order over: the name, brand, branch, address and customer details are cleared (order type, source and country stay)
+function ccResetCust(){
+  const n = $("#oName"); if(n) n.value = ""; window.__ccCust = null; window.__ccPast = []; window.__ccAddrIx = null;
+  ADDR_K.forEach(k => { const el = $("#oA_"+k); if(el) el.value = ""; }); try{ addrTypeSync("oA"); ccPinSet(null); }catch(_){}
+  const b = $("#oBrand"); if(b && b.value && !b.disabled){ b.value = ""; fillOrderBranches(""); } else { const br = $("#oBranch"); if(br && br.value && !br.disabled && br.options.length > 2) br.value = ""; }
+  ["oInsights","ccPast","oCustHint"].forEach(id => { const el = document.getElementById(id); if(el) el.innerHTML = ""; }); try{ ccAddrCards(); }catch(_){}
+}
+document.addEventListener("input", e => { if(e.target.id==="oPhone"){ ccResetCust(); clearTimeout(ccLookT); ccLookT = setTimeout(ccLookup, 450); } });
 document.addEventListener("click", e => {
   if(!e.target.closest || !e.target.closest("#ccScrim")) return;
   const ro2 = e.target.closest("[data-reorder]"); if(ro2){ e.preventDefault(); const lo = (window.__ccPast||[]).find(x=>x.id===ro2.dataset.reorder); if(!lo) return;
