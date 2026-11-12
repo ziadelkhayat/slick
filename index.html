@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="775-1794488260">
+<meta name="slick-build" content="776-1794488707">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this copy, reload once (never for an older one) */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1378,6 +1378,9 @@ button.x[aria-label="Close"]{width:38px!important;height:38px!important;min-widt
 .ccn.bad{border-left-color:#e5484d}.ccnb{flex:1;display:flex;flex-direction:column;gap:3px;font-size:13.5px;color:#3a3946}.ccnb b{font-size:14.5px;color:#16794a}.ccn.bad .ccnb b{color:#e5484d}.ccnb small{font-size:12px;color:#8a8799}
 .ccnx{flex:none;width:28px;height:28px;border:0;border-radius:8px;background:#f2f1f6;color:#5b5a66;cursor:pointer}
 @keyframes ccnIn{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:none}}
+#oCtxF{display:flex;flex-direction:column;gap:8px;margin-top:10px}#oCtxF:empty{display:none}#oCtxF .f{margin:0}#oCtxF .f2{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:0}
+#oCtxF .seg.tiles{padding:4px!important;min-height:0!important}#oCtxF .seg.tiles button{min-height:40px!important;padding:6px 10px!important;font-size:14px!important}#oCtxF select{min-height:42px!important;height:42px!important;font-size:14px!important}
+#oCtxF .seg.tiles{display:flex!important;gap:4px}#oCtxF .seg.tiles button{flex:1}
 </style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -3948,7 +3951,7 @@ const ccTime = t => { if(!t) return "—"; const d = new Date(t), today = bizDat
 // the same tile as the orders history: reference, status, customer / phone, address (delivery), created, modified, total, brand / branch, type / source / user
 const ccCard = o => { const sm = x => x ? `<small>${x}</small>` : "", jn = a => a.filter(x => x && x!=="—").map(esc).join(" / ");
   return `<button class="ocard tl" data-order="${esc(o.id)}"><b>${esc(o.ref || ordRef(o))}</b><span class="spill s-${o.status}">${CC_SUB[o.status]}</span>
-  ${sm(jn([o.customerName || "Guest", o.phone]))}${o.type==="delivery" && o.address ? sm(esc(o.address)) : ""}${o.type==="delivery" && o.lat ? `<div class="oline">${mapLink(o)}</div>` : ""}
+  ${sm(jn([o.customerName || "Guest", telFmt(o.phone)]))}${o.type==="delivery" && o.address ? sm(esc(o.address)) : ""}${o.type==="delivery" && o.lat ? `<div class="oline">${mapLink(o)}</div>` : ""}
   ${sm("Created " + ccTime(o.createdAt))}${o.updatedAt && o.updatedAt!==o.createdAt ? sm("Modified " + ccTime(o.updatedAt)) : ""}<em>${usd(o.total)}</em>
   ${sm(jn([brandName(o.brandId), branchName(o.branchId)]))}${sm(jn([ordTypeLbl(o.type), srcOf(o) || o.source || "", o.agent || ""]))}${o.status==="declined" && o.voidReason ? sm("Reason: " + esc(o.voidReason)) : ""}${o.editRequest && o.status==="active" ? sm(o.editRequest.status==="pending" ? "Order edit: waiting for the branch" : o.editRequest.status==="approved" ? "Order edit approved" : "Order edit rejected" + (o.editRequest.reason ? ": " + esc(o.editRequest.reason) : "")) : ""}</button>`; };
 
@@ -4016,11 +4019,11 @@ function openOrder(id){
     <div class="cc1top"><button type="button" class="ccxbtn" data-ccclose aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
     <div class="cc1 pdstyle">
      <div class="cc1a">
-      <div class="f"><div class="seg tiles" id="oType">${[["pickup","Pickup"],["delivery","Delivery"]].map(([k,t])=>`<button type="button" data-ot="${k}" class="${(o ? o.type===k : k==="pickup")?"on":""}" ${dis}>${svgIco(k==="delivery"?"truck":"store")}${t}</button>`).join("")}</div></div>
-      <div class="f"><select id="oSource" class="sel" data-noseg ${dis} aria-label="Order source"><option value="">Order source *</option>${sourceList(o?.source).map(s=>`<option ${o?.source===s?"selected":""}>${esc(s)}</option>`).join("")}</select></div>
+      <div class="f" id="oTypeF"><div class="seg tiles" id="oType">${[["pickup","Pickup"],["delivery","Delivery"]].map(([k,t])=>`<button type="button" data-ot="${k}" class="${(o ? o.type===k : k==="pickup")?"on":""}" ${dis}>${svgIco(k==="delivery"?"truck":"store")}${t}</button>`).join("")}</div></div>
+      <div class="f" id="oSourceF"><select id="oSource" class="sel" data-noseg ${dis} aria-label="Order source"><option value="">Order source *</option>${sourceList(o?.source).map(s=>`<option ${o?.source===s?"selected":""}>${esc(s)}</option>`).join("")}</select></div>
       <div class="f">${(() => { const sp = ccSplit(o?.phone); return `<div class="phrow"><select id="oCc" class="sel" ${ldis} aria-label="Country code">${CC_CODES.map(([d,n])=>`<option value="${d}" ${d===sp.cc?"selected":""}>${d} ${esc(n)}</option>`).join("")}</select><input id="oPhone" value="${esc(sp.num)}" ${ldis} autocomplete="off" inputmode="tel" placeholder="Customer phone *" aria-label="Customer phone"></div>`; })()}</div>
       <div class="f"><input id="oName" data-ph value="${esc(o?.customerName||"")}" ${ldis} placeholder="Customer name *" aria-label="Customer name"></div>
-      <div class="f2"><div class="f"><select id="oBrand" ${ldis} aria-label="Brand"><option value="">Brand *</option>${brandList().map(b=>`<option value="${esc(b.id)}" ${o?.brandId===b.id?"selected":""}>${esc(b.name)}</option>`).join("")}</select></div>
+      <div class="f2" id="oBBF"><div class="f"><select id="oBrand" ${ldis} aria-label="Brand"><option value="">Brand *</option>${brandList().map(b=>`<option value="${esc(b.id)}" ${o?.brandId===b.id?"selected":""}>${esc(b.name)}</option>`).join("")}</select></div>
       <div class="f"><select id="oBranch" ${ldis} aria-label="Branch"></select></div></div>
       ${o?.lat && (ro || (ccLocked && o?.address)) ? `<div class="f"><label>Pinned location</label>${mapLink(o)}</div>` : ""}
      </div>
@@ -4079,9 +4082,10 @@ function ccStep1Err(){
     if(miss.length) return ["The delivery address needs the " + miss.map(x=>x[1]).join(", ").replace(/, ([^,]*)$/, " and $1") + ".", "oA_"+miss[0][0]]; }
   return null;
 }
+const ccCustErr = e => !!e && (/^(oPhone|oName|oA_)/.test(e[1] || "") || /address|agents/i.test(e[0]));   // errors the customer window fixes; the rest are in the cart's top card
 async function ccStep(n, force){
   const x = $("#ccX"); if(!x) return;
-  if(n===2 && !force){ const e = ccStep1Err(); if(e){ $("#oErr1").textContent = e[0]; if(e[1]) $("#"+e[1])?.focus(); return; } }
+  if(n===2 && !force){ const e = ccStep1Err(); if(e && ccCustErr(e)){ $("#oErr1").textContent = e[0]; if(e[1]) $("#"+e[1])?.focus(); return; } }
   $("#oErr1") && ($("#oErr1").textContent = "");
   x.classList.toggle("s1", n===1); x.classList.toggle("s2", n===2);
   document.querySelectorAll("[data-ccstep]").forEach(b => b.closest(".ccsteps") && b.classList.toggle("on", +b.dataset.ccstep===n));
@@ -4090,10 +4094,12 @@ async function ccStep(n, force){
 function ccSide(){
   const el = $("#oSide"); if(!el) return;
   const type = $("#oType .on")?.dataset.ot || "", c = window.__ccCust, a = addrSplit(addrJoin(ccAddrGet()));
-  const bits = [branchName($("#oBranch").value), type ? ordTypeLbl(type) : "", $("#oSource")?.value || "", type==="delivery" ? (a.label ? a.label + ": " : "") + [a.street, a.building && "Bldg " + a.building, a.floor && "Floor " + a.floor].filter(Boolean).join(", ") : ""].filter(Boolean);
+  const keep = ["oTypeF","oSourceF","oBBF"].map(id => document.getElementById(id)).filter(Boolean); keep.forEach(n => n.remove());   // order type, source, brand and branch live in this card
+  const bits = [type==="delivery" ? (a.label ? a.label + ": " : "") + [a.street, a.building && "Bldg " + a.building, a.floor && "Floor " + a.floor].filter(Boolean).join(", ") : ""].filter(Boolean);
   const so = ccEdit && S.orders.find(x => x.id===ccEdit);   // a placed order: its reference and status on top, as on the POS
-  el.innerHTML = `${so ? `<div class="ccobar"><b>${esc(ccRef(so))}</b><span class="ccpill s-${esc(so.status)}">${esc(CC_SUB[so.status] || so.status)}</span></div>` : ""}<div class="ccctx"><div class="ccctxh"><span class="ccci">${svgIco(type==="delivery" ? "truck" : "store")}</span><div class="ccctxn"><b>${esc($("#oName").value.trim() || "No customer yet")}</b><small>${bits.map(esc).join(" / ")}</small></div>${c?.blacklisted ? `<span class="tag" style="background:#fde8eb;color:#9e0c24">⚠ Blacklisted</span>` : ""}</div>
-    <div class="ccctxb">${$("#oPhone")?.disabled ? `<button type="button" class="btn sm" data-ccstep="1">Customer Details</button>` : `<button type="button" class="btn sm" data-ccstep="1">${$("#oName").value.trim() ? "Edit customer" : "Customer"}</button>`}${$(".ccx .ccmenu") ? "" : `<button type="button" class="btn sm" data-ccclose>Close</button>`}</div></div>`;
+  el.innerHTML = `${so ? `<div class="ccobar"><b>${esc(ccRef(so))}</b><span class="ccpill s-${esc(so.status)}">${esc(CC_SUB[so.status] || so.status)}</span></div>` : ""}<div class="ccctx"><div class="ccctxh"><span class="ccci">${svgIco(type==="delivery" ? "truck" : "store")}</span><div class="ccctxn"><b>${esc($("#oName").value.trim() || "No customer yet")}</b>${bits.length ? `<small>${bits.map(esc).join(" / ")}</small>` : ""}</div>${c?.blacklisted ? `<span class="tag" style="background:#fde8eb;color:#9e0c24">⚠ Blacklisted</span>` : ""}</div>
+    <div class="ccctxf" id="oCtxF"></div><div class="ccctxb">${$("#oPhone")?.disabled ? `<button type="button" class="btn sm" data-ccstep="1">Customer Details</button>` : `<button type="button" class="btn sm" data-ccstep="1">${$("#oName").value.trim() ? "Edit customer" : "Customer"}</button>`}${$(".ccx .ccmenu") ? "" : `<button type="button" class="btn sm" data-ccclose>Close</button>`}</div></div>`;
+  const f = $("#oCtxF"); if(f) keep.forEach(n => f.appendChild(n));
 }
 function ccAddrCards(){
   setTimeout(ccGoState, 0);
@@ -4454,7 +4460,7 @@ function renderCart(ro){
 }
 async function saveOrder(status){
   const o = ccEdit ? S.orders.find(x=>x.id===ccEdit) : null;
-  if(!o || o.status==="draft"){ let e1 = ccStep1Err(); if(e1 && status==="draft" && !["oPhone","oName"].includes(e1[1])) e1 = null; if(e1){ await ccStep(1, true); toast(e1[0]); if(e1[1]) setTimeout(() => $("#"+e1[1])?.focus(), 30); return; } }   // the customer details come first: open them with what's missing
+  if(!o || o.status==="draft"){ let e1 = ccStep1Err(); if(e1 && status==="draft" && !["oPhone","oName"].includes(e1[1])) e1 = null; if(e1){ if(ccCustErr(e1)) await ccStep(1, true); toast(e1[0]); if(e1[1]) setTimeout(() => $("#"+e1[1])?.focus(), 30); return; } }   // the customer details come first: open them with what's missing
   if(status==="keep") status = o?.status || "draft";
   const phone = ccPhone(), name = $("#oName").value.trim(), branchId = $("#oBranch").value;
   if(!phone){ $("#oErr").textContent = "Customer phone is required."; $("#oPhone").focus(); return; }
@@ -5669,7 +5675,7 @@ function viewOrders(){
   <div class="card tbl otbl obody">${ORD.err ? `<p class="note" style="padding:16px">Couldn't load orders: ${esc(ORD.err)}</p>` : `<table><thead><tr><th>Reference #</th><th>Invoice #</th><th>Order #</th>${brandList().length > 1 ? "<th>Brand</th>" : ""}<th>Branch</th><th>Customer</th><th>Status</th><th>Sales channel</th><th>Order type</th><th>Order source</th><th>Business date</th><th>Opened at</th><th>Payment Type</th><th class="num">Total</th></tr></thead><tbody>${
     ORD.rows.length ? ORD.rows.map(o => `<tr class="clk" data-oid="${esc(o.id)}"><td><b>${esc(o.ref || "—")}</b></td><td>${o.status==="refund" ? esc(ordRef(o)) : o.invoiceNo ? esc(invNo(o.invoiceNo)) : '<span class="note" title="Gets its invoice number when a POS accepts it">—</span>'}</td><td>${o.status==="refund" ? "–" : o.no ? `#${esc(o.no)}` : '<span class="note" title="Gets its number when a POS bills it">—</span>'}</td>
       ${brandList().length > 1 ? `<td>${esc(brandName(o.brandId) || "—")}</td>` : ""}<td>${esc(branches.find(x=>x.id===o.branchId)?.name || "—")}</td>
-      <td>${esc(o.customerName || "—")}${o.phone?` <span class="note">${esc(o.phone)}</span>`:""}</td><td><span class="spill s-${o.status}">${ORD_ST[o.status]||o.status}</span></td>
+      <td>${esc(o.customerName || "—")}${o.phone?` <span class="note">${esc(telFmt(o.phone))}</span>`:""}</td><td><span class="spill s-${o.status}">${ORD_ST[o.status]||o.status}</span></td>
       <td><span class="tag cc">${esc(CH_LBL[o.channel] || cap(o.channel))}</span></td><td>${esc(ordTypeLbl(o.type))}${o.type==="dinein" && o.table ? ` <span class="note">· ${esc(/^\d+$/.test(String(o.table).trim()) ? "Table " + String(o.table).trim() : o.table)}</span>` : ""}</td><td>${esc(srcOf(o) || "-")}</td>
       <td>${o.createdAt ? (d => `<div>${d[2]}/${d[1]}</div><div class="note">${d[0]}</div>`)(bizDate(o.createdAt, o.branchId).split("-")) : "—"}</td><td>${o.createdAt ? `<div style="white-space:nowrap">${new Date(o.createdAt).toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric",year:"numeric"})}</div><div class="note">${new Date(o.createdAt).toLocaleTimeString("en-GB",{hour:"numeric",minute:"2-digit"})}</div>` : "—"}</td><td>${esc(o.payment?.method || "-")}</td><td class="num">${money(+o.total||0)}</td></tr>`).join("")
     : `<tr><td colspan="14" class="note" style="padding:24px;text-align:center">${ORD.loading ? "Loading orders…" : "No orders match these filters."}</td></tr>`
@@ -5702,7 +5708,7 @@ async function openOrderDetail(id, quiet){
       ${o.agent?`<div><span>${o.channel==="pos"?"Device":"User"}</span>${esc(o.agent)}</div>`:""}
       ${o.handledBy?`<div><span>Handled by</span>${esc(o.handledBy)}</div>`:""}
     </div>
-    ${o.customerName||o.phone||o.address ? `<div class="card" style="margin-bottom:14px"><b>Customer</b><div style="margin-top:6px">${esc(o.customerName||"")}${o.phone?` · <a class="lnk" href="tel:${esc(o.phone)}">${esc(o.phone)}</a>`:""}</div>${o.address?`<div class="note" style="margin-top:4px">${esc(o.address)}</div>`:""}${o.lat?`<div style="margin-top:6px">${mapLink(o)}</div>`:""}</div>` : ""}
+    ${o.customerName||o.phone||o.address ? `<div class="card" style="margin-bottom:14px"><b>Customer</b><div style="margin-top:6px">${esc(o.customerName||"")}${o.phone?` · <a class="lnk" href="tel:${esc(o.phone)}">${esc(telFmt(o.phone))}</a>`:""}</div>${o.address?`<div class="note" style="margin-top:4px">${esc(o.address)}</div>`:""}${o.lat?`<div style="margin-top:6px">${mapLink(o)}</div>`:""}</div>` : ""}
     <div class="card tbl" style="margin-bottom:14px"><table><thead><tr><th>Item</th><th class="num">Qty</th><th class="num">Price</th><th class="num">Total</th></tr></thead><tbody>${
       items.map(i=>`<tr><td>${esc(i.name)}${modList(i)}${+i.disc?`<div class="note">Item discount −${money(+i.disc)}</div>`:""}</td><td class="num">${+i.qty||1}</td><td class="num">${money(+i.price||0)}</td><td class="num">${money(Math.max(0,(+i.qty||1)*(+i.price||0)-(+i.disc||0)))}</td></tr>`).join("")
     }${(o.voidedItems||[]).map(i=>`<tr class="note"><td><s>${esc(i.name)}</s> <span class="tag off">Voided</span>${i.voidedBy?` <span class="note">by ${esc(i.voidedBy)}</span>`:""}</td><td class="num">${+i.qty||1}</td><td></td><td class="num"><s>${money((+i.qty||1)*(+i.price||0))}</s></td></tr>`).join("")}
@@ -5741,7 +5747,7 @@ function printOrder(){
   const w = window.open("", "_blank", "width=380,height=640"); if(!w) return toast("Allow pop-ups to print");
   w.document.write(`<!doctype html><title>Order ${esc(ordRef(o))}</title><style>body{font:13px/1.4 monospace;width:72mm;margin:0 auto;padding:8px}h2,p.c{text-align:center;margin:4px 0}table{width:100%;border-collapse:collapse}td{padding:2px 0}td.r{text-align:right}hr{border:0;border-top:1px dashed #000}</style>
     <h2>${esc((brandName(o.brandId)!=="—"?brandName(o.brandId):"Slick").toUpperCase())}</h2><p class="c">${esc(b?.name||"")}</p><hr>
-    <p>Order ${esc(ordRef(o))} · ${esc(ordTypeLbl(o.type))}${o.table?" T"+esc(o.table):""}<br>${new Date(o.createdAt).toLocaleString("en-GB")}${o.customerName?"<br>"+esc(o.customerName):""}${o.phone?" · "+esc(o.phone):""}${o.address?"<br>"+esc(o.address):""}</p><hr>
+    <p>Order ${esc(ordRef(o))} · ${esc(ordTypeLbl(o.type))}${o.table?" T"+esc(o.table):""}<br>${new Date(o.createdAt).toLocaleString("en-GB")}${o.customerName?"<br>"+esc(o.customerName):""}${o.phone?" · "+esc(telFmt(o.phone)):""}${o.address?"<br>"+esc(o.address):""}</p><hr>
     <table>${items.map(i=>`<tr><td>${+i.qty||1} x ${esc(i.name)}${modLines(i).map(m => `<br>&nbsp;&nbsp;&nbsp;- ${esc(m)}`).join("")}</td><td class="r">${((+i.qty||1)*(+i.price||0)).toFixed(2)}</td></tr>`).join("")}</table><hr>
     <table>${+o.discount?`<tr><td>Discount</td><td class="r">-${(+o.discount).toFixed(2)}</td></tr>`:""}${(o.charges||[]).filter(c=>+c.amount).map(c=>`<tr><td>${esc(c.name)}</td><td class="r">${(+c.amount).toFixed(2)}</td></tr>`).join("")}${+o.deliveryFee?`<tr><td>Delivery</td><td class="r">${(+o.deliveryFee).toFixed(2)}</td></tr>`:""}<tr><td>Subtotal</td><td class="r">${((+o.total||0)-(+o.tax||0)).toFixed(2)}</td></tr><tr><td>Tax</td><td class="r">${(+o.tax||0).toFixed(2)}</td></tr><tr><td><b>TOTAL ${esc(SYM())}</b></td><td class="r"><b>${(+o.total||0).toFixed(2)}</b></td></tr>${o.payment?`<tr><td>Paid (${esc(o.payment.method)})</td><td class="r">${(+o.payment.tendered||+o.total||0).toFixed(DEC())}</td></tr>${+o.payment.tendered2 ? `${+o.payment.tendered1 ? `<tr><td>&nbsp; ${esc(SYM())}</td><td class="r">${(+o.payment.tendered1).toFixed(DEC())}</td></tr>` : ""}<tr><td>&nbsp; ${esc(o.payment.currency2)}</td><td class="r">${(+o.payment.tendered2).toLocaleString("en-US",{minimumFractionDigits:+o.payment.decimals2||0,maximumFractionDigits:+o.payment.decimals2||0})}</td></tr>` : ""}${+o.payment.change ? `<tr><td>Change</td><td class="r">${(+o.payment.change).toFixed(DEC())}</td></tr>` : ""}`:""}</table>
     ${o.receiptNotes?`<p class="c">${esc(o.receiptNotes)}</p>`:""}${o.status==="void"?"<h2>*** VOID ***</h2>":o.status==="returned"?"<h2>*** RETURNED ***</h2>":""}<hr><p class="c">Thank you!</p><script>window.onload=()=>{window.print();}<\/script>`);
@@ -5916,6 +5922,7 @@ function phoneVariants(full){ const out = new Set([full]); const m = Object.valu
 function fullPhone(v, cc){ let d = String(v||"").replace(/[^\d+]/g, ""); if(!d) return ""; if(d.startsWith("00")) d = "+" + d.slice(2); if(d.startsWith("+")) return d.replace(/(?!^)\+/g, ""); const n = d.replace(/\+/g, "").replace(/^0+/, ""); return n.length < 6 ? "" : (cc || ccDefault()) + n; }
 // call center phone: country code (defaults to the business's country) + number
 const ccDefault = () => (CC_CODES.find(([d,n]) => n===(company().country||"Lebanon")) || CC_CODES[0])[0];
+const telFmt = v => { const t = String(v||"").trim(); if(!t.startsWith("+")) return t; const sp = ccSplit(t); return sp.num && t.replace(/[^\d+]/g, "").startsWith(sp.cc) ? sp.cc + "-" + sp.num : t; };   // +961-70123456
 function ccSplit(v){ const t = String(v||"").trim(); if(t.startsWith("+")){ const d = t.replace(/[^\d+]/g, ""), m = CC_CODES.map(x=>x[0]).sort((a,b)=>b.length-a.length).find(c => d.startsWith(c)); if(m) return { cc: m, num: d.slice(m.length) }; } return { cc: ccDefault(), num: t }; }
 function ccPhone(){ const raw = ($("#oPhone")?.value || "").trim(); if(!raw) return ""; if(raw.startsWith("+")) return normPhone(raw); return ($("#oCc")?.value || ccDefault()) + raw.replace(/\D/g, "").replace(/^0+/, ""); }
 const ago2 = t => { if(!t) return "—"; const d = Math.floor((Date.now()-new Date(t))/86400000); return d<=0 ? "Today" : d===1 ? "Yesterday" : d<31 ? d+" days ago" : new Date(t).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"}); };
@@ -5966,7 +5973,7 @@ function viewCustomers(){
   ${CUS.err ? `<p class="note" style="padding:16px">Couldn't load customers: ${esc(CUS.err)}</p>` : `<table><thead><tr><th class="bkc"><input type="checkbox" data-cusall ${rows.length && rows.every(c => CUS.sel.has(c.id)) ? "checked" : ""} aria-label="Select all on this page"></th>${CUS.sel.size
       ? `<th colspan="5" class="bkbar"><b>${CUS.sel.size} Selected</b><span class="ddwrap"><button type="button" class="btn sm" id="cusBk">Actions ▾</button><span class="ddmenu" id="cusBkM" hidden>${(CUS.filter==="deleted" ? [["restore","Restore"]] : CUS_BULK).map(([k,t]) => `<button type="button" data-cusbk="${k}">${t}</button>`).join("")}</span></span></th>`
       : `<th>Name</th><th>Phone</th><th>Email</th><th class="num">Total Orders</th><th>Last Order</th>`}</tr></thead><tbody>${
-    rows.length ? rows.map(c => `<tr class="clk" data-cid="${esc(c.id)}"><td class="bkc"><input type="checkbox" data-cusel="${esc(c.id)}" ${CUS.sel.has(c.id)?"checked":""} aria-label="Select ${esc(c.name||c.phone||"")}"></td><td><b>${esc(c.name || "Unnamed")}</b>${c.blacklisted?' <span class="spill s-declined">Blacklisted</span>':""}${(c.tags||[]).length?`<div>${c.tags.map(t=>`<span class="tag cc">${esc(t)}</span>`).join(" ")}</div>`:""}</td><td>${esc(c.phone)}</td><td>${esc(c.email || "—")}</td>
+    rows.length ? rows.map(c => `<tr class="clk" data-cid="${esc(c.id)}"><td class="bkc"><input type="checkbox" data-cusel="${esc(c.id)}" ${CUS.sel.has(c.id)?"checked":""} aria-label="Select ${esc(c.name||c.phone||"")}"></td><td><b>${esc(c.name || "Unnamed")}</b>${c.blacklisted?' <span class="spill s-declined">Blacklisted</span>':""}${(c.tags||[]).length?`<div>${c.tags.map(t=>`<span class="tag cc">${esc(t)}</span>`).join(" ")}</div>`:""}</td><td>${esc(telFmt(c.phone))}</td><td>${esc(c.email || "—")}</td>
       <td class="num">${c.n}</td><td>${ago2(c.last_at)}</td></tr>`).join("")
     : `<tr><td colspan="6" class="note" style="padding:24px;text-align:center">${CUS.loading ? "Loading customers…" : CUS.q || CUS.filter!=="all" || adv ? "No customers match." : "No customers yet"}</td></tr>`
   }</tbody></table>`}
@@ -6000,7 +6007,7 @@ function viewCustomer(){
   const used = []; { const seen = new Set(c.addresses.map(a => String(a.address||"").trim())); orders.forEach(o => { const v = String(o.address||"").trim(); if(v && !seen.has(v)){ seen.add(v); used.push(v); } }); } c.__used = used;
   const desc = v => { const a = addrSplit(v); return esc([a.street, a.building && "Bldg " + a.building, a.floor && "Floor " + a.floor, a.door, a.extra].filter(Boolean).join(" · ") || v); };
   const admin = ["owner","admin"].includes(state.role);
-  return `<div class="phead"><a href="#customers" class="btn" data-cusback style="text-decoration:none">← Back</a><h1 style="margin-left:10px">${esc(c.name || c.phone)}</h1>${c.blacklisted?' <span class="spill s-declined" style="margin-left:8px">Blacklisted</span>':""}<div class="sp"></div>
+  return `<div class="phead"><a href="#customers" class="btn" data-cusback style="text-decoration:none">← Back</a><h1 style="margin-left:10px">${esc(c.name || telFmt(c.phone))}</h1>${c.blacklisted?' <span class="spill s-declined" style="margin-left:8px">Blacklisted</span>':""}<div class="sp"></div>
       ${c.deleted_at ? `<span class="spill s-declined" style="margin-right:8px">Deleted</span>${admin ? `<button class="btn pri" id="cuRestore">Restore</button>` : ""}` : `${admin ? `<button class="btn" id="cuHa">${c.house_account ? "Disable House Account" : "Enable House Account"}</button><button class="btn" id="cuDel">Delete Customer</button>` : ""}<button class="btn pri" id="cuEdit">Edit Customer</button>`}</div>
     <div class="cstats">
       <div><span>Done Orders</span><b>${done.length}</b></div>
@@ -6010,7 +6017,7 @@ function viewCustomer(){
       ${more ? `<div><span>Total Spent (${esc(SYM())})</span><b>${money(spent)}</b></div><div><span>Total Discounts (${esc(SYM())})</span><b>${money(disc)}</b></div><div><span>Average Order (${esc(SYM())})</span><b>${money(done.length ? spent/done.length : 0)}</b></div><div><span>First Order</span><b>${orders.length ? dtf(orders[orders.length-1].created_at) : "—"}</b></div>` : ""}
       ${c.house_account ? (() => { const sum = k => (c.__ha||[]).filter(t => t.kind===k).reduce((s, t) => s + (+t.amount||0), 0);   // credit: sales charged to the account · debit: payments made
         return `<div><span>Account Balance (${esc(SYM())})</span><b style="${haBal(c) < 0 ? "color:#b42318" : ""}">${money(haBal(c))}</b></div><div><span>Total Credit (${esc(SYM())})</span><b>${money(sum("charge"))}</b></div><div><span>Total Debit (${esc(SYM())})</span><b>${money(sum("payment"))}</b></div>`; })() : ""}</div>
-    <div class="card odet" style="margin-bottom:16px;padding:16px 18px">${row("Name", esc(c.name || "—"))}${row("Email", esc(c.email || "—"))}${row("Phone", esc(c.phone || "—"))}${row("Birth Date", c.birthday ? dtf(c.birthday + "T12:00:00") : "—")}
+    <div class="card odet" style="margin-bottom:16px;padding:16px 18px">${row("Name", esc(c.name || "—"))}${row("Email", esc(c.email || "—"))}${row("Phone", esc(telFmt(c.phone) || "—"))}${row("Birth Date", c.birthday ? dtf(c.birthday + "T12:00:00") : "—")}
       ${row("Gender", esc({ male:"Male", female:"Female" }[c.gender] || "—"))}${row("Loyalty", c.loyalty ? "Enabled" : "Disabled")}${row("House Account", c.house_account ? `Enabled · balance <b class="${haBal(c) < 0 ? "neg" : ""}">${money(haBal(c))}</b>` : "Disabled")}${c.house_account ? row("Credit Limit", `${c.house_limit!=null ? money(+c.house_limit) : "No limit"} <a href="#customers" class="lnk" id="cuHaLim">Change</a>`) : ""}${row("Blacklist", c.blacklisted ? "Yes" : "No")}
       ${row("Created", dtf(c.created_at))}${c.notes ? `<div style="grid-column:1/-1"><span>Customer Notes</span>${esc(c.notes)}</div>` : ""}</div>
     ${c.house_account || (c.__ha||[]).length ? `<div class="card brcard"><div class="brch"><h3>House Account Transactions</h3><span class="note" style="margin-left:6px">Balance ${money(haBal(c))}</span><span class="sp"></span>${c.house_account ? `<button class="btn sm" id="cuHaPay">Add Payment</button>` : ""}</div>

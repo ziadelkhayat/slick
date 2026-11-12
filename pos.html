@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="774-1794488078">
+<meta name="slick-build" content="776-1794488707">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this copy, reload once (never for an older one) */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -48,6 +48,11 @@ html[data-stage] body{position:fixed!important;left:var(--sl,0)!important;top:va
 /* small remove buttons: the × is drawn, so it sits in the exact centre of its box */
 .onx,.dlx,.mnx,.ccx1,.ofpx,.qtx{position:relative;padding:0!important;font-size:0!important;line-height:0!important;color:currentColor}
 .onx::before,.dlx::before,.mnx::before,.ccx1::before,.ofpx::before,.qtx::before{content:"";position:absolute;inset:0;margin:auto;width:clamp(8px,38%,12px);height:clamp(8px,38%,12px);background:currentColor;-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10'%3E%3Cpath d='M1.5 1.5l7 7M8.5 1.5l-7 7' stroke='black' stroke-width='1.7' stroke-linecap='round'/%3E%3C/svg%3E") center/contain no-repeat;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10'%3E%3Cpath d='M1.5 1.5l7 7M8.5 1.5l-7 7' stroke='black' stroke-width='1.7' stroke-linecap='round'/%3E%3C/svg%3E") center/contain no-repeat}
+.ctxf{flex-basis:100%;display:grid;grid-template-columns:1fr 1fr;gap:8px}.ctxf .dseg{gap:4px;background:rgba(255,255,255,.55);border-radius:12px;padding:4px}.ctxf .dseg button{min-height:40px!important;padding:6px 8px;border:0;background:none;display:flex;align-items:center;justify-content:center;gap:6px;font-size:14px}
+.ctxf .dseg button.on{background:#fff;color:#5b2bc4;box-shadow:0 1px 3px rgba(21,19,31,.12)}.ctxf .dseg svg{width:18px;height:18px}.ctxf select{min-height:48px;border:1px solid var(--line);border-radius:12px;background:#fff;padding:0 12px;font:inherit;font-size:14px}
+.ctx .ctxf .dseg button{background:none!important;box-shadow:none!important;color:#6b6a75!important;border:0!important;font-weight:600}.ctx .ctxf .dseg button.on{background:#fff!important;color:#5b2bc4!important;box-shadow:0 1px 3px rgba(21,19,31,.12)!important}
+.ctx .ctxf select{appearance:none;-webkit-appearance:none;background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236b6a75' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") no-repeat right 12px center/16px;padding-right:34px;color:var(--ink,#15131f);font-weight:500}
+button[data-npk="C"],button[data-kp="C"]{font-weight:700;color:#e5484d!important}
 </style>
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
@@ -1532,7 +1537,9 @@ function renderCart(){
   const rf = eo0 && eo0.status==="refund" ? eo0 : null, rfInv = rf && invNo(rf.invoiceRef || S.orders.find(x => x.id===rf.refundOf)?.invoiceNo);
   const ctx = rf ? `<div class="ctx"><span class="ci ci-svg">${ico("undo")}</span><div><b>Return</b><small>${rfInv ? "Original invoice " + esc(rfInv) : esc(typLbl(rf.type))}</small></div><span class="sp"></span></div>`
     : otype==="dinein" ? `<div class="ctx"><span class="ci ci-svg">${ico("dine")}</span><div><b>${esc(tblLbl(tableNo || "—"))}</b><small>Dine-in${GUESTS ? ` · ${GUESTS} guest${GUESTS===1?"":"s"}` : ""}</small></div><span class="sp"></span>${canSwitch ? `<button data-ctx="fast">Remove table</button>` : ""}</div>`
-    : otype==="takeaway" || otype==="delivery" ? `<div class="ctx"><span class="ci ci-svg">${ico(otype==="delivery" ? "scooter" : "bag")}</span><div><b>${esc(cust.name || (otype==="delivery" ? "Delivery" : "Pickup"))}</b><small>${esc([branch?.name, otype==="delivery" ? "Delivery" : "Pickup", cust.source].filter(Boolean).join(" / "))}</small></div><span class="sp"></span>${canSwitch ? `<button data-ctx="pddetails">Edit</button><button data-ctx="rmcust">Remove Customer</button>` : ""}</div>`
+    : otype==="takeaway" || otype==="delivery" ? `<div class="ctx"><span class="ci ci-svg">${ico(otype==="delivery" ? "scooter" : "bag")}</span><div><b>${esc(cust.name || (otype==="delivery" ? "Delivery" : "Pickup"))}</b><small>${esc(canSwitch ? (branch?.name || "") : [branch?.name, otype==="delivery" ? "Delivery" : "Pickup", cust.source].filter(Boolean).join(" / "))}</small></div><span class="sp"></span>${canSwitch ? `<button data-ctx="pddetails">Edit</button><button data-ctx="rmcust">Remove Customer</button>
+      <div class="ctxf"><div class="dseg"><button type="button" data-ctxot="takeaway" class="${otype==="takeaway" ? "on" : ""}">${ico("bag")}Pickup</button><button type="button" data-ctxot="delivery" class="${otype==="delivery" ? "on" : ""}">${ico("scooter")}Delivery</button></div>
+      <select id="ctxSrc" data-noseg aria-label="Order source"><option value="">Order source *</option>${[...new Set([...posSources(), cust.source].filter(Boolean))].map(x => `<option ${cust.source===x ? "selected" : ""}>${esc(x)}</option>`).join("")}</select></div>` : ""}</div>`
     : `<div class="ctx"><span class="ci ci-svg"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12v18l-2-1.5L14 21l-2-1.5L10 21l-2-1.5L6 21z"/><path d="M9 8h6M9 12h6M9 16h3"/></svg></span><div><b>Fast Sale</b></div><span class="sp"></span></div>`;
   // the order's tags, under the order type: "Tag: …"
   const tgIds = posTags ?? (eo0 ? (tgDoc().on?.order?.[eo0.id] || []) : []), tgNames = tgIds.map(id => tgList("order").find(t => t.id===id)?.name).filter(Boolean);
@@ -1784,11 +1791,15 @@ $("#lines").addEventListener("click", e => { const rn = e.target.closest("[data-
 $("#extra").addEventListener("click", e => { const ht = e.target.closest("[data-hgettab]"); if(ht) return retrieveHeld(ht.dataset.hgettab);
   const cx = e.target.closest("[data-ctx]");
   if(cx && cx.dataset.ctx==="table") return openTables();
+  const ot = e.target.closest("[data-ctxot]"); if(ot){ const v = ot.dataset.ctxot; if(v===otype) return;   // pickup ↔ delivery from the cart; delivery needs an address first
+    if(v==="delivery" && !addrJoin(cust.addr || {})){ PD = { type:"delivery", phone: cust.phone, name: cust.name, addr: {}, source: cust.source || "", cust:null, edit:true }; return openPDNew(); }
+    otype = v; posChg = null; repriceCart(); renderCart(); renderMenu(); return; }
   if(cx && cx.dataset.ctx==="pddetails"){ PD = { type: otype==="delivery" ? "delivery" : "takeaway", phone: cust.phone, name: cust.name, addr: { ...(cust.addr||{}) }, source: cust.source || "", cust:null, edit:true }; return openPDNew(); }
   if(cx && cx.dataset.ctx==="fast" || cx && cx.dataset.ctx==="rmcust"){ const go = () => { otype = "fast"; tableNo = ""; cust = { name:"", phone:"", addr:{} }; posChg = null; repriceCart(); renderCart(); renderMenu(); };
     if(cx.dataset.ctx==="rmcust"){ go(); return; }   // Remove Customer: the cart goes back to a fast sale
     if((otype==="takeaway" || otype==="delivery") && (cust.name || cust.phone)) askYes("Make this a fast sale? The customer details are removed.", "Fast sale").then(y => y && go()); else go(); return; }
   if(e.target.closest("[data-unload]")) return unloadOrder(); });
+document.addEventListener("change", e => { if(e.target.id==="ctxSrc"){ cust.source = e.target.value; renderCart(); } });
 // an order edit answered from the cart (approved or rejected): the cart opens on a new order
 $("#acts").addEventListener("click", async e => { const eb = e.target.closest("[data-er]");
   if(eb){ if(eb.disabled) return; if(!can("pos_incoming")) return deny("handling incoming orders"); const [id, y] = eb.dataset.er.split(":"); eb.disabled = true;
@@ -1869,11 +1880,11 @@ document.addEventListener("click", e => { const b = e.target.closest("[data-osk]
   t.dispatchEvent(new Event("input", { bubbles:true })); });
 // on-screen number pad for touch screens: types into the field it belongs to
 const ADDR_TYPES = ["Apartment","House/Villa","Compound","Office","Hotel","Other"];
-const numpad = (id, kind) => `<div class="pinpad npad" data-npfor="${id}">${["1","2","3","4","5","6","7","8","9", kind==="tel" ? "+" : kind==="int" ? "" : ".","0","⌫"].map(k => !k ? `<span></span>` : `<button type="button" data-npk="${k}" aria-label="${k==="⌫" ? "Delete" : k}">${k}</button>`).join("")}</div>`;
+const numpad = (id, kind) => `<div class="pinpad npad" data-npfor="${id}">${["1","2","3","4","5","6","7","8","9", kind==="tel" ? "+" : kind==="int" ? "" : ".","0","C"].map(k => !k ? `<span></span>` : `<button type="button" data-npk="${k}" aria-label="${k==="C" ? "Clear" : k}">${k}</button>`).join("")}</div>`;
 document.addEventListener("pointerdown", e => { if(e.target.closest("[data-npk]")) e.preventDefault(); });
 document.addEventListener("click", e => { const k = e.target.closest("[data-npk]"); if(!k) return; e.preventDefault();
   const el = document.getElementById(k.closest("[data-npfor]").dataset.npfor); if(!el) return; let v = el.value, key = k.dataset.npk;
-  if(key==="⌫") v = v.slice(0, -1); else if(key==="+"){ if(!v) v = "+"; } else if(key==="."){ if(!v.includes(".")) v = (v || "0") + "."; } else v = v==="0" && el.dataset.np!=="tel" ? key : v + key; if(el.maxLength > 0) v = v.slice(0, el.maxLength);
+  if(key==="C") v = ""; else if(key==="⌫") v = v.slice(0, -1); else if(key==="+"){ if(!v) v = "+"; } else if(key==="."){ if(!v.includes(".")) v = (v || "0") + "."; } else v = v==="0" && el.dataset.np!=="tel" ? key : v + key; if(el.maxLength > 0) v = v.slice(0, el.maxLength);
   el.value = v; el.dispatchEvent(new Event("input", { bubbles:true })); });
 // money amounts typed on a keypad (data-nf) show 1,000 separators and a dot for decimals; codes, PINs, guest counts and phone numbers are never grouped; the field keeps the plain number, a copy on top shows it grouped
 const nfGroup = v => { v = String(v ?? ""); if(!/^-?\d*\.?\d*$/.test(v) || v==="") return v; const [i, d] = v.split("."); return (i ? (+i).toLocaleString("en-US") : (d!==undefined ? "0" : "")) + (d!==undefined ? "." + d : ""); };
@@ -1969,7 +1980,7 @@ $("#modal").addEventListener("click", async e => {
       if(a && b && c2){ a.hidden = TCUR!==1; b.hidden = TCUR!==2; if(TCUR===2){ a.value = ""; b.value = String(ceilD(tt * c2.rate, c2.dec)); } else { b.value = ""; a.value = tt.toFixed(DEC()); } if($("#tcurLbl")) $("#tcurLbl").textContent = TCUR===2 ? c2.code : SYM(); } } document.querySelectorAll("[data-tcur]").forEach(b => b.classList.toggle("on", b.dataset.tcur===tc.dataset.tcur)); KP = true; $("#quickBox").innerHTML = quickBtns(TCUR); updChange(); return; }
   const qk = e.target.closest("[data-qk]"); if(qk){ const c2 = CUR2(); if(c2){ $("#tender").value = TCUR===1 ? (+qk.dataset.qk).toFixed(DEC()) : ""; $("#tender2").value = TCUR===2 ? qk.dataset.qk : ""; } else $("#tender").value = qk.dataset.qk; KP = true; updChange(); return; }
   const kp = e.target.closest("[data-kp]"); if(kp){ const el = $(TCUR===2 && $("#tender2") ? "#tender2" : "#tender"), k = kp.dataset.kp; let v = KP ? "" : el.value; KP = false;
-    v = k==="⌫" ? v.slice(0,-1) : k==="." ? (v.includes(".") ? v : (v || "0") + ".") : (v==="0" ? k : v + k); el.value = v.slice(0,9); updChange(); return; }
+    v = k==="C" ? "" : k==="⌫" ? v.slice(0,-1) : k==="." ? (v.includes(".") ? v : (v || "0") + ".") : (v==="0" ? k : v + k); el.value = v.slice(0,9); updChange(); return; }
   if(e.target.closest("#confirmPay")) return completeSale();
   const erb = e.target.closest("[data-er]"); if(erb){ e.stopPropagation(); if(!can("pos_incoming")) return deny("handling incoming orders"); const [id, y] = erb.dataset.er.split(":"); try{ await erDecide(id, y==="1"); if(modalKind==="board") openBoard(); }catch(err){ console.error(err); toast("Couldn't update the order"); } return; }
   const ia = e.target.closest("[data-inc]"); if(ia){ if(!can("pos_incoming")) return deny("handling incoming orders"); const [id,s] = ia.dataset.inc.split(":"); if(s==="declined"){ try{ if(await declineOrder(id) && modalKind==="orderview" && OV.back){ const b = OV.back; OV.back = ""; b==="board" ? openBoard() : openIncoming(); } }catch(err){ console.error(err); toast("Couldn't update the order"); } return; }
@@ -2065,7 +2076,7 @@ function openPay(){
         <label class="tbox on"><span id="tcurLbl">${esc(SYM())}</span><input class="tender" id="tender" inputmode="none" readonly value="${due.toFixed(DEC())}" aria-label="Cash received in ${esc(SYM())}"><input class="tender" id="tender2" inputmode="none" readonly value="" placeholder="0" aria-label="Cash received in ${esc(c2.code)}" hidden></label></div>`
       : `<input class="tender" id="tender" inputmode="none" value="${due.toFixed(DEC())}" aria-label="Cash received">`}
       <div class="quick" id="quickBox">${quickBtns(1)}</div>
-      <div class="kpad">${["1","2","3","4","5","6","7","8","9",".","0","⌫"].map(k => `<button type="button" data-kp="${k}" aria-label="${k==="⌫"?"Delete":k}">${k}</button>`).join("")}</div>
+      <div class="kpad">${["1","2","3","4","5","6","7","8","9",".","0","C"].map(k => `<button type="button" data-kp="${k}" aria-label="${k==="C"?"Clear":k}">${k}</button>`).join("")}</div>
       <div class="change"><span id="chgL">Change</span><span class="chgv"><b id="chg">${usd(0)}</b>${c2 ? `<small id="chg2"></small>` : ""}</span></div></div>
       <div class="cardnote" id="cardNote" style="display:${pms[0].type==="cash"?"none":"grid"}"><div><b style="color:var(--ink)">Take the payment on the card machine</b><br>then complete the sale</div></div>
       <div class="payact"><button type="button" class="btn paycx" data-close>Cancel</button><button class="btn pri" id="confirmPay">${ico("check")} ${last ? "COMPLETE SALE" : "PAY " + SPL.lbl.toUpperCase() + " " + (SPL.i + 1)}</button></div></div></div>`);
@@ -2303,7 +2314,7 @@ function openIncoming(){
   const chn = o => o.channel==="pos" ? "POS" : o.channel==="callcenter" ? "Call center" : "Web";
   const card = o => `<button class="ocard" data-ov="${esc(o.id)}"><span class="oc1"><b>${esc(o.invoiceNo ? invNo(o.invoiceNo) : o.no ? "#" + o.no : (o.ref || ordRef(o)))}</b><span class="spill s-${o.status}">${stLbl(o)}</span></span>
     ${o.invoiceNo && o.no ? `<span class="mut oc-s">Order #${esc(o.no)}</span>` : ""}
-    ${o.customerName || o.phone ? `<span class="oc2">${ico("user")}<span>${esc(o.customerName||"")}<small>${esc(o.phone||"")}</small></span></span>` : ""}
+    ${o.customerName || o.phone ? `<span class="oc2">${ico("user")}<span>${esc(o.customerName||"")}<small>${esc(telFmt(o.phone))}</small></span></span>` : ""}
     <span class="oc2 mut">${ico("clock")}<span>Created ${t(o.createdAt)}${o.updatedAt && o.updatedAt!==o.createdAt ? `<small>Modified ${t(o.updatedAt)}</small>` : ""}</span></span>
     <span class="oc2">${o.channel==="pos" ? "🧾" : o.channel==="callcenter" ? "🎧" : "🌐"} ${esc((o.source!=="Website" && o.source) || chn(o))} · ${esc(typLbl(o.type))}${o.table ? " · T" + esc(o.table) : ""}<small>${esc(o.agent || "")}</small></span>
     <b class="oc-t">${usd(o.total)}</b></button>`;
@@ -2316,7 +2327,7 @@ function openIncoming(){
     <span class="lc"><b style="text-transform:none">${esc(o.ref || "—")}</b></span>
     <span class="lc"><b style="text-transform:none">${esc(invOf(o)) || `<span class="mut">${o.status==="pending" ? "Not accepted yet" : "—"}</span>`}</b></span>
     <span class="lc"><b class="lno" style="text-transform:none">${esc(o.status==="refund" ? "–" : o.no ? "#" + o.no : "—")}</b></span>
-    <span class="lc"><b style="text-transform:none">${esc(custOf(o) ? (o.customerName || o.phone) : "-")}</b>${custOf(o) && o.customerName && o.phone ? `<span>${esc(o.phone)}</span>` : ""}</span>
+    <span class="lc"><b style="text-transform:none">${esc(custOf(o) ? (o.customerName || telFmt(o.phone)) : "-")}</b>${custOf(o) && o.customerName && o.phone ? `<span>${esc(o.phone)}</span>` : ""}</span>
     <span class="lc"><span class="lst-${o.status}" style="font-size:13px;font-weight:700">${esc(stLbl(o))}</span></span>
     <span class="lc lc2"><b style="text-transform:none">${esc(chn(o))}</b></span>
     <span class="lc lc2"><b style="text-transform:none">${esc(typLbl(o.type))}</b>${o.type==="dinein" && o.table ? `<span>${esc(tblLbl(o.table))}</span>` : ""}</span>
@@ -2370,7 +2381,7 @@ function openOrderView(id){
   if(o.status==="refund" && src) acts.push(`<button class="btn" data-ov="${esc(src.id)}">Open original order</button>`);
   modal("orderview", `<div class="mh"><h2>Order ${esc(ordRef(o)==="—" && o.ref ? o.ref : ordRef(o))} <span class="spill s-${o.status}">${stLbl(o)}</span></h2></div><div class="mb">
     <p class="mut">${o.invoiceNo && o.no?`${esc(invNo(o.invoiceNo))} · `:""}${esc(typLbl(o.type))}${o.table?" T"+esc(o.table):""} · <b class="chtag">${o.channel==="pos" ? "POS" : o.channel==="callcenter" ? "Call center" : "Web ordering"}</b>${o.source && !["POS","Call center"].includes(o.source) ? " · " + esc(o.source) : ""} · ${new Date(o.createdAt).toLocaleString("en-GB",{day:"numeric",month:"short",hour:"numeric",minute:"2-digit"})}${o.agent?` · ${esc(o.agent)}`:""}</p>
-    ${o.customerName||o.phone ? `<p><b>${esc(o.customerName||"")}</b> ${o.phone?`<a href="tel:${esc(o.phone)}" style="color:#5b2bc4">${esc(o.phone)}</a>`:""}${o.address?`<br><span class="mut">${esc(o.address)}</span>`:""}${o.lat?`<br><a href="https://www.google.com/maps?q=${o.lat},${o.lng}" target="_blank" rel="noopener" style="color:#5b2bc4">📍 Open pinned location</a>`:""}</p>` : ""}
+    ${o.customerName||o.phone ? `<p><b>${esc(o.customerName||"")}</b> ${o.phone?`<a href="tel:${esc(o.phone)}" style="color:#5b2bc4">${esc(telFmt(o.phone))}</a>`:""}${o.address?`<br><span class="mut">${esc(o.address)}</span>`:""}${o.lat?`<br><a href="https://www.google.com/maps?q=${o.lat},${o.lng}" target="_blank" rel="noopener" style="color:#5b2bc4">📍 Open pinned location</a>`:""}</p>` : ""}
     <div class="vlines">${(o.items||[]).map(i=>`<div><span>${i.qty} × ${esc(i.name)}${modList(i)}${+i.disc?`<small style="display:block;color:#b45309">Discount −${usd(i.disc)}</small>`:""}</span><b>${usd(lineNet(i))}</b></div>`).join("")}
       ${(o.voidedItems||[]).map(i=>`<div class="mut"><span><s>${i.qty} × ${esc(i.name)}</s> · voided${i.reason?" ("+esc(i.reason)+")":""}</span><s>${usd((+i.price||0)*(+i.qty||1))}</s></div>`).join("")}
       ${(o.returnedItems||[]).map(i=>`<div class="mut"><span>${i.qty} × ${esc(i.name)} · returned${i.stock==="waste"?" (waste)":" (to stock)"}</span><span>−${usd(i.refund)}</span></div>`).join("")}</div>
@@ -2687,7 +2698,7 @@ function openBoard(){
   const sm = x => x ? `<small>${x}</small>` : "", jn = a => a.filter(Boolean).map(esc).join(" / ");
   // the same tile as the orders history: reference, status, invoice / order, customer / phone, address (delivery), created, modified, total, type / source, channel / user
   const card = o => `<div class="ocard tl" role="button" tabindex="0" data-ov="${esc(o.id)}"><b>${esc(o.ref || ordRef(o))}</b><span class="spill s-${erPending(o) ? "pending" : o.status}">${erPending(o) ? "Order Edit" : stLbl(o)}</span>
-    ${sm(jn([o.invoiceNo ? invNo(o.invoiceNo) : "", o.no ? "Order #" + o.no : ""]))}${sm(jn([o.customerName, o.phone]))}${o.type==="delivery" && o.address ? sm(esc(o.address)) : ""}
+    ${sm(jn([o.invoiceNo ? invNo(o.invoiceNo) : "", o.no ? "Order #" + o.no : ""]))}${sm(jn([o.customerName, telFmt(o.phone)]))}${o.type==="delivery" && o.address ? sm(esc(o.address)) : ""}
     ${sm("Created " + t(o.createdAt))}${o.updatedAt && o.updatedAt!==o.createdAt ? sm("Modified " + t(o.updatedAt)) : ""}<em>${usd(o.total)}</em>
     ${sm(jn([typLbl(o.type), o.source && o.source!=="Website" && String(o.source).toUpperCase()!=="POS" ? o.source : ""]))}${sm(jn([chn(o), o.agent || ""]))}${o.status==="pending" ? (canAccept() ? `<span class="ocacts"><button class="btn bad" data-inc="${esc(o.id)}:declined">Decline</button><button class="btn pri" data-inc="${esc(o.id)}:active">Accept</button></span>` : `<span class="mut oc-s">${esc(masterNote())}</span>`) : ""}${erPending(o) ? `${erLines(o).map(x => sm(esc(x))).join("")}${o.editRequest.summary?.voidAll ? "" : sm("New total " + usd(o.editRequest.data?.total ?? o.total))}<span class="ocacts"><button class="btn bad" data-er="${esc(o.id)}:0">Reject</button><button class="btn pri" data-er="${esc(o.id)}:1">Approve</button></span>` : ""}</div>`;
   const q = OV.q; OV.q = BQ;
@@ -2700,6 +2711,8 @@ function openBoard(){
 let BQ = "";
 // new pickup / delivery order, like the call center: customer & delivery first, then the menu
 // phone numbers are kept in full international form (+96170123456): a number typed without a code gets the business's country code
+const telSplit = v => { const t = String(v||"").replace(/[^\d+]/g, ""); if(!t.startsWith("+")) return null; const m = Object.values(CC_OF).sort((a,b) => b.length - a.length).find(c => t.startsWith(c)); return m ? { cc:m, num:t.slice(m.length) } : null; };
+const telFmt = v => { const s = telSplit(v); return s ? s.cc + "-" + s.num : String(v||""); };   // +961-70123456
 const CC_OF = {"Lebanon":"+961","United Arab Emirates":"+971","Saudi Arabia":"+966","Qatar":"+974","Kuwait":"+965","Bahrain":"+973","Oman":"+968","Jordan":"+962","Syria":"+963","Iraq":"+964","Egypt":"+20","Turkey":"+90","Cyprus":"+357","France":"+33","United Kingdom":"+44","Germany":"+49","Italy":"+39","Spain":"+34","United States / Canada":"+1","Australia":"+61","Brazil":"+55","Ivory Coast":"+225","Nigeria":"+234","Senegal":"+221","DR Congo":"+243","India":"+91","Philippines":"+63","Sri Lanka":"+94","Bangladesh":"+880","Ethiopia":"+251"};
 const PH_CODES = () => CC_OF;
 // a customer may have been saved as +96170123456, 70123456, 070123456 or "+961 70123456": look them all up
@@ -2757,6 +2770,7 @@ document.addEventListener("click", e => { const t = e.target; if(!t.closest) ret
 document.addEventListener("pointerdown", e => { const b = e.target.closest?.("[data-adpop]"); if(b && PD && !$("#adPop") && document.activeElement?.id==="pdPhone"){ e.preventDefault(); b.click(); } });
 document.addEventListener("keydown", e => { if(!$("#adPop")) return; if(e.key==="Escape"){ e.stopPropagation(); $("#adPop").remove(); } else if(e.key==="Enter" && $("#adGo")){ e.preventDefault(); e.stopPropagation(); pdAddrUse(); } }, true);
 function openPDNew(opt = {}){
+  if(PD && String(PD.phone||"").trim().startsWith("+")){ const sp = telSplit(PD.phone); if(sp){ PD.cc = sp.cc; PD.phone = sp.num; } }   // the number shows without its country code (that's in the code picker)
   const types = allowedTypes().filter(t => t!=="dinein"); if(!types.length) return toast("Pickup and delivery aren't enabled on this register");
   if(PD?.edit && !PD.editShown){ PD.editShown = true; setTimeout(pdLookup, 50); }
   PD = PD || { type: types.includes("takeaway") ? "takeaway" : types[0], phone:"", name:"", addr:{}, cust:null };
