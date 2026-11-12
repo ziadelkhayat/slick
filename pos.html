@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="820-1794512407">
+<meta name="slick-build" content="821-1794512529">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this copy, reload once (never for an older one) */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -19,7 +19,7 @@
   function full(iw, ih){   /* iPad app: innerHeight can leave out the status bar strip, which left a gap at the bottom; use the screen's own short side, scaled like the page */
     try{ var ios = (window.Capacitor || navigator.standalone) && /iPad|iPhone|Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1; if(!ios || ih > iw) return ih;
       var S = Math.max(screen.width, screen.height), s = Math.min(screen.width, screen.height), f = Math.floor(s * iw / S); return f > ih && f - ih <= 40 ? f : ih; }catch(e){ return ih; } }
-  function fit(force){ var T = pick(), iw = innerWidth, ih = full(innerWidth, innerHeight); if(!iw || !ih) return;
+  function fit(force){ var T = pick(), iw = innerWidth, ih = innerHeight; if(!iw || !ih) return;
     var ae = d.activeElement; if(!force && iw === lw && ih < lh && ae && /INPUT|TEXTAREA/.test(ae.tagName)) return;   /* the on-screen keyboard doesn't shrink the app */
     lw = iw; lh = ih;
     var rot = ih > iw;   /* held upright: the app stays landscape (turned a quarter), as in a store app locked to landscape */
@@ -988,6 +988,8 @@ let nhT = null; new MutationObserver(() => { if(!nhT) nhT = requestAnimationFram
 // status / confirmation messages aren't shown (only problems and instructions are)
 const QUIET = /^(Syncing|Signed in as|Logged out|Device activated|Till opened|Till closed · drawer balanced|Till closed$|Tags (set|saved)|Printer (saved|deleted)|Customer details saved|(Item )?[Dd]iscount removed|Note (added|removed)|All offline sales synced|Users synced|Retrying|Sales history was cleared|Saved on this tablet · will sync|Shift (opened|closed)$|Synced$|Saved$|.* clocked (in|out)$|Till Closed$|Sale complete|Saved · order|Order held as|Order H\d+ retrieved|Printed$|Sent to \d+ printers|Order #\S+ sent to the kitchen|Voided|Refund ticket created|Day ended|Saved on this tablet · will sync|Offline ·|Still offline|Syncing data)/;
 let tt; const TOAST_ERR = /^(Couldn't|Enter |Add the customer|Add staff|Open till|Open the till|Complete fast sale|Nothing left|This order is|Offline|Still offline|Saved on this tablet only)|out of stock|doesn't allow|isn't |aren't |can't |cannot |failed|couldn't|is over$|not available|Minimum order/i;
+document.addEventListener("click", e => { if(!e.target.closest || !e.target.closest("#netTag")) return; try{ const pr = document.createElement("div"); pr.style.cssText = "position:fixed;top:0;left:0;width:100vw;height:100vh;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom) env(safe-area-inset-left);visibility:hidden"; document.body.appendChild(pr); const cs = getComputedStyle(pr), r = document.body.getBoundingClientRect(), vv = window.visualViewport;
+  const t = ["win " + innerWidth + "x" + innerHeight, "vh " + pr.offsetWidth + "x" + pr.offsetHeight, "scr " + screen.width + "x" + screen.height, "dpr " + devicePixelRatio, "vv " + (vv ? Math.round(vv.width) + "x" + Math.round(vv.height) + " s" + vv.scale.toFixed(3) : "-"), "safe t" + cs.paddingTop + " b" + cs.paddingBottom + " l" + cs.paddingLeft, "body " + Math.round(r.left) + "," + Math.round(r.top) + " " + Math.round(r.width) + "x" + Math.round(r.height), "app " + (window.Capacitor ? "cap" : navigator.standalone ? "pwa" : "web")].join(" · "); pr.remove(); const el = $("#toast"); toast(t); if(el){ el.style.whiteSpace = "normal"; setTimeout(() => { el.style.whiteSpace = ""; }, 12000); } }catch(x){} });   /* screen readout for sizing the layout on a tablet */
 const toast = (m, err) => { if(QUIET.test(String(m||""))) return; const t=$("#toast"); t.textContent=m; t.classList.toggle("ok", !(err || TOAST_ERR.test(String(m))));   /* red is for errors only; everything else is a green notification */ t.classList.add("show"); clearTimeout(tt); tt=setTimeout(()=>t.classList.remove("show"),3000); };   // messages drop in from the top
 const store = { get(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } }, set(k,v){ try{ v==null?localStorage.removeItem(k):localStorage.setItem(k,v); }catch(e){} } };
 
