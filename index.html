@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="782-1794497117">
+<meta name="slick-build" content="783-1794497215">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this copy, reload once (never for an older one) */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1383,6 +1383,7 @@ button.x[aria-label="Close"]{width:38px!important;height:38px!important;min-widt
 #oCtxF .seg.tiles{display:flex!important;gap:4px}#oCtxF .seg.tiles button{flex:1}
 .ccctx .ccctxh{padding-right:0!important}.ccctxh .ccctxb{flex:none;margin-left:auto}
 .ccothd{display:flex;align-items:center;gap:8px;padding:2px 4px 10px;color:#5b2bc4;font-size:16px}.ccothd .ico{width:22px;height:22px}.ccothd b{font-weight:700}
+#ccBox [data-osave="draft"]:disabled{opacity:.45;cursor:default}
 </style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -3963,7 +3964,9 @@ const ccActiveO = () => { const o = ccEdit && S.orders.find(x => x.id===ccEdit);
 const erPending = o => !!(o && o.editRequest && o.editRequest.status==="pending");
 const ccSig = () => JSON.stringify([cart.map(i => [i.productId, (i.options||[]).map(x => x.id), i.note||"", i.qty, +i.disc||0]), ccDiscAmt(), ccCharges().picked.map(c => c.id + ":" + (+c.amount||0)).sort(), $("#oSource")?.value || "", $("#oType .on")?.dataset.ot || ""]);
 // an accepted order: Send To Branch can be pressed once something changed
-function ccSendSync(){ document.querySelectorAll('#ccBox [data-osave="pending"]').forEach(x => { x.disabled = !cart.length; });   // a new order: Send is greyed out while the cart is empty
+function ccSendSync(){ const hasCust = !!(($("#oPhone")?.value || "").trim() && ($("#oName")?.value || "").trim() && $("#oType .on")) && !$("#ccX")?.classList.contains("s1");
+  document.querySelectorAll('#ccBox [data-osave="pending"]').forEach(x => { x.disabled = !cart.length || !hasCust; });   // no sending until the customer and order type are saved
+  document.querySelectorAll('#ccBox [data-osave="draft"]').forEach(x => { x.disabled = !hasCust; });   // a new order: Send is greyed out while the cart is empty
   const b = $("#ccSendEdit"); if(!b) return; b.disabled = ccSig0==null || (ccSig() + "|" + ($("#oNotes")?.value || "") + "|" + ($("#oRNotes")?.value || "")===ccSig0 && !ccVoids.length && !ccTags); }   // greyed out until something changed
 document.addEventListener("change", e => { if(e.target.closest && e.target.closest("#ccBox")) setTimeout(ccSendSync, 0); });
 document.addEventListener("click", e => { if(e.target.closest && e.target.closest("#ccBox #oType")) setTimeout(ccSendSync, 0); });
@@ -4097,6 +4100,7 @@ async function ccStep(n, force){
   if(n===2) CC_SNAP = null;
   x.classList.toggle("s1", n===1); x.classList.toggle("s2", n===2);
   document.querySelectorAll("[data-ccstep]").forEach(b => b.closest(".ccsteps") && b.classList.toggle("on", +b.dataset.ccstep===n));
+  try{ ccSendSync(); }catch(_){}
   if(n===2){ ccSide(); renderOrderMenu(); setTimeout(() => $("#oSearch")?.focus(), 30); }
 }
 function ccSide(){
