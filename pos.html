@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="768-1794484345">
+<meta name="slick-build" content="769-1794484488">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this copy, reload once (never for an older one) */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1286,8 +1286,11 @@ const fmtDay = d => new Date(d + "T12:00:00").toLocaleDateString("en-GB", { week
 // manual end of day: the current business day can be ended once, until midnight; after midnight it ends by itself at the business day start time (Manage → Branches)
 const atLbl = t => t.toLocaleString("en-GB", { weekday:"short", day:"numeric", month:"short", hour:"numeric", minute:"2-digit" });
 const autoEndAt = day => { const t = new Date(day + "T00:00:00"); t.setDate(t.getDate() + 1); t.setMinutes(dayCut()); return t; };   // the next calendar day at the day start time
+// one end of day per calendar date: after a day is ended, the next one can only happen from midnight
+const endedToday = () => { const d0 = new Date().toDateString(); return S.day_closes.some(c => c.branchId===device.branchId && c.closedAt && new Date(c.closedAt).toDateString()===d0); };
 function dayEndBlock(day){
   if(dayClosed(day)) return "Day already ended";
+  if(endedToday()) return "A day was already ended today. The next end of day opens at midnight";
   if(day < bizDate() || brSet().autoDayEnd === false) return "";   // an earlier day that was never ended can always be ended; without automatic end of day there is no time limit
   const midnight = new Date(day + "T00:00:00"); midnight.setDate(midnight.getDate() + 1);
   return Date.now() >= midnight.getTime() ? "This day ends automatically " + atLbl(autoEndAt(day)) : ""; }
@@ -1331,7 +1334,7 @@ let autoDayBusy = false;
 async function autoDayEnd(){
   if(autoDayBusy || !device || !db || !window.__ordSnap || brSet().autoDayEnd === false) return;
   const today = bizDate(), day = openDay();
-  if(day >= today || dayClosed(day)) return;
+  if(day >= today || dayClosed(day) || endedToday()) return;
   if(S.orders.some(o => o.branchId===device.branchId && ["pending","active"].includes(o.status)) || S.shifts.some(x => x.branchId===device.branchId && !x.closedAt)) return;
   const sales = S.orders.filter(o => liveOrder(o) && (o.status==="closed" || o.status==="refund") && bizDate(o.createdAt)===day);
   autoDayBusy = true;
