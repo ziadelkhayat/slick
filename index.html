@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="855-1794588304">
+<meta name="slick-build" content="856-1794588561">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this copy, reload once (never for an older one) */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1451,7 +1451,7 @@ html body #view th{white-space:nowrap}html body #view tbody td{white-space:nowra
 html body .btn,html body .btn.pri,html body .pager .btn{font-size:15px!important;font-weight:400!important}
 html body .ttabs a,html body .tabs a{font-size:15px!important;font-weight:400!important}
 html body .ttabs a.on,html body .tabs a.on{font-weight:700!important}
-html body .ptabs a{font-size:16px!important;font-weight:400!important;padding:7px 10px!important}html body .ptabs{gap:0!important;flex-wrap:nowrap!important;overflow-x:auto;scrollbar-width:none}html body .ptabs a:not(.ptback) .ico,html body .ptabs a:not(.ptback)>svg{display:none!important}
+html body .ptabs a{font-size:16px!important;font-weight:400!important;padding:7px 10px!important}html body .ptabs{gap:0!important;flex-wrap:wrap!important;row-gap:4px!important}html body .ptabs a:not(.ptback) .ico,html body .ptabs a:not(.ptback)>svg{display:none!important}
 html body .ptabs a.on{font-weight:700!important}
 html body aside.side a{font-size:15px!important;font-weight:400!important}
 html body aside.side a.on{font-weight:700!important}
@@ -1664,8 +1664,8 @@ const NAV = [
   {id:"call-center",t:"Call Center",i:"phone"},
   {id:"customers",t:"Customers",i:"users"},
   {t:"Reports",i:"chart",tabs:1,kids:[["sales-reports","Sales Reports"],["inventory-reports","Inventory Reports"],["business-reports","Business Reports"],["analysis-reports","Analysis Reports"]]},
-  {t:"Inventory",i:"box",tabs:1,drop:["quantity-adjustments","cost-adjustments","order-transactions","inv-categories","warehouses","spot-check","count-sheets"],kids:[["inv-items","Items"],["suppliers","Suppliers"],["po","Purchase Orders"],["transfer-orders","Transfer Orders"],["inventory-count","Inventory Count"],["purchase-orders","Purchasing"],["transfers","Transfers"],["production","Production"],["quantity-adjustments","Quantity Adjustment"],["cost-adjustments","Cost Adjustment"],["order-transactions","Order Transactions"],["inv-categories","Inventory Categories"],["warehouses","Warehouses"],["spot-check","Inventory Spot Check"],["count-sheets","Count Sheet"]]},
-  {t:"Menu",i:"book",tabs:1,side:[["branch-menu","Sales Channels"]],kids:[["@Menu Builder"],["products","Products"],["categories","Categories"],["variants","Variants"],["modifiers","Modifiers"],["combos","Combos"],["@Menu Settings"],["allergens","Allergens"]]},
+  {t:"Inventory",i:"box",tabs:1,drop:["quantity-adjustments","cost-adjustments","spot-check","order-transactions","count-sheets"],kids:[["inv-items","Items"],["inv-categories","Categories"],["warehouses","Warehouses"],["suppliers","Suppliers"],["po","Purchase Orders"],["purchase-orders","Purchasing"],["transfer-orders","Transfer Orders"],["transfers","Transfers"],["production","Production"],["inventory-count","Inventory Count"],["quantity-adjustments","Quantity Adjustment"],["cost-adjustments","Cost Adjustment"],["spot-check","Inventory Spot Check"],["order-transactions","Order Transactions"],["count-sheets","Count Sheet"]]},
+  {t:"Menu",i:"book",tabs:1,side:[["branch-menu","Sales Channels"]],kids:[["@Menu Builder"],["products","Products"],["categories","Categories"],["modifiers","Modifiers"],["variants","Variants"],["combos","Combos"],["@Menu Settings"],["allergens","Allergens"]]},
   {t:"Web Ordering",i:"globe",tabs:1,kids:[["online-ordering","Settings"],["delivery-zones","Delivery Zones"],["delivery-charges","Delivery Charges"]]},
   {t:"Manage",i:"gear",tabs:1,kids:[["users","Users"],["roles","Roles"],["brands","Brands"],["branches","Branches"],["devices","Devices"],["taxes","Taxes & Groups"],["currency","Currency"],["payment-methods","Payment Methods"],["order-sources","Order Sources"],["charges","Charges"],["kitchen-flows","Kitchen Flows"],["reasons","Reasons"],["tags","Tags"]]},
   {t:"Marketing",i:"tag",tabs:1,kids:[["discounts","Discounts"],["loyalty","Loyalty"],["gift-cards","Gift Cards"],["promotions","Promotions"],["coupons","Coupons"]]},
@@ -3383,7 +3383,7 @@ const CRUD = {
       ]
   },
   "inv-categories": {
-    col:"inv_categories", title:"Inventory Categories", one:"Category",
+    col:"inv_categories", title:"Categories", one:"Category",
     tabs:[["all","All",live],["deleted","Deleted",r=>r.deleted]],
     sort:(a,b)=>a.name.localeCompare(b.name),
     search:r=>r.name+" "+(r.reference||""),
@@ -5751,6 +5751,23 @@ const ORD_ST = { draft:"Draft", pending:"Pending", active:"Active", closed:"Done
 const daysAgo = n => { const d = new Date(bizDate()+"T12:00:00"); d.setDate(d.getDate()-n); return new Date(d - d.getTimezoneOffset()*60000).toISOString().slice(0,10); };
 const ORD = { tab:"all", q:"", from:"", to:"", channel:"", type:"", pay:"", source:"", brand:"", branch:"", fopen:false, page:1, per:50, rows:[], count:0, counts:{}, loading:false, err:"", key:"", t:null, open:null };
 const ordTypeLbl = t => TYPE_LBL[t] || cap(t||"—");
+// Foodics: one Filter dialog for the orders list (the x on the button resets it)
+document.addEventListener("click", e => {
+  if(e.target.closest?.("[data-ordflt]")){ e.preventDefault(); const box = $("#ccBox"); box.className = "modal";
+    const CHL = { pos:"POS", callcenter:"Call Center", online:"Web Ordering" }, TYL = { dinein:"Dine In", fast:"Fast Sale", pickup:"Pick Up", delivery:"Delivery" };
+    const FP = [...(brandList().length > 1 ? [["brand","Brand", brandList().map(b=>[b.id,b.name])]] : []), ["branch","Branch", branches.map(b=>[b.id,b.name])],
+      ["channel","Sales Channel", Object.entries(CHL)], ["type","Type", Object.entries(TYL)], ["source","Source", ordSources().map(x=>[x,x])], ["pay","Payment Type", ordPays().map(x=>[x,x])]];
+    box.innerHTML = `<header><h2>Filter</h2><button type="button" class="x" data-ccclose aria-label="Close">×</button></header><div class="body" style="display:grid;grid-template-columns:1fr 1fr;gap:4px 14px">
+      <div class="f" style="grid-column:1/-1"><label for="of_q">Reference</label><input id="of_q" class="sel" placeholder="Reference, order #, invoice #, customer or phone" value="${esc(ORD.q)}"></div>
+      <div class="f"><label for="of_from">Business Date From</label><input id="of_from" class="sel" type="date" value="${esc(ORD.from)}"></div>
+      <div class="f"><label for="of_to">Business Date To</label><input id="of_to" class="sel" type="date" value="${esc(ORD.to)}"></div>
+      ${FP.map(([k, l, opts]) => `<div class="f"><label for="of_${k}">${l}</label><select id="of_${k}" class="sel"><option value="">Any</option>${opts.map(([v, t]) => `<option value="${esc(v)}" ${ORD[k]===v?"selected":""}>${esc(t)}</option>`).join("")}</select></div>`).join("")}</div>
+      <footer><button type="button" class="btn" id="ofReset">Reset</button><span style="flex:1"></span><button type="button" class="btn pri" id="ofApply">Apply</button></footer>`;
+    $("#ccScrim").classList.add("show"); return; }
+  if(e.target.closest?.("#ofApply")){ const g = k => $("#of_" + k)?.value?.trim() || ""; let f = g("from"), t = g("to"); if(f && !t) t = f; if(t && !f) f = t; if(f > t) [f, t] = [t, f];
+    Object.assign(ORD, { q:g("q"), from:f, to:t, brand:g("brand"), branch:g("branch"), channel:g("channel"), type:g("type"), source:g("source"), pay:g("pay"), fpop:"", page:1 }); $("#ccScrim").classList.remove("show"); render(); return; }
+  if(e.target.closest?.("#ofReset")){ Object.assign(ORD, { q:"", from:"", to:"", brand:"", branch:"", channel:"", type:"", source:"", pay:"", fpop:"", page:1 }); $("#ccScrim").classList.remove("show"); render(); return; }
+});
 function ordQuery(sel, opts, withStatus){
   const sb = WOK.sb;
   let q = sb.from("orders").select(sel, opts);
@@ -5806,15 +5823,7 @@ function viewOrders(){
     ["channel","Sales channel","All sales channels", Object.entries(CHL)], ["type","Order type","All order types", Object.entries(TYL)],
     ["source","Order source","All order sources", ordSources().map(x=>[x,x])], ["pay","Payment Type","All payment types", ordPays().map(x=>[x,x])]];
   return `<div class="ostick"><div class="phead"><h1>Orders</h1><span class="sp"></span><button class="btn" id="ordCsv">Export CSV</button></div>
-  <div class="row fbar ofb">
-    <div class="osrch">${svgIco("search")}<input id="ordQ" placeholder="Search reference, order #, invoice #, customer or phone" value="${esc(ORD.q)}"></div>
-    <button type="button" class="sel drpbtn" id="ordRange" aria-haspopup="dialog">${svgIco("calendar")}<span>${esc(ORD.from ? drpLabel(ORD.from, ORD.to) : "All time")}</span></button>
-  </div>
-  <div class="ofpills">${FP.map(([k,t,all,opts]) => { const cur = opts.find(o => o[0]===ORD[k]); const open = ORD.fpop===k;
-    return `<div class="ofpw"><button type="button" class="ofpill${cur ? " on" : ""}${open ? " open" : ""}" data-ofp="${k}" aria-expanded="${open}">${cur ? `<span class="ofk">${t}</span>${esc(cur[1])}` : t}<svg class="ofcar" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>${cur ? `<button type="button" class="ofpx" data-ofx="${k}" aria-label="Remove ${t} filter">×</button>` : ""}
-    ${open ? `<div class="ofpop" role="listbox">${opts.length > 6 ? `<div class="ofps">${svgIco("search")}<input data-ofsearch placeholder="Search ${t.toLowerCase()}"></div>` : ""}<div class="ofpl"><button type="button" class="ofo${!ORD[k] ? " on" : ""}" data-ofv="" data-ofk="${k}">${all}</button>${opts.map(([v,l]) => `<button type="button" class="ofo${ORD[k]===v ? " on" : ""}" data-ofv="${esc(v)}" data-ofk="${k}">${esc(l)}</button>`).join("")}</div></div>` : ""}</div>`; }).join("")}
-    ${nF ? `<button type="button" class="ofclr" data-ofclear>Clear all</button>` : ""}</div>
-  <div class="card otabsc"><div class="ttop"><div class="ttabs">${ORD_TABS.map(([k,t])=>`<a href="#orders" data-otab="${k}" class="${ORD.tab===k?"on":""}">${t} <span class="note">${ORD.counts[k] ?? ""}</span></a>`).join("")}</div><span class="sp"></span><span class="note">${ORD.loading ? "Loading…" : ""}</span></div></div></div>
+  <div class="card otabsc"><div class="ttop"><div class="ttabs">${ORD_TABS.map(([k,t])=>`<a href="#orders" data-otab="${k}" class="${ORD.tab===k?"on":""}">${t} <span class="note">${ORD.counts[k] ?? ""}</span></a>`).join("")}</div><span class="sp"></span><span class="note" style="margin-right:12px">${ORD.loading ? "Loading…" : ""}</span>${fltBtn("data-ordflt", "orders", nF + (ORD.q.trim() ? 1 : 0) + (ORD.from ? 1 : 0) > 0)}</div></div></div>
   <div class="card tbl otbl obody">${ORD.err ? `<p class="note" style="padding:16px">Couldn't load orders: ${esc(ORD.err)}</p>` : `<table><thead><tr><th>Reference #</th><th>Invoice #</th><th>Order #</th>${brandList().length > 1 ? "<th>Brand</th>" : ""}<th>Branch</th><th>Customer</th><th>Status</th><th>Sales channel</th><th>Order type</th><th>Order source</th><th>Business date</th><th>Opened at</th><th>Payment Type</th><th class="num">Total</th></tr></thead><tbody>${
     ORD.rows.length ? ORD.rows.map(o => `<tr class="clk" data-oid="${esc(o.id)}"><td><b>${esc(o.ref || "—")}</b></td><td>${o.status==="refund" ? esc(ordRef(o)) : o.invoiceNo ? esc(invNo(o.invoiceNo)) : '<span class="note" title="Gets its invoice number when a POS accepts it">—</span>'}</td><td>${o.status==="refund" ? "–" : o.no ? `#${esc(o.no)}` : '<span class="note" title="Gets its number when a POS bills it">—</span>'}</td>
       ${brandList().length > 1 ? `<td>${esc(brandName(o.brandId) || "—")}</td>` : ""}<td>${esc(branches.find(x=>x.id===o.branchId)?.name || "—")}</td>
@@ -8748,6 +8757,7 @@ document.addEventListener("click", e => { const x = e.target.closest?.("[data-fl
   if(attr==="data-cflt"){ (state.cflt ||= {})[key] = {}; state.page[key] = 1; if(key==="products"){ state.catFilter = ""; state.prodMod = ""; } if(key==="modifier-options") state.modFilter = ""; }
   else if(attr==="data-docflt") (DOC.flt ||= {})[key] = {};
   else if(attr==="data-cusflt"){ CUS.flt = {}; CUS.page = 1; }
+  else if(attr==="data-ordflt") Object.assign(ORD, { q:"", from:"", to:"", brand:"", branch:"", channel:"", type:"", source:"", pay:"", fpop:"", page:1 });
   render(); }, true);
 const crudFlt = key => (state.cflt ||= {})[key] || {};
 const crudFltOk = key => { const ff = CRUD_FF[key], f = crudFlt(key); if(!ff) return () => true;
