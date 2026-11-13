@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="858-1794588841">
+<meta name="slick-build" content="859-1794589579">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this copy, reload once (never for an older one) */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -7275,9 +7275,10 @@ async function tagSetFor(type, recId, ids){ if(ids==null || !recId) return; cons
   const on = JSON.parse(JSON.stringify(tagDoc().on || {})), m = on[type] ||= {}; if(ids.length) m[recId] = ids; else delete m[recId]; await tagSave(null, on); }
 function tagEdit(type, recId, after){
   const box = $("#ccBox"); box.className = "modal";
-  box.innerHTML = `<header><h2>Tags</h2><button type="button" class="x" data-ccclose aria-label="Close">×</button></header><div class="body" style="display:block">${tagPick(type, recId, "teTags") || msEmptyBox("Tags", "teTags", `No ${tagTypeName(type)} tags`, "Tags are created in Manage → Tags.")}</div>
+  box.innerHTML = `<header><h2>Tags</h2><button type="button" class="x" ${after ? "id=\"teBack\"" : "data-ccclose"} aria-label="Close">×</button></header><div class="body" style="display:block">${tagPick(type, recId, "teTags") || msEmptyBox("Tags", "teTags", `No ${tagTypeName(type)} tags`, "Tags are created in Manage → Tags.")}</div>
   <footer><span style="flex:1"></span>${tagList(type).length ? `<button type="button" class="btn pri" id="teGo">Save</button>` : ""}</footer>`;
-  $("#ccScrim").classList.add("show"); const g = $("#teGo"); if(g) g.onclick = async () => { await tagSetFor(type, recId, tagPickGet("teTags")); $("#ccScrim").classList.remove("show"); toast("Tags saved"); after ? after() : render(); };
+  $("#ccScrim").classList.add("show"); const bk = $("#teBack"); if(bk) bk.onclick = e => { e.preventDefault(); e.stopPropagation(); after(); };   // opened from a record (an order): x goes back to it
+  const g = $("#teGo"); if(g) g.onclick = async e => { e.preventDefault(); e.stopPropagation(); g.disabled = true; await tagSetFor(type, recId, tagPickGet("teTags")); toast("Tags saved"); if(after) return after(); $("#ccScrim").classList.remove("show"); render(); };
 }
 const TG = { type:"product", tab:"general" };
 // one page, a section per kind of tag (Foodics style): title + Create Tag, then a card listing the tags (or a hint when there are none)
