@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="859-1794589579">
+<meta name="slick-build" content="860-1794589966">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this copy, reload once (never for an older one) */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1436,6 +1436,8 @@ html body .pager .btn{height:34px!important;min-height:34px;padding:0 14px!impor
 #ccBox .qrow{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:0 16px}#ccBox .qrow .qgrp{display:contents}#ccBox .qrow .qconv{grid-column:1/-1;margin-top:-4px}#ccBox .qrow .f{margin-bottom:8px}
 
 html body .top:has(.acctmenu:not([hidden])){z-index:19!important}
+html body .ttop:has(.fltbtn){flex-wrap:nowrap!important}html body .ttop:has(.fltbtn)>.ttabs{flex-wrap:nowrap!important;overflow-x:auto;min-width:0;scrollbar-width:none;white-space:nowrap}html body .ttop:has(.fltbtn)>.ttabs::-webkit-scrollbar{display:none}html body .ttop .fltbtn{flex:none}
+html body #view .card.otbl.obody{overflow-x:auto!important}html body #view .card.otbl.obody th{position:static!important;top:auto!important}html body #view .card.otbl.obody th,html body #view .card.otbl.obody td{white-space:nowrap!important}html body #view .card.otbl.obody td>.note{display:inline}
 html body .fltbtn .fltx{display:inline-flex;margin-left:8px;color:#aeaeb2;cursor:pointer;border-radius:50%}html body .fltbtn .fltx:hover{color:#636366}html body .fltbtn .fltx svg{width:16px;height:16px}
 /* ===== Foodics typography: IBM Plex Sans, Foodics sizes and weights ===== */
 html body,html body button,html body input,html body select,html body textarea,html body h1,html body h2,html body h3,html body h4,html body .modal header h2,html body .brand b,html body .btn,html body th,html body td{font-family:"IBM Plex Sans","IBM Plex Sans Arabic",system-ui,sans-serif!important;letter-spacing:0!important;font-feature-settings:normal}
@@ -1447,7 +1449,6 @@ html body .modal header h2{font-size:20px!important;font-weight:700!important;co
 html body table thead th,html body #view th{font-size:16px!important;font-weight:700!important;text-transform:none!important;letter-spacing:0!important;color:#1c1c1e!important}
 html body #view td{font-size:16px!important;font-weight:400}
 html body #view tbody td b,html body #view tbody td strong{font-weight:400}
-html body #view th{white-space:nowrap}html body #view tbody td{white-space:nowrap}
 html body .btn,html body .btn.pri,html body .pager .btn{font-size:15px!important;font-weight:400!important}
 html body .ttabs a,html body .tabs a{font-size:15px!important;font-weight:400!important}
 html body .ttabs a.on,html body .tabs a.on{font-weight:700!important}
@@ -4052,19 +4053,30 @@ const CC_SUB = { draft:"Draft", pending:"Sent to branch", active:"Sent To Kitche
 const SOURCES_DEF = ["Phone","Toters","NokNok","Talabat","WhatsApp","Walk-in"];
 function sourceList(cur){ const l = S.order_sources.filter(r=>live(r)&&r.active!==false&&String(r.name||"").toUpperCase()!=="POS").sort(CRUD["order-sources"].sort).map(r=>r.name); const out = l.length ? l : SOURCES_DEF; return cur && !out.includes(cur) ? [cur, ...out] : out; }
 state.ccBranch = "all"; state.ccAgent = "all"; state.ccTab = "today"; state.ccDate = "";   // "" = the current business date
+document.addEventListener("click", e => {
+  if(e.target.closest?.("[data-ccflt]")){ e.preventDefault(); const box = $("#ccBox"); box.className = "modal";
+    const ccUsers = [...new Set(S.users.filter(u => live(u) && !isAdminRow(u)).map(u => u.name).concat(state.fullName ? [state.fullName] : []))].sort((a,b)=>a.localeCompare(b));
+    const sel = (k, l, opts, cur) => `<div class="f"><label for="ccf_${k}">${l}</label><select id="ccf_${k}" class="sel"><option value="">Any</option>${opts.map(([v, t]) => `<option value="${esc(v)}" ${cur===v?"selected":""}>${esc(t)}</option>`).join("")}</select></div>`;
+    box.innerHTML = `<header><h2>Filter</h2><button type="button" class="x" data-ccclose aria-label="Close">×</button></header><div class="body" style="display:grid;grid-template-columns:1fr 1fr;gap:4px 14px">
+      <div class="f"><label for="ccf_date">Business Date</label><input id="ccf_date" class="sel" type="date" max="${esc(bizDate())}" value="${esc(state.ccDate || bizDate())}"></div>
+      ${brandList().length > 1 ? sel("brand","Brand", brandList().map(b=>[b.id,b.name]), state.ccBrand||"") : ""}${sel("branch","Branch", branches.map(b=>[b.id,b.name]), state.ccBranch==="all" ? "" : state.ccBranch||"")}
+      ${sel("user","User", ccUsers.map(n=>[n,n]), state.ccAgent==="all" ? "" : state.ccAgent||"")}</div>
+      <footer><button type="button" class="btn" id="ccfReset">Reset</button><span style="flex:1"></span><button type="button" class="btn pri" id="ccfApply">Apply</button></footer>`;
+    $("#ccScrim").classList.add("show"); return; }
+  if(e.target.closest?.("#ccfApply")){ const g = k => $("#ccf_" + k)?.value || ""; const d = g("date"); state.ccDate = d && d!==bizDate() ? d : ""; state.ccBrand = g("brand"); state.ccBranch = g("branch") || "all"; state.ccAgent = g("user") || "all"; $("#ccScrim").classList.remove("show"); render(); return; }
+  if(e.target.closest?.("#ccfReset")){ state.ccDate = ""; state.ccBrand = ""; state.ccBranch = "all"; state.ccAgent = "all"; $("#ccScrim").classList.remove("show"); render(); return; }
+});
 function viewCallCenter(){
   // users who can use the call center (their role allows it, or they manage everything); the owner too
   const ccUsers = S.users.filter(u => live(u) && !isAdminRow(u) && u.active!==false && (() => { const r = { permissions: S.roles.filter(x => userRoleIds(u).includes(x.id) && live(x)).flatMap(x => x.permissions||[]) }; return r && ((r.permissions||[]).includes("bo_callcenter") || (r.permissions||[]).includes("bo_manage")); })()).map(u=>u.name);
   if(state.fullName && !ccUsers.includes(state.fullName)) ccUsers.unshift(state.fullName);
   const agents = [...new Set(ccUsers)].sort((a,b)=>a.localeCompare(b));
   const byUser = (o, n) => o.agent===n || o.agent===String(n).split(/\s+/)[0];
-  const list = S.orders.filter(o => o.channel!=="pos" && brandFilter(o) && bizDate(o.createdAt, o.branchId)===(state.ccDate || bizDate(new Date(), o.branchId)))   // one business date: once the branch ends its day, its orders leave the board
+  const list = S.orders.filter(o => o.channel!=="pos" && (state.ccBrand ? o.brandId===state.ccBrand : brandFilter(o)) && bizDate(o.createdAt, o.branchId)===(state.ccDate || bizDate(new Date(), o.branchId)))   // one business date: once the branch ends its day, its orders leave the board
     .filter(o => state.ccBranch==="all" || o.branchId===state.ccBranch).filter(o => state.ccAgent==="all" || byUser(o, state.ccAgent))
     .sort((a,b)=> b.createdAt.localeCompare(a.createdAt));
   let h = `<div class="phead"><h1>Call Center</h1><div class="sp"></div>
-    ${scopeBar(false)}<select class="sel" id="ccBranch" aria-label="Branch"><option value="all">All Branches</option>${branches.filter(brandFilter).map(b=>`<option value="${esc(b.id)}" ${state.ccBranch===b.id?"selected":""}>${esc(b.name)}</option>`).join("")}</select>
-    <input class="sel" type="date" id="ccDate" aria-label="Business date" value="${esc(state.ccDate || bizDate())}" max="${esc(bizDate())}">
-    <select class="sel" id="ccAgent" aria-label="User"><option value="all">All users</option>${agents.map(a=>`<option ${state.ccAgent===a?"selected":""}>${esc(a)}</option>`).join("")}</select>
+    ${fltBtn("data-ccflt", "cc", !!((state.ccDate && state.ccDate!==bizDate()) || (state.ccBranch && state.ccBranch!=="all") || (state.ccAgent && state.ccAgent!=="all") || state.ccBrand))}
     <button class="btn pri" id="ccNew">${svgIco("phone")} New Call Center Order</button></div>
 `;
   if(storeMode==="local") h += `<div class="banner">Preview mode: orders won't be saved.</div>`;
@@ -5744,7 +5756,11 @@ document.addEventListener("click", e => { const t = e.target; if(!t.closest || !
 
 /* ---------- Orders: every order from every channel, any date range ---------- */
 // status tabs: a few clear groups instead of one tab per status
-const ORD_TABS = [["all","All"],["pending","Pending"],["open","Active"],["closed","Done"],["voids","Voids"],["returns","Returns"],["declined","Declined"]];
+const ORD_TABS = [["all","All"],["today","Today"],["draft","Draft"],["pending","Pending"],["active","Active"],["ahead","Ahead"],["callcenter","Call Center"],["online","Web Ordering"]];   // Foodics order tabs
+const ORD_SGRP = { draft:["draft"], pending:["pending"], open:["active"], closed:["closed"], declined:["declined"], voids:["void"], returns:["refund","returned"] };
+const ORD_TABQ = { today: q => { const d = bizDate(), [t0, t1] = dayBounds(d, d, ORD.branch || ""); return q.gte("created_at", t0.toISOString()).lt("created_at", t1.toISOString()); },
+  draft: q => q.eq("status","draft"), pending: q => q.eq("status","pending"), active: q => q.eq("status","active"),
+  ahead: q => q.not("scheduled_at","is",null).in("status",["draft","pending","active"]), callcenter: q => q.eq("channel","callcenter"), online: q => q.eq("channel","online") };
 const ORD_GRP = { pending:["draft","pending"], open:["active"], closed:["closed"], declined:["declined"], voids:["void"], returns:["refund","returned"] };
 const ORD_ALLST = ["draft","pending","active","closed","declined","void","refund","returned"];
 const ORD_ST = { draft:"Draft", pending:"Pending", active:"Active", closed:"Done", declined:"Declined", void:"Void", returned:"Returned", refund:"Refund" };
@@ -5752,19 +5768,19 @@ const daysAgo = n => { const d = new Date(bizDate()+"T12:00:00"); d.setDate(d.ge
 const ORD = { tab:"all", q:"", from:"", to:"", channel:"", type:"", pay:"", source:"", brand:"", branch:"", fopen:false, page:1, per:50, rows:[], count:0, counts:{}, loading:false, err:"", key:"", t:null, open:null };
 const ordTypeLbl = t => TYPE_LBL[t] || cap(t||"—");
 // Foodics: one Filter dialog for the orders list, same fields and order as Foodics (the x on the button resets it)
-const ORD_FX = { q:"", ref:"", num:"", from:"", to:"", brand:"", branch:"", channel:"", type:"", source:"", pay:"", ahead:"", rnotes:"", knotes:"", cust:"", due:"", device:"" };
+const ORD_FX = { status:"", q:"", ref:"", num:"", from:"", to:"", brand:"", branch:"", channel:"", type:"", source:"", pay:"", ahead:"", rnotes:"", knotes:"", cust:"", due:"", device:"" };
 const ordFltN = () => Object.keys(ORD_FX).filter(k => k!=="to" && String(ORD[k]||"").trim()).length;
 document.addEventListener("click", e => {
   if(e.target.closest?.("[data-ordflt]")){ e.preventDefault(); const box = $("#ccBox"); box.className = "modal";
     const CHL = { pos:"POS", callcenter:"Call Center", online:"Web Ordering" }, TYL = { dinein:"Dine In", fast:"Fast Sale", pickup:"Pick Up", delivery:"Delivery" };
-    const STL = [["pending","Pending"],["open","Active"],["declined","Declined"],["closed","Done"],["returns","Returned"],["voids","Void"]];
+    const STL = [["pending","Pending"],["open","Active"],["declined","Declined"],["closed","Done"],["returns","Returned"],["voids","Void"],["draft","Draft"]];
     const txt = (k, l, ph) => `<div class="f"><label for="of_${k}">${l}</label><input id="of_${k}" class="sel" ${ph ? `placeholder="${ph}"` : ""} value="${esc(ORD[k]||"")}"></div>`;
     const dte = (k, l) => `<div class="f"><label for="of_${k}">${l}</label><input id="of_${k}" class="sel" type="date" value="${esc(ORD[k]||"")}"></div>`;
     const sel = (k, l, opts, cur) => `<div class="f"><label for="of_${k}">${l}</label><select id="of_${k}" class="sel"><option value="">Any</option>${opts.map(([v, t]) => `<option value="${esc(v)}" ${(cur ?? ORD[k])===v?"selected":""}>${esc(t)}</option>`).join("")}</select></div>`;
     box.innerHTML = `<header><h2>Filter</h2><button type="button" class="x" data-ccclose aria-label="Close">×</button></header><div class="body" style="display:grid;grid-template-columns:1fr 1fr;gap:4px 14px">
       ${txt("ref","Reference")}${txt("num","Number")}${dte("from","Business Date From")}${dte("to","Business Date To")}
       ${brandList().length > 1 ? sel("brand","Brand", brandList().map(b=>[b.id,b.name])) : ""}${sel("branch","Branch", branches.map(b=>[b.id,b.name]))}
-      ${sel("status","Status", STL, ORD.tab==="all" ? "" : ORD.tab)}${sel("type","Type", Object.entries(TYL))}
+      ${sel("status","Status", STL)}${sel("type","Type", Object.entries(TYL))}
       ${sel("source","Source", ordSources().map(x=>[x,x]))}${sel("channel","Sales Channel", Object.entries(CHL))}
       ${sel("ahead","Ahead", [["yes","Yes"],["no","No"]])}${sel("pay","Payment Type", ordPays().map(x=>[x,x]))}
       ${txt("rnotes","Receipt Notes")}${txt("knotes","Kitchen Notes")}${txt("cust","Customer","Name or phone")}${dte("due","Due Date")}
@@ -5772,8 +5788,8 @@ document.addEventListener("click", e => {
       <footer><button type="button" class="btn" id="ofReset">Reset</button><span style="flex:1"></span><button type="button" class="btn pri" id="ofApply">Apply</button></footer>`;
     $("#ccScrim").classList.add("show"); return; }
   if(e.target.closest?.("#ofApply")){ const g = k => $("#of_" + k)?.value?.trim() || ""; let f = g("from"), t = g("to"); if(f && !t) t = f; if(t && !f) f = t; if(f > t) [f, t] = [t, f];
-    const o = {}; Object.keys(ORD_FX).forEach(k => o[k] = g(k)); Object.assign(ORD, o, { q:"", from:f, to:t, tab:g("status") || "all", fpop:"", page:1 }); $("#ccScrim").classList.remove("show"); render(); return; }
-  if(e.target.closest?.("#ofReset")){ Object.assign(ORD, ORD_FX, { tab:"all", fpop:"", page:1 }); $("#ccScrim").classList.remove("show"); render(); return; }
+    const o = {}; Object.keys(ORD_FX).forEach(k => o[k] = g(k)); Object.assign(ORD, o, { q:"", from:f, to:t, fpop:"", page:1 }); $("#ccScrim").classList.remove("show"); render(); return; }
+  if(e.target.closest?.("#ofReset")){ Object.assign(ORD, ORD_FX, { fpop:"", page:1 }); $("#ccScrim").classList.remove("show"); render(); return; }
 });
 function ordQuery(sel, opts, withStatus){
   const sb = WOK.sb;
@@ -5799,24 +5815,25 @@ function ordQuery(sel, opts, withStatus){
   if(cl(ORD.knotes)) q = q.ilike("notes", `%${cl(ORD.knotes)}%`);
   if(ORD.due){ const t0 = new Date(ORD.due + "T00:00:00"), t1 = new Date(t0); t1.setDate(t1.getDate() + 1); q = q.gte("scheduled_at", t0.toISOString()).lt("scheduled_at", t1.toISOString()); }
   if(ORD.device) q = q.eq("device_id", ORD.device);
-  if(withStatus && ORD_GRP[ORD.tab]) q = q.in("status", ORD_GRP[ORD.tab]);
+  if(ORD.status && ORD_SGRP[ORD.status]) q = q.in("status", ORD_SGRP[ORD.status]);
+  if(withStatus && ORD_TABQ[ORD.tab]) q = ORD_TABQ[ORD.tab](q);
   return q;
 }
 async function loadOrders(force){
   if(!window.WOK || storeMode!=="db") return;
   // no dates picked = every order ever (lifetime); pick a range from the calendar to narrow it
-  const key = JSON.stringify([ORD.tab, ORD.q, ORD.from, ORD.to, ORD.channel, ORD.type, ORD.pay, ORD.source, ORD.brand, ORD.branch, ORD.page, state.branch, state.brand, ORD.ref, ORD.num, ORD.cust, ORD.ahead, ORD.rnotes, ORD.knotes, ORD.due, ORD.device]);
+  const key = JSON.stringify([ORD.tab, ORD.q, ORD.from, ORD.to, ORD.channel, ORD.type, ORD.pay, ORD.source, ORD.brand, ORD.branch, ORD.page, state.branch, state.brand, ORD.ref, ORD.num, ORD.cust, ORD.ahead, ORD.rnotes, ORD.knotes, ORD.due, ORD.device, ORD.status]);
   if(!force && key===ORD.key && (ORD.loading || ORD.rows.length || ORD.err || ORD.count===0 && ORD.loaded===key)) return;
   ORD.key = key; ORD.loading = true; ORD.err = "";
   const cols = "id,ref,no,invoice_no,return_no,refund_of,channel,source,type,status,branch_id,brand_id,customer_name,phone,table_no,total,payment,agent,handled_by,created_at";
   try{
     const list = ordQuery(cols, { count:"exact" }, true).order("created_at", { ascending:false }).range((ORD.page-1)*ORD.per, ORD.page*ORD.per-1);
-    const counts = ORD_ALLST.map(st => ordQuery("id", { count:"exact", head:true }, false).eq("status", st));
+    const counts = [];   // Foodics tabs show no counts
     const [res, ...cs] = await Promise.all([list, ...counts]);
     if(ORD.key!==key) return;
     if(res.error) throw res.error;
     ORD.rows = res.data.map(r => ({ ...fromRowO(r) })); ORD.count = res.count || 0;
-    const per = {}; ORD_ALLST.forEach((st, i) => per[st] = cs[i].count || 0);
+    const per = {}; ORD_ALLST.forEach((st, i) => per[st] = (cs[i] && cs[i].count) || 0);
     ORD.counts = { all: Object.values(per).reduce((a,b)=>a+b,0) }; Object.entries(ORD_GRP).forEach(([k, l]) => ORD.counts[k] = l.reduce((a,st)=>a+(per[st]||0),0)); ORD.loaded = key;
   }catch(e){ console.error("orders", e); if(ORD.key===key) ORD.err = e.message || "Couldn't load orders"; }
   finally{ if(ORD.key===key){ ORD.loading = false; if(location.hash.slice(1)==="orders") render(); } }
@@ -5839,7 +5856,7 @@ function viewOrders(){
     ["channel","Sales channel","All sales channels", Object.entries(CHL)], ["type","Order type","All order types", Object.entries(TYL)],
     ["source","Order source","All order sources", ordSources().map(x=>[x,x])], ["pay","Payment Type","All payment types", ordPays().map(x=>[x,x])]];
   return `<div class="ostick"><div class="phead"><h1>Orders</h1><span class="sp"></span><button class="btn" id="ordCsv">Export CSV</button></div>
-  <div class="card otabsc"><div class="ttop"><div class="ttabs">${ORD_TABS.map(([k,t])=>`<a href="#orders" data-otab="${k}" class="${ORD.tab===k?"on":""}">${t} <span class="note">${ORD.counts[k] ?? ""}</span></a>`).join("")}</div><span class="sp"></span><span class="note" style="margin-right:12px">${ORD.loading ? "Loading…" : ""}</span>${fltBtn("data-ordflt", "orders", ordFltN() > 0)}</div></div></div>
+  <div class="card otabsc"><div class="ttop"><div class="ttabs">${ORD_TABS.map(([k,t])=>`<a href="#orders" data-otab="${k}" class="${ORD.tab===k?"on":""}">${t}</a>`).join("")}</div><span class="sp"></span><span class="note" style="margin-right:12px">${ORD.loading ? "Loading…" : ""}</span>${fltBtn("data-ordflt", "orders", ordFltN() > 0)}</div></div></div>
   <div class="card tbl otbl obody">${ORD.err ? `<p class="note" style="padding:16px">Couldn't load orders: ${esc(ORD.err)}</p>` : `<table><thead><tr><th>Reference #</th><th>Invoice #</th><th>Order #</th>${brandList().length > 1 ? "<th>Brand</th>" : ""}<th>Branch</th><th>Customer</th><th>Status</th><th>Sales channel</th><th>Order type</th><th>Order source</th><th>Business date</th><th>Opened at</th><th>Payment Type</th><th class="num">Total</th></tr></thead><tbody>${
     ORD.rows.length ? ORD.rows.map(o => `<tr class="clk" data-oid="${esc(o.id)}"><td><b>${esc(o.ref || "—")}</b></td><td>${o.status==="refund" ? esc(ordRef(o)) : o.invoiceNo ? esc(invNo(o.invoiceNo)) : '<span class="note" title="Gets its invoice number when a POS accepts it">—</span>'}</td><td>${o.status==="refund" ? "–" : o.no ? `#${esc(o.no)}` : '<span class="note" title="Gets its number when a POS bills it">—</span>'}</td>
       ${brandList().length > 1 ? `<td>${esc(brandName(o.brandId) || "—")}</td>` : ""}<td>${esc(branches.find(x=>x.id===o.branchId)?.name || "—")}</td>
@@ -8774,7 +8791,8 @@ document.addEventListener("click", e => { const x = e.target.closest?.("[data-fl
   if(attr==="data-cflt"){ (state.cflt ||= {})[key] = {}; state.page[key] = 1; if(key==="products"){ state.catFilter = ""; state.prodMod = ""; } if(key==="modifier-options") state.modFilter = ""; }
   else if(attr==="data-docflt") (DOC.flt ||= {})[key] = {};
   else if(attr==="data-cusflt"){ CUS.flt = {}; CUS.page = 1; }
-  else if(attr==="data-ordflt") Object.assign(ORD, ORD_FX, { tab:"all", fpop:"", page:1 });
+  else if(attr==="data-ordflt") Object.assign(ORD, ORD_FX, { fpop:"", page:1 });
+  else if(attr==="data-ccflt"){ state.ccDate = ""; state.ccBranch = "all"; state.ccAgent = "all"; state.ccBrand = ""; }
   render(); }, true);
 const crudFlt = key => (state.cflt ||= {})[key] || {};
 const crudFltOk = key => { const ff = CRUD_FF[key], f = crudFlt(key); if(!ff) return () => true;
