@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="850-1794583426">
+<meta name="slick-build" content="851-1794583631">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this copy, reload once (never for an older one) */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -3345,9 +3345,7 @@ const CRUD = {
     sort:(a,b)=>(b.sku||"").localeCompare(a.sku||"",undefined,{numeric:true}),
     search:r=>r.name+" "+(r.sku||"")+" "+(r.category||""),
     filter:r=>!state.invCat || r.category===state.invCat,
-    cols:[["Name",r=>`<b>${esc(r.name)}</b>`],["Sku",r=>`<span class="code">${esc(r.sku||"")}</span>`],["Category",r=>esc(r.category||"—")],["Unit",r=>esc(r.storageUnit||"—")],
-      ["On hand",r=>{ const q = invQty(r.id, ""); return q===undefined ? '<span class="note">—</span>' : n2(q); },"num"],["Cost",r=>{ const c = +itemUnitCost(r); return c ? fmtCost(c) : '<span class="note">No cost</span>'; },"num"],
-      ["Status",r=>{ const st = invStatus(r, invQty(r.id, "")); return `<span class="ist ist-${st[0]}">${st[1]}</span>`; }]],
+    cols:[["Name",r=>`<b>${esc(r.name)}</b>`],["Sku",r=>`<span class="code">${esc(r.sku||"")}</span>`],["Category",r=>esc(r.category||"—")]],   // Foodics columns
     // laid out like Foodics: name, localized name, SKU, category, units, conversion, costing, barcode, cost, stock levels
     fields:[{k:"name",l:"Name",req:1},{k:"nameAr",l:"Name Localized"},{k:"sku",l:"SKU",req:1,auto:()=>nextSku("inv_items")},
       {k:"category",l:"Category",t:"select",opts:()=>invCatNames().map(n=>[n,n])},
@@ -3450,7 +3448,7 @@ function crudView(key){
   const dk = key==="modifiers" && DET.key==="modifier-options" ? DET.key : key;
   if(CRUD[dk].detail && DET.key===dk && DET.id){ const r = S[CRUD[dk].col].find(x=>x.id===DET.id); if(r) return CRUD[dk].detail(r); closeDetail(); }
   const cfg = CRUD[key], tab = state.tabs[key] || "all", q = (state.q[key]||"").toLowerCase();
-  let list = S[cfg.col].filter(cfg.tabs.find(t=>t[0]===tab)[2]).filter(cfg.filter||(()=>true)).filter(r => !q || cfg.search(r).toLowerCase().includes(q));
+  let list = S[cfg.col].filter(cfg.tabs.find(t=>t[0]===tab)[2]).filter(cfg.filter||(()=>true)).filter(r => !q || cfg.search(r).toLowerCase().includes(q)).filter(crudFltOk(key));
   list.sort(cfg.sort);
   const per = 50, pages = Math.max(1, Math.ceil(list.length/per)), pg = Math.min(state.page[key]||1, pages);
   const shown = list.slice((pg-1)*per, pg*per);
@@ -3465,9 +3463,8 @@ function crudView(key){
     ${key==="products"&&state.prodMod?`<span class="chip">Modifier: ${esc(modName(state.prodMod))} <button data-clearpm aria-label="Clear">×</button></span>`:""}
     ${key==="modifier-options"&&state.modFilter?`<span class="chip">Modifier: ${esc(modName(state.modFilter))} <button data-clearmod aria-label="Clear">×</button></span>`:""}
     ${key==="modifier-options" ? `<button type="button" class="btn${moFilterN() ? " on" : ""}" data-mofilter>${svgIco("filter")} Filter${moFilterN() ? ` (${moFilterN()})` : ""}</button>${moFilterN() ? `<button type="button" class="lnk" data-mofclear>Clear</button>` : ""}` : ""}
-    ${key==="inv-items" ? `<select class="sel" id="invCat" aria-label="Category"><option value="">All categories</option>${invCatNames().map(n=>`<option ${state.invCat===n?"selected":""}>${esc(n)}</option>`).join("")}</select>` : ""}
     ${key==="products" ? `<select class="sel" id="prodCat" aria-label="Category"><option value="">All categories</option>${S.categories.filter(c=>live(c)&&!c.channel).sort(bySort).map(c=>`<option value="${esc(c.id)}" ${state.catFilter===c.id?"selected":""}>${state.brand==="all"&&brandList().length>1?esc(brandName(c.brandId))+" · ":""}${esc(c.name)}</option>`).join("")}</select>` : ""}
-    <div class="sp"></div>${scopeHere ? scopeBar(false) : ""}<input class="sel search" data-search="${key}" placeholder="Search" value="${esc(state.q[key]||"")}" aria-label="Search ${cfg.title}"></div>`;
+    <div class="sp"></div>${CRUD_FF[key] ? crudFltBtn(key) : `${scopeHere ? scopeBar(false) : ""}<input class="sel search" data-search="${key}" placeholder="Search" value="${esc(state.q[key]||"")}" aria-label="Search ${cfg.title}">`}</div>`;
   if(!shown.length) h += `<div class="empty">${S[cfg.col].length ? "Nothing matches." : `No ${cfg.title.toLowerCase()} yet.`}</div>`;
   else { const sel = (state.sel ||= {})[key] ||= new Set(), hasDel = cfg.tabs.some(t => t[0]==="deleted"), hasAct = cfg.tabs.some(t => t[0]==="active"),
       bkActs = tab==="deleted" ? [["restore","Restore"]] : cfg.bulk ? BULK_ACTS : [...(TAG_KEY[key] ? [["tagAdd","Add Tags"],["tagDel","Remove Tags"]] : []), ...(key==="modifiers" ? [["modAdd","Add To Products"]] : []), ...(hasAct ? [["activate","Activate"],["deactivate","Deactivate"]] : []), ...(hasDel ? [["delete","Delete"]] : [])],
@@ -8664,6 +8661,38 @@ document.addEventListener("click", e => {
   const rs = e.target.closest("#dfReset"); if(rs){ e.preventDefault(); (DOC.flt ||= {})[rs.dataset.route] = {}; $("#ccScrim").classList.remove("show"); return render(); }
   const ap = e.target.closest("#dfApply"); if(ap){ e.preventDefault(); const o = {}; ["ref","status","loc","dest","sup","reason","by","sub"].forEach(k => { const v = $("#df_" + k)?.value?.trim(); if(v) o[k] = v; });
     const fr = $("#df_from")?.value, to = $("#df_to")?.value; if(fr) o.from = fr; if(to) o.to = to; (DOC.flt ||= {})[ap.dataset.route] = o; $("#ccScrim").classList.remove("show"); return render(); }
+});
+/* Foodics Filter on the inventory setup lists (products, suppliers, categories, warehouses) */
+const ffTxt = (k, l, get) => [k, l, "text", get], CRUD_FF = {
+  "inv-items": [ffTxt("name","Name",r=>r.name), ffTxt("sku","SKU",r=>r.sku), ffTxt("barcode","Barcode",r=>r.barcode),
+    ["tag","Tag","sel",r=>tagsOf("inventory", r.id), () => tagList("inventory").map(t => [t.id, t.name])],
+    ["cat","Category","sel",r=>r.category, () => invCatNames().map(n => [n, n])],
+    ["sup","Supplier","sel",r=>supLinks().filter(l => l.itemId===r.id).map(l => l.supplierId), () => S.suppliers.filter(live).map(x => [x.id, x.name])],
+    ["cost","Costing Method","sel",r=>r.costingMethod==="transactions" ? "transactions" : "fixed", () => [["fixed","Fixed Cost"],["transactions","From Transactions"]]],
+    ["upd","Updated After","date",r=>r.updatedAt]],
+  suppliers: [ffTxt("name","Name",r=>r.name), ffTxt("code","Code",r=>r.code), ffTxt("contact","Contact Name",r=>r.contactName), ffTxt("email","Email",r=>r.email),
+    ["tag","Tag","sel",r=>tagsOf("supplier", r.id), () => tagList("supplier").map(t => [t.id, t.name])], ["upd","Updated After","date",r=>r.updatedAt]],
+  "inv-categories": [ffTxt("name","Name",r=>r.name), ["upd","Updated After","date",r=>r.updatedAt]],
+  warehouses: [ffTxt("name","Name",r=>r.name), ffTxt("ref","Reference",r=>r.reference), ["upd","Updated After","date",r=>r.updatedAt]] };
+const crudFlt = key => (state.cflt ||= {})[key] || {};
+const crudFltOk = key => { const ff = CRUD_FF[key], f = crudFlt(key); if(!ff) return () => true;
+  return r => ff.every(([k, , t, get]) => { const v = f[k]; if(!v) return true; const x = get(r);
+    if(t==="text") return String(x||"").toLowerCase().includes(v.toLowerCase());
+    if(t==="date") return String(x||"").slice(0,10) >= v;
+    return Array.isArray(x) ? x.includes(v) : x===v; }); };
+const crudFltBtn = key => { const n = Object.values(crudFlt(key)).filter(Boolean).length;
+  return `${n ? `<a href="#${key}" class="lnk" data-cfltclr="${key}" style="margin-right:10px">Clear</a>` : ""}<button type="button" class="btn" data-cflt="${key}">${svgIco("filter")}Filter${n ? ` (${n})` : ""}</button>`; };
+document.addEventListener("click", e => {
+  const b = e.target.closest("[data-cflt]"); if(b){ e.preventDefault(); const key = b.dataset.cflt, f = crudFlt(key), box = $("#ccBox"); box.className = "modal";
+    box.innerHTML = `<header><h2>Filter</h2><button type="button" class="x" data-ccclose aria-label="Close">×</button></header><div class="body" style="display:grid;grid-template-columns:1fr 1fr;gap:4px 14px">
+      ${CRUD_FF[key].map(([k, l, t, , opts]) => `<div class="f"><label for="cf2_${k}">${l}</label>${t==="sel" ? `<select id="cf2_${k}" class="sel"><option value="">Any</option>${opts().map(([v, x]) => `<option value="${esc(v)}" ${v===f[k]?"selected":""}>${esc(x)}</option>`).join("")}</select>`
+        : `<input id="cf2_${k}" class="sel" ${t==="date" ? 'type="date"' : ""} value="${esc(f[k]||"")}">`}</div>`).join("")}</div>
+      <footer><button type="button" class="btn" id="cfReset" data-key="${esc(key)}">Reset</button><span style="flex:1"></span><button type="button" class="btn pri" id="cfApply" data-key="${esc(key)}">Apply</button></footer>`;
+    return $("#ccScrim").classList.add("show"); }
+  const c = e.target.closest("[data-cfltclr]"); if(c){ e.preventDefault(); (state.cflt ||= {})[c.dataset.cfltclr] = {}; state.page[c.dataset.cfltclr] = 1; return render(); }
+  const r = e.target.closest("#cfReset"); if(r){ (state.cflt ||= {})[r.dataset.key] = {}; $("#ccScrim").classList.remove("show"); return render(); }
+  const a = e.target.closest("#cfApply"); if(a){ const key = a.dataset.key, o = {}; CRUD_FF[key].forEach(([k]) => { const v = $("#cf2_" + k)?.value?.trim(); if(v) o[k] = v; });
+    (state.cflt ||= {})[key] = o; state.page[key] = 1; $("#ccScrim").classList.remove("show"); return render(); }
 });
 // Export (Foodics): pick the business dates (up to 31 days), brand and branch first; the list's own filters don't apply
 function exportDlg(route, lvl){
