@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="865-1794591742">
+<meta name="slick-build" content="866-1794592132">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this copy, reload once (never for an older one) */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1439,6 +1439,12 @@ html body .top:has(.acctmenu:not([hidden])){z-index:19!important}
 html body .ttop:has(.fltbtn){flex-wrap:nowrap!important}html body .ttop:has(.fltbtn)>.ttabs{flex-wrap:nowrap!important;overflow-x:auto;min-width:0;scrollbar-width:none;white-space:nowrap}html body .ttop:has(.fltbtn)>.ttabs::-webkit-scrollbar{display:none}html body .ttop .fltbtn{flex:none}
 html body #view .card.otbl.obody{overflow-x:auto!important}html body #view .card.otbl.obody th{position:static!important;top:auto!important}html body #view .card.otbl.obody th,html body #view .card.otbl.obody td{white-space:nowrap!important}html body #view .card.otbl.obody td>.note{display:inline}
 #view.isdet .card:has(table){overflow-x:auto!important;max-width:100%}#view.isdet{overflow-x:hidden}
+#view.isdel button:not([data-detback]):not([data-detrestore]),#view.isdel .lnk,#view.isdel .bmgrip,#view.isdel .btn:not([data-detback]):not([data-detrestore]){display:none!important}
+#view.isdel tbody tr,#view.isdel .card input,#view.isdel .card select,#view.isdel .card textarea,#view.isdel [data-sk]{pointer-events:none}
+/* dialogs always fit the visible screen (phones: the browser bars included), their body scrolls */
+html body .scrim.show{padding-top:max(16px,min(6vh,48px))!important;padding-bottom:16px!important}
+@supports (height:100svh){html body #crudBox,html body #ccBox:has(>.body){max-height:calc(100svh - max(16px,min(6vh,48px)) - 16px)!important}}
+html body #crudBox>.body,html body #ccBox>.body{-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
 html body .dalbl{display:flex!important;justify-content:space-between;align-items:center;gap:10px}html body .dalbl .lnk{color:#2563eb;margin-left:4px;font-size:14px;text-transform:none!important}
 html body .fltbtn .fltx{display:inline-flex;margin-left:8px;color:#aeaeb2;cursor:pointer;border-radius:50%}html body .fltbtn .fltx:hover{color:#636366}html body .fltbtn .fltx svg{width:16px;height:16px}
 /* ===== Foodics typography: IBM Plex Sans, Foodics sizes and weights ===== */
@@ -2640,6 +2646,10 @@ function render(){ const route = location.hash.slice(1) || "dashboard", same = r
   try{ const bd = document.querySelector("#view .board"); if(bd) eqTiles(bd, ".ocard"); }catch(_){}   // call center board: every tile as tall as the tallest
   if(same){ if(SCRY() !== wy) window.scrollTo(0, wy); if(keep.length){ const els = [...document.querySelectorAll(KEEP_SCROLL)]; keep.forEach(([i, t, l]) => { const el = els[i]; if(el){ el.scrollTop = t; el.scrollLeft = l; } }); } }
   return r; }
+document.addEventListener("click", async e => { const b = e.target.closest?.("[data-detrestore]"); if(!b || !b.dataset.detrestore) return; e.preventDefault(); e.stopImmediatePropagation();
+  const [k, id] = b.dataset.detrestore.split("|"), cfg = CRUD[k]; if(!cfg) return; b.disabled = true;
+  try{ await put(cfg.col, id, { deleted:false }); const r = (S[cfg.col]||[]).find(x => x.id===id); if(r) r.deleted = false; toastOk(`${cfg.one || "Record"} restored`); }catch(err){ console.error(err); toast("Couldn't restore"); b.disabled = false; return; }
+  render(); }, true);
 // a page that fails to draw never leaves the screen blank: the menu stays and a short message offers a reload
 setTimeout(() => { const _r = render; render = function(){ try{ return _r.apply(this, arguments); }catch(e){ console.error("render", e);
   try{ renderNav((location.hash.slice(1) || "dashboard")); }catch(_){}
@@ -2682,6 +2692,10 @@ function render0(){ setTimeout(() => typeof bmBarSync==="function" && bmBarSync(
   if(route!=="dashboard" && !(route==="discounts" && DS.open)) stickHead(v);
   // detail pages (a record's fields as a list): the content sits in a centred column with space on both sides, like Foodics
   v.classList.toggle("isdet", !!v.querySelector("[data-detback],[data-cusback],[data-brback],[data-devback],[data-scback],[data-tbback],[data-dsback],[data-otback],[data-scbrback],[data-scbrandback]"));
+  // a deleted record (Foodics): read only, with Restore in place of Edit
+  { const dk = DET.key && DET.id && CRUD[DET.key] ? DET.key : null, rec = dk && (S[CRUD[dk].col]||[]).find(x => x.id===DET.id), del = !!(rec && rec.deleted);
+    v.classList.toggle("isdel", del);
+    if(del){ const ph = v.querySelector(".phead"); if(ph && !ph.querySelector("[data-detrestore]")) ph.insertAdjacentHTML("beforeend", `<button type="button" class="btn pri" data-detrestore="${esc(dk)}|${esc(rec.id)}">Restore</button>`); } }
 }
 /* Foodics-style dropdowns: a field showing "Choose..." (or the picked chips) that opens a list with a search box.
    Checkbox lists (.multi) become multi-select dropdowns and form selects become searchable dropdowns. The real
@@ -2744,7 +2758,7 @@ function msEnhance(){
     m.classList.add("msel"); const f = document.createElement("div"); f.className = "msel-f"; f.tabIndex = 0; f.setAttribute("role", "button");
     const p = document.createElement("div"); p.className = "msel-p"; p.hidden = true; p.innerHTML = `<input class="msel-q" placeholder="Type something to start searching" autocomplete="off">`;
     const l = document.createElement("div"); l.className = "msel-l"; labels.forEach(x => { x.classList.add("msel-o"); l.appendChild(x); }); if(!labels.length) l.innerHTML = `<div class="msel-none">${esc(m.dataset.empty)}</div>`; p.appendChild(l); m.prepend(p); m.prepend(f); msPaint(m); });
-  document.querySelectorAll(":is(#crudBox,#ccBox,.detform,.modal,.bsf,.f) select.sel:not([multiple]):not([size]):not([data-ms]):not([hidden])").forEach(sel => { sel.dataset.ms = "1"; if(sel.style.display==="none") return;
+  document.querySelectorAll(":is(#crudBox,#ccBox,.detform,.modal,.bsf,.f) select.sel:not([multiple]):not([size]):not([data-ms]):not([hidden]), #crudBox .f > select:not(.sel):not([multiple]):not([size]):not([data-ms]):not([hidden])").forEach(sel => { sel.dataset.ms = "1"; if(sel.style.display==="none") return;
     const m = document.createElement("div"); m.className = "msel mselect"; sel.parentNode.insertBefore(m, sel); m.appendChild(sel);
     const f = document.createElement("div"); f.className = "msel-f sel"; f.tabIndex = 0; f.setAttribute("role", "button"); if(sel.id) f.setAttribute("aria-label", sel.getAttribute("aria-label") || sel.id);
     const p = document.createElement("div"); p.className = "msel-p"; p.hidden = true; p.innerHTML = `<input class="msel-q" placeholder="Type something to start searching" autocomplete="off"><div class="msel-l"></div>`;
@@ -2759,7 +2773,9 @@ function msClose(except){ document.querySelectorAll(".msel.open").forEach(m => {
 function msOpen(m){
   msClose(m); const p = m.querySelector(":scope > .msel-p");
   if(m.classList.contains("mselect")){ const sel = m.querySelector("select"); if(sel.disabled) return;
-    p.querySelector(".msel-l").innerHTML = [...sel.options].filter(o => !(o.value==="" && /^(choose|select)/i.test(o.text)) && !o.hidden).map(o => `<button type="button" class="msel-o${o.value===sel.value?" on":""}" data-msv="${esc(o.value)}"${o.disabled?" disabled":""}>${esc(o.text)}</button>`).join("") || `<div class="msel-none">${esc(sel.dataset.empty || "No options")}</div>`; }
+    const lb = m.closest(".f")?.querySelector("label"), req = sel.required || sel.dataset.req==="1" || /\*/.test(lb?.textContent || "") || !!lb?.querySelector(".reqst"),
+      ph = [...sel.options].find(o => o.value==="" && /^(choose|select)/i.test(o.text));   // Foodics: an optional field lists None first
+    p.querySelector(".msel-l").innerHTML = (ph && !req ? `<button type="button" class="msel-o msel-nil${sel.value==="" ? " on" : ""}" data-msv="">None</button>` : "") + [...sel.options].filter(o => !(o.value==="" && /^(choose|select)/i.test(o.text)) && !o.hidden).map(o => `<button type="button" class="msel-o${o.value===sel.value?" on":""}" data-msv="${esc(o.value)}"${o.disabled?" disabled":""}>${esc(o.text)}</button>`).join("") || `<div class="msel-none">${esc(sel.dataset.empty || "No options")}</div>`; }
   m.classList.add("open"); p.hidden = false; const q = p.querySelector(".msel-q"); q.value = ""; p.querySelectorAll(".msel-o").forEach(o => o.hidden = !!o.querySelector?.("input:checked"));
   msPlace(m); setTimeout(() => q.focus(), 0);
 }
@@ -3645,7 +3661,7 @@ function openCrud(key, id, inline, draft){
     if(f.t==="nutr"){ const o = v || {}; return `<div class="f full"><div class="nutr" id="cf_${f.k}">${NUTR.map(([k,l,u]) => `<label class="nrow"><span>${l}</span><input type="number" step="any" min="0" data-nk="${k}" value="${esc(o[k] ?? "")}" placeholder="–" aria-label="${l} (${u})"><i>${u}</i></label>`).join("")}</div></div>`; }   // e.g. price and tax of a product with variants: each variant has its own
     if(f.t==="polygon") return `<div class="f full"><label>${curL(f.l)}</label><div class="note">Click the map to add corners around the area this branch delivers to. Drag a corner to adjust it.</div><div id="zoneMap" class="zmap"></div><div class="row" style="margin:8px 0 0"><button type="button" class="btn sm" id="zUndo">Undo last point</button><button type="button" class="btn sm" id="zClear">Clear</button><span class="note" id="zInfo"></span></div></div>`;
     if(f.t==="chk") return `<div class="f full"><label class="chk"><input type="checkbox" id="${idA}" ${v!==false&&v!==undefined?"checked":""}> ${curL(f.l)}</label></div>`;
-    if(f.t==="select") return `<div class="f${full}"><label for="${idA}">${curL(f.l)}${f.req?" *":""}</label><select id="${idA}" ${f.lockEdit && r ? "disabled" : ""}><option value="">${esc(f.ph||"Choose…")}</option>${f.opts().map(([k,t])=>`<option value="${esc(k)}" ${k===v?"selected":""}>${esc(t)}</option>`).join("")}</select>${f.note?`<div class="note">${esc(f.note)}</div>`:""}</div>`;
+    if(f.t==="select") return `<div class="f${full}"><label for="${idA}">${curL(f.l)}${f.req?" *":""}</label><select id="${idA}" ${f.lockEdit && r ? "disabled" : ""}${(f.req || f.def!==undefined) && f.k!=="taxGroup" ? ' data-req="1"' : ""}><option value="">${esc(f.ph||"Choose…")}</option>${f.opts().map(([k,t])=>`<option value="${esc(k)}" ${k===v?"selected":""}>${esc(t)}</option>`).join("")}</select>${f.note?`<div class="note">${esc(f.note)}</div>`:""}</div>`;
     if(f.t==="multi"){ const set = new Set(v||[]), o = f.opts(), hasD = o.some(x => x[2]);
       if(f.toggle){ let grp = ""; const ib = d => d ? `<span class="ib" tabindex="0" role="button" aria-label="More info" data-tip="${esc(d)}">${IB_SVG}</span>` : "";
         let h = "", open = false;
