@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="861-1794590601">
+<meta name="slick-build" content="862-1794590927">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this copy, reload once (never for an older one) */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -7986,6 +7986,26 @@ function docStatusTag(d){
   const cls = d.status==="closed" ? "on" : d.status==="pending" ? "cc" : "off";
   return `<span class="tag ${cls}">${t}</span>`;
 }
+// Production (Foodics): a closed production shows its Production (PRD-) and the Consumption From Production (PC-) of the ingredients it used
+function viewProductionList(route, K, all, list){
+  const tab = DOC.tab[route] || "all", fmtD = v => v ? esc(String(v).split("-").reverse().join("-")) : "—";
+  const refOf = (d, p) => d.status==="draft" || !d.ref ? "—" : esc(String(d.ref).replace(/^[A-Z]+-/, p + "-"));
+  const rows = [];
+  list.forEach(d => { const closed = d.status==="closed", bd = closed ? fmtD(d.businessDate) : "—";
+    if(tab==="all" || tab==="production") rows.push({ d, ref: refOf(d, "PRD"), type:"Production", st: closed ? "Closed" : "Draft", bd, at: d.createdAt, o:1 });
+    if(closed && (tab==="all" || tab==="consumption")) rows.push({ d, ref: refOf(d, "PC"), type:"Consumption From Production", st:"Closed", bd, at: d.submittedAt || d.createdAt, o:0 });
+    if(closed && (+d.waste > 0 || (d.items||[]).some(l => +l.waste > 0)) && (tab==="all" || tab==="waste")) rows.push({ d, ref: refOf(d, "PW"), type:"Waste From Production", st:"Closed", bd, at: d.submittedAt || d.createdAt, o:-1 }); });
+  rows.sort((a, b) => String(b.at).localeCompare(String(a.at)) || a.o - b.o);
+  const tabs = [["all","All"],["production","Production"],["consumption","Consumption"],["waste","Waste"]];
+  let h = `<div class="phead"><h1>Inventory Production</h1><div class="sp"></div>${docExpMenu(route, K)}<button class="btn pri" data-docnew="${route}">New ${K.title}</button></div>
+    <p class="subt" style="margin-top:-6px">${esc(K.intro)}</p>
+    <div class="card tbl"><div class="ttop"><div class="ttabs">${tabs.map(t=>`<a href="#${route}" data-doctab="${route}:${t[0]}" class="${tab===t[0]?"on":""}">${t[1]}</a>`).join("")}</div><div class="sp"></div>
+    ${docFltBtn(route, K)}</div>`;
+  h += rows.length ? `<table><thead><tr><th>Reference</th><th>Branch</th><th>Type</th><th>Status</th><th>Business Date</th><th>Created</th></tr></thead><tbody>${rows.map(x => `<tr class="click" data-docopen="${route}:${esc(x.d.id)}">
+      <td>${x.ref}</td><td>${esc(locName(x.d.locationId))}</td><td>${x.type}</td><td>${x.st}</td><td>${x.bd}</td><td>${fmtDate(x.at)}</td></tr>`).join("")}</tbody></table>`
+    : `<div class="empty">${all.length ? "Nothing here." : `No ${K.plural.toLowerCase()} yet.`}</div>`;
+  return h + `</div>`;
+}
 // Transfers (Foodics): each transfer is a Transfer Sending (TRS-) at the source and, once sent, a Transfer Receiving (TRR-) at the destination
 function viewTransferList(route, K, all, list){
   const tab = DOC.tab[route] || "all", ret = d => d.reason==="return";
@@ -8421,6 +8441,7 @@ function viewDocs(route){
   const list = all.filter(d => tab==="all" || d.status===tab).filter(docFltOk(route, K))
     .sort((a,b)=>String(b.createdAt).localeCompare(String(a.createdAt)));
   const tabs = K.kind==="sheet" ? [] : K.flow ? [["all","All"],["draft","Draft"],["pending","Pending"],["closed","Closed"],["rejected","Declined"]] : [["all","All"],["draft","Draft"],["closed","Closed"]];
+  if(K.kind==="production") return viewProductionList(route, K, all, all.filter(docFltOk(route, K)));
   if(K.kind==="transfer") return viewTransferList(route, K, all, S.inv_docs.filter(d => docOf(K)(d) && live(d)).filter(docFltOk(route, K)));
   if(K.flow) return viewFlowList(route, K, tabs, all, list);
   const cols = K.kind==="sheet" ? [["Reference",d=>`<span class="code">${esc(d.ref||"…")}</span>`],["Name",d=>`<b>${esc(d.name||"—")}</b>`],["Created At",d=>fmtDate(d.createdAt)]]
