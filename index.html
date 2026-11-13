@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="847-1794574254">
+<meta name="slick-build" content="848-1794574558">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this copy, reload once (never for an older one) */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -7875,7 +7875,7 @@ function viewFlowList(route, K, tabs, all, list){
   const shown = list.filter(d => tab==="all" || d.status===tab);
   const cols = [["Reference",d=>`<span class="code">${esc(d.ref||"…")}</span>`],
     ...(K.kind==="purchase" ? [["Supplier",d=>esc(supName(d.supplierId))],["Destination",d=>esc(locName(d.locationId))]]
-      : K.kind==="torder" ? [["Branch",d=>esc(locName(d.locationId))],["Requested from",d=>esc(locName(d.destId))]]
+      : K.kind==="torder" ? [["From",d=>esc(locName(d.destId))],["To",d=>esc(locName(d.locationId))]]
       : [["From",d=>esc(locName(d.locationId))],["To",d=>esc(locName(d.destId))]]),
     ["Status",d=>docStatusTag(d)],["Items",d=>(d.items||[]).length,"num"],
     ...(K.kind==="purchase" ? [["Total",d=>usd((d.items||[]).reduce((s,l)=>s+(+l.qty||0)*(+l.cost||0),0)),"num"]] : []),
@@ -7893,8 +7893,8 @@ function flowInfo(d, K, info){
   const who = (l, v) => info(l, esc(v||"—"));
   return [
     K.kind==="purchase" ? info("Supplier", esc(supName(d.supplierId))) : "",
-    info(K.kind==="purchase" ? "Destination" : K.kind==="torder" ? "Requesting branch" : "From", esc(locName(d.locationId))),
-    K.kind!=="purchase" ? info(K.kind==="torder" ? "Requested from" : "To", esc(locName(d.destId))) : "",
+    K.kind==="torder" ? info("From", esc(locName(d.destId))) + info("To", esc(locName(d.locationId)))
+      : info(K.kind==="purchase" ? "Destination" : "From", esc(locName(d.locationId))) + (K.kind!=="purchase" ? info("To", esc(locName(d.destId))) : ""),
     info("Business Date", esc(d.businessDate||"—")), who("Creator", d.createdBy), info("Created At", fmtDate(d.createdAt)),
     K.po ? info("Delivery Date", esc(delLbl(d.deliveryAt))) : "",
     K.kind==="purchase" && +d.additionalCost ? info("Additional Cost", usd(+d.additionalCost)) : "",
@@ -8299,7 +8299,7 @@ function docNewDialog(route){
   if(K.kind==="purchase") f.push(sel("dnSup", "Supplier", sups, "", "No suppliers"), sel("dnLoc", K.po ? "Destination" : "Branch", locs, defLoc, "No branches or warehouses"));
   if(K.po) f.push(delFields("dn", null), `<div class="f"><label for="dnNotes">Notes</label><textarea id="dnNotes" class="sel" rows="3"></textarea></div>`);
   else if(K.kind==="transfer") f.push(sel("dnLoc", "Source", locs, defLoc, "No branches or warehouses"), sel("dnDest", "Destination", locs, "", "No branches or warehouses"));
-  else if(K.kind==="torder") f.push(sel("dnLoc", "Branch", locs, defLoc, "No branches"), sel("dnDest", "Warehouse", locs, "", "No warehouses"));
+  else if(K.kind==="torder") f.push(sel("dnDest", "From", locs, "", "No warehouses"), sel("dnLoc", "To", locs, defLoc, "No branches"));   // from: the warehouse that sends; to: the branch that receives
   else if(K.kind==="sheet") f.push(`<div class="f"><label for="dnName">Name *</label><input id="dnName" class="sel"></div>`);
   else if(K.loc) f.push(sel("dnLoc", "Branch", locs, defLoc, "No branches or warehouses"));
   if(K.kind==="quantity") f.push(`<div class="f"><label for="dnReason">Reason *</label><select id="dnReason" class="sel">${opts(QA_REASONS_L().map(r => [r, r]), "")}</select></div>`);
@@ -8308,6 +8308,12 @@ function docNewDialog(route){
     <footer><span style="flex:1"></span><button type="button" class="btn keep" data-ccclose>Close</button><button type="button" class="btn pri" id="dnSave" data-route="${esc(route)}">Save</button></footer>`;
   $("#ccScrim").classList.add("show");
 }
+const PAIRS = [["dnLoc","dnDest"],["dLoc","dDest"]];
+function pairSync(){ PAIRS.forEach(([a, b]) => { const A = $("#" + a), B = $("#" + b); if(!A || !B) return;
+  [[A, B], [B, A]].forEach(([x, y]) => [...y.options].forEach(o => { o.hidden = !!o.value && o.value===x.value; })); }); }
+document.addEventListener("change", e => { if(!PAIRS.flat().includes(e.target.id)) return; const p = PAIRS.find(x => x.includes(e.target.id)), other = $("#" + p.find(id => id!==e.target.id));
+  if(other && other.value && other.value===e.target.value){ other.value = ""; other.dispatchEvent(new Event("change", { bubbles:true })); } pairSync(); });
+new MutationObserver(() => { if(PAIRS.flat().some(id => document.getElementById(id))) pairSync(); }).observe(document.getElementById("ccBox") || document.body, { childList:true, subtree:true });
 document.addEventListener("click", async e => {
   const b = e.target.closest("#dnSave"); if(!b) return; e.preventDefault(); const route = b.dataset.route, v = id => $("#" + id)?.value?.trim() ?? null, err = m => { $("#dnErr").textContent = m; };
   const need = ["dnSup","dnLoc","dnDest","dnName","dnReason"].filter(id => $("#" + id)); if(need.some(id => !v(id))) return err("Fill in every field marked *.");
@@ -8359,8 +8365,8 @@ function viewDoc(route){
   function docForm(d, K, loc){ return `<div class="grid2" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px">
       ${K.kind==="sheet" ? `<div class="f"><label for="dName">Name *</label><input id="dName" class="sel" value="${esc(d.name||"")}" placeholder="e.g. Branch Count Sheet"></div>` : ""}
       ${K.kind==="purchase" ? `<div class="f"><label for="dSup">Supplier *</label><select id="dSup" class="sel"><option value="">Choose…</option>${S.suppliers.filter(live).sort((a,b)=>a.name.localeCompare(b.name)).map(x=>`<option value="${esc(x.id)}" ${x.id===d.supplierId?"selected":""}>${esc(x.name)}</option>`).join("")}</select>${S.suppliers.filter(live).length?"":'<div class="note">Add suppliers under Inventory → Suppliers.</div>'}</div>` : ""}
-      ${K.loc ? `<div class="f"><label for="dLoc">${K.kind==="purchase"?"Deliver to":K.kind==="torder"?"Requesting branch":K.kind==="transfer"?"From":"Branch / warehouse"} *</label><select id="dLoc" class="sel"><option value="">Choose…</option>${locList().map(([k,t])=>`<option value="${esc(k)}" ${k===loc?"selected":""}>${esc(t)}</option>`).join("")}</select></div>` : ""}
-      ${K.kind==="transfer"||K.kind==="torder" ? `<div class="f"><label for="dDest">${K.kind==="torder"?"Request from":"To"} *</label><select id="dDest" class="sel"><option value="">Choose…</option>${locList().filter(([k])=>k!==loc).map(([k,t])=>`<option value="${esc(k)}" ${k===d.destId?"selected":""}>${esc(t)}</option>`).join("")}</select></div>` : ""}
+      ${K.loc ? `<div class="f"><label for="dLoc">${K.kind==="purchase"?"Deliver to":K.kind==="torder"?"To":K.kind==="transfer"?"From":"Branch / warehouse"} *</label><select id="dLoc" class="sel"><option value="">Choose…</option>${locList().map(([k,t])=>`<option value="${esc(k)}" ${k===loc?"selected":""}>${esc(t)}</option>`).join("")}</select></div>` : ""}
+      ${K.kind==="transfer"||K.kind==="torder" ? `<div class="f"><label for="dDest">${K.kind==="torder"?"From":"To"} *</label><select id="dDest" class="sel"><option value="">Choose…</option>${locList().filter(([k])=>k!==loc).map(([k,t])=>`<option value="${esc(k)}" ${k===d.destId?"selected":""}>${esc(t)}</option>`).join("")}</select></div>` : ""}
       ${K.kind==="quantity" ? `<div class="f"><label for="dReason">Reason</label><input id="dReason" class="sel" list="dReasonL" value="${esc(d.reason||"")}"><datalist id="dReasonL">${QA_REASONS_L().map(r=>`<option value="${esc(r)}">`).join("")}</datalist></div>
         <div class="f"><label for="dDir">Type</label><select id="dDir" class="sel"><option value="deduct" ${d.direction!=="add"?"selected":""}>Deduct from stock</option><option value="add" ${d.direction==="add"?"selected":""}>Add to stock</option></select></div>` : ""}
       ${K.kind!=="sheet" ? `<div class="f"><label for="dDate">Business date</label><input id="dDate" type="date" class="sel" value="${esc(d.businessDate||"")}"></div>` : ""}
