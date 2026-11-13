@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="860-1794589966">
+<meta name="slick-build" content="861-1794590601">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this copy, reload once (never for an older one) */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -7986,6 +7986,29 @@ function docStatusTag(d){
   const cls = d.status==="closed" ? "on" : d.status==="pending" ? "cc" : "off";
   return `<span class="tag ${cls}">${t}</span>`;
 }
+// Transfers (Foodics): each transfer is a Transfer Sending (TRS-) at the source and, once sent, a Transfer Receiving (TRR-) at the destination
+function viewTransferList(route, K, all, list){
+  const tab = DOC.tab[route] || "all", ret = d => d.reason==="return";
+  const refOf = (d, p) => d.status==="draft" || !d.ref ? "—" : esc(String(d.ref).replace(/^TRS?R?-/, p + "-"));
+  const bd = t => t ? fmtD(bizDate(t)) : "—", fmtD = v => v ? esc(String(v).split("-").reverse().join("-")) : "—";
+  const toRef = d => { const t = d.linkedId && S.inv_docs.find(x => x.id===d.linkedId && x.kind==="torder"); return t ? esc(t.ref||"—") : "—"; };
+  const rows = [];
+  list.forEach(d => { const r = ret(d);
+    if(tab==="all" || (tab==="sending" && !r) || (tab==="return" && r)) rows.push({ d, type: r ? "Transfer Return" : "Transfer Sending", ref: refOf(d, r ? "TRT" : "TRS"),
+      st: d.status==="draft" ? ["draft","Draft"] : ["closed","Closed"], bdate: d.status==="draft" ? "—" : d.submittedAt ? bd(d.submittedAt) : fmtD(d.businessDate), at: d.submittedAt || d.createdAt });
+    if(d.status!=="draft" && !r && (tab==="all" || tab==="receiving")) rows.push({ d, type:"Transfer Receiving", ref: refOf(d, "TRR"),
+      st: d.status==="closed" ? ["closed","Closed"] : d.status==="rejected" ? ["rejected","Declined"] : ["pending","Pending"], bdate: d.status==="closed" ? (d.receivedAt ? bd(d.receivedAt) : fmtD(d.businessDate)) : "—", at: d.submittedAt || d.createdAt }); });
+  rows.sort((a, b) => String(b.at).localeCompare(String(a.at)) || (a.type==="Transfer Receiving" ? -1 : 1));
+  const tabs = [["all","All"],["sending","Sending"],["receiving","Receiving"],["return","Transfer Return"]];
+  let h = `<div class="phead"><h1>Inventory Transfers</h1><div class="sp"></div>${docExpMenu(route, K)}<button class="btn pri" data-docnew="${route}">New ${K.title}</button></div>
+    <p class="subt" style="margin-top:-6px">${esc(K.intro)}</p>
+    <div class="card tbl"><div class="ttop"><div class="ttabs">${tabs.map(t=>`<a href="#${route}" data-doctab="${route}:${t[0]}" class="${tab===t[0]?"on":""}">${t[1]}</a>`).join("")}</div><div class="sp"></div>
+    ${docFltBtn(route, K)}</div>`;
+  h += rows.length ? `<table><thead><tr><th>Reference</th><th>Source</th><th>Destination</th><th>TO Reference</th><th>Type</th><th>Status</th><th>Business Date</th><th>Receiving Due Date</th><th>Created</th></tr></thead><tbody>${rows.map(x => `<tr class="click" data-docopen="${route}:${esc(x.d.id)}">
+      <td>${x.ref}</td><td>${esc(locName(x.d.locationId))}</td><td>${esc(locName(x.d.destId))}</td><td>${toRef(x.d)}</td><td>${x.type}</td><td>${esc(x.st[1])}</td><td>${x.bdate}</td><td>—</td><td>${fmtDate(x.d.createdAt)}</td></tr>`).join("")}</tbody></table>`
+    : `<div class="empty">${all.length ? "Nothing here." : `No ${K.plural.toLowerCase()} yet.`}</div>`;
+  return h + `</div>`;
+}
 function viewFlowList(route, K, tabs, all, list){
   const tab = DOC.tab[route] || "all";
   const shown = list.filter(d => tab==="all" || d.status===tab);
@@ -8398,6 +8421,7 @@ function viewDocs(route){
   const list = all.filter(d => tab==="all" || d.status===tab).filter(docFltOk(route, K))
     .sort((a,b)=>String(b.createdAt).localeCompare(String(a.createdAt)));
   const tabs = K.kind==="sheet" ? [] : K.flow ? [["all","All"],["draft","Draft"],["pending","Pending"],["closed","Closed"],["rejected","Declined"]] : [["all","All"],["draft","Draft"],["closed","Closed"]];
+  if(K.kind==="transfer") return viewTransferList(route, K, all, S.inv_docs.filter(d => docOf(K)(d) && live(d)).filter(docFltOk(route, K)));
   if(K.flow) return viewFlowList(route, K, tabs, all, list);
   const cols = K.kind==="sheet" ? [["Reference",d=>`<span class="code">${esc(d.ref||"…")}</span>`],["Name",d=>`<b>${esc(d.name||"—")}</b>`],["Created At",d=>fmtDate(d.createdAt)]]
     : [["Reference",d=>d.status==="draft" || !d.ref ? "—" : `<span class="code">${esc(d.ref)}</span>`], ...(K.loc?[["Branch",d=>esc(locName(d.locationId))]]:[]), ...(K.kind==="quantity"?[["Reason",d=>esc(d.reason||"—")+(d.direction==="add"?' <span class="tag on">Add</span>':"")]]:[]),
