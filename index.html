@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="845-1794574084">
+<meta name="slick-build" content="846-1794574193">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this copy, reload once (never for an older one) */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -7908,7 +7908,8 @@ const qCell = (kind, key, f, v, lbl, name, itemId) => { const u = f==="qty" ? st
   return `<span class="qcell" data-qe="${kind}|${esc(key)}|${f}" data-lbl="${esc(lbl)}" data-name="${esc(name)}" data-item="${esc(itemId||"")}">${v===""||v==null ? '<span class="note">—</span>' : n2(+v||0) + (u ? " " + esc(u) : "")}</span>`; };   // quantities are entered by pressing the row (Foodics)
 // a quantity in the item's units (Foodics): storage unit, plus the ingredient unit when the item has one, e.g. 1 gallon + 500 gram
 function qFields(i, lbl, qe, v, it){
-  const su = storUnit(it), iu = ingUnit(it), fac = +it?.factor || 1, two = true;   // both units, always (Foodics)
+  const su = storUnit(it), iu = ingUnit(it), fac = +it?.factor || 1,
+    two = DOC_KINDS[DOC.open?.route]?.kind!=="purchase" && !(fac===1 && su===iu);   // both units (Foodics), except purchasing / purchase orders (storage unit only) and when both units are the same
   if(!it) return `<div class="f"><label for="qe_${i}">${esc(lbl)} *</label><input class="sel" id="qe_${i}" type="number" min="0" step="any" inputmode="decimal" value="${esc(v ?? "")}" data-qset="${esc(qe)}"></div>`;
   const n = +v || 0, whole = n ? (two ? Math.floor(n + 1e-9) : n) : "", rest = n && two ? (+((n - Math.floor(n + 1e-9)) * fac).toFixed(4) || "") : "";
   return `<div class="qgrp" data-qset="${esc(qe)}" data-fac="${two ? fac : 1}">
