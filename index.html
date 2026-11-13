@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="841-1794572718">
+<meta name="slick-build" content="842-1794573382">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this copy, reload once (never for an older one) */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1527,6 +1527,12 @@ html body table td{padding-top:9px;padding-bottom:9px}   /* tighter rows across 
 <div class="toast" id="toast"></div>
 
 <script>
+/* screen touch-ups (names, icons, number formats, column widths…) run right after a change and before the screen is painted,
+   so a page appears once in its final shape instead of shifting as each pass catches up. A pass that keeps changing the page
+   falls back to the next frame so it can't freeze the tab. */
+const SOON = (() => { let n = 0, armed = false;
+  return fn => { if(!armed){ armed = true; setTimeout(() => { n = 0; armed = false; }, 0); }
+    if(++n > 60) requestAnimationFrame(fn); else queueMicrotask(fn); return 1; }; })();
 /* ---------- naming: menu "products" are called Items; inventory "items" are called Products ----------
    Done on what's shown, so data and links keep their names. On inventory screens both words swap
    (there "item" meant an inventory item and "product" a menu product); everywhere else Product → Item. */
@@ -1551,7 +1557,7 @@ function nmApply(root){
 }
 let NMQ = new Set(), NMT = 0;
 new MutationObserver(ms => { ms.forEach(m => { if(m.type === "characterData") NMQ.add(m.target); else m.addedNodes.forEach(n => NMQ.add(n)); });
-  if(!NMT) NMT = requestAnimationFrame(() => { NMT = 0; const q = [...NMQ]; NMQ = new Set(); q.forEach(n => { if(n.isConnected) nmApply(n); }); }); })
+  if(!NMT) NMT = SOON(() => { NMT = 0; const q = [...NMQ]; NMQ = new Set(); q.forEach(n => { if(n.isConnected) nmApply(n); }); }); })
   .observe(document.documentElement, { childList:true, subtree:true, characterData:true });
 window.addEventListener("hashchange", () => setTimeout(() => nmApply(document.body), 0));
 document.addEventListener("DOMContentLoaded", () => nmApply(document.body));
@@ -1740,7 +1746,7 @@ function decorate(route){
   v.querySelectorAll(".kpi .kh h3").forEach(h3 => { if(h3.dataset.deco) return; h3.dataset.deco = 1; const m = KPI_ICONS.find(([re]) => re.test(h3.textContent));
     h3.style.display = "flex"; h3.style.alignItems = "center"; h3.insertAdjacentHTML("afterbegin", `<span class="kicon">${svgIco(m ? m[1] : "chart")}</span>`); });
 }
-new MutationObserver(() => {  cancelAnimationFrame(decorate.t); decorate.t = requestAnimationFrame(() => decorate(location.hash.slice(1) || "dashboard")); }).observe(document.getElementById("view"), { childList:true, subtree:true });
+new MutationObserver(() => { if(decorate.q) return; decorate.q = SOON(() => { decorate.q = 0; decorate(location.hash.slice(1) || "dashboard"); }); }).observe(document.getElementById("view"), { childList:true, subtree:true });
 
 
 
@@ -2546,7 +2552,7 @@ function ftTips(root){
       if(tip) lab.appendChild(ibMake(esc(tip))); });
   });
 }
-new MutationObserver(() => { if(ftTips.t) return; ftTips.t = requestAnimationFrame(() => { ftTips.t = 0; ftTips(); }); }).observe(document.documentElement, { childList:true, subtree:true });
+new MutationObserver(() => { if(ftTips.t) return; ftTips.t = SOON(() => { ftTips.t = 0; ftTips(); }); }).observe(document.documentElement, { childList:true, subtree:true });
 FTIPS.option = FTIPS["modifier option"]; FTIPS.item = FTIPS["menu item"] = FTIPS.product;   // menu items = Foodics products; inventory items have their own tips
 function infoize(root){
   if(!root) return;
@@ -2573,7 +2579,7 @@ function infoize(root){
 function noHints(root){ (root||document).querySelectorAll(".f input[placeholder], .f textarea[placeholder], .bsf input[placeholder], .bsf textarea[placeholder], .modal input[placeholder], .modal textarea[placeholder], .ccnotes input[placeholder]").forEach(el => {
   if(el.matches(".search, [type=search], [id*=Search], [id*=search], #cusQ, #oSearch, #oPhone, [data-ph]")) return; el.removeAttribute("placeholder"); }); }
 let ibT = null; const ibRun = () => { ibT = null; noHints(document); infoize($("#view")); document.querySelectorAll(".modal, .scrim .body, .drawer").forEach(m => infoize(m)); };
-new MutationObserver(() => { if(!ibT) ibT = requestAnimationFrame(ibRun); }).observe(document.body, { childList:true, subtree:true });
+new MutationObserver(() => { if(!ibT) ibT = SOON(ibRun); }).observe(document.body, { childList:true, subtree:true });
 let ibBub = null, ibPin = null;
 function ibShow(ic){ ibHide(); ibBub = document.createElement("div"); ibBub.className = "ibub"; ibBub.innerHTML = ic.dataset.tip; document.body.appendChild(ibBub);
   const r = ic.getBoundingClientRect(), w = Math.min(280, innerWidth - 24); ibBub.style.maxWidth = w + "px";
@@ -2752,8 +2758,8 @@ const nfAll = () => document.querySelectorAll('input[type="number"]').forEach(el
 document.addEventListener("focusin", e => { if(e.target.matches?.('input[type="number"]')) nfPaint(e.target); });
 document.addEventListener("focusout", e => { if(e.target.matches?.('input[type="number"]')) setTimeout(() => nfPaint(e.target), 0); });
 document.addEventListener("change", e => { if(e.target.matches?.('input[type="number"]')) nfPaint(e.target); });
-let nfT = 0; new MutationObserver(() => { clearTimeout(nfT); nfT = setTimeout(nfAll, 120); }).observe(document.documentElement, { childList:true, subtree:true });
-let msT = 0; new MutationObserver(() => { if(msT) return; msT = requestAnimationFrame(() => { msT = 0; msEnhance(); }); }).observe(document.documentElement, { childList:true, subtree:true });
+let nfT = 0; new MutationObserver(() => { if(nfT) return; nfT = SOON(() => { nfT = 0; nfAll(); }); }).observe(document.documentElement, { childList:true, subtree:true });
+let msT = 0; new MutationObserver(() => { if(msT) return; msT = SOON(() => { msT = 0; msEnhance(); }); }).observe(document.documentElement, { childList:true, subtree:true });
 setInterval(() => document.querySelectorAll(".mselect").forEach(m => { const sel = m.querySelector("select"); if(sel && (m.dataset.v!==sel.value || m.querySelector(".msel-f").classList.contains("dis")!==sel.disabled)) msPaint(m); }), 400);
 // "More" (Foodics): the less used screens of a section, as a list of links
 function viewMore(route){
@@ -3023,6 +3029,7 @@ async function put0(col, id, data){
   }
 }
 const live = r => !r.deleted;
+const isInvProduct = p => (p?.ingredients||[]).some(l => S.inv_items?.find(i => i.id===l.itemId)?.menuItem);
 const catName = id => S.categories.find(c => c.id===id)?.name || "—";
 /* ---------- taxes ---------- */
 const tgName = id => { if(!id) return "—"; const g = S.tax_groups.find(x=>x.id===id); return g ? g.name : (id==="TAX" ? "VAT" : id); };
@@ -3233,6 +3240,11 @@ const CRUD = {
   },
   products: {
     col:"products", title:"Products", one:"Product", detail: r => productDetail(r), bulk:1,
+    // Inventory Item = Yes (only when created): an inventory product of the same name is made and the item uses 1 of it per sale
+    prep: async (data, id) => { const yes = data.invProduct==="yes"; delete data.invProduct; if(id || !yes) return;
+      const iid = uid("inv"), sku = nextSku("inv_items");
+      await put("inv_items", iid, { name:data.name, nameAr:data.nameAr||"", sku, category:"", storageUnit:"pcs", ingredientUnit:"pcs", factor:1, costingMethod:"transactions", menuItem:true, kind:"purchased" });
+      data.ingredients = [{ itemId:iid, qty:1, net:1, yield:100, types:ORDER_TYPES.map(x=>x[0]) }]; data.costingMethod = "ingredients"; },
     tabs:[["all","All",live],["deleted","Deleted",r=>r.deleted]],
     // variants sit right under their product, in the set's order
     sort:(a,b)=>{ const pa = varParent(a.id), pb = varParent(b.id), ka = (pa||a).name||"", kb = (pb||b).name||"";
@@ -3254,6 +3266,8 @@ const CRUD = {
       {k:"costingMethod",l:"Costing Method",t:"select",opts:()=>[["ingredients","From Ingredients"],["fixed","Fixed Cost"]],def:"ingredients",hideIf:r=>varKids(r).length},{k:"cost",l:"Fixed Cost (USD)",t:"number",req:1,when:{k:"costingMethod",is:"fixed"},hideIf:r=>varKids(r).length},
       {k:"sellingMethod",l:"Selling Method",t:"select",opts:()=>[["unit","Unit"],["weight","Weight"]],def:"unit"},
       {k:"barcode",l:"Barcode"},{k:"prepTime",l:"Preparation Time (Minute)",t:"number"},
+      {k:"invProduct",l:"Inventory Item",t:"select",lockEdit:1,opts:()=>[["no","No"],["yes","Yes"]],def:"no",get:r=>isInvProduct(r)?"yes":"no",
+        note:"Yes: bought and sold as it is (e.g. a soft drink). It's added to the inventory and its stock goes down with every sale. Can't be changed once created."},
       {k:"description",l:"Description",t:"textarea",full:1},{k:"descriptionAr",l:"Description Localized",t:"textarea",full:1}]
   },
   modifiers: {
@@ -3330,7 +3344,6 @@ const CRUD = {
       {k:"factor",l:"Storage To Ingredient",t:"number",req:1,ph:"e.g. 1000"},
       {k:"costingMethod",l:"Costing Method",req:1,t:"select",opts:()=>[["transactions","From Transactions"],["fixed","Fixed"]],def:"transactions"},
       {k:"barcode",l:"Barcode"},{k:"cost",l:"Cost (Per Storage Unit)",t:"number",req:1,when:{k:"costingMethod",is:"fixed"}},
-      {k:"menuItem",l:"Menu Product (Inventory Item)",t:"select",yesno:1,get:r=>r.menuItem?"yes":"no",opts:()=>[["no","No"],["yes","Yes"]],def:"no"},
       ]
   },
   "inv-categories": {
@@ -3597,7 +3610,7 @@ function openCrud(key, id, inline, draft){
     if(f.t==="nutr"){ const o = v || {}; return `<div class="f full"><div class="nutr" id="cf_${f.k}">${NUTR.map(([k,l,u]) => `<label class="nrow"><span>${l}</span><input type="number" step="any" min="0" data-nk="${k}" value="${esc(o[k] ?? "")}" placeholder="–" aria-label="${l} (${u})"><i>${u}</i></label>`).join("")}</div></div>`; }   // e.g. price and tax of a product with variants: each variant has its own
     if(f.t==="polygon") return `<div class="f full"><label>${curL(f.l)}</label><div class="note">Click the map to add corners around the area this branch delivers to. Drag a corner to adjust it.</div><div id="zoneMap" class="zmap"></div><div class="row" style="margin:8px 0 0"><button type="button" class="btn sm" id="zUndo">Undo last point</button><button type="button" class="btn sm" id="zClear">Clear</button><span class="note" id="zInfo"></span></div></div>`;
     if(f.t==="chk") return `<div class="f full"><label class="chk"><input type="checkbox" id="${idA}" ${v!==false&&v!==undefined?"checked":""}> ${curL(f.l)}</label></div>`;
-    if(f.t==="select") return `<div class="f${full}"><label for="${idA}">${curL(f.l)}${f.req?" *":""}</label><select id="${idA}"><option value="">${esc(f.ph||"Choose…")}</option>${f.opts().map(([k,t])=>`<option value="${esc(k)}" ${k===v?"selected":""}>${esc(t)}</option>`).join("")}</select></div>`;
+    if(f.t==="select") return `<div class="f${full}"><label for="${idA}">${curL(f.l)}${f.req?" *":""}</label><select id="${idA}" ${f.lockEdit && r ? "disabled" : ""}><option value="">${esc(f.ph||"Choose…")}</option>${f.opts().map(([k,t])=>`<option value="${esc(k)}" ${k===v?"selected":""}>${esc(t)}</option>`).join("")}</select>${f.note?`<div class="note">${esc(f.note)}</div>`:""}</div>`;
     if(f.t==="multi"){ const set = new Set(v||[]), o = f.opts(), hasD = o.some(x => x[2]);
       if(f.toggle){ let grp = ""; const ib = d => d ? `<span class="ib" tabindex="0" role="button" aria-label="More info" data-tip="${esc(d)}">${IB_SVG}</span>` : "";
         let h = "", open = false;
@@ -8282,11 +8295,11 @@ document.addEventListener("click", async e => {
   if(v("dnDest") && v("dnDest")===v("dnLoc")) return err("Source and destination must be different.");
   $("#ccScrim").classList.remove("show"); newDoc(route); const d = DOC.edit;
   if(v("dnSup")!=null) d.supplierId = v("dnSup"); if(v("dnLoc")!=null) d.locationId = v("dnLoc"); if(v("dnDest")!=null) d.destId = v("dnDest"); if(v("dnName")!=null) d.name = v("dnName"); if(v("dnReason")!=null) d.reason = v("dnReason");
-  render(); await saveDoc(true);
+  render();   // kept on screen only: it's saved with Save Draft; Back cancels it
 });
 function newDoc(route){
   const K = DOC_KINDS[route];
-  DOC.edit = { id:null, kind:K.kind, status:"draft", items:[], businessDate:daysAgo(0), direction:"deduct", reason:K.kind==="quantity"?"Waste":K.po?"po":K.count?"count":"", locationId: K.loc ? (state.branch!=="all" ? state.branch : (locList()[0]||[])[0] || "") : "", name:"", notes:"" };
+  DOC.edit = { id:null, kind:K.kind, status:"draft", items:[], businessDate:daysAgo(0), direction:"deduct", reason:K.kind==="quantity"?"Waste":K.po?"po":K.count?"count":"", locationId: K.loc ? (state.branch!=="all" ? state.branch : (locList()[0]||[])[0] || "") : "", name:"", notes:"", createdBy: state.fullName || state.userName || "" };
   if(K.kind==="torder") DOC.edit.destId = S.warehouses.filter(live)[0]?.id || "";
   DOC.open = { route, id:null }; DOC.err = ""; DOC.recv = null; if(K.loc || K.kind==="cost") loadStock(); render(); window.scrollTo(0,0);
 }
@@ -8309,12 +8322,12 @@ function viewDoc(route){
   const info = (l, v) => `<div><div class="note">${l}</div><div>${v}</div></div>`;
   let h = `<div class="phead"><a href="#${route}" class="btn" data-docback style="text-decoration:none">← Back</a><h1 style="margin-left:10px">${K.title}${d.ref?` (${esc(d.ref)})`:""}</h1>
     ${K.kind!=="sheet" ? `<span style="margin-left:8px">${docStatusTag(d)}</span>` : ""}<div class="sp"></div>
-    ${d.id ? `<button class="btn" data-docprint>Print</button>` : ""}
+    ${d.items.length ? `${d.id ? `<button class="btn" data-docprint>Print</button>` : ""}
     ${d.id && !ro ? `<button class="btn danger" data-docdel>Delete Permanently</button>` : ""}
     ${!ro && K.kind!=="cost" ? `<button class="btn" data-docedit>Edit</button>` : ""}
     ${!ro ? `<button class="btn${K.kind==="sheet"?" pri":""}" data-docsave ${DOC.busy?"disabled":""}>${K.kind==="sheet"?"Save":"Save Draft"}</button>` : ""}
     ${!ro && K.kind!=="sheet" && !K.flow ? `<button class="btn pri" data-docsubmit ${DOC.busy||!d.items.length?"disabled":""}>${DOC.busy?"Working…":K.count||K.kind==="spot"?"Submit Count":K.kind==="production"?"Produce":"Submit"}</button>` : ""}
-    ${K.flow ? flowButtons(d, K) : ""}</div>`;
+    ${K.flow ? flowButtons(d, K) : ""}` : ""}</div>`;   // no items yet: nothing to print, save, edit, delete or submit (Foodics)
   if(DOC.err) h += `<div class="banner" style="background:#fdecef;color:#9e0c24">${esc(DOC.err)}</div>`;
   // header fields: shown as a summary (Foodics); a draft changes them with Edit
   DOC.form = ro ? "" : docForm(d, K, loc);
@@ -8863,7 +8876,7 @@ document.addEventListener("focusin", e => { const el = e.target; if(el.tagName!=
 (function(){const H=document.documentElement;let q=0;let sy=0;const sync=()=>{q=0;const on=!!document.querySelector(".scrim.show,.bmdscrim"),was=H.classList.contains("mlock");
   if(on&&!was){sy=scrollY;document.body.style.top=(-sy)+"px";H.classList.add("mlock");}   /* the page stays where it was behind the dialog */
   else if(!on&&was){H.classList.remove("mlock");document.body.style.top="";scrollTo(0,sy);} };
-new MutationObserver(()=>{if(!q){q=1;requestAnimationFrame(sync);}}).observe(document.body,{subtree:true,childList:true,attributes:true,attributeFilter:["class"]});
+new MutationObserver(()=>{if(!q){q=1;SOON(sync);}}).observe(document.body,{subtree:true,childList:true,attributes:true,attributeFilter:["class"]});
 /* table headers stay pinned under the top bar while the page scrolls (tables that fit their card) */
 const thFit=()=>{const os=document.querySelector(".ostick");let t=0;
 if(os&&getComputedStyle(os).position==="sticky"){ /* the title and the page tabs scroll away; only the filters / tabs row under the title stays pinned */
@@ -8875,7 +8888,7 @@ H.style.setProperty("--thtop",t+"px");
 /* list pages: the table scrolls inside its own box (header row and pager stay in view); the page scrolls separately */
 if(!(typeof DET!=="undefined"&&DET.key&&DET.id))document.querySelectorAll("#view > .card.tbl:not(.secbox):not(.obody), #view > .card.otbl:not(.obody)").forEach(c=>{const tb=c.querySelector(":scope>table");if(!tb||!tb.tHead||!tb.tBodies[0]||tb.tBodies[0].rows.length<8)return;const w=document.createElement("div");w.className="tscroll";tb.before(w);w.appendChild(tb);});
 document.querySelectorAll(".card.tbl").forEach(c=>{const tb=c.querySelector(":scope>table");if(!tb||!tb.tHead)return;c.classList.remove("tfit");let sc=false;for(let el=tb;el&&el!==document.body;el=el.parentElement){if(el===c)continue;const o=getComputedStyle(el);if(/(auto|scroll|hidden|clip)/.test(o.overflowY+o.overflowX)){sc=true;break;}}if(!sc&&tb.scrollWidth<=c.clientWidth+1){c.classList.add("tfit");const o=getComputedStyle(c);if(o.overflowX!=="visible"||o.overflowY!=="visible")c.classList.remove("tfit");}});};
-let tq=0;new MutationObserver(()=>{if(!tq){tq=1;setTimeout(()=>{tq=0;thFit();},120);}}).observe(document.body,{subtree:true,childList:true});addEventListener("resize",()=>setTimeout(thFit,60));
+let tq=0;new MutationObserver(()=>{if(!tq){tq=1;SOON(()=>{tq=0;thFit();});}}).observe(document.body,{subtree:true,childList:true});addEventListener("resize",()=>setTimeout(thFit,60));
 document.addEventListener("wheel",e=>{if(!H.classList.contains("mlock"))return;const t=e.target;if(t.classList&&(t.classList.contains("scrim")||t.classList.contains("bmdscrim")))e.preventDefault();},{passive:false});
 document.addEventListener("touchmove",e=>{const t=e.target;if(H.classList.contains("mlock")&&t.classList&&(t.classList.contains("scrim")||t.classList.contains("bmdscrim")))e.preventDefault();},{passive:false});})();
 </script>
@@ -8888,7 +8901,7 @@ window.addEventListener("click", e => { const b = e.target.closest && e.target.c
   askYes("Are you sure you want to restore this?").then(y => { if(!y) return; b.dataset.rsok = "1"; b.click(); delete b.dataset.rsok; }); }, true);
 /* required fields: the * after a label is red everywhere */
 (() => { let t = 0; const run = () => { t = 0; document.querySelectorAll("label, legend, .adph, h4, th, .msel-ph").forEach(el => { [...el.childNodes].forEach(n => { if(n.nodeType!==3) return; const m = n.nodeValue.match(/^([\s\S]*?)\s?\*(\s*)$/); if(!m || !m[1].trim()) return; n.nodeValue = m[1] + " "; const s = document.createElement("span"); s.className = "reqst"; s.textContent = "*"; n.after(s); if(m[2]) s.after(document.createTextNode(m[2])); }); }); };
-  new MutationObserver(() => { if(!t) t = requestAnimationFrame(run); }).observe(document.documentElement, { childList:true, subtree:true, characterData:true }); run(); })();
+  new MutationObserver(() => { if(!t) t = SOON(run); }).observe(document.documentElement, { childList:true, subtree:true, characterData:true }); run(); })();
 </script>
 </body>
 </html>
