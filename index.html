@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="834-1794569292">
+<meta name="slick-build" content="835-1794569977">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this copy, reload once (never for an older one) */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1627,8 +1627,7 @@ const NAV = [
   {id:"call-center",t:"Call Center",i:"phone"},
   {id:"customers",t:"Customers",i:"users"},
   {t:"Reports",i:"chart",tabs:1,kids:[["sales-reports","Sales Reports"],["inventory-reports","Inventory Reports"],["business-reports","Business Reports"],["analysis-reports","Analysis Reports"]]},
-  {t:"Inventory",i:"box",tabs:1,drop:["po","purchase-orders","transfer-orders","transfers"],kids:[["inv-items","Items"],["inv-categories","Inventory Categories"],["suppliers","Suppliers"],["warehouses","Warehouses"],["inventory-count","Inventory Count"],["production","Production"],
-    ["quantity-adjustments","Quantity Adjustment"],["cost-adjustments","Cost Adjustment"],["order-transactions","Order Transactions"],["spot-check","Inventory Spot Check"],["count-sheets","Count Sheet"],["po","Purchase Orders"],["purchase-orders","Purchasing"],["transfer-orders","Transfer Orders"],["transfers","Transfers"]]},
+  {t:"Inventory",i:"box",tabs:1,drop:["quantity-adjustments","cost-adjustments","order-transactions","inv-categories","warehouses","spot-check","count-sheets"],kids:[["inv-items","Items"],["suppliers","Suppliers"],["po","Purchase Orders"],["transfer-orders","Transfer Orders"],["inventory-count","Inventory Count"],["purchase-orders","Purchasing"],["transfers","Transfers"],["production","Production"],["quantity-adjustments","Quantity Adjustment"],["cost-adjustments","Cost Adjustment"],["order-transactions","Order Transactions"],["inv-categories","Inventory Categories"],["warehouses","Warehouses"],["spot-check","Inventory Spot Check"],["count-sheets","Count Sheet"]]},
   {t:"Menu",i:"book",tabs:1,side:[["branch-menu","Sales Channels"]],kids:[["@Menu Builder"],["categories","Categories"],["products","Products"],["variants","Variants"],["modifiers","Modifiers"],["combos","Combos"],["@Menu Settings"],["allergens","Allergens"]]},
   {t:"Web Ordering",i:"globe",tabs:1,kids:[["online-ordering","Settings"],["delivery-zones","Delivery Zones"],["delivery-charges","Delivery Charges"]]},
   {t:"Manage",i:"gear",tabs:1,kids:[["users","Users"],["roles","Roles"],["brands","Brands"],["branches","Branches"],["devices","Devices"],["taxes","Taxes & Groups"],["currency","Currency"],["payment-methods","Payment Methods"],["order-sources","Order Sources"],["charges","Charges"],["kitchen-flows","Kitchen Flows"],["reasons","Reasons"],["tags","Tags"]]},
@@ -8311,7 +8310,7 @@ function viewDoc(route){
   let docBtns = "";
   if(!ro){
     DOC.addAvail = avail.map(i => i.id); DOC.addSheets = sheets.map(x => x.id); DOC.addProd = K.kind==="production";
-    docBtns = `${d.items.length?`<button class="btn" data-docclear>Remove all</button>`:""}${d.items.length && K.kind!=="cost" ? `<button class="btn" data-docqtys>Edit Quantities</button>` : ""}<button class="btn" data-docadd>Add Items</button>`;   // shown in the Items card header
+    docBtns = `${d.items.length?`<button class="btn" data-docclear>Remove all</button>`:""}${d.items.length && K.kind!=="cost" ? `<button class="btn" data-docqtys>Edit Quantities</button>` : ""}<button class="btn" data-docimp>Import Items</button><button class="btn" data-docadd>Add Items</button>`;   // shown in the Items card header
   }
   // items table
   const rows = d.items.map((l, ix) => {
@@ -8328,6 +8327,9 @@ function viewDoc(route){
     if(K.kind==="production"){ const uc = ro && l.cost!=null ? +l.cost : recipeCost(it.ingredients), q = +l.qty||0, none = !ro && !(it.ingredients||[]).length;
       return `<tr>${base}<td class="num">${none?'<span class="tag off">No ingredients</span> ':""}${qIn("qty", l.qty, "Quantity")}</td><td class="num">${fmtCost(uc)}</td><td class="num" data-doctc="${ix}">${fmtCost(uc*q)}</td>${del}</tr>`; }
     if(K.kind==="cost") return `<tr>${base}<td class="num">${ro ? (l.old!=null?usd(l.old):"—") : (+it.cost?usd(it.cost):"—")}</td><td class="num">${ro?usd(l.cost):qIn("cost", l.cost, "New cost")}</td>${del}</tr>`;
+    if(K.count && ro){ const sys = l.sys, c = +l.qty||0, v = sys==null ? null : c - +sys, uc = l.cost!=null ? +l.cost : +it.cost||0;
+      return `<tr>${base}<td class="num">${n2(c)}</td><td class="num">${sys==null?"—":n2(sys)}</td><td class="num" style="${v<0?"color:var(--accent-ink);font-weight:600":""}">${v==null?"—":(v>0?"+":"")+n2(v)}</td>
+        <td class="num">${v==null||!+sys?"—":(v>0?"+":"")+(v/+sys*100).toFixed(1)+"%"}</td><td class="num">${v==null||!uc?"—":usd(v*uc)}</td></tr>`; }
     if(K.kind==="spot"){ const sys = ro ? l.sys : cur, c = l.qty, v = (c===""||c==null||sys==null) ? null : +c - +sys;
       return `<tr>${base}<td class="num">${stockLoading&&!ro?"…":sys==null?'<span class="note">Not counted</span>':n2(sys)}</td><td class="num">${qIn("qty", l.qty, "Counted quantity")}</td>
         <td class="num" data-docvar="${ix}" style="${v<0?"color:var(--accent-ink);font-weight:600":""}">${v==null?"—":(v>0?"+":"")+n2(v)}</td>${del}</tr>`; }
@@ -8335,8 +8337,9 @@ function viewDoc(route){
   });
   const head = K.flow ? flowHead(d, K, ro, recv) : K.kind==="production" ? ["Name","SKU","Quantity","Unit cost","Total cost"] : K.kind==="quantity" ? ["Name","SKU",...(ro?[]:["Current qty"]),d.direction==="add"?"Added qty":"Deducted qty",...(ro?[]:["New qty"]),"Unit cost","Total cost"]
     : K.kind==="cost" ? ["Name","SKU",ro?"Old cost":"Current cost","New cost"]
+    : K.count && ro ? ["Name","SKU","Entered qty","Original qty","Variance qty","Variance %","Variance cost"]
     : K.kind==="spot" ? ["Name","SKU","System qty","Counted qty","Variance"] : ["Name","SKU","Storage UOM","Ingredients UOM"];
-  const numCols = new Set(["Current qty","Deducted qty","Added qty","New qty","Unit cost","Total cost","Current cost","Old cost","New cost","System qty","Counted qty","Variance","Quantity","Ordered","Sent","Requested","Received","In stock at source"]);
+  const numCols = new Set(["Current qty","Deducted qty","Added qty","New qty","Unit cost","Total cost","Current cost","Old cost","New cost","System qty","Counted qty","Variance","Entered qty","Original qty","Variance qty","Variance %","Variance cost","Quantity","Ordered","Sent","Requested","Received","In stock at source"]);
   h += `<div class="card tbl"><div class="ttop"><b>Items</b><span class="note" style="margin-left:8px">${d.items.length}</span>${docBtns ? `<span class="sp"></span><span class="row" style="gap:8px">${docBtns}</span>` : ""}</div>`;
   h += d.items.length ? `<table><thead><tr>${head.map(c=>`<th class="${numCols.has(c)?"num":""}">${c}</th>`).join("")}${ro?"":"<th></th>"}</tr></thead><tbody>${rows.join("")}</tbody>
     ${K.kind==="quantity" ? (()=>{ const t = d.items.reduce((s,l)=>{ const it = itemOf(l.itemId)||{}; return s + (+l.qty||0) * (ro && l.cost!=null ? +l.cost : +it.cost||0); }, 0); return `<tfoot><tr><td colspan="${head.length-1}"><b>Total</b></td><td class="num"><b id="docTotal">${usd(t)}</b></td>${ro?"":"<td></td>"}</tr></tfoot>`; })() : ""}</table>`
@@ -8386,6 +8389,29 @@ function docAddItems(ids){
   ids.forEach(id => { if(!have.has(id) && itemOf(id) && (d.kind!=="production" || hasRecipe(itemOf(id)))){ d.items.push({ itemId:id, qty: d.kind==="cost" ? "" : 0, cost: d.kind==="cost" ? (itemOf(id).cost ?? "") : undefined }); have.add(id); n++; } });
   return n;
 }
+// Import Items (Foodics): a CSV with the item SKU or name and its quantity (and cost where the document has one)
+function docImport(){
+  const d = DOC.edit, K = DOC_KINDS[DOC.open.route]; if(!d) return;
+  impexPick(text => {
+    const rows = csvParse(text), allow = new Set(DOC.addAvail||[]), live_ = S.inv_items.filter(live);
+    const pick = (o, ...ks) => { for(const k of ks){ const hit = Object.keys(o).find(h => h.replace(/[^a-z]/g,"")===k); if(hit && o[hit]!=="") return o[hit]; } return ""; };
+    let n = 0, miss = [];
+    for(const o of rows){
+      const sku = pick(o, "inventoryitemsku", "sku"), name = pick(o, "inventoryitemname", "name", "item");
+      const it = (sku && live_.find(i => String(i.sku||"").toLowerCase()===sku.toLowerCase())) || (name && live_.find(i => String(i.name||"").toLowerCase()===name.toLowerCase()));
+      if(!it || (allow.size && !allow.has(it.id) && !d.items.some(l => l.itemId===it.id))){ miss.push(sku || name || "?"); continue; }
+      const qty = pick(o, "storagequantity", "quantity", "qty", "countedquantity", "counted"), cost = pick(o, "cost", "unitcost", "newcost", "totalcost");
+      let l = d.items.find(x => x.itemId===it.id); if(!l){ l = { itemId: it.id, qty: K.kind==="cost" ? "" : (K.kind==="sheet" ? 0 : "") }; if(K.kind==="cost") l.cost = it.cost ?? ""; d.items.push(l); }
+      if(qty!=="" && !isNaN(+qty)) l.qty = +qty;
+      if(cost!=="" && !isNaN(+cost) && (K.kind==="cost" || K.kind==="purchase")) l.cost = +cost;
+      n++;
+    }
+    render();
+    if(n) toastOk(`${n} item${n===1?"":"s"} imported`);
+    if(miss.length) toast(`Not found or not allowed here: ${miss.slice(0, 5).join(", ")}${miss.length > 5 ? ` and ${miss.length - 5} more` : ""}`);
+    else if(!n) toast("No items found in the file. Use the columns SKU (or Name) and Quantity.");
+  });
+}
 async function saveDoc(silent){
   readDocHeader();
   const d = DOC.edit, K = DOC_KINDS[DOC.open.route];
@@ -8395,7 +8421,7 @@ async function saveDoc(silent){
     if(K.kind==="quantity"){ o.qty = l.qty===""||l.qty==null ? null : +l.qty; o.cost = +it.cost || 0; }
     if(K.kind==="cost"){ o.cost = l.cost===""||l.cost==null ? null : +l.cost; o.old = it.cost ?? null; }
     if(K.kind==="production"){ o.qty = l.qty===""||l.qty==null ? null : +l.qty; o.cost = +recipeCost(it.ingredients).toFixed(5); }
-    if(K.kind==="spot"){ o.qty = l.qty===""||l.qty==null ? null : +l.qty; const s = stockOf(d.locationId, l.itemId); o.sys = s===undefined ? null : s; }
+    if(K.kind==="spot"){ o.qty = l.qty===""||l.qty==null ? null : +l.qty; const s = stockOf(d.locationId, l.itemId); o.sys = s===undefined ? null : s; if(K.count) o.cost = +it.cost||0; }
     if(K.flow){ o.qty = l.qty===""||l.qty==null ? null : +l.qty; if(K.kind==="purchase") o.cost = l.cost===""||l.cost==null ? (+it.cost||0) : +l.cost; }
     return o;
   });
@@ -8481,6 +8507,7 @@ document.addEventListener("input", e => {
 // Add Items (Foodics): a dialog to pick items, or pick tags and add their items; counts can also load a count sheet
 document.addEventListener("click", e => {
   if(!DOC.open || !DOC.edit) return;
+  if(e.target.closest("[data-docimp]")){ e.preventDefault(); return docImport(); }
   if(e.target.closest("[data-docadd]")){ e.preventDefault(); const items = (DOC.addAvail||[]).map(itemOf).filter(Boolean), tg = tagList("inventory"), shs = (DOC.addSheets||[]).map(id => S.inv_docs.find(x => x.id===id)).filter(Boolean), box = $("#ccBox"); box.className = "modal sm";
     box.innerHTML = `<header><h2>Add Items</h2><button type="button" class="x" data-ccclose aria-label="Close">×</button></header><div class="body" style="display:block">
       <div class="f" id="daByItems"><label style="display:flex;justify-content:space-between"><span>Items</span>${tg.length ? `<a href="#" class="lnk" data-damode="tags">Select by tags ?</a>` : ""}</label><div class="multi" id="daItems" data-empty="${DOC.addProd ? "No items with a recipe to add" : "No items to add"}">${items.map(i => `<label class="chk"><input type="checkbox" value="${esc(i.id)}"> ${esc(i.name)}${i.sku ? " (" + esc(i.sku) + ")" : ""}</label>`).join("")}</div></div>
