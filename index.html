@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="876-1794605808">
+<meta name="slick-build" content="877-1794605952">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this copy, reload once (never for an older one) */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -7338,11 +7338,18 @@ const tagPick = (type, recId, id = "tgPick", cur) => { const l = tagList(type), 
 const tagPickGet = (id = "tgPick") => { const el = document.getElementById(id); return el && el.classList.contains("multi") ? [...el.querySelectorAll("input:checked")].map(i => i.value) : null; };
 async function tagSetFor(type, recId, ids){ if(ids==null || !recId) return; const cur = tagsOf(type, recId); if(cur.length===ids.length && cur.every(x => ids.includes(x))) return;
   const on = JSON.parse(JSON.stringify(tagDoc().on || {})), m = on[type] ||= {}; if(ids.length) m[recId] = ids; else delete m[recId]; await tagSave(null, on); }
+document.addEventListener("keydown", e => { const sc = document.getElementById("teScrim"); if(!sc || document.querySelector(".msel.open")) return;
+  if(e.key==="Escape"){ e.preventDefault(); e.stopImmediatePropagation(); sc.remove(); } else if(e.key==="Enter"){ e.preventDefault(); e.stopImmediatePropagation(); $("#teGo")?.click(); } }, true);
 function tagEdit(type, recId, after){
-  const box = $("#ccBox"); box.className = "modal";
+  let box = $("#ccBox");
+  if(after){ document.getElementById("teScrim")?.remove();   // opened from a record (an order): stack on top of it, the order stays underneath
+    document.body.insertAdjacentHTML("beforeend", `<div class="scrim show" id="teScrim" style="z-index:60"><div class="modal" id="teBox" style="width:min(520px,100%)"></div></div>`);
+    box = $("#teBox"); const sc = $("#teScrim"); sc.addEventListener("click", ev => { if(ev.target===sc) sc.remove(); });
+    const back = after; after = () => { document.getElementById("teScrim")?.remove(); back(); }; }
+  else box.className = "modal";
   box.innerHTML = `<header><h2>Tags</h2><button type="button" class="x" ${after ? "id=\"teBack\"" : "data-ccclose"} aria-label="Close">×</button></header><div class="body" style="display:block">${tagPick(type, recId, "teTags") || msEmptyBox("Tags", "teTags", `No ${tagTypeName(type)} tags`, "Tags are created in Manage → Tags.")}</div>
   <footer><span style="flex:1"></span>${tagList(type).length ? `<button type="button" class="btn pri" id="teGo">Save</button>` : ""}</footer>`;
-  $("#ccScrim").classList.add("show"); const bk = $("#teBack"); if(bk) bk.onclick = e => { e.preventDefault(); e.stopPropagation(); after(); };   // opened from a record (an order): x goes back to it
+  if(!document.getElementById("teScrim")) $("#ccScrim").classList.add("show"); const bk = $("#teBack"); if(bk) bk.onclick = e => { e.preventDefault(); e.stopPropagation(); after(); };   // opened from a record (an order): x goes back to it
   const g = $("#teGo"); if(g) g.onclick = async e => { e.preventDefault(); e.stopPropagation(); g.disabled = true; await tagSetFor(type, recId, tagPickGet("teTags")); toast("Tags saved"); if(after) return after(); $("#ccScrim").classList.remove("show"); render(); };
 }
 const TG = { type:"product", tab:"general" };
