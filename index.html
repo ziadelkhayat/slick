@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="849-1794582700">
+<meta name="slick-build" content="850-1794583426">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this copy, reload once (never for an older one) */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1994,7 +1994,7 @@ async function dashActive(pr){
 function dashKind(){ if(state.dashTab==="kitchen") state.dashTab = "general"; return state.dashTab==="inventory" ? "inventory" : "sales"; }
 const mins = v => v==null ? "—" : (+v).toFixed(1) + " min";
 function dashSoon(){ clearTimeout(DASH.t); DASH.t = setTimeout(() => loadDash(true), 1500); }   // new/changed orders → refresh
-setInterval(() => { if((location.hash.slice(1)||"dashboard")==="dashboard" && !document.hidden && state.date===todayStr()) loadDash(true); }, 60000);
+setInterval(() => { if((location.hash.slice(1)||"dashboard")==="dashboard" && !document.hidden && !state.dateSet) loadDash(true); }, 60000);
 const hours24 = (rows, f) => { const a = Array(24).fill(0), sh = dayStartH(); (rows||[]).forEach(r => a[(r.h - sh + 24) % 24] = +r[f]||0); return a; };   // starts at the business day's first hour
 const TYPE_LBL = { dinein:"Dine-in", pickup:"Pickup", takeaway:"Pickup", delivery:"Delivery", fast:"Fast sale", other:"Other" };
 const CH_LBL = { pos:"POS", online:"Web ordering", callcenter:"Call center", other:"Other" };
@@ -2060,7 +2060,8 @@ function periodOf(mode, anchor){ if(mode==="week"){ const a = wkStart(anchor); r
   if(mode==="month"){ const d = new Date(anchor+"T12:00:00"), y = d.getFullYear(), m = d.getMonth(), n = mDays(y, m); return { from:ymdS(new Date(y, m, 1, 12)), to:ymdS(new Date(y, m, n, 12)), n }; }
   return { from:anchor, to:anchor, n:1 }; }
 const dmode = () => state.dmode || "day";
-function setPeriod(anchor){ const p = periodOf(dmode(), anchor); state.date = p.to; state.days = p.n; state.dateSet = p.to !== todayStr(); state.cmpDate = ""; state.cmpDays = 0; }
+// the period holds the day it was picked from (anchor), so switching Day / Week / Month stays on that day instead of jumping to the period's last day
+function setPeriod(anchor){ const p = periodOf(dmode(), anchor); state.anchor = anchor; state.date = p.to; state.days = p.n; state.dateSet = anchor !== todayStr(); state.cmpDate = ""; state.cmpDays = 0; }
 // what the numbers are compared with: the previous period of the same kind, or the one picked
 function cmpRange(){ if(state.cmpDate) return { end:state.cmpDate, n: state.cmpDays || rangeDays() };
   if(dmode()==="month"){ const p = periodOf("month", dAdd(dashFrom(), -1)); return { end:p.to, n:p.n }; }
@@ -2616,7 +2617,7 @@ setTimeout(() => { const _r = render; render = function(){ try{ return _r.apply(
 function render0(){ setTimeout(() => typeof bmBarSync==="function" && bmBarSync(), 0);
   const route = (location.hash.slice(1) || "dashboard");
   renderNav(route); document.body.dataset.route = route; document.body.classList.toggle("noloc", company().localization===false);
-  if(!state.dateSet) state.date = todayStr();   // follows the business day (end time comes from Company settings)
+  if(!state.dateSet){ const p = periodOf(dmode(), todayStr()); state.date = p.to; state.days = p.n; state.anchor = todayStr(); }   // follows the business day (end time comes from Company settings)
   // branch selector
   const bl = brandList();
   if(state.brand!=="all" && !bl.some(b=>b.id===state.brand)) state.brand = "all";
@@ -2813,7 +2814,7 @@ $("#brandSel").addEventListener("change", e => { state.brand = e.target.value; s
 $("#view").addEventListener("click", e => {
   if(e.target.closest("#dashRefresh")){ loadDash(true); render(); return; }
   const rp = e.target.closest("[data-report]"); if(rp){ e.preventDefault(); dashToReport(rp.dataset.report); return; }
-  const dm = e.target.closest("[data-dmode]"); if(dm){ state.dmode = dm.dataset.dmode; setPeriod(state.dateSet ? state.date : todayStr()); render(); return; }
+  const dm = e.target.closest("[data-dmode]"); if(dm){ state.dmode = dm.dataset.dmode; setPeriod(state.dateSet ? (state.anchor || state.date) : todayStr()); render(); return; }
   const cr = e.target.closest("#cmpRange"); if(cr){ if(DRP.el) return drpClose(); if(PK.el) return pkClose();
     if(dmode()!=="day"){ e.stopPropagation(); return pkOpen(cr, dmode(), cmpDefault(), v => { const p = periodOf(dmode(), v); state.cmpDate = p.to; state.cmpDays = p.n; render(); }); }
     const d0 = cmpDefault(); drpOpen(cr, d0, d0, (f, t) => { state.cmpDate = t || ""; state.cmpDays = 1; render(); }); DRP.single = true; drpDraw(); return; }
@@ -7927,10 +7928,10 @@ function viewFlowList(route, K, tabs, all, list){
     ...(K.kind==="purchase" ? [["Total",d=>usd((d.items||[]).reduce((s,l)=>s+(+l.qty||0)*(+l.cost||0),0)),"num"]] : []),
     ["Business Date",d=>d.status==="draft" ? "—" : esc(d.businessDate||"—")],["Created",d=>fmtDate(d.createdAt)]];
   const counts = {}; all.forEach(d => counts[d.status] = (counts[d.status]||0) + 1);
-  let h = `<div class="phead"><h1>${K.plural}</h1><div class="sp"></div><button class="btn" data-docexport="${route}">Export</button>${scopeBar(K.kind!=="sheet")}<button class="btn pri" data-docnew="${route}">New ${K.title}</button></div>
+  let h = `<div class="phead"><h1>${K.plural}</h1><div class="sp"></div>${docExpMenu(route, K)}<button class="btn pri" data-docnew="${route}">New ${K.title}</button></div>
     <p class="subt" style="margin-top:-6px">${esc(K.intro)}</p>
     <div class="card tbl"><div class="ttop"><div class="ttabs">${tabs.map(t=>`<a href="#${route}" data-doctab="${route}:${t[0]}" class="${tab===t[0]?"on":""}">${t[1]}${t[0]!=="all"&&counts[t[0]]?` (${counts[t[0]]})`:""}</a>`).join("")}</div><div class="sp"></div>
-    <input class="sel search" data-docq="${route}" placeholder="Search" value="${esc(DOC.q[route]||"")}" aria-label="Search"></div>`;
+    ${docFltBtn(route, K)}</div>`;
   h += shown.length ? `<table><thead><tr>${cols.map(c=>`<th class="${c[2]||""}">${c[0]}</th>`).join("")}</tr></thead><tbody>${shown.map(d=>`<tr class="click" data-docopen="${route}:${esc(d.id)}">${cols.map(c=>`<td class="${c[2]||""}">${c[1](d)}</td>`).join("")}</tr>`).join("")}</tbody></table>`
     : `<div class="empty">${all.length ? "Nothing here." : `No ${K.plural.toLowerCase()} yet.`}</div>`;
   return h + `</div>`;
@@ -8323,19 +8324,20 @@ document.addEventListener("change", e => { const s = e.target.closest?.("[data-d
 function viewDocs(route){
   const K = DOC_KINDS[route];
   if(DOC.open && DOC.open.route===route) return viewDoc(route);
-  const tab = DOC.tab[route] || "all", q = (DOC.q[route]||"").toLowerCase(), br = K.kind!=="sheet" && state.branch!=="all" ? state.branch : "";   // the branch picked at the top (always shown)
-  const all = S.inv_docs.filter(d => docOf(K)(d) && live(d) && docBrandOk(d));
-  const list = all.filter(d => tab==="all" || d.status===tab).filter(d => !br || d.locationId===br || d.destId===br).filter(d => !q || ((d.ref||"")+" "+(d.name||"")+" "+locName(d.locationId)+" "+(d.reason||"")).toLowerCase().includes(q))
+  const tab = DOC.tab[route] || "all";
+  const all = S.inv_docs.filter(d => docOf(K)(d) && live(d));
+  const list = all.filter(d => tab==="all" || d.status===tab).filter(docFltOk(route, K))
     .sort((a,b)=>String(b.createdAt).localeCompare(String(a.createdAt)));
   const tabs = K.kind==="sheet" ? [] : K.flow ? [["all","All"],["draft","Draft"],["pending","Pending"],["closed","Closed"],["rejected","Declined"]] : [["all","All"],["draft","Draft"],["closed","Closed"]];
   if(K.flow) return viewFlowList(route, K, tabs, all, list);
   const cols = K.kind==="sheet" ? [["Reference",d=>`<span class="code">${esc(d.ref||"…")}</span>`],["Name",d=>`<b>${esc(d.name||"—")}</b>`],["Created At",d=>fmtDate(d.createdAt)]]
     : [["Reference",d=>d.status==="draft" || !d.ref ? "—" : `<span class="code">${esc(d.ref)}</span>`], ...(K.loc?[["Branch",d=>esc(locName(d.locationId))]]:[]), ...(K.kind==="quantity"?[["Reason",d=>esc(d.reason||"—")+(d.direction==="add"?' <span class="tag on">Add</span>':"")]]:[]),
+       ...(K.kind==="cost"?[["Products",d=>{ const n = (d.items||[]).map(l => itemOf(l.itemId)?.name).filter(Boolean); return n.length ? esc(n.slice(0,2).join(", ")) + (n.length > 2 ? ` <span class="note">+${n.length-2} more</span>` : "") : "—"; }]]:[]),
        ["Status",d=>d.status==="closed"?'<span class="tag on">Closed</span>':'<span class="tag off">Draft</span>'],["Business Date",d=>d.status==="draft" ? "—" : esc(d.businessDate||"—")],["Created",d=>fmtDate(d.createdAt)]];
-  let h = `<div class="phead"><h1>${K.plural}</h1><div class="sp"></div><button class="btn" data-docexport="${route}">Export</button>${scopeBar(K.kind!=="sheet")}<button class="btn pri" data-docnew="${route}">New ${K.title}</button></div>
+  let h = `<div class="phead"><h1>${K.plural}</h1><div class="sp"></div>${docExpMenu(route, K)}<button class="btn pri" data-docnew="${route}">New ${K.title}</button></div>
     <p class="subt" style="margin-top:-6px">${esc(K.intro)}</p>
     <div class="card tbl"><div class="ttop"><div class="ttabs">${tabs.map(t=>`<a href="#${route}" data-doctab="${route}:${t[0]}" class="${tab===t[0]?"on":""}">${t[1]}</a>`).join("")}</div><div class="sp"></div>
-    <input class="sel search" data-docq="${route}" placeholder="Search" value="${esc(DOC.q[route]||"")}" aria-label="Search"></div>`;
+    ${docFltBtn(route, K)}</div>`;
   h += list.length ? `<table><thead><tr>${cols.map(c=>`<th class="${c[2]||""}">${c[0]}</th>`).join("")}</tr></thead><tbody>${list.map(d=>`<tr class="click" data-docopen="${route}:${esc(d.id)}">${cols.map(c=>`<td class="${c[2]||""}">${c[1](d)}</td>`).join("")}</tr>`).join("")}</tbody></table>`
     : `<div class="empty">${all.length ? "Nothing matches." : `No ${K.plural.toLowerCase()} yet.`}</div>`;
   return h + `</div>`;
@@ -8622,9 +8624,71 @@ function printDoc(){
     <table><thead><tr><th>Name</th><th>SKU</th><th>Unit</th><th>${K.kind==="sheet"||K.kind==="spot"?"Counted":K.kind==="cost"?"New cost":"Quantity"}</th></tr></thead><tbody>${rows}</tbody></table><script>window.onload=()=>window.print()<\/script>`);
   w.document.close();
 }
-function exportDocs(route){
+/* Foodics filtering on the inventory transaction lists: a Filter button opens the fields that page has
+   (reference, business date, status, places, supplier, reason, creator, submitter); no brand / branch pickers */
+const docFltFields = K => { const f = [["ref","Reference","text"],["date","Business Date","range"]];
+  if(K.kind==="spot" && !K.count) return [["loc","Branch","loc"],["date","Business Date","range"]];
+  if(K.kind==="sheet") return [];
+  f.push(["status","Status","status"]);
+  if(K.kind==="purchase") f.push(["loc","Destination","loc"],["sup","Supplier","sup"]);
+  else if(K.kind==="torder") f.push(["dest","Warehouse","loc"],["loc","Destination","loc"]);
+  else f.push(["loc","Branch","loc"]);
+  if(K.kind==="quantity") f.push(["reason","Reason","reason"]);
+  f.push(["by","Creator","by"]); if(!(K.kind==="spot" && K.count) && K.kind!=="cost") f.push(["sub","Submitter","sub"]);
+  return f; };
+const docFlt = route => (DOC.flt ||= {})[route] || {};
+const docFltOk = (route, K) => { const f = docFlt(route), day = d => String(d.businessDate || d.createdAt || "").slice(0,10);
+  return d => (!f.ref || String(d.ref||"").toLowerCase().includes(f.ref.toLowerCase())) && (!f.from || day(d) >= f.from) && (!f.to || day(d) <= f.to)
+    && (!f.status || d.status===f.status) && (!f.loc || (K.kind==="torder" ? d.locationId===f.loc : (d.locationId===f.loc || (K.kind==="transfer" && d.destId===f.loc))))
+    && (!f.dest || d.destId===f.dest) && (!f.sup || d.supplierId===f.sup) && (!f.reason || d.reason===f.reason) && (!f.by || d.createdBy===f.by) && (!f.sub || d.submittedBy===f.sub); };
+const docFltBtn = (route, K) => { if(!docFltFields(K).length) return ""; const n = Object.values(docFlt(route)).filter(v => v).length;
+  return `${n ? `<a href="#${route}" class="lnk" data-docfltclr="${route}" style="margin-right:10px">Clear</a>` : ""}<button type="button" class="btn" data-docflt="${route}">${svgIco("filter")}Filter${n ? ` (${n})` : ""}</button>`; };
+const docExpMenu = (route, K) => `<span class="ddwrap iewrap"><button type="button" class="btn" data-iemenu>${svgIco("download")}Export <span class="iecv">▾</span></button><span class="ddmenu iemenu" hidden>
+  <button type="button" data-docexport="${route}" data-exlvl="docs">Export ${esc(K.plural)}</button>${K.kind!=="sheet" ? `<button type="button" data-docexport="${route}" data-exlvl="items">Export ${esc(K.plural)} Items</button>` : ""}</span></span>`;
+function docFltDlg(route){
+  const K = DOC_KINDS[route], f = docFlt(route), box = $("#ccBox"); box.className = "modal"; const docs = S.inv_docs.filter(d => docOf(K)(d) && live(d));
+  const opt = (list, cur) => `<option value="">Any</option>${list.map(([k,t]) => `<option value="${esc(k)}" ${k===cur?"selected":""}>${esc(t)}</option>`).join("")}`;
+  const people = k => [...new Set(docs.map(d => d[k]).filter(Boolean))].sort().map(x => [x, x]);
+  const st = K.flow ? [["draft","Draft"],["pending","Pending"],["closed","Closed"],["rejected","Declined"]] : [["draft","Draft"],["closed","Closed"]];
+  const locs = [...branches.filter(b => b.active!==false).map(b => [b.id, b.name]), ...S.warehouses.filter(live).map(w => [w.id, w.name])];
+  const fld = ([k, l, t]) => t==="text" ? `<div class="f"><label for="df_${k}">${l}</label><input id="df_${k}" class="sel" value="${esc(f[k]||"")}"></div>`
+    : t==="range" ? `<div class="f" style="grid-column:1/-1"><label>${l}</label><div style="display:flex;gap:8px;align-items:center"><input id="df_from" type="date" class="sel" value="${esc(f.from||"")}"><span class="note">to</span><input id="df_to" type="date" class="sel" value="${esc(f.to||"")}"></div></div>`
+    : `<div class="f"><label for="df_${k}">${l}</label><select id="df_${k}" class="sel">${opt(t==="status" ? st : t==="loc" ? locs : t==="sup" ? S.suppliers.filter(live).map(x => [x.id, x.name]) : t==="reason" ? QA_REASONS_L().map(r => [r, r]) : people(t==="by" ? "createdBy" : "submittedBy"), f[k]||"")}</select></div>`;
+  box.innerHTML = `<header><h2>Filter</h2><button type="button" class="x" data-ccclose aria-label="Close">×</button></header><div class="body" style="display:grid;grid-template-columns:1fr 1fr;gap:4px 14px">${docFltFields(K).map(fld).join("")}</div>
+    <footer><button type="button" class="btn" id="dfReset" data-route="${esc(route)}">Reset</button><span style="flex:1"></span><button type="button" class="btn pri" id="dfApply" data-route="${esc(route)}">Apply</button></footer>`;
+  $("#ccScrim").classList.add("show");
+}
+document.addEventListener("click", e => {
+  const fb = e.target.closest("[data-docflt]"); if(fb){ e.preventDefault(); return docFltDlg(fb.dataset.docflt); }
+  const fc = e.target.closest("[data-docfltclr]"); if(fc){ e.preventDefault(); (DOC.flt ||= {})[fc.dataset.docfltclr] = {}; return render(); }
+  const rs = e.target.closest("#dfReset"); if(rs){ e.preventDefault(); (DOC.flt ||= {})[rs.dataset.route] = {}; $("#ccScrim").classList.remove("show"); return render(); }
+  const ap = e.target.closest("#dfApply"); if(ap){ e.preventDefault(); const o = {}; ["ref","status","loc","dest","sup","reason","by","sub"].forEach(k => { const v = $("#df_" + k)?.value?.trim(); if(v) o[k] = v; });
+    const fr = $("#df_from")?.value, to = $("#df_to")?.value; if(fr) o.from = fr; if(to) o.to = to; (DOC.flt ||= {})[ap.dataset.route] = o; $("#ccScrim").classList.remove("show"); return render(); }
+});
+// Export (Foodics): pick the business dates (up to 31 days), brand and branch first; the list's own filters don't apply
+function exportDlg(route, lvl){
+  const K = DOC_KINDS[route], box = $("#ccBox"); box.className = "modal sm"; const to = bizDate(), from = dAdd(to, -6);
+  box.innerHTML = `<header><h2>Filter</h2><button type="button" class="x" data-ccclose aria-label="Close">×</button></header><div class="body" style="display:block">
+    <p class="note" style="margin-top:0">Please ensure that the selected date range is within 31 days for exporting.</p>
+    <div class="grid2" style="display:grid;grid-template-columns:1fr 1fr;gap:12px"><div class="f"><label for="exFrom">Business Date (From) *</label><input id="exFrom" type="date" class="sel" value="${from}"></div><div class="f"><label for="exTo">Business Date (To) *</label><input id="exTo" type="date" class="sel" value="${to}"></div></div>
+    <div class="err" id="exErr"></div></div>
+    <footer><span style="flex:1"></span><button type="button" class="btn keep" data-ccclose>Close</button><button type="button" class="btn pri" id="exGo" data-route="${esc(route)}" data-lvl="${esc(lvl||"items")}">Export</button></footer>`;
+  $("#ccScrim").classList.add("show");
+}
+document.addEventListener("click", e => { const b = e.target.closest("#exGo"); if(!b) return; e.preventDefault();
+  const f = $("#exFrom").value, t = $("#exTo").value; if(!f || !t) return $("#exErr").textContent = "Pick both dates.";
+  if(t < f) return $("#exErr").textContent = "The end date is before the start date.";
+  if((new Date(t) - new Date(f)) / 86400000 > 30) return $("#exErr").textContent = "The date range must be within 31 days.";
+  exportDocs(b.dataset.route, { from:f, to:t, lvl:b.dataset.lvl }); $("#ccScrim").classList.remove("show"); });
+function exportDocs(route, o = {}){
   const K = DOC_KINDS[route], out = [["Reference","Name","Branch","Reason","Type","Status","Business date","Item","SKU","Quantity","Cost","Created"]];
-  S.inv_docs.filter(d=>docOf(K)(d) && live(d)).forEach(d => (d.items||[]).forEach(l => { const it = itemOf(l.itemId)||{}; out.push([d.ref, d.name, locName(d.locationId), d.reason, d.direction, d.status, d.businessDate, it.name, it.sku, l.qty, l.cost, d.createdAt]); }));
+  const day = d => String(d.businessDate || d.createdAt || "").slice(0, 10);
+  const inBrand = d => !o.brand || [d.locationId, d.destId].some(id => { const b = branches.find(x => x.id===id); return !b || b.brandId===o.brand; });
+  const docsX = S.inv_docs.filter(d=>docOf(K)(d) && live(d) && (!o.from || (day(d) >= o.from && day(d) <= o.to)) && inBrand(d));
+  if(o.lvl==="docs"){ const rows = [["Reference","Name","Branch","Destination","Supplier","Reason","Status","Business Date","Number of Items","Creator","Submitter","Created"],
+      ...docsX.map(d => [d.status==="draft" ? "" : d.ref, d.name, locName(d.locationId), d.destId ? locName(d.destId) : "", d.supplierId ? supName(d.supplierId) : "", d.reason, docStatusTag(d).replace(/<[^>]+>/g, ""), d.status==="draft" ? "" : d.businessDate, (d.items||[]).length, d.createdBy, d.submittedBy, fmtDate(d.createdAt)])];
+    return csvDownload(route + ".csv", rows); }
+  docsX.forEach(d => (d.items||[]).forEach(l => { const it = itemOf(l.itemId)||{}; out.push([d.ref, d.name, locName(d.locationId), d.reason, d.direction, d.status, d.businessDate, it.name, it.sku, l.qty, l.cost, d.createdAt]); }));
   const csv = out.map(r => r.map(v => `"${String(v??"").replace(/"/g,'""')}"`).join(",")).join("\n");
   const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob(["﻿"+csv], {type:"text/csv"})); a.download = route + ".csv"; a.click();
 }
@@ -8633,7 +8697,7 @@ document.addEventListener("click", async e => {
   const nw = t.closest("[data-docnew]"); if(nw){ e.preventDefault(); return docNewDialog(nw.dataset.docnew); }
   const op = t.closest("[data-docopen]"); if(op){ const [r, id] = op.dataset.docopen.split(":"); return openDoc(r, id); }
   const tb = t.closest("[data-doctab]"); if(tb){ e.preventDefault(); const [r, k] = tb.dataset.doctab.split(":"); DOC.tab[r] = k; return render(); }
-  const ex = t.closest("[data-docexport]"); if(ex) return exportDocs(ex.dataset.docexport);
+  const ex = t.closest("[data-docexport]"); if(ex) return exportDlg(ex.dataset.docexport, ex.dataset.exlvl);
   if(!DOC.open) return;
   if(t.closest("[data-docback]")){ e.preventDefault(); DOC.open = null; DOC.edit = null; return render(); }
   if(t.closest("[data-docsave]")) return saveDoc();
