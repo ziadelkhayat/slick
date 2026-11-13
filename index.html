@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="873-1794604313">
+<meta name="slick-build" content="875-1794605696">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this copy, reload once (never for an older one) */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1347,7 +1347,7 @@ html body{font-family:"IBM Plex Sans","IBM Plex Sans Arabic",system-ui,-apple-sy
 .ptr{position:fixed;top:-46px;left:50%;z-index:9999;width:42px;height:42px;border-radius:50%;background:#fff;box-shadow:0 4px 14px rgba(27,24,48,.22);display:grid;place-items:center;color:var(--ink2);pointer-events:none;transform:translate(-50%,0)}.ptr svg{width:20px;height:20px}.ptr.go{color:var(--accent)}.ptr.spin{animation:ptrspin .7s linear infinite}@keyframes ptrspin{to{rotate:360deg}}
 @media(max-width:700px){.cc1.pdstyle{grid-template-columns:minmax(0,1fr)!important;padding:14px!important}.cc1.pdstyle .ccside0{min-height:120px}.ccnext .btn{flex:1}}
 /* desktop and tablets: the side menu stays put; only the page on the right scrolls */
-@media screen and (min-width:1001px){html,body{height:100%;overflow:hidden}.app{height:100vh;height:100dvh;min-height:0!important;overflow:hidden}.app>.side{position:relative!important;top:auto!important;height:100%!important;overflow-y:auto;overscroll-behavior:contain}.app>.main{height:100%;overflow-y:auto;overflow-x:auto;overscroll-behavior:contain;min-width:0}}
+@media screen and (min-width:1001px){html,body{height:100%;overflow:hidden}.app{position:fixed;inset:0;width:auto;height:auto;min-height:0!important;overflow:hidden}.app>.side{position:relative!important;top:auto!important;height:100%!important;overflow-y:auto;overscroll-behavior:contain}.app>.main{height:100%;overflow-y:auto;overflow-x:auto;overscroll-behavior:contain;min-width:0}}
 /* labels, buttons, titles and tabs start every word with a capital; sentences, times, table cells, typed text and printed receipts stay as written */
 button,.btn,label,legend,summary,h1,h2,h3,h4,th,select,option,optgroup,[role=tab],.nav a,.spill,.chip,.tag,.act>b,.ohgh,.bhead>b,.mmtitle>b,.cins-h>b,.kv>span,.ohrow>span,.ocr>span,.ocr>small{text-transform:capitalize}
 ::placeholder{text-transform:capitalize}
@@ -1450,6 +1450,7 @@ html body .nti,html body .tti,html body .hico.hnt{background:#fff!important;bord
 html body .nti svg.nfi,html body aside.side a .nti svg.nfi,html body aside.side button .nti svg.nfi,html body aside.side a.on .nti svg.nfi{color:var(--c)!important;fill:var(--c)!important}
 html body .tti svg,html body .hico.hnt svg{color:var(--c)!important;stroke:var(--c)!important}
 html body .nti{flex:none;width:32px;height:32px;border-radius:9px;display:inline-grid;place-items:center;box-shadow:0 1px 2px rgba(20,18,30,.12)}html body .nti svg.nfi,html body aside.side a .nti svg.nfi,html body aside.side button .nti svg.nfi,html body aside.side a.on .nti svg.nfi{width:18px!important;height:18px!important;stroke:none!important}
+html:has(.scrim.show),html:has(.scrim.show) body{overflow:hidden!important;overscroll-behavior:none}html:has(.scrim.show) .main{overflow:hidden!important}.scrim{overscroll-behavior:contain}
 html body .dalbl{display:flex!important;justify-content:space-between;align-items:center;gap:10px}html body .dalbl .lnk{color:#2563eb;margin-left:4px;font-size:14px;text-transform:none!important}
 html body .fltbtn .fltx{display:inline-flex;margin-left:8px;color:#aeaeb2;cursor:pointer;border-radius:50%}html body .fltbtn .fltx:hover{color:#636366}html body .fltbtn .fltx svg{width:16px;height:16px}
 /* ===== Foodics typography: IBM Plex Sans, Foodics sizes and weights ===== */
@@ -2720,6 +2721,9 @@ function render0(){ setTimeout(() => typeof bmBarSync==="function" && bmBarSync(
    checkboxes / <select> stay underneath, so every screen keeps reading them exactly as before. */
 const MS_CARET = `<svg class="msel-k" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>`;
 const msText = l => { const c = l.cloneNode(true); c.querySelectorAll("input,.note,small").forEach(x => x.remove()); return c.textContent.trim(); };
+function msEmpty(m){ const l = m?.querySelector(":scope > .msel-p .msel-l"); if(!l) return; const e = l.querySelector(":scope > .msel-emp");
+  const any = [...l.querySelectorAll(":scope > .msel-o, :scope > label")].some(o => !o.hidden) || !!l.querySelector(":scope > .msel-none:not(.msel-emp)");
+  e?.remove(); if(!any) l.insertAdjacentHTML("beforeend", `<div class="msel-none msel-emp">${m.querySelector(".msel-q")?.value.trim() ? "No results" : l.querySelector(":scope > label, :scope > .msel-o") ? "All options are selected" : "No options"}</div>`); }
 function msPaint(m){
   const f = m.querySelector(":scope > .msel-f"); if(!f) return;
   if(m.classList.contains("mselect")){ const sel = m.querySelector("select"), o = sel.options[sel.selectedIndex]; const t = o && o.value!=="" ? o.text : (o?.text && !/^(choose|select)/i.test(o.text) && sel.options[0]?.value!=="" ? o.text : "");
@@ -2727,7 +2731,7 @@ function msPaint(m){
   const on = [...m.querySelectorAll(".msel-l input:checked")];
   m.querySelectorAll(".msel-l > label").forEach(x => { x.hidden = !!x.querySelector("input:checked"); });
   m.querySelector(".msel-l .msel-all")?.remove();   // nothing left to pick: the list is simply empty
-  f.innerHTML = (on.length ? `<span class="msel-cs">${on.map(i => `<span class="msel-c" data-msx="${esc(i.value)}" role="button" title="Press to remove">${esc(msText(i.closest("label")))}</span>`).join("")}</span>` : `<span class="msel-ph">Choose...</span>`) + MS_CARET;
+  f.innerHTML = (on.length ? `<span class="msel-cs">${on.map(i => `<span class="msel-c" data-msx="${esc(i.value)}" role="button" title="Press to remove">${esc(msText(i.closest("label")))}</span>`).join("")}</span>` : `<span class="msel-ph">Choose...</span>`) + MS_CARET; msEmpty(m);
 }
 /* Modifier Options filter (like Foodics): name, modifiers, SKU, updated after, allergens */
 const moF = () => state.moF ||= { name:"", mods:[], sku:"", after:"", alg:[] };
@@ -2795,7 +2799,7 @@ function msOpen(m){
       ph = [...sel.options].find(o => o.value==="" && /^(choose|select)/i.test(o.text));   // Foodics: an optional field lists None first
     p.querySelector(".msel-l").innerHTML = (ph && !req ? `<button type="button" class="msel-o msel-nil${sel.value==="" ? " on" : ""}" data-msv="">None</button>` : "") + [...sel.options].filter(o => !(o.value==="" && /^(choose|select)/i.test(o.text)) && !o.hidden).map(o => `<button type="button" class="msel-o${o.value===sel.value?" on":""}" data-msv="${esc(o.value)}"${o.disabled?" disabled":""}>${esc(o.text)}</button>`).join("") || `<div class="msel-none">${esc(sel.dataset.empty || "No options")}</div>`; }
   m.classList.add("open"); p.hidden = false; const q = p.querySelector(".msel-q"); q.value = ""; p.querySelectorAll(".msel-o").forEach(o => o.hidden = !!o.querySelector?.("input:checked"));
-  msPlace(m); setTimeout(() => q.focus(), 0);
+  msEmpty(m); msPlace(m); setTimeout(() => q.focus(), 0);
 }
 document.addEventListener("click", e => {
   const x = e.target.closest("[data-msx]"); if(x){ e.preventDefault(); e.stopPropagation(); const m = x.closest(".msel"), i = [...m.querySelectorAll(".msel-l input")].find(i => i.value===x.dataset.msx); if(i){ i.checked = false; i.dispatchEvent(new Event("change", { bubbles:true })); } msPaint(m); return; }
@@ -2807,7 +2811,7 @@ document.addEventListener("click", e => {
 }, true);
 document.addEventListener("change", e => { const m = e.target.closest?.(".msel:not(.mselect)"); if(m) msPaint(m); });
 document.addEventListener("input", e => { if(!e.target.classList?.contains("msel-q")) return; const q = e.target.value.trim().toLowerCase();
-  e.target.parentElement.querySelectorAll(".msel-o").forEach(o => { o.hidden = !!o.querySelector?.("input:checked") || (!!q && !o.textContent.toLowerCase().includes(q)); }); });
+  e.target.parentElement.querySelectorAll(".msel-o").forEach(o => { o.hidden = !!o.querySelector?.("input:checked") || (!!q && !o.textContent.toLowerCase().includes(q)); }); msEmpty(e.target.closest(".msel")); });
 document.addEventListener("keydown", e => {
   if(e.key==="Escape" && document.querySelector(".msel.open")){ e.stopPropagation(); msClose(); return; }
   const f = e.target.closest?.(".msel-f"); if(f && (e.key==="Enter" || e.key===" " || e.key==="ArrowDown")){ e.preventDefault(); msOpen(f.parentElement); return; }
