@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="838-1794571566">
+<meta name="slick-build" content="839-1794572243">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this copy, reload once (never for an older one) */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1434,7 +1434,7 @@ html body table td{padding-top:9px;padding-bottom:9px}   /* tighter rows across 
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="wokdb.js?v=44"></script>
+<script src="wokdb.js?v=45"></script>
 <script src="modpick.js?v=31"></script>
 </head>
 <body>
@@ -3312,7 +3312,8 @@ const CRUD = {
   },
   "inv-items": {
     col:"inv_items", title:"Inventory Items", one:"Item", detail: r => invItemDetail(r),
-    tabs:[["all","All",live],["items","Items",r=>live(r) && !hasRecipe(r)],["produced","Products",r=>live(r) && hasRecipe(r)],["deleted","Deleted",r=>r.deleted]],
+    // Products: bought and used as they are; Production Products: made from ingredients; Product Items: menu items that are bought and sold as they are
+    tabs:[["all","All",live],["items","Items",r=>live(r) && !hasRecipe(r) && !r.menuItem],["produced","Production Items",r=>live(r) && hasRecipe(r)],["menu","Item Products",r=>live(r) && !!r.menuItem],["deleted","Deleted",r=>r.deleted]],
     sort:(a,b)=>(b.sku||"").localeCompare(a.sku||"",undefined,{numeric:true}),
     search:r=>r.name+" "+(r.sku||"")+" "+(r.category||""),
     filter:r=>!state.invCat || r.category===state.invCat,
@@ -3326,6 +3327,7 @@ const CRUD = {
       {k:"factor",l:"Storage To Ingredient",t:"number",req:1,ph:"e.g. 1000"},
       {k:"costingMethod",l:"Costing Method",req:1,t:"select",opts:()=>[["transactions","From Transactions"],["fixed","Fixed"]],def:"transactions"},
       {k:"barcode",l:"Barcode"},{k:"cost",l:"Cost (Per Storage Unit)",t:"number",req:1,when:{k:"costingMethod",is:"fixed"}},
+      {k:"menuItem",l:"Menu Product (Inventory Item)",t:"select",yesno:1,get:r=>r.menuItem?"yes":"no",opts:()=>[["no","No"],["yes","Yes"]],def:"no"},
       ]
   },
   "inv-categories": {
@@ -3898,6 +3900,7 @@ async function submitCrud(e){
     else if(f.t==="number") data[f.k] = el.value==="" ? null : +el.value;
     else if(f.t==="phone"){ const n = el.value.replace(/[^\d]/g, "").replace(/^0+/, ""); data[f.k] = n ? (CQ("#cf_"+f.k+"_cc")?.value || "+961") + " " + n : ""; }
     else if(f.t==="password") data[f.k] = el.value;
+    else if(f.yesno) data[f.k] = el.value==="yes";
     else data[f.k] = f.k==="reference" ? refClean(el.value) : el.value.trim();
     if(f.req && (data[f.k]===""||data[f.k]===null)){ CQ("#cErr").textContent = f.l + " is required."; el.focus(); return; }
     if(f.k==="factor" && !(data.factor > 0)){ CQ("#cErr").textContent = "The factor must be more than 0 (how many ingredient units are in one storage unit)."; el.focus(); return; }
@@ -8306,7 +8309,7 @@ function viewDoc(route){
     ${d.id ? `<button class="btn" data-docprint>Print</button>` : ""}
     ${d.id && !ro ? `<button class="btn danger" data-docdel>Delete Permanently</button>` : ""}
     ${!ro && K.kind!=="cost" ? `<button class="btn" data-docedit>Edit</button>` : ""}
-    ${!ro && K.kind==="sheet" ? `<span class="note" id="docSaved" style="margin-left:4px">${DOC.dirty ? "Saving…" : "Saved"}</span>` : ""}
+    ${!ro ? `<button class="btn${K.kind==="sheet"?" pri":""}" data-docsave ${DOC.busy?"disabled":""}>${K.kind==="sheet"?"Save":"Save Draft"}</button>` : ""}
     ${!ro && K.kind!=="sheet" && !K.flow ? `<button class="btn pri" data-docsubmit ${DOC.busy||!d.items.length?"disabled":""}>${DOC.busy?"Working…":K.count||K.kind==="spot"?"Submit Count":K.kind==="production"?"Produce":"Submit"}</button>` : ""}
     ${K.flow ? flowButtons(d, K) : ""}</div>`;
   if(DOC.err) h += `<div class="banner" style="background:#fdecef;color:#9e0c24">${esc(DOC.err)}</div>`;
@@ -8437,17 +8440,6 @@ document.addEventListener("click", async e => { if(!e.target.closest("#docHdrSav
   const d = DOC.edit, K = DOC && DOC.open && DOC_KINDS[DOC.open.route]; if(!d || !K) return;
   if(K.kind==="sheet" && !($("#dName")?.value||"").trim()) return toast("Give the count sheet a name.");
   readDocHeader(); $("#ccScrim").classList.remove("show"); if(await saveDoc(true)) toastOk("Saved"); });
-// drafts save by themselves (Foodics has no Save button): items, quantities and costs are stored a moment after they change
-DOC.snap = ""; DOC.dirty = false;
-setInterval(async () => {
-  const d = DOC.edit; if(!d || !DOC.open || d.status!=="draft" || !d.id || DOC.busy) { DOC.snap = ""; return; }
-  const snap = d.id + JSON.stringify([d.items, d.name, d.locationId, d.supplierId, d.destId, d.reason, d.direction, d.businessDate, d.notes]);
-  if(!DOC.snap || DOC.snapId!==d.id){ DOC.snap = snap; DOC.snapId = d.id; return; }
-  if(snap===DOC.snap) return;
-  if(document.activeElement && document.activeElement.closest?.("#view table") && /^(INPUT)$/.test(document.activeElement.tagName)) return;   // wait until the cell is left
-  DOC.snap = snap; DOC.dirty = true; const el = $("#docSaved"); if(el) el.textContent = "Saving…";
-  const ok = await saveDoc(true, true); DOC.dirty = false; const el2 = $("#docSaved"); if(el2) el2.textContent = ok ? "Saved" : "Not saved";
-}, 1200);
 async function saveDoc(silent, quiet){
   if(!quiet) readDocHeader();
   const d = DOC.edit, K = DOC_KINDS[DOC.open.route];
@@ -8465,9 +8457,9 @@ async function saveDoc(silent, quiet){
   if(K.flow){ data.supplierId = d.supplierId||null; data.destId = d.destId||null; }
   const id = d.id || uid("idoc");
   if(!d.id){ data.status = "draft"; data.createdBy = state.fullName || state.userName || null;
-    if(K.count) data.ref = "";   /* an inventory count gets its IC- number when it's submitted */ }
+}
   if(!quiet){ DOC.busy = true; DOC.err = ""; }
-  try{ await put("inv_docs", id, data); d.id = id; DOC.open.id = id; Object.assign(d, data, { items }); if(!silent) toastOk(K.kind==="sheet" ? "Count sheet saved" : "Draft saved"); return true; }
+  try{ await put("inv_docs", id, data); d.id = id; DOC.open.id = id; Object.assign(d, data, { items }); if(!d.createdAt) d.createdAt = S.inv_docs.find(x => x.id===id)?.createdAt || new Date().toISOString(); if(!silent) toastOk(K.kind==="sheet" ? "Count sheet saved" : "Draft saved"); return true; }
   catch(e){ console.error(e); if(quiet){ toast("Couldn't save: " + (e.message || e)); return false; } DOC.err = "Couldn't save: " + (e.message || e); return false; }
   finally{ if(!quiet){ DOC.busy = false; render(); } }
 }
@@ -8488,8 +8480,8 @@ async function submitDoc(){
     const rows = d.items.map(l => ({ branch_id: d.locationId, item_id: l.itemId, qty: +l.qty, counted_at: now, counted_by: by, batch: d.id, note: d.ref || null }));
     const { error: e1 } = await WOK.sb.from("stock_counts").insert(rows);
     if(e1){ DOC.busy = false; console.error(e1); DOC.err = "Couldn't submit: " + e1.message; return render(); }
-    if(!d.ref || !/^IC-/.test(d.ref)) d.ref = "IC-" + String(Math.max(0, ...S.inv_docs.map(x => /^IC-(\d+)$/.exec(x.ref||"")).filter(Boolean).map(m => +m[1])) + 1).padStart(6, "0");
-    try{ await put("inv_docs", d.id, { status:"closed", submittedAt: now, submittedBy: by, ref: d.ref }); }catch(e){ console.error(e); }
+    try{ await put("inv_docs", d.id, { status:"closed", submittedAt: now, submittedBy: by }); }catch(e){ console.error(e); }   // the server gives it its IC- number now
+    try{ const { data: r } = await WOK.sb.from("inventory_docs").select("ref").eq("id", d.id).single(); if(r?.ref) d.ref = r.ref; }catch(e){}
     DOC.busy = false; toastOk(`${d.ref || "Inventory count"} submitted`); DASH.key = ""; IC.loaded = {}; DOC.stockAt = 0;
     d.status = "closed"; d.submittedAt = now; d.submittedBy = by; loadStock(true); render(); return;
   }
