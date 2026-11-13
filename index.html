@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="862-1794590927">
+<meta name="slick-build" content="863-1794591114">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this copy, reload once (never for an older one) */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -8015,7 +8015,7 @@ function viewTransferList(route, K, all, list){
   const rows = [];
   list.forEach(d => { const r = ret(d);
     if(tab==="all" || (tab==="sending" && !r) || (tab==="return" && r)) rows.push({ d, type: r ? "Transfer Return" : "Transfer Sending", ref: refOf(d, r ? "TRT" : "TRS"),
-      st: d.status==="draft" ? ["draft","Draft"] : ["closed","Closed"], bdate: d.status==="draft" ? "—" : d.submittedAt ? bd(d.submittedAt) : fmtD(d.businessDate), at: d.submittedAt || d.createdAt });
+      st: d.status==="draft" ? ["draft","Draft"] : !r || d.status==="closed" ? ["closed","Closed"] : d.status==="rejected" ? ["rejected","Declined"] : ["pending","Pending"], bdate: d.status==="draft" ? "—" : d.submittedAt ? bd(d.submittedAt) : fmtD(d.businessDate), at: d.submittedAt || d.createdAt });
     if(d.status!=="draft" && !r && (tab==="all" || tab==="receiving")) rows.push({ d, type:"Transfer Receiving", ref: refOf(d, "TRR"),
       st: d.status==="closed" ? ["closed","Closed"] : d.status==="rejected" ? ["rejected","Declined"] : ["pending","Pending"], bdate: d.status==="closed" ? (d.receivedAt ? bd(d.receivedAt) : fmtD(d.businessDate)) : "—", at: d.submittedAt || d.createdAt }); });
   rows.sort((a, b) => String(b.at).localeCompare(String(a.at)) || (a.type==="Transfer Receiving" ? -1 : 1));
@@ -8025,7 +8025,7 @@ function viewTransferList(route, K, all, list){
     <div class="card tbl"><div class="ttop"><div class="ttabs">${tabs.map(t=>`<a href="#${route}" data-doctab="${route}:${t[0]}" class="${tab===t[0]?"on":""}">${t[1]}</a>`).join("")}</div><div class="sp"></div>
     ${docFltBtn(route, K)}</div>`;
   h += rows.length ? `<table><thead><tr><th>Reference</th><th>Source</th><th>Destination</th><th>TO Reference</th><th>Type</th><th>Status</th><th>Business Date</th><th>Receiving Due Date</th><th>Created</th></tr></thead><tbody>${rows.map(x => `<tr class="click" data-docopen="${route}:${esc(x.d.id)}">
-      <td>${x.ref}</td><td>${esc(locName(x.d.locationId))}</td><td>${esc(locName(x.d.destId))}</td><td>${toRef(x.d)}</td><td>${x.type}</td><td>${esc(x.st[1])}</td><td>${x.bdate}</td><td>—</td><td>${fmtDate(x.d.createdAt)}</td></tr>`).join("")}</tbody></table>`
+      <td>${x.ref}</td><td>${esc(locName(x.d.locationId))}</td><td>${esc(locName(x.d.destId))}</td><td>${toRef(x.d)}</td><td>${x.type}</td><td>${esc(x.st[1])}</td><td>${x.bdate}</td><td>${x.d.deliveryAt ? fmtD(String(x.d.deliveryAt).slice(0,10)) : "—"}</td><td>${fmtDate(x.d.createdAt)}</td></tr>`).join("")}</tbody></table>`
     : `<div class="empty">${all.length ? "Nothing here." : `No ${K.plural.toLowerCase()} yet.`}</div>`;
   return h + `</div>`;
 }
@@ -8056,6 +8056,7 @@ function flowInfo(d, K, info){
       : info(K.kind==="purchase" ? "Destination" : "From", esc(locName(d.locationId))) + (K.kind!=="purchase" ? info("To", esc(locName(d.destId))) : ""),
     info("Business Date", d.status==="draft" ? "—" : esc(d.businessDate||"—")), who("Creator", d.createdBy), info("Created At", fmtDate(d.createdAt)),
     K.po ? info("Delivery Date", esc(delLbl(d.deliveryAt))) : "",
+    K.kind==="transfer" ? info("Type", d.reason==="return" ? "Transfer Return" : "Transfer") + info("Receiving Due Date", d.deliveryAt ? esc(String(d.deliveryAt).slice(0,10).split("-").reverse().join("-")) : "—") : "",
     K.kind==="purchase" && +d.additionalCost ? info("Additional Cost", usd(+d.additionalCost)) : "",
     K.kind==="purchase" ? info(K.po ? "Purchase Order Total Cost" : "Total Cost", usd((d.items||[]).reduce((a, l) => a + (+l.qty||0) * (+(l.cost ?? itemOf(l.itemId)?.cost) || 0), 0) + (+d.additionalCost || 0))) : "", who(K.kind==="transfer"?"Sent by":"Submitted by", d.submittedBy),
     info(K.kind==="transfer"?"Sent At":"Submitted At", fmtDate(d.submittedAt)), who(K.kind==="torder"?"Fulfilled by":"Received by", d.receivedBy),
@@ -8176,7 +8177,7 @@ async function flowAction(action){
     if(!(await askYes("Are you sure you want to approve this?"))) return;
     DOC.busy = true; render(); const pid = uid("idoc"), now = new Date().toISOString();
     try{
-      await put("inv_docs", pid, { kind:"purchase", status:"draft", locationId:d.locationId, supplierId:d.supplierId||null, businessDate:daysAgo(0), direction:"deduct", reason:null, notes:d.notes||null, linkedId:d.id, createdBy: state.fullName || state.userName || null,
+      await put("inv_docs", pid, { kind:"purchase", status:"draft", locationId:d.locationId, supplierId:d.supplierId||null, businessDate:daysAgo(0), direction:"deduct", reason:null, notes:null, linkedId:d.id, createdBy: state.fullName || state.userName || null,
         items: d.items.map(l => ({ itemId:l.itemId, qty: +l.qty || 0, cost: l.cost ?? (+itemOf(l.itemId)?.cost || 0) })) });
       await put("inv_docs", d.id, { status:"closed", linkedId:pid, receivedBy: state.fullName || null, receivedAt: now });
       Object.assign(d, { status:"closed", linkedId:pid, receivedBy: state.fullName || null, receivedAt: now }); toast("Approved. The purchasing is created as a draft.");
@@ -8471,7 +8472,9 @@ function docNewDialog(route){
   if(K.kind==="purchase") f.push(sel("dnSup", "Supplier", sups, "", "No suppliers"), sel("dnLoc", K.po ? "Destination" : "Branch", locs, defLoc, "No branches or warehouses"));
   if(K.po) f.push(delFields("dn", null));
   if(K.po || (K.kind==="spot" && !K.count)) f.push(`<div class="f"><label for="dnNotes">Notes</label><textarea id="dnNotes" class="sel" rows="3"></textarea></div>`);   // as in Foodics
-  else if(K.kind==="transfer") f.push(sel("dnLoc", "Source", locs, defLoc, "No branches or warehouses"), sel("dnDest", "Destination", locs, "", "No branches or warehouses"));
+  else if(K.kind==="transfer") f.push(`<div class="f"><label for="dnTType">Type *</label><select id="dnTType" class="sel"><option value="">Transfer</option><option value="return">Transfer Return</option></select></div>`,
+    sel("dnLoc", "Source", locs, defLoc, "No branches or warehouses"), sel("dnDest", "Destination", locs, "", "No branches or warehouses"),
+    `<div class="f"><label for="dnDue">Receiving Due Date</label><input id="dnDue" class="sel" type="date"></div>`);
   else if(K.kind==="torder") f.push(sel("dnDest", "From", locs, "", "No warehouses"), sel("dnLoc", "To", locs, defLoc, "No branches"));   // from: the warehouse that sends; to: the branch that receives
   else if(K.kind==="sheet") f.push(`<div class="f"><label for="dnName">Name *</label><input id="dnName" class="sel"></div>`);
   else if(K.loc) f.push(sel("dnLoc", "Branch", locs, defLoc, "No branches or warehouses"));
@@ -8498,6 +8501,7 @@ document.addEventListener("click", async e => {
   if(v("dnDest") && v("dnDest")===v("dnLoc")) return err("Source and destination must be different.");
   $("#ccScrim").classList.remove("show"); newDoc(route); const d = DOC.edit;
   if($("#dnDelDate")) d.deliveryAt = delJoin(v("dnDelDate"), v("dnDelTime")); if(v("dnNotes")) d.notes = v("dnNotes");
+  if($("#dnTType")){ d.reason = v("dnTType") || ""; if(v("dnDue")) d.deliveryAt = v("dnDue") + "T12:00:00"; }
   if(v("dnSup")!=null) d.supplierId = v("dnSup"); if(v("dnLoc")!=null) d.locationId = v("dnLoc"); if(v("dnDest")!=null) d.destId = v("dnDest"); if(v("dnName")!=null) d.name = v("dnName"); if(v("dnReason")!=null) d.reason = v("dnReason");
   render();   // kept on screen only: it's saved with Save Draft; Back cancels it
 });
@@ -8680,7 +8684,7 @@ async function saveDoc(silent, quiet){
     if(K.flow){ o.qty = l.qty===""||l.qty==null ? null : +l.qty; if(K.kind==="purchase") o.cost = l.cost===""||l.cost==null ? (+it.cost||0) : +l.cost; }
     return o;
   });
-  const data = { kind:d.kind, name:d.name||null, ...(K.kind==="purchase" ? { additionalCost: +d.additionalCost || 0 } : {}), ...(K.po ? { deliveryAt: d.deliveryAt || null } : {}), locationId:d.locationId||null, reason:d.reason||null, direction:d.direction||"deduct", businessDate:d.businessDate||null, items, notes:d.notes||null };
+  const data = { kind:d.kind, name:d.name||null, ...(K.kind==="purchase" ? { additionalCost: +d.additionalCost || 0 } : {}), ...(K.po || K.kind==="transfer" ? { deliveryAt: d.deliveryAt || null } : {}), locationId:d.locationId||null, reason:d.reason||null, direction:d.direction||"deduct", businessDate:d.businessDate||null, items, notes:d.notes||null };
   if(K.flow){ data.supplierId = d.supplierId||null; data.destId = d.destId||null; }
   const id = d.id || uid("idoc");
   if(!d.id){ data.status = "draft"; data.createdBy = state.fullName || state.userName || null;
