@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="857-1794588708">
+<meta name="slick-build" content="858-1794588841">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this copy, reload once (never for an older one) */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -5751,22 +5751,29 @@ const ORD_ST = { draft:"Draft", pending:"Pending", active:"Active", closed:"Done
 const daysAgo = n => { const d = new Date(bizDate()+"T12:00:00"); d.setDate(d.getDate()-n); return new Date(d - d.getTimezoneOffset()*60000).toISOString().slice(0,10); };
 const ORD = { tab:"all", q:"", from:"", to:"", channel:"", type:"", pay:"", source:"", brand:"", branch:"", fopen:false, page:1, per:50, rows:[], count:0, counts:{}, loading:false, err:"", key:"", t:null, open:null };
 const ordTypeLbl = t => TYPE_LBL[t] || cap(t||"—");
-// Foodics: one Filter dialog for the orders list (the x on the button resets it)
+// Foodics: one Filter dialog for the orders list, same fields and order as Foodics (the x on the button resets it)
+const ORD_FX = { q:"", ref:"", num:"", from:"", to:"", brand:"", branch:"", channel:"", type:"", source:"", pay:"", ahead:"", rnotes:"", knotes:"", cust:"", due:"", device:"" };
+const ordFltN = () => Object.keys(ORD_FX).filter(k => k!=="to" && String(ORD[k]||"").trim()).length;
 document.addEventListener("click", e => {
   if(e.target.closest?.("[data-ordflt]")){ e.preventDefault(); const box = $("#ccBox"); box.className = "modal";
     const CHL = { pos:"POS", callcenter:"Call Center", online:"Web Ordering" }, TYL = { dinein:"Dine In", fast:"Fast Sale", pickup:"Pick Up", delivery:"Delivery" };
-    const FP = [...(brandList().length > 1 ? [["brand","Brand", brandList().map(b=>[b.id,b.name])]] : []), ["branch","Branch", branches.map(b=>[b.id,b.name])],
-      ["channel","Sales Channel", Object.entries(CHL)], ["type","Type", Object.entries(TYL)], ["source","Source", ordSources().map(x=>[x,x])], ["pay","Payment Type", ordPays().map(x=>[x,x])]];
+    const STL = [["pending","Pending"],["open","Active"],["declined","Declined"],["closed","Done"],["returns","Returned"],["voids","Void"]];
+    const txt = (k, l, ph) => `<div class="f"><label for="of_${k}">${l}</label><input id="of_${k}" class="sel" ${ph ? `placeholder="${ph}"` : ""} value="${esc(ORD[k]||"")}"></div>`;
+    const dte = (k, l) => `<div class="f"><label for="of_${k}">${l}</label><input id="of_${k}" class="sel" type="date" value="${esc(ORD[k]||"")}"></div>`;
+    const sel = (k, l, opts, cur) => `<div class="f"><label for="of_${k}">${l}</label><select id="of_${k}" class="sel"><option value="">Any</option>${opts.map(([v, t]) => `<option value="${esc(v)}" ${(cur ?? ORD[k])===v?"selected":""}>${esc(t)}</option>`).join("")}</select></div>`;
     box.innerHTML = `<header><h2>Filter</h2><button type="button" class="x" data-ccclose aria-label="Close">×</button></header><div class="body" style="display:grid;grid-template-columns:1fr 1fr;gap:4px 14px">
-      <div class="f" style="grid-column:1/-1"><label for="of_q">Reference</label><input id="of_q" class="sel" placeholder="Reference, order #, invoice #, customer or phone" value="${esc(ORD.q)}"></div>
-      <div class="f"><label for="of_from">Business Date From</label><input id="of_from" class="sel" type="date" value="${esc(ORD.from)}"></div>
-      <div class="f"><label for="of_to">Business Date To</label><input id="of_to" class="sel" type="date" value="${esc(ORD.to)}"></div>
-      ${FP.map(([k, l, opts]) => `<div class="f"><label for="of_${k}">${l}</label><select id="of_${k}" class="sel"><option value="">Any</option>${opts.map(([v, t]) => `<option value="${esc(v)}" ${ORD[k]===v?"selected":""}>${esc(t)}</option>`).join("")}</select></div>`).join("")}</div>
+      ${txt("ref","Reference")}${txt("num","Number")}${dte("from","Business Date From")}${dte("to","Business Date To")}
+      ${brandList().length > 1 ? sel("brand","Brand", brandList().map(b=>[b.id,b.name])) : ""}${sel("branch","Branch", branches.map(b=>[b.id,b.name]))}
+      ${sel("status","Status", STL, ORD.tab==="all" ? "" : ORD.tab)}${sel("type","Type", Object.entries(TYL))}
+      ${sel("source","Source", ordSources().map(x=>[x,x]))}${sel("channel","Sales Channel", Object.entries(CHL))}
+      ${sel("ahead","Ahead", [["yes","Yes"],["no","No"]])}${sel("pay","Payment Type", ordPays().map(x=>[x,x]))}
+      ${txt("rnotes","Receipt Notes")}${txt("knotes","Kitchen Notes")}${txt("cust","Customer","Name or phone")}${dte("due","Due Date")}
+      ${sel("device","Device", (S.devices||[]).filter(live).map(d=>[d.id,d.name]))}</div>
       <footer><button type="button" class="btn" id="ofReset">Reset</button><span style="flex:1"></span><button type="button" class="btn pri" id="ofApply">Apply</button></footer>`;
     $("#ccScrim").classList.add("show"); return; }
   if(e.target.closest?.("#ofApply")){ const g = k => $("#of_" + k)?.value?.trim() || ""; let f = g("from"), t = g("to"); if(f && !t) t = f; if(t && !f) f = t; if(f > t) [f, t] = [t, f];
-    Object.assign(ORD, { q:g("q"), from:f, to:t, brand:g("brand"), branch:g("branch"), channel:g("channel"), type:g("type"), source:g("source"), pay:g("pay"), fpop:"", page:1 }); $("#ccScrim").classList.remove("show"); render(); return; }
-  if(e.target.closest?.("#ofReset")){ Object.assign(ORD, { q:"", from:"", to:"", brand:"", branch:"", channel:"", type:"", source:"", pay:"", fpop:"", page:1 }); $("#ccScrim").classList.remove("show"); render(); return; }
+    const o = {}; Object.keys(ORD_FX).forEach(k => o[k] = g(k)); Object.assign(ORD, o, { q:"", from:f, to:t, tab:g("status") || "all", fpop:"", page:1 }); $("#ccScrim").classList.remove("show"); render(); return; }
+  if(e.target.closest?.("#ofReset")){ Object.assign(ORD, ORD_FX, { tab:"all", fpop:"", page:1 }); $("#ccScrim").classList.remove("show"); render(); return; }
 });
 function ordQuery(sel, opts, withStatus){
   const sb = WOK.sb;
@@ -5783,13 +5790,22 @@ function ordQuery(sel, opts, withStatus){
   if(ORD.pay) q = q.ilike("payment->>method", ORD.pay);
   const s = ORD.q.trim().replace(/[,()*%\\]/g, " ").trim();
   if(s) q = /^\d+$/.test(s) ? q.or(`no.eq.${s},invoice_no.eq.${s},phone.ilike.*${s}*,ref.ilike.*${s}`) : q.or(`ref.ilike.*${s}*,customer_name.ilike.*${s}*,phone.ilike.*${s}*,agent.ilike.*${s}*,source.ilike.*${s}*`);
+  const cl = v => String(v||"").trim().replace(/[,()*%\\]/g, " ").trim();
+  if(cl(ORD.ref)) q = q.ilike("ref", `%${cl(ORD.ref)}%`);
+  if(/^\d+$/.test(cl(ORD.num))) q = q.eq("no", +cl(ORD.num));
+  if(cl(ORD.cust)) q = q.or(`customer_name.ilike.*${cl(ORD.cust)}*,phone.ilike.*${cl(ORD.cust)}*`);
+  if(ORD.ahead) q = ORD.ahead==="yes" ? q.not("scheduled_at", "is", null) : q.is("scheduled_at", null);
+  if(cl(ORD.rnotes)) q = q.ilike("receipt_notes", `%${cl(ORD.rnotes)}%`);
+  if(cl(ORD.knotes)) q = q.ilike("notes", `%${cl(ORD.knotes)}%`);
+  if(ORD.due){ const t0 = new Date(ORD.due + "T00:00:00"), t1 = new Date(t0); t1.setDate(t1.getDate() + 1); q = q.gte("scheduled_at", t0.toISOString()).lt("scheduled_at", t1.toISOString()); }
+  if(ORD.device) q = q.eq("device_id", ORD.device);
   if(withStatus && ORD_GRP[ORD.tab]) q = q.in("status", ORD_GRP[ORD.tab]);
   return q;
 }
 async function loadOrders(force){
   if(!window.WOK || storeMode!=="db") return;
   // no dates picked = every order ever (lifetime); pick a range from the calendar to narrow it
-  const key = JSON.stringify([ORD.tab, ORD.q, ORD.from, ORD.to, ORD.channel, ORD.type, ORD.pay, ORD.source, ORD.brand, ORD.branch, ORD.page, state.branch, state.brand]);
+  const key = JSON.stringify([ORD.tab, ORD.q, ORD.from, ORD.to, ORD.channel, ORD.type, ORD.pay, ORD.source, ORD.brand, ORD.branch, ORD.page, state.branch, state.brand, ORD.ref, ORD.num, ORD.cust, ORD.ahead, ORD.rnotes, ORD.knotes, ORD.due, ORD.device]);
   if(!force && key===ORD.key && (ORD.loading || ORD.rows.length || ORD.err || ORD.count===0 && ORD.loaded===key)) return;
   ORD.key = key; ORD.loading = true; ORD.err = "";
   const cols = "id,ref,no,invoice_no,return_no,refund_of,channel,source,type,status,branch_id,brand_id,customer_name,phone,table_no,total,payment,agent,handled_by,created_at";
@@ -5823,7 +5839,7 @@ function viewOrders(){
     ["channel","Sales channel","All sales channels", Object.entries(CHL)], ["type","Order type","All order types", Object.entries(TYL)],
     ["source","Order source","All order sources", ordSources().map(x=>[x,x])], ["pay","Payment Type","All payment types", ordPays().map(x=>[x,x])]];
   return `<div class="ostick"><div class="phead"><h1>Orders</h1><span class="sp"></span><button class="btn" id="ordCsv">Export CSV</button></div>
-  <div class="card otabsc"><div class="ttop"><div class="ttabs">${ORD_TABS.map(([k,t])=>`<a href="#orders" data-otab="${k}" class="${ORD.tab===k?"on":""}">${t} <span class="note">${ORD.counts[k] ?? ""}</span></a>`).join("")}</div><span class="sp"></span><span class="note" style="margin-right:12px">${ORD.loading ? "Loading…" : ""}</span>${fltBtn("data-ordflt", "orders", nF + (ORD.q.trim() ? 1 : 0) + (ORD.from ? 1 : 0) > 0)}</div></div></div>
+  <div class="card otabsc"><div class="ttop"><div class="ttabs">${ORD_TABS.map(([k,t])=>`<a href="#orders" data-otab="${k}" class="${ORD.tab===k?"on":""}">${t} <span class="note">${ORD.counts[k] ?? ""}</span></a>`).join("")}</div><span class="sp"></span><span class="note" style="margin-right:12px">${ORD.loading ? "Loading…" : ""}</span>${fltBtn("data-ordflt", "orders", ordFltN() > 0)}</div></div></div>
   <div class="card tbl otbl obody">${ORD.err ? `<p class="note" style="padding:16px">Couldn't load orders: ${esc(ORD.err)}</p>` : `<table><thead><tr><th>Reference #</th><th>Invoice #</th><th>Order #</th>${brandList().length > 1 ? "<th>Brand</th>" : ""}<th>Branch</th><th>Customer</th><th>Status</th><th>Sales channel</th><th>Order type</th><th>Order source</th><th>Business date</th><th>Opened at</th><th>Payment Type</th><th class="num">Total</th></tr></thead><tbody>${
     ORD.rows.length ? ORD.rows.map(o => `<tr class="clk" data-oid="${esc(o.id)}"><td><b>${esc(o.ref || "—")}</b></td><td>${o.status==="refund" ? esc(ordRef(o)) : o.invoiceNo ? esc(invNo(o.invoiceNo)) : '<span class="note" title="Gets its invoice number when a POS accepts it">—</span>'}</td><td>${o.status==="refund" ? "–" : o.no ? `#${esc(o.no)}` : '<span class="note" title="Gets its number when a POS bills it">—</span>'}</td>
       ${brandList().length > 1 ? `<td>${esc(brandName(o.brandId) || "—")}</td>` : ""}<td>${esc(branches.find(x=>x.id===o.branchId)?.name || "—")}</td>
@@ -8757,7 +8773,7 @@ document.addEventListener("click", e => { const x = e.target.closest?.("[data-fl
   if(attr==="data-cflt"){ (state.cflt ||= {})[key] = {}; state.page[key] = 1; if(key==="products"){ state.catFilter = ""; state.prodMod = ""; } if(key==="modifier-options") state.modFilter = ""; }
   else if(attr==="data-docflt") (DOC.flt ||= {})[key] = {};
   else if(attr==="data-cusflt"){ CUS.flt = {}; CUS.page = 1; }
-  else if(attr==="data-ordflt") Object.assign(ORD, { q:"", from:"", to:"", brand:"", branch:"", channel:"", type:"", source:"", pay:"", fpop:"", page:1 });
+  else if(attr==="data-ordflt") Object.assign(ORD, ORD_FX, { tab:"all", fpop:"", page:1 });
   render(); }, true);
 const crudFlt = key => (state.cflt ||= {})[key] || {};
 const crudFltOk = key => { const ff = CRUD_FF[key], f = crudFlt(key); if(!ff) return () => true;
