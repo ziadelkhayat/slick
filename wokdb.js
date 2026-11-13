@@ -348,3 +348,47 @@
       cols.forEach(c => { ls.set(cacheKey(c), []); local[c] = withPending(c, []); emit(c, local[c], true); if(listeners[c]) refresh(c); }); status(); } } };
   window.claude = { use: async n => n === "db" ? ready : n === "user" ? (await ready, userApi) : null };
 })();
+
+/* ---------- dates everywhere as dd-mm-yyyy: rewrites date text on screen and shows date fields as dd-mm-yyyy ---------- */
+(function(){
+  if(window.__slickDMY) return; window.__slickDMY = true;
+  const M = { jan:1, feb:2, mar:3, apr:4, may:5, jun:6, jul:7, aug:8, sep:9, oct:10, nov:11, dec:12 }, z = n => String(n).padStart(2, "0");
+  const MON = "(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\\.?";
+  const RX = [
+    [/\b(\d{4})-(\d{2})-(\d{2})(?![\d:]*Z)\b/g, (m, y, mo, d) => `${d}-${mo}-${y}`],                          // 2026-11-13
+    [/\b(\d{1,2})\/(\d{1,2})\/(\d{4})\b/g, (m, d, mo, y) => `${z(d)}-${z(mo)}-${y}`],                       // 13/11/2026 (en-GB)
+    [new RegExp("\\b(\\d{1,2}) " + MON + ",? (\\d{4})\\b", "g"), (m, d, mo, y) => `${z(d)}-${z(M[mo.slice(0,3).toLowerCase()])}-${y}`],   // 13 Nov 2026
+    [new RegExp("\\b" + MON + " (\\d{1,2}),? (\\d{4})\\b", "g"), (m, mo, d, y) => `${z(d)}-${z(M[mo.slice(0,3).toLowerCase()])}-${y}`],   // Nov 13, 2026
+  ];
+  const fix = s => RX.reduce((t, [r, f]) => t.replace(r, f), s);
+  const SKIP = /^(SCRIPT|STYLE|TEXTAREA|INPUT|SELECT|OPTION|CODE|PRE|NOSCRIPT)$/;
+  function walk(root){
+    if(!root) return;
+    if(root.nodeType === 3){ const p = root.parentNode; if(p && !SKIP.test(p.nodeName) && !p.closest?.("[contenteditable],[data-raw-date]") && /\d/.test(root.data)){ const v = fix(root.data); if(v !== root.data) root.data = v; } return; }
+    if(root.nodeType !== 1 && root.nodeType !== 9 && root.nodeType !== 11) return;
+    if(root.nodeType === 1 && (SKIP.test(root.nodeName) || root.isContentEditable)){ if(root.nodeName === "INPUT") dateField(root); return; }
+    const tw = document.createTreeWalker(root, NodeFilter.SHOW_TEXT); let n; const list = [];
+    while((n = tw.nextNode())) list.push(n);
+    list.forEach(walk);
+    root.querySelectorAll?.('input[type="date"]').forEach(dateField);
+  }
+  // a date field shows its value as dd-mm-yyyy (the browser would use the device language)
+  function dateField(inp){
+    if(inp.type !== "date" || inp.dataset.dmy) return; inp.dataset.dmy = "1";
+    const w = document.createElement("span"), cs = getComputedStyle(inp);
+    w.className = "dmyw"; w.style.cssText = `position:relative;display:${cs.display === "block" ? "block" : "inline-block"};${cs.display === "block" || /100%/.test(inp.style.width) ? "width:100%" : ""}`;
+    const o = document.createElement("span"); o.className = "dmyo";
+    o.style.cssText = `position:absolute;left:${parseFloat(cs.paddingLeft) + parseFloat(cs.borderLeftWidth) || 12}px;top:50%;transform:translateY(-50%);pointer-events:none;font:inherit;font-size:${cs.fontSize};color:${cs.color};white-space:nowrap`;
+    inp.parentNode.insertBefore(w, inp); w.appendChild(inp); w.appendChild(o);
+    inp.style.color = "transparent"; inp.style.caretColor = "transparent";
+    const paint = () => { const v = inp.value; o.textContent = v ? v.split("-").reverse().join("-") : "dd-mm-yyyy"; o.style.opacity = v ? "1" : ".45"; };
+    paint(); inp.addEventListener("input", paint); inp.addEventListener("change", paint);
+    inp.addEventListener("click", () => { try{ inp.showPicker(); }catch(e){} });
+    const d = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value");
+    Object.defineProperty(inp, "value", { configurable:true, get(){ return d.get.call(this); }, set(v){ d.set.call(this, v); paint(); } });
+  }
+  const start = () => { walk(document.body);
+    new MutationObserver(ms => { for(const m of ms){ if(m.type === "characterData") walk(m.target); else m.addedNodes.forEach(walk); } })
+      .observe(document.body, { childList:true, subtree:true, characterData:true }); };
+  if(document.body) start(); else document.addEventListener("DOMContentLoaded", start);
+})();
