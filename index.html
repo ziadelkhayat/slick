@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="866-1794592132">
+<meta name="slick-build" content="867-1794592292">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this copy, reload once (never for an older one) */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -6812,13 +6812,13 @@ function viewCurrency(){
         <div class="f"><label for="co_currencySymbol">Main currency symbol *</label><select id="co_currencySymbol" class="sel" data-noseg ${admin?"":"disabled"}>${symOpts(c.currency||"USD", c.currencySymbol)}</select></div>
         <div class="f"><label for="co_priceDecimals">Main currency decimals *</label><select id="co_priceDecimals" class="sel" ${admin?"":"disabled"}>${[0,1,2].map(n=>`<option value="${n}" ${String(Math.min(2, c.priceDecimals ?? 2))===String(n)?"selected":""}>${n}</option>`).join("")}</select></div>
       </div><p class="note" style="margin:10px 0 0">Menu prices, totals and reports are in the main currency.</p>${qtPanel(1)}</div>
-    <div class="card" style="margin-bottom:16px"><h3 style="margin:0 0 12px;font-size:15px">Secondary Currency</h3>
-      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px">
+    ${(() => { const on = !!c.currency2 || state.cur2on; return `<div class="card" style="margin-bottom:16px"><div style="display:flex;align-items:center;gap:12px;margin:0 0 12px"><h3 style="margin:0;font-size:15px">Secondary Currency</h3><span class="sp" style="flex:1"></span>${admin ? (on ? `<button type="button" class="btn" id="cur2Off">Deactivate</button>` : `<button type="button" class="btn pri" id="cur2On">Activate</button>`) : ""}</div>
+      ${!on ? `<p class="note" style="margin:0">The secondary currency is off: the POS and web ordering show prices and totals in the main currency only. Activate it to add one.</p></div>` : `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px">
         <div class="f"><label for="co_currency2">Secondary currency *</label><select id="co_currency2" class="sel" ${admin?"":"disabled"}><option value="">Choose…</option>${CURRENCIES.map(([k,t])=>`<option value="${k}" ${c.currency2===k?"selected":""}>${t}</option>`).join("")}</select></div>
         <div class="f"><label for="co_currencySymbol2">Secondary currency symbol *</label><select id="co_currencySymbol2" class="sel" data-noseg ${admin && c.currency2 ? "" : "disabled"}>${c.currency2 ? symOpts(c.currency2, c.currencySymbol2) : `<option value="">Choose…</option>`}</select></div>
         <div class="f"><label for="co_rate2">Exchange rate (1 ${esc(c.currency||"USD")} =) *</label><input id="co_rate2" class="sel" type="number" min="0" step="any" value="${esc(c.rate2??"")}" placeholder="e.g. 89500" ${admin?"":"disabled"}></div>
         <div class="f"><label for="co_decimals2">Secondary currency decimals *</label><select id="co_decimals2" class="sel" ${admin?"":"disabled"}>${[0,1,2].map(n=>`<option value="${n}" ${String(c.decimals2 ?? 0)===String(n)?"selected":""}>${n}</option>`).join("")}</select></div>
-      </div><p class="note" style="margin:10px 0 0">Shown next to totals in the POS, on receipts, in the call center and online. The cashier can take cash in either currency, or both, and the change is shown in both.</p>${c.currency2 ? qtPanel(2) : ""}</div>
+      </div><p class="note" style="margin:10px 0 0">Shown next to totals in the POS, on receipts, in the call center and online. The cashier can take cash in either currency, or both, and the change is shown in both.</p>${c.currency2 ? qtPanel(2) : ""}</div>`}`; })()}
     <div class="err" id="curErr"></div>`;
 }
 /* quick tender amounts: the cash shortcut buttons the cashier taps, per currency (up to 6, drag to reorder) */
@@ -6853,7 +6853,9 @@ async function saveCurrency(){
   const v = k => ($("#co_"+k)?.value || "").trim();
   const data = { currency: bizLocked() ? (company().currency || "USD") : (v("currency") || "USD"), priceDecimals: +v("priceDecimals"), currencySymbol: v("currencySymbol").slice(0, 6), currencySymbol2: v("currencySymbol2").slice(0, 6), currency2: v("currency2"), rate2: v("rate2")==="" ? null : +v("rate2"), decimals2: +v("decimals2") || 0 };
   if(!data.currencySymbol){ $("#curErr").textContent = "Choose the main currency symbol."; $("#co_currencySymbol").focus(); return; }
-  if(!data.currency2){ $("#curErr").textContent = "Choose the secondary currency."; $("#co_currency2").focus(); return; }   // every secondary currency field is required
+  const on2 = !!$("#co_currency2");   // the secondary currency is active (its fields are on the page)
+  if(!on2) Object.assign(data, { currency2:"", currencySymbol2:"", rate2:null, decimals2:0 });
+  else if(!data.currency2){ $("#curErr").textContent = "Choose the secondary currency."; $("#co_currency2").focus(); return; }   // every secondary currency field is required
   if(data.currency2 && !data.currencySymbol2){ $("#curErr").textContent = "Choose the secondary currency symbol."; $("#co_currencySymbol2").focus(); return; }
   if(!data.currency2) data.currencySymbol2 = "";
   if(data.currency2 && !(data.rate2 > 0)){ $("#curErr").textContent = "Enter the exchange rate for the second currency."; $("#co_rate2").focus(); return; }
@@ -6861,7 +6863,12 @@ async function saveCurrency(){
   try{ await put("settings", "company", data); QT.draft = {}; toast("Currency saved"); render(); }
   catch(e){ console.error(e); $("#curErr").textContent = "Couldn't save. Only the owner or an admin can change this."; }
 }
-document.addEventListener("click", e => { if(e.target.closest("#curSave")) saveCurrency(); });
+document.addEventListener("click", async e => { if(e.target.closest("#curSave")) return saveCurrency();
+  if(e.target.closest("#cur2On")){ state.cur2on = true; return render(); }
+  if(e.target.closest("#cur2Off")){ if(!company().currency2){ state.cur2on = false; return render(); }
+    if(!(await askYes("Are you sure you want to deactivate the secondary currency? Its settings will be cleared and the POS and web ordering will stop showing it."))) return;
+    try{ await put("settings", "company", { currency2:"", currencySymbol2:"", rate2:null, decimals2:0, quickTender2:"" }); state.cur2on = false; QT.draft[2] = null; toastOk("Secondary currency deactivated"); render(); }
+    catch(err){ console.error(err); toast("Couldn't save. Only the owner or an admin can change this."); } } });
 /* Reasons (Manage → Reasons, Foodics style): a card per kind; tap a reason to edit it; drag to reorder; deleted ones under Deleted */
 const RS_KINDS = [["vr","Void and Return Reason"],["rejectReasons","Order Rejection Reason"],["cancelReasons","Order Cancellation Reason"],["qtyReasons","Quantity Adjustment Reason"],["drawerReasons","Drawer Operation Reason"]];
 const RS_GONE = new Set(["Customer changed mind","Wrong item entered","Item not available","Kitchen mistake","Quality complaint","Wrong order delivered","Late delivery","Damaged","Theft","Staff meal","Sample","Found stock"]);   // removed for good, even from saved lists
