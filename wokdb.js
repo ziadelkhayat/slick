@@ -387,6 +387,9 @@
     const d = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value");
     Object.defineProperty(inp, "value", { configurable:true, get(){ return d.get.call(this); }, set(v){ d.set.call(this, v); paint(); } });
   }
+  // the browser's own date text (and its blue selection) stays hidden under the dd-mm-yyyy label
+  const st = document.createElement("style"); st.textContent = 'input[data-dmy]::-webkit-datetime-edit{opacity:0}input[data-dmy]{color:transparent}input[data-dmy]::selection{background:transparent}';
+  (document.head || document.documentElement).appendChild(st);
   const start = () => { walk(document.body);
     new MutationObserver(ms => { for(const m of ms){ if(m.type === "characterData") walk(m.target); else m.addedNodes.forEach(walk); } })
       .observe(document.body, { childList:true, subtree:true, characterData:true }); };

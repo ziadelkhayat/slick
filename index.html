@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="842-1794573382">
+<meta name="slick-build" content="843-1794573611">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this copy, reload once (never for an older one) */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1431,11 +1431,12 @@ html body .btn:not(.pri):not(.bad) .ico{color:#3a3846}
 html body table td{padding-top:9px;padding-bottom:9px}   /* tighter rows across the back office */
 .ptabs a.ptback{color:#6b6a75;margin-right:6px;border-right:1px solid #ebeaf0;border-radius:0;padding-right:16px}.ptabs a.ptback:hover{color:#1d1b26}
 #view.isdet > :not(.ptabs):not(script):not(style){max-width:1080px;margin-left:auto!important;margin-right:auto!important}
+html body .pager .btn{height:34px!important;min-height:34px;padding:0 14px!important;font-size:14px}
 </style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="wokdb.js?v=45"></script>
+<script src="wokdb.js?v=46"></script>
 <script src="modpick.js?v=31"></script>
 </head>
 <body>
@@ -1741,6 +1742,7 @@ function decorate(route){
   // buttons
   v.querySelectorAll(".btn").forEach(b => { if(b.dataset.deco || b.querySelector("svg")) return; b.dataset.deco = 1;
     const t = b.textContent.replace(/[↻←]/g,"").trim(); if(b.matches("[data-docback],[data-detback]")){ b.innerHTML = svgIco("back") + "Back"; return; }
+    if(/^Save( Draft| Changes)?$/i.test(t)){ b.classList.add("pri"); return; }   // every Save looks the same: the purple button, no icon
     const m = BTN_ICONS.find(([re]) => re.test(t)); if(m){ if(/^↻/.test(b.textContent)) b.textContent = t; b.insertAdjacentHTML("afterbegin", svgIco(m[1])); } });
   // KPI cards
   v.querySelectorAll(".kpi .kh h3").forEach(h3 => { if(h3.dataset.deco) return; h3.dataset.deco = 1; const m = KPI_ICONS.find(([re]) => re.test(h3.textContent));
@@ -5767,7 +5769,7 @@ function viewOrders(){
       <td>${o.createdAt ? (d => `<div style="white-space:nowrap">${d[2]}-${d[1]}-${d[0]}</div>`)(bizDate(o.createdAt, o.branchId).split("-")) : "—"}</td><td>${o.createdAt ? `<div style="white-space:nowrap">${new Date(o.createdAt).toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric",year:"numeric"})}</div><div class="note">${new Date(o.createdAt).toLocaleTimeString("en-GB",{hour:"numeric",minute:"2-digit"})}</div>` : "—"}</td><td>${esc(o.payment?.method || "-")}</td><td class="num">${money(+o.total||0)}</td></tr>`).join("")
     : `<tr><td colspan="14" class="note" style="padding:24px;text-align:center">${ORD.loading ? "Loading orders…" : "No orders match these filters."}</td></tr>`
   }</tbody></table>`}
-  <div class="pager"><span class="note">${a}–${b} of ${ORD.count.toLocaleString()}</span><span class="sp"></span><button class="btn" id="ordPrev" ${ORD.page<=1?"disabled":""}>‹ Previous</button><span class="note">Page ${ORD.page} of ${pages}</span><button class="btn" id="ordNext" ${ORD.page>=pages?"disabled":""}>Next ›</button></div></div>`;
+  <div class="pager"><span class="note">${a}–${b} of ${ORD.count.toLocaleString()}</span><span class="sp"></span><button class="btn" id="ordPrev" ${ORD.page<=1?"disabled":""}>Previous</button><span class="note">Page ${ORD.page} of ${pages}</span><button class="btn" id="ordNext" ${ORD.page>=pages?"disabled":""}>Next</button></div></div>`;
 }
 async function openOrderDetail(id, quiet){
   const { data, error } = await WOK.sb.from("orders").select("*").eq("id", id).maybeSingle();
@@ -6064,7 +6066,7 @@ function viewCustomers(){
       <td class="num">${c.n}</td><td>${ago2(c.last_at)}</td></tr>`).join("")
     : `<tr><td colspan="6" class="note" style="padding:24px;text-align:center">${CUS.loading ? "Loading customers…" : CUS.q || CUS.filter!=="all" || adv ? "No customers match." : "No customers yet"}</td></tr>`
   }</tbody></table>`}
-  <div class="pager"><span class="note">${a}–${b} of ${CUS.count.toLocaleString()}</span><span class="sp"></span><button class="btn" id="cusPrev" ${CUS.page<=1?"disabled":""}>‹ Previous</button><span class="note">Page ${CUS.page} of ${pages}</span><button class="btn" id="cusNext" ${CUS.page>=pages?"disabled":""}>Next ›</button></div></div>`;
+  <div class="pager"><span class="note">${a}–${b} of ${CUS.count.toLocaleString()}</span><span class="sp"></span><button class="btn" id="cusPrev" ${CUS.page<=1?"disabled":""}>Previous</button><span class="note">Page ${CUS.page} of ${pages}</span><button class="btn" id="cusNext" ${CUS.page>=pages?"disabled":""}>Next</button></div></div>`;
 }
 // ---- customer page ----
 async function openCustomer(id){
