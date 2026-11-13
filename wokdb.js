@@ -25,7 +25,7 @@
     order_sources: "id name name_ar reference sort active deleted created_at",
     inventory_categories: "id name name_ar reference deleted created_at",
     warehouses: "id name reference address deleted created_at",
-    inventory_docs: "id kind ref name location_id reason direction status business_date items notes created_by submitted_by submitted_at deleted created_at consumed supplier_id dest_id linked_id received_at received_by",
+    inventory_docs: "id kind ref name location_id reason direction status business_date items notes created_by submitted_by submitted_at deleted created_at consumed supplier_id dest_id linked_id received_at received_by delivery_at additional_cost",
     suppliers: "id name code contact_name phone email address notes deleted created_at",
     modifiers: "id name name_ar reference sort deleted created_at",
     taxes: "id name name_ar rate inclusive order_types deleted created_at",
@@ -374,11 +374,11 @@
   }
   // a date field shows its value as dd-mm-yyyy (the browser would use the device language)
   function dateField(inp){
-    if(inp.type !== "date" || inp.dataset.dmy) return; inp.dataset.dmy = "1";
-    const w = document.createElement("span"), cs = getComputedStyle(inp);
+    if(inp.type !== "date" || inp.dataset.dmy) return;
+    const w = document.createElement("span"), cs = getComputedStyle(inp), color = cs.color; inp.dataset.dmy = "1";
     w.className = "dmyw"; w.style.cssText = `position:relative;display:${cs.display === "block" ? "block" : "inline-block"};${cs.display === "block" || /100%/.test(inp.style.width) ? "width:100%" : ""}`;
     const o = document.createElement("span"); o.className = "dmyo";
-    o.style.cssText = `position:absolute;left:${parseFloat(cs.paddingLeft) + parseFloat(cs.borderLeftWidth) || 12}px;top:50%;transform:translateY(-50%);pointer-events:none;font:inherit;font-size:${cs.fontSize};color:${cs.color};white-space:nowrap`;
+    o.style.cssText = `position:absolute;left:${parseFloat(cs.paddingLeft) + parseFloat(cs.borderLeftWidth) || 12}px;top:50%;transform:translateY(-50%);pointer-events:none;font:inherit;font-size:${cs.fontSize};color:${color};white-space:nowrap`;
     inp.parentNode.insertBefore(w, inp); w.appendChild(inp); w.appendChild(o);
     inp.style.color = "transparent"; inp.style.caretColor = "transparent";
     const paint = () => { const v = inp.value; o.textContent = v ? v.split("-").reverse().join("-") : "dd-mm-yyyy"; o.style.opacity = v ? "1" : ".45"; };

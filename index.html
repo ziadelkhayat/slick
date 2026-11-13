@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="844-1794573899">
+<meta name="slick-build" content="845-1794574084">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this copy, reload once (never for an older one) */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1436,7 +1436,7 @@ html body .pager .btn{height:34px!important;min-height:34px;padding:0 14px!impor
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="wokdb.js?v=46"></script>
+<script src="wokdb.js?v=47"></script>
 <script src="modpick.js?v=31"></script>
 </head>
 <body>
@@ -3031,6 +3031,12 @@ async function put0(col, id, data){
   }
 }
 const live = r => !r.deleted;
+// purchase order delivery: a date and a 15-minute time slot, kept as one moment
+const delParts = iso => { if(!iso) return ["", ""]; const t = new Date(iso), z = n => String(n).padStart(2, "0"); return [`${t.getFullYear()}-${z(t.getMonth()+1)}-${z(t.getDate())}`, `${z(t.getHours())}:${z(t.getMinutes())}`]; };
+const delJoin = (d, t) => d ? new Date(`${d}T${t || "00:00"}:00`).toISOString() : null;
+const delLbl = iso => { const [d, t] = delParts(iso); return d ? `${d}${t ? " " + tLbl(t) : ""}` : "—"; };
+const delFields = (pre, iso, notes) => { const [d, t] = delParts(iso); return `<div class="f"><label for="${pre}DelDate">Delivery Date</label><input id="${pre}DelDate" type="date" class="sel" value="${esc(d || (pre==="dn" ? daysAgo(0) : ""))}"></div>
+  <div class="f"><label for="${pre}DelTime">Delivery Time</label><select id="${pre}DelTime" class="sel">${timeOpts(t, { empty:"Choose…" })}</select></div>`; };
 const isInvProduct = p => (p?.ingredients||[]).some(l => S.inv_items?.find(i => i.id===l.itemId)?.menuItem);
 const catName = id => S.categories.find(c => c.id===id)?.name || "—";
 /* ---------- taxes ---------- */
@@ -7890,7 +7896,9 @@ function flowInfo(d, K, info){
     info(K.kind==="purchase" ? "Destination" : K.kind==="torder" ? "Requesting branch" : "From", esc(locName(d.locationId))),
     K.kind!=="purchase" ? info(K.kind==="torder" ? "Requested from" : "To", esc(locName(d.destId))) : "",
     info("Business Date", esc(d.businessDate||"—")), who("Creator", d.createdBy), info("Created At", fmtDate(d.createdAt)),
-    K.kind==="purchase" ? info(K.po ? "Purchase Order Total Cost" : "Total Cost", usd((d.items||[]).reduce((a, l) => a + (+l.qty||0) * (+(l.cost ?? itemOf(l.itemId)?.cost) || 0), 0))) : "", who(K.kind==="transfer"?"Sent by":"Submitted by", d.submittedBy),
+    K.po ? info("Delivery Date", esc(delLbl(d.deliveryAt))) : "",
+    K.kind==="purchase" && +d.additionalCost ? info("Additional Cost", usd(+d.additionalCost)) : "",
+    K.kind==="purchase" ? info(K.po ? "Purchase Order Total Cost" : "Total Cost", usd((d.items||[]).reduce((a, l) => a + (+l.qty||0) * (+(l.cost ?? itemOf(l.itemId)?.cost) || 0), 0) + (+d.additionalCost || 0))) : "", who(K.kind==="transfer"?"Sent by":"Submitted by", d.submittedBy),
     info(K.kind==="transfer"?"Sent At":"Submitted At", fmtDate(d.submittedAt)), who(K.kind==="torder"?"Fulfilled by":"Received by", d.receivedBy),
     info(K.kind==="torder"?"Fulfilled At":"Received At", fmtDate(d.receivedAt)), info("Number of Items", (d.items||[]).length),
     d.linkedId && K.kind==="purchase" ? info(K.po ? "Purchasing" : "Purchase order", `<a href="#${K.po?"purchase-orders":"po"}" class="lnk" data-doclink="${K.po?"purchase-orders":"po"}:${esc(d.linkedId)}">${esc(S.inv_docs.find(x=>x.id===d.linkedId)?.ref || "Open")}</a>`) : d.linkedId ? info(K.kind==="torder" ? "Transfer" : "Transfer order", `<a href="#${K.kind==="torder"?"transfers":"transfer-orders"}" class="lnk" data-doclink="${K.kind==="torder"?"transfers":"transfer-orders"}:${esc(d.linkedId)}">${esc(S.inv_docs.find(x=>x.id===d.linkedId)?.ref || "Open")}</a>`) : "",
@@ -8287,7 +8295,8 @@ function docNewDialog(route){
   const sups = S.suppliers.filter(live).sort((a,b) => a.name.localeCompare(b.name)).map(x => [x.id, x.name]), locs = locList(), defLoc = "";   // every field starts on Choose…
   const sel = (id, lbl, list, cur, empty) => `<div class="f"><label for="${id}">${lbl} *</label><select id="${id}" class="sel" data-empty="${esc(empty)}">${opts(list, cur)}</select></div>`;
   const f = [];
-  if(K.kind==="purchase") f.push(sel("dnSup", "Supplier", sups, "", "No suppliers"), sel("dnLoc", "Destination", locs, defLoc, "No branches or warehouses"));
+  if(K.kind==="purchase") f.push(sel("dnSup", "Supplier", sups, "", "No suppliers"), sel("dnLoc", K.po ? "Destination" : "Branch", locs, defLoc, "No branches or warehouses"));
+  if(K.po) f.push(delFields("dn", null), `<div class="f"><label for="dnNotes">Notes</label><textarea id="dnNotes" class="sel" rows="3"></textarea></div>`);
   else if(K.kind==="transfer") f.push(sel("dnLoc", "Source", locs, defLoc, "No branches or warehouses"), sel("dnDest", "Destination", locs, "", "No branches or warehouses"));
   else if(K.kind==="torder") f.push(sel("dnLoc", "Branch", locs, defLoc, "No branches"), sel("dnDest", "Warehouse", locs, "", "No warehouses"));
   else if(K.kind==="sheet") f.push(`<div class="f"><label for="dnName">Name *</label><input id="dnName" class="sel"></div>`);
@@ -8303,12 +8312,13 @@ document.addEventListener("click", async e => {
   const need = ["dnSup","dnLoc","dnDest","dnName","dnReason"].filter(id => $("#" + id)); if(need.some(id => !v(id))) return err("Fill in every field marked *.");
   if(v("dnDest") && v("dnDest")===v("dnLoc")) return err("Source and destination must be different.");
   $("#ccScrim").classList.remove("show"); newDoc(route); const d = DOC.edit;
+  if($("#dnDelDate")) d.deliveryAt = delJoin(v("dnDelDate"), v("dnDelTime")); if(v("dnNotes")) d.notes = v("dnNotes");
   if(v("dnSup")!=null) d.supplierId = v("dnSup"); if(v("dnLoc")!=null) d.locationId = v("dnLoc"); if(v("dnDest")!=null) d.destId = v("dnDest"); if(v("dnName")!=null) d.name = v("dnName"); if(v("dnReason")!=null) d.reason = v("dnReason");
   render();   // kept on screen only: it's saved with Save Draft; Back cancels it
 });
 function newDoc(route){
   const K = DOC_KINDS[route];
-  DOC.edit = { id:null, kind:K.kind, status:"draft", items:[], businessDate:daysAgo(0), direction:"deduct", reason:K.kind==="quantity"?"Waste":K.po?"po":K.count?"count":"", locationId: K.loc ? (state.branch!=="all" ? state.branch : (locList()[0]||[])[0] || "") : "", name:"", notes:"", createdBy: state.fullName || state.userName || "" };
+  DOC.edit = { id:null, kind:K.kind, status:"draft", items:[], businessDate:daysAgo(0), direction:"deduct", reason:K.kind==="quantity"?"Waste":K.po?"po":K.count?"count":"", locationId: K.loc ? (state.branch!=="all" ? state.branch : (locList()[0]||[])[0] || "") : "", name:"", notes:"", createdBy: state.fullName || state.userName || "", createdAt: new Date().toISOString() };
   if(K.kind==="torder") DOC.edit.destId = S.warehouses.filter(live)[0]?.id || "";
   DOC.open = { route, id:null }; DOC.err = ""; DOC.recv = null; if(K.loc || K.kind==="cost") loadStock(); render(); window.scrollTo(0,0);
 }
@@ -8331,12 +8341,12 @@ function viewDoc(route){
   const info = (l, v) => `<div><div class="note">${l}</div><div>${v}</div></div>`;
   let h = `<div class="phead"><a href="#${route}" class="btn" data-docback style="text-decoration:none">← Back</a><h1 style="margin-left:10px">${K.title}${d.ref?` (${esc(d.ref)})`:""}</h1>
     ${K.kind!=="sheet" ? `<span style="margin-left:8px">${docStatusTag(d)}</span>` : ""}<div class="sp"></div>
-    ${d.items.length ? `${d.id ? `<button class="btn" data-docprint>Print</button>` : ""}
+    ${d.items.length || d.id ? `${d.id ? `<button class="btn" data-docprint>Print</button>` : ""}
     ${d.id && !ro ? `<button class="btn danger" data-docdel>Delete Permanently</button>` : ""}
     ${!ro && K.kind!=="cost" ? `<button class="btn" data-docedit>Edit</button>` : ""}
     ${!ro ? `<button class="btn${K.kind==="sheet"?" pri":""}" data-docsave ${DOC.busy?"disabled":""}>${K.kind==="sheet"?"Save":"Save Draft"}</button>` : ""}
     ${!ro && K.kind!=="sheet" && !K.flow ? `<button class="btn pri" data-docsubmit ${DOC.busy||!d.items.length?"disabled":""}>${DOC.busy?"Working…":K.count||K.kind==="spot"?"Submit Count":K.kind==="production"?"Produce":"Submit"}</button>` : ""}
-    ${K.flow ? flowButtons(d, K) : ""}` : ""}</div>`;   // no items yet: nothing to print, save, edit, delete or submit (Foodics)
+    ${K.flow ? flowButtons(d, K) : ""}` : ""}</div>`;   // a new draft with no items yet: nothing to print, save, edit, delete or submit (Foodics); a saved draft keeps its buttons
   if(DOC.err) h += `<div class="banner" style="background:#fdecef;color:#9e0c24">${esc(DOC.err)}</div>`;
   // header fields: shown as a summary (Foodics); a draft changes them with Edit
   DOC.form = ro ? "" : docForm(d, K, loc);
@@ -8353,7 +8363,9 @@ function viewDoc(route){
       ${K.kind==="quantity" ? `<div class="f"><label for="dReason">Reason</label><input id="dReason" class="sel" list="dReasonL" value="${esc(d.reason||"")}"><datalist id="dReasonL">${QA_REASONS_L().map(r=>`<option value="${esc(r)}">`).join("")}</datalist></div>
         <div class="f"><label for="dDir">Type</label><select id="dDir" class="sel"><option value="deduct" ${d.direction!=="add"?"selected":""}>Deduct from stock</option><option value="add" ${d.direction==="add"?"selected":""}>Add to stock</option></select></div>` : ""}
       ${K.kind!=="sheet" ? `<div class="f"><label for="dDate">Business date</label><input id="dDate" type="date" class="sel" value="${esc(d.businessDate||"")}"></div>` : ""}
-      <div class="f" style="grid-column:1/-1"><label for="dNotes">Notes</label><input id="dNotes" class="sel" value="${esc(d.notes||"")}"></div></div>`;
+      ${K.kind==="purchase" ? `<div class="f"><label for="dAddCost">Additional Cost (USD)</label><input id="dAddCost" type="number" min="0" step="any" class="sel" value="${+d.additionalCost ? esc(d.additionalCost) : ""}"></div>` : ""}
+      ${K.po ? delFields("d", d.deliveryAt) : ""}
+      <div class="f" style="grid-column:1/-1"><label for="dNotes">Notes</label><textarea id="dNotes" class="sel" rows="3">${esc(d.notes||"")}</textarea></div></div>`;
   }
   // add items bar
   let docBtns = "";
@@ -8425,6 +8437,8 @@ function readDocHeader(){
   const d = DOC.edit; if(!d || d.status==="closed") return;
   const v = id => $(id)?.value;
   if($("#dName")) d.name = v("#dName").trim();
+  if($("#dDelDate")) d.deliveryAt = delJoin(v("#dDelDate"), v("#dDelTime"));
+  if($("#dAddCost")) d.additionalCost = +v("#dAddCost") || 0;
   if($("#dLoc")) d.locationId = v("#dLoc");
   if($("#dSup")) d.supplierId = v("#dSup");
   if($("#dDest")) d.destId = v("#dDest");
@@ -8478,7 +8492,7 @@ async function saveDoc(silent, quiet){
     if(K.flow){ o.qty = l.qty===""||l.qty==null ? null : +l.qty; if(K.kind==="purchase") o.cost = l.cost===""||l.cost==null ? (+it.cost||0) : +l.cost; }
     return o;
   });
-  const data = { kind:d.kind, name:d.name||null, locationId:d.locationId||null, reason:d.reason||null, direction:d.direction||"deduct", businessDate:d.businessDate||null, items, notes:d.notes||null };
+  const data = { kind:d.kind, name:d.name||null, ...(K.kind==="purchase" ? { additionalCost: +d.additionalCost || 0 } : {}), ...(K.po ? { deliveryAt: d.deliveryAt || null } : {}), locationId:d.locationId||null, reason:d.reason||null, direction:d.direction||"deduct", businessDate:d.businessDate||null, items, notes:d.notes||null };
   if(K.flow){ data.supplierId = d.supplierId||null; data.destId = d.destId||null; }
   const id = d.id || uid("idoc");
   if(!d.id){ data.status = "draft"; data.createdBy = state.fullName || state.userName || null;
