@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="846-1794574193">
+<meta name="slick-build" content="847-1794574254">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this copy, reload once (never for an older one) */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -8371,7 +8371,7 @@ function viewDoc(route){
   // add items bar
   let docBtns = "";
   if(!ro){
-    DOC.addAvail = avail.map(i => i.id); DOC.addSheets = sheets.map(x => x.id); DOC.addProd = K.kind==="production";
+    DOC.addAvail = avail.map(i => i.id); DOC.addSheets = K.kind==="spot" ? sheets.map(x => x.id) : [];   // count sheets load into inventory counts and spot checks only DOC.addProd = K.kind==="production";
     docBtns = `${d.items.length?`<button class="btn" data-docclear>Remove all</button>`:""}${d.items.length ? `<button class="btn" data-docqtys>${K.kind==="purchase" ? "Edit Quantities & Cost" : K.kind==="cost" ? "Edit Costs" : "Edit Quantities"}</button>` : ""}<button class="btn" data-docimp>Import Items</button><button class="btn" data-docadd>Add Items</button>`;   // shown in the Items card header
   }
   // items table
@@ -8405,7 +8405,7 @@ function viewDoc(route){
   h += `<div class="card tbl"><div class="ttop"><b>Items</b><span class="note" style="margin-left:8px">${d.items.length}</span>${docBtns ? `<span class="sp"></span><span class="row" style="gap:8px">${docBtns}</span>` : ""}</div>`;
   h += d.items.length ? `<table><thead><tr>${head.map(c=>`<th class="${numCols.has(c)?"num":""}">${c}</th>`).join("")}${ro?"":"<th></th>"}</tr></thead><tbody>${rows.join("")}</tbody>
     ${K.kind==="quantity" ? (()=>{ const t = d.items.reduce((s,l)=>{ const it = itemOf(l.itemId)||{}; return s + (+l.qty||0) * (ro && l.cost!=null ? +l.cost : +it.cost||0); }, 0); return `<tfoot><tr><td colspan="${head.length-1}"><b>Total</b></td><td class="num"><b id="docTotal">${usd(t)}</b></td>${ro?"":"<td></td>"}</tr></tfoot>`; })() : ""}</table>`
-    : `<div class="empty">No items yet. Add items above${K.kind==="sheet"?"":" or load a count sheet"}.</div>`;
+    : `<div class="empty">No items yet. Add items above${K.kind==="spot"?" or load a count sheet":""}.</div>`;
   h += `</div>`;
   if(K.kind==="production" && d.items.length) h += prodUsage(d, ro, loc);
   return h;
