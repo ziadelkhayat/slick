@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="863-1794591114">
+<meta name="slick-build" content="864-1794591585">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this copy, reload once (never for an older one) */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1438,6 +1438,7 @@ html body .pager .btn{height:34px!important;min-height:34px;padding:0 14px!impor
 html body .top:has(.acctmenu:not([hidden])){z-index:19!important}
 html body .ttop:has(.fltbtn){flex-wrap:nowrap!important}html body .ttop:has(.fltbtn)>.ttabs{flex-wrap:nowrap!important;overflow-x:auto;min-width:0;scrollbar-width:none;white-space:nowrap}html body .ttop:has(.fltbtn)>.ttabs::-webkit-scrollbar{display:none}html body .ttop .fltbtn{flex:none}
 html body #view .card.otbl.obody{overflow-x:auto!important}html body #view .card.otbl.obody th{position:static!important;top:auto!important}html body #view .card.otbl.obody th,html body #view .card.otbl.obody td{white-space:nowrap!important}html body #view .card.otbl.obody td>.note{display:inline}
+html body .dalbl{display:flex!important;justify-content:space-between;align-items:center;gap:10px}html body .dalbl .lnk{color:#2563eb;margin-left:4px;font-size:14px;text-transform:none!important}
 html body .fltbtn .fltx{display:inline-flex;margin-left:8px;color:#aeaeb2;cursor:pointer;border-radius:50%}html body .fltbtn .fltx:hover{color:#636366}html body .fltbtn .fltx svg{width:16px;height:16px}
 /* ===== Foodics typography: IBM Plex Sans, Foodics sizes and weights ===== */
 html body,html body button,html body input,html body select,html body textarea,html body h1,html body h2,html body h3,html body h4,html body .modal header h2,html body .brand b,html body .btn,html body th,html body td{font-family:"IBM Plex Sans","IBM Plex Sans Arabic",system-ui,sans-serif!important;letter-spacing:0!important;font-feature-settings:normal}
@@ -8034,15 +8035,15 @@ function viewFlowList(route, K, tabs, all, list){
   const shown = list.filter(d => tab==="all" || d.status===tab);
   const cols = [["Reference",d=>d.status==="draft" || !d.ref ? "—" : `<span class="code">${esc(d.ref)}</span>`],
     ...(K.kind==="purchase" ? [["Supplier",d=>esc(supName(d.supplierId))],["Destination",d=>esc(locName(d.locationId))]]
-      : K.kind==="torder" ? [["From",d=>esc(locName(d.destId))],["To",d=>esc(locName(d.locationId))]]
-      : [["From",d=>esc(locName(d.locationId))],["To",d=>esc(locName(d.destId))]]),
+      : K.kind==="torder" ? [["Source",d=>esc(locName(d.destId))],["Destination",d=>esc(locName(d.locationId))]]
+      : [["Source",d=>esc(locName(d.locationId))],["Destination",d=>esc(locName(d.destId))]]),
     ["Status",d=>docStatusTag(d)],
     ...(K.kind==="purchase" ? [["Total",d=>usd((d.items||[]).reduce((s,l)=>s+(+l.qty||0)*(+l.cost||0),0)),"num"]] : []),
     ["Business Date",d=>d.status==="draft" ? "—" : esc(d.businessDate||"—")],["Created",d=>fmtDate(d.createdAt)]];
   const counts = {}; all.forEach(d => counts[d.status] = (counts[d.status]||0) + 1);
   let h = `<div class="phead"><h1>${K.plural}</h1><div class="sp"></div>${docExpMenu(route, K)}<button class="btn pri" data-docnew="${route}">New ${K.title}</button></div>
     <p class="subt" style="margin-top:-6px">${esc(K.intro)}</p>
-    <div class="card tbl"><div class="ttop"><div class="ttabs">${tabs.map(t=>`<a href="#${route}" data-doctab="${route}:${t[0]}" class="${tab===t[0]?"on":""}">${t[1]}${t[0]!=="all"&&counts[t[0]]?` (${counts[t[0]]})`:""}</a>`).join("")}</div><div class="sp"></div>
+    <div class="card tbl"><div class="ttop"><div class="ttabs">${tabs.map(t=>`<a href="#${route}" data-doctab="${route}:${t[0]}" class="${tab===t[0]?"on":""}">${t[1]}</a>`).join("")}</div><div class="sp"></div>
     ${docFltBtn(route, K)}</div>`;
   h += shown.length ? `<table><thead><tr>${cols.map(c=>`<th class="${c[2]||""}">${c[0]}</th>`).join("")}</tr></thead><tbody>${shown.map(d=>`<tr class="click" data-docopen="${route}:${esc(d.id)}">${cols.map(c=>`<td class="${c[2]||""}">${c[1](d)}</td>`).join("")}</tr>`).join("")}</tbody></table>`
     : `<div class="empty">${all.length ? "Nothing here." : `No ${K.plural.toLowerCase()} yet.`}</div>`;
@@ -8052,8 +8053,8 @@ function flowInfo(d, K, info){
   const who = (l, v) => info(l, esc(v||"—"));
   return [
     K.kind==="purchase" ? info("Supplier", esc(supName(d.supplierId))) : "",
-    K.kind==="torder" ? info("From", esc(locName(d.destId))) + info("To", esc(locName(d.locationId)))
-      : info(K.kind==="purchase" ? "Destination" : "From", esc(locName(d.locationId))) + (K.kind!=="purchase" ? info("To", esc(locName(d.destId))) : ""),
+    K.kind==="torder" ? info("Source", esc(locName(d.destId))) + info("Destination", esc(locName(d.locationId)))
+      : info(K.kind==="purchase" ? "Destination" : "Source", esc(locName(d.locationId))) + (K.kind!=="purchase" ? info("Destination", esc(locName(d.destId))) : ""),
     info("Business Date", d.status==="draft" ? "—" : esc(d.businessDate||"—")), who("Creator", d.createdBy), info("Created At", fmtDate(d.createdAt)),
     K.po ? info("Delivery Date", esc(delLbl(d.deliveryAt))) : "",
     K.kind==="transfer" ? info("Type", d.reason==="return" ? "Transfer Return" : "Transfer") + info("Receiving Due Date", d.deliveryAt ? esc(String(d.deliveryAt).slice(0,10).split("-").reverse().join("-")) : "—") : "",
@@ -8475,7 +8476,7 @@ function docNewDialog(route){
   else if(K.kind==="transfer") f.push(`<div class="f"><label for="dnTType">Type *</label><select id="dnTType" class="sel"><option value="">Transfer</option><option value="return">Transfer Return</option></select></div>`,
     sel("dnLoc", "Source", locs, defLoc, "No branches or warehouses"), sel("dnDest", "Destination", locs, "", "No branches or warehouses"),
     `<div class="f"><label for="dnDue">Receiving Due Date</label><input id="dnDue" class="sel" type="date"></div>`);
-  else if(K.kind==="torder") f.push(sel("dnDest", "From", locs, "", "No warehouses"), sel("dnLoc", "To", locs, defLoc, "No branches"));   // from: the warehouse that sends; to: the branch that receives
+  else if(K.kind==="torder") f.push(sel("dnDest", "Source", locs, "", "No warehouses"), sel("dnLoc", "Destination", locs, defLoc, "No branches"));   // from: the warehouse that sends; to: the branch that receives
   else if(K.kind==="sheet") f.push(`<div class="f"><label for="dnName">Name *</label><input id="dnName" class="sel"></div>`);
   else if(K.loc) f.push(sel("dnLoc", "Branch", locs, defLoc, "No branches or warehouses"));
   if(K.kind==="quantity") f.push(`<div class="f"><label for="dnReason">Reason *</label><select id="dnReason" class="sel">${opts(QA_REASONS_L().map(r => [r, r]), "")}</select></div>`);
@@ -8547,8 +8548,8 @@ function viewDoc(route){
   function docForm(d, K, loc){ return `<div class="grid2" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px">
       ${K.kind==="sheet" ? `<div class="f"><label for="dName">Name *</label><input id="dName" class="sel" value="${esc(d.name||"")}" placeholder="e.g. Branch Count Sheet"></div>` : ""}
       ${K.kind==="purchase" ? `<div class="f"><label for="dSup">Supplier *</label><select id="dSup" class="sel"><option value="">Choose…</option>${S.suppliers.filter(live).sort((a,b)=>a.name.localeCompare(b.name)).map(x=>`<option value="${esc(x.id)}" ${x.id===d.supplierId?"selected":""}>${esc(x.name)}</option>`).join("")}</select>${S.suppliers.filter(live).length?"":'<div class="note">Add suppliers under Inventory → Suppliers.</div>'}</div>` : ""}
-      ${K.loc ? `<div class="f"><label for="dLoc">${K.kind==="purchase"?"Deliver to":K.kind==="torder"?"To":K.kind==="transfer"?"From":"Branch / warehouse"} *</label><select id="dLoc" class="sel"><option value="">Choose…</option>${locList().map(([k,t])=>`<option value="${esc(k)}" ${k===loc?"selected":""}>${esc(t)}</option>`).join("")}</select></div>` : ""}
-      ${K.kind==="transfer"||K.kind==="torder" ? `<div class="f"><label for="dDest">${K.kind==="torder"?"From":"To"} *</label><select id="dDest" class="sel"><option value="">Choose…</option>${locList().filter(([k])=>k!==loc).map(([k,t])=>`<option value="${esc(k)}" ${k===d.destId?"selected":""}>${esc(t)}</option>`).join("")}</select></div>` : ""}
+      ${K.loc ? `<div class="f"><label for="dLoc">${K.kind==="purchase"?"Deliver to":K.kind==="torder"?"Destination":K.kind==="transfer"?"Source":"Branch / warehouse"} *</label><select id="dLoc" class="sel"><option value="">Choose…</option>${locList().map(([k,t])=>`<option value="${esc(k)}" ${k===loc?"selected":""}>${esc(t)}</option>`).join("")}</select></div>` : ""}
+      ${K.kind==="transfer"||K.kind==="torder" ? `<div class="f"><label for="dDest">${K.kind==="torder"?"Source":"Destination"} *</label><select id="dDest" class="sel"><option value="">Choose…</option>${locList().filter(([k])=>k!==loc).map(([k,t])=>`<option value="${esc(k)}" ${k===d.destId?"selected":""}>${esc(t)}</option>`).join("")}</select></div>` : ""}
       ${K.kind==="quantity" ? `<div class="f"><label for="dReason">Reason</label><input id="dReason" class="sel" list="dReasonL" value="${esc(d.reason||"")}"><datalist id="dReasonL">${QA_REASONS_L().map(r=>`<option value="${esc(r)}">`).join("")}</datalist></div>
         <div class="f"><label for="dDir">Type</label><select id="dDir" class="sel"><option value="deduct" ${d.direction!=="add"?"selected":""}>Deduct from stock</option><option value="add" ${d.direction==="add"?"selected":""}>Add to stock</option></select></div>` : ""}
       ${K.kind!=="sheet" ? `<div class="f"><label for="dDate">Business date</label><input id="dDate" type="date" class="sel" value="${esc(d.businessDate||"")}"></div>` : ""}
@@ -8559,7 +8560,7 @@ function viewDoc(route){
   // add items bar
   let docBtns = "";
   if(!ro){
-    DOC.addAvail = avail.map(i => i.id); DOC.addSheets = [];   // no count sheet picker in Add Products DOC.addProd = K.kind==="production";
+    DOC.addAvail = avail.map(i => i.id); DOC.addSheets = K.kind==="spot" ? S.inv_docs.filter(x => x.kind==="sheet" && live(x)).map(x => x.id) : null;   // Foodics: counts and spot checks offer "Or count sheet ?"; other transactions "Select by tags ?" DOC.addProd = K.kind==="production";
     if(K.kind==="sheet") docBtns = `${d.items.length > 1 ? `<button class="btn" data-docsort>Sort Items</button>` : ""}<button class="btn" data-docadd>Add Items</button><button class="btn" data-docimp>Import Items</button>${d.items.length ? `<button class="btn" data-docprint>Print</button>` : ""}`;
     else docBtns = `${d.items.length ? `<button class="btn" data-docqtys>${K.kind==="purchase" ? "Edit Quantities & Cost" : K.kind==="cost" ? "Edit Costs" : "Edit Quantities"}</button>` : ""}<button class="btn" data-docadd>Add Items</button>`;   // shown in the Items card header
   }
@@ -8928,17 +8929,21 @@ document.addEventListener("click", e => {
   if(!DOC.open || !DOC.edit) return;
   if(e.target.closest("[data-docimp]")){ e.preventDefault(); return docImport(); }
   if(e.target.closest("[data-docadd]")){ e.preventDefault(); const items = (DOC.addAvail||[]).map(itemOf).filter(Boolean), tg = tagList("inventory"), shs = (DOC.addSheets||[]).map(id => S.inv_docs.find(x => x.id===id)).filter(Boolean), box = $("#ccBox"); box.className = "modal sm";
+    const lnk = (m, t) => `<a href="#" class="lnk" data-damode="${m}">${t}</a>`, sheetOn = Array.isArray(DOC.addSheets);
+    const links = cur => `<span>${cur!=="items" ? lnk("items","Select items ?") : ""}${cur!=="tags" ? lnk("tags","Select by tags ?") : ""}${sheetOn && cur!=="sheet" ? lnk("sheet", cur==="items" ? "Or count sheet ?" : "Count sheet ?") : ""}</span>`;
+    const none = t => `<div class="note" style="padding:10px 0">${t}</div>`;
     box.innerHTML = `<header><h2>Add Items</h2><button type="button" class="x" data-ccclose aria-label="Close">×</button></header><div class="body" style="display:block">
-      <div class="f" id="daByItems"><label style="display:flex;justify-content:space-between"><span>Items</span>${tg.length ? `<a href="#" class="lnk" data-damode="tags">Select by tags ?</a>` : ""}</label><div class="multi" id="daItems" data-empty="${DOC.addProd ? "No items with a recipe to add" : "No items to add"}">${items.map(i => `<label class="chk"><input type="checkbox" value="${esc(i.id)}"> ${esc(i.name)}${i.sku ? " (" + esc(i.sku) + ")" : ""}</label>`).join("")}</div></div>
-      ${tg.length ? `<div class="f" id="daByTags" hidden><label style="display:flex;justify-content:space-between"><span>Tags</span><a href="#" class="lnk" data-damode="items">Select items ?</a></label><div class="multi" id="daTags">${tg.map(t => `<label class="chk"><input type="checkbox" value="${esc(t.id)}"> ${esc(t.name)}</label>`).join("")}</div></div>` : ""}
-      ${shs.length ? `<div class="f"><label for="daSheet">Count Sheet</label><select id="daSheet" class="sel"><option value="">Choose…</option>${shs.map(x => `<option value="${esc(x.id)}">${esc(x.name||x.ref)}</option>`).join("")}</select></div>` : ""}
+      <div class="f dapane" id="daByItems"><label class="dalbl"><span>Items</span>${links("items")}</label><div class="multi" id="daItems" data-empty="${DOC.addProd ? "No items with a recipe to add" : "No items to add"}">${items.map(i => `<label class="chk"><input type="checkbox" value="${esc(i.id)}"> ${esc(i.name)}${i.sku ? " (" + esc(i.sku) + ")" : ""}</label>`).join("")}</div></div>
+      <div class="f dapane" id="daByTags" hidden><label class="dalbl"><span>Tags</span>${links("tags")}</label>${tg.length ? `<div class="multi" id="daTags">${tg.map(t => `<label class="chk"><input type="checkbox" value="${esc(t.id)}"> ${esc(t.name)}</label>`).join("")}</div>` : none("No inventory tags yet. Create them in Manage → Tags.")}</div>
+      ${sheetOn ? `<div class="f dapane" id="daBySheet" hidden><label class="dalbl" for="daSheet"><span>Count Sheet</span>${links("sheet")}</label>${shs.length ? `<select id="daSheet" class="sel"><option value="">Choose…</option>${shs.map(x => `<option value="${esc(x.id)}">${esc(x.name||x.ref)}</option>`).join("")}</select>` : none("No count sheets yet. Create them in Inventory → More → Count Sheet.")}</div>` : ""}
       <div class="err" id="daErr"></div></div>
-      <footer><span style="flex:1"></span><button type="button" class="btn keep" data-ccclose>Close</button><button type="button" class="btn pri" id="daSave">Add</button></footer>`;
+      <footer><span style="flex:1"></span><button type="button" class="btn keep" data-ccclose>Close</button><button type="button" class="btn pri" id="daSave">Save</button></footer>`;
     $("#ccScrim").classList.add("show"); return; }
-  const md = e.target.closest("[data-damode]"); if(md){ e.preventDefault(); const tags = md.dataset.damode==="tags"; $("#daByItems").hidden = tags; $("#daByTags").hidden = !tags; return; }
+  const md = e.target.closest("[data-damode]"); if(md){ e.preventDefault(); const m = md.dataset.damode; [["items","#daByItems"],["tags","#daByTags"],["sheet","#daBySheet"]].forEach(([k, id]) => { const el = $(id); if(el) el.hidden = k!==m; }); return; }
   if(e.target.closest("#daSave")){ e.preventDefault(); const vals = id => [...document.querySelectorAll("#" + id + " input:checked")].map(i => i.value), allow = new Set(DOC.addAvail||[]);
-    let ids = $("#daByTags") && !$("#daByTags").hidden ? (DOC.addAvail||[]).filter(id => tagsOf("inventory", id).some(t => vals("daTags").includes(t))) : vals("daItems");
-    const sh = $("#daSheet")?.value ? S.inv_docs.find(x => x.id===$("#daSheet").value) : null; if(sh) ids = [...ids, ...(sh.items||[]).map(l => l.itemId).filter(id => allow.has(id))];
+    const mode = $("#daBySheet") && !$("#daBySheet").hidden ? "sheet" : !$("#daByTags").hidden ? "tags" : "items";
+    let ids = mode==="tags" ? (DOC.addAvail||[]).filter(id => tagsOf("inventory", id).some(t => vals("daTags").includes(t))) : mode==="items" ? vals("daItems") : [];
+    const sh = mode==="sheet" && $("#daSheet")?.value ? S.inv_docs.find(x => x.id===$("#daSheet").value) : null; if(sh) ids = (sh.items||[]).map(l => l.itemId).filter(id => allow.has(id));
     if(!ids.length) return $("#daErr").textContent = "Choose at least one item.";
     readDocHeader(); const n = docAddItems([...new Set(ids)]); $("#ccScrim").classList.remove("show"); toast(`Added ${n} item${n===1?"":"s"}`); return render(); }
 });
