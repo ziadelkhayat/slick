@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="833-1794568622">
+<meta name="slick-build" content="834-1794569292">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this copy, reload once (never for an older one) */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -2981,6 +2981,7 @@ $("#cYes").addEventListener("click", async () => {
 });
 /* confirmations like "Saved" are not shown; only messages that need attention (errors, missing info) are */
 const TOAST_KEEP = /couldn|can.t|cannot|failed|error|not |no |nothing|enter |select|choose|pick|required|invalid|already|must|only |first|wrong|missing|offline|denied|too |at least|before|unable|exists|in use|used by|blocked|limit/i;
+function toastOk(m){ const t = $("#toast"); t.textContent = m; t.classList.add("show", "ok"); clearTimeout(tt); tt = setTimeout(()=>t.classList.remove("show", "ok"), 2200); }
 let tt; function toast(m){ if(!TOAST_KEEP.test(String(m||""))) return; const t = $("#toast"); t.textContent = m; t.classList.add("show"); clearTimeout(tt); tt = setTimeout(()=>t.classList.remove("show"), 2200); }
 
 /* ---------- generic collections (menu, inventory, devices, call center, web ordering) ---------- */
@@ -5558,7 +5559,6 @@ function moduleRoute(route){
   if(route==="online-ordering") return viewOnline();
   if(route==="account") return viewAccount();
   if(route==="branch-menu") return viewBranchMenu();
-  if(route==="inventory-count") return viewInventoryCount();
   if(route==="orders") return viewOrders();
   if(route==="customers") return viewCustomers();
   if(route==="allergens") return viewAllergens();
@@ -8181,6 +8181,7 @@ document.addEventListener("click", e => {
 const DOC_KINDS = {
   "quantity-adjustments": { kind:"quantity", title:"Quantity Adjustment", plural:"Quantity Adjustment", loc:1, intro:"Deduct waste, expired or damaged stock, or add stock found. Submitting updates the stock level of each item at the chosen branch or warehouse." },
   "cost-adjustments":     { kind:"cost", title:"Cost Adjustment", plural:"Cost Adjustment", intro:"Adjust your inventory value here by creating a cost adjustment transaction with the new cost of your inventory items." },
+  "inventory-count":      { kind:"spot", count:1, title:"Inventory Count", plural:"Inventory Count", loc:1, intro:"Count the stock of a branch or warehouse. Submitting sets the stock level of each counted item there to the counted quantity." },
   "spot-check":           { kind:"spot", title:"Inventory Spot Check", plural:"Inventory Spot Check", loc:1, intro:"The spot check captures the count of items made by the audit team. It does not change the stock levels and is only used as a reference." },
   "po":                   { kind:"purchase", po:1, title:"Purchase Order", plural:"Purchase Orders", loc:1, flow:1, intro:"Order stock from a supplier. Submit it for approval; once approved, create the purchasing from it to receive the goods when they arrive." },
   "purchase-orders":      { kind:"purchase", title:"Purchasing", plural:"Purchasing", loc:1, flow:1, intro:"Order stock from a supplier. Submit it when it's sent, then receive it when the goods arrive: receiving adds the quantities that actually arrived to the branch or warehouse and updates item costs." },
@@ -8191,7 +8192,7 @@ const DOC_KINDS = {
 };
 const QA_REASONS_DEF = ["Waste","Expired","Other"];
 const QA_REASONS_L = () => { const v = (S.settings.find(x => x.id==="app")||{}).qtyReasons; return v==null ? QA_REASONS_DEF : String(v).split("\n").map(x => x.trim()).filter(x => x && !RS_GONE.has(x)); };
-const docOf = K => d => d.kind===K.kind && (K.kind!=="purchase" || (d.reason==="po") === !!K.po);
+const docOf = K => d => d.kind===K.kind && (K.kind!=="purchase" || (d.reason==="po") === !!K.po) && (K.kind!=="spot" || (d.reason==="count") === !!K.count);
 const DOC = { tab:{}, q:{}, open:null, edit:null, stock:null, stockAt:0, busy:false, err:"" };
 const invCatNames = () => { const m = S.inv_categories.filter(live).map(c=>c.name); S.inv_items.forEach(i=>{ if(i.category && !m.includes(i.category)) m.push(i.category); }); return m.sort((a,b)=>a.localeCompare(b)); };
 const locList = () => [...activeBranches().map(b=>[b.id,b.name]), ...S.warehouses.filter(live).map(w=>[w.id, w.name + (w.reference?` (${w.reference})`:"") ])];
@@ -8260,7 +8261,7 @@ document.addEventListener("click", async e => {
 });
 function newDoc(route){
   const K = DOC_KINDS[route];
-  DOC.edit = { id:null, kind:K.kind, status:"draft", items:[], businessDate:daysAgo(0), direction:"deduct", reason:K.kind==="quantity"?"Waste":K.po?"po":"", locationId: K.loc ? (state.branch!=="all" ? state.branch : (locList()[0]||[])[0] || "") : "", name:"", notes:"" };
+  DOC.edit = { id:null, kind:K.kind, status:"draft", items:[], businessDate:daysAgo(0), direction:"deduct", reason:K.kind==="quantity"?"Waste":K.po?"po":K.count?"count":"", locationId: K.loc ? (state.branch!=="all" ? state.branch : (locList()[0]||[])[0] || "") : "", name:"", notes:"" };
   if(K.kind==="torder") DOC.edit.destId = S.warehouses.filter(live)[0]?.id || "";
   DOC.open = { route, id:null }; DOC.err = ""; DOC.recv = null; if(K.loc || K.kind==="cost") loadStock(); render(); window.scrollTo(0,0);
 }
@@ -8401,9 +8402,10 @@ async function saveDoc(silent){
   const data = { kind:d.kind, name:d.name||null, locationId:d.locationId||null, reason:d.reason||null, direction:d.direction||"deduct", businessDate:d.businessDate||null, items, notes:d.notes||null };
   if(K.flow){ data.supplierId = d.supplierId||null; data.destId = d.destId||null; }
   const id = d.id || uid("idoc");
-  if(!d.id){ data.status = "draft"; data.createdBy = state.fullName || state.userName || null; }
+  if(!d.id){ data.status = "draft"; data.createdBy = state.fullName || state.userName || null;
+    if(K.count){ const n = Math.max(0, ...S.inv_docs.map(x => /^IC-(\d+)$/.exec(x.ref||"")).filter(Boolean).map(m => +m[1])) + 1; data.ref = "IC-" + String(n).padStart(6, "0"); } }
   DOC.busy = true; DOC.err = "";
-  try{ await put("inv_docs", id, data); d.id = id; DOC.open.id = id; Object.assign(d, data, { items }); if(!silent) toast(K.kind==="sheet" ? "Count sheet saved" : "Draft saved"); return true; }
+  try{ await put("inv_docs", id, data); d.id = id; DOC.open.id = id; Object.assign(d, data, { items }); if(!silent) toastOk(K.kind==="sheet" ? "Count sheet saved" : "Draft saved"); return true; }
   catch(e){ console.error(e); DOC.err = "Couldn't save: " + (e.message || e); return false; }
   finally{ DOC.busy = false; render(); }
 }
@@ -8414,10 +8416,20 @@ async function submitDoc(){
   if(bad.length){ DOC.err = `Enter a ${K.kind==="cost"?"new cost":"quantity"} for every item (${bad.length} missing), or remove those rows.`; return render(); }
   if(K.kind==="production"){ const none = d.items.filter(l => !(itemOf(l.itemId)?.ingredients||[]).length).map(l => itemOf(l.itemId)?.name); if(none.length){ DOC.err = `Add ingredients first for: ${none.join(", ")} (Inventory → Items → open the item).`; return render(); } }
   const msg = K.kind==="production" ? `Submit this production at ${locName(d.locationId)}? The produced items are added to stock and their ingredients are taken out. It can't be edited afterwards.` : K.kind==="quantity" ? `Submit ${d.items.length} item${d.items.length===1?"":"s"}? This ${d.direction==="add"?"adds to":"deducts from"} the stock at ${locName(d.locationId)} and can't be edited afterwards.`
+    : K.count ? `Submit this count? The stock of ${d.items.length} item${d.items.length===1?"":"s"} at ${locName(d.locationId)} will be set to the counted quantities. It can't be edited afterwards.`
     : K.kind==="cost" ? `Submit? The cost of ${d.items.length} item${d.items.length===1?"":"s"} will be updated and this can't be edited afterwards.` : "Submit this spot check? It can't be edited afterwards.";
   if(!(await askYes(msg))) return;
   if(!(await saveDoc(true))) return;
   DOC.busy = true; render();
+  if(K.count){   // an inventory count: the counted quantities become the stock levels at that branch / warehouse
+    const now = new Date().toISOString(), by = state.fullName || state.userName || null;
+    const rows = d.items.map(l => ({ branch_id: d.locationId, item_id: l.itemId, qty: +l.qty, counted_at: now, counted_by: by, batch: d.id, note: d.ref || null }));
+    const { error: e1 } = await WOK.sb.from("stock_counts").insert(rows);
+    if(e1){ DOC.busy = false; console.error(e1); DOC.err = "Couldn't submit: " + e1.message; return render(); }
+    try{ await put("inv_docs", d.id, { status:"closed", submittedAt: now, submittedBy: by }); }catch(e){ console.error(e); }
+    DOC.busy = false; toastOk(`${d.ref || "Inventory count"} submitted`); DASH.key = ""; IC.loaded = {}; DOC.stockAt = 0;
+    d.status = "closed"; d.submittedAt = now; d.submittedBy = by; loadStock(true); render(); return;
+  }
   const { data, error } = await WOK.sb.rpc("slick_close_inv_doc", { p_id: d.id, p_by: state.fullName || state.userName || null });
   DOC.busy = false;
   if(error){ console.error(error); DOC.err = "Couldn't submit: " + error.message + (/permission|policy/i.test(error.message) ? " (only owners and admins can change item costs)" : ""); return render(); }
