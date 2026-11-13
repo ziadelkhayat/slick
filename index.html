@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="867-1794592292">
+<meta name="slick-build" content="868-1794592558">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this copy, reload once (never for an older one) */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -2032,7 +2032,7 @@ const mins = v => v==null ? "—" : (+v).toFixed(1) + " min";
 function dashSoon(){ clearTimeout(DASH.t); DASH.t = setTimeout(() => loadDash(true), 1500); }   // new/changed orders → refresh
 setInterval(() => { if((location.hash.slice(1)||"dashboard")==="dashboard" && !document.hidden && !state.dateSet) loadDash(true); }, 60000);
 const hours24 = (rows, f) => { const a = Array(24).fill(0), sh = dayStartH(); (rows||[]).forEach(r => a[(r.h - sh + 24) % 24] = +r[f]||0); return a; };   // starts at the business day's first hour
-const TYPE_LBL = { dinein:"Dine-in", pickup:"Pickup", takeaway:"Pickup", delivery:"Delivery", fast:"Fast sale", other:"Other" };
+const TYPE_LBL = { dinein:"Dine-in", pickup:"Pickup", takeaway:"Pickup", delivery:"Delivery", fast:"Fast Order", other:"Other" };
 const CH_LBL = { pos:"POS", online:"Web ordering", callcenter:"Call center", other:"Other" };
 const PAY_LBL = { cash:"Cash", card:"Card", other:"Other", "on delivery":"Pay on delivery" };
 const cap = s => String(s||"").charAt(0).toUpperCase() + String(s||"").slice(1);
@@ -3174,9 +3174,9 @@ const CRUD = {
     col:"taxes", title:"Taxes & Groups", one:"Tax", top: () => taxTabs("taxes"),
     tabs:[["all","All",live],["deleted","Deleted",r=>r.deleted]],
     sort:(a,b)=>a.name.localeCompare(b.name), search:r=>r.name,
-    cols:[["Name",r=>`<b>${esc(r.name)}</b>${r.nameAr?` <span class="note">${esc(r.nameAr)}</span>`:""}`],["Rate",r=>(+r.rate||0)+" %","num"],["Pricing",r=>r.inclusive===false ? "Added on top" : "Inclusive"],["Order types",r=>{ const l = (r.orderTypes||[]).filter(t => t!=="fast"); return l.length ? l.map(t=>esc(TYPE_LBL[t]||t)).join(", ") : "All"; }],
+    cols:[["Name",r=>`<b>${esc(r.name)}</b>${r.nameAr?` <span class="note">${esc(r.nameAr)}</span>`:""}`],["Rate",r=>(+r.rate||0)+" %","num"],["Pricing",r=>r.inclusive===false ? "Added on top" : "Inclusive"],["Order types",r=>{ const l = (r.orderTypes||[]); return l.length ? l.map(t=>esc(t==="fast" ? "Fast Order" : TYPE_LBL[t]||t)).join(", ") : "All"; }],
       ["Used in groups",r=>S.tax_groups.filter(g=>live(g)&&(g.taxIds||[]).includes(r.id)).map(g=>esc(g.name)).join(", ")||'<span class="note">—</span>'],["Created",r=>fmtDate(r.createdAt)]],
-    fields:[{k:"name",l:"Name",req:1,ph:"e.g. VAT"},{k:"nameAr",l:"Name Localized"},{k:"rate",l:"Rate (%)",t:"number",req:1},{k:"orderTypes",l:"Applies On",t:"multi",opts:()=>[["dinein","Dine-in"],["pickup","Pickup"],["delivery","Delivery"]],def:["dinein","pickup","delivery"]},{k:"inclusive",l:"Tax inclusive",t:"chk",def:true}],
+    fields:[{k:"name",l:"Name",req:1,ph:"e.g. VAT"},{k:"nameAr",l:"Name Localized"},{k:"rate",l:"Rate (%)",t:"number",req:1},{k:"orderTypes",l:"Applies On",t:"multi",opts:()=>[["fast","Fast Order"],["dinein","Dine-in"],["pickup","Pickup"],["delivery","Delivery"]],def:["fast","dinein","pickup","delivery"]},{k:"inclusive",l:"Tax inclusive",t:"chk",def:true}],
     unique:"name"
   },
   "tax-groups": {
@@ -3445,14 +3445,14 @@ const CRUD = {
     tabs:[["all","All",live],["active","Active",r=>live(r)&&r.active!==false],["inactive","Inactive",r=>live(r)&&r.active===false],["deleted","Deleted",r=>r.deleted]],
     sort:(a,b)=>bySort(a,b), search:r=>r.name+" "+(r.nameAr||""),
     cols:[["Name",r=>`<b>${esc(r.name)}</b>${r.nameAr?` <span class="note">${esc(r.nameAr)}</span>`:""}`],["Type",r=>r.type==="percent"?"Percentage":r.type==="open"?"Open amount":"Amount"],["Value",r=>r.type==="percent"?(+r.value||0)+" %":r.type==="open"?"Open":usd(r.value),"num"],
-      ["Order types",r=>{ const l = (r.orderTypes||[]).filter(t => t!=="fast"); return l.length ? l.map(t=>esc(TYPE_LBL[t]||t)).join(", ") : "All"; }],["Brands / branches",r=>[(r.brandIds||[]).length ? r.brandIds.map(brandName).join(", ") : "All brands", (r.branchIds||[]).length ? (r.branchIds.includes("-") ? "no branches" : r.branchIds.length+" branch(es)") : "all branches"].map(esc).join(" · ")],
+      ["Order types",r=>{ const l = (r.orderTypes||[]); return l.length ? l.map(t=>esc(t==="fast" ? "Fast Order" : TYPE_LBL[t]||t)).join(", ") : "All"; }],["Brands / branches",r=>[(r.brandIds||[]).length ? r.brandIds.map(brandName).join(", ") : "All brands", (r.branchIds||[]).length ? (r.branchIds.includes("-") ? "no branches" : r.branchIds.length+" branch(es)") : "all branches"].map(esc).join(" · ")],
       ["Status",r=>r.deleted?'<span class="tag off">Deleted</span>':r.active===false?'<span class="tag off">Inactive</span>':'<span class="tag on">Active</span>']],
     fields:[{k:"name",l:"Name",req:1,ph:"e.g. Delivery charge, Service charge"},{k:"nameAr",l:"Name Localized"},
       {k:"type",l:"Type",t:"select",req:1,opts:()=>[["fixed","Amount"],["percent","Percentage"],["open","Open amount"]],def:"fixed"},{k:"value",l:"Value",t:"number",ph:"e.g. 2 or 10 (empty for open amount)"},
       {k:"taxGroup",l:"Tax Group",t:"select",opts:()=>(S.tax_groups||[]).filter(live).map(g => [g.id, g.name])},
-      {k:"orderTypes",l:"Order types it applies to",t:"multi",full:1,opts:()=>[["dinein","Dine-in"],["pickup","Pickup"],["delivery","Delivery"]],def:["delivery"]},
-      {k:"brandIds",l:"Brands (none ticked = every brand)",t:"multi",full:1,opts:()=>brandList().map(b=>[b.id,b.name])},
-      {k:"branchIds",l:"Branches (none ticked = every branch)",t:"multi",full:1,opts:()=>branches.filter(b=>b.active!==false).map(b=>[b.id,(brandList().length>1?brandName(b.brandId)+" · ":"")+b.name])},
+      {k:"orderTypes",l:"Order types it applies to",t:"multi",full:1,opts:()=>[["fast","Fast Order"],["dinein","Dine-in"],["pickup","Pickup"],["delivery","Delivery"]],def:["delivery"]},
+      {k:"brandIds",l:"Brands",t:"multi",full:1,req:1,opts:()=>brandList().map(b=>[b.id,b.name]),auto:()=>brandList().map(b=>b.id),get:r=>(r.brandIds||[]).length ? r.brandIds : brandList().map(b=>b.id)},
+      {k:"branchIds",l:"Branches",t:"multi",full:1,req:1,auto:()=>branches.filter(b=>b.active!==false).map(b=>b.id),get:r=>(r.branchIds||[]).filter(x => x!=="-").length ? r.branchIds : branches.filter(b=>b.active!==false).map(b=>b.id),opts:()=>branches.filter(b=>b.active!==false).map(b=>[b.id,(brandList().length>1?brandName(b.brandId)+" · ":"")+b.name])},
       {k:"active",l:"Active",t:"chk",def:true}],
     unique:"name",
     prep: data => { if(data.type==="open"){ data.value = 0; return ""; } if(data.value==null || !(data.value >= 0)) return "Value is required."; if(data.type==="percent" && data.value > 100) return "A percentage can't be more than 100."; return ""; },
@@ -3670,7 +3670,7 @@ function openCrud(key, id, inline, draft){
           h += `<label class="chk mitem" data-grp="${esc(grp)}"><input type="checkbox" value="${esc(k)}" ${set.has(k)?"checked":""}><span class="rlt"><b>${esc(t)}</b>${d ? `<small>${esc(d)}</small>` : ""}</span></label>`; });
         if(open) h += "</div></section>";
         return `<div class="f full"><label>${curL(f.l)}</label><div class="mlist rl" id="${idA}"><div class="rlbar"><label class="chk mall"><input type="checkbox" data-mall="${idA}"><b>Select all</b></label><span class="rlcnt" data-rlcnt></span><div class="rls">${svgIco("search")}<input type="search" data-rlsearch placeholder="Search permissions"></div></div>${h}</div></div>`; }
-      return `<div class="f${f.half ? "" : " full"}"><label>${curL(f.l)}${f.toggle ? ` <button type="button" class="lnk mtog" data-mtog="${idA}">Toggle All</button>` : ""}</label><div class="multi${hasD ? " mdesc" : ""}" id="${idA}">${!o.length && f.empty ? `<span class="note">${esc(f.empty)}</span>` : ""}${o.map(([k,t,d])=>k.startsWith("@") ? `<div class="mhead">${esc(k.slice(1))}${f.toggle ? ` <button type="button" class="lnk mtog" data-mtog="${idA}" data-mgrp="${esc(k)}">Toggle</button>` : ""}</div>` : `<label class="chk" data-grp="${esc(o.filter(x=>x[0].startsWith("@")).reverse().find(x => o.indexOf(x) < o.findIndex(y=>y[0]===k))?.[0] || "")}"><input type="checkbox" value="${esc(k)}" ${set.has(k)?"checked":""}> <span><b>${esc(t)}</b>${d ? `<small>${esc(d)}</small>` : ""}</span></label>`).join("")}</div>${f.note?`<div class="note">${esc(f.note)}</div>`:""}</div>`; }
+      return `<div class="f${f.half ? "" : " full"}"><label>${curL(f.l)}${f.req ? " *" : ""}${f.toggle ? ` <button type="button" class="lnk mtog" data-mtog="${idA}">Toggle All</button>` : ""}</label><div class="multi${hasD ? " mdesc" : ""}" id="${idA}">${!o.length && f.empty ? `<span class="note">${esc(f.empty)}</span>` : ""}${o.map(([k,t,d])=>k.startsWith("@") ? `<div class="mhead">${esc(k.slice(1))}${f.toggle ? ` <button type="button" class="lnk mtog" data-mtog="${idA}" data-mgrp="${esc(k)}">Toggle</button>` : ""}</div>` : `<label class="chk" data-grp="${esc(o.filter(x=>x[0].startsWith("@")).reverse().find(x => o.indexOf(x) < o.findIndex(y=>y[0]===k))?.[0] || "")}"><input type="checkbox" value="${esc(k)}" ${set.has(k)?"checked":""}> <span><b>${esc(t)}</b>${d ? `<small>${esc(d)}</small>` : ""}</span></label>`).join("")}</div>${f.note?`<div class="note">${esc(f.note)}</div>`:""}</div>`; }
     if(f.t==="image") return `<div class="f full"><label>${curL(f.l)}</label><div class="imgf"><label class="imgprev imgpick" for="${idA}_file" id="${idA}_prev" title="Choose photo">${v ? `<img src="${esc(v)}" alt="">` : imgPh()}</label>
       <div class="imgside"><label class="btn imgbtn" for="${idA}_file"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg> <span>${v ? "Change photo" : "Choose photo"}</span></label><input type="file" accept="image/*" id="${idA}_file" hidden><input type="hidden" id="${idA}" value="${esc(v||"")}">${v ? `<button type="button" class="btn imgrm" data-imgclear="${idA}">Remove photo</button>` : ""}<div class="note" id="${idA}_st">JPG or PNG · drag a photo onto the box or tap it. It's resized automatically for the POS, call center and web menu.</div></div></div></div>`;
     if(f.t==="phone"){ const m = /^(\+\d{1,4})\s*(.*)$/.exec(String(v||"").trim()), cc = m ? m[1] : "+961", num = m ? m[2] : String(v||"").replace(/^\+?961\s*/, "");
@@ -3986,7 +3986,7 @@ async function submitCrud(e){
     if(f.t==="polygon"){ data[f.k] = zonePts.map(p=>[+p[0].toFixed(6), +p[1].toFixed(6)]); if(data[f.k].length < 3){ CQ("#cErr").textContent = "Draw the zone on the map (at least 3 points)."; return; } continue; }
     if(f.t==="chk") data[f.k] = el.checked;
     else if(f.t==="nutr"){ const o = {}; el.querySelectorAll("[data-nk]").forEach(i => { if(i.value.trim()!=="") o[i.dataset.nk] = +i.value; }); data[f.k] = o; }
-    else if(f.t==="multi") data[f.k] = [...el.querySelectorAll("input:checked:not([data-mall]):not([data-mgall])")].map(i=>i.value);
+    else if(f.t==="multi"){ data[f.k] = [...el.querySelectorAll("input:checked:not([data-mall]):not([data-mgall])")].map(i=>i.value); if(f.req && !data[f.k].length){ CQ("#cErr").textContent = f.l + " is required."; return; } }
     else if(f.t==="items"){ const pending = (CQ("#cf_"+f.k+"_new")?.value || "").trim(); data[f.k] = [...el.querySelectorAll("[data-item]")].map(i => i.value.trim()).filter(Boolean); if(pending) data[f.k].push(pending); if(f.req && !data[f.k].length){ CQ("#cErr").textContent = f.l + " is required."; return; } continue; }
     else if(f.t==="number") data[f.k] = el.value==="" ? null : +el.value;
     else if(f.t==="phone"){ const n = el.value.replace(/[^\d]/g, "").replace(/^0+/, ""); data[f.k] = n ? (CQ("#cf_"+f.k+"_cc")?.value || "+961") + " " + n : ""; }
@@ -5047,7 +5047,7 @@ function bmItems(){
 // each channel has its own menu per branch: "POS & Call center" and "Web ordering". Prices: customPrices[branch] (POS & call center), customPrices["branch:online"] (web)
 /* sales channels are records per branch (settings "sales_channels"): POS, Call Center and Web Ordering once each (made for every branch),
    plus as many third-party integrations as needed. Each picks the order types it sells. The channel code (pos / callcenter / online / int_…) keys the menus and prices */
-const SC_KINDS = [["pos","POS","tablet",["dinein","pickup","delivery"]],["callcenter","Call Center","phone",["pickup","delivery"]],["online","Web Ordering","globe",["dinein","pickup","delivery"]],["integration","Marketplace","link",["pickup","delivery"]]];
+const SC_KINDS = [["pos","POS","tablet",["fast","dinein","pickup","delivery"]],["callcenter","Call Center","phone",["pickup","delivery"]],["online","Web Ordering","globe",["dinein","pickup","delivery"]],["integration","Marketplace","link",["pickup","delivery"]]];
 const scDoc = () => (typeof S!=="undefined" ? S.settings : []).find(x => x.id==="sales_channels") || {};
 const scCode = c => c.code || c.kind;
 // Web Ordering belongs to the brand (one for all its branches); POS, Call Center and integrations to the branch
@@ -5066,7 +5066,7 @@ const chTypes = c => { const r = scFor(BM_TB || BM.branch).find(x => scCode(x)==
 const CH_TYPES = new Proxy({}, { get: (_, c) => chTypes(String(c)) });
 const chCodesOf = b => scFor(b).map(scCode);
 // per order type inside a channel: "branch:pos:dinein", "branch:online:delivery"… (all three off = the channel is off: "branch:pos")
-const OTYPES = [["fast","Fast Sale"],["dinein","Dine-in"],["pickup","Pickup"],["delivery","Delivery"]];   // fast sale is POS only
+const OTYPES = [["fast","Fast Order"],["dinein","Dine-in"],["pickup","Pickup"],["delivery","Delivery"]];   // fast sale is POS only
 const typeOff = (arr, b, ch, t) => offAt(arr, b, ch) || (arr||[]).includes(b + ":" + ch + ":" + (t==="takeaway" ? "pickup" : t));
 function typeModel(ia, b){ const m = {}; chCodesOf(b).forEach(c => m[c] = new Set(OTYPES.map(x=>x[0]).filter(t => typeOff(ia, b, c, t)))); return m; }
 function typeList(ia, b, m){ const rest = (ia||[]).filter(x => x!==b && !x.startsWith(b + ":")), all = c => CH_TYPES[c].every(t => m[c].has(t));
@@ -5208,7 +5208,7 @@ function scTree(list){
   const ico = c => svgIco((SC_KINDS.find(x => x[0]===c.kind)||SC_KINDS[3])[2]), chev = on => `<span class="sctchev${on ? " on" : ""}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></span>`;
   const brRow = b => { const cs = scFor(b.id), on = ex.has(b.id);
     return `<div class="sctbr${on ? " open" : ""}"><button type="button" class="sctrow sctl2" data-sctx="${esc(b.id)}">${chev(on)}<b>${esc(b.name)}</b><span class="note">${cs.length} channel${cs.length===1 ? "" : "s"}</span></button>
-      ${on ? `<div class="sctchs">${cs.map(c => `<button type="button" class="sctrow sctl3" data-scch="${esc(scCode(c))}|${esc(b.id)}"><span class="sctci">${ico(c)}</span><span><b>${esc(c.name)}</b><small>${esc((SC_KINDS.find(k => k[0]===c.kind)||SC_KINDS[3])[1])} · ${(c.types||[]).filter(t => t!=="fast").map(t => (OTYPES.find(x => x[0]===t)||[t,t])[1]).join(", ")}</small></span><span class="sctgo">›</span></button>`).join("")}
+      ${on ? `<div class="sctchs">${cs.map(c => `<button type="button" class="sctrow sctl3" data-scch="${esc(scCode(c))}|${esc(b.id)}"><span class="sctci">${ico(c)}</span><span><b>${esc(c.name)}</b><small>${esc((SC_KINDS.find(k => k[0]===c.kind)||SC_KINDS[3])[1])} · ${[...(c.kind==="pos" && !c.fastSet && (c.types||[]).includes("dinein") && !(c.types||[]).includes("fast") ? ["fast"] : []), ...(c.types||[])].map(t => (OTYPES.find(x => x[0]===t)||[t,t])[1]).join(", ")}</small></span><span class="sctgo">›</span></button>`).join("")}
         <button type="button" class="sctrow sctl3 sctadd" data-scnewb="${esc(b.id)}"><span class="sctci">+</span><span>Create Sales Channel</span></button></div>` : ""}</div>`; };
   let h = `<div class="phead"><h1>Sales Channels</h1></div><div class="card sctree">`;
   if(!list.length) return h + `<div class="empty">No active branches.</div></div>`;
@@ -5236,11 +5236,11 @@ document.addEventListener("click", e => { const o = e.target.closest("[data-scop
   if(e.target.closest("[data-scback]")){ e.preventDefault(); const go = () => { BM.draft = {}; BM.open1 = false; BM.item = ""; render(); }; if(Object.keys(BM.draft||{}).length) askYes("Leave without saving your changes?").then(y => y && go()); else go(); } });
 // create or edit a sales channel of the chosen branch
 // the order types each kind of channel may sell: POS all, Call Center pickup & delivery, Web Ordering pickup, delivery & dine-in
-const SC_ALLOWED = { pos:["dinein","pickup","delivery"], callcenter:["pickup","delivery"], online:["dinein","pickup","delivery"], integration:["pickup","delivery","dinein"] };
+const SC_ALLOWED = { pos:["fast","dinein","pickup","delivery"], callcenter:["pickup","delivery"], online:["dinein","pickup","delivery"], integration:["pickup","delivery","dinein"] };
 function scDialog(code, pick){
   const b = BM.branch, mine = scFor(b), cur = code ? mine.find(c => scCode(c)===code) : null, kinds = SC_KINDS.filter(([k]) => cur ? k===cur.kind : (k==="integration" || !mine.some(c => c.kind===k && !c.virtual) && !mine.some(c => c.kind===k)));
   const avail = SC_KINDS.filter(([k]) => k==="integration" || !mine.some(c => c.kind===k));
-  const kind = cur?.kind || (pick && avail.some(k => k[0]===pick) ? pick : ""), types = kind ? (cur?.types || []).filter(t => SC_ALLOWED[kind].includes(t)) : [], keepName = pick ? $("#scName")?.value : null;   // a new channel starts empty: pick the type first
+  const kind = cur?.kind || (pick && avail.some(k => k[0]===pick) ? pick : ""), types = kind ? (cur ? [...(cur.types || []), ...(kind==="pos" && !cur.fastSet && (cur.types||[]).includes("dinein") ? ["fast"] : [])] : []).filter(t => SC_ALLOWED[kind].includes(t)) : [], keepName = pick ? $("#scName")?.value : null;   // a new channel starts empty: pick the type first
   const box = $("#ccBox"); box.className = "modal sm";
   box.innerHTML = `<header><h2>${cur ? "Sales Channel" : "Create Sales Channel"}</h2><button type="button" class="x" data-ccclose aria-label="Close">×</button></header><div class="body" style="display:block">
     <div class="f"><label for="scKind">Type</label><select class="sel" id="scKind" ${cur ? "disabled" : ""}>${cur ? "" : `<option value="" ${kind ? "" : "selected"}>Choose…</option>`}${(cur ? kinds : SC_KINDS.filter(([k]) => k==="integration" || !mine.some(c => c.kind===k))).map(([k,t]) => `<option value="${k}" ${k===kind?"selected":""}>${t}</option>`).join("")}</select>
@@ -5263,8 +5263,8 @@ document.addEventListener("click", async e => {
   const sv = e.target.closest("#scSave"); if(sv){ const code = sv.dataset.code, kind = $("#scKind").value, name = $("#scName").value.trim(), types = [...document.querySelectorAll("#scTypes input:checked")].map(i => i.value), err = m => { $("#scErr").textContent = m; };
     if(!kind) return err("Choose the type."); if(!name) return err("Enter a name."); if(!types.length) return err("Pick at least one order type."); if(types.some(t => !SC_ALLOWED[kind].includes(t))) return err("This channel can't sell one of these order types.");
     const b = BM.branch, newCode = code || (kind==="integration" ? "int_" + Date.now().toString(36) : kind);
-    const rec = kind==="online" ? { id:"brand|" + scBrandOf(b) + "|online", kind, code:newCode, name, brandId:scBrandOf(b), types } : { id:b + "|" + newCode, kind, code:newCode, name, branchId:b, types };
-    const ok = await scSaveList(b, list => code ? list.map(c => scCode(c)===code && !c.deleted ? { ...c, name, types } : c)
+    const rec = kind==="online" ? { id:"brand|" + scBrandOf(b) + "|online", kind, code:newCode, name, brandId:scBrandOf(b), types } : { id:b + "|" + newCode, kind, code:newCode, name, branchId:b, types, fastSet:true };
+    const ok = await scSaveList(b, list => code ? list.map(c => scCode(c)===code && !c.deleted ? { ...c, name, types, fastSet:true } : c)
       : [...list.filter(c => !(c.deleted && c.kind===kind && kind!=="integration")), { ...rec, createdAt:new Date().toISOString() }]);   // a deleted POS / Call Center / Web Ordering is created again
     if(ok && !code && kind!=="online") for(const c of S.categories.filter(c => live(c) && c.channel===newCode && catAt(c, b))){   // build from scratch: the shared categories leave this branch's menu
       const next = [...(c.inactiveBranchIds||[]).filter(k => k!=="only:" + b), "x:" + b]; try{ await put("categories", c.id, { inactiveBranchIds:next }); c.inactiveBranchIds = next; }catch(err){ console.error(err); } }
@@ -5790,7 +5790,7 @@ const ORD_FX = { status:"", q:"", ref:"", num:"", from:"", to:"", brand:"", bran
 const ordFltN = () => Object.keys(ORD_FX).filter(k => k!=="to" && String(ORD[k]||"").trim()).length;
 document.addEventListener("click", e => {
   if(e.target.closest?.("[data-ordflt]")){ e.preventDefault(); const box = $("#ccBox"); box.className = "modal";
-    const CHL = { pos:"POS", callcenter:"Call Center", online:"Web Ordering" }, TYL = { dinein:"Dine In", fast:"Fast Sale", pickup:"Pick Up", delivery:"Delivery" };
+    const CHL = { pos:"POS", callcenter:"Call Center", online:"Web Ordering" }, TYL = { dinein:"Dine In", fast:"Fast Order", pickup:"Pick Up", delivery:"Delivery" };
     const STL = [["pending","Pending"],["open","Active"],["declined","Declined"],["closed","Done"],["returns","Returned"],["voids","Void"],["draft","Draft"]];
     const txt = (k, l, ph) => `<div class="f"><label for="of_${k}">${l}</label><input id="of_${k}" class="sel" ${ph ? `placeholder="${ph}"` : ""} value="${esc(ORD[k]||"")}"></div>`;
     const dte = (k, l) => `<div class="f"><label for="of_${k}">${l}</label><input id="of_${k}" class="sel" type="date" value="${esc(ORD[k]||"")}"></div>`;
@@ -5867,7 +5867,7 @@ function viewOrders(){
   const sel = (id, val, opts) => `<select class="sel" id="${id}">${opts.map(([v,t])=>`<option value="${v}" ${val===v?"selected":""}>${t}</option>`).join("")}</select>`;
   const pages = Math.max(1, Math.ceil(ORD.count/ORD.per)), a = ORD.count ? (ORD.page-1)*ORD.per+1 : 0, b = Math.min(ORD.count, ORD.page*ORD.per);
   const dt = t => new Date(t).toLocaleString("en-GB",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"});
-  const CHL = { pos:"POS", callcenter:"Call center", online:"Web ordering" }, TYL = { dinein:"Dine-in", fast:"Fast sale", pickup:"Pickup", delivery:"Delivery" };
+  const CHL = { pos:"POS", callcenter:"Call center", online:"Web ordering" }, TYL = { dinein:"Dine-in", fast:"Fast Order", pickup:"Pickup", delivery:"Delivery" };
   const chips = [["brand", ORD.brand && (brandName(ORD.brand) || "Brand")], ["branch", ORD.branch && (branches.find(b=>b.id===ORD.branch)?.name || "Branch")], ["channel", ORD.channel && CHL[ORD.channel]], ["type", ORD.type && TYL[ORD.type]], ["source", ORD.source], ["pay", ORD.pay]].filter(x => x[1]);
   const nF = chips.length;
   const FP = [["brand","Brand","All brands", brandList().map(b=>[b.id,b.name])], ["branch","Branch","All branches", branches.filter(b=>!ORD.brand || b.brandId===ORD.brand).map(b=>[b.id,b.name])],
@@ -7172,7 +7172,7 @@ const DS_SECS = [
   ["productTags","Apply On Product Tags","Add Product Tags","Select the product tags where this discount can be applied.",["Name"], () => tagList("product").map(t => [t.id, t.name]), id => { const n = tagName(id); return n ? [n] : null; }],
   ["customerTags","Limit To Customer Tags","Add Customer Tags","Select the customers who are eligible for this discount.",["Name"], () => tagList("customer").map(t => [t.id, t.name]), id => { const n = tagName(id); return n ? [n] : null; }]];
 function dsDetail(d){
-  const q = (DS_QUAL.find(x => x[0]===d.qualification)||DS_QUAL[0])[1], ot = { dinein:"Dine In", pickup:"Pick Up", delivery:"Delivery", fast:"Fast Sale" };
+  const q = (DS_QUAL.find(x => x[0]===d.qualification)||DS_QUAL[0])[1], ot = { dinein:"Dine In", pickup:"Pick Up", delivery:"Delivery", fast:"Fast Order" };
   const more = true ? [info("Name Localized", esc(d.nameAr||"—")), info("Qualification", esc(q)), info("Discount Amount", dsAmtLbl(d)), info("Minimum Order Price", d.minOrder!=null ? money(d.minOrder) : "—"), info("Minimum Product Price", d.minProduct!=null ? money(d.minProduct) : "—"),
     info("Maximum Discount", d.type!=="fixed" && d.maxDiscount!=null ? money(d.maxDiscount) : "—"), info("Order Types", esc((d.orderTypes||[]).filter(k => k!=="fast").map(k => ot[k]||k).join(", ") || "—")), info("Reference", esc(d.reference||"—")), info("Taxable", d.taxable ? "Yes" : "No")] : [];
   return `<div class="phead"><a href="#discounts" class="btn" data-dsback style="text-decoration:none">← Back</a><h1 style="margin-left:10px">${esc(d.name)}</h1><div class="sp"></div><button class="btn" data-dsedit="${esc(d.id)}">Edit Discount</button></div>

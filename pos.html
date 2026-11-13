@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="852-1794587339">
+<meta name="slick-build" content="868-1794592558">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this copy, reload once (never for an older one) */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -955,7 +955,7 @@ window.SLICK_OFFLINE = true;</script>
         <span class="sync" id="syncPill" role="status" title="Connection status">Online</span>
         <span class="lockb who hide" id="lockBtn" title="Tap to log out" role="button" style="cursor:pointer"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg><span id="cashierName"></span></span></div>
       </div>
-      <div class="otype hide" id="otype"><button data-t="dinein" class="on">Dine-in</button><button data-t="fast">Fast sale</button><button data-t="pd" class="hide" title="From the Pickup &amp; delivery screen">Pickup</button></div>
+      <div class="otype hide" id="otype"><button data-t="dinein" class="on">Dine-in</button><button data-t="fast">Fast Order</button><button data-t="pd" class="hide" title="From the Pickup &amp; delivery screen">Pickup</button></div>
       <div class="extra" id="extra"></div>
       <div class="lines" id="lines"></div>
       <div class="totals" id="totals"></div>
@@ -1004,7 +1004,7 @@ const noHints = () => document.querySelectorAll("input[placeholder], textarea[pl
 let nhT = null; new MutationObserver(() => { if(!nhT) nhT = requestAnimationFrame(() => { nhT = null; noHints(); }); }).observe(document.documentElement, { childList:true, subtree:true });
 // status / confirmation messages aren't shown (only problems and instructions are)
 const QUIET = /^(Syncing|Signed in as|Logged out|Device activated|Till opened|Till closed · drawer balanced|Till closed$|Tags (set|saved)|Printer (saved|deleted)|Customer details saved|(Item )?[Dd]iscount removed|Note (added|removed)|All offline sales synced|Users synced|Retrying|Sales history was cleared|Saved on this tablet · will sync|Shift (opened|closed)$|Synced$|Saved$|.* clocked (in|out)$|Till Closed$|Sale complete|Saved · order|Order held as|Order H\d+ retrieved|Printed$|Sent to \d+ printers|Order #\S+ sent to the kitchen|Voided|Refund ticket created|Day ended|Saved on this tablet · will sync|Offline ·|Still offline|Syncing data)/;
-let tt; const TOAST_ERR = /^(Couldn't|Enter |Add the customer|Add staff|Open till|Open the till|Complete fast sale|Nothing left|This order is|Offline|Still offline|Saved on this tablet only)|out of stock|doesn't allow|isn't |aren't |can't |cannot |failed|couldn't|is over$|not available|Minimum order/i;
+let tt; const TOAST_ERR = /^(Couldn't|Enter |Add the customer|Add staff|Open till|Open the till|Complete fast order|Nothing left|This order is|Offline|Still offline|Saved on this tablet only)|out of stock|doesn't allow|isn't |aren't |can't |cannot |failed|couldn't|is over$|not available|Minimum order/i;
 const toast = (m, err) => { if(QUIET.test(String(m||""))) return; const t=$("#toast"); t.textContent=m; t.classList.toggle("ok", !(err || TOAST_ERR.test(String(m))));   /* red is for errors only; everything else is a green notification */ t.classList.add("show"); clearTimeout(tt); tt=setTimeout(()=>t.classList.remove("show"),3000); };   // messages drop in from the top
 const store = { get(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } }, set(k,v){ try{ v==null?localStorage.removeItem(k):localStorage.setItem(k,v); }catch(e){} } };
 
@@ -1242,11 +1242,11 @@ const appSet = () => { const a = { ...APP_DEF, ...BRAND_POS_DEF, ...(S.settings.
 const custGiven = (n, p) => !!(String(n||"").trim() || String(p||"").replace(/[^0-9]/g,"").length >= 6);
 const typeKey = t => t==="takeaway" ? "pickup" : t==="fast" ? "dinein" : t;   // fast sale follows the Dine-in settings (taxes, charges, discounts, promotions)
 const menuType = () => otype==="takeaway" ? "pickup" : otype==="fast" ? "dinein" : otype;   /* fast sale follows the Dine-in settings of Sales Channels */   // fast sale has its own menu switch in Sales Channels
-const chargeList = type => S.charges.filter(c => !c.deleted && c.active!==false && (!(c.orderTypes||[]).length || c.orderTypes.includes(typeKey(type)))
+const chargeList = type => S.charges.filter(c => !c.deleted && c.active!==false && (!(c.orderTypes||[]).length || c.orderTypes.includes(type==="fast" ? "fast" : typeKey(type)))
   && (!(c.brandIds||[]).length || c.brandIds.includes(branch?.brandId)) && (!(c.branchIds||[]).length || c.branchIds.includes(device.branchId))).sort((a,b)=>(a.sort??999)-(b.sort??999)||a.name.localeCompare(b.name));
 const pickedCharges = () => chargeList(otype).filter(c => posChg ? posChg.has(c.id) : false);   // charges are only added by the cashier
 // a tax counts only on the order types it applies to (none picked = every type)
-const taxOn = x => { const l = x.orderTypes || []; if(!l.length) return true; return l.includes(typeKey(otype)); };
+const taxOn = x => { const l = x.orderTypes || []; if(!l.length) return true; return l.includes(otype==="fast" ? "fast" : typeKey(otype)); };   // Fast Order is its own choice in taxes and charges
 const chgRates = c => { const g = c?.taxGroup && S.tax_groups.find(x => x.id===c.taxGroup && live(x)), r = { inc:0, exc:0 }; (g?.taxIds||[]).forEach(t => { const x = S.taxes.find(y => y.id===t && live(y)); if(x && taxOn(x)) r[x.inclusive===false ? "exc" : "inc"] += (+x.rate||0)/100; }); return r; };
 const lineNet = i => Math.max(0, (+i.price||0) * (+i.qty||1) - (+i.disc||0));
 /* ---------- tax (prices include it, unless the company turned tax-inclusive pricing off) ---------- */
@@ -1416,8 +1416,10 @@ const allowedTypes = () => { const b = ["dinein","takeaway","delivery"].filter(c
    d = devSet().orderTypes || b, a = ["dinein","takeaway","delivery"].filter(t => b.includes(t) && d.includes(t)); return a.length ? a : ["dinein","takeaway","delivery"]; };
 const defaultType = () => "fast";   // a new order is a fast sale until a table is picked (Tables) or it's taken as pickup / delivery   // the POS starts on Dine-in or Fast sale
 function applyTypes(){ const a = allowedTypes(); $("#otype [data-t=dinein]").style.display = a.includes("dinein") ? "" : "none";
-  const f = $("#otype [data-t=fast]"); if(f) f.style.display = chTypeOn("dinein") ? "" : "none";
-  if(!((otype==="fast" && chTypeOn("dinein")) || a.includes(otype) || (otype==="dinein" && tableNo))) otype = chTypeOn("dinein") ? "fast" : (a[0] || "fast"); }
+  const f = $("#otype [data-t=fast]"); if(f) f.style.display = fastOn() ? "" : "none";
+  if(!((otype==="fast" && fastOn()) || a.includes(otype) || (otype==="dinein" && tableNo))) otype = fastOn() ? "fast" : (a[0] || "fast"); }
+// Fast Order is an order type of the POS sales channel (older channels: on whenever Dine-in is)
+function fastOn(){ const c = posCh(); if(!c) return true; return (c.types||[]).includes("fast") || (!c.fastSet && chTypeOn("dinein")); }
 let typeInit = false;
 function renderAll(){
   if(!typeInit && device){ typeInit = true; otype = defaultType(); }
@@ -1578,7 +1580,7 @@ function renderCart(){
   const ctx = rf ? `<div class="ctx"><span class="ci ci-svg">${ico("undo")}</span><div><b>Return</b><small>${rfInv ? "Original invoice " + esc(rfInv) : esc(typLbl(rf.type))}</small></div><span class="sp"></span></div>`
     : otype==="dinein" ? `<div class="ctx"><span class="ci ci-svg"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="7" width="18" height="5" rx="1.5"/><path d="M6 12v7M18 12v7M9 7V4h6v3"/></svg></span><div><b>${esc(tblLbl(tableNo || "—"))}</b><small>${esc(["Dine-in" + (GUESTS ? ` · ${GUESTS} guest${GUESTS===1?"":"s"}` : ""), cust.name].filter(Boolean).join(" · "))}</small></div><span class="sp"></span>${canSwitch ? `<button data-ctx="custlite">${cust.name ? "Edit Customer" : "Add Customer"}</button>` : ""}</div>`
     : otype==="takeaway" || otype==="delivery" ? `<div class="ctx ctxpd"><div class="ctxt"><span class="ci ci-svg"><svg viewBox="0 0 24 24" aria-hidden="true">${ICO[otype==="delivery" ? "scooter" : "bag"]}</svg></span><b>${otype==="delivery" ? "Delivery" : "Pickup"}</b></div><div><b>${esc(cust.name || "No customer yet")}</b><small>${esc(cust.source || "")}</small></div><span class="sp"></span>${canSwitch ? `<button data-ctx="pddetails">${cust.name ? "Edit Customer" : "Add Customer"}</button>` : ""}</div>`
-    : `<div class="ctx"><span class="ci ci-svg"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12v18l-2-1.5L14 21l-2-1.5L10 21l-2-1.5L6 21z"/><path d="M9 8h6M9 12h6M9 16h3"/></svg></span><div><b>Fast Sale</b>${cust.name ? `<small>${esc([cust.name, telFmt(cust.phone)].filter(Boolean).join(" · "))}</small>` : ""}</div><span class="sp"></span>${canSwitch ? `<button data-ctx="custlite">${cust.name ? "Edit Customer" : "Add Customer"}</button>` : ""}</div>`;
+    : `<div class="ctx"><span class="ci ci-svg"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12v18l-2-1.5L14 21l-2-1.5L10 21l-2-1.5L6 21z"/><path d="M9 8h6M9 12h6M9 16h3"/></svg></span><div><b>Fast Order</b>${cust.name ? `<small>${esc([cust.name, telFmt(cust.phone)].filter(Boolean).join(" · "))}</small>` : ""}</div><span class="sp"></span>${canSwitch ? `<button data-ctx="custlite">${cust.name ? "Edit Customer" : "Add Customer"}</button>` : ""}</div>`;
   // the order's tags, under the order type: "Tag: …"
   const tgIds = posTags ?? (eo0 ? (tgDoc().on?.order?.[eo0.id] || []) : []), tgNames = tgIds.map(id => tgList("order").find(t => t.id===id)?.name).filter(Boolean);
   const ctxT = tgNames.length ? ctx.replace('</div><span class="sp"></span>', `<small class="ctag">Tag: ${esc(tgNames.join(", "))}</small></div><span class="sp"></span>`) : ctx;
@@ -1673,7 +1675,7 @@ function orderInfoOk(){
 }
 // Send: save the order as open (to the kitchen) without payment; on an open order, send what was added
 async function sendOrder(after){   // after: "bill" or "kitchen" = print that ticket of the new order once it is created
-  if(!cart.length) return; if(!openShift()) return toast("Open till"); if(otype==="fast") return toast("Complete fast sale"); const blk = saleBlock(); if(blk) return toast(blk, true);
+  if(!cart.length) return; if(!openShift()) return toast("Open till"); if(otype==="fast") return toast("Complete fast order"); const blk = saleBlock(); if(blk) return toast(blk, true);
   if(!orderInfoOk()) return;
   const t = totals(), now = new Date().toISOString(), eo = editOrder();
   try{
@@ -1842,7 +1844,7 @@ $("#extra").addEventListener("click", e => { const ht = e.target.closest("[data-
   if(cx && cx.dataset.ctx==="pddetails"){ PD = { type: otype==="delivery" ? "delivery" : "takeaway", phone: cust.phone, name: cust.name, addr: { ...(cust.addr||{}) }, source: cust.source || "", cust:null, edit:true }; return openPDNew(); }
   if(cx && cx.dataset.ctx==="fast" || cx && cx.dataset.ctx==="rmcust"){ const go = () => { otype = "fast"; tableNo = ""; cust = { name:"", phone:"", addr:{} }; posChg = null; repriceCart(); renderCart(); renderMenu(); };
     if(cx.dataset.ctx==="rmcust"){ go(); return; }   // Remove Customer: the cart goes back to a fast sale
-    if((otype==="takeaway" || otype==="delivery") && (cust.name || cust.phone)) askYes("Make this a fast sale? The customer details are removed.", "Fast sale").then(y => y && go()); else go(); return; }
+    if((otype==="takeaway" || otype==="delivery") && (cust.name || cust.phone)) askYes("Make this a fast order? The customer details are removed.", "Fast Order").then(y => y && go()); else go(); return; }
   if(e.target.closest("[data-unload]")) return unloadOrder(); });
 document.addEventListener("change", e => { if(e.target.id==="ctxSrc"){ cust.source = e.target.value; renderCart(); } });
 // an order edit answered from the cart (approved or rejected): the cart opens on a new order
@@ -1871,7 +1873,7 @@ $("#acts").addEventListener("click", e => { const b = e.target.closest("[data-ac
 $("#otype").addEventListener("click", async e => { const b = e.target.closest("[data-t]"); if(!b) return;
   if(b.dataset.t==="pd") return toast("Pickup and delivery orders are taken from the Pickup & delivery screen");
   if(editOrder()) return toast("This order is already sent; its type can't change");
-  if((otype==="takeaway" || otype==="delivery") && (cust.name || cust.phone) && !(await askYes("Switch to " + (b.dataset.t==="fast" ? "Fast sale" : "Dine-in") + "? The customer details are removed."))) return;
+  if((otype==="takeaway" || otype==="delivery") && (cust.name || cust.phone) && !(await askYes("Switch to " + (b.dataset.t==="fast" ? "Fast Order" : "Dine-in") + "? The customer details are removed."))) return;
   if(otype==="takeaway" || otype==="delivery") cust = { name:"", phone:"", addr:{} };
   otype = b.dataset.t; posChg = null; repriceCart(); renderCart(); renderMenu(); });   // the menu can differ per order type
 $("#totals").addEventListener("click", e => { if(e.target.closest("[data-discx]")){ discount = 0; DSET = null; renderCart(); toast("Discount removed"); return; }
@@ -2254,7 +2256,7 @@ async function completeSale(){
 // item name in the receipt's print language (Brands → Settings → Receipt)
 function receiptText(o){
   const w = 32, row = (a,b) => a.slice(0, w-b.length-1).padEnd(w-b.length) + b, a = appSet(), net = (+o.total||0) - (+o.tax||0);
-  const typ = o.type==="dinein" ? "Dine-in"+(o.table?" T"+o.table:"") : o.type==="pickup"||o.type==="takeaway" ? "Pickup" : o.type==="fast" ? "Fast sale" : "Delivery";
+  const typ = o.type==="dinein" ? "Dine-in"+(o.table?" T"+o.table:"") : o.type==="pickup"||o.type==="takeaway" ? "Pickup" : o.type==="fast" ? "Fast Order" : "Delivery";
   const lines = [ (()=>{ const n = (S.brands.find(b=>b.id===branch?.brandId)?.name || "Slick").toUpperCase(); return n.padStart((w+n.length)/2); })(), (branch?.name||"").padStart((w+(branch?.name||"").length)/2), ...rcptHead(w), "",
     ...(a.invoiceTitle && o.status!=="refund" ? [a.invoiceTitle.slice(0,w).padStart((w+Math.min(w,a.invoiceTitle.length))/2), ""] : []),
     ...(o.status==="refund" ? ["*** REFUND ***".padStart((w+14)/2), row("Return " + ordRef(o), typ), ...(o.invoiceRef || S.orders.find(x=>x.id===o.refundOf)?.invoiceNo ? ["Original invoice " + invNo(o.invoiceRef || S.orders.find(x=>x.id===o.refundOf)?.invoiceNo)] : []), ...(o.returnReason ? ["Reason: " + o.returnReason] : [])]
@@ -2319,7 +2321,7 @@ function approve(perm, title){
 /* ---------- orders: list, delivery & pickup management, void (active) and return (closed) ---------- */
 let OV = { tab:"all", q:"", open:null, view:"list", filt:false, ft:"", fc:"", fs:"", fp:"" };
 const stLbl = o => ({ refund:"Returned", pending:"Waiting for you", active:"Active", closed:"Done", void:"Void", returned:"Returned", declined:"Declined", draft:"Draft" }[o.status] || o.status);
-const typLbl = t => t==="fast" ? "Fast sale" : t==="dinein" ? "Dine-in" : t==="pickup"||t==="takeaway" ? "Pickup" : t==="delivery" ? "Delivery" : (t||"—");
+const typLbl = t => t==="fast" ? "Fast Order" : t==="dinein" ? "Dine-in" : t==="pickup"||t==="takeaway" ? "Pickup" : t==="delivery" ? "Delivery" : (t||"—");
 const invNo = n => n ? "INV-" + String(n).padStart(6,"0") : "";   // invoice number as shown and printed
 const ordRef = o => o.status==="refund" ? "RET-" + String(o.returnNo || "…").padStart(6,"0") : o.no ? "#" + o.no : o.invoiceNo ? invNo(o.invoiceNo) : "—";
 // Orders: full-screen board, one column per state (like the call center). Tap an order to open it in the billing section
@@ -2403,7 +2405,7 @@ function openIncoming(){
   if(!TABS.some(x => x[0]===OV.tab)) OV.tab = "all";
   const day = OV.date || bizDate(), shift = n => { const d = new Date(day + "T12:00:00"); d.setDate(d.getDate() + n); return d.toISOString().slice(0,10); };
   const isToday = day===bizDate(), dayLbl = isToday ? "Today" : shift(1)===bizDate() ? "Yesterday" : fmtDay(day);
-  const TYL = { dinein:"Dine-in", pickup:"Pickup", delivery:"Delivery", fast:"Fast sale" }, CHL = { pos:"POS", callcenter:"Call center", web:"Web" };
+  const TYL = { dinein:"Dine-in", pickup:"Pickup", delivery:"Delivery", fast:"Fast Order" }, CHL = { pos:"POS", callcenter:"Call center", web:"Web" };
   const active = [["ft", TYL[OV.ft]], ["fc", CHL[OV.fc]], ["fs", OV.fs], ["fp", OV.fp]].filter(x => x[1]);
   const head = `<div class="ohdr"><button class="hbtn" data-close>Back</button>
     <div class="ovsrch">${ico("search")}<input id="ovQ" placeholder="Search reference, order no., invoice no., customer, phone or table" value="${esc(OV.q)}"></div>
@@ -2667,9 +2669,9 @@ function paintAbar(){ const hb = document.getElementById("holdBadge"); if(hb && 
 $("#abar").addEventListener("click", e => { const b = e.target.closest("[data-a]"); if(!b) return; const a = b.dataset.a, eo = editOrder();
   if(a==="more"){ e.stopPropagation(); return $("#morePop").classList.toggle("hide"); }
   hideMore();
-  if(a==="print"){ if((!eo || isOpenOrd(eo)) && !openShift()) return toast("Open till"); if(!eo){ if(!cart.length) return; if(otype==="fast") return toast("Complete fast sale"); if(!can("pos_print_check")) return deny("printing the invoice of an active order"); return sendOrder("bill"); }   // a new cart becomes an active order, then its invoice prints if(!isOpenOrd(eo) && !can("pos_reprint")) return deny("reprinting receipts"); if(isOpenOrd(eo) && !can("pos_print_check")) return deny("printing the invoice of an active order");
+  if(a==="print"){ if((!eo || isOpenOrd(eo)) && !openShift()) return toast("Open till"); if(!eo){ if(!cart.length) return; if(otype==="fast") return toast("Complete fast order"); if(!can("pos_print_check")) return deny("printing the invoice of an active order"); return sendOrder("bill"); }   // a new cart becomes an active order, then its invoice prints if(!isOpenOrd(eo) && !can("pos_reprint")) return deny("reprinting receipts"); if(isOpenOrd(eo) && !can("pos_print_check")) return deny("printing the invoice of an active order");
     return printReceipt(isOpenOrd(eo) ? { ...eo, ...orderFields(totals()), payment:null } : eo, (isOpenOrd(eo) ? "Bill " : "Receipt ") + ordRef(eo)); }
-  if(a==="kitchen"){ if(!eo) return !cart.length ? undefined : otype==="fast" ? toast("Complete fast sale") : sendOrder("kitchen");
+  if(a==="kitchen"){ if(!eo) return !cart.length ? undefined : otype==="fast" ? toast("Complete fast order") : sendOrder("kitchen");
     if(isOpenOrd(eo) && cart.some(i => i.qty > (i.saved||0))) return sendOrder("kitchen");
     if(isOpenOrd(eo) && !can("pos_reprint_kitchen")) return deny("reprinting the kitchen receipt");
     return printKitchen(eo, "Kitchen ticket " + ordRef(eo)); }
@@ -2895,7 +2897,7 @@ function insCard(c, ok){
 </div>`;
 }
 // order history: one button on the customer panel; it opens every previous order as square tiles, and a tile opens that order's details
-const OH_T = { delivery:"Delivery", takeaway:"Pickup", pickup:"Pickup", dinein:"Dine-in", fast:"Fast sale" };
+const OH_T = { delivery:"Delivery", takeaway:"Pickup", pickup:"Pickup", dinein:"Dine-in", fast:"Fast Order" };
 // history tile: reference on top, status, address (delivery), created / modified, total, brand / branch, type / source / user
 const ohTile = x => { const br = S.branches?.find(b => b.id===x.branchId), bd = S.brands?.find(b => b.id===(x.brandId || br?.brandId)), j = a => a.filter(Boolean).map(esc).join(" / ");
   const src = x.source && x.source!=="Website" && String(x.source).toUpperCase()!=="POS" ? x.source : "";
