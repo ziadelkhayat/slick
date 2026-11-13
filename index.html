@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="831-1794566280">
+<meta name="slick-build" content="833-1794568622">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this copy, reload once (never for an older one) */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1428,6 +1428,8 @@ html body .nav .ico,html body .nav .grp.open > button .ico,html body .nav .sub a
 html body .nav a.on .ico,html body .nav .sub a.on .ico{color:#1c1b22!important}
 html body .nav .grp.open > button{color:#1c1b22!important}
 html body .btn:not(.pri):not(.bad) .ico{color:#3a3846}
+html body table td{padding-top:9px;padding-bottom:9px}   /* tighter rows across the back office */
+.ptabs a.ptback{color:#6b6a75;margin-right:6px;border-right:1px solid #ebeaf0;border-radius:0;padding-right:16px}.ptabs a.ptback:hover{color:#1d1b26}
 </style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -2630,7 +2632,9 @@ function render0(){ setTimeout(() => typeof bmBarSync==="function" && bmBarSync(
   const troute = ROUTE_PARENT[route] || route, tg = NAV.find(n => n.tabs && n.kids.some(k=>k[0]===troute));   // Inventory: every screen is a tab at the top of the page
   if(tg){ const ks = tg.kids.filter(k=>!k[0].startsWith("@")), mi = tg.more ? ks.findIndex(k => k[0]===tg.more) : -1, inMore = mi >= 0 && ks.findIndex(k => k[0]===troute) >= mi;
     const dk = (tg.drop||[]).map(r => ks.find(k => k[0]===r)).filter(k => k && canOpen(k[0])), dOn = dk.some(k => k[0]===troute);
-    v.insertAdjacentHTML("afterbegin", `<nav class="ptabs" aria-label="${esc(tg.t)}">${(mi >= 0 ? ks.slice(0, mi+1) : ks).filter(k => canOpen(k[0]) && !(tg.drop||[]).includes(k[0])).map(k=>`<a href="#${k[0]}" class="${k[0]===troute || (k[0]===tg.more && inMore)?"on":""}">${svgIco(SUBI[k[0]]||"list")}${esc(k[1])}</a>`).join("")}${dk.length ? `<span class="ptmore"><button type="button" class="ptmb${dOn ? " on" : ""}" data-ptmore>${svgIco("list")}${dOn ? esc(dk.find(k => k[0]===troute)[1]) : "More"} ▾</button><span class="ptmm" hidden>${dk.map(k => `<a href="#${k[0]}" class="${k[0]===troute ? "on" : ""}">${svgIco(SUBI[k[0]]||"list")}${esc(k[1])}</a>`).join("")}</span></span>` : ""}</nav>`);
+    if(dOn){ const home = ks.find(k => canOpen(k[0]) && !(tg.drop||[]).includes(k[0]));
+      v.insertAdjacentHTML("afterbegin", `<nav class="ptabs ptmorepg" aria-label="${esc(tg.t)} more">${home ? `<a href="#${home[0]}" class="ptback">${svgIco("back")}${esc(tg.t)}</a>` : ""}${dk.map(k => `<a href="#${k[0]}" class="${k[0]===troute ? "on" : ""}">${svgIco(SUBI[k[0]]||"list")}${esc(k[1])}</a>`).join("")}</nav>`); }
+    else v.insertAdjacentHTML("afterbegin", `<nav class="ptabs" aria-label="${esc(tg.t)}">${(mi >= 0 ? ks.slice(0, mi+1) : ks).filter(k => canOpen(k[0]) && !(tg.drop||[]).includes(k[0])).map(k=>`<a href="#${k[0]}" class="${k[0]===troute || (k[0]===tg.more && inMore)?"on":""}">${svgIco(SUBI[k[0]]||"list")}${esc(k[1])}</a>`).join("")}${dk.length ? `<a href="#${dk[0][0]}">${svgIco("list")}More</a>` : ""}</nav>`);
     if(inMore && troute!==tg.more) v.querySelector(".phead, h1")?.insertAdjacentHTML("beforebegin", `<a href="#${tg.more}" class="btn morebk" style="text-decoration:none;margin:0 0 10px">${svgIco("back")}${esc(tg.t)}</a>`); }
   v.querySelectorAll(".chart").forEach(wireLine);
   if(route==="delivery-zones") setTimeout(initZonesOverview, 0);
