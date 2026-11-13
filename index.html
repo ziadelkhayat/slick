@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="843-1794573611">
+<meta name="slick-build" content="844-1794573899">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this copy, reload once (never for an older one) */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -7897,12 +7897,12 @@ function flowInfo(d, K, info){
     d.notes ? info("Notes", esc(d.notes)) : ""].join("");
 }
 const qCell = (kind, key, f, v, lbl, name, itemId) => { const u = f==="qty" ? storUnit(itemOf(itemId)) : "";
-  return `<span class="qcell" data-qe="${kind}|${esc(key)}|${f}" data-lbl="${esc(lbl)}" data-name="${esc(name)}" data-item="${esc(itemId||"")}">${n2(+v||0)}${u ? " " + esc(u) : ""}</span>`; };   // quantities are entered by pressing the row (Foodics)
+  return `<span class="qcell" data-qe="${kind}|${esc(key)}|${f}" data-lbl="${esc(lbl)}" data-name="${esc(name)}" data-item="${esc(itemId||"")}">${v===""||v==null ? '<span class="note">—</span>' : n2(+v||0) + (u ? " " + esc(u) : "")}</span>`; };   // quantities are entered by pressing the row (Foodics)
 // a quantity in the item's units (Foodics): storage unit, plus the ingredient unit when the item has one, e.g. 1 gallon + 500 gram
 function qFields(i, lbl, qe, v, it){
   const su = storUnit(it), iu = ingUnit(it), fac = +it?.factor || 1, two = true;   // both units, always (Foodics)
   if(!it) return `<div class="f"><label for="qe_${i}">${esc(lbl)} *</label><input class="sel" id="qe_${i}" type="number" min="0" step="any" inputmode="decimal" value="${esc(v ?? "")}" data-qset="${esc(qe)}"></div>`;
-  const n = +v || 0, whole = two ? Math.floor(n + 1e-9) : n, rest = two ? +((n - whole) * fac).toFixed(4) : 0;
+  const n = +v || 0, whole = n ? (two ? Math.floor(n + 1e-9) : n) : "", rest = n && two ? (+((n - Math.floor(n + 1e-9)) * fac).toFixed(4) || "") : "";
   return `<div class="qgrp" data-qset="${esc(qe)}" data-fac="${two ? fac : 1}">
     <div class="f"><label for="qe_${i}">Quantity (${esc(su)}) *</label><input class="sel" id="qe_${i}" type="number" min="0" step="any" inputmode="decimal" value="${esc(whole)}" data-qp="s"></div>
     ${two ? `<div class="f"><label for="qe_${i}b">Quantity (${esc(iu)}) *</label><input class="sel" id="qe_${i}b" type="number" min="0" step="any" inputmode="decimal" value="${esc(rest)}" data-qp="i"></div><p class="qconv">1 ${esc(su)} = ${n2(fac)} ${esc(iu)}</p>` : ""}</div>`;
@@ -7927,8 +7927,15 @@ document.addEventListener("click", e => {
 document.addEventListener("click", e => {
   const dl = e.target.closest("[data-qedel]"); if(dl && DOC.edit){ e.preventDefault(); readDocHeader(); DOC.edit.items.splice(+dl.dataset.qedel, 1); $("#ccScrim").classList.remove("show"); return render(); }
   if(!e.target.closest("#qeSave")) return; e.preventDefault();
-  const empty = [...document.querySelectorAll("#ccBox input[type=number]")].find(i => i.value.trim()==="" || isNaN(+i.value) || +i.value < 0);
-  if(empty){ empty.focus(); let er = $("#ccBox .err"); if(!er){ er = document.createElement("div"); er.className = "err"; $("#ccBox .body").appendChild(er); } er.textContent = "Fill in every field marked *."; return; }
+  const errMsg = (el, m) => { el?.focus(); let er = $("#ccBox .err"); if(!er){ er = document.createElement("div"); er.className = "err"; $("#ccBox .body").appendChild(er); } er.textContent = m; };
+  // quantities can't be 0 in inventory transactions; only counts (inventory count, spot check) and received quantities can be 0
+  const K0 = DOC.open && DOC_KINDS[DOC.open.route] || {}, zeroOk = k => k==="ic" || k==="recv" || K0.kind==="spot" || K0.kind==="sheet";
+  const bad = [...document.querySelectorAll("#ccBox input[type=number]")].find(i => !i.closest(".qgrp") && (i.value.trim()==="" || isNaN(+i.value) || +i.value < 0));
+  if(bad) return errMsg(bad, "Fill in every field marked *.");
+  for(const g of document.querySelectorAll("#ccBox .qgrp")){ const ins = [...g.querySelectorAll("input")], k = g.dataset.qset.split("|")[0];
+    if(ins.some(i => i.value.trim()!=="" && (isNaN(+i.value) || +i.value < 0))) return errMsg(ins[0], "Quantities can't be negative.");
+    if(ins.every(i => i.value.trim()==="")) return errMsg(ins[0], "Enter the quantity.");
+    if(!(+qRead(g) > 0) && !zeroOk(k)) return errMsg(ins[0], "The quantity must be more than 0."); }
   document.querySelectorAll("#ccBox [data-qset]").forEach(i => { const [k, ky, f] = i.dataset.qset.split("|"), val = i.classList.contains("qgrp") ? qRead(i) : i.value; if(val!=="" && (isNaN(+val) || +val < 0)) return; qSet(k, ky, f, val); });
   $("#ccScrim").classList.remove("show"); render();
 });
@@ -7975,7 +7982,7 @@ async function flowAction(action){
   const d = DOC.edit, K = DOC_KINDS[DOC.open.route]; readDocHeader(); DOC.err = "";
   if(action==="recvnow"){   // Purchasing (Foodics): a draft is received in one step at the quantities and costs entered
     if(!d.locationId || !d.supplierId){ DOC.err = "Choose the supplier and the branch (Edit)."; return render(); }
-    if(d.items.some(l => !(+l.qty > 0))){ DOC.err = "Enter a quantity for every item, or remove the empty rows."; return render(); }
+    if(d.items.some(l => !(+l.qty > 0))){ DOC.err = "Every quantity must be more than 0. Enter it or remove the row."; return render(); }
     if(!(await askYes(`Receive ${d.items.length} item${d.items.length===1?"":"s"} into ${locName(d.locationId)}? This adds them to stock and can't be edited afterwards.`))) return;
     if(!(await saveDoc(true))) return;
     DOC.busy = true; render();
@@ -7989,7 +7996,7 @@ async function flowAction(action){
   }
   if(action==="submit"){
     if(!d.locationId || (K.kind==="purchase" && !d.supplierId) || (K.kind!=="purchase" && !d.destId)){ DOC.err = K.kind==="purchase" ? "Choose the supplier and where it's delivered." : "Choose where it comes from and where it goes."; return render(); }
-    if(d.items.some(l => !(+l.qty > 0))){ DOC.err = "Enter a quantity for every item, or remove the empty rows."; return render(); }
+    if(d.items.some(l => !(+l.qty > 0))){ DOC.err = "Every quantity must be more than 0. Enter it or remove the row."; return render(); }
     if(K.kind==="transfer" && !(await askYes(`Send ${d.items.length} item${d.items.length===1?"":"s"} from ${locName(d.locationId)} to ${locName(d.destId)}? They're taken out of ${locName(d.locationId)} now.`))) return;
     if(!(await saveDoc(true))) return;
   }
@@ -8428,7 +8435,7 @@ function readDocHeader(){
 }
 function docAddItems(ids){
   const d = DOC.edit, have = new Set(d.items.map(l=>l.itemId)); let n = 0;
-  ids.forEach(id => { if(!have.has(id) && itemOf(id) && (d.kind!=="production" || hasRecipe(itemOf(id)))){ d.items.push({ itemId:id, qty: d.kind==="cost" ? "" : 0, cost: d.kind==="cost" ? (itemOf(id).cost ?? "") : undefined }); have.add(id); n++; } });
+  ids.forEach(id => { if(!have.has(id) && itemOf(id) && (d.kind!=="production" || hasRecipe(itemOf(id)))){ d.items.push({ itemId:id, qty: d.kind==="sheet" ? 0 : "", cost: d.kind==="cost" ? (itemOf(id).cost ?? "") : undefined }); have.add(id); n++; } });
   return n;
 }
 // Import Items (Foodics): a CSV with the item SKU or name and its quantity (and cost where the document has one)
@@ -8484,8 +8491,8 @@ async function saveDoc(silent, quiet){
 async function submitDoc(){
   const d = DOC.edit, K = DOC_KINDS[DOC.open.route]; readDocHeader();
   if(K.loc && !d.locationId){ DOC.err = "Choose a branch or warehouse."; return render(); }
-  const bad = d.items.filter(l => K.kind==="cost" ? (l.cost===""||l.cost==null) : (l.qty===""||l.qty==null));
-  if(bad.length){ DOC.err = `Enter a ${K.kind==="cost"?"new cost":"quantity"} for every item (${bad.length} missing), or remove those rows.`; return render(); }
+  const bad = d.items.filter(l => K.kind==="cost" ? (l.cost===""||l.cost==null) : (l.qty===""||l.qty==null || (K.kind!=="spot" && !(+l.qty > 0))));
+  if(bad.length){ DOC.err = K.kind==="cost" ? `Enter a new cost for every item (${bad.length} missing), or remove those rows.` : `Every quantity must be more than 0 (${bad.length} item${bad.length===1?"":"s"}). Enter it or remove the row.`; return render(); }
   if(K.kind==="production"){ const none = d.items.filter(l => !(itemOf(l.itemId)?.ingredients||[]).length).map(l => itemOf(l.itemId)?.name); if(none.length){ DOC.err = `Add ingredients first for: ${none.join(", ")} (Inventory → Items → open the item).`; return render(); } }
   const msg = K.kind==="production" ? `Submit this production at ${locName(d.locationId)}? The produced items are added to stock and their ingredients are taken out. It can't be edited afterwards.` : K.kind==="quantity" ? `Submit ${d.items.length} item${d.items.length===1?"":"s"}? This ${d.direction==="add"?"adds to":"deducts from"} the stock at ${locName(d.locationId)} and can't be edited afterwards.`
     : K.count ? `Submit this count? The stock of ${d.items.length} item${d.items.length===1?"":"s"} at ${locName(d.locationId)} will be set to the counted quantities. It can't be edited afterwards.`
