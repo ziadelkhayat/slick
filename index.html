@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="837-1794571410">
+<meta name="slick-build" content="838-1794571566">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this copy, reload once (never for an older one) */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -7868,7 +7868,8 @@ function flowInfo(d, K, info){
     K.kind==="purchase" ? info("Supplier", esc(supName(d.supplierId))) : "",
     info(K.kind==="purchase" ? "Destination" : K.kind==="torder" ? "Requesting branch" : "From", esc(locName(d.locationId))),
     K.kind!=="purchase" ? info(K.kind==="torder" ? "Requested from" : "To", esc(locName(d.destId))) : "",
-    info("Business Date", esc(d.businessDate||"—")), who("Creator", d.createdBy), who(K.kind==="transfer"?"Sent by":"Submitted by", d.submittedBy),
+    info("Business Date", esc(d.businessDate||"—")), who("Creator", d.createdBy), info("Created At", fmtDate(d.createdAt)),
+    K.kind==="purchase" ? info(K.po ? "Purchase Order Total Cost" : "Total Cost", usd((d.items||[]).reduce((a, l) => a + (+l.qty||0) * (+(l.cost ?? itemOf(l.itemId)?.cost) || 0), 0))) : "", who(K.kind==="transfer"?"Sent by":"Submitted by", d.submittedBy),
     info(K.kind==="transfer"?"Sent At":"Submitted At", fmtDate(d.submittedAt)), who(K.kind==="torder"?"Fulfilled by":"Received by", d.receivedBy),
     info(K.kind==="torder"?"Fulfilled At":"Received At", fmtDate(d.receivedAt)), info("Number of Items", (d.items||[]).length),
     d.linkedId && K.kind==="purchase" ? info(K.po ? "Purchasing" : "Purchase order", `<a href="#${K.po?"purchase-orders":"po"}" class="lnk" data-doclink="${K.po?"purchase-orders":"po"}:${esc(d.linkedId)}">${esc(S.inv_docs.find(x=>x.id===d.linkedId)?.ref || "Open")}</a>`) : d.linkedId ? info(K.kind==="torder" ? "Transfer" : "Transfer order", `<a href="#${K.kind==="torder"?"transfers":"transfer-orders"}" class="lnk" data-doclink="${K.kind==="torder"?"transfers":"transfer-orders"}:${esc(d.linkedId)}">${esc(S.inv_docs.find(x=>x.id===d.linkedId)?.ref || "Open")}</a>`) : "",
@@ -7931,6 +7932,7 @@ function flowButtons(d, K){
 }
 function flowHead(d, K, ro, recv){
   const q = K.kind==="purchase" ? "Ordered" : K.kind==="torder" ? "Requested" : d.status==="draft" ? "Quantity" : "Sent";
+  if(K.kind==="purchase" && d.status==="draft") return ["Name","SKU","Available Quantity","Cost Per Unit","Quantity","Total Cost"];
   return ["Name","SKU", ...(d.status==="draft" ? ["Available Quantity"] : []), d.status==="draft" ? "Quantity" : q,
     ...(recv || (d.status==="closed" && K.kind!=="torder") ? ["Received"] : []), ...(K.kind==="purchase" ? ["Unit cost","Total cost"] : [])];
 }
@@ -7944,6 +7946,8 @@ function flowRow(d, K, l, ix, it, base, del, qIn, ro, recv, cur, stockLoading){
     const c = recv ? r.cost : (l.cost ?? it.cost), q = recv ? r.qty : l.qty;
     costCells = `<td class="num">${draft ? qIn("cost", l.cost ?? it.cost ?? "", "Unit cost") : recv ? rIn("cost", r.cost, "Unit cost") : usd(+c||0)}</td><td class="num" data-doctc="${ix}">${usd((+q||0)*(+c||0))}</td>`;
   }
+  if(K.kind==="purchase" && draft){ const c = l.cost ?? it.cost ?? "";
+    return `<tr>${base}${srcStock}<td class="num">${qIn("cost", c, "Cost per unit")}</td><td class="num">${qIn("qty", l.qty, "Quantity")}</td><td class="num" data-doctc="${ix}">${usd((+l.qty||0)*(+c||0))}</td>${del}</tr>`; }
   return `<tr>${base}${srcStock}<td class="num">${qIn("qty", l.qty, "Quantity")}</td>${recvCell}${costCells}${del}</tr>`;
 }
 async function flowAction(action){
@@ -8356,7 +8360,7 @@ function viewDoc(route){
     : K.kind==="cost" ? ["Name","SKU",ro?"Old cost":"Current cost","New cost"]
     : K.count && ro ? ["Name","SKU","Entered qty","Original qty","Variance qty","Variance %","Variance cost"]
     : K.kind==="spot" ? ["Name","SKU","System qty","Counted qty","Variance"] : ["Name","SKU","Storage UOM","Ingredients UOM"];
-  const numCols = new Set(["Current qty","Deducted qty","Added qty","New qty","Unit cost","Total cost","Current cost","Old cost","New cost","Available Quantity","System qty","Counted qty","Variance","Entered qty","Original qty","Variance qty","Variance %","Variance cost","Quantity","Ordered","Sent","Requested","Received","In stock at source"]);
+  const numCols = new Set(["Current qty","Deducted qty","Added qty","New qty","Unit cost","Total cost","Current cost","Old cost","New cost","Available Quantity","Cost Per Unit","Quantity","Total Cost","System qty","Counted qty","Variance","Entered qty","Original qty","Variance qty","Variance %","Variance cost","Quantity","Ordered","Sent","Requested","Received","In stock at source"]);
   h += `<div class="card tbl"><div class="ttop"><b>Items</b><span class="note" style="margin-left:8px">${d.items.length}</span>${docBtns ? `<span class="sp"></span><span class="row" style="gap:8px">${docBtns}</span>` : ""}</div>`;
   h += d.items.length ? `<table><thead><tr>${head.map(c=>`<th class="${numCols.has(c)?"num":""}">${c}</th>`).join("")}${ro?"":"<th></th>"}</tr></thead><tbody>${rows.join("")}</tbody>
     ${K.kind==="quantity" ? (()=>{ const t = d.items.reduce((s,l)=>{ const it = itemOf(l.itemId)||{}; return s + (+l.qty||0) * (ro && l.cost!=null ? +l.cost : +it.cost||0); }, 0); return `<tfoot><tr><td colspan="${head.length-1}"><b>Total</b></td><td class="num"><b id="docTotal">${usd(t)}</b></td>${ro?"":"<td></td>"}</tr></tfoot>`; })() : ""}</table>`
