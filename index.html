@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="854-1794587804">
+<meta name="slick-build" content="855-1794588304">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this copy, reload once (never for an older one) */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1436,6 +1436,7 @@ html body .pager .btn{height:34px!important;min-height:34px;padding:0 14px!impor
 #ccBox .qrow{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:0 16px}#ccBox .qrow .qgrp{display:contents}#ccBox .qrow .qconv{grid-column:1/-1;margin-top:-4px}#ccBox .qrow .f{margin-bottom:8px}
 
 html body .top:has(.acctmenu:not([hidden])){z-index:19!important}
+html body .fltbtn .fltx{display:inline-flex;margin-left:8px;color:#aeaeb2;cursor:pointer;border-radius:50%}html body .fltbtn .fltx:hover{color:#636366}html body .fltbtn .fltx svg{width:16px;height:16px}
 /* ===== Foodics typography: IBM Plex Sans, Foodics sizes and weights ===== */
 html body,html body button,html body input,html body select,html body textarea,html body h1,html body h2,html body h3,html body h4,html body .modal header h2,html body .brand b,html body .btn,html body th,html body td{font-family:"IBM Plex Sans","IBM Plex Sans Arabic",system-ui,sans-serif!important;letter-spacing:0!important;font-feature-settings:normal}
 html body{font-size:16px;line-height:1.5;color:#1c1c1e}
@@ -1672,8 +1673,8 @@ const NAV = [
 ];
 // Modifiers list: "Options (n)" opens its options, "Products (n)" the items that use it
 document.addEventListener("click", e => { const t = e.target; if(!t.closest) return;
-  const mo = t.closest("[data-modopts]"); if(mo){ e.preventDefault(); e.stopImmediatePropagation(); const id = mo.dataset.modopts; location.hash = "modifier-options"; setTimeout(() => { state.modFilter = id; state.tabs["modifier-options"] = "all"; state.page["modifier-options"] = 1; render(); }, 60); return; }
-  const mp = t.closest("[data-modprods]"); if(mp){ e.preventDefault(); e.stopImmediatePropagation(); const id = mp.dataset.modprods; location.hash = "products"; setTimeout(() => { state.catFilter = ""; state.prodMod = id; state.tabs.products = "all"; state.page.products = 1; render(); }, 60); return; }
+  const mo = t.closest("[data-modopts]"); if(mo){ e.preventDefault(); e.stopImmediatePropagation(); const id = mo.dataset.modopts; location.hash = "modifier-options"; setTimeout(() => { state.modFilter = id; (state.cflt ||= {})["modifier-options"] = { mod:id }; state.tabs["modifier-options"] = "all"; state.page["modifier-options"] = 1; render(); }, 60); return; }
+  const mp = t.closest("[data-modprods]"); if(mp){ e.preventDefault(); e.stopImmediatePropagation(); const id = mp.dataset.modprods; location.hash = "products"; setTimeout(() => { (state.cflt ||= {}).products = { mod:id }; state.tabs.products = "all"; state.page.products = 1; render(); }, 60); return; }
   if(t.closest("[data-clearpm]")){ e.preventDefault(); state.prodMod = ""; render(); } }, true);
 // references (everywhere): small letters, numbers and dashes
 const refClean = v => String(v||"").toLowerCase().replace(/[\s_]+/g, "-").replace(/[^a-z0-9-]/g, "").replace(/-{2,}/g, "-");
@@ -2496,8 +2497,8 @@ function viewBranch(b){
 }
 function viewBranches(){
   const ob = state.brOpen && branches.find(x => x.id===state.brOpen); if(ob){ setTimeout(() => paintBranchData(ob.id), 0); return viewBranch(ob); }
-  const list = branches.filter(b => state.brand==="all" || b.brandId===state.brand);
-  const n = list.length, a = activeBranches().length;
+  const all0 = branches.filter(b => state.brand==="all" || b.brandId===state.brand), list = all0.filter(crudFltOk("branches"));
+  const n = all0.length, a = activeBranches().length;
   let h = `<div class="phead"><h1>Branches</h1><div class="sp"></div>${scopeBar(false)}<button class="btn pri" id="addBranch">Create Branch</button></div>
     <p class="subt" style="margin-top:-6px">${n} total · ${a} active</p>`;
   if(storeMode==="local") h += `<div class="banner">Preview mode: branches you add here won't be saved. Open this page from claude.ai while signed in to save them.</div>`;
@@ -2505,7 +2506,7 @@ function viewBranches(){
   const tgName = id => (S.tax_groups||[]).find(g => g.id===id)?.name || "";
   const bsel = (state.brSel ||= new Set()); [...bsel].forEach(id => { if(!list.some(b => b.id===id)) bsel.delete(id); });
   const ball = list.every(b => bsel.has(b.id));
-  h += `<div class="card tbl"><table><thead><tr><th class="noedit bkc"><input type="checkbox" data-brall ${ball?"checked":""} aria-label="Select all"></th>${bsel.size
+  h += `<div class="card tbl"><div class="ttop"><div class="sp"></div>${crudFltBtn("branches")}</div>${list.length ? "" : `<div class="empty">Nothing matches.</div>`}<table${list.length ? "" : " hidden"}><thead><tr><th class="noedit bkc"><input type="checkbox" data-brall ${ball?"checked":""} aria-label="Select all"></th>${bsel.size
       ? `<th colspan="5" class="bkbar"><b>${bsel.size} Selected</b><span class="ddwrap"><button type="button" class="btn sm" data-bracts>Actions ▾</button><span class="ddmenu" id="brActM" hidden><button type="button" data-brbulk="add">Add Tags</button><button type="button" data-brbulk="del">Remove Tags</button></span></span></th>`
       : `<th>Name</th><th>Reference</th><th>Tax group</th><th>Created</th>`}</tr></thead><tbody>${
     list.map(b => `<tr class="clk" data-bropen="${esc(b.id)}"><td class="noedit bkc"><input type="checkbox" data-brsel="${esc(b.id)}" ${bsel.has(b.id)?"checked":""} aria-label="Select ${esc(b.name)}"></td>
@@ -3288,7 +3289,7 @@ const CRUD = {
       if(ka !== kb || (pa||a).id !== (pb||b).id) return String(ka).localeCompare(String(kb)) || String((pa||a).id).localeCompare(String((pb||b).id));
       if(!pa) return -1; if(!pb) return 1; return pa.variants.findIndex(v=>v.productId===a.id) - pa.variants.findIndex(v=>v.productId===b.id); },
     search:r=>r.name+" "+(r.sku||"")+" "+catName(r.categoryId)+" "+(varParent(r.id)?.name||""),
-    filter:r=>(!state.catFilter || r.categoryId===state.catFilter) && (!state.prodMod || (r.modifiers||[]).some(l => l.modifierId===state.prodMod)),
+    
     cols:[["Name",r=>`<span class="pname">${r.imageUrl?`<img class="pthumb" src="${esc(r.imageUrl)}" alt="" loading="lazy">`:`<span class="pthumb none"></span>`}${(() => { const par = varParent(r.id), n = (r.variants||[]).filter(v=>v.productId).length;
       return par ? `<span class="vchild">↳ <b>${esc(r.name)}</b> <span class="tag">${esc(varGroup(par))} · ${esc(par.variants.find(v=>v.productId===r.id)?.name||"")}</span></span>`
         : `<b>${esc(r.name)}</b>${n ? ` <span class="tag cc">${n} variant${n===1?"":"s"}</span>` : ""}`; })()}</span>`],["SKU",r=>`<span class="code">${esc(r.sku||"")}</span>`],["Category",r=>esc(catName(r.categoryId))],
@@ -3345,7 +3346,7 @@ const CRUD = {
     tabs:[["all","All",live],["deleted","Deleted",r=>r.deleted]],
     sort:(a,b)=>modName(a.modifierId).localeCompare(modName(b.modifierId)) || bySort(a,b),
     search:r=>r.name+" "+(r.sku||"")+" "+modName(r.modifierId),
-    filter:r=>(!state.modFilter || r.modifierId===state.modFilter) && moFilterOk(r),
+    
     cols:[["Name",r=>`<b>${esc(r.name)}</b>`],["SKU",r=>`<span class="code">${esc(r.sku||"")}</span>`],["Modifier",r=>esc(modName(r.modifierId))],["Price",r=>+r.price?usd(r.price):'<span class="note">Free</span>'],
       ["Tax Group",r=>esc(tgName(r.taxGroup))],["Cost",r=>{ const c = productCost(r); return c ? fmtCost(c) : "—"; }]],
     fields:[{k:"name",l:"Name",req:1},{k:"nameAr",l:"Name Localized"},
@@ -3486,10 +3487,6 @@ function crudView(key){
   const scopeHere = cfg.filter===brandFilter || key==="delivery-zones";   // menu items are never tied to a brand or branch
   if(key==="delivery-zones") h += `<div class="card" style="padding:0;overflow:hidden;margin-bottom:16px"><div id="zonesMap" style="height:380px"></div><div id="zonesLegend" class="legend"></div></div>`;
   h += `<div class="card tbl"><div class="ttop"><div class="ttabs">${cfg.tabs.map(t=>`<a href="#${key}" data-tab="${key}:${t[0]}" class="${tab===t[0]?"on":""}">${t[1]}</a>`).join("")}</div>
-    ${key==="products"&&state.prodMod?`<span class="chip">Modifier: ${esc(modName(state.prodMod))} <button data-clearpm aria-label="Clear">×</button></span>`:""}
-    ${key==="modifier-options"&&state.modFilter?`<span class="chip">Modifier: ${esc(modName(state.modFilter))} <button data-clearmod aria-label="Clear">×</button></span>`:""}
-    ${key==="modifier-options" ? `<button type="button" class="btn${moFilterN() ? " on" : ""}" data-mofilter>${svgIco("filter")} Filter${moFilterN() ? ` (${moFilterN()})` : ""}</button>${moFilterN() ? `<button type="button" class="lnk" data-mofclear>Clear</button>` : ""}` : ""}
-    ${key==="products" ? `<select class="sel" id="prodCat" aria-label="Category"><option value="">All categories</option>${S.categories.filter(c=>live(c)&&!c.channel).sort(bySort).map(c=>`<option value="${esc(c.id)}" ${state.catFilter===c.id?"selected":""}>${state.brand==="all"&&brandList().length>1?esc(brandName(c.brandId))+" · ":""}${esc(c.name)}</option>`).join("")}</select>` : ""}
     <div class="sp"></div>${CRUD_FF[key] ? crudFltBtn(key) : `${scopeHere ? scopeBar(false) : ""}<input class="sel search" data-search="${key}" placeholder="Search" value="${esc(state.q[key]||"")}" aria-label="Search ${cfg.title}">`}</div>`;
   if(!shown.length) h += `<div class="empty">${S[cfg.col].length ? "Nothing matches." : `No ${cfg.title.toLowerCase()} yet.`}</div>`;
   else { const sel = (state.sel ||= {})[key] ||= new Set(), hasDel = cfg.tabs.some(t => t[0]==="deleted"), hasAct = cfg.tabs.some(t => t[0]==="active"),
@@ -4707,13 +4704,13 @@ function viewDevice(d){
 }
 function viewDevices(){
   const od = state.devOpen && S.devices.find(x => x.id===state.devOpen && live(x)); if(od) return viewDevice(od);
-  const dt = state.devTab || "all", all = S.devices.filter(live), list = all.filter(d => dt==="all" || d.type===dt).sort((a,b)=>branchName(a.branchId).localeCompare(branchName(b.branchId))||a.name.localeCompare(b.name));
+  const dt = state.devTab || "all", all = S.devices.filter(live), list = all.filter(d => dt==="all" || d.type===dt).filter(crudFltOk("devices")).sort((a,b)=>branchName(a.branchId).localeCompare(branchName(b.branchId))||a.name.localeCompare(b.name));
   const dsel = (state.devSel ||= new Set()); [...dsel].forEach(id => { if(!list.some(d => d.id===id)) dsel.delete(id); });
   let h = `<div class="phead"><h1>Devices</h1><div class="sp"></div><button class="btn pri" id="devNew">Create Device</button></div>
   <div class="card setup"><div><h3>Set up a POS tablet</h3><ol class="steps"><li>Download the <b>Slick POS</b> APK on the Android tablet and install it (allow "install from this source" when asked).</li><li>Create a device here and choose its branch and type.</li><li>Open the app, sign in with a staff account, then enter the device's 6-digit activation code.</li><li>The tablet downloads its branch, menu, prices and printers, then it's ready to take orders.</li></ol></div>
   <div class="apk"><a class="btn pri" href="the-wok-pos.apk" download>${svgIco("download")}Download POS APK</a><a class="lnk" href="pos.html" target="_blank" rel="noopener">or open POS in a browser</a></div></div><div style="height:16px"></div>`;
   if(storeMode==="local") h += `<div class="banner">Preview mode: devices won't be saved.</div>`;
-  h += `<div class="card tbl"><div class="ttop"><div class="ttabs">${[["all","All"], ...DEV_TYPES].map(([k,t]) => `<a href="#devices" data-devtab="${k}" class="${dt===k?"on":""}">${t}</a>`).join("")}</div></div>${list.length ? `<table><thead><tr><th class="noedit bkc"><input type="checkbox" data-devall ${list.every(d => dsel.has(d.id))?"checked":""} aria-label="Select all"></th>${dsel.size
+  h += `<div class="card tbl"><div class="ttop"><div class="ttabs">${[["all","All"], ...DEV_TYPES].map(([k,t]) => `<a href="#devices" data-devtab="${k}" class="${dt===k?"on":""}">${t}</a>`).join("")}</div><div class="sp"></div>${crudFltBtn("devices")}</div>${list.length ? `<table><thead><tr><th class="noedit bkc"><input type="checkbox" data-devall ${list.every(d => dsel.has(d.id))?"checked":""} aria-label="Select all"></th>${dsel.size
       ? `<th colspan="4" class="bkbar"><b>${dsel.size} Selected</b><span class="ddwrap"><button type="button" class="btn sm" data-devacts>Actions ▾</button><span class="ddmenu" id="devActM" hidden><button type="button" data-devbulk="add">Add Tags</button><button type="button" data-devbulk="del">Remove Tags</button><button type="button" data-devbulk="sync">Force Sync Data</button></span></span></th>`
       : `<th>Name</th><th>Reference</th><th>Type</th><th>Status</th><th>Branch</th>`}</tr></thead><tbody>${list.map(d=>`<tr class="clk" data-devopen="${esc(d.id)}"><td class="noedit bkc"><input type="checkbox" data-devsel="${esc(d.id)}" ${dsel.has(d.id)?"checked":""} aria-label="Select ${esc(d.name)}"></td>
     <td><b>${esc(d.name)}</b>${tagChips("device", d.id)}</td><td>${esc(d.reference || "—")}</td><td>${esc(devType(d.type))}</td><td>${devStatus(d)}</td><td>${esc(branchName(d.branchId))}</td></tr>`).join("")}</tbody></table>`
@@ -6016,6 +6013,10 @@ $("#view").addEventListener("click", e => {
 /* ---------- Customers (Foodics format): one record per phone, filled automatically from orders ---------- */
 const CUS = { sel:new Set(), filter:"all", q:"", sort:"last", page:1, per:50, rows:[], all:null, count:0, summary:null, loading:false, err:"", key:"", t:null, open:null, det:null, more:false, fopen:false, flt:{} };
 const CUS_TABS = [["all","All"],["blacklisted","Blacklisted"],["deleted","Deleted"]];
+document.addEventListener("click", e => {
+  if(e.target.closest?.("#cusFApply")){ const f = {}; CUS_FLT.forEach(([k]) => { const v = $("#cfl_"+k)?.value?.trim(); if(v) f[k] = v; }); CUS.flt = f; CUS.page = 1; $("#ccScrim").classList.remove("show"); render(); return; }
+  if(e.target.closest?.("#cusFClr")){ CUS.flt = {}; CUS.page = 1; $("#ccScrim").classList.remove("show"); render(); return; }
+});
 const CUS_BULK = [["loyOn","Enable Loyalty"],["loyOff","Disable Loyalty"],["haOn","Enable House Account"],["haOff","Disable House Account"],["tagAdd","Add tags"],["tagDel","Remove tags"],["delete","Delete"]];
 // customers list: tick rows, then act on all of them at once (Foodics style)
 document.addEventListener("click", e => { if(e.target.closest?.("[data-cusel],[data-cusall]")) e.stopPropagation(); }, true);
@@ -6058,7 +6059,7 @@ function bdSel(id, val){ const [y, m, d] = String(val||"").slice(0,10).split("-"
 document.addEventListener("change", e => { const w = e.target.closest?.(".bdsel"); if(!w) return; const g = k => w.querySelector(`[data-bd="${k}"]`).value, d = g("d"), m = g("m"), y = g("y");
   w.querySelector("input[type=hidden]").value = d && m && y ? `${y}-${m}-${d}` : ""; });
 
-const CUS_FLT = [["name","Name","text"],["phone","Phone","text"],["email","Email","text"],["tag","Tag","text"],["hasOrders","Has Orders","yn"],["black","Blacklisted","yn"],["updated","Updated After","date"]];
+const CUS_FLT = [["name","Name","text"],["phone","Phone","text"],["email","Email","text"],["tag","Tag","text"],["hasOrders","Has Orders","yn"],["black","Blacklisted","yn"],["loy","Loyalty Enabled","yn"],["house","House Account Enabled","yn"],["updated","Updated After","date"]];
 function imgPh(){ return `<span class="imgph"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg><span>Choose photo</span></span>`; }
 const normPhone = p => String(p||"").replace(/[^0-9+]/g, "");
 // a phone number in full international form (+96170123456); numbers typed without a code get the business's country code
@@ -6081,6 +6082,8 @@ function cusMatch(c){
   if(f.tag && !(c.tags||[]).some(t => has(t, f.tag))) return false;
   if(f.hasOrders && (f.hasOrders==="yes") !== (+c.n > 0)) return false;
   if(f.black && (f.black==="yes") !== !!c.blacklisted) return false;
+  if(f.loy && (f.loy==="yes") !== !!c.loyalty) return false;
+  if(f.house && (f.house==="yes") !== !!(c.house_account ?? c.houseAccount)) return false;
   if(f.updated){ const t = c.updated_at || c.last_at || c.first_at; if(!t || new Date(t) < new Date(f.updated + "T00:00:00")) return false; }
   return true;
 }
@@ -6112,10 +6115,8 @@ function viewCustomers(){
       <div class="ddwrap"><button class="btn" id="cusIE">Import / Export ▾</button><div class="ddmenu" id="cusIEm" hidden><button type="button" id="cusImp">Import Customers</button><button type="button" id="cusCsv">Export Customers</button></div></div>
       <button class="btn pri" id="cusAdd">Add Customer</button></div>
   <div class="card tbl otbl"><div class="ttop"><div class="ttabs">${CUS_TABS.map(([k,t])=>`<a href="#customers" data-ctab="${k}" class="${CUS.filter===k?"on":""}">${t}</a>`).join("")}</div><span class="sp"></span>
-    <input class="sel" id="cusQ" placeholder="Search name, phone or email" value="${esc(CUS.q)}" style="min-width:200px">
     <select class="sel" id="cusSort">${[["last","Last order"],["spent","Total spent"],["orders","Most orders"],["new","Newest"],["name","Name A–Z"]].map(([v,t])=>`<option value="${v}" ${CUS.sort===v?"selected":""}>Sort: ${t}</option>`).join("")}</select>
-    <button class="btn${nAdv?" pri":""}" id="cusFlt">Filter${nAdv?` (${nAdv})`:""}</button></div>
-  ${CUS.fopen ? `<div class="cflt"><div class="body" style="padding:0">${CUS_FLT.map(fld).join("")}</div><div class="cfltb"><button class="btn" id="cusFClr">Clear</button><button class="btn pri" id="cusFApply">Apply</button></div></div>` : ""}
+    ${fltBtn("data-cusflt", "customers", nAdv > 0)}</div>
   ${CUS.err ? `<p class="note" style="padding:16px">Couldn't load customers: ${esc(CUS.err)}</p>` : `<table><thead><tr><th class="bkc"><input type="checkbox" data-cusall ${rows.length && rows.every(c => CUS.sel.has(c.id)) ? "checked" : ""} aria-label="Select all on this page"></th>${CUS.sel.size
       ? `<th colspan="5" class="bkbar"><b>${CUS.sel.size} Selected</b><span class="ddwrap"><button type="button" class="btn sm" id="cusBk">Actions ▾</button><span class="ddmenu" id="cusBkM" hidden>${(CUS.filter==="deleted" ? [["restore","Restore"]] : CUS_BULK).map(([k,t]) => `<button type="button" data-cusbk="${k}">${t}</button>`).join("")}</span></span></th>`
       : `<th>Name</th><th>Phone</th><th>Email</th><th class="num">Total Orders</th><th>Last Order</th>`}</tr></thead><tbody>${
@@ -6296,9 +6297,11 @@ $("#view").addEventListener("click", async e => {
   if(e.target.id==="cusAdd"){ openCustomerEdit(null); return; }
   if(e.target.id==="cusIE"){ const m = $("#cusIEm"); m.hidden = !m.hidden; return; }
   if(e.target.id==="cusCsv"){ $("#cusIEm").hidden = true; exportCustomers(); return; }
-  if(e.target.id==="cusFlt"){ CUS.fopen = !CUS.fopen; render(); return; }
-  if(e.target.id==="cusFApply"){ const f = {}; CUS_FLT.forEach(([k]) => { const v = $("#cfl_"+k).value.trim(); if(v) f[k] = v; }); CUS.flt = f; CUS.page = 1; CUS.fopen = false; render(); return; }
-  if(e.target.id==="cusFClr"){ CUS.flt = {}; CUS.page = 1; CUS.fopen = false; render(); return; }
+  if(e.target.closest("[data-cusflt]")){ const f = CUS.flt, box = $("#ccBox"); box.className = "modal";
+    box.innerHTML = `<header><h2>Filter</h2><button type="button" class="x" data-ccclose aria-label="Close">×</button></header><div class="body" style="display:grid;grid-template-columns:1fr 1fr;gap:4px 14px">${CUS_FLT.map(([k, l, t]) => `<div class="f"><label for="cfl_${k}">${l}</label>${t==="yn" ? `<select class="sel" id="cfl_${k}"><option value="">Any</option><option value="yes" ${f[k]==="yes"?"selected":""}>Yes</option><option value="no" ${f[k]==="no"?"selected":""}>No</option></select>` : `<input id="cfl_${k}" class="sel" type="${t}" value="${esc(f[k]||"")}">`}</div>`).join("")}</div>
+      <footer><button type="button" class="btn" id="cusFClr">Reset</button><span style="flex:1"></span><button type="button" class="btn pri" id="cusFApply">Apply</button></footer>`;
+    $("#ccScrim").classList.add("show"); return; }
+
   if(e.target.closest("[data-cusback]")){ e.preventDefault(); CUS.open = null; CUS.det = null; render(); return; }
   if(e.target.closest("[data-cusmore]")){ CUS.more = !CUS.more; render(); return; }
   if(e.target.id==="cuEdit"){ openCustomerEdit(CUS.det); return; }
@@ -7043,9 +7046,9 @@ async function dsPatch(id, patch){ return dsSave(dsList().map(d => d.id===id ? {
 function viewDiscounts(){
   const od = DS.open && dsList().find(d => d.id===DS.open); if(od) return dsDetail(od);
   const del = DS.tab==="deleted", q = DS.q.trim().toLowerCase();
-  const list = dsList().filter(d => !!d.deleted===del && (!q || (d.name + " " + (d.nameAr||"") + " " + (d.reference||"")).toLowerCase().includes(q))).sort((a,b) => String(a.name).localeCompare(String(b.name)));
+  const list = dsList().filter(d => !!d.deleted===del && (!q || (d.name + " " + (d.nameAr||"") + " " + (d.reference||"")).toLowerCase().includes(q))).filter(crudFltOk("discounts")).sort((a,b) => String(a.name).localeCompare(String(b.name)));
   return `<div class="phead"><h1>Discounts</h1><div class="sp"></div><button class="btn pri" data-dsnew>Create Discount</button></div>
-  <div class="card tbl"><div class="ttop"><div class="ttabs"><a href="#discounts" data-dstab="all" class="${del?"":"on"}">All</a><a href="#discounts" data-dstab="deleted" class="${del?"on":""}">Deleted</a></div><div class="sp"></div><input class="sel search" id="dsQ" placeholder="Search" value="${esc(DS.q)}" aria-label="Search discounts"></div>
+  <div class="card tbl"><div class="ttop"><div class="ttabs"><a href="#discounts" data-dstab="all" class="${del?"":"on"}">All</a><a href="#discounts" data-dstab="deleted" class="${del?"on":""}">Deleted</a></div><div class="sp"></div>${crudFltBtn("discounts")}</div>
   ${list.length ? `<table><thead><tr><th>Name</th><th>Reference</th><th>Qualification</th><th class="num">Discount</th>${del ? "<th></th>" : ""}</tr></thead><tbody>${list.map(d => `<tr class="click" ${del ? "" : `data-dsopen="${esc(d.id)}"`}>
     <td><b>${esc(d.name)}</b>${d.nameAr ? ` <span class="note">${esc(d.nameAr)}</span>` : ""}</td><td>${esc(d.reference || "—")}</td><td>${esc((DS_QUAL.find(x => x[0]===d.qualification)||DS_QUAL[0])[1])}</td><td class="num">${dsAmtLbl(d)}</td>
     ${del ? `<td class="num"><button class="btn sm" data-dsrestore="${esc(d.id)}">Restore</button></td>` : ""}</tr>`).join("")}</tbody></table>`
@@ -8665,7 +8668,7 @@ const docFltOk = (route, K) => { const f = docFlt(route), day = d => String(d.bu
     && (!f.status || d.status===f.status) && (!f.loc || (K.kind==="torder" ? d.locationId===f.loc : (d.locationId===f.loc || (K.kind==="transfer" && d.destId===f.loc))))
     && (!f.dest || d.destId===f.dest) && (!f.sup || d.supplierId===f.sup) && (!f.reason || d.reason===f.reason) && (!f.by || d.createdBy===f.by) && (!f.sub || d.submittedBy===f.sub); };
 const docFltBtn = (route, K) => { if(!docFltFields(K).length) return ""; const n = Object.values(docFlt(route)).filter(v => v).length;
-  return `${n ? `<a href="#${route}" class="lnk" data-docfltclr="${route}" style="margin-right:10px">Clear</a>` : ""}<button type="button" class="btn" data-docflt="${route}">${svgIco("filter")}Filter${n ? ` (${n})` : ""}</button>`; };
+  return fltBtn("data-docflt", route, n > 0); };
 const docExpMenu = (route, K) => `<span class="ddwrap iewrap"><button type="button" class="btn" data-iemenu>${svgIco("download")}Export <span class="iecv">▾</span></button><span class="ddmenu iemenu" hidden>
   <button type="button" data-docexport="${route}" data-exlvl="docs">Export ${esc(K.plural)}</button>${K.kind!=="sheet" ? `<button type="button" data-docexport="${route}" data-exlvl="items">Export ${esc(K.plural)} Items</button>` : ""}</span></span>`;
 function docFltDlg(route){
@@ -8689,6 +8692,10 @@ document.addEventListener("click", e => {
     const fr = $("#df_from")?.value, to = $("#df_to")?.value; if(fr) o.from = fr; if(to) o.to = to; (DOC.flt ||= {})[ap.dataset.route] = o; $("#ccScrim").classList.remove("show"); return render(); }
 });
 /* Foodics Filter on the inventory setup lists (products, suppliers, categories, warehouses) */
+const FLTX = `<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="currentColor"/><path d="m8.5 8.5 7 7m0-7-7 7" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg>`;
+// Foodics: the Filter button; once a filter is applied it shows a small x inside it that resets the filter
+const fltBtn = (attr, key, on) => `<button type="button" class="btn fltbtn${on ? " fon" : ""}" ${attr}="${esc(key)}">${svgIco("filter")}Filter${on ? `<span class="fltx" role="button" tabindex="0" data-fltclr="${esc(attr)}|${esc(key)}" title="Reset Filter" aria-label="Reset Filter">${FLTX}</span>` : ""}</button>`;
+const ffYN = (k, l, get) => [k, l, "sel", r => get(r) ? "yes" : "no", () => [["yes","Yes"],["no","No"]]];
 const ffTxt = (k, l, get) => [k, l, "text", get], CRUD_FF = {
   "inv-items": [ffTxt("name","Name",r=>r.name), ffTxt("sku","SKU",r=>r.sku), ffTxt("barcode","Barcode",r=>r.barcode),
     ["tag","Tag","sel",r=>tagsOf("inventory", r.id), () => tagList("inventory").map(t => [t.id, t.name])],
@@ -8699,7 +8706,49 @@ const ffTxt = (k, l, get) => [k, l, "text", get], CRUD_FF = {
   suppliers: [ffTxt("name","Name",r=>r.name), ffTxt("code","Code",r=>r.code), ffTxt("contact","Contact Name",r=>r.contactName), ffTxt("email","Email",r=>r.email),
     ["tag","Tag","sel",r=>tagsOf("supplier", r.id), () => tagList("supplier").map(t => [t.id, t.name])], ["upd","Updated After","date",r=>r.updatedAt]],
   "inv-categories": [ffTxt("name","Name",r=>r.name), ["upd","Updated After","date",r=>r.updatedAt]],
-  warehouses: [ffTxt("name","Name",r=>r.name), ffTxt("ref","Reference",r=>r.reference), ["upd","Updated After","date",r=>r.updatedAt]] };
+  warehouses: [ffTxt("name","Name",r=>r.name), ffTxt("ref","Reference",r=>r.reference), ["upd","Updated After","date",r=>r.updatedAt]],
+  categories: [ffTxt("name","Name",r=>r.name+" "+(r.nameAr||"")), ffTxt("ref","Reference",r=>r.reference), ["upd","Updated After","date",r=>r.updatedAt]],
+  products: [ffTxt("name","Name",r=>r.name+" "+(r.nameAr||"")), ffTxt("sku","SKU",r=>r.sku), ffTxt("barcode","Barcode",r=>r.barcode),
+    ["cat","Categories","sel",r=>r.categoryId, () => S.categories.filter(c=>live(c)&&!c.channel).sort(bySort).map(c => [c.id, c.name])],
+    ["mod","Modifiers","sel",r=>(r.modifiers||[]).map(l => l.modifierId), () => S.modifiers.filter(live).sort((a,b)=>a.name.localeCompare(b.name)).map(m => [m.id, m.name])],
+    ffYN("ingr","Have Ingredients",r=>(r.ingredients||[]).length > 0), ffYN("htag","Has Tags",r=>tagsOf("product", r.id).length > 0),
+    ["tag","Tags","sel",r=>tagsOf("product", r.id), () => tagList("product").map(t => [t.id, t.name])],
+    ["tax","Tax Groups","sel",r=>r.taxGroup, () => taxGroupOpts()],
+    ["cost","Costing Method","sel",r=>r.costingMethod==="fixed" ? "fixed" : "transactions", () => [["fixed","Fixed"],["transactions","From Transactions"]]],
+    ffYN("act","Active",r=>r.active!==false), ffYN("stock","Stock Product",r=>typeof isInvProduct==="function" ? !!isInvProduct(r) : false),
+    ["upd","Updated After","date",r=>r.updatedAt], ["alg","Allergens","sel",r=>r.allergens||[], () => allergenList().map(a => [a, a])]],
+  modifiers: [ffTxt("name","Name",r=>r.name+" "+(r.nameAr||"")), ffTxt("ref","Reference",r=>r.reference), ["upd","Updated After","date",r=>r.updatedAt]],
+  "modifier-options": [ffTxt("name","Name",r=>r.name+" "+(r.nameAr||"")),
+    ["mod","Modifiers","sel",r=>r.modifierId, () => S.modifiers.filter(live).sort((a,b)=>a.name.localeCompare(b.name)).map(m => [m.id, m.name])],
+    ffTxt("sku","SKU",r=>r.sku), ["upd","Updated After","date",r=>r.updatedAt], ["alg","Allergens","sel",r=>r.allergens||[], () => allergenList().map(a => [a, a])]],
+  users: [ffTxt("name","Name",r=>r.name), ffTxt("emp","Employee Number",r=>r.employeeNumber), ffTxt("email","Email",r=>r.email), ffTxt("phone","Phone",r=>r.phone),
+    ["br","Branch","sel",r=>(r.branchIds||[]).length ? r.branchIds : branches.map(b => b.id), () => activeBranches().map(b => [b.id, b.name])],
+    ["role","Role","sel",r=>userRoleIds(r), () => S.roles.filter(live).map(x => [x.id, x.name])],
+    ["tag","Tag","sel",r=>tagsOf("user", r.id), () => tagList("user").map(t => [t.id, t.name])],
+    ffYN("ver","Email Verified",r=>!!r.userId), ffYN("hbr","Has Branches",r=>(r.branchIds||[]).length > 0), ffYN("hrole","Has Roles",r=>userRoleIds(r).length > 0),
+    ffYN("con","Has Console Access",r=>!!r.email), ffYN("app","Has App Access",r=>!!r.pinHash), ["upd","Updated After","date",r=>r.updatedAt]],
+  "delivery-zones": [ffTxt("name","Name",r=>r.name), ffTxt("ref","Reference",r=>r.reference), ["upd","Updated After","date",r=>r.updatedAt]],
+  branches: [ffTxt("name","Name",r=>r.name), ffTxt("ref","Reference",r=>r.code),
+    ["tag","Tag","sel",r=>tagsOf("branch", r.id), () => tagList("branch").map(t => [t.id, t.name])],
+    ["tax","Tax Group","sel",r=>r.settings?.taxGroup, () => taxGroupOpts()],
+    ["user","User","sel",r=>(S.users||[]).filter(u => !u.deleted && (!(u.branchIds||[]).length || u.branchIds.includes(r.id))).map(u => u.id), () => (S.users||[]).filter(u => live(u) && !isAdminRow(u)).map(u => [u.id, u.name])],
+    ["zone","Delivery Zone","sel",r=>(S.zones||[]).filter(z => live(z) && z.branchId===r.id).map(z => z.id), () => (S.zones||[]).filter(live).map(z => [z.id, z.name])],
+    ["upd","Updated After","date",r=>r.updatedAt]],
+  devices: [ffTxt("name","Name",r=>r.name), ffTxt("ref","Reference",r=>r.reference), ffTxt("code","Code",r=>r.code),
+    ["type","Type","sel",r=>r.type, () => DEV_TYPES],
+    ["br","Branch","sel",r=>r.branchId, () => activeBranches().map(b => [b.id, b.name])],
+    ["tag","Tag","sel",r=>tagsOf("device", r.id), () => tagList("device").map(t => [t.id, t.name])],
+    ffYN("use","In Use",r=>!!r.activatedAt)],
+  discounts: [ffTxt("name","Name",r=>r.name+" "+(r.nameAr||"")), ffTxt("ref","Reference",r=>r.reference),
+    ["qual","Qualification","sel",r=>r.qualification||"order", () => DS_QUAL],
+    ["type","Discount Type","sel",r=>r.type==="fixed" ? "fixed" : "pct", () => [["fixed","Fixed"],["pct","Percentage"]]],
+    ffYN("tax","Taxable",r=>!!r.taxable), ["upd","Updated After","date",r=>r.updatedAt]] };
+document.addEventListener("click", e => { const x = e.target.closest?.("[data-fltclr]"); if(!x) return; e.preventDefault(); e.stopImmediatePropagation();
+  const [attr, key] = x.dataset.fltclr.split("|");
+  if(attr==="data-cflt"){ (state.cflt ||= {})[key] = {}; state.page[key] = 1; if(key==="products"){ state.catFilter = ""; state.prodMod = ""; } if(key==="modifier-options") state.modFilter = ""; }
+  else if(attr==="data-docflt") (DOC.flt ||= {})[key] = {};
+  else if(attr==="data-cusflt"){ CUS.flt = {}; CUS.page = 1; }
+  render(); }, true);
 const crudFlt = key => (state.cflt ||= {})[key] || {};
 const crudFltOk = key => { const ff = CRUD_FF[key], f = crudFlt(key); if(!ff) return () => true;
   return r => ff.every(([k, , t, get]) => { const v = f[k]; if(!v) return true; const x = get(r);
@@ -8707,7 +8756,7 @@ const crudFltOk = key => { const ff = CRUD_FF[key], f = crudFlt(key); if(!ff) re
     if(t==="date") return String(x||"").slice(0,10) >= v;
     return Array.isArray(x) ? x.includes(v) : x===v; }); };
 const crudFltBtn = key => { const n = Object.values(crudFlt(key)).filter(Boolean).length;
-  return `${n ? `<a href="#${key}" class="lnk" data-cfltclr="${key}" style="margin-right:10px">Clear</a>` : ""}<button type="button" class="btn" data-cflt="${key}">${svgIco("filter")}Filter${n ? ` (${n})` : ""}</button>`; };
+  return fltBtn("data-cflt", key, n > 0); };
 document.addEventListener("click", e => {
   const b = e.target.closest("[data-cflt]"); if(b){ e.preventDefault(); const key = b.dataset.cflt, f = crudFlt(key), box = $("#ccBox"); box.className = "modal";
     box.innerHTML = `<header><h2>Filter</h2><button type="button" class="x" data-ccclose aria-label="Close">×</button></header><div class="body" style="display:grid;grid-template-columns:1fr 1fr;gap:4px 14px">
@@ -8993,7 +9042,7 @@ $("#view").addEventListener("click", async e => {
   const op = t.closest("[data-open]"); if(op && !t.closest("a") && !t.closest(".noedit")){ const i = op.dataset.open.indexOf(":"), k = op.dataset.open.slice(0,i), id = op.dataset.open.slice(i+1); return CRUD[k].detail ? openDetail(k, id) : openCrud(k, id); }
   const pg = t.closest("[data-page]"); if(pg){ const [k,v] = pg.dataset.page.split(":"); state.page[k] = +v; render(); window.scrollTo(0,0); return; }
   const cf = t.closest("[data-catfilter]"); if(cf){ e.preventDefault(); const id = cf.dataset.catfilter, c = S.categories.find(x=>x.id===id); location.hash = "products";
-    setTimeout(() => { state.catFilter = id; state.tabs.products = "all"; state.page.products = 1; render(); }, 60); return; }
+    setTimeout(() => { (state.cflt ||= {}).products = { cat:id }; state.tabs.products = "all"; state.page.products = 1; render(); }, 60); return; }
   const ic = t.closest("[data-invcat]"); if(ic){ e.preventDefault(); const n = ic.dataset.invcat; location.hash = "inv-items";
     setTimeout(() => { state.invCat = n; state.tabs["inv-items"] = "all"; state.page["inv-items"] = 1; render(); }, 60); return; }
   if(t.closest("[data-clearcat]")){ state.catFilter = ""; render(); return; }
