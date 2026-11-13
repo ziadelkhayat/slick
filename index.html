@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="848-1794574558">
+<meta name="slick-build" content="849-1794582700">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this copy, reload once (never for an older one) */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1432,6 +1432,8 @@ html body table td{padding-top:9px;padding-bottom:9px}   /* tighter rows across 
 .ptabs a.ptback{color:#6b6a75;margin-right:6px;border-right:1px solid #ebeaf0;border-radius:0;padding-right:16px}.ptabs a.ptback:hover{color:#1d1b26}
 #view.isdet > :not(.ptabs):not(script):not(style){max-width:1080px;margin-left:auto!important;margin-right:auto!important}
 html body .pager .btn{height:34px!important;min-height:34px;padding:0 14px!important;font-size:14px}
+#ccBox .qcard{border:1px solid #ebeaf0;border-radius:12px;padding:16px 18px;margin-bottom:14px;box-shadow:0 2px 8px rgba(20,16,40,.06)}#ccBox .qcard>b{display:block;text-transform:uppercase;margin-bottom:12px;font-size:14px}
+#ccBox .qrow{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:0 16px}#ccBox .qrow .qgrp{display:contents}#ccBox .qrow .qconv{grid-column:1/-1;margin-top:-4px}#ccBox .qrow .f{margin-bottom:8px}
 </style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -3371,12 +3373,12 @@ const CRUD = {
     }
   },
   warehouses: {
-    col:"warehouses", title:"Locations", one:"Location",
+    col:"warehouses", title:"Warehouses", one:"Warehouse", detail: r => warehouseDetail(r),
     tabs:[["all","All",live],["deleted","Deleted",r=>r.deleted]],
     sort:(a,b)=>(a.reference||"").localeCompare(b.reference||"",undefined,{numeric:true}) || a.name.localeCompare(b.name),
     search:r=>r.name+" "+(r.reference||""),
-    cols:[["Name",r=>`<b>${esc(r.name)}</b>`],["Reference",r=>`<span class="code">${esc(r.reference||"")}</span>`],["Address",r=>esc(r.address||"—")],["Created",r=>fmtDate(r.createdAt)]],
-    fields:[{k:"name",l:"Name",req:1},{k:"reference",l:"Reference"},{k:"address",l:"Address",full:1}],
+    cols:[["Name",r=>`<b>${esc(r.name)}</b>`],["Reference",r=>`<span class="code">${esc(r.reference||"")}</span>`],["Created",r=>fmtDate(r.createdAt)]],
+    fields:[{k:"name",l:"Name",req:1},{k:"reference",l:"Reference",req:1,auto:()=>"W" + String(Math.max(0, ...S.warehouses.map(w => +(/^W(\d+)$/i.exec(w.reference||"")||[])[1] || 0)) + 1).padStart(2, "0")},{k:"address",l:"Address",t:"textarea",full:1}],
     unique:"name"
   },
   "order-sources": {
@@ -3451,7 +3453,8 @@ function crudView(key){
   list.sort(cfg.sort);
   const per = 50, pages = Math.max(1, Math.ceil(list.length/per)), pg = Math.min(state.page[key]||1, pages);
   const shown = list.slice((pg-1)*per, pg*per);
-  let h = (key==="modifiers" || key==="modifier-options" ? `<div class="segtabs"><a href="#modifiers" class="${key==="modifiers"?"on":""}">Modifiers Groups</a><a href="#modifier-options" class="${key==="modifier-options"?"on":""}">Modifier Options</a></div>` : "") + `<div class="phead"><h1>${key==="modifiers" ? "Modifiers Groups" : cfg.title}</h1><div class="sp"></div>${IMPEX[key] ? `<span class="ddwrap iewrap"><button type="button" class="btn" data-iemenu>Import / Export <span class="iecv">▾</span></button><span class="ddmenu iemenu" hidden><button type="button" data-imp="${key}">${svgIco("upload")}Import</button><button type="button" data-exp="${key}">${svgIco("download")}Export</button></span></span>` : ""}<button class="btn pri" data-create="${key}">${cfg.addLbl||"Create"} ${cfg.one}</button></div>`;
+  let h = (key==="modifiers" || key==="modifier-options" ? `<div class="segtabs"><a href="#modifiers" class="${key==="modifiers"?"on":""}">Modifiers Groups</a><a href="#modifier-options" class="${key==="modifier-options"?"on":""}">Modifier Options</a></div>` : "") + `<div class="phead"><h1>${key==="modifiers" ? "Modifiers Groups" : cfg.title}</h1><div class="sp"></div>${IMPEX[key] ? `<span class="ddwrap iewrap"><button type="button" class="btn" data-iemenu>Import / Export <span class="iecv">▾</span></button><span class="ddmenu iemenu" hidden>${key==="suppliers" ? `<button type="button" data-imp="suppliers">${svgIco("upload")}Import Suppliers</button><button type="button" data-supimp>${svgIco("upload")}Import Supplier Inventory Products</button><button type="button" data-exp="suppliers">${svgIco("download")}Export Suppliers</button><button type="button" data-supexp>${svgIco("download")}Export Supplier Inventory Products</button>`
+      : `<button type="button" data-imp="${key}">${svgIco("upload")}Import</button><button type="button" data-exp="${key}">${svgIco("download")}Export</button>`}</span></span>` : ""}<button class="btn pri" data-create="${key}">${cfg.addLbl||"Create"} ${cfg.one}</button></div>`;
   if(storeMode==="local") h += `<div class="banner">Preview mode: changes won't be saved.</div>`;
   if(cfg.note) h += `<p class="subt" style="margin-top:-6px">${esc(cfg.note)}</p>`;
   if(cfg.top) h += cfg.top();
@@ -3750,6 +3753,12 @@ const IMPEX = {
       else if(x["option sku"]) d.sku = x["option sku"];
       return { col:"modifier_options", id: ex?.id, data:d };
     } },
+  suppliers: { file:"suppliers", head:["Name","Code","Contact Name","Phone","Email","Address","Notes"],
+    rows: () => S.suppliers.filter(live).sort(CRUD.suppliers.sort).map(r => [r.name, r.code, r.contactName, r.phone, r.email, r.address, r.notes]),
+    build: x => { const ex = (x.code && S.suppliers.find(r => live(r) && (r.code||"").toLowerCase()===x.code.toLowerCase())) || byName(S.suppliers, x.name);
+      const d = { name:x.name }; [["code","code"],["contact name","contactName"],["phone","phone"],["email","email"],["address","address"],["notes","notes"]].forEach(([h,k]) => { if(x[h]) d[k] = x[h]; });
+      if(!ex && !d.code) d.code = "SUP-" + String(S.suppliers.length + 1).padStart(3, "0");
+      return { col:"suppliers", id: ex?.id, data:d }; } },
   "inv-items": { file:"inventory-items", head:["SKU","Name","Name Localized","Category","Storage Unit","Ingredient Unit","Factor","Costing Method","Cost","Minimum Level","Par Level","Maximum Level"],
     rows: () => S.inv_items.filter(live).sort(CRUD["inv-items"].sort).map(r => [r.sku, r.name, r.nameAr, r.category, r.storageUnit, r.ingredientUnit, r.factor, r.costingMethod==="transactions"?"Transactions":"Fixed", r.cost, r.minLevel, r.parLevel, r.maxLevel]),
     build: (x, ctx) => {
@@ -3764,6 +3773,24 @@ const IMPEX = {
       return { col:"inv_items", id: ex?.id, data:d };
     } }
 };
+// suppliers (Foodics): import / export the suppliers, and the inventory products each one supplies
+IMPEX.suppliers = { file:"suppliers", head:["Name","Code","Contact Name","Phone","Email","Address","Notes"],
+  rows: () => S.suppliers.filter(live).sort((a,b) => a.name.localeCompare(b.name)).map(r => [r.name, r.code, r.contactName, r.phone, r.email, r.address, r.notes]),
+  build: x => { const ex = (x.code && S.suppliers.find(s => live(s) && (s.code||"").toLowerCase()===String(x.code).toLowerCase())) || byName(S.suppliers.filter(live), x.name);
+    const d = { name:x.name }; [["code","code"],["contact name","contactName"],["phone","phone"],["email","email"],["address","address"],["notes","notes"]].forEach(([h,k]) => { if(x[h]!=null && x[h]!=="") d[k] = x[h]; });
+    if(!ex && !d.code) d.code = "SUP-" + String(S.suppliers.length + 1).padStart(3, "0");
+    return { col:"suppliers", id: ex?.id, data:d }; } };
+document.addEventListener("click", e => {
+  if(e.target.closest("[data-supexp]")){ e.preventDefault();
+    return csvDownload("supplier-inventory-items.csv", [["Supplier","Supplier Code","Item SKU","Item Name"], ...supLinks().map(l => { const sp = S.suppliers.find(x => x.id===l.supplierId), it = itemOf(l.itemId); return sp && it ? [sp.name, sp.code||"", it.sku||"", it.name] : null; }).filter(Boolean)]); }
+  if(e.target.closest("[data-supimp]")){ e.preventDefault();
+    impexDialog("Import supplier inventory products", `<p>Upload a CSV file with the columns <span class="code">Supplier, Supplier Code, Item SKU, Item Name</span>. Each line links an inventory product to a supplier (matched by code or name, and by SKU or name).</p><p><button type="button" class="btn" data-supexp>Download current list</button></p>`, "Choose file…");
+    $("#impGo").onclick = () => impexPick(async text => { const rows = csvParse(text); let links = [...supLinks()], n = 0, miss = 0;
+      for(const x of rows){ const sp = (x["supplier code"] && S.suppliers.find(s => live(s) && (s.code||"").toLowerCase()===String(x["supplier code"]).toLowerCase())) || byName(S.suppliers.filter(live), x.supplier);
+        const it = (x["item sku"] && S.inv_items.find(i => live(i) && (i.sku||"").toLowerCase()===String(x["item sku"]).toLowerCase())) || byName(S.inv_items.filter(live), x["item name"]);
+        if(!sp || !it){ miss++; continue; } if(!links.some(l => l.supplierId===sp.id && l.itemId===it.id)){ links.push({ supplierId: sp.id, itemId: it.id }); n++; } }
+      $("#ccScrim").classList.remove("show"); await setSetting("supplier_items", { links }, `${n} link${n===1?"":"s"} added${miss ? ` · ${miss} line${miss===1?"":"s"} not matched` : ""}`); }); }
+});
 function impexExport(key){ const X = IMPEX[key]; csvDownload(X.file + ".csv", [X.head, ...X.rows()]); }
 // pick a file → check every line → show what will happen → import
 function impexPick(onText){ const f = document.createElement("input"); f.type = "file"; f.accept = ".csv,text/csv"; f.onchange = () => { const file = f.files[0]; if(!file) return; const r = new FileReader(); r.onload = () => onText(String(r.result||""), file.name); r.readAsText(file); }; f.click(); }
@@ -7321,6 +7348,7 @@ function productDetail(p){
     info("Costing Method", isFixedCost(p)?"Fixed Cost":"From Ingredients"), info("Preparation Time", p.prepTime ? esc(p.prepTime)+" min" : "—"),
     info("Price", varKids(p).length ? "Set on each variant" : p.pricingMethod==="open" ? "Open" : usd(price)), info(isFixedCost(p)?"Fixed Cost":"Ingredients Cost", fmtCost(cost)),
     info("Cost %", price ? `<span style="${pct>40?"color:var(--accent-ink);font-weight:600":""}">${pct.toFixed(1)} %</span>` : "—"),
+    info("Inventory Item", isInvProduct(p) ? "Yes" : "No"),   // shown as "Inventory Product": bought and sold as it is
     wide(info("Description", esc(p.description||"—"))), wide(info("Description Localized", esc(p.descriptionAr||"—")))]);
   // a product with variants isn't sold itself: each variant product has its own recipe
   const hasVar = (p.variants||[]).some(v => v.productId);
@@ -7608,6 +7636,25 @@ function supLinkTable(list, side){
     return `<tr><td>${side==="item" ? `<a href="#suppliers" class="lnk" data-detopen="suppliers:${esc(l.supplierId)}">${esc(sp?.name || "—")}</a>` : `<a href="#inv-items" class="lnk" data-detopen="inv-items:${esc(l.itemId)}">${esc(it?.name || "—")}</a> <span class="code">${esc(it?.sku||"")}</span>`}</td>
       <td class="num"><button type="button" class="btn sm" data-suprm="${esc(l.supplierId)}:${esc(l.itemId)}" aria-label="Remove">×</button></td></tr>`; }).join("")}</tbody></table>`;
 }
+// a warehouse (Foodics): its details, then deleting its inventory or the warehouse itself
+function warehouseDetail(w){
+  let h = `<div class="phead"><a href="#warehouses" class="btn" data-detback style="text-decoration:none">← Back</a><h1 style="margin-left:10px">${esc(w.name)}</h1><div class="sp"></div><button class="btn pri" data-detedit>Edit Warehouse</button></div>`;
+  h += infoGrid([info("Name", esc(w.name)), info("Reference", esc(w.reference||"—")), info("Address", esc(w.address||"—")), info("Created", fmtDate(w.createdAt))]);
+  h += `<div class="supsecs">`;
+  h += pdSec("Delete Inventory", "", `<p class="note" style="margin:0 0 12px">If you delete this warehouse inventory, all the data will be permanently deleted.</p><button type="button" class="btn danger" data-whdelinv="${esc(w.id)}">Delete Inventory</button>`);
+  if(!w.deleted) h += pdSec("Delete Warehouse", "", `<p class="note" style="margin:0 0 12px">If you delete this warehouse, all of its data will be deleted.</p><button type="button" class="btn danger" data-whdel="${esc(w.id)}">Delete Warehouse</button>`);
+  return h + `</div>`;
+}
+document.addEventListener("click", async e => {
+  const di = e.target.closest("[data-whdelinv]"), dw = e.target.closest("[data-whdel]"); if(!di && !dw) return; e.preventDefault();
+  const w = S.warehouses.find(x => x.id===(di||dw).dataset[di ? "whdelinv" : "whdel"]); if(!w) return;
+  if(di){ if(!(await askYes(`Delete all the inventory of ${w.name}? Its stock levels and counts are permanently deleted.`))) return;
+    const { error } = await WOK.sb.from("stock_counts").delete().eq("branch_id", w.id);
+    if(error){ console.error(error); return toast("Couldn't delete the inventory: " + error.message); }
+    DOC.stockAt = 0; IC.loaded = {}; loadStock(true); toastOk("Inventory deleted"); return render(); }
+  if(!(await askYes(`Delete the warehouse ${w.name}?`))) return;
+  try{ await put("warehouses", w.id, { deleted:true }); toastOk("Warehouse deleted"); DET.key = ""; DET.id = ""; render(); }catch(err){ console.error(err); toast("Couldn't delete the warehouse"); }
+});
 function supplierDetail(sp){
   const tg = tagsOf("supplier", sp.id), sl = supLinks().filter(l => l.supplierId===sp.id);
   let h = `<div class="phead"><a href="#suppliers" class="btn" data-detback style="text-decoration:none">← Back</a><h1 style="margin-left:10px">${esc(sp.name)}</h1><div class="sp"></div><button class="btn pri" data-detedit>Edit Supplier</button></div>`;
@@ -7865,23 +7912,22 @@ async function ccAdd(p){
 /* ---------- Purchase orders, transfer orders, transfers ---------- */
 const supName = id => S.suppliers.find(x=>x.id===id)?.name || "—";
 function docStatusTag(d){
-  const t = d.status==="closed" ? (d.kind==="purchase" && d.reason==="po" ? "Approved" : d.kind==="purchase"||d.kind==="transfer" ? "Received" : d.kind==="torder" ? "Fulfilled" : "Closed")
-    : d.status==="pending" ? (d.kind==="transfer" ? "Sent" : "Pending") : d.status==="rejected" ? "Rejected" : "Draft";
+  const t = d.status==="closed" ? "Closed" : d.status==="pending" ? "Pending" : d.status==="rejected" ? "Declined" : "Draft";   // Foodics names
   const cls = d.status==="closed" ? "on" : d.status==="pending" ? "cc" : "off";
   return `<span class="tag ${cls}">${t}</span>`;
 }
 function viewFlowList(route, K, tabs, all, list){
   const tab = DOC.tab[route] || "all";
   const shown = list.filter(d => tab==="all" || d.status===tab);
-  const cols = [["Reference",d=>`<span class="code">${esc(d.ref||"…")}</span>`],
+  const cols = [["Reference",d=>d.status==="draft" || !d.ref ? "—" : `<span class="code">${esc(d.ref)}</span>`],
     ...(K.kind==="purchase" ? [["Supplier",d=>esc(supName(d.supplierId))],["Destination",d=>esc(locName(d.locationId))]]
       : K.kind==="torder" ? [["From",d=>esc(locName(d.destId))],["To",d=>esc(locName(d.locationId))]]
       : [["From",d=>esc(locName(d.locationId))],["To",d=>esc(locName(d.destId))]]),
-    ["Status",d=>docStatusTag(d)],["Items",d=>(d.items||[]).length,"num"],
+    ["Status",d=>docStatusTag(d)],
     ...(K.kind==="purchase" ? [["Total",d=>usd((d.items||[]).reduce((s,l)=>s+(+l.qty||0)*(+l.cost||0),0)),"num"]] : []),
-    ["Business Date",d=>esc(d.businessDate||"—")],["Created",d=>fmtDate(d.createdAt)]];
+    ["Business Date",d=>d.status==="draft" ? "—" : esc(d.businessDate||"—")],["Created",d=>fmtDate(d.createdAt)]];
   const counts = {}; all.forEach(d => counts[d.status] = (counts[d.status]||0) + 1);
-  let h = `<div class="phead"><h1>${K.plural}</h1><div class="sp"></div>${all.length?`<button class="btn" data-docexport="${route}">Export</button>`:""}${scopeBar(false)}<button class="btn pri" data-docnew="${route}">New ${K.title}</button></div>
+  let h = `<div class="phead"><h1>${K.plural}</h1><div class="sp"></div><button class="btn" data-docexport="${route}">Export</button>${scopeBar(K.kind!=="sheet")}<button class="btn pri" data-docnew="${route}">New ${K.title}</button></div>
     <p class="subt" style="margin-top:-6px">${esc(K.intro)}</p>
     <div class="card tbl"><div class="ttop"><div class="ttabs">${tabs.map(t=>`<a href="#${route}" data-doctab="${route}:${t[0]}" class="${tab===t[0]?"on":""}">${t[1]}${t[0]!=="all"&&counts[t[0]]?` (${counts[t[0]]})`:""}</a>`).join("")}</div><div class="sp"></div>
     <input class="sel search" data-docq="${route}" placeholder="Search" value="${esc(DOC.q[route]||"")}" aria-label="Search"></div>`;
@@ -7895,7 +7941,7 @@ function flowInfo(d, K, info){
     K.kind==="purchase" ? info("Supplier", esc(supName(d.supplierId))) : "",
     K.kind==="torder" ? info("From", esc(locName(d.destId))) + info("To", esc(locName(d.locationId)))
       : info(K.kind==="purchase" ? "Destination" : "From", esc(locName(d.locationId))) + (K.kind!=="purchase" ? info("To", esc(locName(d.destId))) : ""),
-    info("Business Date", esc(d.businessDate||"—")), who("Creator", d.createdBy), info("Created At", fmtDate(d.createdAt)),
+    info("Business Date", d.status==="draft" ? "—" : esc(d.businessDate||"—")), who("Creator", d.createdBy), info("Created At", fmtDate(d.createdAt)),
     K.po ? info("Delivery Date", esc(delLbl(d.deliveryAt))) : "",
     K.kind==="purchase" && +d.additionalCost ? info("Additional Cost", usd(+d.additionalCost)) : "",
     K.kind==="purchase" ? info(K.po ? "Purchase Order Total Cost" : "Total Cost", usd((d.items||[]).reduce((a, l) => a + (+l.qty||0) * (+(l.cost ?? itemOf(l.itemId)?.cost) || 0), 0) + (+d.additionalCost || 0))) : "", who(K.kind==="transfer"?"Sent by":"Submitted by", d.submittedBy),
@@ -7927,9 +7973,11 @@ document.addEventListener("click", e => {
   if(e.target.closest("button,a,input,select,label,.bmgrip")) return;
   const row = e.target.closest("tr"); const cells = row ? [...row.querySelectorAll("[data-qe]")] : []; if(!cells.length || !row.closest("#view")) return;
   e.preventDefault(); const [kind, key] = cells[0].dataset.qe.split("|"), box = $("#ccBox"); box.className = "modal sm";
-  box.innerHTML = `<header><h2>${esc(cells[0].dataset.name)}</h2><button type="button" class="x" data-ccclose aria-label="Close">×</button></header><div class="body" style="display:block">
-    ${cells.map((c, i) => { const [k, ky, f] = c.dataset.qe.split("|"), v = k==="docl" ? DOC.edit?.items[+ky]?.[f] : k==="recv" ? DOC.recv?.[+ky]?.[f] : (IC.draft[IC.branch]||{})[ky];
-      return qFields(i, c.dataset.lbl, c.dataset.qe, v, f==="qty" ? itemOf(c.dataset.item) : null); }).join("")}</div>
+  const it0 = itemOf(cells[0].dataset.item) || {}, ord = [...cells].sort((a, b) => (a.dataset.qe.endsWith("|qty") ? 0 : 1) - (b.dataset.qe.endsWith("|qty") ? 0 : 1));   // quantity first, then cost (Foodics)
+  box.innerHTML = `<header><h2>Update Items Quantities</h2><button type="button" class="x" data-ccclose aria-label="Close">×</button></header><div class="body" style="display:block">
+    <div class="qitem qcard"><b>${esc(cells[0].dataset.name)}${it0.sku ? ` <span style="text-transform:none">(${esc(it0.sku)})</span>` : ""}</b><div class="qrow">
+    ${ord.map((c, i) => { const [k, ky, f] = c.dataset.qe.split("|"), v = k==="docl" ? DOC.edit?.items[+ky]?.[f] : k==="recv" ? DOC.recv?.[+ky]?.[f] : (IC.draft[IC.branch]||{})[ky];
+      return qFields(i, f==="cost" && /cost per unit|unit cost/i.test(c.dataset.lbl) ? "Cost" : c.dataset.lbl, c.dataset.qe, v, f==="qty" ? itemOf(c.dataset.item) : null); }).join("")}</div></div></div>
     <footer>${kind==="docl" ? `<button type="button" class="btn danger" data-qedel="${esc(key)}">Delete</button>` : ""}<span style="flex:1"></span><button type="button" class="btn keep" data-ccclose>Close</button><button type="button" class="btn pri" id="qeSave">Save</button></footer>`;
   $("#ccScrim").classList.add("show"); setTimeout(() => $("#qe_0")?.select(), 50);
 });
@@ -7952,9 +8000,9 @@ document.addEventListener("keydown", e => { if(e.key==="Enter" && e.target.close
 // Edit Quantities: every line's quantity in one dialog
 document.addEventListener("click", e => {
   if(!e.target.closest("[data-docqtys]") || !DOC.edit) return; e.preventDefault(); const box = $("#ccBox"); box.className = "modal sm";
-  box.innerHTML = `<header><h2>${DOC_KINDS[DOC.open?.route]?.kind==="cost" ? "Costs" : DOC_KINDS[DOC.open?.route]?.kind==="purchase" ? "Quantities & Cost" : "Quantities"}</h2><button type="button" class="x" data-ccclose aria-label="Close">×</button></header><div class="body" style="display:block">
+  box.innerHTML = `<header><h2>${DOC_KINDS[DOC.open?.route]?.kind==="cost" ? "Update Items Costs" : "Update Items Quantities"}</h2><button type="button" class="x" data-ccclose aria-label="Close">×</button></header><div class="body" style="display:block">
     ${(() => { const K = DOC_KINDS[DOC.open?.route] || {}, q = K.kind!=="cost", c = K.kind==="cost" || K.kind==="purchase";
-      return DOC.edit.items.map((l, ix) => `<div class="qitem"><b>${esc(itemOf(l.itemId)?.name || "Item")}</b>${q ? qFields(ix, "Quantity", "docl|" + ix + "|qty", l.qty, itemOf(l.itemId) || {}) : ""}${c ? qFields(ix + "c", K.kind==="cost" ? "New Cost" : "Unit Cost", "docl|" + ix + "|cost", l.cost ?? itemOf(l.itemId)?.cost ?? "", null) : ""}</div>`).join(""); })()}</div>
+      return DOC.edit.items.map((l, ix) => `<div class="qitem qcard"><b>${esc(itemOf(l.itemId)?.name || "Item")}${itemOf(l.itemId)?.sku ? ` <span style="text-transform:none">(${esc(itemOf(l.itemId).sku)})</span>` : ""}</b><div class="qrow">${q ? qFields(ix, "Quantity", "docl|" + ix + "|qty", l.qty, itemOf(l.itemId) || {}) : ""}${c ? qFields(ix + "c", K.kind==="cost" ? "New Cost" : "Cost", "docl|" + ix + "|cost", l.cost ?? itemOf(l.itemId)?.cost ?? "", null) : ""}</div></div>`).join(""); })()}</div>
     <footer><span style="flex:1"></span><button type="button" class="btn keep" data-ccclose>Close</button><button type="button" class="btn pri" id="qeSave">Save</button></footer>`;
   $("#ccScrim").classList.add("show");
 });
@@ -7963,9 +8011,9 @@ function flowButtons(d, K){
   if(d.status==="draft") return (K.kind==="purchase" && !K.po ? `<button class="btn pri" data-flow="recvnow" ${b||!d.items.length?"disabled":""}>${b?"Working…":"Receive Items"}</button>`
     : `<button class="btn pri" data-flow="submit" ${b||!d.items.length?"disabled":""}>${b?"Working…":K.kind==="transfer"?"Send Items":"Submit For Review"}</button>`);
   if(d.status!=="pending") return "";
-  if(K.po) return `<button class="btn danger" data-flow="reject" ${b?"disabled":""}>Reject</button><button class="btn pri" data-flow="approve" ${b?"disabled":""}>${b?"Working…":"Approve & create purchasing"}</button>`;
-  if(K.kind==="torder") return `<button class="btn danger" data-flow="reject" ${b?"disabled":""}>Reject</button><button class="btn pri" data-flow="fulfil" ${b?"disabled":""}>Create transfer</button>`;
-  return `${K.kind==="purchase"?`<button class="btn danger" data-flow="reject" ${b?"disabled":""}>Reject</button>`:""}<button class="btn pri" data-flow="receive" ${b?"disabled":""}>${b?"Working…":"Receive items"}</button>`;
+  if(K.po) return `<button class="btn danger" data-flow="reject" ${b?"disabled":""}>Decline</button><button class="btn pri" data-flow="approve" ${b?"disabled":""}>${b?"Working…":"Approve"}</button>`;
+  if(K.kind==="torder") return `<button class="btn danger" data-flow="reject" ${b?"disabled":""}>Decline</button><button class="btn pri" data-flow="fulfil" ${b?"disabled":""}>Accept</button>`;
+  return `${K.kind==="purchase"?`<button class="btn danger" data-flow="reject" ${b?"disabled":""}>Decline</button>`:""}<button class="btn pri" data-flow="receive" ${b?"disabled":""}>${b?"Working…":"Receive items"}</button>`;
 }
 function flowHead(d, K, ro, recv){
   const q = K.kind==="purchase" ? "Ordered" : K.kind==="torder" ? "Requested" : d.status==="draft" ? "Quantity" : "Sent";
@@ -7992,7 +8040,7 @@ async function flowAction(action){
   if(action==="recvnow"){   // Purchasing (Foodics): a draft is received in one step at the quantities and costs entered
     if(!d.locationId || !d.supplierId){ DOC.err = "Choose the supplier and the branch (Edit)."; return render(); }
     if(d.items.some(l => !(+l.qty > 0))){ DOC.err = "Every quantity must be more than 0. Enter it or remove the row."; return render(); }
-    if(!(await askYes(`Receive ${d.items.length} item${d.items.length===1?"":"s"} into ${locName(d.locationId)}? This adds them to stock and can't be edited afterwards.`))) return;
+    if(!(await askYes("Are you sure you want to receive these items?"))) return;
     if(!(await saveDoc(true))) return;
     DOC.busy = true; render();
     const by = state.fullName || state.userName || null, lines = d.items.map(l => ({ itemId:l.itemId, qty:+l.qty||0, cost: +(l.cost ?? itemOf(l.itemId)?.cost ?? 0) || 0, ordered:+l.qty||0 }));
@@ -8006,12 +8054,13 @@ async function flowAction(action){
   if(action==="submit"){
     if(!d.locationId || (K.kind==="purchase" && !d.supplierId) || (K.kind!=="purchase" && !d.destId)){ DOC.err = K.kind==="purchase" ? "Choose the supplier and where it's delivered." : "Choose where it comes from and where it goes."; return render(); }
     if(d.items.some(l => !(+l.qty > 0))){ DOC.err = "Every quantity must be more than 0. Enter it or remove the row."; return render(); }
-    if(K.kind==="transfer" && !(await askYes(`Send ${d.items.length} item${d.items.length===1?"":"s"} from ${locName(d.locationId)} to ${locName(d.destId)}? They're taken out of ${locName(d.locationId)} now.`))) return;
+    if(!(await askYes(K.kind==="transfer" ? "Are you sure you want to send this?" : "Are you sure you want to submit this?"))) return;
     if(!(await saveDoc(true))) return;
   }
-  if(action==="reject" && !(await askYes(`Reject ${d.ref}?`))) return;
+  if(action==="reject" && !(await askYes("Are you sure you want to decline this?"))) return;
+  if(action==="fulfil" && !(await askYes("Are you sure you want to accept this?"))) return;
   if(action==="approve"){   // purchase order approved: a purchasing draft with the same supplier, place and items, to receive when the goods arrive
-    if(!(await askYes(`Approve ${d.ref || "this purchase order"} and create its purchasing?`))) return;
+    if(!(await askYes("Are you sure you want to approve this?"))) return;
     DOC.busy = true; render(); const pid = uid("idoc"), now = new Date().toISOString();
     try{
       await put("inv_docs", pid, { kind:"purchase", status:"draft", locationId:d.locationId, supplierId:d.supplierId||null, businessDate:daysAgo(0), direction:"deduct", reason:null, notes:d.notes||null, linkedId:d.id, createdBy: state.fullName || state.userName || null,
@@ -8025,7 +8074,7 @@ async function flowAction(action){
   if(action==="receive"){
     lines = d.items.map((l, ix) => ({ itemId:l.itemId, qty: +DOC.recv[ix].qty || 0, ...(K.kind==="purchase" ? { cost: +DOC.recv[ix].cost || 0 } : {}), ordered: +l.qty || 0 }));
     const diff = lines.filter(x => x.qty !== x.ordered).length;
-    if(!(await askYes(`Receive into ${locName(K.kind==="transfer" ? d.destId : d.locationId)}?${diff ? ` ${diff} item${diff===1?"":"s"} differ from what was ${K.kind==="transfer"?"sent":"ordered"}.` : ""}`))) return;
+    if(!(await askYes("Are you sure you want to receive these items?"))) return;
   }
   DOC.busy = true; render();
   const { data, error } = await WOK.sb.rpc("slick_doc_action", { p_id: d.id, p_action: action, p_by: state.fullName || state.userName || null, p_lines: lines });
@@ -8268,19 +8317,22 @@ const stockOf = (loc, item) => (DOC.stock && DOC.stock!=="loading" && DOC.stock[
 // a document belongs to the brand of its branch (from or to); warehouse-only documents show for every brand
 const docBrandOk = d => { if(state.brand==="all") return true; const ids = [d.locationId, d.destId].filter(Boolean), br = ids.map(id => branches.find(b=>b.id===id)).filter(Boolean);
   return !br.length || br.some(b => b.brandId===state.brand); };
+// branch / warehouse filter on the inventory transaction lists
+const docBrSel = (route, K) => K.kind==="sheet" || K.kind==="cost" ? "" : `<select class="sel" data-docbr="${route}" aria-label="Branch" style="margin-right:8px">${[["", "All Branches"], ...locList()].map(([k,t]) => `<option value="${esc(k)}" ${k===((DOC.br||{})[route]||"")?"selected":""}>${esc(t)}</option>`).join("")}</select>`;
+document.addEventListener("change", e => { const s = e.target.closest?.("[data-docbr]"); if(!s) return; (DOC.br ||= {})[s.dataset.docbr] = s.value; render(); });
 function viewDocs(route){
   const K = DOC_KINDS[route];
   if(DOC.open && DOC.open.route===route) return viewDoc(route);
-  const tab = DOC.tab[route] || "all", q = (DOC.q[route]||"").toLowerCase();
+  const tab = DOC.tab[route] || "all", q = (DOC.q[route]||"").toLowerCase(), br = K.kind!=="sheet" && state.branch!=="all" ? state.branch : "";   // the branch picked at the top (always shown)
   const all = S.inv_docs.filter(d => docOf(K)(d) && live(d) && docBrandOk(d));
-  const list = all.filter(d => tab==="all" || d.status===tab).filter(d => !q || ((d.ref||"")+" "+(d.name||"")+" "+locName(d.locationId)+" "+(d.reason||"")).toLowerCase().includes(q))
+  const list = all.filter(d => tab==="all" || d.status===tab).filter(d => !br || d.locationId===br || d.destId===br).filter(d => !q || ((d.ref||"")+" "+(d.name||"")+" "+locName(d.locationId)+" "+(d.reason||"")).toLowerCase().includes(q))
     .sort((a,b)=>String(b.createdAt).localeCompare(String(a.createdAt)));
-  const tabs = K.kind==="sheet" ? [] : K.flow ? [["all","All"],["draft","Draft"],["pending","Pending"],["closed","Closed"],["rejected","Rejected"]] : [["all","All"],["draft","Draft"],["closed","Closed"]];
+  const tabs = K.kind==="sheet" ? [] : K.flow ? [["all","All"],["draft","Draft"],["pending","Pending"],["closed","Closed"],["rejected","Declined"]] : [["all","All"],["draft","Draft"],["closed","Closed"]];
   if(K.flow) return viewFlowList(route, K, tabs, all, list);
-  const cols = K.kind==="sheet" ? [["Reference",d=>`<span class="code">${esc(d.ref||"…")}</span>`],["Name",d=>`<b>${esc(d.name||"—")}</b>`],["Items",d=>(d.items||[]).length,"num"],["Created At",d=>fmtDate(d.createdAt)]]
-    : [["Reference",d=>`<span class="code">${esc(d.ref||"…")}</span>`], ...(K.loc?[["Branch",d=>esc(locName(d.locationId))]]:[]), ...(K.kind==="quantity"?[["Reason",d=>esc(d.reason||"—")+(d.direction==="add"?' <span class="tag on">Add</span>':"")]]:[]),
-       ["Items",d=>(d.items||[]).length,"num"],["Status",d=>d.status==="closed"?'<span class="tag on">Closed</span>':'<span class="tag off">Draft</span>'],["Business Date",d=>esc(d.businessDate||"—")],["Created",d=>fmtDate(d.createdAt)]];
-  let h = `<div class="phead"><h1>${K.plural}</h1><div class="sp"></div>${all.length?`<button class="btn" data-docexport="${route}">Export</button>`:""}${scopeBar(false)}<button class="btn pri" data-docnew="${route}">New ${K.title}</button></div>
+  const cols = K.kind==="sheet" ? [["Reference",d=>`<span class="code">${esc(d.ref||"…")}</span>`],["Name",d=>`<b>${esc(d.name||"—")}</b>`],["Created At",d=>fmtDate(d.createdAt)]]
+    : [["Reference",d=>d.status==="draft" || !d.ref ? "—" : `<span class="code">${esc(d.ref)}</span>`], ...(K.loc?[["Branch",d=>esc(locName(d.locationId))]]:[]), ...(K.kind==="quantity"?[["Reason",d=>esc(d.reason||"—")+(d.direction==="add"?' <span class="tag on">Add</span>':"")]]:[]),
+       ["Status",d=>d.status==="closed"?'<span class="tag on">Closed</span>':'<span class="tag off">Draft</span>'],["Business Date",d=>d.status==="draft" ? "—" : esc(d.businessDate||"—")],["Created",d=>fmtDate(d.createdAt)]];
+  let h = `<div class="phead"><h1>${K.plural}</h1><div class="sp"></div><button class="btn" data-docexport="${route}">Export</button>${scopeBar(K.kind!=="sheet")}<button class="btn pri" data-docnew="${route}">New ${K.title}</button></div>
     <p class="subt" style="margin-top:-6px">${esc(K.intro)}</p>
     <div class="card tbl"><div class="ttop"><div class="ttabs">${tabs.map(t=>`<a href="#${route}" data-doctab="${route}:${t[0]}" class="${tab===t[0]?"on":""}">${t[1]}</a>`).join("")}</div><div class="sp"></div>
     <input class="sel search" data-docq="${route}" placeholder="Search" value="${esc(DOC.q[route]||"")}" aria-label="Search"></div>`;
@@ -8293,11 +8345,16 @@ function viewDocs(route){
 function docNewDialog(route){
   const K = DOC_KINDS[route]; if(!K) return; const box = $("#ccBox"); box.className = "modal sm";
   const opts = (list, cur) => `<option value="">Choose…</option>${list.map(([k,t]) => `<option value="${esc(k)}" ${k===cur?"selected":""}>${esc(t)}</option>`).join("")}`;
-  const sups = S.suppliers.filter(live).sort((a,b) => a.name.localeCompare(b.name)).map(x => [x.id, x.name]), locs = locList(), defLoc = "";   // every field starts on Choose…
+  const sups = S.suppliers.filter(live).sort((a,b) => a.name.localeCompare(b.name)).map(x => [x.id, x.name]), defLoc = "";   // every field starts on Choose…
+  const locs = [...branches.filter(b => b.active !== false).map(b => [b.id, b.name]), ...S.warehouses.filter(live).map(w => [w.id, w.name + (w.reference ? ` (${w.reference})` : "")])];
   const sel = (id, lbl, list, cur, empty) => `<div class="f"><label for="${id}">${lbl} *</label><select id="${id}" class="sel" data-empty="${esc(empty)}">${opts(list, cur)}</select></div>`;
   const f = [];
+  // brand first (always shown): it narrows the branches below; warehouses belong to every brand
+  if(K.loc){ const bl = brandList(), cur = state.brand!=="all" ? state.brand : (bl.length===1 ? bl[0].id : "");
+    f.push(`<div class="f"><label for="dnBrand">Brand</label><select id="dnBrand" class="sel"><option value="">All Brands</option>${bl.map(b => `<option value="${esc(b.id)}" ${b.id===cur?"selected":""}>${esc(b.name)}</option>`).join("")}</select></div>`); }
   if(K.kind==="purchase") f.push(sel("dnSup", "Supplier", sups, "", "No suppliers"), sel("dnLoc", K.po ? "Destination" : "Branch", locs, defLoc, "No branches or warehouses"));
-  if(K.po) f.push(delFields("dn", null), `<div class="f"><label for="dnNotes">Notes</label><textarea id="dnNotes" class="sel" rows="3"></textarea></div>`);
+  if(K.po) f.push(delFields("dn", null));
+  if(K.po || (K.kind==="spot" && !K.count)) f.push(`<div class="f"><label for="dnNotes">Notes</label><textarea id="dnNotes" class="sel" rows="3"></textarea></div>`);   // as in Foodics
   else if(K.kind==="transfer") f.push(sel("dnLoc", "Source", locs, defLoc, "No branches or warehouses"), sel("dnDest", "Destination", locs, "", "No branches or warehouses"));
   else if(K.kind==="torder") f.push(sel("dnDest", "From", locs, "", "No warehouses"), sel("dnLoc", "To", locs, defLoc, "No branches"));   // from: the warehouse that sends; to: the branch that receives
   else if(K.kind==="sheet") f.push(`<div class="f"><label for="dnName">Name *</label><input id="dnName" class="sel"></div>`);
@@ -8309,11 +8366,16 @@ function docNewDialog(route){
   $("#ccScrim").classList.add("show");
 }
 const PAIRS = [["dnLoc","dnDest"],["dLoc","dDest"]];
-function pairSync(){ PAIRS.forEach(([a, b]) => { const A = $("#" + a), B = $("#" + b); if(!A || !B) return;
-  [[A, B], [B, A]].forEach(([x, y]) => [...y.options].forEach(o => { o.hidden = !!o.value && o.value===x.value; })); }); }
+function brandSync(){ const bs = $("#dnBrand"); if(!bs) return; const bid = bs.value;
+  ["dnLoc","dnDest"].forEach(id => { const s = $("#" + id); if(!s) return; [...s.options].forEach(o => { const br = branches.find(b => b.id===o.value); if(br) o.dataset.brHide = bid && br.brandId!==bid ? "1" : ""; });
+    if(s.selectedOptions[0]?.dataset.brHide==="1"){ s.value = ""; s.dispatchEvent(new Event("change", { bubbles:true })); } }); }
+function pairSync(){ brandSync(); PAIRS.forEach(([a, b]) => { const A = $("#" + a), B = $("#" + b); if(!A || !B) return;
+  [[A, B], [B, A]].forEach(([x, y]) => [...y.options].forEach(o => { o.hidden = (!!o.value && o.value===x.value) || o.dataset.brHide==="1"; })); });
+  ["dnLoc","dnDest"].forEach(id => { const s = $("#" + id); if(s && !(PAIRS.some(p => p.includes(id) && $("#" + p.find(x => x!==id))))) [...s.options].forEach(o => { o.hidden = o.dataset.brHide==="1"; }); }); }
+document.addEventListener("change", e => { if(e.target.id==="dnBrand") return pairSync(); });
 document.addEventListener("change", e => { if(!PAIRS.flat().includes(e.target.id)) return; const p = PAIRS.find(x => x.includes(e.target.id)), other = $("#" + p.find(id => id!==e.target.id));
   if(other && other.value && other.value===e.target.value){ other.value = ""; other.dispatchEvent(new Event("change", { bubbles:true })); } pairSync(); });
-new MutationObserver(() => { if(PAIRS.flat().some(id => document.getElementById(id))) pairSync(); }).observe(document.getElementById("ccBox") || document.body, { childList:true, subtree:true });
+new MutationObserver(() => { if(PAIRS.flat().some(id => document.getElementById(id)) || document.getElementById("dnBrand")) pairSync(); }).observe(document.getElementById("ccBox") || document.body, { childList:true, subtree:true });
 document.addEventListener("click", async e => {
   const b = e.target.closest("#dnSave"); if(!b) return; e.preventDefault(); const route = b.dataset.route, v = id => $("#" + id)?.value?.trim() ?? null, err = m => { $("#dnErr").textContent = m; };
   const need = ["dnSup","dnLoc","dnDest","dnName","dnReason"].filter(id => $("#" + id)); if(need.some(id => !v(id))) return err("Fill in every field marked *.");
@@ -8348,7 +8410,7 @@ function viewDoc(route){
   const info = (l, v) => `<div><div class="note">${l}</div><div>${v}</div></div>`;
   let h = `<div class="phead"><a href="#${route}" class="btn" data-docback style="text-decoration:none">← Back</a><h1 style="margin-left:10px">${K.title}${d.ref?` (${esc(d.ref)})`:""}</h1>
     ${K.kind!=="sheet" ? `<span style="margin-left:8px">${docStatusTag(d)}</span>` : ""}<div class="sp"></div>
-    ${d.items.length || d.id ? `${d.id ? `<button class="btn" data-docprint>Print</button>` : ""}
+    ${d.items.length || d.id ? `${d.id && K.kind!=="sheet" ? `<button class="btn" data-docprint>Print</button>` : ""}
     ${d.id && !ro ? `<button class="btn danger" data-docdel>Delete Permanently</button>` : ""}
     ${!ro && K.kind!=="cost" ? `<button class="btn" data-docedit>Edit</button>` : ""}
     ${!ro ? `<button class="btn${K.kind==="sheet"?" pri":""}" data-docsave ${DOC.busy?"disabled":""}>${K.kind==="sheet"?"Save":"Save Draft"}</button>` : ""}
@@ -8360,7 +8422,7 @@ function viewDoc(route){
   if(true){
     h += `<div class="card" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:14px;margin-bottom:16px">
       ${K.flow ? flowInfo(d, K, info) : `${K.kind==="sheet"?info("Name", esc(d.name||"—"))+info("Reference", esc(d.ref||"—")):""}${K.loc?info("Branch", esc(locName(loc))):""}${K.kind==="quantity"?info("Reason", esc(d.reason||"—")+(d.direction==="add"?" (added)":" (deducted)")):""}
-      ${K.kind!=="sheet"?info("Business Date", esc(d.businessDate||"—"))+info("Creator", esc(d.createdBy||"—"))+(ro?info("Submitter", esc(d.submittedBy||"—"))+info("Submitted At", fmtDate(d.submittedAt)):""):""}${info("Created At", fmtDate(d.createdAt))}${info("Number of Items", d.items.length)}${d.notes?info("Notes", esc(d.notes)):""}`}</div>`;
+      ${K.kind!=="sheet"?info("Business Date", ro ? esc(d.businessDate||"—") : "—")+info("Creator", esc(d.createdBy||"—"))+(ro?info("Submitter", esc(d.submittedBy||"—"))+info("Submitted At", fmtDate(d.submittedAt)):""):""}${info("Created At", fmtDate(d.createdAt))}${info("Number of Items", d.items.length)}${d.notes?info("Notes", esc(d.notes)):""}`}</div>`;
   }
   function docForm(d, K, loc){ return `<div class="grid2" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px">
       ${K.kind==="sheet" ? `<div class="f"><label for="dName">Name *</label><input id="dName" class="sel" value="${esc(d.name||"")}" placeholder="e.g. Branch Count Sheet"></div>` : ""}
@@ -8377,8 +8439,9 @@ function viewDoc(route){
   // add items bar
   let docBtns = "";
   if(!ro){
-    DOC.addAvail = avail.map(i => i.id); DOC.addSheets = K.kind==="spot" ? sheets.map(x => x.id) : [];   // count sheets load into inventory counts and spot checks only DOC.addProd = K.kind==="production";
-    docBtns = `${d.items.length?`<button class="btn" data-docclear>Remove all</button>`:""}${d.items.length ? `<button class="btn" data-docqtys>${K.kind==="purchase" ? "Edit Quantities & Cost" : K.kind==="cost" ? "Edit Costs" : "Edit Quantities"}</button>` : ""}<button class="btn" data-docimp>Import Items</button><button class="btn" data-docadd>Add Items</button>`;   // shown in the Items card header
+    DOC.addAvail = avail.map(i => i.id); DOC.addSheets = [];   // no count sheet picker in Add Products DOC.addProd = K.kind==="production";
+    if(K.kind==="sheet") docBtns = `${d.items.length > 1 ? `<button class="btn" data-docsort>Sort Items</button>` : ""}<button class="btn" data-docadd>Add Items</button><button class="btn" data-docimp>Import Items</button>${d.items.length ? `<button class="btn" data-docprint>Print</button>` : ""}`;
+    else docBtns = `${d.items.length ? `<button class="btn" data-docqtys>${K.kind==="purchase" ? "Edit Quantities & Cost" : K.kind==="cost" ? "Edit Costs" : "Edit Quantities"}</button>` : ""}<button class="btn" data-docadd>Add Items</button>`;   // shown in the Items card header
   }
   // items table
   const rows = d.items.map((l, ix) => {
@@ -8398,20 +8461,22 @@ function viewDoc(route){
     if(K.count && ro){ const sys = l.sys, c = +l.qty||0, v = sys==null ? null : c - +sys, uc = l.cost!=null ? +l.cost : +it.cost||0;
       return `<tr>${base}<td class="num">${n2(c)}</td><td class="num">${sys==null?"—":n2(sys)}</td><td class="num" style="${v<0?"color:var(--accent-ink);font-weight:600":""}">${v==null?"—":(v>0?"+":"")+n2(v)}</td>
         <td class="num">${v==null||!+sys?"—":(v>0?"+":"")+(v/+sys*100).toFixed(1)+"%"}</td><td class="num">${v==null||!uc?"—":usd(v*uc)}</td></tr>`; }
+    if(K.kind==="spot" && !K.count) return `<tr>${base}<td class="num">${qIn("qty", l.qty, "Quantity")}</td>${del}</tr>`;   // spot check (Foodics): just the counted quantity, it's a reference only
     if(K.kind==="spot"){ const sys = ro ? l.sys : cur, c = l.qty, v = (c===""||c==null||sys==null) ? null : +c - +sys;
       return `<tr>${base}<td class="num">${stockLoading&&!ro?"…":sys==null?'<span class="note">Not counted</span>':n2(sys)}</td><td class="num">${qIn("qty", l.qty, "Counted quantity")}</td>
         <td class="num" data-docvar="${ix}" style="${v<0?"color:var(--accent-ink);font-weight:600":""}">${v==null?"—":(v>0?"+":"")+n2(v)}</td>${del}</tr>`; }
-    return `<tr>${base}<td>${esc(it.storageUnit||"—")}</td><td>${esc(it.ingredientUnit||"—")}</td>${del}</tr>`;
+    return `<tr>${base}<td>${esc(storUnit(it))}</td><td>${esc(ingUnit(it))}</td>${del}</tr>`;
   });
   const head = K.flow ? flowHead(d, K, ro, recv) : K.kind==="production" ? ["Name","SKU","Quantity","Unit cost","Total cost"] : K.kind==="quantity" ? ["Name","SKU",...(ro?[]:["Current qty"]),d.direction==="add"?"Added qty":"Deducted qty",...(ro?[]:["New qty"]),"Unit cost","Total cost"]
     : K.kind==="cost" ? ["Name","SKU",ro?"Old cost":"Current cost","New cost"]
     : K.count && ro ? ["Name","SKU","Entered qty","Original qty","Variance qty","Variance %","Variance cost"]
+    : K.kind==="spot" && !K.count ? ["Name","SKU","Quantity"]
     : K.kind==="spot" ? ["Name","SKU","System qty","Counted qty","Variance"] : ["Name","SKU","Storage UOM","Ingredients UOM"];
   const numCols = new Set(["Current qty","Deducted qty","Added qty","New qty","Unit cost","Total cost","Current cost","Old cost","New cost","Available Quantity","Cost Per Unit","Quantity","Total Cost","System qty","Counted qty","Variance","Entered qty","Original qty","Variance qty","Variance %","Variance cost","Quantity","Ordered","Sent","Requested","Received","In stock at source"]);
   h += `<div class="card tbl"><div class="ttop"><b>Items</b><span class="note" style="margin-left:8px">${d.items.length}</span>${docBtns ? `<span class="sp"></span><span class="row" style="gap:8px">${docBtns}</span>` : ""}</div>`;
   h += d.items.length ? `<table><thead><tr>${head.map(c=>`<th class="${numCols.has(c)?"num":""}">${c}</th>`).join("")}${ro?"":"<th></th>"}</tr></thead><tbody>${rows.join("")}</tbody>
     ${K.kind==="quantity" ? (()=>{ const t = d.items.reduce((s,l)=>{ const it = itemOf(l.itemId)||{}; return s + (+l.qty||0) * (ro && l.cost!=null ? +l.cost : +it.cost||0); }, 0); return `<tfoot><tr><td colspan="${head.length-1}"><b>Total</b></td><td class="num"><b id="docTotal">${usd(t)}</b></td>${ro?"":"<td></td>"}</tr></tfoot>`; })() : ""}</table>`
-    : `<div class="empty">No items yet. Add items above${K.kind==="spot"?" or load a count sheet":""}.</div>`;
+    : `<div class="empty">No items yet. Add items above.</div>`;
   h += `</div>`;
   if(K.kind==="production" && d.items.length) h += prodUsage(d, ro, loc);
   return h;
@@ -8518,7 +8583,7 @@ async function submitDoc(){
   const msg = K.kind==="production" ? `Submit this production at ${locName(d.locationId)}? The produced items are added to stock and their ingredients are taken out. It can't be edited afterwards.` : K.kind==="quantity" ? `Submit ${d.items.length} item${d.items.length===1?"":"s"}? This ${d.direction==="add"?"adds to":"deducts from"} the stock at ${locName(d.locationId)} and can't be edited afterwards.`
     : K.count ? `Submit this count? The stock of ${d.items.length} item${d.items.length===1?"":"s"} at ${locName(d.locationId)} will be set to the counted quantities. It can't be edited afterwards.`
     : K.kind==="cost" ? `Submit? The cost of ${d.items.length} item${d.items.length===1?"":"s"} will be updated and this can't be edited afterwards.` : "Submit this spot check? It can't be edited afterwards.";
-  if(!(await askYes(msg))) return;
+  if(!(await askYes("Are you sure you want to submit this?"))) return;   // Foodics wording
   if(!(await saveDoc(true))) return;
   DOC.busy = true; render();
   if(K.count){   // an inventory count: the counted quantities become the stock levels at that branch / warehouse
@@ -8546,6 +8611,11 @@ async function deleteDoc(){
 function printDoc(){
   const d = DOC.edit, K = DOC_KINDS[DOC.open.route]; if(!d) return;
   const w = window.open("", "_blank", "width=820,height=900"); if(!w) return toast("Allow pop-ups to print");
+  if(K.kind==="sheet"){ const cap = u => esc(String(u||"").replace(/^./, c => c.toUpperCase())), ln = u => `<span class="ln"></span> ${cap(u)}`;
+    w.document.write(`<!doctype html><title>${esc(d.name||K.title)}</title><style>body{font:13px/1.4 Inter,Arial,sans-serif;padding:24px;color:#1b1830}h2{font-weight:500;margin:0 0 6px;padding-bottom:10px;border-bottom:1px solid #ddd}b.h{display:block;margin:14px 0 6px}table{width:100%;border-collapse:collapse}th,td{padding:12px 10px;text-align:left;border-bottom:1px solid #e3e1ea}th{font-weight:700}.ln{display:inline-block;width:56px;border-bottom:1px solid #b9b5c8;margin-right:8px;vertical-align:middle}</style>
+      <h2>${esc(d.name||K.title)}</h2><b class="h">Items</b><table><thead><tr><th>Name</th><th>SKU</th><th>Storage UOM</th><th>Ingredients UOM</th></tr></thead><tbody>
+      ${d.items.map(l => { const it = itemOf(l.itemId) || {}; return `<tr><td>${esc(it.name||"")}</td><td>${esc(it.sku||"")}</td><td>${ln(storUnit(it))}</td><td>${ln(ingUnit(it))}</td></tr>`; }).join("")}</tbody></table><script>window.onload=()=>window.print()<\/script>`);
+    return w.document.close(); }
   const rows = d.items.map(l => { const it = itemOf(l.itemId) || {}; return `<tr><td>${esc(it.name||"")}</td><td>${esc(it.sku||"")}</td><td>${esc(it.storageUnit||"")}</td>${K.kind==="sheet"?"<td></td>":K.kind==="cost"?`<td>${l.cost??""}</td>`:`<td>${l.qty??""}</td>`}</tr>`; }).join("");
   w.document.write(`<!doctype html><title>${esc(d.ref||K.title)}</title><style>body{font:13px/1.4 Inter,Arial,sans-serif;padding:24px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ccc;padding:6px 8px;text-align:left}th{background:#f3f2f7}</style>
     <h2>${esc(K.title)} ${esc(d.ref||"")}${d.name?" — "+esc(d.name):""}</h2><p>${K.loc?"Branch: "+esc(locName(d.locationId))+" · ":""}${d.reason?"Reason: "+esc(d.reason)+" · ":""}${d.businessDate?"Date: "+esc(d.businessDate):""}</p>
@@ -8567,6 +8637,14 @@ document.addEventListener("click", async e => {
   if(!DOC.open) return;
   if(t.closest("[data-docback]")){ e.preventDefault(); DOC.open = null; DOC.edit = null; return render(); }
   if(t.closest("[data-docsave]")) return saveDoc();
+  if(t.closest("[data-docsort]")){ const box = $("#ccBox"); box.className = "modal"; DOC.sortTmp = DOC.edit.items.map(l => l.itemId);
+    const paint = () => { $("#dsortL").innerHTML = DOC.sortTmp.map((id, i) => `<div class="rsn" style="display:flex;align-items:center;gap:8px;padding:8px 4px;border-bottom:1px solid #efedf4"><span style="flex:1">${esc(itemOf(id)?.name || "Item")}</span><button type="button" class="btn sm" data-dsmv="${i}|-1" ${i?"":"disabled"} aria-label="Move up">↑</button><button type="button" class="btn sm" data-dsmv="${i}|1" ${i<DOC.sortTmp.length-1?"":"disabled"} aria-label="Move down">↓</button></div>`).join(""); };
+    box.innerHTML = `<header><h2>Sort Items</h2><button type="button" class="x" data-ccclose aria-label="Close">×</button></header><div class="body" style="display:block"><div style="display:flex;justify-content:flex-end;margin-bottom:8px"><button type="button" class="btn sm" data-dsaz>A–Z</button></div><div id="dsortL"></div></div>
+      <footer><span style="flex:1"></span><button type="button" class="btn keep" data-ccclose>Close</button><button type="button" class="btn pri" id="dsSave">Save</button></footer>`;
+    DOC.sortPaint = paint; paint(); $("#ccScrim").classList.add("show"); return; }
+  if(t.closest("[data-dsmv]")){ const [i, dir] = t.closest("[data-dsmv]").dataset.dsmv.split("|").map(Number), a = DOC.sortTmp, j = i + dir; [a[i], a[j]] = [a[j], a[i]]; return DOC.sortPaint(); }
+  if(t.closest("[data-dsaz]")){ DOC.sortTmp.sort((x, y) => String(itemOf(x)?.name||"").localeCompare(String(itemOf(y)?.name||""))); return DOC.sortPaint(); }
+  if(t.closest("#dsSave")){ const by = Object.fromEntries(DOC.edit.items.map(l => [l.itemId, l])); DOC.edit.items = DOC.sortTmp.map(id => by[id]).filter(Boolean); $("#ccScrim").classList.remove("show"); return render(); }
   if(t.closest("[data-docedit]")){ const K = DOC_KINDS[DOC.open.route], box = $("#ccBox"); box.className = "modal";
     box.innerHTML = `<header><h2>Edit ${esc(K.title)}</h2><button type="button" class="x" data-ccclose aria-label="Close">×</button></header><div class="body" style="display:block">${DOC.form}</div>
       <footer><span style="flex:1"></span><button type="button" class="btn keep" data-ccclose>Close</button><button type="button" class="btn pri" id="docHdrSave">Save</button></footer>`;
