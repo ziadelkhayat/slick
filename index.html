@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="slick-build" content="868-1794592558">
+<meta name="slick-build" content="870-1794601768">
 <script>/* a browser refresh always opens the newest version: if the server has a newer build than this copy, reload once (never for an older one) */
 (function(){ var m = document.querySelector('meta[name="slick-build"]'), b = m && m.content; if(!b || !window.fetch) return;
   fetch(location.pathname + "?_=" + Date.now(), { cache:"reload" }).then(function(r){ return r.text(); }).then(function(t){
@@ -1445,6 +1445,7 @@ html body #view .card.otbl.obody{overflow-x:auto!important}html body #view .card
 html body .scrim.show{padding-top:max(16px,min(6vh,48px))!important;padding-bottom:16px!important}
 @supports (height:100svh){html body #crudBox,html body #ccBox:has(>.body){max-height:calc(100svh - max(16px,min(6vh,48px)) - 16px)!important}}
 html body #crudBox>.body,html body #ccBox>.body{-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
+html body .nti{flex:none;width:32px;height:32px;border-radius:9px;display:inline-grid;place-items:center;box-shadow:0 1px 2px rgba(20,18,30,.12)}html body .nti svg.nfi,html body aside.side a .nti svg.nfi,html body aside.side button .nti svg.nfi,html body aside.side a.on .nti svg.nfi{width:18px!important;height:18px!important;color:#fff!important;fill:#fff!important;stroke:none!important}
 html body .dalbl{display:flex!important;justify-content:space-between;align-items:center;gap:10px}html body .dalbl .lnk{color:#2563eb;margin-left:4px;font-size:14px;text-transform:none!important}
 html body .fltbtn .fltx{display:inline-flex;margin-left:8px;color:#aeaeb2;cursor:pointer;border-radius:50%}html body .fltbtn .fltx:hover{color:#636366}html body .fltbtn .fltx svg{width:16px;height:16px}
 /* ===== Foodics typography: IBM Plex Sans, Foodics sizes and weights ===== */
@@ -1673,8 +1674,8 @@ const NAV = [
   {id:"call-center",t:"Call Center",i:"phone"},
   {id:"customers",t:"Customers",i:"users"},
   {t:"Reports",i:"chart",tabs:1,kids:[["sales-reports","Sales Reports"],["inventory-reports","Inventory Reports"],["business-reports","Business Reports"],["analysis-reports","Analysis Reports"]]},
+  {t:"Menu",i:"book",tabs:1,side:[["branch-menu","Sales Channels"]],kids:[["@Catalog"],["products","Products"],["categories","Categories"],["modifiers","Modifiers"],["variants","Variants"],["combos","Combos"],["@Menu Settings"],["allergens","Allergens"]]},
   {t:"Inventory",i:"box",tabs:1,drop:["quantity-adjustments","cost-adjustments","spot-check","order-transactions","count-sheets"],kids:[["inv-items","Items"],["inv-categories","Categories"],["warehouses","Warehouses"],["suppliers","Suppliers"],["po","Purchase Orders"],["purchase-orders","Purchasing"],["transfer-orders","Transfer Orders"],["transfers","Transfers"],["production","Production"],["inventory-count","Inventory Count"],["quantity-adjustments","Quantity Adjustment"],["cost-adjustments","Cost Adjustment"],["spot-check","Inventory Spot Check"],["order-transactions","Order Transactions"],["count-sheets","Count Sheet"]]},
-  {t:"Menu",i:"book",tabs:1,side:[["branch-menu","Sales Channels"]],kids:[["@Menu Builder"],["products","Products"],["categories","Categories"],["modifiers","Modifiers"],["variants","Variants"],["combos","Combos"],["@Menu Settings"],["allergens","Allergens"]]},
   {t:"Web Ordering",i:"globe",tabs:1,kids:[["online-ordering","Settings"],["delivery-zones","Delivery Zones"],["delivery-charges","Delivery Charges"]]},
   {t:"Manage",i:"gear",tabs:1,kids:[["users","Users"],["roles","Roles"],["brands","Brands"],["branches","Branches"],["devices","Devices"],["taxes","Taxes & Groups"],["currency","Currency"],["payment-methods","Payment Methods"],["order-sources","Order Sources"],["charges","Charges"],["kitchen-flows","Kitchen Flows"],["reasons","Reasons"],["tags","Tags"]]},
   {t:"Marketing",i:"tag",tabs:1,kids:[["discounts","Discounts"],["loyalty","Loyalty"],["gift-cards","Gift Cards"],["promotions","Promotions"],["coupons","Coupons"]]},
@@ -1790,16 +1791,21 @@ new MutationObserver(() => { if(decorate.q) return; decorate.q = SOON(() => { de
 
 
 
+// sidebar: filled black icons, like Foodics
+const NAVI_P = {"dash": "M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z", "orders": "M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12.9-1.63h7.45c.75 0 1.41-.41 1.75-1.03l3.58-6.49A1.003 1.003 0 0 0 20 4H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z", "phone": "M12 1c-4.97 0-9 4.03-9 9v7c0 1.66 1.34 3 3 3h3v-8H5v-2c0-3.87 3.13-7 7-7s7 3.13 7 7v2h-4v8h3c1.66 0 3-1.34 3-3v-7c0-4.97-4.03-9-9-9z", "users": "M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z", "chart": "M3.5 18.49l6-6.01 4 4L22 6.92l-1.41-1.41-7.09 7.97-4-4L2 16.99z", "box": "M18 6h-2c0-2.21-1.79-4-4-4S8 3.79 8 6H6c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm-8 4c0 .55-.45 1-1 1s-1-.45-1-1V8h2v2zm2-6c1.1 0 2 .9 2 2h-4c0-1.1.9-2 2-2zm4 6c0 .55-.45 1-1 1s-1-.45-1-1V8h2v2z", "book": "M8.1 13.34l2.83-2.83L3.91 3.5c-1.56 1.56-1.56 4.09 0 5.66l4.19 4.18zm6.78-1.81c1.53.71 3.68.21 5.27-1.38 1.91-1.91 2.28-4.65.81-6.12-1.46-1.46-4.2-1.1-6.12.81-1.59 1.59-2.09 3.74-1.38 5.27L3.7 19.87l1.41 1.41L12 14.41l6.88 6.88 1.41-1.41L13.41 13l1.47-1.47z", "globe": "M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z", "gear": "M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.488.488 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z", "tag": "M21.41 11.58l-9-9C12.05 2.22 11.55 2 11 2H4c-1.1 0-2 .9-2 2v7c0 .55.22 1.05.59 1.42l9 9c.36.36.86.58 1.41.58.55 0 1.05-.22 1.41-.59l7-7c.37-.36.59-.86.59-1.41 0-.55-.23-1.06-.59-1.42zM5.5 7C4.67 7 4 6.33 4 5.5S4.67 4 5.5 4 7 4.67 7 5.5 6.33 7 5.5 7z", "store": "M13 13v8h8v-8h-8zM3 21h8v-8H3v8zM3 3v8h8V3H3zm13.66-1.31L11 7.34 16.66 13l5.66-5.66-5.66-5.65z"};
+const NAVI_C = { dash:"#4c1d95", orders:"#0ea5e9", phone:"#10b981", users:"#f59e0b", chart:"#ef4444", book:"#f97316", box:"#8b5cf6", globe:"#06b6d4", gear:"#64748b", tag:"#ec4899", store:"#6366f1" };
+// sidebar (style C): a white filled glyph on a coloured rounded tile, a colour per section
+const navIco = k => NAVI_P[k] ? `<span class="nti" style="background:${NAVI_C[k]||"#4c1d95"}"><svg class="nfi" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="${NAVI_P[k]}"/></svg></span>` : svgIco(k);
 function renderNav(route){
   route = ROUTE_PARENT[route] || route;
   $("#nav").innerHTML = NAV.map((n,gi) => {
     if(!canOpen(n.id || n.kids.find(k=>!k[0].startsWith("@"))?.[0])) return "";
-    if(n.id) return `<a href="#${n.id}" class="${route===n.id?"on":""}">${svgIco(n.i)}${n.t}</a>`;
+    if(n.id) return `<a href="#${n.id}" class="${route===n.id?"on":""}">${navIco(n.i)}${n.t}</a>`;
     if(n.tabs && n.side){ const first = n.kids.find(k=>!k[0].startsWith("@"))[0], inTabs = n.kids.some(k=>k[0]===route), open = inTabs || n.side.some(k=>k[0]===route);   // Menu: its builder screens are tabs on the page, Sales Channels sits beside them in the sidebar
-      return `<div class="grp ${open?"open":""}" data-g="${gi}"><button type="button">${svgIco(n.i)}${n.t}<span class="chev">›</span></button><div class="sub"><a href="#${first}" class="${inTabs?"on":""}">${svgIco("layers")}Menu Builder</a>${n.side.filter(k => canOpen(k[0])).map(k => `<a href="#${k[0]}" class="${route===k[0]?"on":""}">${svgIco(SUBI[k[0]]||"list")}${k[1]}</a>`).join("")}</div></div>`; }
-    if(n.tabs){ const first = n.kids.find(k=>!k[0].startsWith("@"))[0]; return `<a href="#${first}" class="${n.kids.some(k=>k[0]===route)?"on":""}">${svgIco(n.i)}${n.t}</a>`; }   // one entry; its screens are tabs on the page
+      return `<div class="grp ${open?"open":""}" data-g="${gi}"><button type="button">${navIco(n.i)}${n.t}<span class="chev">›</span></button><div class="sub"><a href="#${first}" class="${inTabs?"on":""}">${svgIco("layers")}Catalog</a>${n.side.filter(k => canOpen(k[0])).map(k => `<a href="#${k[0]}" class="${route===k[0]?"on":""}">${svgIco(SUBI[k[0]]||"list")}${k[1]}</a>`).join("")}</div></div>`; }
+    if(n.tabs){ const first = n.kids.find(k=>!k[0].startsWith("@"))[0]; return `<a href="#${first}" class="${n.kids.some(k=>k[0]===route)?"on":""}">${navIco(n.i)}${n.t}</a>`; }   // one entry; its screens are tabs on the page
     const open = n.kids.some(k => k[0]===route);
-    return `<div class="grp ${open?"open":""}" data-g="${gi}"><button type="button">${svgIco(n.i)}${n.t}<span class="chev">›</span></button><div class="sub">${
+    return `<div class="grp ${open?"open":""}" data-g="${gi}"><button type="button">${navIco(n.i)}${n.t}<span class="chev">›</span></button><div class="sub">${
       n.kids.map(k => k[0].startsWith("@") ? `<div class="lbl">${k[0].slice(1)}</div>` : `<a href="#${k[0]}" class="${route===k[0]?"on":""}">${svgIco(SUBI[k[0]]||"list")}${k[1]}</a>`).join("")
     }</div></div>`;
   }).join("");
